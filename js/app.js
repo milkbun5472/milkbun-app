@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.543";
+const APP_VERSION = "v75.544";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20988,6 +20988,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("转给 " + to.name + " 了");
     return true;
   };
+  // 拿他的钱给自己买东西（她 2026-10-13「加吧」）：就是他送你一件礼物那条路（postCharGift：扣他钱包、礼物卡、进你的订单），
+  //   只多标一个 byUser——他下次说话知道是你拿他手机下的单。只在跟你的私聊里。
+  const phoneBuyAs = (char, session, name, price, note) => {
+    const id = String((session && session.id) || "");
+    const nm = String(name || "").trim().slice(0, 40), pr = Math.round(Number(price) * 100) / 100;
+    if (!char || !nm || !(pr > 0) || id !== "actual:private:" + char.id) return false;
+    const _w = charWalletRef.current[char.id];
+    const bal = _w && _w.balance != null ? Number(_w.balance) : CHAR_DEFAULT_BAL;
+    if (pr > bal) { toast(characterText(char, "他钱包里不够，只剩 ") + moneyText(Math.max(0, bal), char.id)); return false; }
+    postCharGift(char.id, nm, pr, note, { byUser: true });
+    toast("下单了，回聊天里拆");
+    return true;
+  };
   // 群里能转给谁：除了他自己的群成员
   const phoneTransferPeers = (char, session) => {
     const id = String((session && session.id) || "");
@@ -26921,7 +26934,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 角色主动买东西送我（replyNow embed）：进我的待发货，走同一套送达逻辑。
   // ⚠️v58.39 起【真的花钱】：以前 price 写死 0、钱包一分不动，所以「给你买杯咖啡」
   // 既不扣TA的钱、也不会出现在「为你花的」里（她 2026-08-30 报的就是这个）。
-  const postCharGift = (charId, name, rawPrice, rawNote) => {
+  const postCharGift = (charId, name, rawPrice, rawNote, extra) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !name) return;
     const price = giftPrice(charId, name, rawPrice);
@@ -26931,7 +26944,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // opened:false＝盒子还封着（她 2026-09-19）。⚠️名字【也】进不了吊牌，拆开才露——
     //   原来盒子是合着的、名字却印在吊牌上，等于既没拆的动作也没藏住东西，两头不靠。
     pChat(charId, p => [...p, { role: "assistant", kind: "gift", dir: "toMe", item: { name, price, note }, opened: false,
-      content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now() }]);
+      content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now(), ...(extra || {}) }]);
     addOrder({ name, price, fromCharId: charId, cat: null, payLabel: (char.remark || char.name) + " 送的" });
   };
   // 角色给她点外卖（她 2026-09-27：「角色给我点外卖怎么区分是出购物的礼物卡还是外卖卡」）。
@@ -29210,6 +29223,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
     onTransferAs: phoneTransferAs,
+    onBuyAs: phoneBuyAs,
     transferPeers: phoneTransferPeers,
     onRemark: phoneRemarkEdit,
     sendAsWaiting: phoneAsWait,

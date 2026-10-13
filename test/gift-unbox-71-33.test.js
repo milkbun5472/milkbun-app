@@ -21,7 +21,7 @@ const card = () => {
 
 test("寄语一路通到底：能力字典 → 存档 → 卡面 → 喂回上下文", () => {
   assert.ok(app.includes('gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}'), "能力字典里没有 note");
-  assert.match(app, /const postCharGift = \(charId, name, rawPrice, rawNote\) => \{/, "落盘那一步没收 note");
+  assert.match(app, /const postCharGift = \(charId, name, rawPrice, rawNote(, extra)?\) => \{/, "落盘那一步没收 note");
   assert.match(app, /item: \{ name, price, note \}/, "存档里没存 note");
   assert.match(app, /postCharGift\(charId, String\(parsed\.gift\.name\), parsed\.gift\.price, parsed\.gift\.note\)/, "解析那一步把 note 丢了");
   // 他自己写的那句，以后提起「那条围巾」时得知道自己说过什么
