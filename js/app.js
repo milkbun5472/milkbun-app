@@ -21352,7 +21352,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
-      roster = [...new Set([primary, author, ...others.slice(0, 4)])].map(c => c.remark || c.name);
+      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 2)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
       const canSee = liveChars.filter(c => momSeen(mom, c.id));
@@ -21360,7 +21360,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5);
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 2));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -21507,10 +21507,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     reactToUserMoment(mom); // 自动生成点赞/评论
   };
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
+  // 配角也来朋友圈（她 2026-10-13：「让配角参与感高一点吧」）：哪个角色刷得到，TA 的配角就跟着刷得到；
+  //   每次随机挑几个，免得配角一多评论区全是配角
+  const npcCrowd = (hosts, max) => {
+    const pool = []; (hosts || []).forEach(hc => npcsOf(hc.id).forEach(n => { if (n && !pool.includes(n)) pool.push(n); }));
+    for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+    return pool.slice(0, max == null ? 3 : max);
+  };
   const reactToUserMoment = async mom => {
     if (!active) return;
-    const canSee = liveChars.filter(c => momSeen(mom, c.id));
-    if (!canSee.length) return;
+    const canSeeMain = liveChars.filter(c => momSeen(mom, c.id));
+    if (!canSeeMain.length) return;
+    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3)];
     setGen(g => ({
       ...g,
       moment: true
@@ -21518,6 +21526,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
+        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）"; }
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
@@ -21548,8 +21557,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           });
         });
         // 保底：一个人都没互动时，让好感最高的可见角色至少点个赞
-        if (!likers.length && !comments.length && canSee.length) {
-          const top = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
+        if (!likers.length && !comments.length && canSeeMain.length) {
+          const top = canSeeMain.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
           if (top) likers.push(momentWho(top.name));
         }
         const votes = {};
