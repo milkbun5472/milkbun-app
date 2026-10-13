@@ -8903,7 +8903,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       c.provider === "elevenlabs" ? h("div", null,
         row("密钥 API Key（elevenlabs.io → Developers → API Keys）", h("input", { value: c.elKey || "", onChange: e => set({ elKey: e.target.value }), placeholder: "sk_…", type: "password", style: inSt })),
         row("模型（可以自己填，照 ElevenLabs 文档上的 model_id）", voiceModelInput(c.elModel, "eleven_multilingual_v2", "el-models",
-          [["eleven_multilingual_v2", "中文好·推荐"], ["eleven_v3", "表现力最强"], ["eleven_flash_v2_5", "快·便宜"], ["eleven_turbo_v2_5", ""]], v => set({ elModel: v }), inSt)),
+          [["eleven_multilingual_v2", "中文好·推荐"], ["eleven_v3", "表现力最强·会唱两句"], ["eleven_flash_v2_5", "快·便宜"], ["eleven_turbo_v2_5", ""]], v => set({ elModel: v }), inSt)),
         row("默认音色 Voice ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.elVoice || "", onChange: e => set({ elVoice: e.target.value }), placeholder: "在 Voices 里点声音 → 复制 Voice ID", style: inSt }))) : null,
       c.provider === "fish" ? h("div", null,
         row("接口地址（Fish 官方不让网页直接调，要填中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
