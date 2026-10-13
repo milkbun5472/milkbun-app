@@ -16,3 +16,8 @@ test("一起学/读/看/听、陪伴、番茄钟也认聊天那张脸", () => {
     assert.ok(app.slice(i, next).includes("characters: liveFaces,"), n);
   });
 });
+test("朋友圈和朋友圈主页也认聊天那张脸", () => {
+  const comp = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  assert.match(comp, /const characters = \(rawCharacters \|\| \[\]\)\.map\(chatFace\);/);
+  assert.match(comp, /const character = chatFace\(rawCharacter\), characters = \(rawCharacters \|\| \[\]\)\.map\(chatFace\);/);
+});

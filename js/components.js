@@ -8848,7 +8848,7 @@ function momentDisplayName(characters, who) {
   return hit ? (hit.remark || hit.name) : raw;
 }
 function MomentsFeed({
-  characters,
+  characters: rawCharacters,
   moments,
   profile,
   friendGroups,
@@ -8865,6 +8865,8 @@ function MomentsFeed({
   onOpenProfile
 }) {
   const t = useTheme();
+  // 朋友圈里的头像也认聊天那张（她 2026-10-13「朋友圈也没变」）
+  const characters = (rawCharacters || []).map(chatFace);
   const [pick, setPick] = useState(false);
   const [commenting, setCommenting] = useState(null);
   const [cText, setCText] = useState("");
@@ -9220,7 +9222,8 @@ function AutoImgSwitch({ storeKey, color }) {
 }
 function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
-function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+  const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
   const t = useTheme();
   const [compose, setCompose] = useState(false);
   const [commenting, setCommenting] = useState(null);
