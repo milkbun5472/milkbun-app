@@ -1322,6 +1322,19 @@
 
   // Editorial 杂志封面：主次由版块占据的网格面积决定；实心色块是结构，不是贴纸装饰。
   // 阅读顺序始终是左上主头条 → 右栏 → 下方索引，不拿“艺术感”牺牲可读性。
+  // 周刊里的照片（她 2026-10-13）：封面照、专访照、本周画报。图都在 IndexedDB 里，跟照相馆同一套取法
+  function WeeklyPhoto(props) {
+    const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(props.imgKey || null) : null;
+    const src = props.imgUrl || url;
+    if (!src) return h("div", { style: Object.assign({ background: "rgba(35,32,25,.08)", aspectRatio: "2 / 3" }, props.style || {}) });
+    return h("img", { src: src, alt: props.alt || "", "data-wk": "wklyphoto", style: Object.assign({ display: "block", width: "100%", height: "auto" }, props.style || {}) });
+  }
+  // 拍照那颗按钮：点了才拍、拍的时候转着
+  function ShootBtn(props) {
+    return h("button", { onClick: props.busy ? null : props.onClick, disabled: !!props.busy, className: "active:opacity-60", "data-wk": "wklyshoot",
+      style: { padding: "8px 14px", border: "1px solid currentColor", fontFamily: F_BODY, fontSize: 12, letterSpacing: ".04em", opacity: props.busy ? .55 : 1, background: "transparent", color: "inherit" } },
+      props.busy ? "拍摄中…" : props.label);
+  }
   function CoverPage(props) {
     const t = useTheme();
     const items = props.items || [];
@@ -1362,6 +1375,9 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".08em", color: sub } }, "第 " + (props.num || "—")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.45, color: sub, marginTop: 5 } }, props.label || ""),
           h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.sections[1].solid }))),
+      // 封面照（拍过才有）：这一期被采访的那几位上封面，压在刊头和栏目网格之间
+      props.coverPhoto ? h("button", { onClick: props.onOpenCover, className: "active:opacity-80", style: { display: "block", width: "100%", marginTop: 14, border: "1px solid rgba(35,32,25,.32)" }, "data-wk": "wklycoverphoto" },
+        h(WeeklyPhoto, { imgKey: props.coverPhoto, alt: "本期封面" })) : null,
       // 七块内容落在 12 栏网格里：三块实心承重，其余用同栏目色的淡底与实体边梁咬合。
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12,minmax(0,1fr))", gridTemplateRows: "repeat(5,104px)", columnGap: 6, rowGap: 7, marginTop: 14 } },
         laid.map(function (L, i) {
@@ -1468,6 +1484,9 @@
     const c = props.cover; const L = sectionLooks().cover;
     return h("div", { "data-wk": "wklycoversection" },
       h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+      props.onShoot ? h("div", { style: { margin: "0 0 18px", color: L.tint } },
+        props.photo ? h("div", { style: { marginBottom: 10 } }, h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" })) : null,
+        h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: props.photo ? "重拍封面" : "拍这期封面（本期受访的人上封面）" })) : null,
       h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
         h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)),
@@ -1492,6 +1511,8 @@
           h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, color: L.tint, marginBottom: 7 } }, "独家专访 · 04"),
           h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 29, fontWeight: 600, color: L.ink, lineHeight: 1.05 } }, e.charName)),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
+      e.photo ? h("div", { style: { margin: "-8px -2px 20px" } }, h(WeeklyPhoto, { imgKey: e.photo, alt: e.charName })) : null,
+      props.onShoot ? h("div", { style: { margin: "0 0 20px", color: L.tint } }, h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: e.photo ? "重拍专访照" : "拍一张专访照" })) : null,
       (e.interview && e.interview.qa || []).map(function (qa, i) {
         return h("div", { key: i, style: { display: "grid", gridTemplateColumns: i % 2 ? "1fr 37px" : "37px 1fr", gap: 13, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid " + pageColor("weekly", "line", paletteAlpha(L.tint, "33")) }, "data-wk": "wklyinterviewentry", "data-part": "r2" },
           i % 2 ? null : h("span", { style: { gridColumn: 1, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1 } }, "Q"),
@@ -1667,12 +1688,35 @@
     const deskSec = (issue.sections || []).find(function (s) { return s.type === "desk"; });
     const lettersSec = (issue.sections || []).find(function (s) { return s.type === "letters"; });
     const win = { start: issue.weekOf.start, end: issue.weekOf.end, key: issue.key, label: issue.label };
+    // 本周画报（不花钱）：这一周在照相馆拍的合照、封面、海报、漫画，按时间排
+    const pics = (function () { try { return (loadJSON("x_studio", []) || []).filter(function (r) { return r && (r.imgKey || r.imgUrl) && !r.style && Number(r.ts) >= win.start && Number(r.ts) < win.end; }).sort(function (a, b) { return a.ts - b.ts; }); } catch (e) { return []; } })();
     const num = window.Weekly.issueNo(issue, props.issues || []);
     function goSub(next, dir) {
       setTurn(function (old) { return { dir: dir || "next", n: old.n + 1 }; });
       setSub(next);
     }
 
+    // 拍照（封面＝本期受访的那几位，专访＝那一位）：拍完把 imgKey 记进这一期
+    async function shootCover(sec) {
+      if (!props.onShoot) return;
+      const ids = ((iv && iv.entries) || []).map(function (e) { return e.charId; });
+      if (!ids.length) { props.toast("这期还没有采访，先补一位再拍封面"); return; }
+      setBusyUnit("shoot_cover");
+      const key = await props.onShoot("cover", { charIds: ids, headline: sec.headline, highlights: sec.highlights || [], no: num, mood: "" });
+      if (key) props.onPatch(issue.id, function (iss) { iss.coverPhoto = key; return iss; });
+      setBusyUnit(null);
+    }
+    async function shootPortrait(en) {
+      if (!props.onShoot) return;
+      setBusyUnit("shoot_" + en.id);
+      const first = ((en.interview && en.interview.qa) || [])[0];
+      const key = await props.onShoot("portrait", { charIds: [en.charId], about: (en.interview && en.interview.title) || (first ? first.a : "") });
+      if (key) props.onPatch(issue.id, function (iss) {
+        iss.sections = iss.sections.map(function (s) { return s.type !== "interview" ? s : Object.assign({}, s, { entries: (s.entries || []).map(function (x) { return x.id === en.id ? Object.assign({}, x, { photo: key }) : x; }) }); });
+        return iss;
+      });
+      setBusyUnit(null);
+    }
     async function regenCover(sec) {
       setBusyUnit(sec.id);
       try {
@@ -1836,7 +1880,8 @@
           })) : null);
     } else if (sub && sub.kind === "cover" && cover) {
       headZh = "头版"; headEn = "";
-      detail = h(CoverSection, { cover: cover, busy: busyUnit === cover.id, onRegen: function () { regenCover(cover); } });
+      detail = h(CoverSection, { cover: cover, busy: busyUnit === cover.id, onRegen: function () { regenCover(cover); },
+        photo: issue.coverPhoto, shooting: busyUnit === "shoot_cover", onShoot: props.onShoot ? function () { shootCover(cover); } : null });
     } else if (sub && sub.kind === "interview" && iv) {
       headZh = "采访版"; headEn = "";
       const entries = iv.entries || [];
@@ -1857,7 +1902,8 @@
                   h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".14em", opacity: .7 } }, String(i + 1).padStart(2, "0")),
                   h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 12.5, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, e.charName))));
           })),
-        en ? h(InterviewEntry, { key: en.id, entry: en, spk: (props.characters || []).find(function (c) { return c.id === en.charId; }), busy: busyUnit === en.id, onRegen: function () { regenInterview(en); } }) : null
+        en ? h(InterviewEntry, { key: en.id, entry: en, spk: (props.characters || []).find(function (c) { return c.id === en.charId; }), busy: busyUnit === en.id, onRegen: function () { regenInterview(en); },
+          shooting: busyUnit === "shoot_" + en.id, onShoot: props.onShoot ? function () { shootPortrait(en); } : null }) : null
       ) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.6 } }, "本周无人露面——采访版空场。");
       // 没被抽中的人:列在下面，想看谁点谁，补出来的不占轮次
       const shown = (iv.entries || []).map(function (e) { return e.charId; });
@@ -1872,6 +1918,18 @@
               style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, opacity: on ? .5 : 1 }, "data-wk": "wklyissueview", "data-part": "r6", "data-on": on ? "1" : "0" },
               on ? "采访中…" : c.name);
           }))));
+    } else if (sub && sub.kind === "pics") {
+      headZh = "本周画报"; headEn = "";
+      detail = h("div", { "data-wk": "wklypics" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, "这一周在照相馆拍下的 " + pics.length + " 张"),
+        pics.map(function (r, i) {
+          const d = new Date(r.ts);
+          return h("figure", { key: r.id || i, style: { margin: "0 0 26px" } },
+            h(WeeklyPhoto, { imgKey: r.imgKey, imgUrl: r.imgUrl, alt: r.scene || "" }),
+            h("figcaption", { style: { display: "grid", gridTemplateColumns: "30px 1fr", gap: 8, marginTop: 8, fontFamily: "'Songti SC',Georgia,serif", fontSize: 13, lineHeight: 1.6, color: t.ink } },
+              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog } }, String(i + 1).padStart(2, "0")),
+              h("span", null, (r.scene || "合照") + "　", h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (d.getMonth() + 1) + "月" + d.getDate() + "日"))));
+        }));
     } else if (sub && sub.kind === "media") {
       const sec = medias.find(function (s) { return s.id === sub.id; });
       if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = ""; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
@@ -1882,6 +1940,7 @@
       deskSec ? [{ key: "desk", label: "资料室", sub: { kind: "desk" } }] : [],
       lettersSec ? [{ key: "letters", label: "读者来信", sub: { kind: "letters" } }] : [],
       iv ? [{ key: "interview", label: "采访版", sub: { kind: "interview" } }] : [],
+      pics.length ? [{ key: "pics", label: "本周画报", sub: { kind: "pics" } }] : [],
       medias.map(function (sec) { return { key: "media:" + sec.id, label: voiceOf(sec.voiceId).name, sub: { kind: "media", id: sec.id } }; })
     );
     const currentPageKey = !sub ? "contents" : (sub.kind === "media" ? "media:" + sub.id : sub.kind);
@@ -1915,9 +1974,11 @@
         detail ? h("div", { style: { padding: "18px 22px 48px" } }, detail) : h("div", null,
           h(CoverPage, {
             issueKey: issue.key, num: num, label: issue.label, target: window.Weekly.nextRefreshTime(), onBack: props.onBack,
+            coverPhoto: issue.coverPhoto, onOpenCover: function () { goSub({ kind: "cover" }, "next"); },
             onTools: function () { setTools("menu"); },
             items: [].concat(
               cover ? [{ en: "", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
+              pics.length ? [{ en: "", title: "本周画报", meta: pics.length + " 张", onOpen: function () { goSub({ kind: "pics" }, "next"); } }] : [],
               deskSec ? [{ en: "", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
               lettersSec ? [{ en: "", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { goSub({ kind: "letters" }, "next"); } }] : [],
               iv ? [{ en: "", title: "本期专访", meta: (iv.entries || []).length + " 位" + (window.Weekly.interviewerOfIssue(issue) ? " · " + window.Weekly.interviewerOfIssue(issue).name + "来问" : ""), onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
@@ -2104,7 +2165,7 @@
       const iss = issues.find(function (x) { return x.id === openId; });
       if (iss) return h(IssueView, {
         issue: iss, issues: issues, active: props.active, characters: props.characters || [], groups: props.groups || [],
-        userName: userName, toast: props.toast, onPatch: patchIssue, refreshBusy: gen.busy,
+        userName: userName, toast: props.toast, onPatch: patchIssue, refreshBusy: gen.busy, onShoot: props.onShoot,
         onRefresh: doGenerate, onShelf: function () { setView("shelf"); },
         onBack: function () { setView(currentIssue && currentIssue.id === openId ? "cover" : "shelf"); }
       });

@@ -25215,6 +25215,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = (studioRef.current || []).map(x => x.id === id ? { ...x, developAt: 0 } : x);
     studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
   };
+  // 周刊配图（她 2026-10-13）：封面＝这一期被采访的那几位上封面（不带你），专访＝那一位的单人大片。
+  //   都是点了才拍、一张一次生图；封面照这一期头版的头条和看点排成杂志封面（PosterLayout 那一套）。
+  const weeklyShoot = async (kind, p) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return null; }
+    const people = (p.charIds || []).map(id => characters.find(c => c && c.id === id)).filter(c => c && c.refPhoto).slice(0, 4);
+    if (!people.length) { toast("要先给TA传一张参考照，才锁得住脸"); return null; }
+    const lead = people[0];
+    const cast = people.length > 1 ? people.map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto })) : null;
+    const names = people.map(c => c.remark || c.name);
+    let cp = null, plan = null;
+    if (kind === "cover" && window.PosterLayout) {
+      const hl = (p.highlights || []).map(x => String(x || "").trim()).filter(Boolean);
+      cp = { mtype: "八卦", mast: "周刊", title: Array.from(String(p.headline || "本周")).slice(0, 12).join(""), story: { kicker: "本期封面" },
+        coverLines: hl.slice(0, 3).map(l => ({ kicker: "本期看点", line: Array.from(l).slice(0, 14).join("") })), no: String(p.no || ""), genre: "周刊", mood: String(p.mood || "") };
+      plan = window.PosterLayout.plan("magazine", cp);
+    }
+    const scene = kind === "cover"
+      ? "这一期周刊的封面人物大片：" + names.join("、") + (cast ? "一起" : "") + "上封面。本期头条是「" + (p.headline || "") + "」，照这件事的气质来拍。"
+      : "人物专访的配图：" + names[0] + "一个人的专访大片" + (p.about ? "，照这篇专访的气质来拍：" + String(p.about).slice(0, 80) : "") + "。";
+    const space = plan ? window.PosterLayout.spaceLine(plan) : "人物是画面主体，背景干净、有质感，像杂志内页的人物专访照。";
+    try {
+      const st = statesRef.current[lead.id] || {};
+      const prompt = buildPhotoPrompt(lead, scene, st, { kind: cast ? "group" : "self", cast: cast, closet: closetTextFor(lead.id), editorial: "magazine", editorialSpace: space });
+      const refs = (cast ? cast.map(x => x.refPhoto) : [lead.refPhoto]).filter(Boolean);
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: cast ? "group" : "self", cast: cast }) });
+      if (!out || !out.blob) throw new Error((out && out.err) || "没出图");
+      const blob = plan ? await studioOverlay(out.blob, plan, cp, names) : out.blob;
+      const key = "img_weekly_" + kind + "_" + Date.now();
+      await idbImgPut(key, blob);
+      return key;
+    } catch (e) { toast("没拍成：" + ((e && e.message) || "重试")); return null; }
+  };
   // 封面上的字交给 PosterLayout（js/poster-layout.js）：构图是出图前就定好的（plan），这里照它排、挑一张
   const studioOverlay = async (blob, plan, copy, names) => {
     try { return window.PosterLayout ? await window.PosterLayout.compose(blob, plan, copy, names) : blob; }
@@ -30765,6 +30797,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars.filter(c => !isBody(c.id)),
     autoEnabled: autoRefreshOn("weekly"),
     autoCharacters: liveChars.filter(c => !isBody(c.id) && autoRefreshOn("weekly", c.id)),
+    onShoot: weeklyShoot,
     groups: groups,
     profile: profile,
     worldbook: loreForContext("social", [], ""),

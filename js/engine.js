@@ -5116,8 +5116,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
   // opts.editorial：杂志封面／电影海报（她 2026-10-13：「还是偏自拍」）——不掷自拍那张机位表，换成摄影棚大片
   else if (opts.editorial) {
-    const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；两个人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
-      + (opts.editorial === "movie" ? "电影感布光、有景深和氛围，像正式定妆海报，两人的站位要有戏。" : "棚拍或精心挑过的外景，讲究的打光，两人摆时尚大片的姿势，表情有态度，像真的杂志封面人物。")
+    const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；画面里的人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
+      + (opts.editorial === "movie" ? "电影感布光、有景深和氛围，像正式定妆海报，站位要有戏。" : "棚拍或精心挑过的外景，讲究的打光，摆时尚大片的姿势，表情有态度，像真的杂志人物。")
       + (opts.editorialSpace || "画面上方和一侧要留出排字的空间，人物别顶满画面。");
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _ed); else parts.push(_ed);
