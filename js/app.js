@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.508";
+const APP_VERSION = "v75.513";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11864,7 +11864,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const ownIds = new Set(); own.forEach(pk => pk.emotes.forEach(e => ownIds.add(e.id)));
             const rest = emotes.filter(e => !ownIds.has(e.id));
             return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
-              + own.map(pk => "「" + (pk.name || "未命名") + "」：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
+              + own.map(pk => "「" + (pk.name || "未命名") + "」" + (pk.fromCharFace === charId ? "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）" : "") + "：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
               + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "");
           })());
       }
@@ -25064,11 +25064,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !theme && !(opt && opt.restyle) ? "。" + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
-      const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
+      // 换画风只发原图＋一句「原样转画风」（她 2026-10-13：重画成了另一张照片）：
+      //   穿着、衣柜、场景一概不发——发了图像端就照文字重新拍一张，原图只剩个参考
+      const STYLE_BODY = { "Q版": "这张是 Q 版：两个人都缩成二到三头身，头占身高一半左右，手脚短短圆圆。", "黏土": "整个画面像黏土定格动画，人物圆润有指纹质感。", "毛毡": "整个画面像羊毛毡手作，人物和背景都是毛茸茸的毡质。", "像素": "整张是像素画，人物和背景都由清晰的方块像素组成。", "油画": "像精心完成的古典油画肖像：笔触柔和、色彩干净通透、皮肤光滑有光泽，不要粗糙的刮刀肌理、不要满屏的颗粒和裂纹，脸上不要脏污感。", "水彩": "水彩要清透、留白多、颜色淡雅，不要发灰发脏。" };
+      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
+      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
@@ -25081,7 +25085,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
         mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}),
-        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style } : {}) };
+        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
@@ -27389,14 +27393,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { console.warn("[drawBack]", e && e.message); }
   };
   // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
-  window.__addSelfSticker = async (dataUrl, charId) => {
+  // name：她在抠图页给这张起的名字（她 2026-10-13「扣成表情包没有地方设置这张叫啥」），就是他发表情时用的那个词
+  window.__addSelfSticker = async (dataUrl, charId, name) => {
     try {
       const url = await imgToVault(dataUrl);
       const c = characters.find(x => x.id === charId);
       const name = (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
-      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: (c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1), url };
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url };
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
         : [...packs, { id: "ep_face_" + Date.now(), name, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
