@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.512";
+const APP_VERSION = "v75.513";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25066,7 +25066,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       // 换画风只发原图＋一句「原样转画风」（她 2026-10-13：重画成了另一张照片）：
       //   穿着、衣柜、场景一概不发——发了图像端就照文字重新拍一张，原图只剩个参考
-      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景、光线都照第一张，一样都不改，只换画法。后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
+      const STYLE_BODY = { "Q版": "这张是 Q 版：两个人都缩成二到三头身，头占身高一半左右，手脚短短圆圆。", "黏土": "整个画面像黏土定格动画，人物圆润有指纹质感。", "毛毡": "整个画面像羊毛毡手作，人物和背景都是毛茸茸的毡质。", "像素": "整张是像素画，人物和背景都由清晰的方块像素组成。", "油画": "像精心完成的古典油画肖像：笔触柔和、色彩干净通透、皮肤光滑有光泽，不要粗糙的刮刀肌理、不要满屏的颗粒和裂纹，脸上不要脏污感。", "水彩": "水彩要清透、留白多、颜色淡雅，不要发灰发脏。" };
+      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
       const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;

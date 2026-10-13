@@ -33,3 +33,12 @@ assert.match(scr, /"data-wk": "studiostyleadd"/);
 assert.match(scr, /saveJSON\("x_studioStyles"/);
 assert.match(scr, /STYLES\.concat\(myStyles\)/);
 console.log("ok styles");
+// Q版只换了脸（她 2026-10-13 截图）：画风要整张换，身体比例跟着变
+assert.match(app, /别出现真人身体顶着一张画风脸/);
+assert.match(app, /STYLE_BODY\[opt\.restyle\.style\]/);
+console.log("ok body");
+// Q版只换了脸、油画发脏（她 2026-10-13 截图）：画风整张换，各画风有自己的要求
+assert.match(app, /别出现真人身体顶着一张画风脸/);
+assert.match(app, /STYLE_BODY\[opt\.restyle\.style\]/);
+assert.match(app, /不要粗糙的刮刀肌理/);
+console.log("ok body");
