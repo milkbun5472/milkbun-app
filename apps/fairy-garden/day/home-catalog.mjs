@@ -101,6 +101,7 @@ export function furnitureFootprint(p){const c=Math.abs(Math.cos(p.heading||0)),s
 export function furnitureObstacles(p){if(p.kind!=='shower')return [furnitureFootprint(p)];return [{x:0,z:-p.d/2+.045,w:p.w,d:.09},{x:p.w/2-.035,z:0,w:.07,d:p.d}].map(a=>({...furniturePoint(p,a),id:p.id,w:Math.abs(Math.cos(p.heading||0))*a.w+Math.abs(Math.sin(p.heading||0))*a.d,d:Math.abs(Math.cos(p.heading||0))*a.d+Math.abs(Math.sin(p.heading||0))*a.w}));}
 export const HOME_LIMIT=80;
 export const HOME_BED_SURFACE=.81;
+export const CHAIR_CONTACT={depth:.43,forward:.20,workClearance:.28,deskClearance:.44};
 // The renderer and the activity anchor own the same pot and preparation surface.
 export const HOME_PREP=globalThis.CharDayKitchen.KITCHEN_ANCHORS.prep;
 export const HOME_COOK=globalThis.CharDayKitchen.KITCHEN_ANCHORS.cook;
@@ -119,10 +120,10 @@ export function furniturePoint(p,q={x:0,z:0}){const h=p.heading||0,c=Math.cos(h)
 export function furnitureSeatSurface(p){
  if(p.seatSurface)return p.seatSurface;
  if(p.kind==='sofa')return p.collection?{z:.035,d:p.d-(p.collection==='soft'?.14:.22)}:{z:.065,d:p.d-.31};
- return {z:0,d:p.kind==='chair'?p.d-(p.collection?.035:.018):p.d};
+ return {z:0,d:p.kind==='chair'?Math.min(CHAIR_CONTACT.depth,p.d-(p.collection?.035:.018)):p.d};
 }
 export function furnitureSeat(p,approach,offset){
- const surface=furnitureSeatSurface(p),deep=p.kind==='chair',z=deep?surface.z+.06:surface.z+surface.d/2-.012;
+ const surface=furnitureSeatSurface(p),deep=p.kind==='chair',z=deep?surface.z+CHAIR_CONTACT.forward:surface.z+surface.d/2-.012;
  return {...furniturePoint(p,{x:offset?.x||0,z}),rise:.45,heading:p.heading||0,approach,piece:p.id,pose:deep?'deep':'chair'};
 }
 export function homeAnchors(furniture,room){

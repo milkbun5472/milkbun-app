@@ -11,7 +11,7 @@ test('全部沙发餐椅的旋转坐点：臀部下方是真坐面，深椅坐�
   const cast=distance=>new T.Raycaster(at(distance),new T.Vector3(0,-1,0)).intersectObject(g,true).find(h=>h.point.y<=.533);
   const support=cast(p.kind==='sofa'?0:.1);assert.ok(support,item.id+' pelvis needs a cushion');assert.ok(Math.abs(support.point.y-.53)<.003,item.id+' actual seat height');
   // The bent knee places the shoes forward of the supported pelvis.
-  if(p.kind==='sofa'){const heel=cast(-.10);assert.ok(!heel||heel.point.y<.51,item.id+' heel crosses cushion');}else{assert.equal(seat.pose,'deep');assert.ok(Math.abs((seat.x-p.x)*forward.x+(seat.z-p.z)*forward.z)<p.d/2-.1);}
+  if(p.kind==='sofa'){const heel=cast(-.10);assert.ok(!heel||heel.point.y<.51,item.id+' heel crosses cushion');}else{assert.equal(seat.pose,'deep');assert.ok(Math.abs((seat.x-p.x)*forward.x+(seat.z-p.z)*forward.z)<p.d/2-.07);}
  }
 });
 test('窄长椅的坐点在坐板内，四个朝向都由真实坐面承托',()=>{
@@ -33,4 +33,21 @@ test('每处职业场景的长椅坐点落在实际构建的坐板上',async()=>
   view.root.traverse(o=>{o.geometry?.dispose();[].concat(o.material||[]).forEach(m=>m.dispose());});
  }
  assert.ok(checked>=18);
+});
+
+test('旧档前沿外的沙发坐点恢复到真正坐面内，保留同一侧座位',()=>{
+ for(const item of HOME_CATALOG.filter(p=>p.kind==='sofa'))for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+  const p={...item,x:2,z:-1,heading},kit=createRoomKit(),g=createHomeFurniture(kit,p,styleOf('warm'));kit.root.updateMatrixWorld(true);
+  const surface=p.collection?{z:.035,d:p.d-(p.collection==='soft'?.14:.22)}:{z:.065,d:p.d-.31},saved={x:.6,z:surface.z+surface.d/2+.05},seat=furnitureSeat(p,null,saved);
+  const ray=new T.Raycaster(new T.Vector3(seat.x,2,seat.z),new T.Vector3(0,-1,0));assert.ok(ray.intersectObject(g,true).some(h=>Math.abs(h.point.y-.53)<.003));
+  const dx=seat.x-p.x,dz=seat.z-p.z;assert.ok(Math.abs(dx*Math.cos(heading)-dz*Math.sin(heading)-.6)<1e-8);
+ }
+});
+test('全部小家床铺的躺姿支撑高度就是实体被面，旋转后仍一致',async()=>{
+ const {HOME_BED_SURFACE,furniturePoint}=await import('./home-catalog.mjs'),{buildSpace}=await import('./spaces.mjs');
+ for(const item of HOME_CATALOG.filter(p=>p.kind==='bed'))for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+  const p={...item,x:2,z:-1,heading},kit=createRoomKit(),g=createHomeFurniture(kit,p,styleOf('warm'));kit.root.updateMatrixWorld(true);const q=furniturePoint(p,{x:.55,z:.35});
+  const ray=new T.Raycaster(new T.Vector3(q.x,1,q.z),new T.Vector3(0,-1,0)),hit=ray.intersectObject(g,true)[0];assert.ok(Math.abs(hit.point.y-HOME_BED_SURFACE)<.003);
+  const map=buildSpace('dayHome',{'double-bed':{x:2,z:-1,heading}});assert.equal(map.spots.find(s=>s.id==='sleep').sleep.supportY,HOME_BED_SURFACE);
+ }
 });

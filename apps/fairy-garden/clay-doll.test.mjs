@@ -38,3 +38,7 @@ test('v2 sliders, faces, skin and outfit colour slots are all real data in the a
   // Shoes use either a separate skinned mesh or the jacket's original shell.
   const shoe=nodes.find(n=>n.extras?.outfit===id&&(n.extras.colorSlot==='boots'||n.extras.sourceFootwearVersion||(id==='jacket'||id==='tee')&&n.name==='outfit_'+id));if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
 });
+
+test('异步换衣在站立绑定帧接袖子与膝骨，再恢复现场姿势',()=>{
+ const source=readFileSync(new URL('./traveler.mjs',import.meta.url),'utf8'),a=source.indexOf('const rebindBones='),b=source.indexOf('const fitRig=',a);assert.ok(a>0&&b>a);const bind=source.slice(a,b),attach=bind.indexOf('bentArms.attach(m)');assert.ok(attach>bind.indexOf('poseObjects.forEach'));assert.ok(attach>bind.indexOf('for(const [b,rest]'));assert.ok(attach>bind.indexOf('root.updateMatrixWorld(true)'));assert.ok(bind.indexOf('poseObjects.forEach((o,i)=>{o.position.copy')>attach);
+});

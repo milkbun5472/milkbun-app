@@ -2,11 +2,11 @@ import {splitRoomCutaway} from '../camera-view.mjs?v=fg-337afd5f97d06984';
 import {tagRoomTones} from './room-tones.mjs?v=fg-337afd5f97d06984';
 import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-337afd5f97d06984';
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-337afd5f97d06984';
+import {CHAIR_CONTACT,furniturePoint,furnitureSeat} from '../home-catalog.mjs?v=fg-337afd5f97d06984';
 import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-337afd5f97d06984';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
-export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
+export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:CHAIR_CONTACT.depth};
 export function roomStructure({w=10,d=9}={}){
   return [
     {id:'BackWall',x:0,z:-d/2,w:w+.2,d:.18},
@@ -23,12 +23,14 @@ export function roomSeat(furniture,id,approach){
     const s=Math.sin(chair.heading||0),c=Math.cos(chair.heading||0);
     for(const table of furniture.filter(p=>p.kind==='table')){
       const dx=table.x-chair.x,dz=table.z-chair.z,forward=dx*s+dz*c,side=Math.abs(dx*c-dz*s),depth=(Math.abs(s)*table.w+Math.abs(c)*table.d)/2,width=(Math.abs(c)*table.w+Math.abs(s)*table.d)/2;
-      const gap=table.seatedWork?.34:.50;
+      const gap=(table.seatedWork?CHAIR_CONTACT.workClearance:CHAIR_CONTACT.deskClearance)+CHAIR_CONTACT.forward;
       if(forward>0&&side<width+.1&&(forward-depth<gap||table.seatedWork&&forward-depth<.65)){const shift=gap-(forward-depth);chair.x-=s*shift;chair.z-=c*shift;}
     }
   }
   const p=furniture.find(p=>p.id===id);
   if(!['chair','bench'].includes(p?.kind))throw new Error('Seat requires a constructed chair or bench: '+id);
+  const clear=q=>!furniture.some(o=>Math.abs(q.x-o.x)<o.w/2+.16&&Math.abs(q.z-o.z)<o.d/2+.16);
+  if(approach&&!clear(approach)){const old=approach;approach=[{x:-.85,z:0},{x:.85,z:0},{x:0,z:-.85},{x:0,z:.85}].map(q=>furniturePoint(p,q)).filter(clear).sort((a,b)=>Math.hypot(a.x-old.x,a.z-old.z)-Math.hypot(b.x-old.x,b.z-old.z))[0]||approach;}
   return {...furnitureSeat({...p,seatSurface:{z:0,d:p.kind==='chair'?ROOM_SCALE.chairDepth:p.d}},approach),rise:p.seat??ROOM_SCALE.seat};
 }
 export function createRoomKit(){

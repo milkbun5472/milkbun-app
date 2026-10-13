@@ -116,7 +116,7 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
     for(const seat of Object.values(map.seats)){
       const p=furniture.find(p=>p.id===seat.piece);assert.ok(['chair','bench'].includes(p?.kind));
       const forward={x:Math.sin(p.heading||0),z:Math.cos(p.heading||0)},dx=seat.x-p.x,dz=seat.z-p.z;
-      if(p.kind==='chair'){assert.ok(Math.abs(dx-forward.x*.06)<1e-9);assert.ok(Math.abs(dz-forward.z*.06)<1e-9);}
+      if(p.kind==='chair'){assert.ok(Math.abs(dx-forward.x*.20)<1e-9);assert.ok(Math.abs(dz-forward.z*.20)<1e-9);}
       else{assert.ok(dx*forward.x+dz*forward.z>0&&dx*forward.x+dz*forward.z<p.d/2,'bench pelvis inside the plank');assert.ok(Math.abs(dx*forward.z-dz*forward.x)<1e-9);}
       assert.equal(seat.pose,p.kind==='chair'?'deep':'chair');assert.equal(seat.rise,.45);
       assert.equal(seat.heading,p.heading);
