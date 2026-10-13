@@ -22,5 +22,5 @@ test("以前那几行灰字画的时候也认成小卡，存档不动；为什�
   assert.deepEqual(r.shike.lines, ["这句要留着"]);
   assert.equal(r.shike.byChar, true);
   assert.equal(f({ role: "system", content: "别的系统消息" }, { id: "c1" }), null);
-  assert.match(cmp, /const _oldKeep = \(m\.kind === "system" \|\| m\.role === "system"\) && window\.ShikeShareCard \? oldKeepMoment\(m, character\) : null;/);
+  assert.match(cmp, /const _oldKeep = \(m\.kind === "system" \|\| m\.role === "system"\)(?: && m\.kind !== "carved")? && window\.ShikeShareCard \? oldKeepMoment\(m, character\) : null;/);
 });

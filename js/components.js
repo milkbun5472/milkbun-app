@@ -16523,12 +16523,9 @@ function DoodleEditor({ src, charId, onClose }) {
     h("div", { "data-wk": "doodletools", style: { padding: "10px 14px calc(env(safe-area-inset-bottom) + 12px)" } },
       // 颜色一排三档都用：画的笔、贴的字、抠图上写的字。最后那颗是自己调色
       h("div", { className: "flex items-center justify-center", style: { gap: 10, marginBottom: 10 } },
-        DOODLE_INK.map(c => h("button", { key: c, onClick: () => setInk(c), "aria-label": "颜色", style: { width: 30, height: 30, borderRadius: 999, background: c,
-          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)" } })),
-        h("label", { "data-wk": "doodlecolor", "aria-label": "自己调颜色", style: { position: "relative", width: 40, height: 40, borderRadius: 999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
-            background: DOODLE_INK.includes(ink) ? "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)" : ink, border: DOODLE_INK.includes(ink) ? "2px solid rgba(255,255,255,.35)" : "3px solid #fff" } },
-          h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(ink) ? ink : "#e5484d", onChange: e => setInk(e.target.value),
-            style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } }))),
+        // 自己调色走全库那一个 ColorDot（取色器只许它一处有：color-dot-one-public）
+        h("div", { "data-wk": "doodlecolor" }, h(ColorDot, { value: ink, onChange: setInk, palette: DOODLE_INK, size: 30, label: "颜色",
+          tone: { line: "rgba(255,255,255,.35)", ink: "#fff", bg2: "#111" } }))),
       mode === "stamp" ? h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8, marginBottom: 10 } },
         DOODLE_STAMPS.map(x => btn(x, () => setStamp(x), stamp === x)),
         // 自己写一个：填数字就当分数（7 → 7分），别的照原样贴
