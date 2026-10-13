@@ -15633,7 +15633,10 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
 // 往期只读详情；群聊用显式参数保留导演便签与成员状态入口。
-function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, canOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
+function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, canOpenState, showNotes = false, onClose, onDelSession, fmtStamp, onPinShike }) {
+    // 往期也能补收进时刻（她 2026-10-13）：跟进行中的线下同一套挑选（offPickCard + OffPickBar），挑完交给同一个 onPinShike
+    const [pick, setPick] = useState(null);
+    const msgs = session.msgs || [];
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
@@ -15645,14 +15648,18 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
           if (typeof saveTextFile === "function") saveTextFile(((char && (char.remark || char.name)) || "线下") + "-" + stampSlug(session.startTs) + ".txt", one, "text/plain");
         }, className: "active:opacity-60 shrink-0", title: "导出这一场",
           style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "导出"),
-        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
+        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog })),
+        onPinShike && !pick ? h("button", { "data-wk": "offreadpin", onClick: () => setPick([]), className: "active:opacity-60 shrink-0", title: "挑几段收进时刻",
+          style: { display: "flex", alignItems: "center", gap: 3, fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, h(CGlyph, { k: "shikeStar", size: 13, color: t.tint }), "收进时刻") : null),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         session.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + session.summary),
         showNotes && (session.customNotes || []).length > 0 && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
           (session.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
         ),
-        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }))));
+        msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }), i, pick, setPick, t)),
+        pick ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "点要收的那几段，挑好按下面的「收进时刻」。") : null),
+      pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : null);
 }
 
 // 往期列表只接当前会话的记录；筛选排序不修改原数组。
@@ -16231,7 +16238,7 @@ function OfflineMode({
   const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
-  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp });
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp, onPinShike });
 
   // ---- setup ----
   if (view === "setup") {
@@ -17012,7 +17019,7 @@ function GroupOfflineMode({
   const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
-  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp, onPinShike });
 
   // ---- setup ----
   if (view === "setup") {
