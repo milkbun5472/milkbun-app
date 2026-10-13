@@ -16418,7 +16418,8 @@ function DoodleEditor({ src, charId, onClose }) {
   const [wide, setWide] = useState(false);
   const [stamp, setStamp] = useState(DOODLE_STAMPS[0]);
   const [n, setN] = useState(0);
-  const [cutName, setCutName] = useState("");   // 抠出来那张叫什么（她 2026-10-13）
+  const [cutName, setCutName] = useState("");
+  const [cutCap, setCutCap] = useState("");     // 抠出来那张上写的字（羞涩、困惑……），不写就是光图   // 抠出来那张叫什么（她 2026-10-13）
   const [ownStamp, setOwnStamp] = useState(""); // 自己写一个贴的：表情、字、分数都行（她 2026-10-13「贴 emoji 没有自定义，打分也是」）
   const toast = msg => window.__toast && window.__toast(msg);
   const paint = () => {
@@ -16428,7 +16429,9 @@ function DoodleEditor({ src, charId, onClose }) {
     x.lineCap = "round"; x.lineJoin = "round";
     marks.current.concat(cur.current ? [cur.current] : []).forEach(st => {
       if (st.stamp) { x.font = Math.round(st.size) + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
-        if (/分$/.test(st.stamp)) { x.lineWidth = st.size / 8; x.strokeStyle = "#fff"; x.strokeText(st.stamp, st.x, st.y); x.fillStyle = "#e5484d"; } else x.fillStyle = "#000";
+        // 分数红字白边；字（羞涩、困惑这类）黑字白边，深色照片上也看得清
+        if (/分$/.test(st.stamp)) { x.lineWidth = st.size / 8; x.strokeStyle = "#fff"; x.strokeText(st.stamp, st.x, st.y); x.fillStyle = "#e5484d"; }
+        else { if (/[\u4e00-\u9fffA-Za-z0-9]/.test(st.stamp)) { x.lineWidth = st.size / 7; x.strokeStyle = "#fff"; x.strokeText(st.stamp, st.x, st.y); } x.fillStyle = "#000"; }
         x.fillText(st.stamp, st.x, st.y); return; }
       x.strokeStyle = st.ink; x.lineWidth = st.w; x.setLineDash(st.cut ? [st.w * 2, st.w * 2] : []); x.beginPath();
       st.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]));
@@ -16480,9 +16483,19 @@ function DoodleEditor({ src, charId, onClose }) {
     const k = Math.min(1, 512 / Math.max(w, hh));
     const o = document.createElement("canvas"); o.width = Math.round(w * k); o.height = Math.round(hh * k);
     const x = o.getContext("2d");
-    x.scale(k, k); x.translate(-x0, -y0); x.beginPath();
+    x.save(); x.scale(k, k); x.translate(-x0, -y0); x.beginPath();
     lasso.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip();
-    x.drawImage(img.current, 0, 0, cv.current.width, cv.current.height);
+    // 画的、贴的字一起带进表情（她 2026-10-13「扣完图不能在上面打字」）：从去掉虚线圈的那张上抠
+    const keep = marks.current; marks.current = ownMarks(); paint();
+    x.drawImage(cv.current, 0, 0); x.restore();
+    marks.current = keep; paint();
+    // 图上写的字：压在表情底下一行，黑字白边，表情包那种
+    const cap = String(cutCap || "").trim();
+    if (cap) {
+      const fs = Math.max(18, Math.min(o.width / Math.max(2, cap.length) * 0.9, o.height * 0.2));
+      x.font = "bold " + Math.round(fs) + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "bottom"; x.lineJoin = "round";
+      x.lineWidth = fs / 5; x.strokeStyle = "#fff"; x.strokeText(cap, o.width / 2, o.height - fs * 0.15);
+      x.fillStyle = "#111"; x.fillText(cap, o.width / 2, o.height - fs * 0.15); }
     let url = ""; try { url = o.toDataURL("image/png"); } catch (e) { toast("这张是外链图，浏览器不让抠，先保存到相册再试"); return; }
     const ok = typeof window.__addSelfSticker === "function" && await window.__addSelfSticker(url, charId, cutName);
     toast(ok ? "抠好了，放进表情包里了" : "没放进表情包，再试一次");
@@ -16513,7 +16526,10 @@ function DoodleEditor({ src, charId, onClose }) {
       mode === "cut" ? h("div", { style: { textAlign: "center", color: "rgba(255,255,255,.75)", fontFamily: F_BODY, fontSize: 12.5, marginBottom: 10 } }, "用手指沿着他描一圈，圈住的部分会剪成透明底的表情",
         h("input", { "data-wk": "doodlecutname", value: cutName, maxLength: 20, placeholder: "这张叫什么（他发表情就认这个词，比如：委屈巴巴）",
           onChange: e => setCutName(e.target.value),
-          style: { display: "block", width: "100%", marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } })) : null,
+          style: { display: "block", width: "100%", marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+        h("input", { "data-wk": "doodlecutcap", value: cutCap, maxLength: 12, placeholder: "图上写的字（可不填，比如：羞涩、困惑）",
+          onChange: e => setCutCap(e.target.value),
+          style: { display: "block", width: "100%", marginTop: 6, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } })) : null,
       h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8 } },
         mode === "draw" ? btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)) : null,
         mode === "draw" ? h("button", { "data-wk": "doodleask", onClick: () => send(true), className: "active:opacity-70", style: btnSt(false) }, "圈出来问他") : null,

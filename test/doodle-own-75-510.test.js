@@ -14,3 +14,11 @@ test("他知道那一套是从自己照片上抠的", () => {
 test("贴的能自己写：数字当分数", () => {
   assert.match(comp, /setStamp\(\/\^\\d\+\(\\\.\\d\+\)\?\$\/\.test\(k\) \? k \+ "分" : k\)/);
 });
+test("抠的时候画的、贴的字一起带上；能在图上写一行字，不被套索裁掉", () => {
+  assert.match(comp, /marks\.current = ownMarks\(\); paint\(\);\n    x\.drawImage\(cv\.current, 0, 0\); x\.restore\(\);/);
+  assert.match(comp, /const cap = String\(cutCap \|\| ""\)\.trim\(\)/);
+  assert.match(comp, /"data-wk": "doodlecutcap"/);
+});
+test("贴的字黑字白边", () => {
+  assert.match(comp, /x\.lineWidth = st\.size \/ 7; x\.strokeStyle = "#fff"; x\.strokeText/);
+});
