@@ -8903,7 +8903,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       c.provider === "elevenlabs" ? h("div", null,
         row("密钥 API Key（elevenlabs.io → Developers → API Keys）", h("input", { value: c.elKey || "", onChange: e => set({ elKey: e.target.value }), placeholder: "sk_…", type: "password", style: inSt })),
         row("模型（可以自己填，照 ElevenLabs 文档上的 model_id）", voiceModelInput(c.elModel, "eleven_multilingual_v2", "el-models",
-          [["eleven_multilingual_v2", "中文好·推荐"], ["eleven_v3", "表现力最强"], ["eleven_flash_v2_5", "快·便宜"], ["eleven_turbo_v2_5", ""]], v => set({ elModel: v }), inSt)),
+          [["eleven_multilingual_v2", "中文好·推荐"], ["eleven_v3", "表现力最强·会唱两句"], ["eleven_flash_v2_5", "快·便宜"], ["eleven_turbo_v2_5", ""]], v => set({ elModel: v }), inSt)),
         row("默认音色 Voice ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.elVoice || "", onChange: e => set({ elVoice: e.target.value }), placeholder: "在 Voices 里点声音 → 复制 Voice ID", style: inSt }))) : null,
       c.provider === "fish" ? h("div", null,
         row("接口地址（Fish 官方不让网页直接调，要填中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
@@ -14655,8 +14655,9 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, setBusy, onRenameEmote, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes }) {
   const [setPick, setSetPick] = useState(false);
+  const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   const t = useTheme();
   const list = packs || [];
   const [selId, setSelId] = useState(list[0] && list[0].id);
@@ -14711,8 +14712,12 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
         h("button", { onClick: () => setSetPick(v => !v), disabled: !!setBusy, className: "w-full active:opacity-70 disabled:opacity-50",
           style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink } },
           setBusy ? "在画了…（先挑表情，再画一张九宫格）" : "让 TA 画一套自己的表情包"),
+        setPick && !setBusy ? h("button", { "data-wk": "emosetcaption", "data-on": setCaption ? "1" : "0", onClick: () => setSetCaption(v => !v), className: "active:opacity-70",
+          style: { marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+          h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + t.ink, background: setCaption ? t.ink : "transparent", color: t.bg2, fontSize: 12, lineHeight: "15px", textAlign: "center" } }, setCaption ? "✓" : ""),
+          "每张底下印上它的名字（看图就知道是什么意思）") : null,
         setPick && !setBusy ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
-          (characters || []).filter(c => c && c.refPhoto).map(c => h("button", { key: c.id, onClick: () => { setSetPick(false); onMakeSet(c.id); }, className: "active:opacity-70",
+          (characters || []).filter(c => c && c.refPhoto).map(c => h("button", { key: c.id, onClick: () => { setSetPick(false); onMakeSet(c.id, { caption: setCaption }); }, className: "active:opacity-70",
             style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, c.remark || c.name)),
           !(characters || []).some(c => c && c.refPhoto) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "要先在人格档案馆给 TA 传一张参考照") : null) : null) : null,
       note("手里这几版", h("button", { "data-wk": "emoaddpack", onClick: () => onAddPack(), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: STICKER_INK, border: "1px solid rgba(0,0,0,.10)", borderRadius: 8, padding: "6px 12px", background: STICKER_PAPER, boxShadow: "0 2px 5px rgba(0,0,0,.10)" } }, "新开一版"), 6),
@@ -14741,6 +14746,8 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
       !pack ? h("div", { "data-wk": "emoempty", "data-part": "packs", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情字典。\n点上面「新开一版」开一版空白的。")
         : h("div", null,
           // 这一版叫什么：写在版纸边上，虚线表示可以改
+          onCaptionPack && (pack.emotes || []).some(e => !e.captioned) ? h("button", { "data-wk": "emocaptionpack", onClick: () => onCaptionPack(pack.id), className: "active:opacity-70",
+            style: { marginTop: 14, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "给这一组每张底下印上名字") : null,
           h("input", { "data-wk": "emopacktitle", value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "w-full outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, borderBottom: "1px dashed " + t.line, paddingBottom: 3, marginTop: 16, marginBottom: 4 } }),
           // 两条开关：印在纸上的说明行，不是两张圆角卡
           h("div", { "data-wk": "emoswitchrow", "data-part": "global", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
