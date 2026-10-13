@@ -47,3 +47,8 @@ assert.match(app, /"手办": "/);
 assert.match(app, /平面的 Q 版二次元插画/);
 assert.match(scr, /"Q版", "手办"/);
 console.log("ok figure");
+// 杂志封面：字量着写不出画；挑了衣服题材照穿（她 2026-10-13）
+assert.match(app, /const fit = \(str, size, minSize, maxW, weight\) =>/);
+assert.match(app, /\(!theme \|\| picked\)/);
+assert.match(app, /定价 ¥ 20\.00/);
+console.log("ok cover");

@@ -24911,7 +24911,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     marriage: { zh: "结婚登记照", line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
     grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
     band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
-    magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图：两人占画面中下部，上方和四周留出排标题的空位，打光讲究；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
+    magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图：两人占画面中下部，上方和左侧留出排标题的空位，打光讲究；是摄影棚里摄影师拍的时尚大片，两人摆杂志感的姿势、看镜头或看彼此，不是手机自拍；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
     movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景，画面下方留出排片名的空位；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
   };
   // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
@@ -24987,15 +24987,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const txt = (s, size, y, align, color, weight) => { x.font = (weight || "700") + " " + Math.round(size) + "px " + F; x.textAlign = align || "center"; x.textBaseline = "middle";
         x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = size / 5; x.fillStyle = color || "#fff"; x.fillText(s, align === "left" ? W * 0.06 : W / 2, y, W * 0.9); x.shadowBlur = 0; };
       const T = Array.from(String(title || "")).slice(0, 14).join("");
+      // 量着写：太长就缩字号，绝不出画（她 2026-10-13：名字被截掉了半个）
+      const fit = (str, size, minSize, maxW, weight) => { let z = size; x.font = (weight || "700") + " " + Math.round(z) + "px " + F; while (z > minSize && x.measureText(str).width > maxW) { z -= 1; x.font = (weight || "700") + " " + Math.round(z) + "px " + F; } return z; };
+      const put = (str, size, px, py, align, color, weight, maxW) => { const z = fit(str, size, size * 0.45, maxW || W * 0.84, weight); x.font = (weight || "700") + " " + Math.round(z) + "px " + F; x.textAlign = align; x.textBaseline = "alphabetic";
+        x.shadowColor = "rgba(0,0,0,.5)"; x.shadowBlur = z / 4; x.fillStyle = color; x.fillText(str, px, py); x.shadowBlur = 0; return z; };
       if (kind === "magazine") {
-        txt("我 们", W * 0.16, H * 0.09, "center", "#fff", "900");
-        txt(T, W * 0.06, H * 0.82, "left", "#fff", "700");
-        txt(names + " · 独家专访", W * 0.032, H * 0.88, "left", "rgba(255,255,255,.9)", "500");
+        // 杂志封面：顶上刊名＋刊期，左边一栏封面标题，右下角条码和定价
+        const L = W * 0.07, now = new Date();
+        const tg = x.createLinearGradient(0, 0, 0, H * 0.28); tg.addColorStop(0, "rgba(0,0,0,.35)"); tg.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = tg; x.fillRect(0, 0, W, H * 0.28);
+        const bg = x.createLinearGradient(0, H * 0.55, 0, H); bg.addColorStop(0, "rgba(0,0,0,0)"); bg.addColorStop(1, "rgba(0,0,0,.55)"); x.fillStyle = bg; x.fillRect(0, H * 0.55, W, H * 0.45);
+        x.save(); x.globalAlpha = 0.96; put("我们", W * 0.24, W / 2, H * 0.17, "center", "#fff", "900", W * 0.86); x.restore();
+        put(now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊　·　恋爱特辑", W * 0.026, W / 2, H * 0.215, "center", "rgba(255,255,255,.92)", "600");
+        put("封面故事", W * 0.03, L, H * 0.6, "left", "#ffd36b", "800", W * 0.5);
+        x.fillStyle = "#ffd36b"; x.fillRect(L, H * 0.612, W * 0.12, Math.max(2, H * 0.004));
+        const tz = put(T || "我们的故事", W * 0.085, L, H * 0.69, "left", "#fff", "900", W * 0.84);
+        put(names + "　独家专访", W * 0.034, L, H * 0.69 + tz * 0.75, "left", "rgba(255,255,255,.95)", "600", W * 0.84);
+        put("「我们是怎么走到今天的」", W * 0.03, L, H * 0.69 + tz * 0.75 + W * 0.06, "left", "rgba(255,255,255,.85)", "500", W * 0.84);
+        // 条码＋定价
+        const bw = W * 0.2, bh = H * 0.055, bx = W - L - bw, by = H - L - bh;
+        x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05);
+        x.fillStyle = "#111"; let cx = bx; let seed = (T.length * 7 + 3) % 11;
+        while (cx < bx + bw) { seed = (seed * 37 + 11) % 97; const w = W * (0.002 + (seed % 3) * 0.0018); x.fillRect(cx, by, w, bh); cx += w + W * (0.002 + (seed % 2) * 0.002); }
+        x.font = "600 " + Math.round(W * 0.018) + "px " + F; x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillText("定价 ¥ 20.00", bx + bw / 2, by + bh + W * 0.03);
       } else {
         const g = x.createLinearGradient(0, H * 0.62, 0, H); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.78)"); x.fillStyle = g; x.fillRect(0, H * 0.62, W, H * 0.38);
-        txt(T || "我们", W * 0.085, H * 0.8, "center", "#fff", "900");
-        txt("主演  " + names, W * 0.03, H * 0.875, "center", "rgba(255,255,255,.85)", "500");
-        txt("即 将 上 映", W * 0.026, H * 0.93, "center", "rgba(255,255,255,.7)", "500");
+        put(T || "我们", W * 0.1, W / 2, H * 0.82, "center", "#fff", "900", W * 0.86);
+        put("主演　" + names, W * 0.032, W / 2, H * 0.885, "center", "rgba(255,255,255,.88)", "500", W * 0.86);
+        put("即 将 上 映", W * 0.026, W / 2, H * 0.94, "center", "rgba(255,255,255,.72)", "500", W * 0.86);
       }
       return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
     } catch (e) { return blob; }
@@ -25061,7 +25079,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const RESTYLE_LINE = opt && opt.restyle ? "【换画风】照第一张参考图的构图、人物位置、动作和表情，整张重画成「" + opt.restyle.style + "」的画风；两个人的长相照后两张参考照，别换人。" : "";
       // 聊天画成漫画（她 2026-10-12）：四格一张图里画，字不让图像端写（它写中文会乱码），台词由 app 自己排在每格下面
       const COMIC_LINE = opt && opt.comic ? "【版式·四格漫画】整张图是一张 2×2 四格漫画，四格大小一样、格子之间留白边，漫画画风；四格都是你们俩，按顺序依次是：" + opt.comic.map((c, i) => "第" + (i + 1) + "格（左上、右上、左下、右下依次）" + c.scene).join("；") + "。画面里不要任何文字、不要对话气泡、不要拟声字。" : "";
-      const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !theme && !(opt && opt.restyle) ? "。" + fits : "");
+      // 挑了衣服就照挑的穿，题材也一样（她 2026-10-13：选了杂志封面，挑好的衣服没穿上）
+      const picked = !!(String((opt && opt.mine) || "").trim() || String((opt && opt.theirs) || "").trim());
+      const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !(opt && opt.restyle) && (!theme || picked) ? "。" + (theme ? "衣服照下面挑好的穿，不用题材默认的那身：" : "") + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       // 换画风只发原图＋一句「原样转画风」（她 2026-10-13：重画成了另一张照片）：
