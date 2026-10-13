@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.540";
+const APP_VERSION = "v75.547";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -824,6 +824,13 @@ function App() {
         if (!target) { toast("请选择代付对象"); return false; }
         requestPayLater([item], total, target);
       },
+      his: () => {
+        const cid = target && target.id;
+        if (!cid) return false;
+        if (total > asPhoneBal(cid)) { toast("他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100); return false; }
+        postCharTakeout(cid, { shop: item.takeout.shop, items: item.takeout.items, price: total, note: item.takeout.remark }, { byUser: true });
+        toast("用他的钱点了，骑手接单了");
+      },
       forchar: () => {
         const char = target && target.type === "char" ? characters.find(c => c.id === target.id) : null;
         if (!char) { toast("请选择给谁点"); return false; }
@@ -1070,9 +1077,15 @@ function App() {
         } catch (e) {}
         all.push({ t, vis });
       }
+      // 屏幕上露着的图（她 2026-10-13：「开着半屏看他日记他能看到照片描述吗」）：字读得到、图读不到，
+      //   所以存了描述的图挂 data-desc，露着的那几张把描述一起给他
+      const pics = () => { try {
+        const ds = [...document.querySelectorAll("[data-desc]")].filter(el => !skip(el)).filter(el => { const r = el.getBoundingClientRect(); return r.height > 0 && r.bottom > top && r.top < bottom; })
+          .map(el => String(el.getAttribute("data-desc") || "").replace(/\s+/g, " ").trim().slice(0, 300)).filter(Boolean);
+        return ds.length ? "\n（她屏幕上露着的图）" + [...new Set(ds)].slice(0, 4).map((d, k) => "图" + (k + 1) + "：" + d).join("；") : ""; } catch (e) { return ""; } };
       const first = all.findIndex(x => x.vis), lastV = all.length - 1 - [...all].reverse().findIndex(x => x.vis);
-      if (first < 0) { let len = 0; for (const x of all) { if (len >= 1800) break; out.push(x.t); len += x.t.length + 1; } return { zh, text: out.join(" ").slice(0, 1800) }; }
-      const seen = all.filter(x => x.vis).map(x => x.t).join(" ").slice(0, 1800);
+      if (first < 0) { let len = 0; for (const x of all) { if (len >= 1800) break; out.push(x.t); len += x.t.length + 1; } return { zh, text: out.join(" ").slice(0, 1800) + pics() }; }
+      const seen = all.filter(x => x.vis).map(x => x.t).join(" ").slice(0, 1800) + pics();
       let room = 2400 - seen.length;
       const take = (from, step) => { const acc = []; let n = 0; for (let k = from; k >= 0 && k < all.length && n < room / 2; k += step) { acc.push(all[k].t); n += all[k].t.length + 1; } return step < 0 ? acc.reverse().join(" ").slice(-Math.floor(room / 2)) : acc.join(" ").slice(0, Math.floor(room / 2)); };
       const before = take(first - 1, -1), after = take(lastV + 1, 1);
@@ -17065,13 +17078,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
       const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3 });
+      // 给看得见这一页的人（半窗里的他）一句话：这三张拍的是什么
+      const stripDesc = "他这篇日记那天的照片日记，竖着三格，从早到晚：照日记里写的「" + body.replace(/\s+/g, " ").slice(0, 80) + "…」那一天拍的"
+        + (dayWears.length ? "；穿着：" + dayWears.map(x => x.t + " " + x.w).join("、") : "") + (entry.location ? "；在" + entry.location : "") + (entry.weather ? "；" + entry.weather : "");
       const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
       let imgKey = null, imgUrl = null;
       if (out && out.blob) { imgKey = "img_pdiary_" + charId + "_" + entry.id; await idbImgPut(imgKey, out.blob); }
       else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       setDiaries(p => {
-        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now() } } : e) };
+        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now(), desc: stripDesc } } : e) };
         saveJSON("x_diaries", n); return n;
       });
     } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
@@ -17333,7 +17349,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (window.Notify) window.Notify.push({ title: char.name + " 发了条朋友圈", body: "去朋友圈看看吧", tag: "mom-" + char.id, charId: char.id });
         }
       }
-      else if (type === "whisper") { await genWhisper(char); notifyApp("whisper"); toast(char.name + " 给你留了句悄悄话"); if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: "点开看看", tag: "wh-" + char.id, charId: char.id }); }
+      // 真放进抽屉了才报（群友 2026-10-13：弹窗说留了悄悄话，去看是空的）
+      else if (type === "whisper") { if (!(await genWhisper(char))) return; notifyApp("whisper"); toast(char.name + " 给你留了句悄悄话"); if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: "点开看看", tag: "wh-" + char.id, charId: char.id }); }
       else if (type === "forum") { await autoForumForChar(char); }
       else if (type === "capsule") { await autoBuryCapsuleForChar(char); }
     } catch (e) {}
@@ -20945,6 +20962,62 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .then(() => { done(); phoneAsFollowUp(char, group, body, rowsBefore); }, done);
     return true;
   };
+  // ── 她拿他手机转账（群友 2026-10-13「拿他手机转账买东西这种」）────────────
+  //   跟替他发消息同一道门：只有真实会话（actual:）能转。
+  //   ① 跟她的私聊：落一张「他转给你」的待领卡（跟他自己转账同一个 postCharTransfer），标 byUser——钱等她点收下才动；
+  //   ② 群里：转给另一个成员，钱当场从他钱包挪到那个人钱包，群里落一行转账。
+  //   都掏不出比他余额多的钱。他下次说话时看得到这是她用他手机转的（byUser 那一行旁注）。
+  const phoneTransferAs = (char, session, amount, note, toId) => {
+    const id = String((session && session.id) || "");
+    const a0 = Math.round(Number(amount) * 100) / 100;
+    if (!char || !(a0 > 0) || id.indexOf("actual:") !== 0) return false;
+    const _w = charWalletRef.current[char.id];
+    const bal = _w && _w.balance != null ? Number(_w.balance) : CHAR_DEFAULT_BAL;
+    if (bal <= 0) { toast(characterText(char, "他钱包里没钱了")); return false; }
+    const a = Math.min(a0, Math.round(bal * 100) / 100);
+    const nt = String(note || "").trim().slice(0, 40);
+    if (id === "actual:private:" + char.id) {
+      const r = postCharTransfer(char.id, a, nt, { byUser: true });
+      if (!r) return false;
+      toast(a < a0 ? "他只剩这么多，转了 " + moneyText(a, char.id) : "转出去了，回他聊天里点收下");
+      return true;
+    }
+    const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
+    const group = gid ? groups.find(g => g.id === gid) : null;
+    const to = toId ? characters.find(c => c.id === toId) : null;
+    if (!group || !(group.memberIds || []).includes(char.id) || !to || !(group.memberIds || []).includes(to.id) || to.id === char.id) return false;
+    adjustCharBalance(char.id, -a, "转账给 " + to.name + (nt ? "（" + nt + "）" : ""), "transfer");
+    adjustCharBalance(to.id, a, "收到 " + char.name + " 的转账" + (nt ? "（" + nt + "）" : ""), "transfer");
+    pGChat(gid, p => [...p, {
+      role: "assistant", senderId: char.id, senderName: char.name,
+      content: "[转账] " + char.name + " 向 " + to.name + " 转了 " + moneyText(a, char.id) + (nt ? "（" + nt + "）" : ""),
+      mid: "gm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8), ts: Date.now(), byUser: true
+    }]);
+    toast("转给 " + to.name + " 了");
+    return true;
+  };
+  // 拿他手机逛购物、点外卖（她 2026-10-13「把外卖和购物移进来…看到的页面和我一样，除了没有我的那一页，然后通过他下单」）：
+  //   不另做一套店：就是她自己那两页，只是挂着 asPhone——结账只剩「用他的钱」，钱从他钱包走，
+  //   东西照他送礼物 / 给她点外卖那两条路落地（postCharGift / postCharTakeout），标 byUser。
+  const [asPhone, setAsPhone] = useState(null);   // { id, back }
+  const phoneShopAs = (char, where) => {
+    if (!char) return;
+    setAsPhone({ id: char.id, back: screen });
+    setScreen(where === "takeout" ? "takeout" : "shop");
+  };
+  const asPhoneChar = asPhone ? characters.find(c => c.id === asPhone.id) : null;
+  const asPhoneBal = id => { const w = charWalletRef.current[id]; return w && w.balance != null ? Number(w.balance) : CHAR_DEFAULT_BAL; };
+  const asPhonePay = asPhoneChar ? { id: asPhoneChar.id, name: asPhoneChar.remark || asPhoneChar.name, balance: Math.round(asPhoneBal(asPhoneChar.id) * 100) / 100 } : null;
+  // 从别的路离开了购物/外卖（回主屏、跳别的页）：拿他手机这件事就结束了，下次自己打开购物不能还挂着他
+  useEffect(() => { if (asPhone && screen !== "shop" && screen !== "takeout") setAsPhone(null); }, [screen]);
+  const leaveAsPhone = () => { const b = asPhone && asPhone.back; setAsPhone(null); setScreen(b || "home"); };
+  // 群里能转给谁：除了他自己的群成员
+  const phoneTransferPeers = (char, session) => {
+    const id = String((session && session.id) || "");
+    const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
+    const group = gid ? groups.find(g => g.id === gid) : null;
+    return group ? (group.memberIds || []).filter(x => x !== (char && char.id)).map(x => characters.find(c => c.id === x)).filter(Boolean).map(c => ({ id: c.id, name: c.name })) : [];
+  };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
   // ⚠️她 2026-09-10：「敲一敲有时候卡住了一直没反应」。三个哑口，一个一个堵：
   //   ① 没配后台线路时直接 return ""——按钮转一下就没了，什么也不说；
@@ -23694,9 +23767,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: "你们已是恋人。以「" + char.name + "」身份，往你俩私密的那个抽屉里放一张给用户的小纸条（她哪天想起来才会打开）——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
-      drawerWhisper(char.id, String(d.whisper || "").trim());
+      return drawerWhisper(char.id, String(d && d.whisper || "").trim());
     } catch (e) {
       toast("失败：" + e.message);
+      return false;
     } finally {
       setGen(g => ({
         ...g,
@@ -26871,7 +26945,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 角色主动买东西送我（replyNow embed）：进我的待发货，走同一套送达逻辑。
   // ⚠️v58.39 起【真的花钱】：以前 price 写死 0、钱包一分不动，所以「给你买杯咖啡」
   // 既不扣TA的钱、也不会出现在「为你花的」里（她 2026-08-30 报的就是这个）。
-  const postCharGift = (charId, name, rawPrice, rawNote) => {
+  const postCharGift = (charId, name, rawPrice, rawNote, extra) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !name) return;
     const price = giftPrice(charId, name, rawPrice);
@@ -26881,7 +26955,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // opened:false＝盒子还封着（她 2026-09-19）。⚠️名字【也】进不了吊牌，拆开才露——
     //   原来盒子是合着的、名字却印在吊牌上，等于既没拆的动作也没藏住东西，两头不靠。
     pChat(charId, p => [...p, { role: "assistant", kind: "gift", dir: "toMe", item: { name, price, note }, opened: false,
-      content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now() }]);
+      content: "[礼物] " + char.name + " 给你寄了：" + name, ts: Date.now(), read: false, turnId: "gf_" + Date.now(), ...(extra || {}) }]);
     addOrder({ name, price, fromCharId: charId, cat: null, payLabel: (char.remark || char.name) + " 送的" });
   };
   // 角色给她点外卖（她 2026-09-27：「角色给我点外卖怎么区分是出购物的礼物卡还是外卖卡」）。
@@ -26890,7 +26964,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️不自动改判：只填了 gift 的，哪怕名字像吃的也照旧是礼物卡（猜错了卡片就对不上TA那句话）。
   // 外卖不进盒子、不拆、送到就是送到；订单挂进「我的」那条送达链（cat 钉死 food），
   // 聊天卡和订单用同一个 arriveTs，两边的倒计时才对得上。
-  const postCharTakeout = (charId, raw) => {
+  const postCharTakeout = (charId, raw, extra) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !raw) return false;
     const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
@@ -26917,7 +26991,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (sameCard) return true;
     if (!dup) walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
     pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
-      content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now() }]);
+      content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now(), ...(extra || {}) }]);
     if (!dup) addOrder({ name: orderName, price, fromCharId: charId, cat: "food", kind: "takeout", takeout: { shop, items, price, note }, arriveTs, payLabel: (char.remark || char.name) + " 点的外卖" });
     return true;
   };
@@ -27195,6 +27269,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!target) { toast("请选择代付对象"); return; }
       requestPayLater(items, total, target);
       removeCartUids(uids);
+    } else if (mode === "his") {
+      // 拿他手机买（asPhone）：花他的钱，每件都像他寄给她的礼物，回聊天里拆
+      const cid = target && target.id;
+      if (!cid) return;
+      if (total > asPhoneBal(cid)) { toast("他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100); return; }
+      items.forEach(it => postCharGift(cid, it.name, it.price, "", { byUser: true }));
+      removeCartUids(uids);
+      toast("用他的钱下单了，回聊天里拆");
     }
   };
 
@@ -29159,6 +29241,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchSend: watchSend,
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
+    onTransferAs: phoneTransferAs,
+    onShopAs: phoneShopAs,
+    transferPeers: phoneTransferPeers,
     onRemark: phoneRemarkEdit,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
@@ -29297,6 +29382,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditMe: editForumMe,
     onEnsureCharMeta: ensureCharForumMeta
   });else if (screen === "shop") body = h(Shop, {
+    payAs: asPhonePay,
     wallet: wallet,
     cart: cart,
     orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
@@ -29311,7 +29397,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     busy: shopBusy,
     key: shopBack ? "shop-mine" : "shop",
     initialNav: shopBack ? "my" : "home",
-    onBack: () => { if (shopBack) { const b = shopBack; setShopBack(null); setScreen(b); } else goHome(); },
+    onBack: () => { if (asPhone) leaveAsPhone(); else if (shopBack) { const b = shopBack; setShopBack(null); setScreen(b); } else goHome(); },
     onGen: genShop,
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),
@@ -29329,7 +29415,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLeaveAtHis: leaveAtHis,
     toast: toast
   });else if (screen === "takeout") body = h(Takeout, {
-    key: "takeout:" + takeoutNav,
+    payAs: asPhonePay,
+    key: "takeout:" + takeoutNav + (asPhone ? ":as" : ""),
     initialNav: takeoutNav,
     wallet: wallet,
     orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
@@ -29343,7 +29430,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOrder: orderTakeout,
     onEat: eatTakeout,
     toast: toast,
-    onBack: () => { if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
+    onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
     land: usLand,
     onLanded: () => setUsLand(null),

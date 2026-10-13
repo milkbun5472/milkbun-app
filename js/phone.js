@@ -2536,7 +2536,7 @@ function WechatNavIcon({ kind, active }) {
   return h("svg", { width: 24, height: 24, viewBox: "0 0 24 24" }, ...paths);
 }
 
-function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, sendAsWaiting, onRemark }) {
+function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onShopAs, transferPeers, sendAsWaiting, onRemark }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
@@ -2660,6 +2660,19 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 群里那一枪跑着的时候，末尾挂三个点。私聊那一条不挂：她自己的回话由她自己说，没人在打字。
   const asWaiting = !!(th && sendAsWaiting && sendAsWaiting === th.id);
   const asCanSend = !!(onSendAs && th && String(th.id || "").indexOf("actual:") === 0 && th.type !== "contact");
+  // 拿他手机转账那一小块（群友 2026-10-13）：点「转账」展开金额、留言，群里再挑转给谁
+  // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账；购物、外卖直接开那两页（花他的钱）
+  const [plus, setPlus] = useState(null);
+  const tfOpen = plus === "tf";
+  const [tfAmt, setTfAmt] = useState(""), [tfNote, setTfNote] = useState(""), [tfTo, setTfTo] = useState("");
+  const tfPeers = tfOpen && th && th.type === "group" && transferPeers ? transferPeers(th) : [];
+  const tfSend = () => {
+    if (!onTransferAs || !th) return;
+    if (th.type === "group" && !tfTo) return;
+    if (onTransferAs(th, tfAmt, tfNote, tfTo) === false) return;
+    setPlus(null); setTfAmt(""); setTfNote(""); setTfTo("");
+  };
+  const canBuy = !!(onShopAs && th && th.type !== "group");
   const asSend = () => {
     const body = asDraft.trim();
     if (!body || !asCanSend) return;
@@ -2695,7 +2708,26 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         h(TypingDots, { color: "#9a9a9a" }))) : null),
     // 她自己打的那一栏：只在【没在看TA玩】而且这是一条真实会话时出现。
     // ⚠️「按了没反应的按钮比没有按钮更糟」——推演出来的会话给不了真回复，所以那儿一栏都不画。
+    !drive && asCanSend && plus === "menu" ? h("div", { "data-wk": "pplus", className: "shrink-0 flex", style: { gap: 18, padding: "14px 18px 8px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
+      [onTransferAs ? ["tf", "转账", "¥"] : null, canBuy ? ["shop", "购物", "🛍"] : null, canBuy ? ["takeout", "外卖", "🥡"] : null].filter(Boolean).map(([k, zh, ic]) => h("button", { key: k, "data-wk": "pplusitem", "data-part": k,
+        onClick: () => { if (k === "tf") setPlus("tf"); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
+        h("div", { style: { width: 52, height: 52, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#555" } }, ic),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#666" } }, zh)))) : null,
+    !drive && asCanSend && tfOpen ? h("div", { "data-wk": "ptransfer", className: "shrink-0", style: { padding: "10px 12px 4px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#888", marginBottom: 6 } }, th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
+      tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(p.id),
+        style: { minHeight: 34, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (tfTo === p.id ? "#07c160" : "#dcdcdc"), background: tfTo === p.id ? "#07c160" : "#fff", color: tfTo === p.id ? "#fff" : "#333" } }, p.name))) : null,
+      h("div", { className: "flex items-center gap-2" },
+        h("input", { value: tfAmt, onChange: e => setTfAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "金额",
+          style: { width: 96, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
+        h("input", { value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: "留言（可不填）",
+          style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
+        h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo),
+          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
     !drive && asCanSend ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
+      (onTransferAs || canBuy) ? h("button", { "data-wk": "pbtn", "data-part": "plus", onClick: () => setPlus(v => v ? null : "menu"), "aria-label": "更多",
+        style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, border: "1.5px solid #444", color: "#444", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", transform: plus ? "rotate(45deg)" : "none", transition: "transform .15s" } },
+        h("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" }, h("path", { d: "M12 5v14M5 12h14" }))) : null,
       h("textarea", { "data-wk": "pinput", value: asDraft, onChange: e => setAsDraft(e.target.value), rows: 1,
         placeholder: "以" + char.name + "的身份发一条",
         onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); asSend(); } },
@@ -6002,7 +6034,7 @@ function renderPhoneModule(key, d, ctx) {
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
-  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark });
+  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, onTransferAs: ctx.onTransferAs, onShopAs: ctx.onShopAs, transferPeers: ctx.transferPeers, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -6187,6 +6219,9 @@ function PhoneCarry({
   profile,
   actualWechatFor,
   onSendAs,
+  onTransferAs,
+  onShopAs,
+  transferPeers,
   sendAsWaiting,
   // 改TA通讯录备注（v74.978）。⚠️原来这儿漏收了：app 那头递了 onRemark，
   //   这一层没接、也没放进下面的 ctx，于是微信那页永远拿到 undefined，「›」一次都没出现过
@@ -6829,6 +6864,9 @@ function PhoneCarry({
     onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
     // 她在TA手机上以TA的名义真的发一条（只有真实会话给这条口子，见 app.js phoneSendAs）
     onSendAs: (sess, text) => onSendAs ? onSendAs(char, sess, text) : false,
+    onTransferAs: onTransferAs ? (sess, amt, note, toId) => onTransferAs(char, sess, amt, note, toId) : null,
+    transferPeers: sess => transferPeers ? transferPeers(char, sess) : [],
+    onShopAs: onShopAs ? where => onShopAs(char, where) : null,
     sendAsWaiting: sendAsWaiting || "",
     // 没有 onRemark 就别给一个空函数：微信那页拿它的真假决定要不要露「›」
     onRemark: onRemark ? (ch, c, v) => onRemark(ch, c, v) : null,
