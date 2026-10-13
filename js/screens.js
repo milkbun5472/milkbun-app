@@ -710,8 +710,8 @@ function CastForm({
           h("div", { className: "flex items-center gap-4" },
             h("div", { "data-wk": "castfavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
               h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3,
-                // 在档案里换了头像，就是要到处都换（群友 2026-10-13「人格档案馆没换成功」：聊天里还挂着另设的那张，档案换了看不出来）
-                onPick: img => { setAvatarImage(img); if (chatAvatarOn) setChatAvatarOn(false); }, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
+                // ⚠️档案换头像不许顶掉聊天里另设的那张（她 2026-10-13「人格档案馆换的不要 override 聊天的」）
+                onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
               chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
                 h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
                 h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35 } }, "聊天里用的是TA自己换的\n点这里用回档案这张"))),
