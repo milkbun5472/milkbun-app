@@ -24976,47 +24976,114 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const row = await studioShoot(char, { scene: "聊天画成的四格漫画", comic: panels });
     if (row) toast("画好了，在照相馆", 5000);
   };
-  const studioOverlay = async (blob, kind, title, names) => {
+  // 封面／海报上的字：拍完由 App 排上去（图像端写中文会乱码）。
+  //   版式每次随机挑一套（她 2026-10-13：「每次拍出来都是一样的吗」），字由他照你们的事写（copy），没写成就用兜底的
+  const studioOverlay = async (blob, kind, title, names, copy) => {
     try {
       const u = URL.createObjectURL(blob);
       const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
       URL.revokeObjectURL(u);
       const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
-      const x = c.getContext("2d"), W = c.width, H = c.height, F = "'Noto Serif SC','Songti SC',serif";
+      const x = c.getContext("2d"), W = c.width, H = c.height, F = "'Noto Serif SC','Songti SC',serif", FS = "'Noto Sans SC','PingFang SC',sans-serif";
       x.drawImage(im, 0, 0);
-      const txt = (s, size, y, align, color, weight) => { x.font = (weight || "700") + " " + Math.round(size) + "px " + F; x.textAlign = align || "center"; x.textBaseline = "middle";
-        x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = size / 5; x.fillStyle = color || "#fff"; x.fillText(s, align === "left" ? W * 0.06 : W / 2, y, W * 0.9); x.shadowBlur = 0; };
-      const T = Array.from(String(title || "")).slice(0, 14).join("");
+      const cp = copy || {};
+      const T = Array.from(String(title || cp.title || "")).slice(0, 16).join("") || (kind === "magazine" ? "我们的故事" : "我们");
+      const lines = (Array.isArray(cp.lines) ? cp.lines : []).map(v => Array.from(String(v || "").trim()).slice(0, 18).join("")).filter(Boolean);
+      const L = W * 0.07, now = new Date();
       // 量着写：太长就缩字号，绝不出画（她 2026-10-13：名字被截掉了半个）
-      const fit = (str, size, minSize, maxW, weight) => { let z = size; x.font = (weight || "700") + " " + Math.round(z) + "px " + F; while (z > minSize && x.measureText(str).width > maxW) { z -= 1; x.font = (weight || "700") + " " + Math.round(z) + "px " + F; } return z; };
-      const put = (str, size, px, py, align, color, weight, maxW) => { const z = fit(str, size, size * 0.45, maxW || W * 0.84, weight); x.font = (weight || "700") + " " + Math.round(z) + "px " + F; x.textAlign = align; x.textBaseline = "alphabetic";
-        x.shadowColor = "rgba(0,0,0,.5)"; x.shadowBlur = z / 4; x.fillStyle = color; x.fillText(str, px, py); x.shadowBlur = 0; return z; };
-      if (kind === "magazine") {
-        // 杂志封面：顶上刊名＋刊期，左边一栏封面标题，右下角条码和定价
-        const L = W * 0.07, now = new Date();
-        const tg = x.createLinearGradient(0, 0, 0, H * 0.28); tg.addColorStop(0, "rgba(0,0,0,.35)"); tg.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = tg; x.fillRect(0, 0, W, H * 0.28);
-        const bg = x.createLinearGradient(0, H * 0.55, 0, H); bg.addColorStop(0, "rgba(0,0,0,0)"); bg.addColorStop(1, "rgba(0,0,0,.55)"); x.fillStyle = bg; x.fillRect(0, H * 0.55, W, H * 0.45);
-        x.save(); x.globalAlpha = 0.96; put("我们", W * 0.24, W / 2, H * 0.17, "center", "#fff", "900", W * 0.86); x.restore();
-        put(now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊　·　恋爱特辑", W * 0.026, W / 2, H * 0.215, "center", "rgba(255,255,255,.92)", "600");
-        put("封面故事", W * 0.03, L, H * 0.6, "left", "#ffd36b", "800", W * 0.5);
-        x.fillStyle = "#ffd36b"; x.fillRect(L, H * 0.612, W * 0.12, Math.max(2, H * 0.004));
-        const tz = put(T || "我们的故事", W * 0.085, L, H * 0.69, "left", "#fff", "900", W * 0.84);
-        put(names + "　独家专访", W * 0.034, L, H * 0.69 + tz * 0.75, "left", "rgba(255,255,255,.95)", "600", W * 0.84);
-        put("「我们是怎么走到今天的」", W * 0.03, L, H * 0.69 + tz * 0.75 + W * 0.06, "left", "rgba(255,255,255,.85)", "500", W * 0.84);
-        // 条码＋定价
-        const bw = W * 0.2, bh = H * 0.055, bx = W - L - bw, by = H - L - bh;
-        x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05);
-        x.fillStyle = "#111"; let cx = bx; let seed = (T.length * 7 + 3) % 11;
+      const put = (str, size, px, py, align, color, weight, maxW, font, shadow) => {
+        let z = size; const f = () => (weight || "700") + " " + Math.round(z) + "px " + (font || F);
+        x.font = f(); while (z > size * 0.45 && x.measureText(str).width > (maxW || W * 0.84)) { z -= 1; x.font = f(); }
+        x.textAlign = align; x.textBaseline = "alphabetic"; x.shadowColor = "rgba(0,0,0,.5)"; x.shadowBlur = shadow === false ? 0 : z / 4;
+        x.fillStyle = color; x.fillText(str, px, py); x.shadowBlur = 0; return z; };
+      const vput = (str, size, px, py, color, weight) => { const ch = Array.from(str); let z = Math.min(size, (H * 0.6) / Math.max(1, ch.length));
+        x.font = (weight || "900") + " " + Math.round(z) + "px " + F; x.textAlign = "center"; x.textBaseline = "top"; x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = z / 5; x.fillStyle = color;
+        ch.forEach((k, n) => x.fillText(k, px, py + n * z * 1.02)); x.shadowBlur = 0; };
+      const shade = (y0, y1, a0, a1) => { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "rgba(0,0,0," + a0 + ")"); g.addColorStop(1, "rgba(0,0,0," + a1 + ")"); x.fillStyle = g; x.fillRect(0, Math.min(y0, y1), W, Math.abs(y1 - y0)); };
+      const barcode = (bx, by, bw, bh, price) => { x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05);
+        x.fillStyle = "#111"; let cx = bx, seed = (T.length * 7 + 3) % 11;
         while (cx < bx + bw) { seed = (seed * 37 + 11) % 97; const w = W * (0.002 + (seed % 3) * 0.0018); x.fillRect(cx, by, w, bh); cx += w + W * (0.002 + (seed % 2) * 0.002); }
-        x.font = "600 " + Math.round(W * 0.018) + "px " + F; x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillText("定价 ¥ 20.00", bx + bw / 2, by + bh + W * 0.03);
+        x.font = "600 " + Math.round(W * 0.018) + "px " + FS; x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillText(price, bx + bw / 2, by + bh + W * 0.03); };
+      const issue = now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊";
+      const pick = a => a[Math.floor(Math.random() * a.length)];
+      if (kind === "magazine") {
+        const special = cp.special || pick(["恋爱特辑", "两个人特辑", "秋冬特辑", "纪念特辑", "私人特辑"]);
+        const ls = lines.length ? lines : ["「我们是怎么走到今天的」", "两个人的日常", names + " 的私房话"];
+        const accent = pick(["#ffd36b", "#ff9db8", "#9fe3ff", "#ffffff"]);
+        const v = Math.floor(Math.random() * 4);
+        if (v === 0) {        // 经典：顶上大刊名，左下一栏
+          shade(0, H * 0.28, .35, 0); shade(H * 0.55, H, 0, .55);
+          put("我们", W * 0.24, W / 2, H * 0.17, "center", "#fff", "900", W * 0.86);
+          put(issue + "　·　" + special, W * 0.026, W / 2, H * 0.215, "center", "rgba(255,255,255,.92)", "600", W * 0.86, FS);
+          put("封面故事", W * 0.03, L, H * 0.6, "left", accent, "800", W * 0.5, FS); x.fillStyle = accent; x.fillRect(L, H * 0.612, W * 0.12, Math.max(2, H * 0.004));
+          const tz = put(T, W * 0.085, L, H * 0.69, "left", "#fff", "900");
+          put(names + "　独家专访", W * 0.034, L, H * 0.69 + tz * 0.75, "left", "rgba(255,255,255,.95)", "600", W * 0.84, FS);
+          ls.slice(0, 2).forEach((s2, n) => put(s2, W * 0.03, L, H * 0.69 + tz * 0.75 + W * 0.06 * (n + 1), "left", "rgba(255,255,255,.85)", "500", W * 0.84, FS));
+          barcode(W - L - W * 0.2, H - L - H * 0.055, W * 0.2, H * 0.055, "定价 ¥ 20.00");
+        } else if (v === 1) { // 竖排刊名贴左边，右侧一列小标题
+          shade(H * 0.6, H, 0, .5);
+          vput("我们", W * 0.2, L + W * 0.1, H * 0.05, "#fff");
+          put(issue, W * 0.024, W - L, H * 0.06, "right", "#fff", "600", W * 0.5, FS);
+          ls.slice(0, 3).forEach((s2, n) => { put(s2, W * 0.032, W - L, H * 0.16 + n * W * 0.07, "right", n === 0 ? accent : "#fff", n === 0 ? "800" : "600", W * 0.55, FS); });
+          const tz = put(T, W * 0.08, W - L, H * 0.86, "right", "#fff", "900", W * 0.7);
+          put(names + "　·　" + special, W * 0.03, W - L, H * 0.86 + tz * 0.7, "right", "rgba(255,255,255,.9)", "600", W * 0.7, FS);
+        } else if (v === 2) { // 白边框＋深色字刊名压在照片上
+          x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.018; x.strokeRect(W * 0.035, W * 0.035, W - W * 0.07, H - W * 0.07);
+          shade(H * 0.62, H, 0, .5);
+          put("我 们", W * 0.18, W / 2, H * 0.15, "center", "#fff", "900", W * 0.8);
+          put(special + "　|　" + issue, W * 0.024, W / 2, H * 0.195, "center", "#fff", "600", W * 0.8, FS);
+          const tz = put(T, W * 0.075, W / 2, H * 0.8, "center", "#fff", "900", W * 0.8);
+          put(ls[0] || "", W * 0.032, W / 2, H * 0.8 + tz * 0.8, "center", accent, "700", W * 0.8, FS);
+          put(names + "　独家专访", W * 0.026, W / 2, H * 0.8 + tz * 0.8 + W * 0.055, "center", "rgba(255,255,255,.9)", "500", W * 0.8, FS);
+        } else {              // 底部一大块纯色条，刊名在条上
+          const bh = H * 0.24; x.fillStyle = pick(["rgba(110,77,143,.92)", "rgba(20,20,20,.88)", "rgba(166,60,80,.9)", "rgba(240,236,228,.94)"]); x.fillRect(0, H - bh, W, bh);
+          const light = /240,236/.test(x.fillStyle) || x.fillStyle.indexOf("240") >= 0, ink = light ? "#1d1a18" : "#fff";
+          shade(0, H * 0.2, .3, 0);
+          put(issue + "　·　" + special, W * 0.024, L, H * 0.06, "left", "#fff", "600", W * 0.8, FS);
+          put("我们", W * 0.16, L, H - bh + W * 0.17, "left", ink, "900", W * 0.5, F, false);
+          const tz = put(T, W * 0.05, W - L, H - bh + W * 0.09, "right", ink, "800", W * 0.45, F, false);
+          ls.slice(0, 2).forEach((s2, n) => put(s2, W * 0.026, W - L, H - bh + W * 0.09 + tz * 0.6 + W * 0.045 * (n + 1), "right", ink, "500", W * 0.45, FS, false));
+          put(names, W * 0.024, L, H - W * 0.04, "left", ink, "500", W * 0.5, FS, false);
+        }
       } else {
-        const g = x.createLinearGradient(0, H * 0.62, 0, H); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.78)"); x.fillStyle = g; x.fillRect(0, H * 0.62, W, H * 0.38);
-        put(T || "我们", W * 0.1, W / 2, H * 0.82, "center", "#fff", "900", W * 0.86);
-        put("主演　" + names, W * 0.032, W / 2, H * 0.885, "center", "rgba(255,255,255,.88)", "500", W * 0.86);
-        put("即 将 上 映", W * 0.026, W / 2, H * 0.94, "center", "rgba(255,255,255,.72)", "500", W * 0.86);
+        const tag = cp.tagline || pick(["有些人，一遇见就是一辈子", "这一次，换我先走向你", "全世界只有我们知道", "故事，从那天开始"]);
+        const day = cp.date || (() => { const d = new Date(Date.now() + (7 + Math.floor(Math.random() * 60)) * 86400000); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; })();
+        const v = Math.floor(Math.random() * 3);
+        if (v === 0) {        // 底部片名
+          shade(H * 0.58, H, 0, .8);
+          put(tag, W * 0.034, W / 2, H * 0.1, "center", "rgba(255,255,255,.9)", "600", W * 0.86, FS);
+          put(T, W * 0.11, W / 2, H * 0.82, "center", "#fff", "900", W * 0.86);
+          put("主演　" + names, W * 0.032, W / 2, H * 0.885, "center", "rgba(255,255,255,.88)", "500", W * 0.86, FS);
+          put(day + "　浪漫上映", W * 0.028, W / 2, H * 0.94, "center", "rgba(255,255,255,.75)", "500", W * 0.86, FS);
+        } else if (v === 1) { // 竖排片名贴右边
+          shade(0, H, .1, .55);
+          vput(T, W * 0.14, W - L - W * 0.07, H * 0.08, "#fff");
+          put(tag, W * 0.03, L, H * 0.84, "left", "#fff", "600", W * 0.7, FS);
+          put(names + "　领衔主演", W * 0.028, L, H * 0.89, "left", "rgba(255,255,255,.85)", "500", W * 0.7, FS);
+          put(day + "　全国上映", W * 0.026, L, H * 0.935, "left", "rgba(255,255,255,.7)", "500", W * 0.7, FS);
+        } else {              // 上方片名＋下方演职员表那种小字
+          shade(0, H * 0.35, .65, 0); shade(H * 0.78, H, 0, .75);
+          put(names, W * 0.03, W / 2, H * 0.06, "center", "rgba(255,255,255,.9)", "600", W * 0.86, FS);
+          put(T, W * 0.1, W / 2, H * 0.16, "center", "#fff", "900", W * 0.86);
+          put(tag, W * 0.03, W / 2, H * 0.21, "center", "rgba(255,255,255,.85)", "500", W * 0.86, FS);
+          put("同名故事改编　·　" + day + " 上映", W * 0.024, W / 2, H * 0.94, "center", "rgba(255,255,255,.75)", "500", W * 0.86, FS);
+        }
       }
       return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
     } catch (e) { return blob; }
+  };
+  // 封面上的字让他写：从你们最近的事里挑（多花一次文字调用；没写成就用兜底的）
+  const coverCopy = async (char, kind, title) => {
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: kind === "magazine"
+          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑名（4~6 字，比如「吃醋特辑」）。"
+          : "你们俩要上一部电影的海报。照你们真实发生过的事，写海报上的字：" + (title ? "" : "title＝片名（2~8 字）；") + "tagline＝一句宣传语（16 字以内，要像电影海报，跟你们的事有关）；date＝上映日期（写成「X 月 X 日」，可以挑一个对你们有意义的日子）。",
+        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\"}" : "{\"title\":\"\",\"tagline\":\"\",\"date\":\"\"}",
+        maxTokens: 8000
+      });
+      return d || null;
+    } catch (e) { return null; }
   };
   const studioShoot = async (char, opt) => {
     const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
@@ -25097,7 +25164,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
         imgKey = "img_studio_" + char.id + "_" + Date.now();
-        const finalBlob = opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我")) : out.blob;
+        const finalBlob = opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我"), await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim())) : out.blob;
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
