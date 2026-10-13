@@ -64,3 +64,8 @@ assert.match(app, /opt\.restyle && opt\.restyle\.overlay && opt\.restyle\.overla
 assert.match(scr, /"data-wk": "studioretext"/);
 assert.match(scr, /src\.rawKey \? await photoDataUrl\(\{ imgKey: src\.rawKey \}\)/);
 console.log("ok retext");
+// 四格漫画换画风：拿没排台词的 2×2 去重画，台词照原样排回（她 2026-10-13）
+assert.match(app, /comic: true, comicPanels: opt\.comic, rawKey: imgKey \+ "_raw"/);
+assert.match(app, /reComic \? await comicCompose\(out\.blob, reComic\)/);
+assert.match(scr, /src\.comicPanels && reText \? \{ comic: src\.comicPanels \}/);
+console.log("ok comic retext");
