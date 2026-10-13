@@ -27745,9 +27745,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
         maxTokens: 8000
       });
-      const _seen = new Set(_have);
-      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) }))
-        .filter(x => x.name && x.look && !_seen.has(x.name) && (_seen.add(x.name), true)).slice(0, 9);
+      // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
+      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
       if (items.length < 9) throw new Error("他没挑够九个，再试一次");
       const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
         + "每格都是同一个人「" + char.name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天贴纸；长相、发型发色、标志性配饰照参考图。"
