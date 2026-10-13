@@ -31405,9 +31405,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onClose: () => setAnonChar(null)
   }), offlineChar && h(OfflineMode, {
     showReason: !!settingsFor(offlineChar.id).showReasoning,
-    char: offlineChar,
+    // 线下也跟聊天头像走（群友 2026-10-13「线上头像换了，线下还是没变」）：他用聊天里那张，我用「我在这儿的头像」
+    char: chatFace(offlineChar),
     room: activeOfflineRoom,
-    profile: profileFor(offlineChar.id),
+    profile: offlineChar.myChatAvatar ? { ...profileFor(offlineChar.id), avatarImage: offlineChar.myChatAvatar } : profileFor(offlineChar.id),
     sessions: offlines[activeOfflineScopeKey] || [],
     activeSession: (offlines[activeOfflineScopeKey] || []).find(s => !s.endTs) || null,
     onStopGen: stopBtnFor("c:" + activeOfflineScopeKey),
