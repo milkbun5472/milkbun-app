@@ -8704,7 +8704,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offListenOn = _offListenL.partnerId === charId && (!sideRoom || !window.ChatRooms || window.ChatRooms.canRead(sideRoom, "otherScenes"));
       const _offListenSongs = _offListenOn ? (_offListenL.songs || []).concat((_offListenL.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).map(x => x && x.title).filter(Boolean).filter((t, i, arr) => arr.indexOf(t) === i).slice(0, 30) : [];
       if (typeof vclockUse === "function") vclockUse(charId);
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe() ? ((povFor(char) || {}).tier || true) : false, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const _oocSoon = oocSoonLive(sideRoom ? scopeKey : charId);
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, customNotes: [...(workSess.customNotes || []), ..._oocSoon], signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe() ? ((povFor(char) || {}).tier || true) : false, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
@@ -8816,6 +8817,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
       // 短期导演便签扣一轮（跟群线下同一支；失败/超时不扣，所以放在这儿不是 finally 里）
+      // OOC 那张共用便签：线下这一轮也算用过一轮
+      if (_oocSoon.length) { const _sk = sideRoom ? scopeKey : charId; const _od = directorNotesConsume(((chatDirNotesRef.current || {})[_sk] || []).filter(n => n && n.from === "ooc"), 0);
+        if (_od) { const keep = ((chatDirNotesRef.current || {})[_sk] || []).filter(n => !(n && n.from === "ooc")); saveChatDirNotes({ ...(chatDirNotesRef.current || {}), [_sk]: [...keep, ..._od.next.filter(n => n && Number(n.remaining) > 0)] }); } }
       const _dn = directorNotesConsume(workSess.customNotes, workSess.startTs);
       if (_dn) {
         pOffline(scopeKey, list => list.map(x => x.id === workSess.id ? { ...x, customNotes: _dn.next } : x));
@@ -8908,7 +8912,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const oocRoom = offlineRoomFor(scopeKey);
       const res = await oocAsk(offlineApiFor(charId), roomContextFor(char, scopeKey, oocRoom, {}), q);
       if (!sideRoom && !res.refused && (res.directive || (res.replaced || []).length)) addDirective(charId, res.directive, res.replaced);
-      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + oocReplacedNote(res) + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
+      const _soonNote = !res.refused ? oocSoonNote(sideRoom ? scopeKey : charId, res.soon) : "";
+      pushOffMsg(scopeKey, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + oocReplacedNote(res) + _soonNote + (!sideRoom && res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : sideRoom && res.directive && !res.refused ? "\n\n〔只在本房采用，不写进主房长期准则〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
@@ -8980,9 +8985,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const DIRECTOR_NOTE_TURNS = 2;   // 她 2026-09-21 定：两处都是 2 轮
   // 长期便签（她 2026-09-23 转群里读者：「导演卡过了两轮之后就立刻失效了……要求他语气软萌一些，
   //   软萌了两轮，导演卡失效的那一刻他就变得很霸总」）：long:true 不扣轮，整场有效，删了才停。
-  const directorNoteNew = (text, long) => {
+  // turns/from：OOC 里商量出来的「只管接下来几轮」那种（她 2026-10-13），轮数由模型照她的话定，from:"ooc" 线上线下共用
+  const directorNoteNew = (text, long, turns, from) => {
     const t = String(text || "").trim();
-    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: DIRECTOR_NOTE_TURNS, ...(long ? { long: true } : {}), createdAt: Date.now() } : null;
+    return t ? { id: "dnote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: t, remaining: turns || DIRECTOR_NOTE_TURNS, ...(long ? { long: true } : {}), ...(from ? { from } : {}), createdAt: Date.now() } : null;
   };
   const directorNoteAddedToast = long => toast(long ? "已加入长期提示 · 整场有效，删掉才停" : "已加入提示 · 接下来 " + DIRECTOR_NOTE_TURNS + " 轮生效");
   // 成功生成之后扣一轮；失败/超时不扣（所以只在生成成功那一处调用）。
@@ -9000,13 +9006,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const left = Math.max(0, ...next.filter(n => usedIds.has(n.id)).map(n => Number(n.remaining) || 0));
     return { next: next, left: left };
   };
-  const chatDirNoteAdd = (chatKey, text, long) => {
-    const item = directorNoteNew(text, long);
+  const chatDirNoteAdd = (chatKey, text, long, turns, from) => {
+    const item = directorNoteNew(text, long, turns, from);
     if (!item || !chatKey) return;
     const cur = chatDirNotesRef.current || {};
     saveChatDirNotes({ ...cur, [chatKey]: [...(cur[chatKey] || []), item] });
-    directorNoteAddedToast(long);
+    if (!from) directorNoteAddedToast(long);
   };
+  // OOC 里那句「只管接下来几轮」：记进这个人主聊天的便签，线下也读同一份（她 2026-10-13：要共用）
+  const oocSoonNote = (chatKey, soon) => soon && soon.text ? (chatDirNoteAdd(chatKey, soon.text, false, soon.turns, "ooc"), "\n\n〔已记为接下来 " + soon.turns + " 轮的安排：" + soon.text + "〕") : "";
+  const oocSoonLive = charId => chatDirNotesLive(charId).filter(n => n.from === "ooc");
   const chatDirNoteDel = (chatKey, noteId) => {
     const cur = chatDirNotesRef.current || {};
     saveChatDirNotes({ ...cur, [chatKey]: (cur[chatKey] || []).filter(n => n && n.id !== noteId) });
@@ -13763,10 +13772,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const res = await oocAsk(apiFor(charId), oocCtx, text.trim());
       // 合理的调整要求 → 存成长期准则（refused 时不存）
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(chatKey, res.directive, res.replaced);
+      const _soonNote = !res.refused ? oocSoonNote(chatKey, res.soon) : "";
       pChat(chatKey, p => [...p, {
         role: "assistant",
         kind: "system",
-        content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
+        content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + _soonNote + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
         ts: Date.now(),
         turnId: "ooc_" + Date.now()
       }]);

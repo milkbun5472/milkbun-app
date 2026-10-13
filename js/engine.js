@@ -9318,12 +9318,15 @@ function oocResult(parsed, existing) {
   const refused = !!parsed.refused;
   const nums = Array.isArray(parsed.replaces) ? parsed.replaces : (parsed.replaces != null ? [parsed.replaces] : []);
   const replaced = refused ? [] : [...new Set(nums.map(n => existing[Number(n) - 1]).filter(Boolean))];
-  return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced };
+  // 只管接下来几轮的安排（她 2026-10-13）：轮数封顶 10，更长的该是长期准则
+  const sn = !refused && parsed.soon && typeof parsed.soon === "object" && String(parsed.soon.text || "").trim()
+    ? { text: String(parsed.soon.text).trim().slice(0, 200), turns: Math.max(1, Math.min(10, Math.round(Number(parsed.soon.turns) || 1))) } : null;
+  return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced, soon: sn };
 }
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
-  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"refused\":false}";
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n(C) 不是长期规矩，而是【只管接下来几轮】的安排（让角色下一轮去做某件事、这几轮先别提某件事、接下来怎么接某段剧情）——这种别填 directive，改填 soon：text 写成一句对角色说的祈使句，turns 是管几轮（用户说「下一轮」就是 1；没说清就按这件事大概要几轮做完来估；用户说了数字就照它；最多 10，更长的就是长期规矩、走 B）。同样要先判断会不会崩人设，崩的话照 B 的办法拒绝。reply 里答应了就必须填上，别让角色下一轮又不知道。\n若只是 A 类提问，directive 和 soon 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"soon\":{\"text\":\"只管接下来几轮的那句安排\",\"turns\":1}或 null,\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
   const parsed = extractJSON(raw);
