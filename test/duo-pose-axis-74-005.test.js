@@ -14,7 +14,7 @@ test("合照另掷一条两人姿势，不跟单人机位共用", () => {
 });
 
 test("只在两人合照上掷；多人合影和小剧场不掷", () => {
-  assert.match(eng, /if \(kind === "duo" && !multi && !opts\.cinematic\) parts\.push\(photoDuoPoseLine\(/);
+  assert.match(eng, /if \(kind === "duo" && !multi && !opts\.cinematic( && !opts\.editorial)?\) parts\.push\(photoDuoPoseLine\(/);
 });
 
 test("连着两张不许掷到同一格", () => {

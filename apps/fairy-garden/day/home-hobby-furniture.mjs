@@ -1,16 +1,18 @@
-import './home-hobbies.js?v=fg-83dee6b88f495989';
-import {rounded,arch} from './home-shapes.mjs?v=fg-83dee6b88f495989';
+import './home-hobbies.js?v=fg-6155029e59419336';
+import {rounded,arch} from './home-shapes.mjs?v=fg-6155029e59419336';
+import {WORK_CHAIR} from './work-contacts.mjs?v=fg-6155029e59419336';
 const F=.08;
 export function createHomeHobbyFurniture(k,a,p,g){
  if(!globalThis.CharDayHomeHobbies.activities[a.hobby])return false;
  const box=(n,q,parent=g)=>k.box(n,{color:p.wood,...q},parent),flat=(n,w,d,y,color)=>k.profile(n,{shape:rounded(w,d,.06),horizontal:true,y,depth:.035,color},g);
  if(a.hobby==='piano'){
+  const hobby=globalThis.CharDayHomeHobbies.activities.piano,keys=hobby.contact.y,stool=hobby.seat.z+WORK_CHAIR.forward;
   box('PianoCase',{z:-.44,y:F+.61,w:a.w,h:1.12,d:.68});
   k.profile('PianoArchedBack',{shape:arch(a.w-.1,1.31),y:F+.16,z:-.73,depth:.08,color:p.wood},g);
   box('PianoFrontPanel',{z:-.08,y:F+.80,w:a.w-.17,h:.50,d:.035,color:p.fabric});
-  flat('PianoKeyboardTray',1.91,.54,F+.87,p.dark);g.getObjectByName('PianoKeyboardTray').position.z=.12;
+  flat('PianoKeyboardTray',1.91,.54,F+keys-.0345,p.dark);g.getObjectByName('PianoKeyboardTray').position.z=.12;
   for(let i=0;i<21;i++){
-   const key=k.replaceableGroup('PianoKey-'+i,{x:-.84+i*.084,y:F+.921,z:.06},g);key.userData.key=i;key.userData.homePiano=a.id;
+   const key=k.replaceableGroup('PianoKey-'+i,{x:-.84+i*.084,y:F+keys-.009,z:.06},g);key.userData.key=i;key.userData.homePiano=a.id;
    box('PianoWhiteKey',{y:0,z:.14,w:.079,h:.018,d:.31,color:p.paper,radius:.002},key);
    if(i<20&&![2,6].includes(i%7))box('PianoBlackKey',{x:.041,y:.022,z:.015,w:.045,h:.035,d:.18,color:p.dark,radius:.003},key);
   }
@@ -18,8 +20,8 @@ export function createHomeHobbyFurniture(k,a,p,g){
   box('PianoScorePaper',{y:F+1.23,z:-.21,w:.54,h:.29,d:.012,color:p.paper});
   for(let i=0;i<5;i++)box('PianoScoreLine',{y:F+1.17+i*.023,z:-.199,w:.43,h:.004,d:.002,color:p.dark,radius:0});
   for(const x of [-.18,0,.18])box('PianoPedal',{x,y:F+.14,z:-.015,w:.055,h:.04,d:.20,color:p.accent});
-  for(const x of [-.21,.21])for(const z of [.40,.76])k.cylinder('PianoStoolFoot',{x,z,y:F+.21,r:.028,h:.42,color:p.dark},g);
-  flat('PianoStoolSeat',.55,.48,F+.45,p.fabric);g.getObjectByName('PianoStoolSeat').position.z=.58;
+  for(const x of [-.21,.21])for(const side of [-1,1])k.cylinder('PianoStoolFoot',{x,z:stool+side*(WORK_CHAIR.depth/2-.04),y:F+(hobby.seat.rise-.035)/2,r:.028,h:hobby.seat.rise-.035,color:p.dark},g);
+  flat('PianoStoolSeat',.55,WORK_CHAIR.depth,F+hobby.seat.rise-.0175,p.fabric);g.getObjectByName('PianoStoolSeat').position.z=stool;
  }else if(a.hobby==='paint'){
   for(const side of [-1,1]){const leg=box('EaselFrontLeg',{x:side*.43,z:.18,y:F+.8,w:.075,h:1.6,d:.075,color:p.dark});leg.rotation.z=side*.09;}
   const back=box('EaselRearLeg',{z:-.25,y:F+.77,w:.07,h:1.54,d:.07,color:p.dark});back.rotation.x=.14;

@@ -4,6 +4,18 @@ import {registerHooks} from 'node:module';
 registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../vendor/three.module.js',import.meta.url).href,shortCircuit:true}:next(s,c);}});
 const T=await import('three'),{DAY_PLACES}=await import('./places/index.mjs'),{DAY_FACTORIES}=await import('./places/factories.mjs'),{activityPhase,taskAt}=await import('./workflow.mjs'),{updateWorkScene}=await import('./work-scene.mjs');
 const release=root=>root.traverse(o=>{o.geometry?.dispose();[].concat(o.material||[]).forEach(m=>m.dispose());});
+test('小家琴凳的真实坐面与坐高一致，琴键同时跟随四个装修朝向',async()=>{
+ const {homePlacements,HOME_HOBBIES,furniturePoint}=await import('./home-catalog.mjs'),{buildSpace}=await import('./spaces.mjs'),{createSpaceView}=await import('./space-view.mjs'),{dailyTaskAt}=await import('./daily-workflow.mjs'),{WORK_CHAIR}=await import('./work-contacts.mjs');
+ for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+  const raw=homePlacements();for(const p of Object.values(raw))if(p?.catalogId)p.stored=true;raw['furniture-1']={catalogId:'home-piano',x:2,z:1.5,heading};
+  const map=buildSpace('dayHome',raw),spot=map.spots.find(s=>s.id==='piano'),piece=map.furniture.find(p=>p.id===spot.piece),view=createSpaceView('dayHome','warm',map,{furnitureOnly:true});view.root.updateMatrixWorld(true);
+  const centre=furniturePoint(piece,{x:0,z:HOME_HOBBIES.piano.seat.z+WORK_CHAIR.forward}),ray=new T.Raycaster(new T.Vector3(centre.x,2,centre.z),new T.Vector3(0,-1,0));
+  assert.ok(ray.intersectObject(view.root,true).some(h=>Math.abs(h.point.y-map.floor-spot.seat.rise)<.001),'stool top follows the actor support height');
+  const task=dailyTaskAt({map:'dayHome',spot:'piano',action:'piano'},spot,map,3,{position:spot.target});assert.ok(task.workSurface);
+  ray.set(new T.Vector3(task.contact.x,task.contact.y+.025,task.contact.z),new T.Vector3(0,-1,0));ray.far=.05;
+  assert.ok(ray.intersectObject(view.root,true).some(h=>Math.abs(h.point.y-task.contact.y)<.001),'home hand contact is on the white key');release(view.root);
+ }
+});
 test('打字与弹琴触点落在真实琴键和键盘上，两只手对准不同按键',()=>{
  let checked=0;
  for(const [id,map]of Object.entries(DAY_PLACES)){

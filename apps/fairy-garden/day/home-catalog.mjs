@@ -1,8 +1,8 @@
-import './kitchen.js?v=fg-83dee6b88f495989';
-import './home-hobbies.js?v=fg-83dee6b88f495989';
-import {normalizePartColors} from './home-parts.mjs?v=fg-83dee6b88f495989';
-import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-83dee6b88f495989';
-import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-83dee6b88f495989';
+import './kitchen.js?v=fg-6155029e59419336';
+import './home-hobbies.js?v=fg-6155029e59419336';
+import {normalizePartColors} from './home-parts.mjs?v=fg-6155029e59419336';
+import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-6155029e59419336';
+import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-6155029e59419336';
 // One catalogue supplies the editor, saved instances, geometry and activity anchors.
 const item=(id,label,category,kind,w,d,extra={})=>({id,label,category,kind,w,d,...extra});
 export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',bathroom:'浴室',hobby:'兴趣角',rug:'地毯',screen:'屏风',decor:'装饰摆件',wallDecor:'墙上装饰'};
@@ -123,7 +123,7 @@ export function furnitureSeatSurface(p){
  return {z:0,d:p.kind==='chair'?Math.min(CHAIR_CONTACT.depth,p.d-(p.collection?.035:.018)):p.d};
 }
 export function furnitureSeat(p,approach,offset){
- const surface=furnitureSeatSurface(p),deep=p.kind==='chair',z=deep?surface.z+CHAIR_CONTACT.forward:surface.z+surface.d/2-.012;
+ const surface=furnitureSeatSurface(p),deep=p.kind==='chair',z=deep?surface.z+(surface.forward??CHAIR_CONTACT.forward):surface.z+surface.d/2-.012;
  return {...furniturePoint(p,{x:offset?.x||0,z}),rise:.45,heading:p.heading||0,approach,piece:p.id,pose:deep?'deep':'chair'};
 }
 export function homeAnchors(furniture,room){
