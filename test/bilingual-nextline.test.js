@@ -14,6 +14,9 @@ test("不乱接：两句中文、已带竖线的、外语后面跟外语的都�
   assert.deepEqual(join2(["Hi | 嗨", "你好"], false), ["Hi | 嗨", "你好"]);
   assert.deepEqual(join2(["Hi", "How are you"], false), ["Hi", "How are you"]);
   assert.deepEqual(join2(["OK", "那我先走了 bye"], false), ["OK", "那我先走了 bye"]);
+  // 外语后面跟一条发表情的标记：那是表情，不是中译（2026-10-13 截图）
+  assert.deepEqual(join2(["一緒に食べよ……？", "[表情] 可怜"], false), ["一緒に食べよ……？", "[表情] 可怜"]);
+  assert.deepEqual(join2(["見て", "【图片】一张夕阳"], false), ["見て", "【图片】一张夕阳"]);
 });
 
 const app = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
