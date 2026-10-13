@@ -189,7 +189,32 @@
   const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
 
   // 一组字底下要不要垫、垫多少、用深字还是浅字：照那块真实的明暗来
-  function inkFor(st) { return st.mean > 0.62 ? { ink: "#17130f", glow: "rgba(255,255,255,.55)", dark: false } : { ink: "#fbf7f0", glow: "rgba(0,0,0,.55)", dark: true }; }
+  // 字的颜色跟着这张图走（她 2026-10-13：「字体颜色能跟着海报变吗」）：
+  //   从图里挑出最有颜色的那个色相当主色；浅字、深字都带一点这个色相（不是死白死黑），
+  //   再拿它调出一个强调色给一组字用。深浅照字底下那块的明暗定，保证看得清。
+  let PAL = null;
+  const hsl = (h, s, l) => "hsl(" + Math.round(h) + "," + Math.round(s * 100) + "%," + Math.round(l * 100) + "%)";
+  function paletteOf(x, W, H) {
+    const c = document.createElement("canvas"); c.width = 32; c.height = 48; const g = c.getContext("2d"); g.drawImage(x.canvas, 0, 0, 32, 48);
+    const d = g.getImageData(0, 0, 32, 48).data; const bins = new Float32Array(24); let sw = 0, ss = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2, dl = mx - mn;
+      if (dl < 0.04 || l < 0.08 || l > 0.95) continue;
+      const sat = dl / (1 - Math.abs(2 * l - 1));
+      let h = mx === r ? ((gg - b) / dl) % 6 : mx === gg ? (b - r) / dl + 2 : (r - gg) / dl + 4; h = (h * 60 + 360) % 360;
+      const w = sat * sat; bins[Math.floor(h / 15) % 24] += w; sw += w; ss += sat;
+    }
+    let bi = 0; for (let i = 1; i < 24; i++) if (bins[i] + bins[(i + 1) % 24] > bins[bi] + bins[(bi + 1) % 24]) bi = i;
+    const n = (d.length / 4) || 1, grey = sw < n * 0.01;
+    return { h: grey ? 38 : bi * 15 + 15, s: grey ? 0.55 : clamp(ss / n * 1.6, 0.4, 0.85), grey };
+  }
+  function inkFor(st, role) {
+    const P0 = PAL || { h: 38, s: 0.55 }; const dark = st.mean <= 0.62;
+    if (role === "accent") return { ink: hsl(P0.h, P0.s, dark ? 0.74 : 0.3), dark };
+    return dark ? { ink: hsl(P0.h, Math.min(P0.s, 0.4) * 0.45, 0.95), dark: true } : { ink: hsl(P0.h, Math.min(P0.s, 0.5) * 0.6, 0.11), dark: false };
+  }
+  // 强调色给哪一组：俏皮、复古的片名本身就上色；别的性格只给宣传语上色，片名保持素
+  const accentOn = persona => persona === "playful" || persona === "retro" ? "title" : "tagline";
   function scrim(x, W, H, side, strength, dark) {
     if (strength <= 0) return;
     const col = a => (dark ? "rgba(0,0,0," : "rgba(255,255,255,") + (a * strength).toFixed(3) + ")";
@@ -293,17 +318,17 @@
     const C = MOVIE[compKey]; const boxes = [];
     const lines = titleLines(cp, T);
     const tb = px(C.title, W, H); tb.a = C.title.a; if (C.title2) { tb.second = px(C.title2, W, H); tb.second.a = C.title2.a; }
-    const tst = look(tb); const tk = inkFor(tst);
+    const tst = look(tb); const tk = inkFor(tst, P.accentOn === "title" ? "accent" : "");
     // 片名不强制最大：文艺那一路（细字）照框排、字号本来就克制
     drawTitle(x, struct, lines, tb, P, tk.ink, dry, P.title[1] <= 300 ? 0.82 : 1).forEach(b => boxes.push({ ...b, g: "t", title: true, dark: tk.dark }));
     const tx = movieTexts(cp, names);
-    const put = (key, s, k) => { const r = C[key]; if (!r || !s) return; const b = px(r, W, H); b.a = r.a; const ik = inkFor(look(b)); const o = smallLine(x, s, b, P, ik.ink, dry, k); if (o) boxes.push({ ...o, g: key, dark: ik.dark }); };
+    const put = (key, s, k) => { const r = C[key]; if (!r || !s) return; const b = px(r, W, H); b.a = r.a; const ik = inkFor(look(b), P.accentOn === key ? "accent" : ""); const o = smallLine(x, s, b, P, ik.ink, dry, k); if (o) boxes.push({ ...o, g: key, dark: ik.dark }); };
     if (density !== "min" || !C.tagline) put("tagline", tx.tagline, 0.85); else put("tagline", tx.tagline, 0.7);
     put("credits", tx.credits, 0.8);
     put("date", tx.date, 0.75);
     if (tx.en && density !== "min" && C.en !== "none") {
       const last = boxes.filter(b => b.title).sort((a, b) => b.y + b.h - (a.y + a.h))[0];
-      if (C.en === "under" && last) { const b = { x: tb.x, y: last.y + last.h + H * 0.012, w: tb.w, h: H * 0.022, a: tb.a }; const o = smallLine(x, tx.en, b, { ...P, trS: 0.3 }, tk.ink, dry, 0.9); if (o) boxes.push({ ...o, g: "en", dark: tk.dark }); }
+      if (C.en === "under" && last) { const b = { x: tb.x, y: last.y + last.h + H * 0.012, w: tb.w, h: H * 0.022, a: tb.a }; const o = smallLine(x, tx.en, b, { ...P, trS: 0.3 }, inkFor(tst).ink, dry, 0.9); if (o) boxes.push({ ...o, g: "en", dark: tk.dark }); }
       else if (C.en === "beside" && !dry) {
         // 竖排片名旁边那一列英文：转九十度沿边走
         x.save(); x.translate(tb.x - W * 0.012, tb.y); x.rotate(Math.PI / 2);
@@ -351,7 +376,7 @@
   // ---------- ③ 图回来以后：排几个候选、挑一张 ----------
   async function compose(blob, p, copy, names) {
     const cp = copy || {}; const kind = p && p.kind === "magazine" ? "magazine" : "movie";
-    const P = PERSONA[p && p.persona] || PERSONA.elegant;
+    const P = { ...(PERSONA[p && p.persona] || PERSONA.elegant) };
     const T = A(cp.title).slice(0, 16).join("") || (kind === "magazine" ? "我们的故事" : "我们");
     const nm = (Array.isArray(names) ? names : String(names || "").split(/\s+/)).filter(Boolean);
     const u = URL.createObjectURL(blob);
@@ -363,7 +388,8 @@
     const look = sampler(x, W, H);
     const allText = T + (cp.tagline || "") + (cp.credit || "") + nm.join("") + (cp.date || "") + (cp.genre || "") + (cp.lines || []).join("") + (cp.special || "") + (cp.mast || "") + "上映年月刊独家专访我们的故事|×　0123456789";
     await ensureFonts([P.title, P.small, [P.title[0], 700]], allText);
-    const accent = ["#ffd36b", "#ff9db8", "#9fe3ff", "#ff5a4e"][Math.floor(Math.random() * 4)];
+    PAL = paletteOf(x, W, H); P.accentOn = accentOn(p && p.persona);
+    const accent = inkFor(look({ x: 0, y: H * 0.3, w: W, h: H * 0.4 }), "accent").ink;
     // 候选：先在【定好的构图】里换片名结构/变体；只有全都看不清，才去别的构图找
     const cands = [];
     if (kind === "magazine") {

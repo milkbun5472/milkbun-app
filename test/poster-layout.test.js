@@ -57,3 +57,10 @@ test("字体只用已有的几款、按字取子集；脚本挂进了首页", ()
   assert.match(idx, /<script src="js\/poster-layout\.js\?v=/);
   assert.ok(idx.indexOf("poster-layout.js") < idx.indexOf("js/app.js?v="));
 });
+
+test("字的颜色跟着图走：主色从图里取，深浅照字底下那块定", () => {
+  assert.match(src, /function paletteOf\(x, W, H\)/);
+  assert.match(src, /PAL = paletteOf\(x, W, H\)/);
+  assert.match(src, /role === "accent"/);
+  assert.doesNotMatch(src, /\["#ffd36b", "#ff9db8", "#9fe3ff", "#ff5a4e"\]/, "强调色不再随机掷");
+});
