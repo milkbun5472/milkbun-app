@@ -2536,6 +2536,14 @@ function WechatNavIcon({ kind, active }) {
   return h("svg", { width: 24, height: 24, viewBox: "0 0 24 24" }, ...paths);
 }
 
+// 查手机微信里的照片：跟主聊天同一份图（她发的走 imageRef，TA拍的在 IndexedDB 里按 imgKey 取）。
+//   图还没取出来/取不到，就退回那张写着描述的小卡。
+function PeekPhotoMsg({ m }) {
+  const idb = typeof useIdbImgUrl === "function" ? useIdbImgUrl(m.imageRef ? null : m.imgKey) : null;
+  const src = m.imageRef ? (typeof resolveImg === "function" ? resolveImg(m.imageRef) : m.imageRef) : idb;
+  if (!src) return h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, background: "#fff", padding: "10px 12px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: "#171717" } }, m.body || m.label);
+  return h("img", { "data-wk": "pphoto", src: src, alt: m.body || "照片", style: { display: "block", maxWidth: 160, maxHeight: 220, borderRadius: 6, objectFit: "cover", background: "#ddd" } });
+}
 function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onTfReplyAs, onShopAs, transferPeers, sendAsWaiting, onRemark }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
@@ -2694,6 +2702,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           h("div", { className: "flex items-center", style: { gap: 6, flexDirection: self ? "row-reverse" : "row", fontSize: 14, color: "#171717" } },
             h(Svg, { size: 18, color: "#171717", sw: 1.8 }, h("path", { d: self ? "M15 8a5 5 0 010 8M18 5a9 9 0 010 14" : "M9 8a5 5 0 000 8M6 5a9 9 0 000 14" })), (m.dur || 1) + "″"),
           m.body ? h("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,.08)", fontSize: 12.5, lineHeight: 1.5, color: "#555" } }, PTX(m.body)) : null)
+      : m.kind === "card" && (m.imageRef || m.imgKey) ? h(PeekPhotoMsg, { m: m })
       : m.kind === "card" ? h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", fontFamily: F_BODY } },
           h("div", { style: { padding: "10px 12px", fontSize: 13.5, lineHeight: 1.5, color: "#171717", minHeight: 22 } }, m.body ? PTX(m.body) : m.label),
           h("div", { style: { padding: "4px 12px 6px", fontSize: 10.5, color: "#9a9a9a", borderTop: "1px solid #eee" } }, m.label))

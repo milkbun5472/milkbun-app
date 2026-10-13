@@ -17761,9 +17761,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const ZH = { photo: "照片", selfie: "照片", gift: "礼物", redpacket: "红包", takeout: "外卖", location: "位置", dateinvite: "约会邀请", callinvite: "通话邀请" };
       const label = hd ? hd[1] : ZH[m.kind];
       if (!label) return null;
-      return { kind: "card", label: label, body: (hd ? c.slice(hd[0].length) : c) || m.desc || "" };
+      const img = (m.kind === "photo" || m.kind === "selfie") && (m.imageRef || m.imgKey) ? { imageRef: m.imageRef || null, imgKey: m.imgKey || null } : {};
+      return { kind: "card", label: label, body: (hd ? c.slice(hd[0].length) : c) || m.desc || "", ...img };
     }
-    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
+    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && (m.content || ((m.kind === "selfie" || m.kind === "photo") && (m.imgKey || m.imageRef || m.desc))) && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
     // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
     const sessions = [];
@@ -17788,7 +17789,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
     const direct = clean(chatsRef.current[char.id]);
     if (direct.length) {
-      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content), ts: m.ts || 0, ...(richOf(m) || {}) }));
+      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) }));
       const last = messages[messages.length - 1];
       sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
     }
@@ -17812,7 +17813,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           from = m.senderName || (sender && sender.name) || char.name;
         }
         const sender = m.role === "user" ? null : characters.find(c => c.id === m.senderId);
-        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content), ts: m.ts || 0, ...(richOf(m) || {}) };
+        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) };
       });
       const last = messages[messages.length - 1];
       // 这个群里【除他以外】的真人。两个地方要用：群头像的兜底，和下面 phoneTakenNames 的避重名单。
