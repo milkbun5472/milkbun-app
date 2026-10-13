@@ -59,9 +59,8 @@ assert.match(scr, /h\(AlbumPhoto, \{ photo: big, full: true \}\)/);
 assert.match(scr, /h\(AlbumPhoto, \{ photo: y, full: true \}\)/);
 console.log("ok full");
 // 封面／海报换画风：拿不带字的那张重画，照原样印回字（她 2026-10-13）
-assert.match(app, /const studioOverlay = async \(blob, kind, title, names, copy, seed\) =>/);
 assert.match(app, /await idbImgPut\(imgKey \+ "_raw", out\.blob\)/);
-assert.match(app, /opt\.restyle && opt\.restyle\.overlay/);
+assert.match(app, /opt\.restyle && opt\.restyle\.overlay && opt\.restyle\.overlay\.plan/);
 assert.match(scr, /"data-wk": "studioretext"/);
 assert.match(scr, /src\.rawKey \? await photoDataUrl\(\{ imgKey: src\.rawKey \}\)/);
 console.log("ok retext");

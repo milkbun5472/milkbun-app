@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.572";
+const APP_VERSION = "v75.573";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25207,116 +25207,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = (studioRef.current || []).map(x => x.id === id ? { ...x, developAt: 0 } : x);
     studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
   };
-<<<<<<< HEAD
-  const studioOverlay = async (blob, kind, title, names, copy, seed) => {
-    // 版式、颜色都由 seed 定：同一张换画风后再印一次，排出来跟原来那张一模一样
-    let _sd = (Number(seed) || 1) >>> 0;
-    const rnd = () => { _sd = (_sd + 0x6D2B79F5) >>> 0; let t = _sd; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-    try {
-      const u = URL.createObjectURL(blob);
-      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
-      URL.revokeObjectURL(u);
-      const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
-      const x = c.getContext("2d"), W = c.width, H = c.height, F = "'Noto Serif SC','Songti SC',serif", FS = "'Noto Sans SC','PingFang SC',sans-serif";
-      x.drawImage(im, 0, 0);
-      const cp = copy || {};
-      const T = Array.from(String(title || cp.title || "")).slice(0, 16).join("") || (kind === "magazine" ? "我们的故事" : "我们");
-      const lines = (Array.isArray(cp.lines) ? cp.lines : []).map(v => Array.from(String(v || "").trim()).slice(0, 18).join("")).filter(Boolean);
-      const L = W * 0.07, now = new Date();
-      // 量着写：太长就缩字号，绝不出画（她 2026-10-13：名字被截掉了半个）
-      const put = (str, size, px, py, align, color, weight, maxW, font, shadow) => {
-        let z = size; const f = () => (weight || "700") + " " + Math.round(z) + "px " + (font || F);
-        x.font = f(); while (z > size * 0.45 && x.measureText(str).width > (maxW || W * 0.84)) { z -= 1; x.font = f(); }
-        x.textAlign = align; x.textBaseline = "alphabetic"; x.shadowColor = "rgba(0,0,0,.5)"; x.shadowBlur = shadow === false ? 0 : z / 4;
-        x.fillStyle = color; x.fillText(str, px, py); x.shadowBlur = 0; return z; };
-      const vput = (str, size, px, py, color, weight) => { const ch = Array.from(str); let z = Math.min(size, (H * 0.6) / Math.max(1, ch.length));
-        x.font = (weight || "900") + " " + Math.round(z) + "px " + F; x.textAlign = "center"; x.textBaseline = "top"; x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = z / 5; x.fillStyle = color;
-        ch.forEach((k, n) => x.fillText(k, px, py + n * z * 1.02)); x.shadowBlur = 0; };
-      const shade = (y0, y1, a0, a1) => { const g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "rgba(0,0,0," + a0 + ")"); g.addColorStop(1, "rgba(0,0,0," + a1 + ")"); x.fillStyle = g; x.fillRect(0, Math.min(y0, y1), W, Math.abs(y1 - y0)); };
-      const barcode = (bx, by, bw, bh, price) => { x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05);
-        x.fillStyle = "#111"; let cx = bx, seed = (T.length * 7 + 3) % 11;
-        while (cx < bx + bw) { seed = (seed * 37 + 11) % 97; const w = W * (0.002 + (seed % 3) * 0.0018); x.fillRect(cx, by, w, bh); cx += w + W * (0.002 + (seed % 2) * 0.002); }
-        x.font = "600 " + Math.round(W * 0.018) + "px " + FS; x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillText(price, bx + bw / 2, by + bh + W * 0.03); };
-      const issue = now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊";
-      const pick = a => a[Math.floor(rnd() * a.length)];
-      if (kind === "magazine") {
-        const special = cp.special || pick(["恋爱特辑", "两个人特辑", "秋冬特辑", "纪念特辑", "私人特辑"]);
-        const ls = lines.length ? lines : ["「我们是怎么走到今天的」", "两个人的日常", names + " 的私房话"];
-        const accent = pick(["#ffd36b", "#ff9db8", "#9fe3ff", "#ff5a4e"]);
-        const mast = Array.from(String(cp.mast || "") || "").slice(0, 4).join("") || pick(["我们周刊", "两人志", "心动画报", "我们"]);
-        // 刊名：横贯整个顶部，字号按宽度撑满（真杂志的刊名都是顶天立地那一条）
-        const masthead = (color, y) => { let z = W * 0.4; x.font = "900 " + Math.round(z) + "px " + F; while (x.measureText(mast).width > W * 0.88 && z > 10) { z -= 2; x.font = "900 " + Math.round(z) + "px " + F; }
-          x.textAlign = "center"; x.textBaseline = "alphabetic"; x.shadowColor = "rgba(0,0,0,.25)"; x.shadowBlur = z / 12; x.fillStyle = color; x.fillText(mast, W / 2, y + z * 0.88); x.shadowBlur = 0; return z; };
-        // 一栏封面小标题：一句大一句小、一句带色，像报摊上那种
-        const column = (arr, px, y0, align, maxW) => { let y = y0; arr.forEach((s2, n) => { const big = n === 0; const z = put(s2, W * (big ? 0.05 : 0.032), px, y, align, big ? accent : "#fff", big ? "900" : "700", maxW, big ? F : FS); y += z * 1.45; }); return y; };
-        const v = Math.floor(rnd() * 4);
-        if (v === 0) {        // 经典：顶上刊名，左边一栏，左下大标题，右下条码
-          shade(0, H * 0.3, .4, 0); shade(H * 0.6, H, 0, .6);
-          const mz = masthead("#fff", H * 0.025);
-          put(issue + "　|　" + special, W * 0.024, W / 2, H * 0.025 + mz * 1.08, "center", "#fff", "600", W * 0.86, FS);
-          column(ls.slice(0, 3), L, H * 0.4, "left", W * 0.42);
-          const tz = put(T, W * 0.09, L, H * 0.84, "left", "#fff", "900", W * 0.62);
-          put(names + "　独家专访", W * 0.032, L, H * 0.84 + tz * 0.7, "left", accent, "700", W * 0.6, FS);
-          barcode(W - L - W * 0.18, H - L - H * 0.05, W * 0.18, H * 0.05, "¥ 20.00");
-        } else if (v === 1) { // 刊名用强调色，两边各一栏
-          shade(0, H * 0.25, .35, 0); shade(H * 0.7, H, 0, .55);
-          const mz = masthead(accent, H * 0.02);
-          put(special, W * 0.03, L, H * 0.02 + mz * 1.12, "left", "#fff", "800", W * 0.4, FS);
-          put(issue, W * 0.024, W - L, H * 0.02 + mz * 1.12, "right", "#fff", "600", W * 0.4, FS);
-          column(ls.slice(0, 2), L, H * 0.42, "left", W * 0.36);
-          column(ls.slice(2, 3).concat([names]), W - L, H * 0.58, "right", W * 0.36);
-          put(T, W * 0.085, W / 2, H * 0.93, "center", "#fff", "900", W * 0.86);
-        } else if (v === 2) { // 白边框款
-          x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.016; x.strokeRect(W * 0.03, W * 0.03, W - W * 0.06, H - W * 0.06);
-          shade(0, H * 0.28, .3, 0); shade(H * 0.62, H, 0, .5);
-          const mz = masthead("#fff", H * 0.035);
-          put(special + "　·　" + issue, W * 0.024, W / 2, H * 0.035 + mz * 1.08, "center", "#fff", "600", W * 0.8, FS);
-          column(ls.slice(0, 3), W - L, H * 0.42, "right", W * 0.4);
-          const tz = put(T, W * 0.08, L, H * 0.85, "left", "#fff", "900", W * 0.7);
-          put(names + "　独家专访", W * 0.03, L, H * 0.85 + tz * 0.7, "left", "rgba(255,255,255,.92)", "600", W * 0.7, FS);
-        } else {              // 底部纯色条，刊名在顶上，标题和小标题在色条里
-          const bh = H * 0.2, band = pick([[110, 77, 143], [20, 20, 20], [166, 60, 80], [240, 236, 228]]);
-          x.fillStyle = "rgba(" + band.join(",") + ",.92)"; x.fillRect(0, H - bh, W, bh);
-          const ink = band[0] > 200 ? "#1d1a18" : "#fff";
-          shade(0, H * 0.28, .35, 0);
-          const mz = masthead("#fff", H * 0.025);
-          put(issue + "　|　" + special, W * 0.024, W / 2, H * 0.025 + mz * 1.08, "center", "#fff", "600", W * 0.86, FS);
-          column(ls.slice(0, 2), L, H * 0.45, "left", W * 0.4);
-          const tz = put(T, W * 0.07, L, H - bh + W * 0.1, "left", ink, "900", W * 0.84, F, false);
-          put((ls[2] || "") + (ls[2] ? "　·　" : "") + names, W * 0.028, L, H - bh + W * 0.1 + tz * 0.9, "left", ink, "500", W * 0.84, FS, false);
-        }
-      } else {
-        const tag = cp.tagline || pick(["有些人，一遇见就是一辈子", "这一次，换我先走向你", "全世界只有我们知道", "故事，从那天开始"]);
-        const day = cp.date || (() => { const d = new Date(Date.now() + (7 + Math.floor(rnd() * 60)) * 86400000); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; })();
-        const v = Math.floor(rnd() * 3);
-        if (v === 0) {        // 底部片名
-          shade(H * 0.58, H, 0, .8);
-          put(tag, W * 0.034, W / 2, H * 0.1, "center", "rgba(255,255,255,.9)", "600", W * 0.86, FS);
-          put(T, W * 0.11, W / 2, H * 0.82, "center", "#fff", "900", W * 0.86);
-          put("主演　" + names, W * 0.032, W / 2, H * 0.885, "center", "rgba(255,255,255,.88)", "500", W * 0.86, FS);
-          put(day + "　浪漫上映", W * 0.028, W / 2, H * 0.94, "center", "rgba(255,255,255,.75)", "500", W * 0.86, FS);
-        } else if (v === 1) { // 竖排片名贴右边
-          shade(0, H, .1, .55);
-          vput(T, W * 0.14, W - L - W * 0.07, H * 0.08, "#fff");
-          put(tag, W * 0.03, L, H * 0.84, "left", "#fff", "600", W * 0.7, FS);
-          put(names + "　领衔主演", W * 0.028, L, H * 0.89, "left", "rgba(255,255,255,.85)", "500", W * 0.7, FS);
-          put(day + "　全国上映", W * 0.026, L, H * 0.935, "left", "rgba(255,255,255,.7)", "500", W * 0.7, FS);
-        } else {              // 上方片名＋下方演职员表那种小字
-          shade(0, H * 0.35, .65, 0); shade(H * 0.78, H, 0, .75);
-          put(names, W * 0.03, W / 2, H * 0.06, "center", "rgba(255,255,255,.9)", "600", W * 0.86, FS);
-          put(T, W * 0.1, W / 2, H * 0.16, "center", "#fff", "900", W * 0.86);
-          put(tag, W * 0.03, W / 2, H * 0.21, "center", "rgba(255,255,255,.85)", "500", W * 0.86, FS);
-          put("同名故事改编　·　" + day + " 上映", W * 0.024, W / 2, H * 0.94, "center", "rgba(255,255,255,.75)", "500", W * 0.86, FS);
-        }
-      }
-      return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
-    } catch (e) { return blob; }
-=======
   // 封面上的字交给 PosterLayout（js/poster-layout.js）：构图是出图前就定好的（plan），这里照它排、挑一张
   const studioOverlay = async (blob, plan, copy, names) => {
     try { return window.PosterLayout ? await window.PosterLayout.compose(blob, plan, copy, names) : blob; }
     catch (e) { return blob; }
->>>>>>> origin/main
   };
 
   // 封面上的字让他写：从你们最近的事里挑（多花一次文字调用；没写成就用兜底的）
@@ -25427,19 +25321,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           try { const d = await runProbe(apiFor(char.id), ctxFor(char), { instruction: "你们刚用拍立得拍了一张合照：" + scene + "。你拿笔在相纸底下白边上写一行字（14 字以内，就是你此刻想写在这张照片上的话，像你自己的口气）。", schemaHint: "{\"line\":\"\"}", maxTokens: 8000 }); cap = String((d && d.line) || "").trim(); } catch (e) {}
           pol = await polaroidCompose(out.blob, cap); pol.cap = cap;
         }
-<<<<<<< HEAD
-        // 杂志封面／电影海报：字照原样记下来、不带字的那张也留一份——换画风时拿没字的去重画，画完照原样再印一次（她 2026-10-13）
-        if (theme && theme.overlay) {
-          const _t = String((opt && opt.scene) || "").trim();
-          ovl = { kind: theme.overlay, title: _t, names: (char.remark || char.name) + " " + (me.name || "我"), copy: await coverCopy(char, theme.overlay, _t), seed: Math.floor(Math.random() * 1e9) + 1 };
+        // 杂志封面／电影海报：构图和字记下来、不带字的那张也留一份——换画风时拿没字的去重画，画完照同一个构图再印一次（她 2026-10-13）
+        if (coverPlan) {
+          ovl = { plan: coverPlan, copy: cover || {}, names: [char.remark || char.name, me.name || "我"] };
           await idbImgPut(imgKey + "_raw", out.blob);
-        } else if (opt && opt.restyle && opt.restyle.overlay) {
-          ovl = opt.restyle.overlay;
-        }
-        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : ovl ? await studioOverlay(out.blob, ovl.kind, ovl.title, ovl.names, ovl.copy, ovl.seed) : out.blob;
-=======
-        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : coverPlan ? await studioOverlay(out.blob, coverPlan, cover || {}, [char.remark || char.name, me.name || "我"]) : out.blob;
->>>>>>> origin/main
+        } else if (opt && opt.restyle && opt.restyle.overlay && opt.restyle.overlay.plan) ovl = opt.restyle.overlay;
+        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : ovl ? await studioOverlay(out.blob, ovl.plan, ovl.copy, ovl.names) : out.blob;
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
@@ -25447,7 +25334,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
         mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}), ...(pol ? { polaroid: true, developAt: Date.now() + 2 * 3600000, polCap: pol.cap || "", ...(pol.flaw ? { flaw: pol.flaw } : {}) } : {}),
-        ...(theme ? { theme: opt.theme } : {}), ...(ovl ? { overlay: ovl, ...(theme && theme.overlay ? { rawKey: imgKey + "_raw" } : {}) } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
+        ...(theme ? { theme: opt.theme } : {}), ...(ovl ? { overlay: ovl, ...(coverPlan ? { rawKey: imgKey + "_raw" } : {}) } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
