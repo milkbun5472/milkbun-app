@@ -163,7 +163,8 @@ test("「我换」里配一身：参考在场的人此刻穿的，挂进我的�
   const i = app.indexOf("const wearMatch = ");
   const seg = app.slice(i, app.indexOf("const wardrobeFor = ", i));
   assert.match(seg, /【一起的人此刻穿着】/);
-  assert.match(seg, /saveMyCloset\(myClosetPut\(myClosetRef\.current,/);
+  assert.match(seg, /const next = myClosetPut\(myClosetRef\.current,/);
+  assert.match(seg, /saveMyCloset\(next\)/);
   assert.match(seg, /wearScene\(scope, "me",/);
   assert.equal((app.match(/return wearMatch\(sc, kw, wardrobeFor\(sc,/g) || []).length, 2);
   assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe, onMatch, matchBusy,/g) || []).length, 2);

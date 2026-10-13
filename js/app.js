@@ -8422,7 +8422,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const name = String((d && d.name) || "").trim().slice(0, 24);
       if (!name) { toast("这次没配出来，再点一次"); return false; }
       const note = String((d && d.note) || "").trim();
-      saveMyCloset(myClosetPut(myClosetRef.current, d.occasion || (theirs ? "配他" : "平常"), { name, note }));
+      { const next = myClosetPut(myClosetRef.current, d.occasion || (theirs ? "配他" : "平常"), { name, note });
+        if (myClosetN(next) > myClosetN(myClosetRef.current)) saveMyCloset(next); else toast("这身先穿上了；" + MYCLOSET_FULL.replace("再配", "它才挂得进去")); }
       wearScene(scope, "me", name + (note ? "（" + note.slice(0, 48) + "）" : ""), false);
       return true;
     } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
@@ -24994,21 +24995,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //    用关键词生成几套，再加上可以自己填」）──────────────────────
   // 在这之前【压根没有入口】：只能在情侣空间→照相馆里点「配一身约会装」，一次一身，
   // 还绑着某个角色。现在给它一处正门，两条路都能往里放东西。
-  const MYCLOSET_MAX_OCC = 6, MYCLOSET_MAX_SETS = 6;
-  // 往柜子里挂一身。同一个场合就挂在同一格里，最新的排前面。
+  // 我的衣柜只添不挤（群友 2026-10-13：「生成新的之后旧的就会被覆盖」）：原来一类满 6 身就把最老那身挤掉、
+  //   满 6 类就把最老那一类整个挤掉，而且一声不吭——看着就是「新的把旧的盖了」。
+  //   现在挂满了就不挂，交给调用的地方说一声，收不收由她自己决定。
+  const MYCLOSET_MAX_OCC = 12, MYCLOSET_MAX_SETS = 12;
+  const myClosetN = box => ((box && box.closet) || []).reduce((n, g) => n + ((g && g.sets) || []).length, 0);
   const myClosetPut = (box, occ, set) => {
     const occasion = String(occ || "").trim().slice(0, 8) || "平常";
     const one = { name: String((set && set.name) || "").trim().slice(0, 24), note: String((set && set.note) || "").trim().slice(0, 140) };
     if (!one.name) return box;
     const cur = ((box && box.closet) || []).slice();
     const i = cur.findIndex(g => g && String(g.occasion || "") === occasion);
-    if (i >= 0) cur[i] = { ...cur[i], sets: [one, ...(cur[i].sets || [])].slice(0, MYCLOSET_MAX_SETS) };
-    else cur.unshift({ occasion: occasion, sets: [one] });
-    return { ...(box || {}), closet: cur.slice(0, MYCLOSET_MAX_OCC) };
+    if (i >= 0) {
+      if ((cur[i].sets || []).length >= MYCLOSET_MAX_SETS) return box;
+      cur[i] = { ...cur[i], sets: [one, ...(cur[i].sets || [])] };
+    } else {
+      if (cur.length >= MYCLOSET_MAX_OCC) return box;
+      cur.unshift({ occasion: occasion, sets: [one] });
+    }
+    return { ...(box || {}), closet: cur };
   };
+  const MYCLOSET_FULL = "我的衣柜那一类挂满了，先收掉几身再配";
   const myClosetAdd = (occ, name, note) => {
     if (!String(name || "").trim()) { toast("先写这身叫什么"); return false; }
-    saveMyCloset(myClosetPut(myClosetRef.current, occ, { name: name, note: note }));
+    const next = myClosetPut(myClosetRef.current, occ, { name: name, note: note });
+    if (myClosetN(next) <= myClosetN(myClosetRef.current)) { toast(MYCLOSET_FULL); return false; }
+    saveMyCloset(next);
     toast("挂上了");
     return true;
   };
@@ -25050,9 +25062,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const rows = Array.isArray(d && d.sets) ? d.sets : [];
       if (!rows.length) { toast("这次没配出来，再点一次"); return false; }
       let box = myClosetRef.current || {};
+      const before = myClosetN(box);
       rows.slice(0, 6).forEach(r => { box = myClosetPut(box, r && r.occasion, r); });
+      const added = myClosetN(box) - before;
+      if (added <= 0) { toast(MYCLOSET_FULL); return false; }
       saveMyCloset(box);
-      toast("配了 " + Math.min(rows.length, 6) + " 身挂进去了");
+      toast("配了 " + added + " 身挂进去了" + (added < Math.min(rows.length, 6) ? "（有的那一类挂满了，没挂上）" : ""));
       return true;
     } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
     finally { setGen(g => ({ ...g, myCloset: false })); }
@@ -25075,23 +25090,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         maxTokens: 10500
       });
       const occ = String((d && d.occasion) || "约会").trim().slice(0, 8) || "约会";
-      const put = (box, one) => {
-        const cur = (box && box.closet) || [];
-        const set = { name: String((one && one.name) || "").trim().slice(0, 24), note: String((one && one.note) || "").trim().slice(0, 120) };
-        if (!set.name) return box;
-        const i = cur.findIndex(g => g && String(g.occasion || "") === occ);
-        const next = cur.slice();
-        if (i >= 0) next[i] = { ...next[i], sets: [set, ...(next[i].sets || [])].slice(0, 8) };
-        else next.unshift({ occasion: occ, sets: [set] });
-        return { ...(box || {}), closet: next.slice(0, 8) };
-      };
-      saveMyCloset(put(myClosetRef.current, d && d.hers));
+      // ⚠️两边都只添不挤：我的走 myClosetPut，TA 的走 closetMerge（跟「再添几套」同一层，满了就不挂）
+      const setOf = one => ({ name: String((one && one.name) || "").trim().slice(0, 24), note: String((one && one.note) || "").trim().slice(0, 120) });
+      const nextMine = myClosetPut(myClosetRef.current, occ, setOf(d && d.hers));
+      const mineOk = myClosetN(nextMine) > myClosetN(myClosetRef.current);
+      if (mineOk) saveMyCloset(nextMine);
+      const his = setOf(d && d.his), hisOk = !!(his.name && closetRoom(((carryRef.current[char.id] || {}).outfit)) > 0);
       setCarry(p => {
         const box = p[char.id] || {};
-        const n = { ...p, [char.id]: { ...box, outfit: put(box.outfit, d && d.his) } };
+        const n = hisOk ? { ...p, [char.id]: { ...box, outfit: closetMerge(box.outfit, { closet: [{ occasion: occ, sets: [his] }] }) } } : p;
         carryRef.current = n; saveJSON("x_carry", n); return n;
       });
-      toast("配好了一对「" + occ + "」，两边衣柜各挂了一身");
+      toast(mineOk && hisOk ? "配好了一对「" + occ + "」，两边衣柜各挂了一身"
+        : "配好了一对「" + occ + "」，" + (!mineOk && !hisOk ? "可两边衣柜都挂满了，没挂上" : !mineOk ? "挂进了 TA 的衣柜；你的那一类挂满了，没挂上" : "挂进了你的衣柜；TA 的衣柜挂满了，没挂上"));
       return true;
     } catch (e) { toast("这次没配出来：" + e.message); return false; }
     finally { setGen(g => ({ ...g, dateFit: false })); }

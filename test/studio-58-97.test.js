@@ -28,8 +28,9 @@ test("一次调用配一对，不是各配各的", () => {
   assert.match(fit, /配得上同一个场合、也配得上彼此/, "没要求两身是配着的一对");
   assert.match(fit, /换个朝代、换个身份就不成立的才算写对/, "没立那条判据——不然会写出一身谁都能穿的衣服");
   // 两边各挂一身，用的是同一个 put
-  assert.match(fit, /saveMyCloset\(put\(myClosetRef\.current, d && d\.hers\)\);/, "我这边没挂上");
-  assert.match(fit, /outfit: put\(box\.outfit, d && d\.his\)/, "他那边没挂上");
+  // 两边都只添不挤：我这边走 myClosetPut，他那边走 closetMerge（满了不挂，回执照实说）
+  assert.match(fit, /const nextMine = myClosetPut\(myClosetRef\.current, occ, setOf\(d && d\.hers\)\);/, "我这边没挂上");
+  assert.match(fit, /outfit: closetMerge\(box\.outfit, \{ closet: \[\{ occasion: occ, sets: \[his\] \}\] \}\)/, "他那边没挂上");
 });
 
 // ⚠️衣柜只挂着没用：图像端读的是画面描述，不是衣柜
