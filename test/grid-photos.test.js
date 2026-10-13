@@ -31,3 +31,6 @@ test("照片日记：只有点了才拍，一次生图", () => {
   const a5 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
   require("node:assert").match(e5, /else if \(opts\.panels > 1\)/);
   require("node:assert").match(a5, /panels: 3 \}\)/); }
+// 旧日记别套上今天的衣服（她 2026-10-13）
+{ const a6 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("node:assert").match(a6, /\(!isToday \|\| dayWears\.length\) \? \{ \.\.\.st0, wearing: "", wearingUpdatedAt: 0 \}/); }

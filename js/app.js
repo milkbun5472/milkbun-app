@@ -17039,12 +17039,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setPhotoDiaryBusy(entry.id);
     try {
       const body = (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900);
-      const st = statesRef.current[charId] || {};
+      // 他【此刻】身上那身只属于今天（她 2026-10-13：「为啥生成以前的都是同一套衣服」——旧日记一律套上了今天的卫衣）：
+      //   日记不是今天的、或者那天的穿着已经查到了，就把此刻穿着拿掉，让衣柜／那天记下的那几身说了算
+      const dayWears = Array.isArray(entry.wears) && entry.wears.length ? entry.wears : wearsOnDay(charId, entry.ts);
+      const isToday = new Date(entry.ts).toDateString() === new Date().toDateString();
+      const st0 = statesRef.current[charId] || {};
+      const st = (!isToday || dayWears.length) ? { ...st0, wearing: "", wearingUpdatedAt: 0 } : st0;
       const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
         + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样（每格具体怎么拍见下面「每一格的机位」）；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
         // 穿什么：先看写日记时记下的、再查状态历史；这天换过几身，每格穿那个时刻的那身
-        + (() => { const w = (Array.isArray(entry.wears) && entry.wears.length ? entry.wears : wearsOnDay(charId, entry.ts));
-            if (!w.length) return "三格里他穿的是同一身衣服。";
+        + (() => { const w = dayWears;
+            if (!w.length) return isToday ? "三格里他穿的是同一身衣服。" : "那天穿什么没记下来：从他衣柜里挑一身合这天天气、这天在做的事的，三格都是这一身；别照搬参考照里的衣服。";
             if (w.length === 1) return "这一天他穿：" + w[0].w + "；三格都是这一身。";
             return "这一天他换过几身（按时间）：" + w.map(x => x.t + " " + x.w).join("；") + "。每一格穿那个时刻对应的那一身，别混搭。"; })()
         + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
