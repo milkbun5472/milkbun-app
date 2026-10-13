@@ -97,7 +97,20 @@
     band: { space: "画面最上方约六分之一留给刊名，左侧中部留白给两句封面小标题，画面最下方五分之一会被一条色带盖住，两个人在中部、别落进最底下那一截",
       mast: { x: .05, y: .02, w: .9, h: .15 }, column: { x: .06, y: .44, w: .4, h: .18, a: "left" }, head: { x: .06, y: .83, w: .88, h: .07, a: "left" }, sub: { x: .06, y: .92, w: .88, h: .03, a: "left" }, barcode: "none", band: true }
   };
-  const MAG_PREF = { elegant: ["framed", "classic"], heavy: ["classic", "band"], sharp: ["twoCol", "classic"], retro: ["band", "framed"], playful: ["twoCol", "band"], cold: ["framed", "twoCol"], hand: ["framed", "band"] };
+  // 四种骨架每种在性格表里出现的次数拉平（原来 band 占了七个里的四个，几乎张张都是色带）
+  const MAG_PREF = { elegant: ["framed", "classic"], heavy: ["classic", "band"], sharp: ["twoCol", "classic"], retro: ["band", "framed"], playful: ["twoCol", "classic"], cold: ["framed", "twoCol"], hand: ["framed", "band"] };
+  // 杂志类型定信息密度（她 2026-10-13 那份杂志分析）：时尚留白多、八卦字最满、文艺最少、潮流跳、生活亲切
+  //   lines＝最多几组封面栏目；alt＝栏目字重要不要一粗一细交替；mastW＝刊名占宽；prefs＝更合这一类的骨架
+  const MTYPE = {
+    时尚: { lines: 2, alt: false, mastW: 0.9, mastTr: 0.06, prefs: ["framed", "classic"] },
+    八卦: { lines: 3, alt: true, mastW: 0.92, mastTr: 0.01, prefs: ["classic", "band", "twoCol"] },
+    文艺: { lines: 1, alt: false, mastW: 0.62, mastTr: 0.28, prefs: ["framed", "classic"] },
+    潮流: { lines: 3, alt: true, mastW: 0.9, mastTr: 0, prefs: ["twoCol", "band"] },
+    生活: { lines: 2, alt: true, mastW: 0.84, mastTr: 0.08, prefs: ["classic", "twoCol", "band"] }
+  };
+  const mtypeOf = (t, genre) => { const s = String(t || "") + String(genre || "");
+    if (/八卦|娱乐|周刊|爆料/.test(s)) return "八卦"; if (/文艺|文学|诗|读书|艺术/.test(s)) return "文艺";
+    if (/潮流|街头|音乐|青年|运动/.test(s)) return "潮流"; if (/时尚|时装|vogue|ELLE/i.test(s)) return "时尚"; return "生活"; };
 
   const pickW = (arr, rnd) => { const w = arr.map((_, i) => arr.length - i); const s = w.reduce((a, b) => a + b, 0); let r = rnd() * s; for (let i = 0; i < arr.length; i++) { r -= w[i]; if (r <= 0) return arr[i]; } return arr[0]; };
 
@@ -109,8 +122,11 @@
     const persona = PERSONA[cp.persona] ? cp.persona : gd.persona;
     const density = ["min", "std", "rich"].indexOf(cp.density) >= 0 ? cp.density : gd.density;
     if (kind === "magazine") {
-      const comp = pickW(MAG_PREF[persona] || Object.keys(MAG), rnd);
-      return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
+      const mtype = mtypeOf(cp.mtype, cp.genre);
+      // 性格和类型各投一票，合在一起挑；谁也不是默认
+      const pool = []; (MAG_PREF[persona] || []).concat(MTYPE[mtype].prefs).forEach(k => { if (!pool.includes(k)) pool.push(k); });
+      const comp = pickW(pool.length ? pool : Object.keys(MAG), rnd);
+      return { kind, persona, density, comp, mtype, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
     }
     const T = A(cp.title).length;
     let prefs = (MOVIE_PREF[persona] || Object.keys(MOVIE)).slice();
@@ -332,6 +348,25 @@
     return s;
   }
 
+  // 杂志额外看四样：层级（刊名＞主专题＞栏目）、字量合不合这类杂志、左右留白平不平、整张稳不稳
+  //   四种骨架一视同仁：色带那一档字底下有渐变垫着，这里不再因为「底下暗」多给它分
+  function magScore(boxes, W, H, look, cp, mtype) {
+    const M = MTYPE[mtype] || MTYPE.生活; let s = 0;
+    const hOf = r => Math.max(0, ...boxes.filter(b => b.role === r).map(b => b.h));
+    const hm = hOf("mast"), hs = hOf("story"), hl = hOf("line");
+    if (hm > hs) s += 8; else s -= 15;
+    if (!hl || hs > hl * 1.3) s += 6; else s -= 12;
+    const want = Math.min(M.lines, magCopy(cp, "").groups.length);
+    const got = new Set(boxes.filter(b => b.role === "line").map(b => b.g)).size;
+    s -= Math.abs(want - got) * 5;
+    let l = 0, r = 0; boxes.forEach(b => { const a = b.w * b.h, c = b.x + b.w / 2; if (c < W * 0.45) l += a; else if (c > W * 0.55) r += a; });
+    const people = look({ x: 0, y: H * 0.25, w: W / 2, h: H * 0.5 }).skin - look({ x: W / 2, y: H * 0.25, w: W / 2, h: H * 0.5 }).skin;
+    const tilt = (l - r) / Math.max(1, l + r);            // 字偏左为正；人偏右（people<0）时字偏左才平
+    s -= Math.abs(tilt + clamp(people * 6, -1, 1)) * 8;
+    const ink = boxes.reduce((a, b) => a + b.w * b.h, 0) / (W * H); if (ink > 0.22) s -= (ink - 0.22) * 120;   // 太满
+    return s;
+  }
+
   // ---------- 电影海报 ----------
   function movieTexts(cp, names) {
     return {
@@ -372,12 +407,26 @@
   }
 
   // ---------- 杂志封面 ----------
-  function renderMag(x, W, H, look, compKey, variant, cp, T, names, P, accent, dry) {
-    const C = MAG[compKey]; const boxes = [];
+  // 封面上的四种字（她 2026-10-13）：刊名／主专题（大标题＋一句引子）／封面栏目（0~3 组，每组小引题＋一句）／细节（期号、英文、日期）
+  //   老存档只有 lines、special：照样认，lines 当成没引题的栏目
+  function magCopy(cp, T) {
+    const cut = (v, n) => A(v).slice(0, n).join("").trim();
+    const raw = Array.isArray(cp.coverLines) && cp.coverLines.length ? cp.coverLines : (Array.isArray(cp.lines) ? cp.lines : []);
+    const groups = raw.map(g => g && typeof g === "object" ? { kicker: cut(g.kicker, 8), line: cut(g.line, 18) } : { kicker: "", line: cut(g, 18) }).filter(g => g.line).slice(0, 3);
+    const st = cp.story && typeof cp.story === "object" ? cp.story : {};
+    return { mast: cut(cp.mast, 4) || "我们", story: cut(st.line, 16) || T, storyKicker: cut(st.kicker, 10) || cut(cp.special, 8),
+      groups, en: cut(cp.en, 28).toUpperCase(), no: cut(cp.no, 6).replace(/^(NO\.?|第)/i, "") };
+  }
+  // 人在哪边：左右两半各看一眼皮肤和杂乱，栏目放空的那一边（模型没照留白画的时候也不盖人）
+  function emptySide(look, W, H) {
+    const L = look({ x: W * 0.04, y: H * 0.3, w: W * 0.36, h: H * 0.42 }), R = look({ x: W * 0.6, y: H * 0.3, w: W * 0.36, h: H * 0.42 });
+    const cost = st => (st.skin || 0) * 4 + st.busy;
+    return cost(L) <= cost(R) ? "left" : "right";
+  }
+  function renderMag(x, W, H, look, compKey, variant, cp, T, names, P, accent, dry, mtype) {
+    const C = MAG[compKey]; const boxes = []; const M = MTYPE[mtype] || MTYPE.生活; const mc = magCopy(cp, T);
     const now = new Date(); const issue = now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊";
-    const mast = A(cp.mast).slice(0, 4).join("") || "我们";
-    const lines = (Array.isArray(cp.lines) ? cp.lines : []).map(v => A(v).slice(0, 18).join("").trim()).filter(Boolean);
-    const special = A(cp.special).slice(0, 8).join("");
+    const mast = mc.mast; const special = mc.storyKicker;
     if (C.frame && !dry) { x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.016; x.strokeRect(W * 0.03, W * 0.03, W - W * 0.06, H - W * 0.06); }
     let bandInk = null;
     // 色带不再一刀切（她 2026-10-13：「图片往下移然后 fade 背景就好看了，然后跟电影刚改的一样字体颜色变化」）：
@@ -396,21 +445,49 @@
     }
     // 刊名：顶天立地，字号撑满宽度；颜色照那一条的明暗，variant 1 用强调色
     const mb = px(C.mast, W, H); const mk = inkFor(look(mb)); const [mf, mw] = [P.title[0], Math.max(700, P.title[1])];
-    let z = mb.h * 0.95; while (z > 10 && measure(x, mast, z, mf, mw, 0.02) > mb.w) z -= 2;
-    const mo = dry ? { x: W / 2 - measure(x, mast, z, mf, mw, 0.02) / 2, y: mb.y, w: measure(x, mast, z, mf, mw, 0.02), h: z } : drawLine(x, mast, z, mf, mw, 0.02, W / 2, mb.y + z * 0.88, "center", variant === 1 ? accent : mk.ink);
-    boxes.push({ ...mo, g: "mast", dark: mk.dark });
-    const meta = smallLine(x, issue + (special ? "　|　" + special : ""), { x: mb.x, y: mb.y + z * 1.08, w: mb.w, h: H * 0.03, a: "center" }, P, mk.ink, dry, 0.75); if (meta) boxes.push({ ...meta, g: "meta", dark: mk.dark });
-    const col = (r, arr) => { if (!r || !arr.length) return; const b = px(r, W, H); b.a = r.a; const ik = inkFor(look(b)); let y = b.y;
-      arr.forEach((s, n) => { const k = n === 0 ? 1 : 0.62; const bb = { x: b.x, y, w: b.w, h: b.h / arr.length * 0.7 * k + H * 0.012, a: b.a };
-        const o = smallLine(x, s, bb, n === 0 ? { ...P, small: [P.title[0], Math.max(700, P.title[1])], trS: 0.02 } : P, n === 0 && variant !== 2 ? accent : ik.ink, dry, 0.9); if (o) { boxes.push({ ...o, g: "col" + r.x, dark: ik.dark }); y = o.y + o.h + H * 0.012; } }); };
-    const ls = lines.length ? lines : [];
-    col(C.column, C.column2 ? ls.slice(0, 2) : ls.slice(0, 3)); col(C.column2, ls.slice(2, 3));
+    // 刊名宽度、字距照类型和人站的位置变：文艺那一路窄而疏；变体 2 让刊名收窄、躲到人对面那一侧
+    const side = emptySide(look, W, H);
+    const mTr = (A(mast).length <= 2 ? 0.12 : 0) + M.mastTr + (variant === 2 ? 0.06 : 0);
+    const mW = mb.w * (variant === 2 ? Math.min(M.mastW, 0.7) : M.mastW);
+    let z = mb.h * 0.95; while (z > 10 && measure(x, mast, z, mf, mw, mTr) > mW) z -= 2;
+    const mWid = measure(x, mast, z, mf, mw, mTr);
+    const mAl = variant === 2 && C.mastSide !== false ? side : "center";
+    const mX = mAl === "left" ? mb.x : mAl === "right" ? mb.x + mb.w : W / 2;
+    const mo = dry ? { x: mAl === "left" ? mX : mAl === "right" ? mX - mWid : mX - mWid / 2, y: mb.y, w: mWid, h: z } : drawLine(x, mast, z, mf, mw, mTr, mX, mb.y + z * 0.88, mAl, variant === 1 ? accent : mk.ink);
+    boxes.push({ ...mo, g: "mast", dark: mk.dark, role: "mast" });
+    // 细节一行：期号＋年月＋英文小字（数字是杂志的语言，但只占一条细线）
+    const det = [mc.no ? "NO." + mc.no : "", issue, mc.en].filter(Boolean).join("　|　");
+    const meta = smallLine(x, det, { x: mb.x, y: mb.y + z * 1.08, w: mb.w, h: H * 0.026, a: mAl }, { ...P, trS: 0.08 }, mk.ink, dry, 0.72); if (meta) boxes.push({ ...meta, g: "meta", dark: mk.dark, role: "detail" });
+    // 封面栏目：每组「小引题＋一句」，大小、粗细交替；放在离人远的那一边；塞不下的整组拿掉，不硬挤
+    const bold = [P.title[0], Math.max(700, P.title[1])];
+    const col = (r, arr, flip) => { if (!r || !arr.length) return; const b = px(r, W, H);
+      b.a = r.a === "center" ? "center" : flip ? side : r.a; if (flip && b.a !== r.a) b.x = W - b.x - b.w;
+      const ik = inkFor(look(b)); let y = b.y; const bottom = b.y + b.h;
+      arr.forEach((g, n) => {
+        const big = !M.alt || n % 2 === 0; const lh = H * (big ? 0.042 : 0.032) * (n === 0 ? 1.1 : 1);
+        const kh = g.kicker ? H * 0.02 : 0;
+        if (y + kh + lh > bottom + H * 0.02) return;                                    // 这一组放不下：整组不要
+        const probe = { x: b.x, y, w: b.w, h: kh + lh }; if ((look(probe).skin || 0) > 0.08) return;   // 正好压在人身上：也不要
+        const gid = "col" + n + r.x;
+        if (g.kicker) { const o = smallLine(x, g.kicker, { x: b.x, y, w: b.w, h: kh, a: b.a }, { ...P, trS: 0.18 }, variant !== 2 ? accent : ik.ink, dry, 0.9); if (o) { boxes.push({ ...o, g: gid, dark: ik.dark, role: "line" }); y = o.y + o.h + H * 0.004; } }
+        const o = smallLine(x, g.line, { x: b.x, y, w: b.w, h: lh, a: b.a }, big ? { ...P, small: bold, trS: 0.02 } : P, ik.ink, dry, 0.9);
+        if (o) { boxes.push({ ...o, g: gid, dark: ik.dark, role: "line" }); y = o.y + o.h + H * 0.022; } });
+    };
+    const ls = mc.groups.slice(0, M.lines);
+    col(C.column, C.column2 ? ls.slice(0, 2) : ls, !C.column2); col(C.column2, ls.slice(2, 3), false);
     const hb = px(C.head, W, H); hb.a = C.head.a; const hk = bandInk ? { ink: bandAccent || bandInk, dark: /,9\d%\)$/.test(bandInk) } : inkFor(look(hb));
-    const hz = fitSize(x, T, hb, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5, hb.h * 0.9, 0.5);
+    // 主专题：一行塞不下就按意思断成两行往上长，不把字缩成小字
+    const ST = mc.story, hf = P.title[0], hw = Math.max(500, P.title[1]), htr = P.tr * 0.5;
+    let hl = [ST], hz = fitSize(x, ST, hb, hf, hw, htr, hb.h * 0.9, 0.5);
+    if (hz < hb.h * 0.62 && A(ST).length >= 6) { const two = titleLines({}, ST); const z2 = Math.min(...two.map(s2 => fitSize(x, s2, hb, hf, hw, htr, hb.h * 0.82, 0.5)));
+      if (z2 > hz * 1.2) { hl = two; hz = z2; } }
     const hax = hb.a === "center" ? hb.x + hb.w / 2 : hb.a === "right" ? hb.x + hb.w : hb.x;
-    const ho = dry ? (() => { const w = measure(x, T, hz, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5); return { x: hb.a === "center" ? hax - w / 2 : hax, y: hb.y, w, h: hz }; })() : drawLine(x, T, hz, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5, hax, hb.y + hz * 0.9, hb.a, hk.ink);
-    boxes.push({ ...ho, g: "head", title: true, dark: hk.dark });
-    if (C.sub) { const sb = px(C.sub, W, H); sb.a = C.sub.a; const o = smallLine(x, names.join(" × ") + "　独家专访", sb, P, bandInk || inkFor(look(sb)).ink, dry, 0.8); if (o) boxes.push({ ...o, g: "sub", dark: bandInk ? /,9\d%\)$/.test(bandInk) : inkFor(look(sb)).dark }); }
+    const hTop = hb.y + hb.h * 0.9 - hz * 1.05 * hl.length;
+    if (mc.storyKicker) { const o = smallLine(x, mc.storyKicker, { x: hb.x, y: hTop - H * 0.026, w: hb.w, h: H * 0.022, a: hb.a }, { ...P, trS: 0.2 }, bandAccent || accent, dry, 0.9); if (o) boxes.push({ ...o, g: "head", dark: hk.dark, role: "kicker" }); }
+    hl.forEach((s2, i) => { const by = hTop + hz * 1.05 * (i + 1) - hz * 0.15;
+      const ho = dry ? (() => { const w = measure(x, s2, hz, hf, hw, htr); return { x: hb.a === "center" ? hax - w / 2 : hb.a === "right" ? hax - w : hax, y: by - hz * 0.88, w, h: hz * 1.08 }; })() : drawLine(x, s2, hz, hf, hw, htr, hax, by, hb.a, hk.ink);
+      boxes.push({ ...ho, g: "head", title: true, dark: hk.dark, role: "story" }); });
+    if (C.sub) { const sb = px(C.sub, W, H); sb.a = C.sub.a; const o = smallLine(x, names.join(" × ") + "　独家专访", sb, P, bandInk || inkFor(look(sb)).ink, dry, 0.8); if (o) boxes.push({ ...o, g: "sub", role: "detail", dark: bandInk ? /,9\d%\)$/.test(bandInk) : inkFor(look(sb)).dark }); }
     if (C.barcode === "br" && !dry) {
       const bw = W * 0.16, bh = H * 0.045, bx = W - W * 0.07 - bw, by = H - W * 0.07 - bh;
       x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05); x.fillStyle = "#111";
@@ -432,7 +509,7 @@
     const x = c.getContext("2d"), W = c.width, H = c.height;
     x.drawImage(im, 0, 0);
     const look = sampler(x, W, H);
-    const allText = T + (cp.tagline || "") + (cp.credit || "") + nm.join("") + (cp.date || "") + (cp.genre || "") + (cp.lines || []).join("") + (cp.special || "") + (cp.mast || "") + "上映年月刊独家专访我们的故事|×　0123456789";
+    const allText = T + (cp.tagline || "") + (cp.credit || "") + nm.join("") + (cp.date || "") + (cp.genre || "") + (cp.lines || []).join("") + (cp.special || "") + (cp.mast || "") + JSON.stringify([cp.coverLines || [], cp.story || {}, cp.no || "", cp.en || ""]) + "上映年月刊独家专访我们的故事|×　0123456789";
     await ensureFonts([P.title, P.small, [P.title[0], 700]], allText);
     PAL = paletteOf(x, W, H); P.accentOn = accentOn(p && p.persona);
     const accent = inkFor(look({ x: 0, y: H * 0.3, w: W, h: H * 0.4 }), "accent").ink;
@@ -447,9 +524,9 @@
       // 别的构图也每种结构都排一遍：图要是没照留白画（人站满整张），得有地方可退
       Object.keys(MOVIE).filter(k => k !== p.comp).forEach(k => MOVIE[k].titles.forEach(v => cands.push({ comp: k, v, planned: false })));
     }
-    const run = (cd, dry) => kind === "magazine" ? renderMag(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, accent, dry) : renderMovie(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, p.density, dry);
+    const run = (cd, dry) => kind === "magazine" ? renderMag(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, accent, dry, (p && p.mtype) || mtypeOf(cp.mtype, cp.genre)) : renderMovie(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, p.density, dry);
     const regionOf = cd => kind === "magazine" ? px(MAG[cd.comp].head, W, H) : px(MOVIE[cd.comp].title, W, H);
-    cands.forEach(cd => { cd.s = score(run(cd, true), W, H, look, cd.planned, regionOf(cd)); });
+    cands.forEach(cd => { const bx = run(cd, true); cd.s = score(bx, W, H, look, cd.planned, regionOf(cd)) + (kind === "magazine" ? magScore(bx, W, H, look, cp, (p && p.mtype) || mtypeOf(cp.mtype, cp.genre)) : 0); });
     const best = cands.slice().sort((a, b) => b.s - a.s)[0];
     // 看得清就照画；字底下太杂、对比不够才垫一层渐变（照那块的明暗选黑垫还是白垫）
     const C2 = kind === "magazine" ? null : MOVIE[best.comp];
@@ -564,5 +641,5 @@
     return await new Promise(ok => cv.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
   }
 
-  window.PosterLayout = { plan, spaceLine, compose, comic, PERSONA_KEYS, PERSONA_KEYS, MOVIE_COMPS: Object.keys(MOVIE), MAG_COMPS: Object.keys(MAG), _t: { titleLines, genreDefault, score, overlap, normPanel } };
+  window.PosterLayout = { plan, spaceLine, compose, comic, PERSONA_KEYS, PERSONA_KEYS, MOVIE_COMPS: Object.keys(MOVIE), MAG_COMPS: Object.keys(MAG), _t: { titleLines, genreDefault, score, overlap, normPanel, magCopy, magScore, mtypeOf, MTYPE } };
 })();
