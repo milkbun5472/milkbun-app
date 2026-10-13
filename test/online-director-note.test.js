@@ -7,7 +7,7 @@ const app = R("app.js"), comp = R("components.js");
 
 test("app：存成 x_chatDirNotes，按 chatKey 分；新建和扣轮用线下那一支", () => {
   assert.match(app, /saveJSON\("x_chatDirNotes", n\)/);
-  assert.match(app, /const chatDirNoteAdd = \(chatKey, text, long\) => \{\n\s*const item = directorNoteNew\(text, long\);/);
+  assert.match(app, /const chatDirNoteAdd = \(chatKey, text, long, turns, from\) => \{\n\s*const item = directorNoteNew\(text, long, turns, from\);/);
   assert.match(app, /const _dn = directorNotesConsume\(\(chatDirNotesRef\.current \|\| \{\}\)\[chatKey\], 0\);/, "成功回了才扣");
   assert.match(app, /const _taskFull = \(_body \? _digitalTaskFull : _normalTaskV2\) \+ _roomHint \+ _dirHint;/, "放在本轮任务末尾");
 });
