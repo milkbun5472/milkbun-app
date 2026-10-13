@@ -1125,14 +1125,24 @@
           return h("path", { key: deg, d: sparkle(x, y, deg ? 3.2 : 4.4), fill: deg ? "#f6e3a1" : "#fff7d6" }); })),
       children);
   }
-  // 顶栏头像的光圈不再套壳（她 2026-10-14：套壳把主题 CSS 的「顶栏 > 头像」截断了）：头像自己挂 data-halo，这条样式画光。
-  //   只用 box-shadow 和外描边，不改头像的尺寸、位置、层级——主题怎么摆头像，光就跟到哪儿。
+  // 顶栏头像的光圈不再套壳（她 2026-10-14：套壳把主题 CSS 的「顶栏 > 头像」截断了；又说淡了，要原来那圈）：
+  //   头像自己挂 data-halo，原来那圈画进 ::before（金色细虚线 + 三颗沿轨道走的小星，慢慢转）、::after（外面一层柔光）。
+  //   都是头像自己的伪元素，主题把头像摆到哪儿、放多大，光圈跟到哪儿、跟着缩放。
   try {
     if (typeof document !== "undefined" && !document.getElementById("qq-astro-halo-css")) {
+      const W = 100, C = W / 2, R = 46;
+      const stars = [0, 120, 240].map(deg => { const a = (deg - 90) * Math.PI / 180, x = +(C + Math.cos(a) * R).toFixed(2), y = +(C + Math.sin(a) * R).toFixed(2);
+        return '<path d="' + sparkle(x, y, deg ? 4.2 : 5.8) + '" fill="' + (deg ? "#f6e3a1" : "#fff7d6") + '"/>'; }).join("");
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + " " + W + '"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+        + '<stop offset="0%" stop-color="#f6e3a1"/><stop offset="55%" stop-color="' + SKY_BASE.tint + '"/><stop offset="100%" stop-color="' + SKY_BASE.accent + '"/></linearGradient></defs>'
+        + '<circle cx="' + C + '" cy="' + C + '" r="' + R + '" fill="none" stroke="url(#g)" stroke-width="1.6" stroke-dasharray="2.6 4" opacity=".95"/>' + stars + "</svg>";
+      const url = "url(\"data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) + "\")";
       const st = document.createElement("style"); st.id = "qq-astro-halo-css";
-      st.textContent = "@keyframes qqHaloPulse{0%,100%{box-shadow:0 0 0 2px #f6e3a1,0 0 8px 2px " + SKY_BASE.tint + "66}50%{box-shadow:0 0 0 2px #f6e3a1,0 0 16px 5px " + SKY_BASE.tint + "99}}"
-        + "[data-halo=\"1\"]{animation:qqHaloPulse 3.2s ease-in-out infinite}"
-        + "@media (prefers-reduced-motion:reduce){[data-halo=\"1\"]{animation:none;box-shadow:0 0 0 2px #f6e3a1,0 0 10px 3px " + SKY_BASE.tint + "77}}";
+      st.textContent = "@keyframes qqHaloSpin{to{transform:rotate(360deg)}}"
+        + "[data-halo=\"1\"]{position:relative;overflow:visible!important}"
+        + "[data-halo=\"1\"]::before{content:\"\";position:absolute;inset:-20%;background:" + url + " center/contain no-repeat;pointer-events:none;z-index:2;animation:qqHaloSpin 14s linear infinite}"
+        + "[data-halo=\"1\"]::after{content:\"\";position:absolute;inset:-12%;border-radius:999px;box-shadow:0 0 10px 1px " + SKY_BASE.tint + "77;pointer-events:none;z-index:1}"
+        + "@media (prefers-reduced-motion:reduce){[data-halo=\"1\"]::before{animation:none}}";
       document.head.appendChild(st);
     }
   } catch (e) {}
