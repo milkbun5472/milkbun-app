@@ -5018,7 +5018,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     // 谁拿着手机（她 2026-10-01 截图：TA 说是他拍的，画出来却是她伸手举着自拍）。
     //   机位表是从自拍那张借来的，里面全是「手臂伸直」「手机举高」——只说了有一条胳膊在举，
     //   没说是谁的，模型就随手给了她。这张是 TA 发出来的，默认就是 TA 自己举的。
-    if (!opts.cinematic) parts.push("【谁拿着手机】场景里写明了是「" + uName + "」拍的、路人帮拍的、或者手机架在哪儿定时拍的，就照那样画；"
+    if (!opts.cinematic && !opts.editorial) parts.push("【谁拿着手机】场景里写明了是「" + uName + "」拍的、路人帮拍的、或者手机架在哪儿定时拍的，就照那样画；"
       + "没写的话，这张是「" + cName + "」自己伸手举着手机拍的——画面边缘伸向镜头的那条胳膊是「" + cName + "」的，「" + uName + "」两只手都不在拿手机。");
     // 谁对应哪张参考图必须说死。聊天合照里模型猜也能猜对，但一旦叠上大段身份/场景描述
     // （小剧场的 if 线设定就是），它会自己重新分配长相，出来两个陌生人（2026-08-18 Lisa 报）。
@@ -5090,6 +5090,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
       ? "【两人同框的场景剧照】第三人称旁观视角，绝不是自拍：两人都不看镜头、手里没有相机或手机，画面像电影剧照/抓拍，构图取两人此刻真实的相对位置与动作，不要摆拍式合影。"
       // v72.38：「一条手臂入镜」原来写在第一位、读起来就是默认写法（同 self 那句的病）。
       //   降成其中一种：凑在一起的一张，手臂出不出现在画面里跟着机位走。
+      : opts.editorial ? "【两人同框的大片】两个人一起被摄影师拍，不是自己拍的。"
       : "【两人合照】两个人凑在同一格里：可能是自己举着手机拍的、对着镜子拍的、把手机架在哪儿拍的，也可能是路人帮拍的第三人称合影。"
         + "**手臂和手机要不要入镜由这一张的机位决定**，不是每张都得露出举着的那条手臂。"
         // ⚠️原来这儿还有一句「姿势自然亲密：依偎、勾肩、贴脸、并肩、十指相扣都行」——
@@ -5113,6 +5114,14 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // TA 的视角要跟着场景走（她 2026-10-11：「在家和在游乐园拍出来的不一样，喝咖啡和看电影也不一样，要根据上下文来」）：
   //   描述里已经写了从哪儿拍，就照它，不再掷；没写才掷一格，并且放话「跟场景对不上就换一个同样分寸的」。
   if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
+  // opts.editorial：杂志封面／电影海报（她 2026-10-13：「还是偏自拍」）——不掷自拍那张机位表，换成摄影棚大片
+  else if (opts.editorial) {
+    const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；两个人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
+      + (opts.editorial === "movie" ? "电影感布光、有景深和氛围，像正式定妆海报，两人摆出有戏的站位（背靠背、一前一后、对视、同看远方都行）。" : "棚拍或精心挑过的外景，讲究的打光，半身到全身构图，两人摆时尚大片的姿势（站姿、倚靠、一坐一站、肩挨肩看镜头都行），表情有态度，像真的杂志封面人物。")
+      + "画面上方和一侧要留出排字的空间，人物别顶满画面。";
+    const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
+    if (_si >= 0) parts.splice(_si + 1, 0, _ed); else parts.push(_ed);
+  }
   else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
   else {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
@@ -5123,7 +5132,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     if (_si >= 0) parts.splice(_si + 1, 0, _shot); else parts.push(_shot);
   }
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
-  if (kind === "duo" && !multi && !opts.cinematic) parts.push(photoDuoPoseLine(opts.shotSeed));
+  if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }

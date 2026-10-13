@@ -52,7 +52,9 @@ assert.match(app, /const put = \(str, size, px, py, align, color, weight, maxW, 
 assert.match(app, /const coverCopy = async \(char, kind, title\) =>/);
 assert.match(app, /const v = Math.floor\(Math.random\(\) \* 4\);/);
 assert.match(app, /\(!theme \|\| picked\)/);
-assert.match(app, /定价 ¥ 20\.00/);
+assert.match(app, /const masthead = \(color, y\) =>/);
+assert.match(app, /editorial: theme.overlay/);
+assert.match(require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8"), /绝对不是自拍/);
 console.log("ok cover");
 // 大图要整张显示（她 2026-10-13：封面两边的字被截掉——是大图 cover 裁掉了左右）
 assert.match(scr, /h\(AlbumPhoto, \{ photo: big, full: true \}\)/);
