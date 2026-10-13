@@ -1717,6 +1717,12 @@ function App() {
       }
       // 朋友圈个人页还得知道是谁的那一页：没指过就先看「我的」（她 2026-10-13 截图：预览这一页整页空白）
       if (k === "momprofile") setMomTarget(t => t || { isMe: true });
+      // 亲属卡那一页只画某一张卡：先挑一张；一张都没有就照实说（她 2026-10-13：「再看看别的有没有空的」）
+      if (k === "kincard") {
+        const kc = (kinshipCards || []).find(c => c && c.charId === activeCardId) || (kinshipCards || [])[0];
+        if (!kc) return "这一页得先有一张亲属卡——在聊天里问 TA 要一张";
+        setActiveCardId(kc.charId);
+      }
       if (k === "gthread") {
         const g0 = activeGroup || (groups || [])[0];
         if (!g0) return "这一页得有个群才看得见——先去消息里建一个";
@@ -1727,7 +1733,7 @@ function App() {
     };
     window.__goScreen = go;
     return () => { if (window.__goScreen === go) delete window.__goScreen; };
-  }, [activeChar, activeGroup, characters, groups]);
+  }, [activeChar, activeGroup, characters, groups, kinshipCards, activeCardId]);
   // 预览台开关：工作台按下「去这一页看看」时挂上，回程条按下时摘掉。
   useEffect(() => {
     const open = info => setThemePeek(info && info.page ? { page: String(info.page), zh: String(info.zh || info.page) } : null);
