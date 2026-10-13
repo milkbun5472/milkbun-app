@@ -3675,8 +3675,9 @@ function shopFmtLeft(ms) {
 // 购物和外卖共用的那条搜索顶栏：返回 ＋ 描边搜索条（右端一颗搜索钮）＋ 换一批。
 // ⚠️它故意不走 Head：中间是输入框不是标题（screens-shared-head 那张名单里的第一条）。
 //   两个 app 只差颜色，所以颜色从参数进来，长相只有这一份。
-function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, accent, accentInk, iconInk, ink, sub, bg }) {
-  const topBar = h("div", { "data-wk": "head", className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: bg } },
+function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, accent, accentInk, iconInk, ink, sub, bg, underStrip }) {
+  // underStrip：查手机时顶上压着一条「正在用他的手机」，安全区那条已经让它吃了，这里不再吃第二遍（她 2026-10-13：顶栏太高）
+  const topBar = h("div", { "data-wk": "head", className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: underStrip ? 10 : safeTop(14), background: bg } },
     h("button", { onClick: onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: ink, wk: "headink" })),
     // minWidth:0：不设的话输入框按自己默认宽度把这条撑出屏幕右边（她 2026-10-06 外卖截图）
     h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + accent, borderRadius: 999, paddingLeft: 12, paddingRight: 3, minWidth: 0 } },
@@ -3732,7 +3733,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
   // ⚠️这一条【不换成公共 Head】，理由写在这儿：它扮的是淘宝那条搜索栏（橙描边＋橙搜索钮），
   //   换成紧凑标题栏就把这一页最认得出的东西拆了（界面装修工单里那句「判据在这一处是
   //   反过来的」——它模仿的正是别的 app）。但挂点要有：只加属性，长相一个像素没动。
-  const topBar = searchTopBar({ onBack, search, setSearch, onGo: () => doGen(false), busy, placeholder: "搜索宝贝…",
+  const topBar = searchTopBar({ onBack, search, setSearch, onGo: () => doGen(false), busy, placeholder: "搜索宝贝…", underStrip: !!payAs,
     accent: MSHOP.orange, accentInk: "#fff", iconInk: MSHOP.orange, ink: MSHOP.ink, sub: MSHOP.sub, bg: MSHOP.card });
 
   // ---------- 分类横滑 ----------
@@ -4110,7 +4111,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
         h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)))));
   }
 
-  const asStrip = payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
+  const asStrip = payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
     "正在用" + payAs.name + "的手机 · 花的是他的钱（还有 ¥" + payAs.balance + "），买的东西像他送你的一样寄过来") : null;
   return h("div", { "data-wk": "shoppage", className: "h-full flex flex-col" },
     asStrip,
@@ -4374,7 +4375,7 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
 
   // ---------- 附近 ----------
   // 顶栏跟购物是同一条（searchTopBar），只换成外卖的黄
-  const topBar = searchTopBar({ onBack, search, setSearch, onGo: doGen, busy, placeholder: "想吃点什么…",
+  const topBar = searchTopBar({ onBack, search, setSearch, onGo: doGen, busy, placeholder: "想吃点什么…", underStrip: !!payAs,
     accent: MTAKE.yellow, accentInk: MTAKE.ink, iconInk: MTAKE.yellowD, ink: MTAKE.ink, sub: MTAKE.sub, bg: MTAKE.card });
   const nearView = h("div", { "data-wk": "tkonear", className: "flex-1 flex flex-col min-h-0" }, topBar,
     h(TakeoutSlotRuler, { slot, onPick: setSlot, now }),
@@ -4469,7 +4470,7 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
       k === "orders" && (riding.length + arrived.length) > 0 && h("span", { "data-wk": "tkonavbadge", style: { position: "absolute", top: 4, right: "50%", marginRight: -14, width: 8, height: 8, borderRadius: 999, background: MTAKE.price, boxShadow: "0 0 0 1.5px " + MTAKE.card } }))));
 
   return h("div", { "data-wk": "tkopage", className: "h-full flex flex-col", style: { background: MTAKE.bg } },
-    payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
+    payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
       "正在用" + payAs.name + "的手机点外卖 · 花的是他的钱（还有 ¥" + payAs.balance + "）") : null,
     nav === "near" || payAs ? nearView : ordersView,
     bottomNav);

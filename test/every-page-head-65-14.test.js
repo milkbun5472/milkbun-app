@@ -84,7 +84,7 @@ test("故意保留原样的那几条，写清了为什么，而且真的只加�
   const sc = R("js/screens.js");
   // v74.179 起这条搜索栏是购物和外卖共用的 searchTopBar，橙色从购物那边传进去
   assert.match(sc, /border: "1\.5px solid " \+ accent/, "淘宝那条搜索栏被改坏了");
-  assert.match(sc, /searchTopBar\(\{ onBack, search, setSearch, onGo: \(\) => doGen\(false\), busy, placeholder: "搜索宝贝…",\s+accent: MSHOP\.orange/, "购物那条不是橙色了");
+  assert.match(sc, /searchTopBar\(\{ onBack, search, setSearch, onGo: \(\) => doGen\(false\), busy, placeholder: "搜索宝贝…",(?: underStrip: !!payAs,)?\s+accent: MSHOP\.orange/, "购物那条不是橙色了");
   assert.match(sc, /"data-wk": "head", className: "shrink-0 px-3 pb-2\.5 flex items-center gap-2"/);
 });
 
