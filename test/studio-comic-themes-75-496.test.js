@@ -5,7 +5,7 @@ const path = require("node:path");
 const rd = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = rd("app.js"), comp = rd("components.js"), scr = rd("screens.js");
 assert.match(comp, /"data-wk": "selcomic"[\s\S]{0,200}"画成漫画"/);
-assert.match(app, /onComic: indices =>/);
+assert.match(app, /onComic: \(indices, style\) =>/);
 assert.match(app, /const comicFromMessages = async/);
 assert.match(app, /不要任何文字、不要对话气泡/, "字不能交给图像端写");
 assert.match(app, /opt && opt\.comic \? await comicCompose/);
