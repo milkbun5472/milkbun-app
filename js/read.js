@@ -302,13 +302,18 @@
       const f = e.target.files && e.target.files[0];
       e.target.value = "";
       if (!f) return;
-      const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
+      // 不靠后缀认：有的手机传过来没后缀、类型也是空的（她 2026-10-13：「pdf 没办法选中」——选择框按类型把它灰掉了，
+      //   现在选择框什么都给选，这里看文件头：%PDF 是 pdf，PK 开头里带 epub 的是 epub，别的当文字）
+      const head = new Uint8Array(await f.slice(0, 64).arrayBuffer()), headStr = String.fromCharCode.apply(null, Array.from(head));
+      const sniffPdf = headStr.indexOf("%PDF") === 0, sniffEpub = headStr.indexOf("PK") === 0 && headStr.indexOf("epub") > 0;
+      const isPdf = sniffPdf || /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
       const isTxt = /\.txt$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
-      const isEpub = /\.epub$/i.test(f.name) || f.type === "application/epub+zip";
+      const isEpub = sniffEpub || /\.epub$/i.test(f.name) || f.type === "application/epub+zip";
       const isDocx = /\.docx$/i.test(f.name);
       if (/\.(mobi|azw3?)$/i.test(f.name)) { props.toast && props.toast("mobi / azw 读不了：先转成 epub 或 txt 再传"); return; }
       if (/\.doc$/i.test(f.name)) { props.toast && props.toast("老的 .doc 读不了：在 Word 里另存为 .docx 或 txt 再传"); return; }
-      if (!isPdf && !isTxt && !isEpub && !isDocx) { props.toast && props.toast("支持 .txt、.epub、.docx，或者有文字层的 .pdf"); return; }
+      if (!isPdf && !isTxt && !isEpub && !isDocx && headStr.indexOf("PK") !== 0 && !/^(image|video|audio)\//.test(f.type || "")) { /* 没后缀没类型的：当文字试试 */ }
+      else if (!isPdf && !isTxt && !isEpub && !isDocx) { props.toast && props.toast("支持 .txt、.epub、.docx，或者有文字层的 .pdf"); return; }
       try {
         let text;
         if (isEpub) {
@@ -423,7 +428,7 @@
     }
     return h("div", { className: "h-full flex flex-col", style: shelfPage, "data-wk": "readshelfboard", "data-part": "r2" },
       h(Head, { zh: "一起读", onBack: props.onBack, bg: "transparent" }),
-      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf,.epub,application/epub+zip,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
+      h("input", { ref: fileRef, type: "file", accept: "*/*", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
         rows,
         books.length === 0
