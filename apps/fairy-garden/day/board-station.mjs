@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {makeIngredient} from './ingredient-visual.mjs?v=fg-6155029e59419336';
-import {disposeFood} from './recipe-food.mjs?v=fg-6155029e59419336';
+import {makeIngredient} from './ingredient-visual.mjs?v=fg-13f81fdc88b83696';
+import {disposeFood} from './recipe-food.mjs?v=fg-13f81fdc88b83696';
 // One close operation view for the same kitchen meshes and saved food coordinates.
 export function createKitchenStation(){
  const scene=new T.Scene();scene.background=new T.Color('#bf976c');
@@ -18,8 +18,8 @@ export function createKitchenStation(){
   const xs=pieces.flatMap(p=>[p.x-Z.x-p.w/2,p.x-Z.x+p.w/2]),zs=pieces.flatMap(p=>[p.z-Z.z-p.d/2,p.z-Z.z+p.d/2]);
   const cx=xs.length?(Math.min(...xs)+Math.max(...xs))/2:0,cz=zs.length?(Math.min(...zs)+Math.max(...zs))/2:0;
   const span=Math.max(.44,xs.length?Math.max(...xs)-Math.min(...xs)+.10:0,(zs.length?Math.max(...zs)-Math.min(...zs)+.10:0)*w/h),vertical=span*h/w;
-  camera.left=-span/2;camera.right=span/2;camera.top=vertical/2;camera.bottom=-vertical/2;camera.position.set(cx,8,cz);camera.lookAt(cx,0,cz);camera.updateProjectionMatrix();camera.updateMatrixWorld();
-  board.position.set(cx,-.02,cz);board.scale.set(span*1.02,1,vertical*1.02);grain.position.set(cx,0,cz);grain.scale.set(span,1,vertical);
+  if(!drag||!framed){camera.left=-span/2;camera.right=span/2;camera.top=vertical/2;camera.bottom=-vertical/2;camera.position.set(cx,8,cz);camera.lookAt(cx,0,cz);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+   board.position.set(cx,-.02,cz);board.scale.set(span*1.02,1,vertical*1.02);grain.position.set(cx,0,cz);grain.scale.set(span,1,vertical);framed=true;}
   const path=drag?.path||[];trail.geometry.dispose();trail.geometry=new T.BufferGeometry().setFromPoints(path.map(p=>new T.Vector3(p.x-Z.x,.23,p.z-Z.z)));trail.visible=path.length>1;
   scene.updateMatrixWorld(true);
  }

@@ -69,7 +69,7 @@
  const finite=(x,d=0)=>Number.isFinite(Number(x))?Number(x):d,clamp=(x,a,b)=>Math.max(a,Math.min(b,finite(x))),copyTable=t=>JSON.parse(JSON.stringify(t));
  function tableState(raw){
   if(!raw||raw.version!==1||!Array.isArray(raw.items))return null;
-  const ids=new Set(),items=raw.items.slice(0,64).filter(p=>p&&typeof p.id==='string'&&p.id.length<=90&&!ids.has(p.id)&&Object.hasOwn(INGREDIENTS,p.ingredient)&&ids.add(p.id)).map(p=>({id:p.id,source:String(p.source||p.id).slice(0,40),ingredient:p.ingredient,zone:['basket','board','pan','plate'].includes(p.zone)?p.zone:'basket',x:clamp(p.x,-2.2,2.2),z:clamp(p.z,-.35,.48),w:clamp(p.w,.025,.3),d:clamp(p.d,.025,.3),h:clamp(p.h,.015,.23),cut:!!p.cut,knead:clamp(p.knead,0,1),side:p.side===1?1:0,top:clamp(p.top,0,1),bottom:clamp(p.bottom,0,1),mix:clamp(p.mix,0,4),added:Math.max(0,finite(p.added)),toss:Math.max(0,finite(p.toss))}));
+  const ids=new Set(),items=raw.items.slice(0,64).filter(p=>p&&typeof p.id==='string'&&p.id.length<=90&&!ids.has(p.id)&&Object.hasOwn(INGREDIENTS,p.ingredient)&&ids.add(p.id)).map(p=>({id:p.id,source:String(p.source||p.id).slice(0,40),ingredient:p.ingredient,zone:['basket','board','pan','plate'].includes(p.zone)?p.zone:'basket',x:clamp(p.x,-2.2,2.2),z:clamp(p.z,-.35,.48),w:clamp(p.w,.025,.3),d:clamp(p.d,.025,.3),h:clamp(p.h,.015,.23),cut:!!p.cut,knead:clamp(p.knead,0,1),side:p.side===1?1:0,top:clamp(p.top,0,1),bottom:clamp(p.bottom,0,1),mix:clamp(p.mix,0,4),added:Math.max(0,finite(p.added)),toss:Math.max(0,finite(p.toss)),heatTime:clamp(p.heatTime,0,2000)}));
   return {version:1,items,sealed:!!raw.sealed,order:(Array.isArray(raw.order)?raw.order:[]).filter(id=>Object.hasOwn(INGREDIENTS,id)).slice(0,64),sauce:(Array.isArray(raw.sauce)?raw.sauce:[]).slice(0,64).map(q=>({x:clamp(q.x,-.34,.19),z:clamp(q.z,-.09,.45)})),auto:Math.max(0,finite(raw.auto)),autoPhase:Math.max(0,Math.floor(finite(raw.autoPhase)))};
  }
  function tableCreate(id,raw){const r=recipeInfo(id,raw);if(!r)return null;let n=0;return tableState({version:1,items:Object.entries(r.need).flatMap(([ingredient,amount])=>Array.from({length:amount},()=>{const index=n++,q=TABLE_ZONES.basket;return {id:'food-'+index,source:'food-'+index,ingredient,zone:'basket',x:q.x+(index%2-.5)*.23,z:q.z+(Math.floor(index/2)%2-.5)*.20,w:.22,d:.18,h:.14,top:r.method==='mix'?1:0,bottom:r.method==='mix'?1:0};})),order:[],sauce:[]});}
@@ -84,9 +84,20 @@
   }
   if(event.kind==='slice'){
    const a=event.from,b=event.to;if(!a||!b||t.items.length>=64||![a.x,a.z,b.x,b.z].every(Number.isFinite))return t;
-   const axis=Math.abs(b.x-a.x)>Math.abs(b.z-a.z)?'z':'x',cross=axis==='x'?'z':'x';if(Math.abs(b[cross]-a[cross])<.13)return t;
-   const hit=t.items.find(p=>(!event.id||p.id===event.id)&&p.zone==='board'&&!['milk','tea','rice','noodle','flour','butter','egg'].includes(p.ingredient)&&Math.min(a[cross],b[cross])<p[cross]-(cross==='x'?p.w:p.d)/2&&Math.max(a[cross],b[cross])>p[cross]+(cross==='x'?p.w:p.d)/2&&Math.abs((a[axis]+b[axis])/2-p[axis])<(axis==='x'?p.w:p.d)/2-.027);
-   if(!hit)return t;const size=axis==='x'?'w':'d',length=hit[size],offset=(a[axis]+b[axis])/2-hit[axis],left=length/2+offset,right=length-left;if(Math.min(left,right)<.035)return t;
+   const path=(event.path||[a,b]).filter(q=>q&&Number.isFinite(q.x)&&Number.isFinite(q.z));if(path.length<2)return t;
+   const extent=k=>Math.max(...path.map(q=>q[k]))-Math.min(...path.map(q=>q[k])),axis=extent('x')>extent('z')?'z':'x',cross=axis==='x'?'z':'x';if(extent(cross)<.045)return t;
+   // Clip the whole finger trail to the food, including strokes that start inside
+   // it or come back to their starting point. An empty swipe never cuts anything.
+   let hit=null,offset=0;
+   for(const p of t.items.filter(p=>(!event.id||p.id===event.id)&&p.zone==='board'&&!['milk','tea','rice','noodle','flour','butter','egg'].includes(p.ingredient))){
+    const half={x:p.w/2,z:p.d/2};let travelled=0,weighted=0;
+    for(let i=1;i<path.length;i++){const u=path[i-1],v=path[i],delta={x:v.x-u.x,z:v.z-u.z};let low=0,high=1;
+     for(const k of ['x','z']){if(Math.abs(delta[k])<1e-9){if(Math.abs(u[k]-p[k])>half[k])high=-1;}else{const t0=(p[k]-half[k]-u[k])/delta[k],t1=(p[k]+half[k]-u[k])/delta[k];low=Math.max(low,Math.min(t0,t1));high=Math.min(high,Math.max(t0,t1));}}
+     if(high<=low)continue;const length=Math.abs(delta[cross])*(high-low);travelled+=length;weighted+=(u[axis]+delta[axis]*(low+high)/2-p[axis])*length;
+    }
+    const cut=travelled?weighted/travelled:0;if(travelled<.04||half[axis]-Math.abs(cut)<.035)continue;hit=p;offset=cut;break;
+   }
+   if(!hit)return t;const size=axis==='x'?'w':'d',length=hit[size],left=length/2+offset,right=length-left;
    const p={...hit,id:hit.id+'a',cut:true,[size]:left,[axis]:hit[axis]-right/2-.012},q={...hit,id:hit.id+'b',cut:true,[size]:right,[axis]:hit[axis]+left/2+.012};t.items.splice(t.items.indexOf(hit),1,p,q);return t;
   }
   if(event.kind==='stir'){
@@ -104,7 +115,7 @@
   if(prepAuto&&t.auto>=.65){t.auto=0;const item=t.items.find(q=>q.zone==='basket'&&q.id!==held)||t.items.find(q=>q.zone==='board'&&q.id!==held);if(item){if(item.zone==='basket')Object.assign(item,{zone:'board',x:TABLE_ZONES.board.x,z:TABLE_ZONES.board.z});else if(!item.cut&&!['milk','tea','rice','noodle','flour','butter','egg'].includes(item.ingredient)){const a={x:item.x-.3,z:item.z},b={x:item.x+.3,z:item.z};return {...p,table:tableEvent(t,{kind:'slice',id:item.id,from:a,to:b},method,p.elapsed),rev:p.rev+1};}else{Object.assign(item,{zone:'pan',x:TABLE_ZONES.pan.x+(t.items.indexOf(item)%3-1)*.09,z:TABLE_ZONES.pan.z+(t.items.indexOf(item)%2-.5)*.09,added:p.elapsed});t.order.push(item.ingredient);}p.rev++;}}
   for(const item of t.items.filter(q=>q.zone==='pan'&&q.id!==held)){
    if(chefAuto){item.mix=Math.min(4,item.mix+dt*.9);if(method==='fry'&&item.bottom>=.7&&!item.side){item.side=1;item.toss=p.elapsed;p.rev++;}}
-   if(method!=='mix'){const rate=[.025,.145,.23][p.heat]*(method==='bake'?.75:1),side=item.side?'top':'bottom';item[side]=Math.min(1,item[side]+dt*rate);if(method!=='fry')item[item.side?'bottom':'top']=Math.min(1,item[item.side?'bottom':'top']+dt*rate*(.65+Math.min(1,item.mix)*.35));}
+   if(method!=='mix'){item.heatTime=(item.heatTime||0)+dt*p.heat;const rate=[.025,.145,.23][p.heat]*(method==='bake'?.75:1),side=item.side?'top':'bottom';item[side]=Math.min(1,item[side]+dt*rate);if(method!=='fry')item[item.side?'bottom':'top']=Math.min(1,item[item.side?'bottom':'top']+dt*rate*(.65+Math.min(1,item.mix)*.35));}
    if(chefAuto&&tableReady(item,method)){const n=t.items.indexOf(item),a=n*2.4,r=.035+Math.min(.18,n*.012);Object.assign(item,{zone:'plate',x:TABLE_ZONES.plate.x+Math.cos(a)*r,z:TABLE_ZONES.plate.z+Math.sin(a)*r});p.rev++;}
   }
   if(job.cooking.mode==='auto'&&chefAuto&&t.items.length&&t.items.every(q=>q.zone==='plate')){t.sealed=true;p.rev++;}
@@ -128,14 +139,38 @@
  function cookingStations(job,raw=job?.cooking?.progress){
   if(!job?.cooking)return [];const q=cookingSpec(job,raw),table=q.tabletop;
   const panName=({mix:'拌碗',bake:'烤箱',steam:'蒸锅',boil:'汤锅',brew:'茶壶'})[q.method]||'炒锅';
-  return table?[{id:'basket',label:'食材篮',hint:'把食材拖到旁边砧板'},{id:'board',label:'砧板',hint:'手指划过切菜；面团来回揉'},{id:'pan',label:panName,hint:q.method==='mix'?'绕圈拌匀；熟块拖到旁边盘子':'绕圈翻炒，上拉锅柄翻面；熟块拖到旁边盘子'},{id:'heat',label:'炉灶旋钮',hint:'上下拖动调火',disabled:q.method==='mix'},{id:'sauce',label:'酱瓶',hint:'在盘子上划过淋酱'},{id:'plate',label:'摆盘',hint:'拖动菜块摆位置；整盘拖到旁边托盘'}]:[
+  return table?[{id:'basket',disabled:q.ready,label:'食材篮',hint:'把食材拖到旁边砧板'},{id:'board',disabled:q.ready,label:'砧板',hint:'手指划过切菜；面团来回揉'},{id:'pan',label:panName,disabled:q.ready,hint:q.method==='mix'?'绕圈拌匀；熟块拖到旁边盘子':'绕圈翻炒，上拉锅柄翻面；熟块拖到旁边盘子'},{id:'heat',label:'炉灶旋钮',hint:'上下拖动调火',disabled:q.ready||q.method==='mix'},{id:'sauce',disabled:q.ready,label:'酱瓶',hint:'在盘子上划过淋酱'},{id:'plate',label:'摆盘',hint:'拖动菜块摆位置；整盘拖到旁边托盘'}]:[
    {id:'prep',label:['bake','steam'].includes(q.method)?'揉面与擀面杖':q.method==='brew'?'加料碗':'备菜道具',hint:q.method==='brew'?'把茶与水果拖到碗里':q.operation==='knead'?'在面团上来回揉、推擀面杖':'手指划过食材切开',disabled:q.index!==0},
    {id:'pan',label:panName,hint:q.passive?'等它慢慢熟，旋钮可以调火':q.operation==='flip'?'向上拖锅柄翻面':'手指绕圈拌匀',disabled:q.index!==1},
    {id:'heat',label:'炉灶旋钮',hint:'上下拖动调火',disabled:q.index!==1||q.method==='mix'},
-   {id:'plate',label:'盛盘',hint:'把这盘拖到旁边托盘',disabled:q.index!==2}];
+   {id:'plate',label:'盛盘',hint:'把这盘拖到旁边托盘',disabled:q.index!==2&&!q.ready}];
  }
  function stationInfo(job,id,raw){return cookingStations(job,raw).find(q=>q.id===id)||{id,label:'厨房操作',hint:''};}
- function primaryStation(job,raw){const q=cookingSpec(job,raw);return q.tabletop?q.target:q.index===0?'prep':q.index===1?'pan':'plate';}
+ function primaryStation(job,raw){const q=cookingSpec(job,raw);return q.tabletop?(q.index===0&&!q.progress.table.items.some(p=>p.zone==='board')?'basket':q.target):q.index===0?'prep':q.index===1?'pan':'plate';}
+ function cookingGuide(job,raw=job?.cooking?.progress,station=''){
+  const q=cookingSpec(job,raw),t=q.progress.table,choices=[],add=(id,label,event)=>choices.push({id,label,event:event||{kind:'station',value:id}});
+  if(q.ready)return {step:4,text:'这一份做好了，可以端上餐桌，或收进餐盒。',choices};
+  if(t){const at=z=>t.items.filter(p=>p.zone===z),basket=at('basket'),board=at('board'),pan=at('pan'),plate=at('plate'),ready=pan.filter(p=>tableReady(p,q.method));
+   let text='';
+   if(station==='board'||!station&&board.length){text=board.length?'划过食材就能切开；切好后可以分批下锅。':'砧板空了，先从食材篮拿一份过来。';if(board.length)add('board-pan','这批下锅',{kind:'board-pan'});if(basket.length)add('basket','继续拿食材');if(pan.length)add('pan','去看锅里');}
+   else if(station==='basket'||!station&&basket.length){text=basket.length?'把食材拖到右边砧板，再切开或直接下锅。':'食材已经拿完，可以去看砧板或锅。';if(board.length)add('board','去切这批');if(pan.length)add('pan','去看锅里');}
+   else if(station==='plate'||station==='sauce'){text=plate.length===t.items.length?'摆好菜块后，拖住盘沿移到右边托盘，或点下面完成；也可以先淋酱。':'锅里熟好的菜拖到右边盘子，摆盘时可以调整位置。';if(ready.length)add('pan','继续盛菜');if(plate.length&&station!=='sauce')add('sauce','给这盘淋酱');if(station==='sauce')add('plate','回去摆盘');if(plate.length===t.items.length)add('serve-plate','摆好了，完成这盘',{kind:'serve-plate',point:TABLE_ZONES.tray});if(basket.length)add('basket','还有食材没做');}
+   else{const cooked=ready.length;text=!pan.length?'锅里还没有食材，先拿一批下锅。':q.method==='mix'?'在碗里划圈拌匀，拌好的食材可以拖到右边盘子。':q.method==='fry'?'向上拉锅柄翻面；两面熟了后拖到右边盘子。':'在锅里划圈翻动；熟好的食材可以拖到右边盘子。';if(cooked)text+=' 已有 '+cooked+' 块可以盛出。';if(q.method!=='mix'&&pan.length)add('heat','调整火候');if(plate.length)add('plate','去摆盘');if(basket.length)add('basket','继续备料');if(board.length)add('board','回砧板');}
+   if(!choices.length)add(primaryStation(job,raw),'接着做这一步');return {step:q.index+1,text,choices};
+  }
+  const text=q.passive?'等它慢慢熟，可以调火，也可以先去忙别的。':q.operation==='chop'?'在食材上划切，每次有效划动都会计入；备好后接着到锅边。':q.operation==='knead'?'在面团上来回揉，或推擀面杖；揉匀后接着蒸烤。':q.operation==='add'?'把茶和水果拖到碗里，备好后开始冲调。':q.operation==='plate'?'把成品盘拖到右边托盘，就能完成这份料理。':q.operation==='flip'?'向上拉锅柄翻面，煎好后接着盛盘。':'在锅或碗里划圈，拌匀后接着盛盘。';
+  if(q.passive)add('away','先忙别的',{kind:'away'});if(station!==primaryStation(job,raw))add(primaryStation(job,raw),'继续'+stationInfo(job,primaryStation(job,raw),raw).label);if(q.index===1&&q.method!=='mix'&&station!=='heat')add('heat','调整火候');return {step:q.index+1,text,choices};
+ }
+ function dishResult(dish){
+  if(dish?.result&&['label','appearance','texture','taste'].every(k=>typeof dish.result[k]==='string'))return {...dish.result};
+  const r=recipe(dish?.recipeId);if(!r)return {label:'这份料理',appearance:'',texture:'',taste:''};
+  const p=dish.cooking?cookingProgress(dish.cooking.progress):null,t=tableState(dish.tabletop||p?.table),items=t?.items||[],exposure=p?.exposure;
+  const actual=dish.variation||dish.cooking?.variation||{},taste=Object.keys(TASTE).filter(k=>Object.hasOwn(TASTE[k],actual[k])).map(k=>TASTE[k][actual[k]]).join(' · ')||'口味未记录',hot=items.filter(x=>x.heatTime>0),limit=r.method==='fry'?24:r.method==='stir'?22:40,over=hot.some(x=>x.heatTime>limit),raw=items.some(x=>!tableReady(x,r.method));
+  const label=raw?'还没做熟':over?'火候偏重':r.method==='mix'?'拌匀了':r.method==='bake'?'刚出炉':r.food==='drink'?'冲好了':'做好了';
+  const cut=items.filter(x=>x.cut).length,appearance=t?(cut?'能看到你切开的 '+cut+' 块食材':'保留了较大的食材块')+(t.sauce.length?'，盘上有淋酱':'，按你摆的位置装盘'):dish.finish||(['bake','steam'].includes(r.method)?'两人份已经装好':r.food==='drink'?'两杯饮品':'两人份已经盛出');
+  const texture=raw?'还有食材没熟，先继续烹调。':over?'有些食材受热较久，口感会偏干。':r.method==='mix'?'食材已经拌匀，口感清爽。':r.method==='bake'?(exposure>20?'烤色较深，外层更脆。':'烤色较浅，口感松软。'):r.method==='fry'?'两面已经煎熟，表面带煎色。':['boil','steam','brew'].includes(r.method)?'按这次火候慢慢做熟。':'食材已经炒熟，保留嫩口。';
+  return {label,appearance,texture,taste};
+ }
  const COOP={pass:{label:'递食材',seconds:4},bowl:{label:'接过小碗',seconds:4},steady:{label:'帮忙扶锅',seconds:5},guide:{label:'一起揉面',seconds:6},stir:{label:'贴近一起搅拌',seconds:6},wipe:{label:'擦掉脸上的面粉',seconds:4},taste:{label:'让TA尝一口',seconds:5},'taste-me':{label:'我也尝一口',seconds:5}};
  function cooperation(job,raw=job?.cooking?.progress){
   if(!job?.cooking||job.kind!=='cook')return [];const q=cookingSpec(job,raw),p=q.progress,t=p.table,method=q.method,need=recipeInfo(job.recipeId,job.cooking.variation).need;
@@ -169,8 +204,8 @@
   return p;
  }
  function mealFeedback(dish,prefs,persona=''){
-  const actual=variation(dish.recipeId,dish.variation),q=resolvePreferences(prefs,persona),axes=Object.keys(TASTE).filter(k=>preference(prefs)[k]!=='auto'||(k==='spice'?/辣/:k==='salt'?/清淡|盐|重口|浓味/:/甜|糖/).test(String(persona)));
-  const matching=axes.filter(k=>actual[k]===q[k]);return {taste:tasteDescription(actual),matching,known:axes.length>0,text:axes.length?(matching.length===axes.length?'这份口味符合厨房里记住的偏好。':'这份和厨房里记住的口味偏好有些不同。'):'TA的口味还没有明确记录，可以一起尝尝，再记住喜欢的做法。'};
+  const recorded=dish.variation||{},actual=variation(dish.recipeId,recorded),q=resolvePreferences(prefs,persona),axes=Object.keys(TASTE).filter(k=>preference(prefs)[k]!=='auto'||(k==='spice'?/辣/:k==='salt'?/清淡|盐|重口|浓味/:/甜|糖/).test(String(persona)));
+  const knownAxes=axes.filter(k=>Object.hasOwn(TASTE[k],recorded[k])),matching=knownAxes.filter(k=>actual[k]===q[k]);if(axes.length&&!knownAxes.length)return {taste:'口味未记录',matching,known:false,text:'这份口味还没有记录，可以尝过以后再记。'};return {taste:tasteDescription(actual),matching,known:axes.length>0,text:axes.length?(matching.length===knownAxes.length?'这份口味符合厨房里记住的偏好。':'这份和厨房里记住的口味偏好有些不同。'):'TA的口味还没有明确记录，可以一起尝尝，再记住喜欢的做法。'};
  }
 
  const count=n=>Math.max(0,Math.min(99,Math.floor(Number(n)||0)));
@@ -208,9 +243,9 @@
   if(action.kind!=='finish'||!p.ready)throw Error('先在现场完成，再收好这一份。');
   if(p.kind==='meal'){const ids=p.dishIds||[p.dishId];if(ids.some(id=>!s.dishes.some(d=>d.id===id)))throw Error('这份已经吃完了。');return {...s,pending:null,dishes:s.dishes.filter(d=>!ids.includes(d.id)),eaten:(Number(s.eaten)||0)+ids.length,tables:(Number(s.tables)||0)+1,history:[...s.history,{id:p.id,at:action.at,courses:(p.courses||[]).map(d=>({...d}))}].slice(-30)};}
   const r=recipeInfo(p.recipeId,p.cooking?.variation);if(!r)throw Error('做法没有找到，食材还在。');if(Object.entries(r.need).some(([id,n])=>s.ingredients[id]<n))throw Error('食材不够，先补齐这一份。');if(!Number.isFinite(action.at))throw Error('先重新收好这一份。');
-  return {...s,pending:null,ingredients:Object.fromEntries(Object.entries(s.ingredients).map(([id,n])=>[id,n-(r.need[id]||0)])),cookingHistory:[...s.cookingHistory,{id:p.id,recipeId:r.id,at:action.at,...(p.day?{day:p.day,time:p.time}:{}),variation:p.cooking?.variation,lead:p.cooking?.lead,moments:p.cooking?.progress?.moments||[]}].slice(-60),dishes:[...s.dishes,{id:p.id,recipeId:r.id,at:action.at,...(p.day?{day:p.day,time:p.time}:{}),servings:2,...(p.cooking?{variation:p.cooking.variation,lead:p.cooking.lead,moments:p.cooking.progress?.moments||[],...(p.cooking.progress?.table?{tabletop:tabletopDish(p.cooking.progress.table)}:{}),finish:r.method==='mix'?'拌匀两人份':r.method==='bake'?(p.cooking.progress?.exposure>14?'烤色更深':'松软出炉'):['fry','stir'].includes(r.method)?(p.cooking.progress?.exposure>14?'煎得更香':'保留嫩口'):'慢火完成'}:{})}],made:{...s.made,[r.id]:Math.min(99,s.made[r.id]+1)}};
+  return {...s,pending:null,ingredients:Object.fromEntries(Object.entries(s.ingredients).map(([id,n])=>[id,n-(r.need[id]||0)])),cookingHistory:[...s.cookingHistory,{id:p.id,recipeId:r.id,at:action.at,...(p.day?{day:p.day,time:p.time}:{}),variation:p.cooking?.variation,lead:p.cooking?.lead,moments:p.cooking?.progress?.moments||[]}].slice(-60),dishes:[...s.dishes,{id:p.id,recipeId:r.id,at:action.at,...(p.day?{day:p.day,time:p.time}:{}),servings:2,...(p.cooking?{variation:p.cooking.variation,lead:p.cooking.lead,moments:p.cooking.progress?.moments||[],...(p.cooking.progress?.table?{tabletop:tabletopDish(p.cooking.progress.table)}:{}),result:dishResult(p),finish:r.method==='mix'?'拌匀两人份':r.method==='bake'?(p.cooking.progress?.exposure>14?'烤色更深':'松软出炉'):['fry','stir'].includes(r.method)?(p.cooking.progress?.exposure>14?'煎得更香':'保留嫩口'):'慢火完成'}:{})}],made:{...s.made,[r.id]:Math.min(99,s.made[r.id]+1)}};
  }
  function cookingStage(job,elapsed=0){if(job?.kind==='cook'&&job.cooking){const spec=cookingSpec(job,typeof elapsed==='object'?elapsed:job.cooking.progress);return {...spec,duration:spec.seconds,phase:spec.ready?'ready':['preparing','stirring','serving'][spec.index]};}const r=recipe(job?.recipeId),m=METHODS[r?.method]||METHODS.stir,duration=job?.kind==='meal'?6+Math.max(0,(job.dishIds?.length||1)-1)*2:m.seconds;
   const index=elapsed<duration*.28?0:elapsed<duration*.78?1:2,phase=job?.kind==='meal'?'eating':['preparing','stirring','serving'][index];return {duration,index,phase,label:job?.kind==='meal'?'一起尝这桌菜':m.steps[index],method:r?.method||'stir'};}
- root.CharDayKitchen={COOP,cooperation,menuBatch,menuChoices,recordMoment,cookingStations,stationInfo,primaryStation,KITCHEN_ANCHORS,TABLE_ZONES,FOOD_COLORS,tableState,tableCreate,tableReady,inTableZone,tablePhase,tableHint,tableEvent,tabletopDish,TASTE,LEADS,preference,inferredTaste,resolvePreferences,alternatives,variation,recipeInfo,tasteDescription,dishName,cookingProgress,cookingSession,cookingSpec,stepCooking,mealFeedback,INGREDIENTS,CATEGORIES,METHODS,RECIPES,recipe,kitchen,kitchenChange,shopping,cookingStage};
+ root.CharDayKitchen={COOP,cooperation,menuBatch,menuChoices,recordMoment,cookingStations,stationInfo,primaryStation,cookingGuide,dishResult,KITCHEN_ANCHORS,TABLE_ZONES,FOOD_COLORS,tableState,tableCreate,tableReady,inTableZone,tablePhase,tableHint,tableEvent,tabletopDish,TASTE,LEADS,preference,inferredTaste,resolvePreferences,alternatives,variation,recipeInfo,tasteDescription,dishName,cookingProgress,cookingSession,cookingSpec,stepCooking,mealFeedback,INGREDIENTS,CATEGORIES,METHODS,RECIPES,recipe,kitchen,kitchenChange,shopping,cookingStage};
 })(globalThis);
