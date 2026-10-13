@@ -25254,11 +25254,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // 封面上的字让他写：从你们最近的事里挑（多花一次文字调用；没写成就用兜底的）
-  const coverCopy = async (char, kind, title) => {
+  const coverCopy = async (char, kind, title, picked) => {
     // 字＋方向一起要（她 2026-10-13）：类型、气质、字的性格、片名怎么断——只给方向，不给坐标；
     //   位置由本地 PosterLayout 照这几样定，再写进生图那句留白里。
     // 怎么拍也由他照这部片定（她 2026-10-13：原来提示词里列着几个姿势当例子，模型老抄第一个——海报全是背靠背）
-    const shotAsk = "shot＝这一张怎么拍：两个人的站位、动作、谁看谁，镜头从哪个高度、多远拍（一句话，照这部片的戏和你们的关系来想，每次都可以不一样）；";
+    const shotAsk = "shot＝这一张怎么拍：两个人的站位、动作、谁看谁，镜头从哪个高度、多远拍（一句话，照这部片的戏和你们的关系来想，每次都可以不一样）；" + (picked ? "（衣服已经挑好了，shot 里只写站位、动作和镜头，不许写穿什么、不许换装，片名和剧情再好笑也不换。）" : "");
     const persona = "persona＝封面上字的性格，从 elegant（优雅）/heavy（厚重）/sharp（锐利）/retro（复古）/playful（俏皮）/cold（冷峻）/hand（手写）里挑一个最贴的；density＝信息量，min/std/rich 挑一个；";
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
@@ -25352,13 +25352,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 封面先定字：TA写字＋定方向 → 本地挑整张的文字构图 → 留白写进生图那句（图照字的位置画）
       let cover = null, coverPlan = null;
       if (theme && theme.overlay && !RESTYLE_ONLY && window.PosterLayout) {
-        cover = await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim());
+        cover = await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim(), picked);
         coverPlan = window.PosterLayout.plan(theme.overlay, cover || {});
       }
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
       const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "" } : {}) });
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
