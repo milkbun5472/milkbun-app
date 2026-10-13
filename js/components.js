@@ -16408,6 +16408,9 @@ function useIdbImgUrl(imgKey) {
 //   画完不另开一条发送路：丢给当前那个聊天的「发照片」，跟从相册选了一张一模一样——要不要配一句、发不发，还是她定。
 //   TA 那头照常看图（识图），看得出你在哪儿画了什么。
 const DOODLE_INK = ["#e5484d", "#ffffff", "#111111", "#f5c518", "#ff8fb1", "#3b82f6"];
+// 字和笔都能挑颜色（她 2026-10-13）：描边跟着颜色深浅反着来，浅色字描黑边、深色字描白边
+const doodleEdge = c => { const m = /^#?([0-9a-f]{6})$/i.exec(String(c || "")); if (!m) return "#fff";
+  const n = parseInt(m[1], 16), l = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); return l > 150 ? "#111" : "#fff"; };
 const DOODLE_STAMPS = ["❤️", "👍", "😂", "😤", "✨", "💯", "10分", "3分"];
 // 三种玩法共用一块画布（她 2026-10-12「都可以做吧」）：
 //   画 = 随手涂、也能「圈出来问他这是什么」；贴 = 点一下落一个表情或分数；抠 = 沿着他描一圈，剪成透明底贴纸进表情包。
@@ -16431,7 +16434,7 @@ function DoodleEditor({ src, charId, onClose }) {
       if (st.stamp) { x.font = Math.round(st.size) + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
         // 分数红字白边；字（羞涩、困惑这类）黑字白边，深色照片上也看得清
         if (/分$/.test(st.stamp)) { x.lineWidth = st.size / 8; x.strokeStyle = "#fff"; x.strokeText(st.stamp, st.x, st.y); x.fillStyle = "#e5484d"; }
-        else { if (/[\u4e00-\u9fffA-Za-z0-9]/.test(st.stamp)) { x.lineWidth = st.size / 7; x.strokeStyle = "#fff"; x.strokeText(st.stamp, st.x, st.y); } x.fillStyle = "#000"; }
+        else { const col = st.color || "#000"; if (/[\u4e00-\u9fffA-Za-z0-9]/.test(st.stamp)) { x.lineWidth = st.size / 7; x.strokeStyle = doodleEdge(col); x.strokeText(st.stamp, st.x, st.y); } x.fillStyle = col; }
         x.fillText(st.stamp, st.x, st.y); return; }
       x.strokeStyle = st.ink; x.lineWidth = st.w; x.setLineDash(st.cut ? [st.w * 2, st.w * 2] : []); x.beginPath();
       st.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]));
@@ -16452,7 +16455,7 @@ function DoodleEditor({ src, charId, onClose }) {
   const at = e => { const c = cv.current, r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
   const down = e => {
     e.preventDefault(); const c = cv.current; if (!c) return; const p = at(e);
-    if (mode === "stamp") { marks.current.push({ stamp, x: p[0], y: p[1], size: big() * (/分$/.test(stamp) ? 0.07 : 0.09) }); setN(v => v + 1); return; }
+    if (mode === "stamp") { marks.current.push({ stamp, color: ink, x: p[0], y: p[1], size: big() * (/分$/.test(stamp) ? 0.07 : 0.09) }); setN(v => v + 1); return; }
     try { c.setPointerCapture(e.pointerId); } catch (er) {}
     if (mode === "cut") marks.current = marks.current.filter(m => !m.cut);   // 抠只留最新那一圈
     cur.current = mode === "cut" ? { cut: true, ink: "#ffffff", w: big() * 0.006, pts: [p] } : { ink, w: (wide ? 0.022 : 0.008) * big(), pts: [p] };
@@ -16494,8 +16497,8 @@ function DoodleEditor({ src, charId, onClose }) {
     if (cap) {
       const fs = Math.max(18, Math.min(o.width / Math.max(2, cap.length) * 0.9, o.height * 0.2));
       x.font = "bold " + Math.round(fs) + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "bottom"; x.lineJoin = "round";
-      x.lineWidth = fs / 5; x.strokeStyle = "#fff"; x.strokeText(cap, o.width / 2, o.height - fs * 0.15);
-      x.fillStyle = "#111"; x.fillText(cap, o.width / 2, o.height - fs * 0.15); }
+      x.lineWidth = fs / 5; x.strokeStyle = doodleEdge(ink); x.strokeText(cap, o.width / 2, o.height - fs * 0.15);
+      x.fillStyle = ink; x.fillText(cap, o.width / 2, o.height - fs * 0.15); }
     let url = ""; try { url = o.toDataURL("image/png"); } catch (e) { toast("这张是外链图，浏览器不让抠，先保存到相册再试"); return; }
     const ok = typeof window.__addSelfSticker === "function" && await window.__addSelfSticker(url, charId, cutName);
     toast(ok ? "抠好了，放进表情包里了" : "没放进表情包，再试一次");
@@ -16514,9 +16517,14 @@ function DoodleEditor({ src, charId, onClose }) {
       h("canvas", { ref: cv, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, onPointerLeave: up,
         style: { maxWidth: "100%", maxHeight: "100%", touchAction: "none", borderRadius: 6, background: "#222" } })),
     h("div", { "data-wk": "doodletools", style: { padding: "10px 14px calc(env(safe-area-inset-bottom) + 12px)" } },
-      mode === "draw" ? h("div", { className: "flex items-center justify-center", style: { gap: 12, marginBottom: 10 } },
+      // 颜色一排三档都用：画的笔、贴的字、抠图上写的字。最后那颗是自己调色
+      h("div", { className: "flex items-center justify-center", style: { gap: 10, marginBottom: 10 } },
         DOODLE_INK.map(c => h("button", { key: c, onClick: () => setInk(c), "aria-label": "颜色", style: { width: 30, height: 30, borderRadius: 999, background: c,
-          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)" } }))) : null,
+          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)" } })),
+        h("label", { "data-wk": "doodlecolor", "aria-label": "自己调颜色", style: { position: "relative", width: 40, height: 40, borderRadius: 999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+            background: DOODLE_INK.includes(ink) ? "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)" : ink, border: DOODLE_INK.includes(ink) ? "2px solid rgba(255,255,255,.35)" : "3px solid #fff" } },
+          h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(ink) ? ink : "#e5484d", onChange: e => setInk(e.target.value),
+            style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } }))),
       mode === "stamp" ? h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8, marginBottom: 10 } },
         DOODLE_STAMPS.map(x => btn(x, () => setStamp(x), stamp === x)),
         // 自己写一个：填数字就当分数（7 → 7分），别的照原样贴

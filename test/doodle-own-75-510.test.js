@@ -19,6 +19,11 @@ test("抠的时候画的、贴的字一起带上；能在图上写一行字，�
   assert.match(comp, /const cap = String\(cutCap \|\| ""\)\.trim\(\)/);
   assert.match(comp, /"data-wk": "doodlecutcap"/);
 });
-test("贴的字黑字白边", () => {
-  assert.match(comp, /x\.lineWidth = st\.size \/ 7; x\.strokeStyle = "#fff"; x\.strokeText/);
+test("贴的字带描边，描边跟颜色深浅反着来", () => {
+  assert.match(comp, /x\.lineWidth = st\.size \/ 7; x\.strokeStyle = doodleEdge\(col\); x\.strokeText/);
+});
+test("颜色能自己调，笔、贴的字、抠图上的字都用这一个颜色", () => {
+  assert.match(comp, /h\("input", \{ type: "color"/);
+  assert.match(comp, /marks\.current\.push\(\{ stamp, color: ink,/);
+  assert.match(comp, /x\.fillStyle = ink; x\.fillText/);
 });
