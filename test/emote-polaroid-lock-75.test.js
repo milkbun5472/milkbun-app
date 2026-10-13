@@ -19,3 +19,6 @@ assert.match(app, /parsed\.lockscreen === true && _lockSrc/);
 assert.match(comp, /m\.kind === "locknote"/);
 console.log("ok");
 assert.match(app, /是你自己画的那套 Q 版/);
+// 图上印字（她 2026-10-13）
+assert.match(app, /if \(setOpt && setOpt\.caption\)/);
+assert.match(scr, /onMakeSet\(c\.id, \{ caption: setCaption \}\)/);

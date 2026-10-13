@@ -27747,7 +27747,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 他的一套表情包（她 2026-10-13）：先让他照自己的性子挑九个表情、起名字，再一张图画成 3×3，
   //   切开存进「抠他图」那同一组（fromCharFace），所以他自己也能发、你也能发
   const [emoteSetBusy, setEmoteSetBusy] = useState("");
-  const makeEmoteSet = async charId => {
+  const makeEmoteSet = async (charId, setOpt) => {
     const char = characters.find(c => c.id === charId);
     if (!char || emoteSetBusy) return;
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
@@ -27781,7 +27781,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       let n = 0;
       for (let k = 0; k < 9; k++) {
         const cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
-        cv.getContext("2d").drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
+        const g2 = cv.getContext("2d");
+        g2.drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
+        // 图上印字（她 2026-10-13：「不然我光看图忘记是什么意思」）：字是 app 写的，不让图像端写（会乱码）
+        if (setOpt && setOpt.caption) {
+          const word = items[k].name; let z = 46; const F2 = "'ZCOOL KuaiLe','Ma Shan Zheng','PingFang SC',sans-serif";
+          g2.font = "900 " + z + "px " + F2; while (z > 22 && g2.measureText(word).width > 350) { z -= 2; g2.font = "900 " + z + "px " + F2; }
+          g2.textAlign = "center"; g2.textBaseline = "alphabetic"; g2.lineJoin = "round";
+          g2.lineWidth = Math.max(5, z / 5); g2.strokeStyle = "#fff"; g2.strokeText(word, 192, 372);
+          g2.fillStyle = "#2b2622"; g2.fillText(word, 192, 372);
+        }
         if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name, true)) n++;
       }
       toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
