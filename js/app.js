@@ -20906,6 +20906,47 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .then(() => { done(); phoneAsFollowUp(char, group, body, rowsBefore); }, done);
     return true;
   };
+  // ── 她拿他手机转账（群友 2026-10-13「拿他手机转账买东西这种」）────────────
+  //   跟替他发消息同一道门：只有真实会话（actual:）能转。
+  //   ① 跟她的私聊：落一张「他转给你」的待领卡（跟他自己转账同一个 postCharTransfer），标 byUser——钱等她点收下才动；
+  //   ② 群里：转给另一个成员，钱当场从他钱包挪到那个人钱包，群里落一行转账。
+  //   都掏不出比他余额多的钱。他下次说话时看得到这是她用他手机转的（byUser 那一行旁注）。
+  const phoneTransferAs = (char, session, amount, note, toId) => {
+    const id = String((session && session.id) || "");
+    const a0 = Math.round(Number(amount) * 100) / 100;
+    if (!char || !(a0 > 0) || id.indexOf("actual:") !== 0) return false;
+    const _w = charWalletRef.current[char.id];
+    const bal = _w && _w.balance != null ? Number(_w.balance) : CHAR_DEFAULT_BAL;
+    if (bal <= 0) { toast(characterText(char, "他钱包里没钱了")); return false; }
+    const a = Math.min(a0, Math.round(bal * 100) / 100);
+    const nt = String(note || "").trim().slice(0, 40);
+    if (id === "actual:private:" + char.id) {
+      const r = postCharTransfer(char.id, a, nt, { byUser: true });
+      if (!r) return false;
+      toast(a < a0 ? "他只剩这么多，转了 " + moneyText(a, char.id) : "转出去了，回他聊天里点收下");
+      return true;
+    }
+    const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
+    const group = gid ? groups.find(g => g.id === gid) : null;
+    const to = toId ? characters.find(c => c.id === toId) : null;
+    if (!group || !(group.memberIds || []).includes(char.id) || !to || !(group.memberIds || []).includes(to.id) || to.id === char.id) return false;
+    adjustCharBalance(char.id, -a, "转账给 " + to.name + (nt ? "（" + nt + "）" : ""), "transfer");
+    adjustCharBalance(to.id, a, "收到 " + char.name + " 的转账" + (nt ? "（" + nt + "）" : ""), "transfer");
+    pGChat(gid, p => [...p, {
+      role: "assistant", senderId: char.id, senderName: char.name,
+      content: "[转账] " + char.name + " 向 " + to.name + " 转了 " + moneyText(a, char.id) + (nt ? "（" + nt + "）" : ""),
+      mid: "gm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8), ts: Date.now(), byUser: true
+    }]);
+    toast("转给 " + to.name + " 了");
+    return true;
+  };
+  // 群里能转给谁：除了他自己的群成员
+  const phoneTransferPeers = (char, session) => {
+    const id = String((session && session.id) || "");
+    const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
+    const group = gid ? groups.find(g => g.id === gid) : null;
+    return group ? (group.memberIds || []).filter(x => x !== (char && char.id)).map(x => characters.find(c => c.id === x)).filter(Boolean).map(c => ({ id: c.id, name: c.name })) : [];
+  };
   // 敲一下：本次递进 + 跨次三天半衰（她 2026-09-10：「本次要，跨session也要但要衰减」）
   // ⚠️她 2026-09-10：「敲一敲有时候卡住了一直没反应」。三个哑口，一个一个堵：
   //   ① 没配后台线路时直接 return ""——按钮转一下就没了，什么也不说；
@@ -29118,6 +29159,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchSend: watchSend,
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
+    onTransferAs: phoneTransferAs,
+    transferPeers: phoneTransferPeers,
     onRemark: phoneRemarkEdit,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
