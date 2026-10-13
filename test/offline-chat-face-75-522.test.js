@@ -21,3 +21,7 @@ test("朋友圈和朋友圈主页也认聊天那张脸", () => {
   assert.match(comp, /const characters = \(rawCharacters \|\| \[\]\)\.map\(chatFace\);/);
   assert.match(comp, /const character = chatFace\(rawCharacter\), characters = \(rawCharacters \|\| \[\]\)\.map\(chatFace\);/);
 });
+test("档案换头像不顶掉聊天头像", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  assert.ok(!/setChatAvatarOn\(false\); \}/.test(scr));
+});
