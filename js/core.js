@@ -747,13 +747,14 @@ function decodeTextBytes(bytes) {
   try { return new TextDecoder("utf-8", { fatal: true }).decode(b); } catch (_) {}
   // gb18030 是浏览器规范里的必备编码；真碰上不认的环境（老 Node 少 ICU）也不能整个卡住，
   // 退回宽松的 UTF-8——那正是改这一层之前的老样子，不会比原来更坏。
-  // 繁体的 txt 多半是 Big5，当 GBK 解出来整本是乱码（她 2026-10-13 群里：「导进去是乱码」）。
-  //   两种都解一遍，看哪一份里「，。的是了」这类最常见的字和标点多，就用哪份。
+  // 不是 UTF-8：简体 GBK、繁体 Big5（当 GBK 解整本乱码）、没 BOM 的纯中文 UTF-16 都可能（她 2026-10-13 群里：「导进去是乱码」）。
+  //   几种都解一遍，看哪一份里最常见的字和标点多、怪字符少，就用哪份。
   try {
-    const gb = dec("gb18030");
-    let b5 = ""; try { b5 = dec("big5"); } catch (_) { return gb; }
-    const score = t => { let n = 0; const m = t.slice(0, 20000).match(/[，。的是了不我你他她在有這个個們们說说]/g); return m ? m.length : 0; };
-    return score(b5) > score(gb) * 1.5 ? b5 : gb;
+    const common = /[，。的是了不我你他她在有这這个個们們说說一人来來到上就也和]/g;
+    const score = t => { const head = t.slice(0, 20000); const good = (head.match(common) || []).length; const bad = (head.match(/[\u0000-\u0008\uFFFD]/g) || []).length; return good - bad * 3; };
+    let best = null, bestScore = -Infinity;
+    ["gb18030", "big5", "utf-16le", "utf-16be"].forEach(enc => { try { const t = dec(enc), sc = score(t); if (sc > bestScore) { best = t; bestScore = sc; } } catch (_) {} });
+    return best != null ? best : dec("utf-8");
   } catch (_) { return dec("utf-8"); }
 }
 async function readTextFileSmart(file) {
