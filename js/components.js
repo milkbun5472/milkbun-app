@@ -1014,6 +1014,11 @@ function Avatar({
   // 图片仓库：avatarImage 可能是 iv_ 键（IndexedDB）→ resolveImg 换成 objectURL；base64/http 原样。
   // 缓存没命中（iv_ 键但库里没图）→ src 为空 → 落到下面首字母兜底，不显示破图。
   const src = character && character.avatarImage ? (typeof resolveImg === "function" ? resolveImg(character.avatarImage) : character.avatarImage) : "";
+  // 有光圈时 img 外面换成同名的那一格（img 画不了伪元素，原来那圈会转的星光要画在 ::before/::after 上）：
+  //   data-wk 还是 avatar、还是顶栏的直接孩子，主题 CSS 写给头像的尺寸位置原样落在这一格上，图铺满它。
+  if (src && halo) return h("span", { "data-wk": "avatar", "data-halo": "1", className: "shrink-0",
+    style: { display: "inline-block", position: "relative", width: size, height: size, borderRadius: rad } },
+    h("img", { src: src, alt: "", className: "object-cover", style: { display: "block", width: "100%", height: "100%", borderRadius: "inherit" } }));
   if (src) return /*#__PURE__*/React.createElement("img", {
     "data-wk": "avatar", ...haloAttr,
     src: src,

@@ -9,7 +9,8 @@ test("顶栏头像不再包 AstroHalo，光圈挂在头像自己身上", () => {
   assert.match(comp, /halo: !!\(window\.Astro && window\.Astro\.isGoodDay && window\.Astro\.isGoodDay\(character\)\)/);
   assert.match(comp, /"data-wk": "avatar", \.\.\.haloAttr,/);
 });
-test("光只用 box-shadow 画，不动尺寸位置", () => {
-  assert.match(astro, /\[data-halo=\\"1\\"\]\{animation:qqHaloPulse/);
-  assert.ok(!/data-halo[^}]*(width|height|position|transform)/.test(astro.slice(astro.indexOf("qq-astro-halo-css"), astro.indexOf("qq-astro-halo-css") + 900)));
+test("原来那圈（虚线金圈＋三颗星、慢慢转）画在头像自己的伪元素上；有图时外面是同名 data-wk 的一格", () => {
+  assert.match(astro, /\[data-halo=\\"1\\"\]::before\{content:/);
+  assert.match(astro, /animation:qqHaloSpin 14s linear infinite/);
+  assert.match(comp, /if \(src && halo\) return h\("span", \{ "data-wk": "avatar", "data-halo": "1"/);
 });
