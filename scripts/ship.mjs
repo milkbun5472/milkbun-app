@@ -61,7 +61,8 @@ for (let round = 1; round <= 4; round++) {
     sh("git add -A"); sh("git commit -qm \"merge main\"");
   }
   // 3) 这一版动过哪些 js（相对 main），bump 自己看不见已提交的改动，这里补上指纹
-  const changed = sh("git diff --name-only " + REMOTE + "/main...HEAD -- js/").split("\n").filter(f => f.endsWith(".js")).map(f => f.replace(/^js\//, "").replace(/\.js$/, ""));
+  const changed = sh("git diff --name-only " + REMOTE + "/main...HEAD -- js/").split("\n").filter(f => f.endsWith(".js")).map(f => f.replace(/^js\//, "").replace(/\.js$/, "")).concat(["assistant-manual", "theme-studio"]);   // 下面一定会改这两份的戳
+  const uniq = [...new Set(changed)]; changed.length = 0; changed.push(...uniq);
   const bump = sh("node scripts/bump-version.mjs");
   const V = readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)[1];
   console.log(bump.split("\n").pop());
