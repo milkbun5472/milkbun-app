@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.527";
+const APP_VERSION = "v75.540";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -484,6 +484,9 @@ function App() {
     || (viewRef.current.screen === "fairyGarden" && String(dayChatRef.current || "") === String(id));
   // 置顶的聊天/群 id 集合
   const [pinnedChats, setPinnedChats] = useState(() => loadJSON("x_pinnedChats", []));
+  // 从消息列表里删掉的配角聊天（她 2026-10-13：「npc 聊天窗口能不能删除但是不删 npc」）：
+  //   { id: 删的那一刻 }——只是不在列表里显示，记录和配角都在；之后再有新消息（谁发的都算）就自己回来
+  const [hiddenChats, setHiddenChats] = useState(() => loadJSON("x_hiddenChats", {}) || {});
   const [characters, setCharacters] = useState([]);
   const charactersRef = useRef([]);
   charactersRef.current = characters; // 顶上那条消息提醒在异步回调里认人，闭包拿不到最新的 characters
@@ -1715,6 +1718,14 @@ function App() {
         if (!c) return "这一页得有个角色才看得见——先去人格档案馆建一个";
         setActiveChar(c);
       }
+      // 朋友圈个人页还得知道是谁的那一页：没指过就先看「我的」（她 2026-10-13 截图：预览这一页整页空白）
+      if (k === "momprofile") setMomTarget(t => t || { isMe: true });
+      // 亲属卡那一页只画某一张卡：先挑一张；一张都没有就照实说（她 2026-10-13：「再看看别的有没有空的」）
+      if (k === "kincard") {
+        const kc = (kinshipCards || []).find(c => c && c.charId === activeCardId) || (kinshipCards || [])[0];
+        if (!kc) return "这一页得先有一张亲属卡——在聊天里问 TA 要一张";
+        setActiveCardId(kc.charId);
+      }
       if (k === "gthread") {
         const g0 = activeGroup || (groups || [])[0];
         if (!g0) return "这一页得有个群才看得见——先去消息里建一个";
@@ -1725,7 +1736,7 @@ function App() {
     };
     window.__goScreen = go;
     return () => { if (window.__goScreen === go) delete window.__goScreen; };
-  }, [activeChar, activeGroup, characters, groups]);
+  }, [activeChar, activeGroup, characters, groups, kinshipCards, activeCardId]);
   // 预览台开关：工作台按下「去这一页看看」时挂上，回程条按下时摘掉。
   useEffect(() => {
     const open = info => setThemePeek(info && info.page ? { page: String(info.page), zh: String(info.zh || info.page) } : null);
@@ -3210,7 +3221,12 @@ function App() {
     if (!drop.length) return { ok: true, moved: 0 }; // older 里全是合照，没啥可裁
     try {
       await window.Cloud.chatArchiveAppend(charId, drop); // 只归档非合照的；先上云，抛错就不往下走
-      pChat(charId, () => [...older.filter(isDuoPhoto), ...keep]); // 云端确认后裁本地：合照(原序)+最近的
+      // ⚠️只撤掉【归档上去的那几条】，按对象认，不拿上传前那份快照整份盖回去（群友 2026-10-13：同时给两个人发，
+      //   一个人刚回的几条全没了）——上传要等网络，这段时间里TA正好回完，快照里没有那几条，整份一盖就丢了。
+      //   按对象认不住的（期间被标了已读之类、换成了新对象）再按 时间+谁+内容 认一遍，认不出就宁可留着。
+      const _dropSet = new Set(drop), _dk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
+      const _dropKeys = new Set(drop.map(_dk));
+      pChat(charId, p => p.filter(m => !_dropSet.has(m) && !(m && m.ts && _dropKeys.has(_dk(m)))));   // 云端确认后裁本地：合照(原序)+最近的+等上传时新来的
       const marks = loadJSON("x_chatArch", {}); marks[charId] = (marks[charId] || 0) + drop.length; saveJSON("x_chatArch", marks); setChatArch(marks);
       // ⭐长期记忆浓缩进度跟着回调（v48.14 修）：lastSummarizedCount 按本地列表位置数；只按【真正裁掉的 drop】折算(!recalled)。
       const cut = drop.filter(m => !m.recalled).length;
@@ -3228,7 +3244,9 @@ function App() {
     const archKey = "g_" + groupId;
     try {
       await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
-      pGChat(groupId, () => keep);                           // 成功才裁本地
+      const _gDropSet = new Set(older), _gdk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.senderId || m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
+      const _gDropKeys = new Set(older.map(_gdk));
+      pGChat(groupId, p => p.filter(m => !_gDropSet.has(m) && !(m && m.ts && _gDropKeys.has(_gdk(m)))));   // 成功才裁本地；只撤归档上去的那几条，等上传时新来的留着
       const marks = loadJSON("x_chatArch", {}); marks[archKey] = (marks[archKey] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
       // ⭐群记忆浓缩进度同样回调（v48.14 修）：按群 maybeSummarize 同口径（user/assistant/narration）折算裁掉的条数
       const cut = older.filter(m => m.role === "user" || m.role === "assistant" || m.role === "narration").length;
@@ -4799,6 +4817,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return n;
     });
   };
+  const hideChat = id => setHiddenChats(p => {
+    const n = { ...p, [id]: Date.now() };
+    saveJSON("x_hiddenChats", n);
+    return n;
+  });
   // 置顶/取消置顶某个聊天（长按聊天条触发）
   const togglePinChat = id => setPinnedChats(p => {
     const n = p.includes(id) ? p.filter(x => x !== id) : [id, ...p];
@@ -13945,6 +13968,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         toast("只能重Roll角色的消息");
         return;
       }
+      // 在「发送失败」那一行上重 Roll（群友 2026-10-13：两个角色同时发，一个报「无可用渠道」，换了线路他也回了，
+      //   结果刚回的那几条全没了）：失败那行压在聊天中间时，原来是从它开始往后整段截掉——它后面成功的回复一起被删。
+      //   失败那行本来就不是一轮回复：只撤掉它自己，再让 TA 回一次，后面的一条都不动。
+      if (window.ChatContextFilter && window.ChatContextFilter.isFailureNotice(m)) {
+        pChat(threadKey, p => p.filter(x => x !== m && !(x && m.turnId && x.turnId === m.turnId && window.ChatContextFilter.isFailureNotice(x))));
+        setTimeout(() => {
+          const roomId = window.ChatRooms && window.ChatRooms.isSideKey(threadKey) ? String(threadKey).split("::room::")[1] : "main";
+          replyNow(activeChar.id, null, null, { chatKey: threadKey, room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, roomId) : null });
+        }, 200);
+        return;
+      }
       const turnId = m.turnId;
       let rerollAvoid = "";
       const avoidOf = rm => (rm || []).filter(x => x && (x.role === "assistant" || x.who === "char") && x.content && !x.recalled).map(x => String(x.content)).join("\n");
@@ -17013,19 +17047,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setPhotoDiaryBusy(entry.id);
     try {
       const body = (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900);
-      const st = statesRef.current[charId] || {};
+      // 他【此刻】身上那身只属于今天（她 2026-10-13：「为啥生成以前的都是同一套衣服」——旧日记一律套上了今天的卫衣）：
+      //   日记不是今天的、或者那天的穿着已经查到了，就把此刻穿着拿掉，让衣柜／那天记下的那几身说了算
+      const dayWears = Array.isArray(entry.wears) && entry.wears.length ? entry.wears : wearsOnDay(charId, entry.ts);
+      const isToday = new Date(entry.ts).toDateString() === new Date().toDateString();
+      const st0 = statesRef.current[charId] || {};
+      const st = (!isToday || dayWears.length) ? { ...st0, wearing: "", wearingUpdatedAt: 0 } : st0;
       const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
-        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样，像别人在不同距离随手拍的：一格平视中景、一格远一点带上周围环境、一格近景；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样（每格具体怎么拍见下面「每一格的机位」）；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
         // 穿什么：先看写日记时记下的、再查状态历史；这天换过几身，每格穿那个时刻的那身
-        + (() => { const w = (Array.isArray(entry.wears) && entry.wears.length ? entry.wears : wearsOnDay(charId, entry.ts));
-            if (!w.length) return "三格里他穿的是同一身衣服。";
+        + (() => { const w = dayWears;
+            if (!w.length) return isToday ? "三格里他穿的是同一身衣服。" : "那天穿什么没记下来：从他衣柜里挑一身合这天天气、这天在做的事的，三格都是这一身；别照搬参考照里的衣服。";
             if (w.length === 1) return "这一天他穿：" + w[0].w + "；三格都是这一身。";
             return "这一天他换过几身（按时间）：" + w.map(x => x.t + " " + x.w).join("；") + "。每一格穿那个时刻对应的那一身，别混搭。"; })()
         + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
         + "\n这篇日记：\n" + body
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
-      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240) });
+      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3 });
       const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
       let imgKey = null, imgUrl = null;
       if (out && out.blob) { imgKey = "img_pdiary_" + charId + "_" + entry.id; await idbImgPut(imgKey, out.blob); }
@@ -28770,6 +28809,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     pinned: pinnedChats,
     onTogglePin: togglePinChat,
+    hiddenChats: hiddenChats,
+    onHideChat: id => { hideChat(id); setPinnedChats(p => { if (!p.includes(id)) return p; const n = p.filter(x => x !== id); saveJSON("x_pinnedChats", n); return n; }); toast("从列表里删掉了，聊天记录和配角都还在；再聊就会回来"); },
     onNewGroup: () => setNewGroupOpen(true),
     onOpenContact: c => {
       setContactBack(null);

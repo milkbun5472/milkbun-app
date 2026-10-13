@@ -39,7 +39,8 @@ test("两处都改走公共那一份，不许再各拼各的", () => {
 });
 
 test("渲染：单聊和群聊认同一条判据", () => {
-  assert.equal((comp.match(/if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote/g) || []).length, 2,
+  // 单聊多一句「不是时刻小卡（carved）」：那张卡只在单聊里画，群里没有这种消息，判据本身还是同一条
+  assert.equal((comp.match(/if \(\(?m\.kind === "system" \|\| m\.role === "system"\)?(?: && m\.kind !== "carved"\))? return h\(SysNote/g) || []).length, 2,
     "两处渲染判据没对齐——群里那条又会掉回气泡");
   // 能叉掉这件事两边都要有
   assert.equal((comp.match(/label: "系统", text: m\.content, tone: "warn",\s*\n\s*onClose: onDeleteMessages/g) || []).length, 2);

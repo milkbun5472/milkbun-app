@@ -7930,6 +7930,8 @@ function Messages({
   offlineLastTs,
   pinned,
   onTogglePin,
+  hiddenChats,
+  onHideChat,
   onBack,
   onOpenThread,
   onOpenGroup,
@@ -7997,6 +7999,9 @@ function Messages({
     // 配角私聊（她 2026-10-03）：聊过才进列表，没聊过的不冒出来——入口在通讯录 → 配角 → 详情页「发消息」。
     ...characters.concat((allChars || []).filter(c => c && c.npc && (chats[c.id] || []).length)).map(c => { const msgs = chats[c.id] || []; const last = msgs[msgs.length - 1]; return { key: "c_" + c.id, id: c.id, type: "char", c: c, last: last, ts: Math.max(last ? (last.ts || 0) : 0, offLast[c.id] || 0) }; })
   ];
+  // 删掉的配角聊天：删之后没有新消息就不出现（记录和配角都还在）
+  const hidAt = hiddenChats || {};
+  for (let i = chatItems.length - 1; i >= 0; i--) { const it = chatItems[i]; if (it.c && it.c.npc && hidAt[it.id] && (it.ts || 0) <= hidAt[it.id]) chatItems.splice(i, 1); }
   chatItems.sort((a, b) => { const pa = pinnedSet.has(a.id), pb = pinnedSet.has(b.id); if (pa !== pb) return pa ? -1 : 1; return b.ts - a.ts; });
   // 搜索：名字/备注/群名先匹配，再看最后一条消息的正文——想找哪个聊天框就直接打字
   const kw = q.trim().toLowerCase();
@@ -8053,7 +8058,13 @@ function Messages({
     // eslint-disable-next-line
   }, [tab, characters.length, contactSecs.length]);
   const pressT = useRef({}); const longFired = useRef(false);
-  const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => { longFired.current = true; onTogglePin && onTogglePin(id); }, 500); };
+  // 配角那一行长按：弹一个小菜单（置顶 / 从列表删掉）；别的照旧直接置顶
+  const [rowMenu, setRowMenu] = useState(null);
+  const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => {
+    longFired.current = true;
+    const npc = onHideChat && (allChars || []).find(c => c && c.npc && c.id === id);
+    if (npc) setRowMenu(npc); else onTogglePin && onTogglePin(id);
+  }, 500); };
   const endPress = id => clearTimeout(pressT.current[id]);
   const guardClick = fn => { if (longFired.current) { longFired.current = false; return; } fn(); };
   const longProps = id => ({ onPointerDown: () => startPress(id), onPointerUp: () => endPress(id), onPointerLeave: () => endPress(id), onPointerCancel: () => endPress(id) });
@@ -8322,6 +8333,16 @@ function Messages({
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
   , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
+    h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
+      [[(pinned || []).includes(rowMenu.id) ? "取消置顶" : "置顶", () => onTogglePin && onTogglePin(rowMenu.id)],
+       ["从列表删掉（聊天记录和配角都留着）", () => onHideChat(rowMenu.id)]].map(([zh, fn], i) => h("button", {
+        key: i, "data-wk": "mlrowmenuitem",
+        onClick: () => { setRowMenu(null); fn(); },
+        className: "w-full text-left py-3 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 14, color: i ? t.tint : t.ink, borderTop: i ? `1px solid ${t.line}` : "none" }
+      }, zh))))
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
@@ -15633,7 +15654,10 @@ function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDens
     row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
 }
 // 往期只读详情；群聊用显式参数保留导演便签与成员状态入口。
-function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, canOpenState, showNotes = false, onClose, onDelSession, fmtStamp }) {
+function OfflineSessionReader({ session, sessions, t, profile, char, members, onOpenState, canOpenState, showNotes = false, onClose, onDelSession, fmtStamp, onPinShike }) {
+    // 往期也能补收进时刻（她 2026-10-13）：跟进行中的线下同一套挑选（offPickCard + OffPickBar），挑完交给同一个 onPinShike
+    const [pick, setPick] = useState(null);
+    const msgs = session.msgs || [];
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
@@ -15645,14 +15669,18 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
           if (typeof saveTextFile === "function") saveTextFile(((char && (char.remark || char.name)) || "线下") + "-" + stampSlug(session.startTs) + ".txt", one, "text/plain");
         }, className: "active:opacity-60 shrink-0", title: "导出这一场",
           style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "导出"),
-        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
+        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog })),
+        onPinShike && !pick ? h("button", { "data-wk": "offreadpin", onClick: () => setPick([]), className: "active:opacity-60 shrink-0", title: "挑几段收进时刻",
+          style: { display: "flex", alignItems: "center", gap: 3, fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, h(CGlyph, { k: "shikeStar", size: 13, color: t.tint }), "收进时刻") : null),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         session.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + session.summary),
         showNotes && (session.customNotes || []).length > 0 && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
           (session.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
         ),
-        (session.msgs || []).map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }))));
+        msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }), i, pick, setPick, t)),
+        pick ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "点要收的那几段，挑好按下面的「收进时刻」。") : null),
+      pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : null);
 }
 
 // 往期列表只接当前会话的记录；筛选排序不修改原数组。
@@ -16231,7 +16259,7 @@ function OfflineMode({
   const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
-  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp });
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp, onPinShike });
 
   // ---- setup ----
   if (view === "setup") {
@@ -16523,12 +16551,9 @@ function DoodleEditor({ src, charId, onClose }) {
     h("div", { "data-wk": "doodletools", style: { padding: "10px 14px calc(env(safe-area-inset-bottom) + 12px)" } },
       // 颜色一排三档都用：画的笔、贴的字、抠图上写的字。最后那颗是自己调色
       h("div", { className: "flex items-center justify-center", style: { gap: 10, marginBottom: 10 } },
-        DOODLE_INK.map(c => h("button", { key: c, onClick: () => setInk(c), "aria-label": "颜色", style: { width: 30, height: 30, borderRadius: 999, background: c,
-          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)" } })),
-        h("label", { "data-wk": "doodlecolor", "aria-label": "自己调颜色", style: { position: "relative", width: 40, height: 40, borderRadius: 999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
-            background: DOODLE_INK.includes(ink) ? "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)" : ink, border: DOODLE_INK.includes(ink) ? "2px solid rgba(255,255,255,.35)" : "3px solid #fff" } },
-          h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(ink) ? ink : "#e5484d", onChange: e => setInk(e.target.value),
-            style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } }))),
+        // 自己调色走全库那一个 ColorDot（取色器只许它一处有：color-dot-one-public）
+        h("div", { "data-wk": "doodlecolor" }, h(ColorDot, { value: ink, onChange: setInk, palette: DOODLE_INK, size: 30, label: "颜色",
+          tone: { line: "rgba(255,255,255,.35)", ink: "#fff", bg2: "#111" } }))),
       mode === "stamp" ? h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8, marginBottom: 10 } },
         DOODLE_STAMPS.map(x => btn(x, () => setStamp(x), stamp === x)),
         // 自己写一个：填数字就当分数（7 → 7分），别的照原样贴
@@ -17015,7 +17040,7 @@ function GroupOfflineMode({
   const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
-  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp });
+  if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp, onPinShike });
 
   // ---- setup ----
   if (view === "setup") {

@@ -9,7 +9,9 @@ const saved = [];
 const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: '', F_DISPLAY: '',
   IArrow: 'arrow', ITrash: 'trash', OffCard: 'card', offlineSubSkin: t => t,
   offlineSessionsText: () => '一场', stampSlug: () => '戳',
-  saveTextFile: (name, text) => saved.push([name, text]), window: {} };
+  saveTextFile: (name, text) => saved.push([name, text]), window: {},
+  // 往期补收进时刻那一套（她 2026-10-13）：挑选态、包卡、底栏、那颗星
+  useState: v => [v, () => {}], offPickCard: card => card, OffPickBar: 'pickbar', CGlyph: 'glyph' };
 vm.createContext(ctx);
 vm.runInContext(src.slice(src.indexOf('function OfflineSessionReader('), src.indexOf('function OfflinePastSessions(')), ctx);
 function fixture(extra = {}) {
