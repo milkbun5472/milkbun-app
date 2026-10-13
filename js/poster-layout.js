@@ -183,7 +183,7 @@
       const r = d[i * 4], g2 = d[i * 4 + 1], b = d[i * 4 + 2];
       lum[i] = (0.2126 * r + 0.7152 * g2 + 0.0722 * b) / 255;
       const Y = 0.299 * r + 0.587 * g2 + 0.114 * b, cb = 128 - 0.1687 * r - 0.3313 * g2 + 0.5 * b, cr = 128 + 0.5 * r - 0.4187 * g2 - 0.0813 * b;
-      raw[i] = Y > 45 && cb >= 77 && cb <= 127 && cr >= 135 && cr <= 175 ? 1 : 0;
+      raw[i] = Y > 45 && cb >= 77 && cb <= 127 && cr >= 140 && cr <= 175 && cr - cb >= 22 ? 1 : 0;   // 米色窗帘、木头也落在老范围里：再要求红比蓝明显多
     }
     for (let yy = 0; yy < gh; yy++) for (let xx = 0; xx < gw; xx++) {
       let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = xx + dx, Y2 = yy + dy; if (X >= 0 && Y2 >= 0 && X < gw && Y2 < gh) n += raw[Y2 * gw + X]; }
@@ -192,13 +192,23 @@
     // 脸上面那一截（头发、额头）也护着：字顶在头发上看着跟压脸差不多
     const head = new Uint8Array(gw * gh);
     for (let yy = 0; yy < gh; yy++) for (let xx = 0; xx < gw; xx++) { let h2 = 0; for (let k = 0; k <= 4 && yy + k < gh; k++) if (skin[(yy + k) * gw + xx]) { h2 = 1; break; } head[yy * gw + xx] = h2; }
-    return r => {
+    const look = r => {
       const x0 = clamp(Math.floor(r.x / W * gw), 0, gw - 1), x1 = clamp(Math.ceil((r.x + r.w) / W * gw), x0 + 1, gw);
       const y0 = clamp(Math.floor(r.y / H * gh), 0, gh - 1), y1 = clamp(Math.ceil((r.y + r.h) / H * gh), y0 + 1, gh);
       let s = 0, s2 = 0, n = 0, k = 0;
       for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const v = lum[yy * gw + xx]; s += v; s2 += v * v; n++; k += skin[yy * gw + xx] ? 1 : head[yy * gw + xx] ? 0.6 : 0; }
       const m = s / n; return { mean: m, busy: Math.sqrt(Math.max(0, s2 / n - m * m)), skin: k / n };
     };
+    // 一块区域里脸大概在哪（漫画气泡的尾巴要指着说话的人的脸）：取这块里最上面那团肤色的中心
+    look.faceIn = r => {
+      const x0 = clamp(Math.floor(r.x / W * gw), 0, gw - 1), x1 = clamp(Math.ceil((r.x + r.w) / W * gw), x0 + 1, gw);
+      const y0 = clamp(Math.floor(r.y / H * gh), 0, gh - 1), y1 = clamp(Math.ceil((r.y + r.h) / H * gh), y0 + 1, gh);
+      let top = -1; for (let yy = y0; yy < y1 && top < 0; yy++) for (let xx = x0; xx < x1; xx++) if (raw[yy * gw + xx] && skin[yy * gw + xx]) { top = yy; break; }
+      if (top < 0) return null;
+      let sx = 0, sy = 0, n = 0; for (let yy = top; yy < Math.min(y1, top + 4); yy++) for (let xx = x0; xx < x1; xx++) if (skin[yy * gw + xx]) { sx += xx; sy += yy; n++; }
+      return n ? { x: (sx / n + 0.5) * W / gw, y: (sy / n + 0.5) * H / gh, top: top * H / gh } : null;
+    };
+    return look;
   }
   const px = (r, W, H) => ({ x: r.x * W, y: r.y * H, w: r.w * W, h: r.h * H });
   const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
@@ -465,13 +475,25 @@
     // 候选：说话人那一侧的上方、正上方、那一侧的下方、那一侧的中间；挑压脸最少的
     const L = cx0 + cw * 0.04, R = cx0 + cw * 0.96 - bw, T = cy0 + ch * 0.04, B = cy0 + ch * 0.96 - bh, M = cx0 + (cw - bw) / 2;
     const sideX = side === "me" ? R : L, other = side === "me" ? L : R;
+    // 说话的人的脸：他在左半格、你在右半格（拍的时候钉死的）；找得到就把气泡放在脸的上方、尾巴指过去
+    const face = look.faceIn ? look.faceIn({ x: side === "me" ? cx0 + cw * 0.45 : cx0, y: cy0, w: cw * 0.55, h: ch * 0.8 }) : null;
     const pos = [[sideX, T], [M, T], [sideX, B], [sideX, cy0 + ch * 0.38], [other, T]];
+    if (face) { const fx = clamp(face.x - bw / 2, cx0 + cw * 0.04, cx0 + cw * 0.96 - bw), fy = face.top - bh - fz * 1.6;
+      if (fy > cy0 + ch * 0.02) pos.unshift([fx, fy]); }
     let best = null; pos.forEach(([bx, by], i) => { const st = look({ x: bx, y: by, w: bw, h: bh }); const sc = (st.skin || 0) * 100 + i * 2 + (b.used || []).reduce((a, o) => a + (overlap(o, { x: bx, y: by, w: bw, h: bh }) > 0 ? 80 : 0), 0); if (!best || sc < best.sc) best = { bx, by, sc }; });
     const { bx, by } = best;
-    // 尾巴：从气泡朝说话人那一侧的下方伸出去
-    const tx0 = side === "me" ? bx + bw * 0.7 : bx + bw * 0.3, ty0 = by + bh * 0.85;
-    const tip = [side === "me" ? tx0 + fz * 0.9 : tx0 - fz * 0.9, by + bh + fz * 1.2];
-    if (by > cy0 + ch * 0.5) tip[1] = by - fz * 1.2;     // 气泡在下半格：尾巴朝上
+    // 尾巴：朝说话的人的脸伸过去（认不出脸就朝那一侧斜下方），在脸前面停住、不戳进脸里
+    const below = face ? by > face.y : by > cy0 + ch * 0.5;
+    const r0 = Math.min(bh / 2, fz * 1.1);
+    const aim = face && (below ? (face.y + fz) - (below ? by : by + bh) < -fz * 0.8 : face.top - (by + bh) > fz * 0.8);
+    let tx0 = aim ? clamp(face.x, bx + r0 + fz * 0.5, bx + bw - r0 - fz * 0.5) : (side === "me" ? bx + bw * 0.7 : bx + bw * 0.3);
+    const ty0 = below ? by : by + bh;
+    let tip;
+    // 脸跟气泡挨得太近或者在反方向（尾巴会戳回气泡里）就不对着脸，退回朝那一侧斜着伸
+    const fdy = face ? (below ? face.y + fz : face.top) - ty0 : 0;
+    if (face && (below ? fdy < -fz * 0.8 : fdy > fz * 0.8)) { const dx = face.x - tx0, dy = fdy, len = Math.hypot(dx, dy) || 1, want = clamp(len - fz * 1.2, fz * 1.2, fz * 2.6);
+      tip = [tx0 + dx / len * want, ty0 + dy / len * want]; }
+    else tip = [side === "me" ? tx0 + fz * 0.9 : tx0 - fz * 0.9, below ? by - fz * 1.2 : by + bh + fz * 1.2];
     x.save(); x.lineWidth = Math.max(2, z * 0.11); x.strokeStyle = "#111"; x.fillStyle = "#fff";
     x.beginPath();
     if (b.shout) {      // 炸开的气泡：锯齿一圈
@@ -482,7 +504,7 @@
     }
     x.closePath(); x.fill(); x.stroke();
     // 尾巴（描两条边、底下补白盖住气泡那一段描边）
-    const tb = by > cy0 + ch * 0.5 ? by : by + bh;
+    const tb = ty0;
     x.beginPath(); x.moveTo(tx0 - fz * 0.45, tb); x.lineTo(tip[0], tip[1]); x.lineTo(tx0 + fz * 0.45, tb); x.closePath(); x.fill();
     x.beginPath(); x.moveTo(tx0 - fz * 0.45, tb); x.lineTo(tip[0], tip[1]); x.lineTo(tx0 + fz * 0.45, tb); x.stroke();
     x.fillStyle = "#fff"; x.fillRect(tx0 - fz * 0.45 + x.lineWidth, tb - x.lineWidth * 1.2, fz * 0.9 - x.lineWidth * 2, x.lineWidth * 2.4);
