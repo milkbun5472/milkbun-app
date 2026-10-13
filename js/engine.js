@@ -6964,11 +6964,13 @@ function joinBilingualLines(lines, hanLang, opts) {
     if (!(opts && opts.pairNext)) return joined;   // 双语开关没开：不替模型配中译
     const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
     const HAN = /[\u4e00-\u9fff]/;
+    // 「[表情] 可怜」「[图片]…」这类是发东西的标记，不是中译（她 2026-10-13 截图：日文下面那泡表情被当成了译文）
+    const MARK = /^\s*[\[【〔]\s*(表情|图片|照片|语音|贴纸|转账|红包|位置|链接|视频|文件)/;
     const out0 = [];
     for (let k = 0; k < joined.length; k++) {
       const line = joined[k], next = joined[k + 1];
       if (next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
-        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next)) {   // 日文带汉字也算外语：有假名就认
+        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next) && !MARK.test(next)) {   // 日文带汉字也算外语：有假名就认
         out0.push(line.trim() + " | " + next.trim()); k++;
       } else out0.push(line);
     }
