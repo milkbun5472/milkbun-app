@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.558";
+const APP_VERSION = "v75.562";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17766,9 +17766,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const ZH = { photo: "照片", selfie: "照片", gift: "礼物", redpacket: "红包", takeout: "外卖", location: "位置", dateinvite: "约会邀请", callinvite: "通话邀请" };
       const label = hd ? hd[1] : ZH[m.kind];
       if (!label) return null;
-      return { kind: "card", label: label, body: (hd ? c.slice(hd[0].length) : c) || m.desc || "" };
+      const img = (m.kind === "photo" || m.kind === "selfie") && (m.imageRef || m.imgKey) ? { imageRef: m.imageRef || null, imgKey: m.imgKey || null } : {};
+      return { kind: "card", label: label, body: (hd ? c.slice(hd[0].length) : c) || m.desc || "", ...img };
     }
-    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
+    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && (m.content || ((m.kind === "selfie" || m.kind === "photo") && (m.imgKey || m.imageRef || m.desc))) && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
     // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
     const sessions = [];
@@ -17793,7 +17794,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     };
     const direct = clean(chatsRef.current[char.id]);
     if (direct.length) {
-      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content), ts: m.ts || 0, ...(richOf(m) || {}) }));
+      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) }));
       const last = messages[messages.length - 1];
       sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
     }
@@ -17817,7 +17818,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           from = m.senderName || (sender && sender.name) || char.name;
         }
         const sender = m.role === "user" ? null : characters.find(c => c.id === m.senderId);
-        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content), ts: m.ts || 0, ...(richOf(m) || {}) };
+        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content || "[照片] " + (m.desc || "")), ts: m.ts || 0, ...(richOf(m) || {}) };
       });
       const last = messages[messages.length - 1];
       // 这个群里【除他以外】的真人。两个地方要用：群头像的兜底，和下面 phoneTakenNames 的避重名单。
@@ -21357,7 +21358,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
-      roster = [...new Set([primary, author, ...others.slice(0, 4)])].map(c => c.remark || c.name);
+      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 2)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
       const canSee = liveChars.filter(c => momSeen(mom, c.id));
@@ -21365,7 +21366,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5);
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 2));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -21512,10 +21513,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     reactToUserMoment(mom); // 自动生成点赞/评论
   };
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
+  // 配角也来朋友圈（她 2026-10-13：「让配角参与感高一点吧」）：哪个角色刷得到，TA 的配角就跟着刷得到；
+  //   每次随机挑几个，免得配角一多评论区全是配角
+  const npcCrowd = (hosts, max) => {
+    const pool = []; (hosts || []).forEach(hc => npcsOf(hc.id).forEach(n => { if (n && !pool.includes(n)) pool.push(n); }));
+    for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+    return pool.slice(0, max == null ? 3 : max);
+  };
   const reactToUserMoment = async mom => {
     if (!active) return;
-    const canSee = liveChars.filter(c => momSeen(mom, c.id));
-    if (!canSee.length) return;
+    const canSeeMain = liveChars.filter(c => momSeen(mom, c.id));
+    if (!canSeeMain.length) return;
+    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3)];
     setGen(g => ({
       ...g,
       moment: true
@@ -21523,6 +21532,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
+        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）"; }
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
@@ -21553,8 +21563,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           });
         });
         // 保底：一个人都没互动时，让好感最高的可见角色至少点个赞
-        if (!likers.length && !comments.length && canSee.length) {
-          const top = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
+        if (!likers.length && !comments.length && canSeeMain.length) {
+          const top = canSeeMain.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
           if (top) likers.push(momentWho(top.name));
         }
         const votes = {};
@@ -27732,11 +27742,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!char.refPhoto) { toast("先在人格档案馆给 TA 传一张参考照，脸才锁得住"); return; }
     setEmoteSetBusy(charId);
     try {
+      // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
+      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === charId);
+      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
+        instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
         schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
         maxTokens: 8000
       });
+      // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
       const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
       if (items.length < 9) throw new Error("他没挑够九个，再试一次");
       const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"

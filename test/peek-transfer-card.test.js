@@ -23,3 +23,12 @@ test("别的小卡和语音也渲染，不是一行【…】", () => {
   assert.equal(f({ content: "你好" }), null);
   assert.match(ph, /"data-wk": "pcard"/);
 });
+
+test("照片带图过去，查手机里画真图", () => {
+  const i = app.indexOf("function richCardOf(m)");
+  const f = new Function(app.slice(i, app.indexOf("\n    }", i) + 6) + "; return richCardOf;")();
+  assert.equal(f({ kind: "selfie", desc: "窗边", imgKey: "k1" }).imgKey, "k1");
+  assert.equal(f({ kind: "photo", content: "[照片] 猫", imageRef: "iv_1" }).imageRef, "iv_1");
+  assert.match(ph, /function PeekPhotoMsg\(\{ m \}\)/);
+  assert.match(app, /m\.kind === "selfie" \|\| m\.kind === "photo"\) && \(m\.imgKey \|\| m\.imageRef \|\| m\.desc\)/);
+});
