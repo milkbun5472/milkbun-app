@@ -15648,17 +15648,17 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
           if (typeof saveTextFile === "function") saveTextFile(((char && (char.remark || char.name)) || "线下") + "-" + stampSlug(session.startTs) + ".txt", one, "text/plain");
         }, className: "active:opacity-60 shrink-0", title: "导出这一场",
           style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "导出"),
+        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog })),
         onPinShike && !pick ? h("button", { "data-wk": "offreadpin", onClick: () => setPick([]), className: "active:opacity-60 shrink-0", title: "挑几段收进时刻",
-          style: { display: "flex", alignItems: "center", gap: 3, fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, h(CGlyph, { k: "shikeStar", size: 13, color: t.tint }), "收进时刻") : null,
-        onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
+          style: { display: "flex", alignItems: "center", gap: 3, fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, h(CGlyph, { k: "shikeStar", size: 13, color: t.tint }), "收进时刻") : null),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         session.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + session.summary),
         showNotes && (session.customNotes || []).length > 0 && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 6 } }, "当时的短期导演便签"),
           (session.customNotes || []).map((n, i) => h("div", { key: (n && n.id) || i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginTop: i ? 5 : 0 } }, "· " + (typeof n === "string" ? n : n.text))),
         ),
-        pick ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 10 } }, "点要收的那几段，挑好按下面的「收进时刻」。") : null,
-        msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }), i, pick, setPick, t))),
+        msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, t: t, members: members, canOpenState: canOpenState, meProfile: profile, char, editable: false, onOpenState }), i, pick, setPick, t)),
+        pick ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "点要收的那几段，挑好按下面的「收进时刻」。") : null),
       pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : null);
 }
 
