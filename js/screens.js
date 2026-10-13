@@ -8035,7 +8035,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
               h("div", { className: "flex gap-2" },
                 h("button", { onClick: () => { onSetApiBase(apiInput); setApiEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "保存"),
                 h("button", { onClick: () => setApiEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "取消")))
-          : h("button", { onClick: () => { setApiInput(apiBase || ""); setApiEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: apiBase ? t.fog : t.tint } }, apiBase ? "已连搜索接口 · 改" : "配网易云搜索接口（自部署后填地址，就能搜歌名）")),
+          : h("button", { onClick: () => { setApiInput(apiBase || ""); setApiEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: apiBase ? t.fog : t.tint } }, apiBase ? "已连搜索接口 · 改" : "配网易云搜索接口（自部署后填地址，就能搜歌名）"),
+        // 还没接口、或者正在改的时候，底下挂着怎么搭（群里 2026-10-14：「除了 cookie 还要啥」——要的是这个接口）
+        (!apiBase || apiEdit) ? h(NeteaseApiHelp, { toast: typeof toast === "function" ? toast : null }) : null),
       // 可选：网易云账号 Cookie（放 VIP 歌用）——服务端注入的可不填
       !gdMusic && apiBase ? h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 10, paddingTop: 10 } },
         ckEdit
@@ -8733,6 +8735,28 @@ function VoiceMouthConfig({ toast }) {
       className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
       style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
     msg && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
+}
+// 网易云接口怎么搭（她 2026-10-14 要的内置教程）：跟 Fish 中转那块同一个样子，点开才有。
+//   要点只有一个：Cookie 是交给接口转发的，接口空着 Cookie 就没用、「扫码登录」也不出来。
+//   ⚠️攻略里「一起听」那条讲的是同一件事，改这里要连那条一起改。
+function NeteaseApiHelp({ toast }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const p = { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 };
+  const mono = { fontFamily: "monospace", fontSize: 11, background: t.bg2, border: "1px solid " + t.line, borderRadius: 6, padding: "1px 5px", wordBreak: "break-all" };
+  const copy = async (txt, done) => { const ok = typeof copyText === "function" && await copyText(txt); toast && toast(ok ? done : "没复制上，长按自己选"); };
+  return h("div", { "data-wk": "neteasehelp", style: { marginTop: 6 } },
+    h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, padding: "4px 0", minHeight: 40 } }, open ? "收起 ▴" : "没有接口？自己搭一个（免费，十来分钟）▾"),
+    open ? h("div", { style: { marginTop: 4, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg } },
+      h("div", { style: p }, "网页不能直接找网易云要歌，中间要一个替你去问的小服务，就是这个接口。Cookie 也是交给它转发的：接口空着，Cookie 填了也只能听 30 秒试听，「扫码登录」也不会出来。"),
+      h("div", { style: Object.assign({}, p, { marginTop: 6 }) }, "① 登录 GitHub，搜 ", h("span", { style: mono }, "NeteaseCloudMusicApi"), "，挑一个最近还在更新的仓库，右上角 Fork → Create fork。"),
+      h("button", { onClick: () => copy("NeteaseCloudMusicApi", "复制好了，去 GitHub 搜"), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint || t.ink, padding: "2px 0 6px" } }, "复制搜索词"),
+      h("div", { style: p }, "② 用 GitHub 账号登录 vercel.com → Add New → Project → 找到刚 Fork 的仓库点 Import → 什么都不改，直接 Deploy。等一两分钟，拿到一个 ", h("span", { style: mono }, "https://名字.vercel.app"), " 的地址。"),
+      h("div", { style: p }, "③ 先验一下：浏览器打开 ", h("span", { style: mono }, "你的地址/search?keywords=周杰伦"), "，看到一大堆 JSON 就是通了；404 或报错就是没部署好，回第②步。"),
+      h("div", { style: p }, "④ 回到这里点「配网易云搜索接口」，填到 .vercel.app 为止，后面什么都不加，保存。搜一首歌，搜得出来就接好了。"),
+      h("div", { style: p }, "⑤ 接好以后这一块会多出「扫码登录」：用手机网易云 App 扫一扫，在手机上点确认，Cookie 就自动存好了（只存在这台设备）。过期了重扫一次。"),
+      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11, marginTop: 6 }) }, "别用别人现成的公共接口：Cookie 就是你网易云账号的钥匙。搜得到放不了多半是没登录或 Cookie 过期；有些歌是版权下架，会员也放不了。Vercel 的地址常被网易云封，哪天突然全不行了，删掉重新部署一次换个地址。"),
+      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11 }) }, "嫌麻烦：上面音乐源直接选「GD 音乐台 · 免 Cookie 试用」，不用接口也不用登录。")) : null);
 }
 // Fish 官方接口不让网页直接调（她 2026-10-12 两台手机都报 Failed to fetch），要自己搭一个转发。
 //   写在 Fish 那一格底下，点开才有；代码一键复制，不用她从截图里抄。
