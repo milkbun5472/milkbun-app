@@ -56,8 +56,8 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
    ['if (m.kind === "busynote")', "在忙"],
   ].forEach(([a, name]) =>
     assert.match(near(a), /\.\.\.plate\(/, "这一支还是裸字：" + name));
-  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 4,
-    "单聊里该垫的正好四处（拍一拍/撤回/沉默/在忙）");
+  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 5,
+    "单聊里该垫的正好五处（拍一拍/撤回/沉默/在忙/换锁屏）");
   // v75.075：旁白那一行收进了单聊群聊共用的 NarrLine，垫子在它里面，判据由调用方传进去
   assert.match(near('if (m.kind === "narration" || m.role === "narration")'), /return h\(NarrLine, [\s\S]*onBg: !!\(dsp\.chatBg \|\| _wkBg\)/, "这一支还是裸字：旁白");
   const nl = comp.slice(comp.indexOf("function NarrLine("), comp.indexOf("function SysNote("));
