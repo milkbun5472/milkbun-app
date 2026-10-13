@@ -20,3 +20,11 @@ assert.match(app, /const theme = opt && opt\.theme \? studioThemeOf\(opt\.theme\
 assert.match(scr, /"data-wk": "studiothemeadd"/);
 assert.match(scr, /"\+自己写"|"＋自己写"/);
 console.log("ok custom themes");
+// 换画风只转原图；墙上分类；重画叠成一摞（她 2026-10-13）
+assert.match(app, /const prompt = RESTYLE_ONLY \|\| buildPhotoPrompt/, "换画风不许再走整套拍照提示词");
+assert.match(app, /parentId: opt\.restyle\.parent/);
+assert.match(scr, /"data-wk": "studiokinds"/);
+assert.match(scr, /"data-wk": "studiostack"/);
+assert.match(scr, /"data-wk": "studiostackbadge"/);
+assert.match(scr, /const stackKey = x =>/);
+console.log("ok stack");

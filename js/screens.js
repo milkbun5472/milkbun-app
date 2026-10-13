@@ -16974,12 +16974,46 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [sharp, setSharp] = useState(false);
   const mySets = closetGroups(myCloset);
   const hisSets = closetGroups(charCloset && charCloset.outfit);
-  const rows = (shots || []).filter(x => x.charId === partner.id);
+  const allRows = (shots || []).filter(x => x.charId === partner.id);
+  // 一摞（她 2026-10-13）：换画风出来的挂在原图名下。新的带 parentId；旧的没有，就找同一句场景、在它之前、不是换画风的那张
+  const stackKey = x => {
+    if (x.parentId) return x.parentId;
+    if (!x.style) return x.id;
+    const src = allRows.filter(y => !y.style && (y.ts || 0) <= (x.ts || 0) && (y.scene || "") === (x.scene || "")).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+    return src ? src.id : x.id;
+  };
+  const stacks = {};
+  allRows.forEach(x => { const k = stackKey(x); (stacks[k] = stacks[k] || []).push(x); });
+  Object.keys(stacks).forEach(k => stacks[k].sort((a, b) => (a.id === k ? -1 : b.id === k ? 1 : (a.ts || 0) - (b.ts || 0))));
+  // 墙上每摞露一张：原图还在就是原图，删了就是下一张顶上
+  const covers = Object.keys(stacks).map(k => stacks[k][0]).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  // 分类：合照／四宫格／题材／漫画（她 2026-10-13：图一多会很乱）
+  const kindOf = x => x.comic ? "comic" : x.grid ? "grid" : x.theme ? "theme" : "photo";
+  const KINDS = [["all", "全部"], ["photo", "合照"], ["grid", "四宫格"], ["theme", "题材"], ["comic", "漫画"]];
+  const [kind, setKind] = useState("all");
+  const [themeF, setThemeF] = useState("");
+  const themeName = k => { const f = themes.find(y => y.k === k); return f ? f.zh : "题材"; };
+  const usedThemes = [...new Set(covers.filter(x => x.theme).map(x => x.theme))];
+  const rows = covers.filter(x => kind === "all" || (kindOf(x) === kind && (kind !== "theme" || !themeF || x.theme === themeF)));
+  const bigStack = big ? (stacks[stackKey(big)] || [big]) : [];
+  const stackRef = useRef(null);
+  useEffect(() => {   // 点开时滚到点的那一张
+    const el = stackRef.current; if (!el || !big) return;
+    const i = bigStack.findIndex(y => y.id === big.id);
+    if (i >= 0 && Math.abs(el.scrollLeft - i * el.clientWidth) > 4) el.scrollLeft = i * el.clientWidth;
+  }, [big && big.id]);
   return h("div", { className: "h-full flex flex-col", style: cycSkin(t) },
     h(Head, { zh: big ? "" : "照相馆", bg: "transparent", noLine: true, onBack: () => big ? setBig(null) : onBack() }),
     big
       ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
-          h(AlbumPhoto, { photo: big }),
+          bigStack.length > 1
+            ? h("div", null,
+                h("div", { ref: stackRef, "data-wk": "studiostack", onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); const y = bigStack[i]; if (y && y.id !== big.id) setBig(y); },
+                  style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } },
+                  bigStack.map(y => h("div", { key: y.id, style: { flex: "0 0 100%", scrollSnapAlign: "center", display: "flex", justifyContent: "center" } }, h(AlbumPhoto, { photo: y })))),
+                h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8 } },
+                  (big.style ? big.style : "原图") + " · " + (bigStack.findIndex(y => y.id === big.id) + 1) + " / " + bigStack.length + " · 左右划看这一摞"))
+            : h(AlbumPhoto, { photo: big }),
           big.grid === "2x2" ? h(GridCells, { photo: big, rows: 2, cols: 2, sharpBusy: sharp || busy,
             onSharpen: async (cell, i) => { setSharp(true);
               const row = await onShoot({ scene: (big.scene || "") + "（四宫格第 " + (i + 1) + " 格，拍成单张）", mine: big.mine, theirs: big.theirs, cellRef: cell });
@@ -16989,7 +17023,8 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, sharp ? "在重画…" : "换画风："),
             STYLES.map(st => h("button", { key: st, disabled: !!(sharp || busy), onClick: async () => {
                 const ref = await photoDataUrl(big); if (!ref) return;
-                setSharp(true); const row = await onShoot({ scene: big.scene || "", restyle: { ref, style: st } }); setSharp(false); if (row) setBig(row); },
+                const src = bigStack.find(y => !y.style) || big; const ref2 = src === big ? ref : (await photoDataUrl(src)) || ref;
+                setSharp(true); const row = await onShoot({ scene: src.scene || "", restyle: { ref: ref2, style: st, parent: stackKey(big) } }); setSharp(false); if (row) setBig(row); },
               className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
@@ -17034,14 +17069,23 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
+          covers.length ? h("div", { "data-wk": "studiokinds", className: "flex flex-wrap", style: { gap: 6, marginTop: 16 } },
+            KINDS.filter(([k]) => k === "all" || covers.some(x => kindOf(x) === k)).map(([k, zh]) => h("button", { key: k, "data-on": kind === k ? "1" : "0", onClick: () => { setKind(k); setThemeF(""); }, className: "active:opacity-70",
+              style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (kind === k ? "#6d4d8f" : t.line), background: kind === k ? "#6d4d8f" : "transparent", color: kind === k ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12 } },
+              zh + " " + (k === "all" ? covers.length : covers.filter(x => kindOf(x) === k).length)))) : null,
+          kind === "theme" && usedThemes.length > 1 ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+            [""].concat(usedThemes).map(k => h("button", { key: k || "_", onClick: () => setThemeF(k), className: "active:opacity-70",
+              style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (themeF === k ? "#a74d70" : t.line), color: themeF === k ? "#a74d70" : t.fog, fontFamily: F_BODY, fontSize: 11.5 } }, k ? themeName(k) : "都看"))) : null,
           rows.length
-            ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 } },
+            ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 } },
                 // AlbumPhoto(cover) 是 absolute；卡片必须自己当定位边界。漏掉 relative 时，
                 // 图片一从 IDB 加载完就会铺满整页，还会把顶栏返回键的点击截成「打开大图」。
                 rows.map(x => h("button", { key: x.id, onClick: () => setBig(x), className: "active:opacity-80", style: { position: "relative", borderRadius: 15, overflow: "hidden", border: "1px solid " + t.line, background: "#20141f", aspectRatio: "3/4", padding: 0 } },
-                  h(AlbumPhoto, { photo: x, cover: true }))))
+                  h(AlbumPhoto, { photo: x, cover: true }),
+                  // 一摞：右上角叠出两道纸边＋张数
+                  (stacks[stackKey(x)] || []).length > 1 ? h("span", { "data-wk": "studiostackbadge", style: { position: "absolute", top: 8, right: 8, minWidth: 22, height: 22, padding: "0 6px", borderRadius: 11, background: "rgba(255,255,255,.9)", boxShadow: "3px 3px 0 rgba(255,255,255,.55), 6px 6px 0 rgba(255,255,255,.3)", color: "#6d4d8f", fontFamily: F_BODY, fontSize: 11.5, lineHeight: "22px", textAlign: "center" } }, (stacks[stackKey(x)] || []).length) : null)))
             : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "28px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
-                "还没在这儿拍过。", h("div", { style: { marginTop: 4 } }, "拍出来的会同时挂上合照墙。"))));
+                covers.length ? "这一类还没有。" : "还没在这儿拍过。", h("div", { style: { marginTop: 4 } }, "拍出来的会同时挂上合照墙。"))));
 }
 
 // ═══ 情侣空间·另一种我们（她 2026-08-31 提；v64.05 改的名）═══

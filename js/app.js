@@ -25064,11 +25064,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !theme && !(opt && opt.restyle) ? "。" + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
-      const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
+      // 换画风只发原图＋一句「原样转画风」（她 2026-10-13：重画成了另一张照片）：
+      //   穿着、衣柜、场景一概不发——发了图像端就照文字重新拍一张，原图只剩个参考
+      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景、光线都照第一张，一样都不改，只换画法。后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
+      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
@@ -25081,7 +25084,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
         mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}),
-        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style } : {}) };
+        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
