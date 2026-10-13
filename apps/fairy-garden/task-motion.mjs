@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-337afd5f97d06984';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-337afd5f97d06984';
-import {pointToolAt} from './reach-hand.mjs?v=fg-337afd5f97d06984';
+import {emotionPose} from './emotion-pose.mjs?v=fg-83dee6b88f495989';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-83dee6b88f495989';
+import {pointToolAt} from './reach-hand.mjs?v=fg-83dee6b88f495989';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -26,7 +26,7 @@ export function taskPose(task,time){
   if(kind==='investigate')return {left:[-.18,0,.05],right:[-.6,0,-.09],rightElbow:-.7,tilt:.025,reach:1};
   if(kind==='shake')return {left:[-.6,0,.08],right:[-.6,0,-.08],leftElbow:-.7,rightElbow:-.7,tilt:.02,reach:1,dy:pulse*.032};
   if(kind==='serve')return {left:[-.6,0,.08],right:[-.6,0,-.08],leftElbow:-.65,rightElbow:-.65,tilt:.02,reach:1,dz:Math.sin(time*.8)*.025};
-  if(['barista','console','camera','wash'].includes(kind))return {left:[-.22,0,.06],right:[-.55,0,-.09],rightElbow:-.7,tilt:.025,reach:1,dx:Math.sin(time*(kind==='wash'?2:1))*.012,dy:kind==='barista'?Math.max(0,Math.sin(time*1.2))*.009:0};
+  if(['barista','console','camera','wash'].includes(kind))return {left:[-.22,0,.06],right:[-.55,0,-.09],rightElbow:-.7,tilt:.025,reach:1,dx:task.workSurface?0:Math.sin(time*(kind==='wash'?2:1))*.012,dy:kind==='barista'?Math.max(0,Math.sin(time*1.2))*.009:0};
   if(kind==='dance'||kind==='rehearse'){
     const q=emotionPose(kind==='dance'?'dance':'bow',time/(kind==='dance'?5.2:7)%1);
     return {...q,leftLeg:[kind==='dance'?Math.sin(time*2.8)*.11:0,0,0],rightLeg:[kind==='dance'?-Math.sin(time*2.8)*.11:0,0,0],lift:kind==='dance'?.025:0};
@@ -48,7 +48,7 @@ export function taskPose(task,time){
   if(kind==='carry')return {left:[-.18,0,0],right:[-.8,0,-.12],rightElbow:0,tilt:0};
   if(kind==='select'||kind==='return'||kind==='tidy')return {left:[-.8,0,.12],right:[-.5,0,-.12],rightElbow:-.8,tilt:.025,reach:Math.sin(Math.PI*p)**2};
   if(kind==='write')return {left:[-.65,0,.1],right:[-.6,0,-.1],rightElbow:-.8,tilt:.045,reach:1,dx:pulse*.028,dz:Math.cos(time*3)*.017};
-  if(kind==='type')return {left:[-.9,0,.08],right:[-.6,0,-.12],rightElbow:-.75,tilt:.025,reach:1,dx:pulse*.045,dy:Math.max(0,pulse)*.014};
+  if(kind==='type')return {left:[-.9,0,.08],right:[-.6,0,-.12],rightElbow:-.75,tilt:.025,reach:1,dx:pulse*.018,dy:Math.max(0,pulse)*.009};
   if(kind==='experiment')return {left:[-.6,0,.12],right:[-.55,0,-.12],rightElbow:-.8,tilt:.025,reach:1,dy:Math.max(0,Math.sin(time*1.4))*.028};
   if(kind==='observe')return {left:[-.2,0,0],right:[-.4,0,-.08],rightElbow:-.55,tilt:.08,reach:.8,dx:Math.sin(time)*.025};
   return null;

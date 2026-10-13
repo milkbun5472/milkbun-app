@@ -1,6 +1,7 @@
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-337afd5f97d06984';
-import {computer,notebook} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-337afd5f97d06984';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-83dee6b88f495989';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-83dee6b88f495989';
+import {computer,notebook} from './work-room-kit.mjs?v=fg-83dee6b88f495989';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-83dee6b88f495989';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'law-desk',kind:'table',x:-4.6,z:-3.8,w:2.8,d:1.15,top:.85,color:'#a89980',work:{research:{x:0,y:.91,z:.40},draft:{x:-.20,y:.905,z:.40}}},
@@ -17,7 +18,8 @@ const furniture=[
  {id:'public-bench',kind:'bench',heading:0,x:1.75,z:3.5,w:2.35,d:.65,seat:.45,color:'#9a9f89'},
  {id:'legal-plant',kind:'plant',x:-5.7,z:4.45,w:.55,d:.55}
 ];
-const seat=(id,label,description,chair,approach,piece,action)=>seatedSpot(furniture,{id,label,description,chair,approach,piece,action});
+
+deskWorkSurfaces(furniture,['law-desk']);const seat=(id,label,description,chair,approach,piece,action)=>seatedSpot(furniture,{id,label,description,chair,approach,piece,action});
 const spots=[
  {id:'entrance',label:'律所与庭审区入口',description:'进入值班律所或相邻的庭审区。',action:'rest',gesture:'rest',target:{x:0,z:5.15},heading:Math.PI},
  {id:'files',label:'案卷柜取放材料',description:'取本案材料，归还已整理的案卷。',action:'work',gesture:'rest',target:{x:-6.05,z:1.32},heading:Math.PI,furniture:'case-cabinet'},

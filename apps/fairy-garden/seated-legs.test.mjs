@@ -33,3 +33,10 @@ test('膝盖以下仍跟躯干的裙摆坐下折到坐面，站起来恢复原�
  vertices(d.model,skirt).slice(0,2).forEach(v=>assert.ok(v.y>=.2479));
  skirt.morphTargetInfluences[index]=0;vertices(d.model,skirt).forEach((v,i)=>assert.ok(v.distanceTo(before[i])<1e-7));
 });
+
+test('厚后鞋筒按实际鞋型收小屈膝角，换成普通鞋恢复，站姿与鞋形保持',()=>{
+ const d=doll(),shoe=d.mesh('outfit_fixture_footwear',[[-.075,.18,-.17],[-.08,.12,-.16],[-.10,.08,.03]],undefined,true),before=vertices(d.model,shoe),seat=makeSeatedLegs(d.model,d.rig,[d.body,shoe],d.morphs);seat.fit();seat.update(0);vertices(d.model,shoe).forEach((v,i)=>assert.ok(v.distanceTo(before[i])<1e-7));
+ for(const r of d.rig)r.p.userData.bone.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2);seat.update(1);const knee=d.model.getObjectByName('leftKnee'),angle=knee.quaternion.angleTo(new T.Quaternion()),after=vertices(d.model,shoe);assert.ok(angle>Math.PI/8&&angle<Math.PI/4);
+ for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)assert.ok(Math.abs(after[i].distanceTo(after[j])-before[i].distanceTo(before[j]))<1e-6);
+ shoe.visible=false;seat.update(1);assert.ok(knee.quaternion.angleTo(new T.Quaternion())>Math.PI/4);
+});

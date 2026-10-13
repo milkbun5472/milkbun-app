@@ -1,6 +1,7 @@
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-337afd5f97d06984';
-import {computer,notebook} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-337afd5f97d06984';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-83dee6b88f495989';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-83dee6b88f495989';
+import {computer,notebook} from './work-room-kit.mjs?v=fg-83dee6b88f495989';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-83dee6b88f495989';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'repair-bench',kind:'table',x:-4.4,z:-3.75,w:3.1,d:1.2,top:.85,color:'#ae9672',work:{repair:{x:.0,y:1.012,z:.30},craft:{x:-.64,y:.905,z:.38}}},
@@ -13,12 +14,13 @@ const furniture=[
  {id:'workshop-bench',kind:'bench',heading:0,x:3.2,z:3.76,w:2.75,d:.65,seat:.45,color:'#9aada3'},
  {id:'tool-rack',kind:'equipment',x:-.8,z:-5.08,w:1.20,d:.40}
 ];
-const spots=[
+
+deskWorkSurfaces(furniture,['diagnose-desk']);const spots=[
  {id:'entrance',label:'工坊卷帘门入口',description:'进入维修与制作空间，走向本次工作台。',action:'rest',gesture:'rest',target:{x:0,z:5.1},heading:Math.PI},
  {id:'tools',label:'工具架前准备',description:'查看工具，取放本次使用的器具。',action:'work',gesture:'rest',target:{x:-.8,z:-4.38},heading:Math.PI,furniture:'tool-rack'},
  {id:'parts',label:'零件柜前取放',description:'取用、归还零件与耗材。',action:'work',gesture:'rest',target:{x:-5.95,z:.95},heading:Math.PI,furniture:'parts-cabinet'},
  seatedSpot(furniture,{id:'diagnose',label:'电脑诊断与查图纸',description:'对照设备资料、查看诊断结果。',chair:'diagnose-chair',approach:{x:4.46,z:-3.16},piece:'diagnose-desk'}),
- {id:'repair',label:'台前拆装与检修',description:'短螺丝刀贴住打开的设备，按步骤检修。',action:'work',gesture:'rest',target:{x:-4.4,z:-2.94},heading:Math.PI,furniture:'repair-bench'},
+ {id:'repair',label:'台前拆装与检修',description:'短螺丝刀贴住打开的设备，按步骤检修。',action:'work',gesture:'rest',target:{x:-4.4,z:-2.89},heading:Math.PI,furniture:'repair-bench'},
  {id:'craft',label:'工台手工制作',description:'在相邻的材料板上打磨、装配手工件。',action:'work',gesture:'rest',target:{x:-5.04,z:-2.94},heading:Math.PI,furniture:'repair-bench'},
  {id:'test',label:'测试台调试',description:'在真实测试仪面板前操作控制旋钮，核对设备状态。',action:'work',gesture:'rest',target:{x:3.95,z:1.0},heading:Math.PI,furniture:'test-bench'},
  seatedSpot(furniture,{id:'records',label:'记录维修与制作进度',description:'在记录桌写下本次检修、制作的步骤。',chair:'records-chair',approach:{x:-2.27,z:2.82},piece:'records-desk'}),

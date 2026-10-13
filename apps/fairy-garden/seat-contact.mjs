@@ -25,7 +25,7 @@ export function makeSeatContact(root,model,rig,meshes){
  return {settle(surface,blend=1){
   // SkinnedMesh.updateMatrixWorld also refreshes its attached bind inverse.
   // updateWorldMatrix alone leaves yesterday's inverse when the root moves.
-  root.updateWorldMatrix(true,false);root.updateMatrixWorld(true);inverse.copy(root.matrixWorld).invert();let bottom=Infinity;
+  root.updateWorldMatrix(true,false);root.updateMatrixWorld(true);inverse.copy(model.matrixWorld).invert();let bottom=Infinity;
   for(const i of sample()){
    body.localToWorld(body.getVertexPosition(i,point));local.copy(point).applyMatrix4(inverse);
    if(local.z<-.02&&local.z>-.30)bottom=Math.min(bottom,point.y);
