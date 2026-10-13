@@ -23,7 +23,7 @@ test('空档按人设挑事：写明的爱好更常做，否定说法不算',()=
   assert.deepEqual([...L.idleLikes('不爱看书，讨厌咖啡')],[]);
   const t0=Date.parse('2026-10-09T00:00:00Z'),count=likes=>{let n=0;for(let h=0;h<240;h++)if(L.resolve(null,t0+h*3600000,{minute:600,seed:'c1',likes}).presentation.spot==='cook')n++;return n;};
   assert.equal(count([]),0,'没写爱做饭就不去厨房');assert.ok(count(['cook'])>40,'写了爱做饭会常去厨房');
-  assert.match(src,/likes:root\.CharDayLink\.idleLikes\(char\?\.persona\)/);
+  assert.match(src,/likes:idleLikesOf\(char\?\.persona\)/);
 });
 test('此刻卡默认收起，详情点开才显示刚才/接下来/细条/地点',()=>{assert.match(src,/const \[nowMode, setNowMode\] = useState\("short"\), nowOpen = nowMode === "open";/);assert.match(src,/nowMode==="line"&&!showcase&&!trip \? h\("button",\{"aria-label":"展开此刻卡片"/);assert.match(src,/onClick:\(\)=>setNowMode\("line"\)/);assert.match(src,/flexDirection:"row",alignItems:"center",gap:3,whiteSpace:"nowrap"/);assert.match(src,/\(nowOpen\|\|showcase\|\|trip\) && !showcase && !trip && !!sceneNear && \(dayLine\(/);assert.match(src,/"aria-label":nowOpen\?"收起此刻详情":"展开此刻详情"/);assert.match(src,/maxHeight:nowOpen\?78:44,/);});
 test('小相册每天自动存：开着看时每段存一张，打开相册自动补拍，同一段新图保留已写的念头',()=>{
@@ -35,5 +35,14 @@ test('小相册每天自动存：开着看时每段存一张，打开相册自�
   assert.match(src,/shot\.key!==key\)return;\n\s*saveAlbum\(char\.id,day,cur=>\(\{\.\.\.\(cur\|\|\{\}\),photos:mergePhotos\(cur\?\.photos,\[/);
   assert.match(src,/albumFill\.current=tag;setAlbumOpen\(false\);/);
   assert.match(src,/role:"switch","aria-checked":albumAuto/);
-  assert.match(src,/photos:\(cur\?\.photos\|\|photos\)\.map\(\(p,i\)=>\(\{\.\.\.p,thought:list\[i\]/);
+  assert.match(src,/photos:\(cur\?\.photos\|\|photos\)\.map\(p=>\{const i=photos\.findIndex\(x=>x\.time===p\.time\)/);
+});
+test('上线前审计修补：照片进本机图库不进云、写入排队、换人清掉拍摄、补拍只补过去且每次打开一轮、停下保留已拍、挑人页按各自时钟',()=>{
+  const i=src.indexOf('function saveAlbum('),j=src.indexOf('// One photo per stop',i);assert.ok(i>0&&j>i,'抠不出 saveAlbum');const save=src.slice(i,j);
+  assert.match(save,/albumWrite\.catch\(\(\)=>\{\}\)\.then\(/);assert.match(save,/imgToVault\(p\.src\)/);
+  assert.match(src,/const pick = value => \{setAlbumShoot\(null\);setAlbumOpen\(false\);setAlbumDay\(null\);/);
+  assert.match(src,/albumRows\(state,\{pastOnly:true\}\)/);assert.match(src,/const tag=char\.id\+":"\+day;/);
+  assert.match(src,/onClick:\(\)=>\{const done=albumShoot;setAlbumShoot\(null\);setPreview\(null\);if\(done\.photos\.length\)saveAlbum\(/);
+  assert.match(src,/const st = dayState\(c, props\.plansFor\?\.\(c\) \|\| \{\}, now, clockOptions\(homes, c\.id\)\)/);
+  assert.match(src,/src:albumImg\(ph\.src\)/);
 });
