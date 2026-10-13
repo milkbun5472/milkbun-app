@@ -63,7 +63,16 @@ for (let round = 1; round <= 4; round++) {
   // 3) 这一版动过哪些 js（相对 main），bump 自己看不见已提交的改动，这里补上指纹
   const changed = sh("git diff --name-only " + REMOTE + "/main...HEAD -- js/").split("\n").filter(f => f.endsWith(".js")).map(f => f.replace(/^js\//, "").replace(/\.js$/, "")).concat(["assistant-manual", "theme-studio"]);   // 下面一定会改这两份的戳
   const uniq = [...new Set(changed)]; changed.length = 0; changed.push(...uniq);
-  const bump = sh("node scripts/bump-version.mjs");
+  // 号一律从【远端 main】+1：上一次在本地跑到一半停下的那次 bump 不算数（不然她那边会看到跳号）
+  const mainV = sh("git show " + REMOTE + "/main:js/app.js").match(/APP_VERSION\s*=\s*"v(\d+)\.(\d+)"/);
+  const mi = Number(String(mainV[2]).padEnd(3, "0").slice(0, 3));
+  const nextV = mi >= 999 ? String(Number(mainV[1]) + 1).padStart(2, "0") + ".000" : mainV[1] + "." + String(mi + 1).padStart(3, "0");
+  // 本地上次停在半路留下的高号先退回 main 的号，bump 才不会嫌「不高于现有最大」
+  const mv = mainV[1] + "." + mainV[2], numv = v => { const [x, y] = String(v).split("."); return Number(x) * 1000 + Number(String(y).padEnd(3, "0").slice(0, 3)); };
+  const down = (f, re) => { if (existsSync(f)) writeFileSync(f, readFileSync(f, "utf8").replace(re, (m0, pre, v) => numv(v) > numv(mv) ? pre + mv : m0)); };
+  down("js/app.js", /(APP_VERSION\s*=\s*"v)([\d.]+)/g); down("index.html", /(\?v=)(\d{2}\.\d{2,3})(?![\d.])/g);
+  down("manifest.json", /(launch=)([\d.]+)/g); down("rescue.html", /(TARGET=")([\d.]+)/g);
+  const bump = sh("node scripts/bump-version.mjs " + nextV);
   const V = readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)[1];
   console.log(bump.split("\n").pop());
   let html = readFileSync("index.html", "utf8");
