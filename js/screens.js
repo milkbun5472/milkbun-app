@@ -16965,7 +16965,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
   const [themeEdit, setThemeEdit] = useState(null);   // { k?, zh, line } 正在写的自定义题材
   // 预设画风（她 2026-10-13：「还有啥有意思的画风」）＋她自己写的（存 x_studioStyles）
-  const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];
+  const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "手办", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];
   const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
   const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
   const [styleDraft, setStyleDraft] = useState(null);
