@@ -5740,9 +5740,10 @@ function AlbumPhoto({ photo, full, cover }) {
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
   }, [photo && photo.imgKey]);
   const src = url || (photo && photo.imgUrl) || null;
-  if (cover) return src ? h("img", { src, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null;
+  const desc = photo && String(photo.scene || photo.desc || "").slice(0, 300) || null;
+  if (cover) return src ? h("img", { src, "data-desc": desc, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null;
   if (!src) return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: full ? 40 : 20, opacity: 0.3 } }, "🖼");
-  return h("img", { src, loading: "lazy", style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
+  return h("img", { src, loading: "lazy", "data-desc": desc, style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
 }
 function CoupleAlbum({ partner, photos, onBack, onDelete }) {
   const t = useTheme();
