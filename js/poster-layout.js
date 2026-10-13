@@ -122,16 +122,11 @@
     const persona = PERSONA[cp.persona] ? cp.persona : gd.persona;
     const density = ["min", "std", "rich"].indexOf(cp.density) >= 0 ? cp.density : gd.density;
     if (kind === "magazine") {
-<<<<<<< HEAD
-      const comp = pickW(MAG_PREF[persona] || Object.keys(MAG), rnd);
-      return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || ""), shot: shotOf(cp, rnd) };
-=======
       const mtype = mtypeOf(cp.mtype, cp.genre);
       // 性格和类型各投一票，合在一起挑；谁也不是默认
       const pool = []; (MAG_PREF[persona] || []).concat(MTYPE[mtype].prefs).forEach(k => { if (!pool.includes(k)) pool.push(k); });
       const comp = pickW(pool.length ? pool : Object.keys(MAG), rnd);
-      return { kind, persona, density, comp, mtype, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
->>>>>>> origin/main
+      return { kind, persona, density, comp, mtype, genre: String(cp.genre || ""), mood: String(cp.mood || ""), shot: shotOf(cp, rnd) };
     }
     const T = A(cp.title).length;
     let prefs = (MOVIE_PREF[persona] || Object.keys(MOVIE)).slice();
