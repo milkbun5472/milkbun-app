@@ -5125,10 +5125,18 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // opts.panels：一张图里画好几格（照片日记三格）。原来整张只掷【一个】机位，又写着「这一条比什么都优先」，
   //   于是三格全被同一句钉成一个角度（她 2026-10-13：「为什么又是同一个角度！」）。改成每格各掷一个、互不重复。
   else if (opts.panels > 1) {
-    const pool = PHOTO_SHOTS_OTHER.slice(), pick = [];
-    for (let k = 0; k < opts.panels && pool.length; k++) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    // 一远、一中、一近各掷一格，顺序再打乱（她 2026-10-13 第二次：「这机位来来回回一个样」——
+    //   原来从那张八格的表里抽，「回头」「侧脸视线偏开」「近景低头」占了一半，三格总落在这几个上）。
+    //   至少一格要正面看得清脸。
+    const R = a => a[Math.floor(Math.random() * a.length)];
+    const WIDE = ["远景全身，人只占画面三分之一，周围环境交代清楚", "从门口或走廊往里拍的远景，人在房间深处", "从对面拍的全身，人正在走过来或站着", "高一点的位置拍下去的全景，看得到整张桌子或整个房间"];
+    const MID = ["正面平视的半身，看着镜头", "坐着的正面中景，手里正在做日记里写的那件事", "侧面的中景，专心在做事，整个动作看得清", "从斜后方过肩拍，看得到他手里的东西和半张侧脸"];
+    const CLOSE = ["正面近景，看着镜头，表情自然", "镜头略低一点的近景，他抬眼看过来", "手和手里东西的特写，画面上方带到下巴和嘴角", "近景，正在笑或者在说话，脸是正的"];
+    let pick = [R(WIDE), R(MID), R(CLOSE)].slice(0, Math.max(1, opts.panels));
+    if (!pick.some(x => /看着镜头|看过来|脸是正的/.test(x))) pick[pick.length - 1] = "正面近景，看着镜头，表情自然";
+    for (let k = pick.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pick[k], pick[j]] = [pick[j], pick[k]]; }
     const _pl = "【每一格的机位·各不相同，由这次拍摄决定，不许沿用参考图】" + pick.map((x, k) => "第" + (k + 1) + "格：" + x).join("；")
-      + "。参考图只决定这是谁，每格脸的朝向、离镜头多远都照这几句来，三格不许是同一个角度。";
+      + "。参考图只决定这是谁，每格脸的朝向、离镜头多远都照这几句来，三格不许是同一个角度；不要回头看镜头、不要每格都把脸侧开或低着头。";
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
   }
