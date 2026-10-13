@@ -110,7 +110,7 @@
     const density = ["min", "std", "rich"].indexOf(cp.density) >= 0 ? cp.density : gd.density;
     if (kind === "magazine") {
       const comp = pickW(MAG_PREF[persona] || Object.keys(MAG), rnd);
-      return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
+      return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || ""), shot: shotOf(cp, rnd) };
     }
     const T = A(cp.title).length;
     let prefs = (MOVIE_PREF[persona] || Object.keys(MOVIE)).slice();
@@ -119,14 +119,20 @@
     if (T < 2) prefs = prefs.filter(k => k !== "diagonal" && k !== "leftStack");
     if (!prefs.length) prefs = ["bottomSpan"];
     const comp = pickW(prefs, rnd);
-    return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
+    return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || ""), shot: shotOf(cp, rnd) };
+  }
+  // 怎么拍：他照这部片写了就照他的；没写就掷三根轴（远近、镜头高低、两人隔多远），只掷轴不掷姿势
+  function shotOf(cp, rnd) {
+    const t = A(cp.shot).slice(0, 80).join("").trim(); if (t) return t;
+    const pk = a => a[Math.floor(rnd() * a.length) % a.length];
+    return "景别" + pk(["近景（胸口以上）", "中景（腰以上）", "全身", "远景（人在画面里不大）"]) + "，镜头" + pk(["和眼睛一样高", "略低往上拍", "略高往下拍"]) + "，两个人" + pk(["挨得很近", "隔着一点距离", "一个离镜头近一个远"]) + "，站位和动作照这部片的戏来";
   }
   // 写进生图提示词的那一句：留白在哪 + 照类型打光（不写坐标，写画面）
   function spaceLine(p) {
     if (!p) return "";
     const c = (p.kind === "magazine" ? MAG : MOVIE)[p.comp];
     const look = (p.genre || p.mood) ? "这是一部" + (p.genre || "") + (p.mood ? "，气质" + p.mood : "") + (p.kind === "magazine" ? "的封面" : "的电影") + "，光影、色调和场景照这个类型来。" : "";
-    return look + "【排字留白】" + (c ? c.space : "") + "；留白那几块里不要有文字、字母、logo。";
+    return look + (p.shot ? "【这一张怎么拍】" + p.shot + "。" : "") + "【排字留白】" + (c ? c.space : "") + "；留白那几块里不要有文字、字母、logo。";
   }
 
   // ---------- 字体：只拉这一张用到的字 ----------

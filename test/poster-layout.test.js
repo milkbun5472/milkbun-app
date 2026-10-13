@@ -82,3 +82,12 @@ test("四格漫画：台词进气泡（不写名字），老数据「名字：�
   assert.match(app, /opt\.comicStyle === "photo"/);
   assert.match(R("js/components.js"), /\[\["draw", "真漫画"\], \["photo", "照片漫画"\]\]/);
 });
+
+test("姿势机位不写死：他写 shot 就照他的，没写掷轴；提示词里不再列姿势例子", () => {
+  assert.equal(PL.plan("movie", { title: "我们", shot: "他坐在台阶上回头看她" }, () => 0).shot, "他坐在台阶上回头看她");
+  const auto = PL.plan("movie", { title: "我们" }, () => 0.5).shot;
+  assert.match(auto, /景别.*镜头.*两个人/);
+  assert.match(PL.spaceLine(PL.plan("movie", { title: "我们", shot: "侧脸对视" }, () => 0)), /【这一张怎么拍】侧脸对视/);
+  assert.doesNotMatch(eng, /背靠背、一前一后/);
+  assert.match(app, /shot＝这一张怎么拍/);
+});

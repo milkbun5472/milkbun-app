@@ -25223,13 +25223,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const coverCopy = async (char, kind, title) => {
     // 字＋方向一起要（她 2026-10-13）：类型、气质、字的性格、片名怎么断——只给方向，不给坐标；
     //   位置由本地 PosterLayout 照这几样定，再写进生图那句留白里。
+    // 怎么拍也由他照这部片定（她 2026-10-13：原来提示词里列着几个姿势当例子，模型老抄第一个——海报全是背靠背）
+    const shotAsk = "shot＝这一张怎么拍：两个人的站位、动作、谁看谁，镜头从哪个高度、多远拍（一句话，照这部片的戏和你们的关系来想，每次都可以不一样）；";
     const persona = "persona＝封面上字的性格，从 elegant（优雅）/heavy（厚重）/sharp（锐利）/retro（复古）/playful（俏皮）/cold（冷峻）/hand（手写）里挑一个最贴的；density＝信息量，min/std/rich 挑一个；";
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: kind === "magazine"
-          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑叫什么（6 字以内）；mast＝杂志刊名（2~4 字）；genre＝这是本什么杂志（时尚、生活、八卦、文艺……一个词）；mood＝这期封面的气质（两三个词）；" + persona
-          : "你们俩要上一部电影的海报。照你们真实发生过的事，定这部电影是什么样的，再写海报上的字：" + (title ? "片名用「" + title + "」；" : "title＝片名（2~8 字）；") + "titleLines＝片名分成几行排（数组，拼起来要等于片名，按意思断，不拆开一个词；短片名就一行）；genre＝类型（照你们的事来定，不一定是爱情片，一两个词）；mood＝这部片的气质（两三个词）；tagline＝一句宣传语（16 字以内，要像电影海报，跟你们的事有关）；date＝上映日期（写成「X 月 X 日」，可以挑一个对你们有意义的日子）；en＝英文片名（可以留空）；" + persona,
-        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\",\"mast\":\"\",\"genre\":\"\",\"mood\":\"\",\"persona\":\"\",\"density\":\"\"}" : "{\"title\":\"\",\"titleLines\":[\"\"],\"genre\":\"\",\"mood\":\"\",\"tagline\":\"\",\"date\":\"\",\"en\":\"\",\"persona\":\"\",\"density\":\"\"}",
+          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑叫什么（6 字以内）；mast＝杂志刊名（2~4 字）；genre＝这是本什么杂志（时尚、生活、八卦、文艺……一个词）；mood＝这期封面的气质（两三个词）；" + shotAsk + persona
+          : "你们俩要上一部电影的海报。照你们真实发生过的事，定这部电影是什么样的，再写海报上的字：" + (title ? "片名用「" + title + "」；" : "title＝片名（2~8 字）；") + "titleLines＝片名分成几行排（数组，拼起来要等于片名，按意思断，不拆开一个词；短片名就一行）；genre＝类型（照你们的事来定，不一定是爱情片，一两个词）；mood＝这部片的气质（两三个词）；tagline＝一句宣传语（16 字以内，要像电影海报，跟你们的事有关）；date＝上映日期（写成「X 月 X 日」，可以挑一个对你们有意义的日子）；en＝英文片名（可以留空）；" + shotAsk + persona,
+        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\",\"mast\":\"\",\"genre\":\"\",\"mood\":\"\",\"shot\":\"\",\"persona\":\"\",\"density\":\"\"}" : "{\"title\":\"\",\"titleLines\":[\"\"],\"genre\":\"\",\"mood\":\"\",\"tagline\":\"\",\"date\":\"\",\"en\":\"\",\"shot\":\"\",\"persona\":\"\",\"density\":\"\"}",
         maxTokens: 8000
       });
       if (d && title) d.title = title;
