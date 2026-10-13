@@ -895,7 +895,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -1008,6 +1008,10 @@
       + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
       + "text＝换成的那一段。替换在本地做，原文别处一个字节都不动。\n"
       + "  find 必须在原文里【只出现一次】；抄不准或者拿不准就别出这条 patch，先问她。\n"
+      + "· **美化 CSS（theme／chatcss／offlinecss／groupcss）**：原来有内容时，她让你改某一处，就只动那一处——"
+      + "改已有的规则用 find（逐字抄那一条规则）；加新规则用 \"append\":true，text 只写新加的那几条，会接在最后。"
+      + "选择器要窄到只命中她说的那一处：共用的挂点（note、card…）看挂点说明里的 data-part／data-kind，连它一起写。"
+      + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
@@ -1060,7 +1064,8 @@
         target: x.target, id: String(x.id || "").trim(),
         field: String(x.field || "").trim(),
         find: String(x.find || ""),          // 有 find＝只改这一段，别处一个字节不动
-        append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续）
+        append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续；CSS 加几条新规则）
+        whole: x.whole === true || x.whole === "true",       // CSS 整份重做：只有她说了「整体重做／全部换掉」才填
 
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
@@ -1250,8 +1255,18 @@
     //   算完再存的话，改一小段那一支拿到的已经是新文本了，等于备份了个假的。
     pushUndo(p, ctx);
     // 接着往后写（她 2026-10-06：长人设一段一段续）：只给人设、外貌、档案那几栏开，接在这一栏现有内容的最后
+    // 美化那几栏（她 2026-10-13：「要它改某一个小部分，它的改动会牵扯到我不想改的地方」）：
+    //   原来常常是整份 CSS 重写一遍，照抄旧规则时抄漏抄错，没让它动的地方也跟着变了。
+    //   现在原来有东西的话，只许「改一小段」(find) 或「在后面加」(append)；整份重做要它自己标 whole。
+    const CSS_T = { theme: 1, chatcss: 1, offlinecss: 1, groupcss: 1 };
+    if (CSS_T[p.target] && p.append && !p.find) {
+      const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
+      return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
+    }
+    if (CSS_T[p.target] && !p.find && !p.whole && String(before(p, ctx) || "").trim())
+      throw new Error("这一栏原来有 CSS，这条却是整份重写——别处会被跟着改掉。让它改用「改一小段」或「在后面加」；真要整体重做，跟它说清楚「整体重做」");
     if (p.append && !p.find) {
-      if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌和档案那几栏能接着往后写");
+      if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌、档案和美化 CSS 那几栏能接着往后写");
       const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
       return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
     }

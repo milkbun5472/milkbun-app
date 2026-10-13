@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.580";
+const APP_VERSION = "v75.582";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25331,7 +25331,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {
@@ -25343,18 +25343,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           pol = await polaroidCompose(out.blob, cap); pol.cap = cap;
         }
         // 杂志封面／电影海报：构图和字记下来、不带字的那张也留一份——换画风时拿没字的去重画，画完照同一个构图再印一次（她 2026-10-13）
+        // 四格漫画同理（她 2026-10-13：「漫画也没带字重画」）：没排台词的那张 2×2 留一份，四格台词记在行上
+        if (opt && opt.comic) await idbImgPut(imgKey + "_raw", out.blob);
         if (coverPlan) {
           ovl = { plan: coverPlan, copy: cover || {}, names: [char.remark || char.name, me.name || "我"] };
           await idbImgPut(imgKey + "_raw", out.blob);
         } else if (opt && opt.restyle && opt.restyle.overlay && opt.restyle.overlay.plan) ovl = opt.restyle.overlay;
-        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : coverPlan ? await studioOverlay(out.blob, coverPlan, cover || {}, [char.remark || char.name, me.name || "我"]) : ovl ? await studioOverlay(out.blob, ovl.plan, ovl.copy, ovl.names) : out.blob;
+        const reComic = opt && opt.restyle && Array.isArray(opt.restyle.comic) && opt.restyle.comic.length ? opt.restyle.comic : null;
+        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : reComic ? await comicCompose(out.blob, reComic) : coverPlan ? await studioOverlay(out.blob, coverPlan, cover || {}, [char.remark || char.name, me.name || "我"]) : ovl ? await studioOverlay(out.blob, ovl.plan, ovl.copy, ovl.names) : out.blob;
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
-        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}), ...(pol ? { polaroid: true, developAt: Date.now() + 2 * 3600000, polCap: pol.cap || "", ...(pol.flaw ? { flaw: pol.flaw } : {}) } : {}),
+        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true, comicPanels: opt.comic, rawKey: imgKey + "_raw" } : {}), ...(pol ? { polaroid: true, developAt: Date.now() + 2 * 3600000, polCap: pol.cap || "", ...(pol.flaw ? { flaw: pol.flaw } : {}) } : {}),
         ...(theme ? { theme: opt.theme } : {}), ...(ovl ? { overlay: ovl, ...(coverPlan ? { rawKey: imgKey + "_raw" } : {}) } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
