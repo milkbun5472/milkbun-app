@@ -559,7 +559,7 @@
     Object.freeze({
       zh: "星测", pages: Object.freeze(["astro"]),
       hooks: Object.freeze([
-        ["astrotabs", "顶上那条星座连线（今日／配对／星盘／群榜／问星）"], ["astrowheel", "星盘页那张圆盘"], ["astroyear", "星盘页「这一年」（太阳回归）"], ["astrogood", "配对里「星星点头的日子」"], ["astrorank", "群榜里的一行配对"], ["astroask", "问星的答案"], ["astrosky", "今日页那行天象"], ["phoneastro", "查手机里 TA 那页星测（整页）"], ["astroshare", "聊天里那张「今日签」小卡"], ["astromoon", "今日页「月亮日记」"], ["astrohalo", "星星点头那天聊天顶栏头像外那圈星光"], ["astrocard", "每一块卡片"],
+        ["astrotabs", "顶上那条星座连线（今日／配对／星盘／群榜／问星）"], ["astrowheel", "星盘页那张圆盘"], ["astroyear", "星盘页「这一年」（太阳回归）"], ["astrogood", "配对里「星星点头的日子」"], ["astrorank", "群榜里的一行配对"], ["astroask", "问星的答案"], ["astrosky", "今日页那行天象"], ["phoneastro", "查手机里 TA 那页星测（整页）"], ["astroshare", "聊天里那张「今日签」小卡"], ["astromoon", "今日页「月亮日记」"], ["astrohalo", "星星点头那天的星光：现在不套壳了，顶栏头像自己带 data-halo=\"1\"，想改那圈光就写 [data-halo=\"1\"]（只用 box-shadow，别动尺寸位置）"], ["astrocard", "每一块卡片"],
         ["astrolucky", "幸运色那一格"], ["astrosyn", "配对里「合盘」那一段"], ["astrosign", "配对里「星座配对」那一段"], ["astroshuku", "配对里「星宿关系」那一段"],
         ["astronote", "TA看完说的那段话"]
       ])

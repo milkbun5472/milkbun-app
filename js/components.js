@@ -1004,14 +1004,18 @@ function TypingDots({ color, size, gap }) {
 function Avatar({
   character,
   size = 40,
-  radius
+  radius,
+  halo
 }) {
+  // halo：星测说今天是好日子时亮一圈（她 2026-10-14：原来在头像外面套了一层壳，主题 CSS 写的「顶栏 > 头像」就够不着了，
+  //   双人头像那种排版整块歪掉）。现在不套壳，只在头像自己身上挂 data-halo，光圈由 astro.js 那条全局样式画。
+  const haloAttr = halo ? { "data-halo": "1" } : {};
   const rad = radius != null ? radius : size / 2;
   // 图片仓库：avatarImage 可能是 iv_ 键（IndexedDB）→ resolveImg 换成 objectURL；base64/http 原样。
   // 缓存没命中（iv_ 键但库里没图）→ src 为空 → 落到下面首字母兜底，不显示破图。
   const src = character && character.avatarImage ? (typeof resolveImg === "function" ? resolveImg(character.avatarImage) : character.avatarImage) : "";
   if (src) return /*#__PURE__*/React.createElement("img", {
-    "data-wk": "avatar",
+    "data-wk": "avatar", ...haloAttr,
     src: src,
     alt: "",
     className: "object-cover shrink-0",
@@ -1024,13 +1028,13 @@ function Avatar({
   // 她自己设过 emoji 就还用 emoji（那是她挑的）；否则不再摆首字母方块，
   // 按 id/名字哈希给一张自动头像（有池子用池子里的图，没有就程序化画）。
   if (character && character.avatarEmoji) return /*#__PURE__*/React.createElement("div", {
-    "data-wk": "avatar",
+    "data-wk": "avatar", ...haloAttr,
     className: "flex items-center justify-center shrink-0",
     style: { width: size, height: size, borderRadius: rad, background: character.color || "#c2bdb1", color: "#f6f4ef", fontSize: size * 0.4, fontFamily: F_DISPLAY }
   }, character.avatarEmoji);
   const seed = (character && (character.id || character.handle || character.name)) || "?";
   return /*#__PURE__*/React.createElement("img", {
-    "data-wk": "avatar",
+    "data-wk": "avatar", ...haloAttr,
     src: avatarSrcOf(character),
     alt: "", className: "object-cover shrink-0",
     style: { width: size, height: size, borderRadius: rad }
@@ -10053,12 +10057,11 @@ function ChatThread({
     onClick: () => setModeOpen(true),
     className: "flex items-center gap-2.5 flex-1 active:opacity-70"
   // 星星点头的日子（星测按你俩的星盘算的）：头像外亮一圈慢慢转的星光，平常日子原样
-  }, (window.AstroHalo && window.Astro && window.Astro.isGoodDay && window.Astro.isGoodDay(character))
-    ? h(window.AstroHalo, { size: 36 }, h(Avatar, { character: character, size: 36, radius: 9 }))
-    : /*#__PURE__*/React.createElement(Avatar, {
+  }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 36,
-    radius: 9
+    radius: 9,
+    halo: !!(window.Astro && window.Astro.isGoodDay && window.Astro.isGoodDay(character))
   }),
   // 顶栏里她自己那颗头像：默认藏着，只给主题 CSS 当挂点（群友 2026-09-30：「想搞个双人头像一直不给我生」）。
   //   CSS 造不出一张图——没有这一颗，秋秋写什么选择器都拼不出「两个人的头像」。
