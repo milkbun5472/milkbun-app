@@ -85,9 +85,9 @@ test("皮肤用到的每一个挂点，单聊和群聊都得有", () => {
 
 test("头像的挂点长在 Avatar 组件自己身上，不是一个一个调用点去补", () => {
   const av = comp.slice(comp.indexOf("function Avatar({"), comp.indexOf("\nfunction Eyebrow({"));
-  // 三支：她设的图 / emoji / 自动头像。少挂一支，那一类头像就漏掉
-  assert.equal((av.match(/"data-wk": "avatar"/g) || []).length, 3,
-    "Avatar 有三个 return（图片 / emoji / 自动头像），得支支都挂");
+  // 四支：带光圈的图 / 她设的图 / emoji / 自动头像。少挂一支，那一类头像就漏掉
+  assert.equal((av.match(/"data-wk": "avatar"/g) || []).length, 4,
+    "Avatar 有四个 return（光圈图 / 图片 / emoji / 自动头像），得支支都挂");
   // 全 app 的头像都归它画：调用点多到不可能一个个补（补完也会漏下一个）
   assert.ok((comp.match(/h\(Avatar, \{|React\.createElement\(Avatar, \{/g) || []).length > 30,
     "Avatar 的调用点没那么多的话，这条推理就不成立了，回去重想");

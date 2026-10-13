@@ -7583,7 +7583,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (hn) {
           // 轮着来（群友 2026-10-14「来来回回都是第一个人来问」）：原来 find 永远挑名单里排第一个能来的。
           //   按「哪天哪一顿」定一个起点轮转——同一顿重试还是同一个人，换一顿、换一天就换人。
-          const _ok = characters.filter(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
+          const _ok = liveChars.filter(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
           const _seed = String(hn.day) + ":" + String(hn.meal);
           let _h = 0; for (let _i = 0; _i < _seed.length; _i++) _h = (_h * 31 + _seed.charCodeAt(_i)) >>> 0;
@@ -13534,6 +13534,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             }
           } catch (e) {/* 刻不上不连累这一轮回复 */}
         }
+      }
+      // 替她勾掉备忘录里已经办完的那条（她 2026-10-13）。memoNote 里只有过期没勾的那几条才会教TA填这一栏。
+      if (parsed.memoDone && typeof window.memoDoneByChar === "function" && (!room || !!(room.writeback && room.writeback.sharedState))) {
+        const _md = window.memoDoneByChar(charId, parsed.memoDone);
+        if (_md.length) toast(char.name + " 替你在备忘录里勾掉了「" + _md.join("」「") + "」");
       }
       // 替她记进备忘录 / 记一笔账（她 2026-08-30）。
       // ⚠️落盘成功才在聊天里出卡片：模型把「下周三」原样填进 date 的话 memoAddByChar 会退回 null，
