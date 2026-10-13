@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.538";
+const APP_VERSION = "v75.539";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -484,6 +484,9 @@ function App() {
     || (viewRef.current.screen === "fairyGarden" && String(dayChatRef.current || "") === String(id));
   // 置顶的聊天/群 id 集合
   const [pinnedChats, setPinnedChats] = useState(() => loadJSON("x_pinnedChats", []));
+  // 从消息列表里删掉的配角聊天（她 2026-10-13：「npc 聊天窗口能不能删除但是不删 npc」）：
+  //   { id: 删的那一刻 }——只是不在列表里显示，记录和配角都在；之后再有新消息（谁发的都算）就自己回来
+  const [hiddenChats, setHiddenChats] = useState(() => loadJSON("x_hiddenChats", {}) || {});
   const [characters, setCharacters] = useState([]);
   const charactersRef = useRef([]);
   charactersRef.current = characters; // 顶上那条消息提醒在异步回调里认人，闭包拿不到最新的 characters
@@ -4814,6 +4817,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return n;
     });
   };
+  const hideChat = id => setHiddenChats(p => {
+    const n = { ...p, [id]: Date.now() };
+    saveJSON("x_hiddenChats", n);
+    return n;
+  });
   // 置顶/取消置顶某个聊天（长按聊天条触发）
   const togglePinChat = id => setPinnedChats(p => {
     const n = p.includes(id) ? p.filter(x => x !== id) : [id, ...p];
@@ -28755,6 +28763,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     pinned: pinnedChats,
     onTogglePin: togglePinChat,
+    hiddenChats: hiddenChats,
+    onHideChat: id => { hideChat(id); setPinnedChats(p => { if (!p.includes(id)) return p; const n = p.filter(x => x !== id); saveJSON("x_pinnedChats", n); return n; }); toast("从列表里删掉了，聊天记录和配角都还在；再聊就会回来"); },
     onNewGroup: () => setNewGroupOpen(true),
     onOpenContact: c => {
       setContactBack(null);

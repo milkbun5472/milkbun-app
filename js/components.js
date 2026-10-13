@@ -7930,6 +7930,8 @@ function Messages({
   offlineLastTs,
   pinned,
   onTogglePin,
+  hiddenChats,
+  onHideChat,
   onBack,
   onOpenThread,
   onOpenGroup,
@@ -7997,6 +7999,9 @@ function Messages({
     // 配角私聊（她 2026-10-03）：聊过才进列表，没聊过的不冒出来——入口在通讯录 → 配角 → 详情页「发消息」。
     ...characters.concat((allChars || []).filter(c => c && c.npc && (chats[c.id] || []).length)).map(c => { const msgs = chats[c.id] || []; const last = msgs[msgs.length - 1]; return { key: "c_" + c.id, id: c.id, type: "char", c: c, last: last, ts: Math.max(last ? (last.ts || 0) : 0, offLast[c.id] || 0) }; })
   ];
+  // 删掉的配角聊天：删之后没有新消息就不出现（记录和配角都还在）
+  const hidAt = hiddenChats || {};
+  for (let i = chatItems.length - 1; i >= 0; i--) { const it = chatItems[i]; if (it.c && it.c.npc && hidAt[it.id] && (it.ts || 0) <= hidAt[it.id]) chatItems.splice(i, 1); }
   chatItems.sort((a, b) => { const pa = pinnedSet.has(a.id), pb = pinnedSet.has(b.id); if (pa !== pb) return pa ? -1 : 1; return b.ts - a.ts; });
   // 搜索：名字/备注/群名先匹配，再看最后一条消息的正文——想找哪个聊天框就直接打字
   const kw = q.trim().toLowerCase();
@@ -8053,7 +8058,13 @@ function Messages({
     // eslint-disable-next-line
   }, [tab, characters.length, contactSecs.length]);
   const pressT = useRef({}); const longFired = useRef(false);
-  const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => { longFired.current = true; onTogglePin && onTogglePin(id); }, 500); };
+  // 配角那一行长按：弹一个小菜单（置顶 / 从列表删掉）；别的照旧直接置顶
+  const [rowMenu, setRowMenu] = useState(null);
+  const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => {
+    longFired.current = true;
+    const npc = onHideChat && (allChars || []).find(c => c && c.npc && c.id === id);
+    if (npc) setRowMenu(npc); else onTogglePin && onTogglePin(id);
+  }, 500); };
   const endPress = id => clearTimeout(pressT.current[id]);
   const guardClick = fn => { if (longFired.current) { longFired.current = false; return; } fn(); };
   const longProps = id => ({ onPointerDown: () => startPress(id), onPointerUp: () => endPress(id), onPointerLeave: () => endPress(id), onPointerCancel: () => endPress(id) });
@@ -8322,6 +8333,16 @@ function Messages({
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
   , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
+    h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
+      [[(pinned || []).includes(rowMenu.id) ? "取消置顶" : "置顶", () => onTogglePin && onTogglePin(rowMenu.id)],
+       ["从列表删掉（聊天记录和配角都留着）", () => onHideChat(rowMenu.id)]].map(([zh, fn], i) => h("button", {
+        key: i, "data-wk": "mlrowmenuitem",
+        onClick: () => { setRowMenu(null); fn(); },
+        className: "w-full text-left py-3 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 14, color: i ? t.tint : t.ink, borderTop: i ? `1px solid ${t.line}` : "none" }
+      }, zh))))
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
