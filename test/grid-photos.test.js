@@ -19,3 +19,10 @@ test("照片日记：只有点了才拍，一次生图", () => {
   const a2 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
   require("node:assert").match(s2, /const whiteness = \(horiz, i\) =>/);
   require("node:assert").match(a2, /不要三格都从高处往下拍/); }
+{ const a3 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("node:assert").match(a3, /const wearsOnDay = \(charId, ts\) =>/);
+  require("node:assert").match(a3, /entry\.wears = w/);
+  require("node:assert").match(a3, /每一格穿那个时刻对应的那一身/); }
+{ const a4 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("node:assert").match(a4, /纯侧脸、背影最多一格/);
+  require("node:assert").match(a4, /晚上不等于睡觉/); }
