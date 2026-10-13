@@ -25178,7 +25178,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const pick = (msgs || []).filter(m => m && m.content && typeof m.content === "string").slice(0, 40);
     if (!char || !pick.length) { toast("先选几条聊天"); return; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
-    toast("在画了，画好放照相馆", 4000);
+    toast("在画了，画好会发进聊天里", 4000);
     let panels = null;
     try {
       const log = pick.map(m => (m.role === "user" ? (profile.name || "我") : char.name) + "：" + String(m.content).slice(0, 200)).join("\n");
@@ -25191,7 +25191,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("分镜没想出来：" + (e.message || "重试"), 7000); return; }
     if (panels.length < 4 || panels.some(p => !p.scene)) { toast("分镜没凑够四格，再试一次", 6000); return; }
     const row = await studioShoot(char, { scene: "聊天画成的四格漫画", comic: panels });
-    if (row) toast("画好了，在照相馆", 5000);
+    // 画好直接发进你们的聊天（她 2026-10-13）：照相馆在情侣空间里，不是情侣的看不到；
+    //   照相馆里照样存一份——以后开了情侣空间，合照墙里就都在
+    if (row) {
+      const comicDesc = "四格漫画（照我们刚才的聊天画的）：" + panels.map((p, k) => (k + 1) + "．" + p.line).join(" ");
+      await shareShotToChat(char, { ...row, desc: comicDesc, scene: comicDesc });
+    }
   };
   // 封面／海报上的字：拍完由 App 排上去（图像端写中文会乱码）。
   //   版式每次随机挑一套（她 2026-10-13：「每次拍出来都是一样的吗」），字由他照你们的事写（copy），没写成就用兜底的
