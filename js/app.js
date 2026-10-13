@@ -12386,7 +12386,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
       const _halfHint = _halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就别硬扯。" : "";
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      // 锁屏（她 2026-10-13）：只在【她刚发来一张图】或【他上一轮刚发了照片】时提一句，别的时候一个字都不提
+      const _lockSrc = (() => {
+        if (sideRoom || char.npc) return null;
+        if (_seenMsg && _seenMsg.imageRef) return { ref: _seenMsg.imageRef, desc: String(_seenMsg.desc || _seenMsg.content || "她发来的那张").slice(0, 120), from: "her" };
+        const rows = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled).slice(-6);
+        for (let k = rows.length - 1; k >= 0; k--) { const m = rows[k]; if (m.role === "assistant" && m.kind === "selfie" && (m.imgKey || m.imgUrl) && !m.failed && !m.pending) return { key: m.imgKey, url: m.imgUrl, desc: String(m.desc || "").slice(0, 120), from: "him" }; }
+        return null;
+      })();
+      const _lockNow = (() => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; return lk.lockWallpaper ? String(lk.lockDesc || "一张图") : ""; } catch (e) { return ""; } })();
+      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.from === "her" ? "她刚发来的这张图" : "你刚发的那张照片") + "，你想设成自己手机的锁屏的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。" + (_lockNow ? "你现在的锁屏是：" + _lockNow + "。" : "") : "";
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _lockHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
       const _dirLive = chatDirNotesLive(chatKey);
@@ -13443,6 +13453,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
       // TA 自己存一刻（她 2026-10-03 点的第 4 条）：进 x_shikePins，相册里多一张「TA 存的」。侧房和配角不存
+      if (parsed.lockscreen === true && _lockSrc) setCharLockscreen(charId, _lockSrc, chatKey, turnId);
       if (parsed.keepMoment && typeof parsed.keepMoment === "object" && !sideRoom && !char.npc && String(parsed.keepMoment.title || "").trim()) {
         try {
           const all = loadJSON("x_shikePins", {}) || {};
@@ -24530,6 +24541,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : "");
   const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"avatar\":false" : "") + "}";
   // 落地：把那句话写回那条消息；要换头像就换，并留住换之前那张
+  // 他把一张图设成自己手机的锁屏：写进查手机那一格（x_phoneLooks.lockWallpaper，跟手动换的是同一格），聊天里落一行小灰字
+  const setCharLockscreen = async (charId, src, chatKey, turnId) => {
+    try {
+      let ref = src.ref || "";
+      if (!ref) {
+        let b = src.key && typeof idbImgGet === "function" ? await idbImgGet(src.key).catch(() => null) : null;
+        if (!b && src.url) { try { b = await (await fetch(src.url)).blob(); } catch (e) { b = null; } }
+        if (!b) return;
+        const du = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(""); r.readAsDataURL(b); });
+        ref = du ? await imgToVault(du) : "";
+      }
+      if (!ref) return;
+      const all = loadJSON("x_phoneLooks", {}) || {};
+      all[charId] = { ...(all[charId] || {}), lockWallpaper: ref, lockDesc: src.desc || (src.from === "her" ? "她发来的一张图" : "自己的一张照片"), lockTs: Date.now() };
+      saveJSON("x_phoneLooks", all);
+      const ch = characters.find(c => c.id === charId);
+      pChat(chatKey, p => [...p, { role: "assistant", kind: "locknote", ts: Date.now(), turnId, content: "〔" + ((ch && (ch.remark || ch.name)) || "TA") + " 把手机锁屏换成了" + (src.from === "her" ? "你发的这张" : "这张") + "〕" }]);
+    } catch (e) {}
+  };
   const applyPhotoSeen = (charId, msg, seen, canAvatar, patchNote) => {
     if (!msg || !seen || typeof seen !== "object") return;
     const note = String(seen.note || "").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -25100,6 +25130,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 封面／海报上的字：拍完由 App 排上去（图像端写中文会乱码）。
   //   版式每次随机挑一套（她 2026-10-13：「每次拍出来都是一样的吗」），字由他照你们的事写（copy），没写成就用兜底的
+  // 拍立得（她 2026-10-13）：白边相框、底下宽一条写他手写的一行；四分之一的机会出点意外（漏光／糊／过期偏色），都是这边画的，不多花生图
+  const polaroidCompose = async (blob, caption) => {
+    try {
+      const u = URL.createObjectURL(blob);
+      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+      URL.revokeObjectURL(u);
+      const W = 1000, side = 60, top = 60, ph = 920, bottom = 240, H = top + ph + bottom;
+      const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+      x.fillStyle = "#fbfaf6"; x.fillRect(0, 0, W, H);
+      const pw = W - side * 2, sr = Math.min(im.naturalWidth / pw, im.naturalHeight / ph), sw = pw * sr, sh = ph * sr;
+      const flaw = Math.random() < 0.25 ? ["leak", "blur", "expired"][Math.floor(Math.random() * 3)] : "";
+      x.save(); x.beginPath(); x.rect(side, top, pw, ph); x.clip();
+      if (flaw === "blur") x.filter = "blur(3px)";
+      if (flaw === "expired") x.filter = "sepia(.45) saturate(.7) hue-rotate(-12deg) contrast(.92)";
+      x.drawImage(im, (im.naturalWidth - sw) / 2, (im.naturalHeight - sh) / 2, sw, sh, side, top, pw, ph);
+      x.filter = "none";
+      if (flaw === "leak") { const g = x.createRadialGradient(side + pw * 0.92, top + ph * 0.1, 10, side + pw * 0.92, top + ph * 0.1, pw * 0.7); g.addColorStop(0, "rgba(255,140,60,.75)"); g.addColorStop(0.5, "rgba(255,90,60,.25)"); g.addColorStop(1, "rgba(255,90,60,0)"); x.fillStyle = g; x.fillRect(side, top, pw, ph); }
+      // 拍立得本身那层淡淡的颗粒和暗角
+      const vg = x.createRadialGradient(W / 2, top + ph / 2, ph * 0.35, W / 2, top + ph / 2, ph * 0.8); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.18)"); x.fillStyle = vg; x.fillRect(side, top, pw, ph);
+      x.restore();
+      const cap = String(caption || "").trim().slice(0, 24);
+      if (cap) {
+        let z = 52; const F = "'Ma Shan Zheng','Long Cang','ZCOOL KuaiLe','Kaiti SC','STKaiti',cursive";
+        x.font = z + "px " + F; while (z > 26 && x.measureText(cap).width > pw) { z -= 2; x.font = z + "px " + F; }
+        x.fillStyle = "#2d2a26"; x.textAlign = "center"; x.textBaseline = "middle"; x.save(); x.translate(W / 2, top + ph + bottom / 2); x.rotate(-0.02); x.fillText(cap, 0, 0); x.restore();
+      }
+      return { blob: await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92)), flaw };
+    } catch (e) { return { blob, flaw: "" }; }
+  };
+  window.__developPolaroid = id => {
+    const n = (studioRef.current || []).map(x => x.id === id ? { ...x, developAt: 0 } : x);
+    studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
+  };
   const studioOverlay = async (blob, kind, title, names, copy) => {
     try {
       const u = URL.createObjectURL(blob);
@@ -25290,17 +25353,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
-      let imgKey = null, imgUrl = null;
+      let imgKey = null, imgUrl = null, pol = null;
       if (out && out.blob) {
         imgKey = "img_studio_" + char.id + "_" + Date.now();
-        const finalBlob = opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我"), await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim())) : out.blob;
+
+        if (opt && opt.polaroid) {
+          let cap = "";
+          try { const d = await runProbe(apiFor(char.id), ctxFor(char), { instruction: "你们刚用拍立得拍了一张合照：" + scene + "。你拿笔在相纸底下白边上写一行字（14 字以内，就是你此刻想写在这张照片上的话，像你自己的口气）。", schemaHint: "{\"line\":\"\"}", maxTokens: 8000 }); cap = String((d && d.line) || "").trim(); } catch (e) {}
+          pol = await polaroidCompose(out.blob, cap); pol.cap = cap;
+        }
+        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我"), await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim())) : out.blob;
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
-        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}),
+        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}), ...(pol ? { polaroid: true, developAt: Date.now() + 2 * 3600000, polCap: pol.cap || "", ...(pol.flaw ? { flaw: pol.flaw } : {}) } : {}),
         ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
@@ -27622,14 +27691,54 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const url = await imgToVault(dataUrl);
       const c = characters.find(x => x.id === charId);
-      const name = (c ? (c.remark || c.name) : "TA") + " 的表情";
+      const packName = (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
       const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url };
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
-        : [...packs, { id: "ep_face_" + Date.now(), name, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
+        : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
     } catch (e) { return false; }
+  };
+  // 他的一套表情包（她 2026-10-13）：先让他照自己的性子挑九个表情、起名字，再一张图画成 3×3，
+  //   切开存进「抠他图」那同一组（fromCharFace），所以他自己也能发、你也能发
+  const [emoteSetBusy, setEmoteSetBusy] = useState("");
+  const makeEmoteSet = async charId => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || emoteSetBusy) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    if (!char.refPhoto) { toast("先在人格档案馆给 TA 传一张参考照，脸才锁得住"); return; }
+    setEmoteSetBusy(charId);
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
+        schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
+        maxTokens: 8000
+      });
+      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
+      if (items.length < 9) throw new Error("他没挑够九个，再试一次");
+      const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
+        + "每格都是同一个人「" + char.name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天贴纸；长相、发型发色、标志性配饰照参考图。"
+        + (char.appearance ? "外貌：" + String(char.appearance).slice(0, 200) + "。" : "")
+        + "九格从左到右、从上到下依次是：" + items.map((x, i) => (i + 1) + "." + x.look).join("；")
+        + "。每格人物居中、完整、别出格。画面里不要任何文字、字母、对话框。";
+      const out = await generateSelfieImage(prompt, [char.refPhoto], { size: "1024x1024", minimalPrompt: prompt });
+      let blob = out && out.blob;
+      if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) { blob = null; } }
+      if (!blob) throw new Error("没拿到图");
+      const u = URL.createObjectURL(blob);
+      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+      URL.revokeObjectURL(u);
+      const cw = im.naturalWidth / 3, ch = im.naturalHeight / 3, ix = cw * 0.04, iy = ch * 0.04;
+      let n = 0;
+      for (let k = 0; k < 9; k++) {
+        const cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
+        cv.getContext("2d").drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
+        if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name)) n++;
+      }
+      toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
+    } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
+    finally { setEmoteSetBusy(""); }
   };
   // 从相册选的：url 是本机图库的 iv_ 引用，关键词由调用方取文件名
   const addEmoteImages = (packId, list) => {
@@ -29334,6 +29443,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
     onAddImages: addEmoteImages,
+    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy,
     onRenameEmote: renameEmote,
     onDeleteEmotes: deleteEmotes
   });else if (screen === "favorites") body = h(Favorites, {
