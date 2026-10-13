@@ -28,7 +28,7 @@ test("留白写进生图提示词：写画面不写坐标，类型带着光影",
 });
 
 test("先写字再出图（字的方向要在出图前定），出图后照同一份 plan 排", () => {
-  const a = app.indexOf("coverPlan = window.PosterLayout.plan("), b = app.indexOf("const prompt = RESTYLE_ONLY || buildPhotoPrompt(");
+  const a = app.indexOf("coverPlan = window.PosterLayout.plan("), b = app.indexOf("const prompt = RESTYLE_ONLY ||");
   assert.ok(a > 0 && b > a);
   assert.match(app, /studioOverlay\(out\.blob, coverPlan, cover \|\| \{\}/);
   assert.match(app, /titleLines＝/); assert.match(app, /genre＝类型/);

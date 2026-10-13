@@ -25312,11 +25312,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         cover = await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim());
         coverPlan = window.PosterLayout.plan(theme.overlay, cover || {});
       }
-      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "" } : {}) });
+      // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
+      const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
+      const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "" } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {
@@ -25343,7 +25346,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
         mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true, comicPanels: opt.comic, rawKey: imgKey + "_raw" } : {}), ...(pol ? { polaroid: true, developAt: Date.now() + 2 * 3600000, polCap: pol.cap || "", ...(pol.flaw ? { flaw: pol.flaw } : {}) } : {}),
-        ...(theme ? { theme: opt.theme } : {}), ...(ovl ? { overlay: ovl, ...(coverPlan ? { rawKey: imgKey + "_raw" } : {}) } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
+        ...(theme ? { theme: opt.theme } : {}), ...(ovl ? { overlay: ovl, ...(coverPlan ? { rawKey: imgKey + "_raw" } : {}) } : {}), ...(PAINT ? { paint: PAINT } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
