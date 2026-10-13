@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.547";
+const APP_VERSION = "v75.548";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4347,6 +4347,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (durM) return { minutes: durM, about: callLine.slice(0, 60),
         how: /视频/.test(callLine) ? "video" : /打给你|给你打|电话/.test(callLine) ? "voice" : "chat" };
     }
+    // 说好了「几分钟后到你那儿」（她 2026-10-13 截图：「我现在下楼蹬车，二十分钟左右到」——然后再没动静）。
+    //   没有「找你/打给你」，可人正往她这儿来：到点该来一句「到了」。要两样都在：
+    //   有一句是带着时长说「到」，整段里又看得出是冲她来的（过来、去你那、下楼、开车……）。
+    const comeLine = lines.find(l => minutesFromWords(l) && /到(?:了|啊|哦|喔|$)|就到|左右到|分钟到|后到/.test(l));
+    if (comeLine && /过来|来找你|来接你|去你|到你|你(?:家|那|楼下|门口)|下楼|出门|开车|打车|蹬车|骑车|上车/.test(lines.join("。")))
+      return { minutes: minutesFromWords(comeLine), about: comeLine.slice(0, 60), how: "chat" };
     return null;
   };
 
