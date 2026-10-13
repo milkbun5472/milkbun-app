@@ -233,7 +233,7 @@ test("点进任何一条会话都停在最后一句上", () => {
 
 test("表情包画成真表情，不是一行「[表情] 摸头」", () => {
   // 落盘那一头：kind/url/keyword 要跟着过去，而且只写在一处
-  assert.match(app, /const richOf = m => \(m && m\.kind === "emote" && m\.url\) \? \{ kind: "emote", url: m\.url, keyword: m\.keyword \|\| "" \} : null;/);
+  assert.match(app, /const richOf = m => \(m && m\.kind === "emote" && m\.url\) \? \{ kind: "emote", url: m\.url, keyword: m\.keyword \|\| "" \}\n/);
   assert.equal((app.match(/const richOf = /g) || []).length, 1, "私聊和群聊得取同一份");
   assert.equal((app.match(/\.\.\.\(richOf\(m\) \|\| \{\}\)/g) || []).length, 2, "两条路都要带上");
   // 画那一头：走公共的 EmoteBubble（跟主聊天同一颗），而且不套气泡
