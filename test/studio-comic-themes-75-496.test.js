@@ -72,3 +72,7 @@ console.log("ok comic retext");
 // 漫画画好直接发进聊天，不是情侣也看得到（她 2026-10-13）
 assert.match(app, /await shareShotToChat\(char, \{ \.\.\.row, desc: comicDesc, scene: comicDesc \}\)/);
 console.log("ok comic chat");
+// 拍立得、四宫格不写场景不挑题材也能拍（她 2026-10-13）
+assert.match(scr, /!\(scene\.trim\(\) \|\| theme \|\| polaroid \|\| grid\)/);
+assert.match(app, /opt && opt\.polaroid \? "随手用拍立得拍的一张合照/);
+console.log("ok blank shoot");

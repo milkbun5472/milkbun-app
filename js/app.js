@@ -25258,7 +25258,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const studioShoot = async (char, opt) => {
     const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
-    const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "");
+    const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "") || (opt && opt.polaroid ? "随手用拍立得拍的一张合照，就在此刻你们在的地方" : "") || (opt && opt.grid ? "在大头贴机里拍的一组四宫格" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
     if (!(char.refPhoto && profile && profile.refPhoto)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张"); return false; }
