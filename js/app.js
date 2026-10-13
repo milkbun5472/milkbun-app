@@ -17349,7 +17349,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (window.Notify) window.Notify.push({ title: char.name + " 发了条朋友圈", body: "去朋友圈看看吧", tag: "mom-" + char.id, charId: char.id });
         }
       }
-      else if (type === "whisper") { await genWhisper(char); notifyApp("whisper"); toast(char.name + " 给你留了句悄悄话"); if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: "点开看看", tag: "wh-" + char.id, charId: char.id }); }
+      // 真放进抽屉了才报（群友 2026-10-13：弹窗说留了悄悄话，去看是空的）
+      else if (type === "whisper") { if (!(await genWhisper(char))) return; notifyApp("whisper"); toast(char.name + " 给你留了句悄悄话"); if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: "点开看看", tag: "wh-" + char.id, charId: char.id }); }
       else if (type === "forum") { await autoForumForChar(char); }
       else if (type === "capsule") { await autoBuryCapsuleForChar(char); }
     } catch (e) {}
@@ -23766,9 +23767,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: "你们已是恋人。以「" + char.name + "」身份，往你俩私密的那个抽屉里放一张给用户的小纸条（她哪天想起来才会打开）——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
-      drawerWhisper(char.id, String(d.whisper || "").trim());
+      return drawerWhisper(char.id, String(d && d.whisper || "").trim());
     } catch (e) {
       toast("失败：" + e.message);
+      return false;
     } finally {
       setGen(g => ({
         ...g,
