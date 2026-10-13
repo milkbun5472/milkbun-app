@@ -1163,6 +1163,8 @@ function App() {
   // 「线下看了日历的行程直接一退就退回到主页了吗？是不能直接退回到线下页面吗？」）。
   // 没有来处（从主屏点进来的）才回主屏。
   const calReturnRef = useRef(null);
+  // 从「TA的一天」去陪伴改TA的样貌：记下从哪位、陪伴原来选的是谁，返回时回到那位的TA的一天，陪伴的人换回原样。
+  const companionReturnRef = useRef(null);
   const [selPhone, setSelPhone] = useState(null);
   const [busyLanes, setBusyLanes] = useState({});
   const busyLanesRef = useRef({});
@@ -30316,7 +30318,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     music: !!player.playing,
     toast: toast,
-    onBack: () => setScreen("home")
+    onBack: () => {
+      const back = companionReturnRef.current; companionReturnRef.current = null;
+      if (!back) { setScreen("home"); return; }
+      try { const cfg = loadJSON("x_companion", {}) || {}; saveJSON("x_companion", { ...cfg, charId: back.prevCharId || "" }); if (window.__companionChanged) window.__companionChanged({ ...cfg, charId: back.prevCharId || "" }); } catch (e) {}
+      setGardenEntryWorld("day"); setGardenDayCharId(String(back.charId)); setScreen("fairyGarden");
+    }
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
     ctxFor: ctxFor,
@@ -30438,6 +30445,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'今天的小相册',
             instruction:window.CharDayThoughts.albumInstruction(photos),schemaHint:'{"thoughts":["按照片顺序，每张一条念头"]}'});
         } finally {if(W)W.active=active;}
+      },
+      onEditLook: c => {
+        const cfg = loadJSON("x_companion", {}) || {};
+        companionReturnRef.current = { charId: c.id, prevCharId: cfg.charId || "" };
+        saveJSON("x_companion", { ...cfg, charId: c.id });
+        setScreen("companion");
       },
       taFor: c => CharacterPronoun.ta(c),
       lookFor: c => window.CompanionFace.lookFor(c, moods),
