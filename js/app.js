@@ -25326,7 +25326,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ovl = { plan: coverPlan, copy: cover || {}, names: [char.remark || char.name, me.name || "我"] };
           await idbImgPut(imgKey + "_raw", out.blob);
         } else if (opt && opt.restyle && opt.restyle.overlay && opt.restyle.overlay.plan) ovl = opt.restyle.overlay;
-        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : ovl ? await studioOverlay(out.blob, ovl.plan, ovl.copy, ovl.names) : out.blob;
+        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : coverPlan ? await studioOverlay(out.blob, coverPlan, cover || {}, [char.remark || char.name, me.name || "我"]) : ovl ? await studioOverlay(out.blob, ovl.plan, ovl.copy, ovl.names) : out.blob;
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
