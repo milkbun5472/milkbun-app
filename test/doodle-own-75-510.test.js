@@ -9,7 +9,8 @@ test("抠出来那张可以起名，名字就是他发表情用的词", () => {
   assert.match(app, /keyword: String\(name \|\| ""\)\.trim\(\)\.slice\(0, 20\) \|\|/);
 });
 test("他知道那一套是从自己照片上抠的", () => {
-  assert.match(app, /pk\.fromCharFace === charId \? "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）"/);
+  assert.match(app, /pk\.fromCharFace === charId \? faceSetNote\(pk\)/);
+  assert.match(app, /return "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）";/);
 });
 test("贴的能自己写：数字当分数", () => {
   assert.match(comp, /setStamp\(\/\^\\d\+\(\\\.\\d\+\)\?\$\/\.test\(k\) \? k \+ "分" : k\)/);

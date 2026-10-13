@@ -110,7 +110,8 @@
           + (r.startTime ? "（" + r.startTime + "）" : "");
         if (nx.days === 0) lines.push("今天是 " + uName + " 要 " + what + " 的日子。Ta 特意让你知道这事，可自然提醒/关心一句，别硬邦邦报事项。");
         else if (nx.days > 0 && nx.days <= 2) lines.push("再过 " + nx.days + " 天 " + uName + " 要 " + what + "，你心里有数，临近了可自然提一嘴。");
-        else if (nx.days < 0) lines.push(uName + " 之前记着要 " + what + "（" + (-nx.days) + " 天前就该做了、好像还没勾掉），你可以关心一下弄了没。");
+        else if (nx.days < 0) lines.push(uName + " 之前记着要 " + what + "（" + (-nx.days) + " 天前的事，备忘录里还没勾）。要是你记得这事已经办了（聊过、一起去过、她说过办完了），就当办完了，别再问"
+          + ((r.repeat || "none") === "none" ? "，顺手在回复里加 \"memoDone\":[\"" + r.title + "\"] 替她勾掉" : "") + "；真不知道办没办，才自然问一句。");
         // ⚠️【是你自己替 Ta 记的】那几条，不管还有多远都得知道。
         // 原来只有「今天／两天内／逾期」才进上下文，于是她让TA记下周三的会，
         // TA记完转头就忘了，要到临近那两天才想起来——刚答应过的事不该是这样。
@@ -148,6 +149,22 @@
       saveData(d);
       return item;
     } catch (e) { return null; }
+  };
+  // 角色替她勾掉（她 2026-10-13：鬼屋去过了、TA也送了，备忘录没勾，TA天天来问「去成没」）。
+  //   只勾【TA看得见、一次性、还没勾】的那几条，标题要对得上；对不上就不动，宁可不勾也别勾错。
+  window.memoDoneByChar = function (charId, titles) {
+    try {
+      const want = (Array.isArray(titles) ? titles : [titles]).map(x => String(x || "").trim()).filter(Boolean);
+      if (!want.length) return [];
+      const d = loadData(); const hit = [];
+      (d.reminders || []).forEach(r => {
+        if (r.done || (r.repeat || "none") !== "none" || !(r.visibleTo || []).includes(charId)) return;
+        const tt = String(r.title || "").trim();
+        if (tt && want.some(w => w === tt || (w.length >= 2 && (tt.indexOf(w) >= 0 || w.indexOf(tt) >= 0)))) { r.done = true; r.doneBy = charId; r.doneTs = Date.now(); hit.push(tt); }
+      });
+      if (hit.length) saveData(d);
+      return hit;
+    } catch (e) { return []; }
   };
   // 给 app.js 用：某提醒距下次发生几天（今天=0，逾期<0，无效=null）—— 主屏红点 + 到期主动提醒
   window.memoNextDays = function (r) { const nx = nextOccur(r, todayMid()); return nx ? nx.days : null; };
