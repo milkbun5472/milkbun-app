@@ -64,3 +64,10 @@ test("字的颜色跟着图走：主色从图里取，深浅照字底下那块�
   assert.match(src, /role === "accent"/);
   assert.doesNotMatch(src, /\["#ffd36b", "#ff9db8", "#9fe3ff", "#ff5a4e"\]/, "强调色不再随机掷");
 });
+
+test("认得出脸：肤色＋头发那一截压上字要重罚，小字会挪开；别的构图每种结构都排", () => {
+  assert.match(src, /cr >= 135 && cr <= 175/);
+  assert.match(src, /s -= \(st\.skin \|\| 0\) \* \(b\.title \? 160 : 110\)/);
+  assert.match(src, /const slide = b0 =>/);
+  assert.match(src, /MOVIE\[k\]\.titles\.forEach\(v => cands\.push/);
+});

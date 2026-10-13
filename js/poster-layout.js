@@ -175,14 +175,29 @@
     const c = document.createElement("canvas"); c.width = gw; c.height = gh;
     const g = c.getContext("2d"); g.drawImage(x.canvas, 0, 0, gw, gh);
     const d = g.getImageData(0, 0, gw, gh).data;
-    const lum = new Float32Array(gw * gh);
-    for (let i = 0; i < gw * gh; i++) lum[i] = (0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]) / 255;
+    const lum = new Float32Array(gw * gh), skin = new Uint8Array(gw * gh);
+    // 皮肤（她 2026-10-13：「还是挡住脸」——生图那头不一定照留白画，人可能站满整张）：
+    //   照 YCbCr 的肤色范围认，外扩一格，脸、脖子、手都算上；字压上去要重罚
+    const raw = new Uint8Array(gw * gh);
+    for (let i = 0; i < gw * gh; i++) {
+      const r = d[i * 4], g2 = d[i * 4 + 1], b = d[i * 4 + 2];
+      lum[i] = (0.2126 * r + 0.7152 * g2 + 0.0722 * b) / 255;
+      const Y = 0.299 * r + 0.587 * g2 + 0.114 * b, cb = 128 - 0.1687 * r - 0.3313 * g2 + 0.5 * b, cr = 128 + 0.5 * r - 0.4187 * g2 - 0.0813 * b;
+      raw[i] = Y > 45 && cb >= 77 && cb <= 127 && cr >= 135 && cr <= 175 ? 1 : 0;
+    }
+    for (let yy = 0; yy < gh; yy++) for (let xx = 0; xx < gw; xx++) {
+      let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = xx + dx, Y2 = yy + dy; if (X >= 0 && Y2 >= 0 && X < gw && Y2 < gh) n += raw[Y2 * gw + X]; }
+      skin[yy * gw + xx] = raw[yy * gw + xx] || n >= 3 ? 1 : 0;   // 孤零零一格的不算（木头、灯光也会落进肤色范围）
+    }
+    // 脸上面那一截（头发、额头）也护着：字顶在头发上看着跟压脸差不多
+    const head = new Uint8Array(gw * gh);
+    for (let yy = 0; yy < gh; yy++) for (let xx = 0; xx < gw; xx++) { let h2 = 0; for (let k = 0; k <= 4 && yy + k < gh; k++) if (skin[(yy + k) * gw + xx]) { h2 = 1; break; } head[yy * gw + xx] = h2; }
     return r => {
       const x0 = clamp(Math.floor(r.x / W * gw), 0, gw - 1), x1 = clamp(Math.ceil((r.x + r.w) / W * gw), x0 + 1, gw);
       const y0 = clamp(Math.floor(r.y / H * gh), 0, gh - 1), y1 = clamp(Math.ceil((r.y + r.h) / H * gh), y0 + 1, gh);
-      let s = 0, s2 = 0, n = 0;
-      for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const v = lum[yy * gw + xx]; s += v; s2 += v * v; n++; }
-      const m = s / n; return { mean: m, busy: Math.sqrt(Math.max(0, s2 / n - m * m)) };
+      let s = 0, s2 = 0, n = 0, k = 0;
+      for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const v = lum[yy * gw + xx]; s += v; s2 += v * v; n++; k += skin[yy * gw + xx] ? 1 : head[yy * gw + xx] ? 0.6 : 0; }
+      const m = s / n; return { mean: m, busy: Math.sqrt(Math.max(0, s2 / n - m * m)), skin: k / n };
     };
   }
   const px = (r, W, H) => ({ x: r.x * W, y: r.y * H, w: r.w * W, h: r.h * H });
@@ -291,6 +306,8 @@
       if (b.x < m || b.y < m * 0.6 || b.x + b.w > W - m || b.y + b.h > H - m * 0.6) s -= 25;   // 出界、贴边
       const st = look(b); const c = Math.abs(st.mean - (b.dark ? 0.98 : 0.08));
       const v = c * 10 - (b.title ? st.busy * 30 : st.busy * 10);
+      // 压在脸上、手上：比出界还重——人是海报的主角，字让人
+      s -= (st.skin || 0) * (b.title ? 160 : 110);
       (grp[b.g] = grp[b.g] || []).push(v);
     });
     Object.keys(grp).forEach(k => { s += grp[k].reduce((a, b) => a + b, 0) / grp[k].length; });
@@ -322,7 +339,13 @@
     // 片名不强制最大：文艺那一路（细字）照框排、字号本来就克制
     drawTitle(x, struct, lines, tb, P, tk.ink, dry, P.title[1] <= 300 ? 0.82 : 1).forEach(b => boxes.push({ ...b, g: "t", title: true, dark: tk.dark }));
     const tx = movieTexts(cp, names);
-    const put = (key, s, k) => { const r = C[key]; if (!r || !s) return; const b = px(r, W, H); b.a = r.a; const ik = inkFor(look(b), P.accentOn === key ? "accent" : ""); const o = smallLine(x, s, b, P, ik.ink, dry, k); if (o) boxes.push({ ...o, g: key, dark: ik.dark }); };
+    // 小字那几组（宣传语、主演、日期）不死钉在格子里：压到脸或头发上，就上下挪到最近的空处（她 2026-10-13：「还是挡住脸」）
+    const slide = b0 => { if ((look(b0).skin || 0) < 0.04) return b0;
+      for (const d of [0.04, -0.04, 0.08, -0.08, 0.12, -0.12, 0.18, -0.18, 0.25, -0.25]) {
+        const b = { ...b0, y: b0.y + d * H }; if (b.y < H * 0.02 || b.y + b.h > H * 0.97) continue;
+        if ((look(b).skin || 0) < 0.04 && !boxes.some(o => overlap(o, b) > 0)) return b; }
+      return b0; };
+    const put = (key, s, k) => { const r = C[key]; if (!r || !s) return; const b = slide(px(r, W, H)); b.a = r.a; const ik = inkFor(look(b), P.accentOn === key ? "accent" : ""); const o = smallLine(x, s, b, P, ik.ink, dry, k); if (o) boxes.push({ ...o, g: key, dark: ik.dark }); };
     if (density !== "min" || !C.tagline) put("tagline", tx.tagline, 0.85); else put("tagline", tx.tagline, 0.7);
     put("credits", tx.credits, 0.8);
     put("date", tx.date, 0.75);
@@ -398,7 +421,8 @@
     } else {
       const C = MOVIE[p.comp] || MOVIE.bottomSpan;
       C.titles.forEach(s => cands.push({ comp: p.comp in MOVIE ? p.comp : "bottomSpan", v: s, planned: true }));
-      Object.keys(MOVIE).filter(k => k !== p.comp).forEach(k => cands.push({ comp: k, v: MOVIE[k].titles[0], planned: false }));
+      // 别的构图也每种结构都排一遍：图要是没照留白画（人站满整张），得有地方可退
+      Object.keys(MOVIE).filter(k => k !== p.comp).forEach(k => MOVIE[k].titles.forEach(v => cands.push({ comp: k, v, planned: false })));
     }
     const run = (cd, dry) => kind === "magazine" ? renderMag(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, accent, dry) : renderMovie(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, p.density, dry);
     const regionOf = cd => kind === "magazine" ? px(MAG[cd.comp].head, W, H) : px(MOVIE[cd.comp].title, W, H);
