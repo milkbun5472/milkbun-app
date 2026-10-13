@@ -1715,6 +1715,8 @@ function App() {
         if (!c) return "这一页得有个角色才看得见——先去人格档案馆建一个";
         setActiveChar(c);
       }
+      // 朋友圈个人页还得知道是谁的那一页：没指过就先看「我的」（她 2026-10-13 截图：预览这一页整页空白）
+      if (k === "momprofile") setMomTarget(t => t || { isMe: true });
       if (k === "gthread") {
         const g0 = activeGroup || (groups || [])[0];
         if (!g0) return "这一页得有个群才看得见——先去消息里建一个";
