@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.550";
+const APP_VERSION = "v75.555";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17734,7 +17734,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 聊天真发了的表情包」）。原来这儿只带 text，于是她发的那张表情在TA手机里
     // 变成一行「[表情] 摸头」——真微信不会长这样。
     // ⚠️只写在这一处：私聊和群聊两条路都从这儿取（施工规则/one-public-mechanism）。
-    const richOf = m => (m && m.kind === "emote" && m.url) ? { kind: "emote", url: m.url, keyword: m.keyword || "" } : null;
+    const richOf = m => (m && m.kind === "emote" && m.url) ? { kind: "emote", url: m.url, keyword: m.keyword || "" }
+      // 转账也要渲染成卡（她 2026-10-13：在TA手机上看见的是一行「[转账] 你向…」，想替TA点收下）
+      : (m && m.kind === "transfer" && m.tid) ? { kind: "transfer", tid: m.tid, dir: m.dir, amount: m.amount, note: m.note || "", status: m.status || "pending" } : null;
     const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
     // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
@@ -29248,6 +29250,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
     onTransferAs: phoneTransferAs,
+    // 她在TA手机上替TA点收下/退回她转过去的那一笔——跟TA自己表态走同一条 respondTransfer
+    onTfReplyAs: (char, tid, accept) => respondTransfer(char.id, tid, accept),
     onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
     onRemark: phoneRemarkEdit,
