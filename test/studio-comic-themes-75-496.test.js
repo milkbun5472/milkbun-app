@@ -54,3 +54,7 @@ assert.match(app, /const v = Math.floor\(Math.random\(\) \* 4\);/);
 assert.match(app, /\(!theme \|\| picked\)/);
 assert.match(app, /定价 ¥ 20\.00/);
 console.log("ok cover");
+// 大图要整张显示（她 2026-10-13：封面两边的字被截掉——是大图 cover 裁掉了左右）
+assert.match(scr, /h\(AlbumPhoto, \{ photo: big, full: true \}\)/);
+assert.match(scr, /h\(AlbumPhoto, \{ photo: y, full: true \}\)/);
+console.log("ok full");

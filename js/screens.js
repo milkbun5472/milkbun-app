@@ -17015,10 +17015,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             ? h("div", null,
                 h("div", { ref: stackRef, "data-wk": "studiostack", onScroll: e => { const el = e.currentTarget; const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); const y = bigStack[i]; if (y && y.id !== big.id) setBig(y); },
                   style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } },
-                  bigStack.map(y => h("div", { key: y.id, style: { flex: "0 0 100%", scrollSnapAlign: "center", display: "flex", justifyContent: "center" } }, h(AlbumPhoto, { photo: y })))),
+                  bigStack.map(y => h("div", { key: y.id, style: { flex: "0 0 100%", scrollSnapAlign: "center", display: "flex", justifyContent: "center" } }, h(AlbumPhoto, { photo: y, full: true })))),
                 h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8 } },
                   (big.style ? big.style : "原图") + " · " + (bigStack.findIndex(y => y.id === big.id) + 1) + " / " + bigStack.length + " · 左右划看这一摞"))
-            : h(AlbumPhoto, { photo: big }),
+            : h("div", { className: "flex justify-center" }, h(AlbumPhoto, { photo: big, full: true })),
           big.grid === "2x2" ? h(GridCells, { photo: big, rows: 2, cols: 2, sharpBusy: sharp || busy,
             onSharpen: async (cell, i) => { setSharp(true);
               const row = await onShoot({ scene: (big.scene || "") + "（四宫格第 " + (i + 1) + " 格，拍成单张）", mine: big.mine, theirs: big.theirs, cellRef: cell });
