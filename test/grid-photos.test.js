@@ -34,3 +34,6 @@ test("照片日记：只有点了才拍，一次生图", () => {
 // 旧日记别套上今天的衣服（她 2026-10-13）
 { const a6 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
   require("node:assert").match(a6, /\(!isToday \|\| dayWears\.length\) \? \{ \.\.\.st0, wearing: "", wearingUpdatedAt: 0 \}/); }
+// 三格一远一中一近，至少一格正脸（她 2026-10-13：「这机位来来回回一个样」）
+{ const e7 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  require("node:assert").match(e7, /let pick = \[R\(WIDE\), R\(MID\), R\(CLOSE\)\]/); }
