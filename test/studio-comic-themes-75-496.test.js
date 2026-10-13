@@ -42,3 +42,8 @@ assert.match(app, /别出现真人身体顶着一张画风脸/);
 assert.match(app, /STYLE_BODY\[opt\.restyle\.style\]/);
 assert.match(app, /不要粗糙的刮刀肌理/);
 console.log("ok body");
+// Q版改成平面贴纸那种，原来那种立体的单独叫「手办」（她 2026-10-13）
+assert.match(app, /"手办": "/);
+assert.match(app, /平面的 Q 版二次元插画/);
+assert.match(scr, /"Q版", "手办"/);
+console.log("ok figure");
