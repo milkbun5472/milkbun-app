@@ -9,7 +9,7 @@ export function homeHobbyTask(stage,spot,map,elapsed,{moving=false,position,moti
  const clock=Math.max(0,motionClock(elapsed,motion)),task={kind:stage.action,elapsed:clock,progress:clock/8%1,furniture:piece.id,spot:spot.id,phase:stage.phase||'work',homeHobby:true,supportHeight:0};
  const point=q=>({...furniturePoint(piece,q),y:map.floor+q.y});
  if(task.kind==='piano'){
-  const spread=Math.sin(clock*.65)*.04;task.target=point({...hobby.contact,x:hobby.contact.x+spread});task.leftTarget=point({...hobby.contact,x:.16+spread});task.contact={...task.target};
+  const spread=Math.sin(clock*.65)*.025;task.contact=point({...hobby.contact,x:hobby.contact.x+spread});task.target={...task.contact,y:task.contact.y+.045};task.leftTarget=point({...hobby.contact,x:.168+spread,y:hobby.contact.y+.045});task.workSurface=true;
  }else if(task.kind==='paint'){
   const shoulder=actor?.root.getObjectByName('rightArm')?.getWorldPosition(actor.root.position.clone()).y,level=Number.isFinite(shoulder)?Math.max(.70,Math.min(1.20,shoulder-map.floor+.12)):hobby.contact.y;
   const stroke={...hobby.contact,x:hobby.contact.x+Math.sin(clock*1.6)*.06,y:level+Math.cos(clock*1.3)*.04};

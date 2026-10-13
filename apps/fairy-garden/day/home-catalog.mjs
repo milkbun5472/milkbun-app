@@ -123,7 +123,7 @@ export function furnitureSeatSurface(p){
  return {z:0,d:p.kind==='chair'?Math.min(CHAIR_CONTACT.depth,p.d-(p.collection?.035:.018)):p.d};
 }
 export function furnitureSeat(p,approach,offset){
- const surface=furnitureSeatSurface(p),deep=p.kind==='chair',z=deep?surface.z+CHAIR_CONTACT.forward:surface.z+surface.d/2-.012;
+ const surface=furnitureSeatSurface(p),deep=p.kind==='chair',z=deep?surface.z+(surface.forward??CHAIR_CONTACT.forward):surface.z+surface.d/2-.012;
  return {...furniturePoint(p,{x:offset?.x||0,z}),rise:.45,heading:p.heading||0,approach,piece:p.id,pose:deep?'deep':'chair'};
 }
 export function homeAnchors(furniture,room){

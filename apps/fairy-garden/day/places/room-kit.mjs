@@ -3,6 +3,7 @@ import {tagRoomTones} from './room-tones.mjs?v=fg-83dee6b88f495989';
 import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-83dee6b88f495989';
 import * as T from 'three';
 import {CHAIR_CONTACT,furniturePoint,furnitureSeat} from '../home-catalog.mjs?v=fg-83dee6b88f495989';
+import {WORK_CHAIR} from '../work-contacts.mjs';
 import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-83dee6b88f495989';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
@@ -23,7 +24,11 @@ export function roomSeat(furniture,id,approach){
     const s=Math.sin(chair.heading||0),c=Math.cos(chair.heading||0);
     for(const table of furniture.filter(p=>p.kind==='table')){
       const dx=table.x-chair.x,dz=table.z-chair.z,forward=dx*s+dz*c,side=Math.abs(dx*c-dz*s),depth=(Math.abs(s)*table.w+Math.abs(c)*table.d)/2,width=(Math.abs(c)*table.w+Math.abs(s)*table.d)/2;
-      const gap=(table.seatedWork?CHAIR_CONTACT.workClearance:CHAIR_CONTACT.deskClearance)+CHAIR_CONTACT.forward;
+      const gap=table.seatedWork?WORK_CHAIR.clearance+WORK_CHAIR.forward:CHAIR_CONTACT.deskClearance+CHAIR_CONTACT.forward;
+      if(table.seatedWork&&forward>0&&side<width+.1&&forward-depth<.65){
+        const across=dx*c-dz*s;chair.x+=c*across;chair.z-=s*across;
+        chair.seatSurface={z:0,d:WORK_CHAIR.depth,forward:WORK_CHAIR.forward};
+      }
       if(forward>0&&side<width+.1&&(forward-depth<gap||table.seatedWork&&forward-depth<.65)){const shift=gap-(forward-depth);chair.x-=s*shift;chair.z-=c*shift;}
     }
   }
@@ -31,7 +36,7 @@ export function roomSeat(furniture,id,approach){
   if(!['chair','bench'].includes(p?.kind))throw new Error('Seat requires a constructed chair or bench: '+id);
   const clear=q=>!furniture.some(o=>Math.abs(q.x-o.x)<o.w/2+.16&&Math.abs(q.z-o.z)<o.d/2+.16);
   if(approach&&!clear(approach)){const old=approach;approach=[{x:-.85,z:0},{x:.85,z:0},{x:0,z:-.85},{x:0,z:.85}].map(q=>furniturePoint(p,q)).filter(clear).sort((a,b)=>Math.hypot(a.x-old.x,a.z-old.z)-Math.hypot(b.x-old.x,b.z-old.z))[0]||approach;}
-  return {...furnitureSeat({...p,seatSurface:{z:0,d:p.kind==='chair'?ROOM_SCALE.chairDepth:p.d}},approach),rise:p.seat??ROOM_SCALE.seat};
+  return {...furnitureSeat({...p,seatSurface:p.seatSurface||{z:0,d:p.kind==='chair'?ROOM_SCALE.chairDepth:p.d}},approach),rise:p.seat??ROOM_SCALE.seat};
 }
 export function createRoomKit(){
   const root=new T.Group(),materials=new Map();
@@ -58,7 +63,13 @@ export function createRoomKit(){
     mesh.name=name;mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;
   }
   function table({id,x,z,w,d,top=.85,color='#ba986e'}){const p=group(id,{x,z});box(id+'-top',{y:.08+top-.055,w,h:.11,d,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*(w/2-.15),z:b*(d/2-.15),y:.08+(top-.11)/2,w:.1,h:top-.11,d:.1,color:'#ad8b62'},p);return p;}
-  function chair({id,x,z,heading=0,color='#789887',seat=.45}){const p=group(id,{x,z,heading});box(id+'-seat',{y:.08+seat-.045,w:.56,h:.09,d:ROOM_SCALE.chairDepth,color},p);box(id+'-back',{y:.08+seat+.3,z:-.245,w:.56,h:.54,d:.075,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*.2,y:.08+(seat-.09)/2,w:.065,h:seat-.09,d:.065,color:'#b49978'},p);return p;}
+  function chair({id,x,z,heading=0,color='#789887',seat=.45,seatSurface}){
+    const depth=seatSurface?.d??ROOM_SCALE.chairDepth,work=seatSurface?.forward!=null,thickness=work?.05:.09,p=group(id,{x,z,heading});
+    box(id+'-seat',{y:ROOM_SCALE.floor+seat-thickness/2,w:.56,h:thickness,d:depth,color},p);
+    box(id+'-back',{y:ROOM_SCALE.floor+seat+(work?.27:.3),z:work?-depth/2-.03:-.245,w:.56,h:.54,d:.075,color},p);
+    for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*(work?depth/2-.04:.2),y:ROOM_SCALE.floor+(seat-thickness)/2,w:.065,h:seat-thickness,d:.065,color:'#b49978'},p);
+    return p;
+  }
   function bench({id,x,z,w=2.8,d=.65,heading=0,color='#789887',seat=.45,legColor='#a58b70',solid=false}){
     const p=group(id,{x,z,heading});
     if(solid){

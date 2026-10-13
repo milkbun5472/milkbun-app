@@ -29,3 +29,19 @@ test('过近的接触不把前臂折回上臂，远处接触不拉长两段手�
   assert.ok(shoulder.clone().sub(elbow).angleTo(hand.clone().sub(elbow))>=Math.PI*.25-1e-5);
  }
 });
+test('桌面操作的肘部向下展开，双手持续接触时不抬肘到脸旁；近距离弯曲不超过120度',()=>{
+ for(const side of ['left','right'])for(const yaw of [0,Math.PI/2,Math.PI])for(const scale of [.85,1,1.25]){
+  const a=arm(side);a.root.rotation.y=yaw;a.root.scale.setScalar(scale);let previous;
+  for(let i=0;i<100;i++){
+   const local=new T.Vector3((side==='right'?1:-1)*(.15+.01*Math.sin(i/20)),.75,.19),target=a.root.localToWorld(local);
+   reachHand(a.root,a.upper,a.lower,a.hand,target,16,{work:true});
+   const shoulder=a.upper.getWorldPosition(new T.Vector3()),elbow=a.lower.getWorldPosition(new T.Vector3()),wrist=a.hand.getWorldPosition(new T.Vector3());
+   assert.ok(wrist.distanceTo(target)<.0001);assert.ok(elbow.y<shoulder.y,'work elbow must stay below the shoulder');
+   assert.ok(Math.abs(a.lower.quaternion.y)<1e-8&&Math.abs(a.lower.quaternion.z)<1e-8);
+   if(previous)assert.ok(elbow.distanceTo(previous)<.01);previous=elbow;
+  }
+  const shoulder=a.upper.getWorldPosition(new T.Vector3());reachHand(a.root,a.upper,a.lower,a.hand,shoulder.clone().add(new T.Vector3(.001,0,0)),16,{work:true});
+  const elbow=a.lower.getWorldPosition(new T.Vector3()),wrist=a.hand.getWorldPosition(new T.Vector3());
+  assert.ok(shoulder.clone().sub(elbow).angleTo(wrist.clone().sub(elbow))>=Math.PI/3-1e-5);
+ }
+});

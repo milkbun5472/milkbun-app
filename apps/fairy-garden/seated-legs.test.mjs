@@ -40,3 +40,10 @@ test('厚后鞋筒按实际鞋型收小屈膝角，换成普通鞋恢复，站�
  for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)assert.ok(Math.abs(after[i].distanceTo(after[j])-before[i].distanceTo(before[j]))<1e-6);
  shoe.visible=false;seat.update(1);assert.ok(knee.quaternion.angleTo(new T.Quaternion())>Math.PI/4);
 });
+test('工位坐姿伸开膝盖并重新贴合衣摆，离开工位恢复普通坐姿和原站立形状',()=>{
+ const d=doll(),before=vertices(d.model,d.body),seat=makeSeatedLegs(d.model,d.rig,[d.body],d.morphs);seat.fit();assert.equal(seat.needsFit(),false);
+ seat.setWork(true);assert.equal(seat.needsFit(),true);seat.fit();assert.equal(seat.needsFit(),false);seat.update(1);
+ const knee=d.model.getObjectByName('leftKnee');assert.ok(Math.abs(knee.quaternion.angleTo(new T.Quaternion())-Math.PI/9)<1e-7);
+ seat.setWork(false);assert.equal(seat.needsFit(),true);seat.fit();seat.update(1);assert.ok(knee.quaternion.angleTo(new T.Quaternion())>Math.PI/4);
+ seat.update(0);vertices(d.model,d.body).forEach((v,i)=>assert.ok(v.distanceTo(before[i])<1e-7));
+});
