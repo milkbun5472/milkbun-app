@@ -69,3 +69,6 @@ assert.match(app, /comic: true, comicPanels: opt\.comic, rawKey: imgKey \+ "_raw
 assert.match(app, /reComic \? await comicCompose\(out\.blob, reComic\)/);
 assert.match(scr, /src\.comicPanels && reText \? \{ comic: src\.comicPanels \}/);
 console.log("ok comic retext");
+// 漫画画好直接发进聊天，不是情侣也看得到（她 2026-10-13）
+assert.match(app, /await shareShotToChat\(char, \{ \.\.\.row, desc: comicDesc, scene: comicDesc \}\)/);
+console.log("ok comic chat");
