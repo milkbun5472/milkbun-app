@@ -2690,6 +2690,13 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     const body = (m.kind === "emote" && m.url)
       ? h("div", { style: { animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } },
           h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 108 }))
+      : m.kind === "voice" ? h("div", { "data-wk": "pvoice", style: { padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", minWidth: Math.min(200, 70 + (m.dur || 1) * 4) } },
+          h("div", { className: "flex items-center", style: { gap: 6, flexDirection: self ? "row-reverse" : "row", fontSize: 14, color: "#171717" } },
+            h(Svg, { size: 18, color: "#171717", sw: 1.8 }, h("path", { d: self ? "M15 8a5 5 0 010 8M18 5a9 9 0 010 14" : "M9 8a5 5 0 000 8M6 5a9 9 0 000 14" })), (m.dur || 1) + "″"),
+          m.body ? h("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,.08)", fontSize: 12.5, lineHeight: 1.5, color: "#555" } }, PTX(m.body)) : null)
+      : m.kind === "card" ? h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", fontFamily: F_BODY } },
+          h("div", { style: { padding: "10px 12px", fontSize: 13.5, lineHeight: 1.5, color: "#171717", minHeight: 22 } }, m.body ? PTX(m.body) : m.label),
+          h("div", { style: { padding: "4px 12px 6px", fontSize: 10.5, color: "#9a9a9a", borderTop: "1px solid #eee" } }, m.label))
       : m.kind === "transfer" ? h("div", { "data-wk": "ptfcard", "data-status": m.status, style: { width: 210, borderRadius: 6, overflow: "hidden", background: m.status === "pending" ? "#fa9d3b" : "#fbd3a7", color: "#fff", fontFamily: F_BODY } },
           h("div", { className: "flex items-center", style: { gap: 10, padding: "11px 12px" } },
             h(Svg, { size: 30, color: "#fff", sw: 1.6 }, h("path", { d: "M7 4h10l3 4H4z" }), h("rect", { x: 4, y: 8, width: 16, height: 12, rx: 1.5 }), h("path", { d: "M9 12l3 3 3-3M12 15v-3" })),

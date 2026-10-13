@@ -22,7 +22,7 @@ test("美化那一路不被「不聊代码」那道门挡掉", () => {
 });
 
 test("给她文件：file 原样保留不洗代码；卡片能复制全部、存成文件", () => {
-  assert.match(asst, /const outFile = d\.file && typeof d\.file === "object"/);
+  assert.match(asst, /const outFile = (?:codeFile \|\| \()?d\.file && typeof d\.file === "object"/);
   assert.match(asst, /return \{ reply: reply \|\| \(outFile \? "文件在下面。" : "改动稿在下面。"\), patches, file: outFile \};/);
   assert.match(asst, /\["存成文件", async \(\) => \{ try \{ await saveTextFile\(m\.outFile\.name, m\.outFile\.text,/);
   assert.match(comp, /function FileCard\(\{ m, actions \}\)/, "同一张文件卡，不另起一份");
