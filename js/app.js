@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.544";
+const APP_VERSION = "v75.545";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1077,9 +1077,15 @@ function App() {
         } catch (e) {}
         all.push({ t, vis });
       }
+      // 屏幕上露着的图（她 2026-10-13：「开着半屏看他日记他能看到照片描述吗」）：字读得到、图读不到，
+      //   所以存了描述的图挂 data-desc，露着的那几张把描述一起给他
+      const pics = () => { try {
+        const ds = [...document.querySelectorAll("[data-desc]")].filter(el => !skip(el)).filter(el => { const r = el.getBoundingClientRect(); return r.height > 0 && r.bottom > top && r.top < bottom; })
+          .map(el => String(el.getAttribute("data-desc") || "").replace(/\s+/g, " ").trim().slice(0, 300)).filter(Boolean);
+        return ds.length ? "\n（她屏幕上露着的图）" + [...new Set(ds)].slice(0, 4).map((d, k) => "图" + (k + 1) + "：" + d).join("；") : ""; } catch (e) { return ""; } };
       const first = all.findIndex(x => x.vis), lastV = all.length - 1 - [...all].reverse().findIndex(x => x.vis);
-      if (first < 0) { let len = 0; for (const x of all) { if (len >= 1800) break; out.push(x.t); len += x.t.length + 1; } return { zh, text: out.join(" ").slice(0, 1800) }; }
-      const seen = all.filter(x => x.vis).map(x => x.t).join(" ").slice(0, 1800);
+      if (first < 0) { let len = 0; for (const x of all) { if (len >= 1800) break; out.push(x.t); len += x.t.length + 1; } return { zh, text: out.join(" ").slice(0, 1800) + pics() }; }
+      const seen = all.filter(x => x.vis).map(x => x.t).join(" ").slice(0, 1800) + pics();
       let room = 2400 - seen.length;
       const take = (from, step) => { const acc = []; let n = 0; for (let k = from; k >= 0 && k < all.length && n < room / 2; k += step) { acc.push(all[k].t); n += all[k].t.length + 1; } return step < 0 ? acc.reverse().join(" ").slice(-Math.floor(room / 2)) : acc.join(" ").slice(0, Math.floor(room / 2)); };
       const before = take(first - 1, -1), after = take(lastV + 1, 1);
@@ -17072,13 +17078,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
       const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3 });
+      // 给看得见这一页的人（半窗里的他）一句话：这三张拍的是什么
+      const stripDesc = "他这篇日记那天的照片日记，竖着三格，从早到晚：照日记里写的「" + body.replace(/\s+/g, " ").slice(0, 80) + "…」那一天拍的"
+        + (dayWears.length ? "；穿着：" + dayWears.map(x => x.t + " " + x.w).join("、") : "") + (entry.location ? "；在" + entry.location : "") + (entry.weather ? "；" + entry.weather : "");
       const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
       let imgKey = null, imgUrl = null;
       if (out && out.blob) { imgKey = "img_pdiary_" + charId + "_" + entry.id; await idbImgPut(imgKey, out.blob); }
       else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       setDiaries(p => {
-        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now() } } : e) };
+        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now(), desc: stripDesc } } : e) };
         saveJSON("x_diaries", n); return n;
       });
     } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
