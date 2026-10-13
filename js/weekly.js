@@ -1376,7 +1376,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.45, color: sub, marginTop: 5 } }, props.label || ""),
           h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.sections[1].solid }))),
       // 封面照（拍过才有）：这一期被采访的那几位上封面，压在刊头和栏目网格之间
-      props.coverPhoto ? h("button", { onClick: props.onOpenCover, className: "active:opacity-80", style: { display: "block", width: "100%", marginTop: 14, border: "1px solid rgba(35,32,25,.32)" }, "data-wk": "wklycoverphoto" },
+      props.coverPhoto ? h("button", { onClick: props.onOpenCover, className: "active:opacity-80", style: { display: "block", width: "100%", marginTop: 14 }, "data-wk": "wklycoverphoto" },
         h(WeeklyPhoto, { imgKey: props.coverPhoto, alt: "本期封面" })) : null,
       // 七块内容落在 12 栏网格里：三块实心承重，其余用同栏目色的淡底与实体边梁咬合。
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12,minmax(0,1fr))", gridTemplateRows: "repeat(5,104px)", columnGap: 6, rowGap: 7, marginTop: 14 } },
