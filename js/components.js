@@ -10340,11 +10340,12 @@ function ChatThread({
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
-    const _oldKeep = (m.kind === "system" || m.role === "system") && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
+    const _oldKeep = (m.kind === "system" || m.role === "system") && m.kind !== "carved" && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
     if (_oldKeep) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(window.ShikeShareCard, { m: _oldKeep, isU: false, charId: character && character.id }));
-    if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
+    // 刻歌那张卡 role 也是 system，但它有自己的样子（在下面）；先被这里接走就成了一块空的「系统」（她 2026-10-13 截图）
+    if ((m.kind === "system" || m.role === "system") && m.kind !== "carved") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
       key: i,

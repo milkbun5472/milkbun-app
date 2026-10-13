@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.517";
+const APP_VERSION = "v75.520";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25009,41 +25009,48 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (kind === "magazine") {
         const special = cp.special || pick(["恋爱特辑", "两个人特辑", "秋冬特辑", "纪念特辑", "私人特辑"]);
         const ls = lines.length ? lines : ["「我们是怎么走到今天的」", "两个人的日常", names + " 的私房话"];
-        const accent = pick(["#ffd36b", "#ff9db8", "#9fe3ff", "#ffffff"]);
+        const accent = pick(["#ffd36b", "#ff9db8", "#9fe3ff", "#ff5a4e"]);
+        const mast = Array.from(String(cp.mast || "") || "").slice(0, 4).join("") || pick(["我们周刊", "两人志", "心动画报", "我们"]);
+        // 刊名：横贯整个顶部，字号按宽度撑满（真杂志的刊名都是顶天立地那一条）
+        const masthead = (color, y) => { let z = W * 0.4; x.font = "900 " + Math.round(z) + "px " + F; while (x.measureText(mast).width > W * 0.88 && z > 10) { z -= 2; x.font = "900 " + Math.round(z) + "px " + F; }
+          x.textAlign = "center"; x.textBaseline = "alphabetic"; x.shadowColor = "rgba(0,0,0,.25)"; x.shadowBlur = z / 12; x.fillStyle = color; x.fillText(mast, W / 2, y + z * 0.88); x.shadowBlur = 0; return z; };
+        // 一栏封面小标题：一句大一句小、一句带色，像报摊上那种
+        const column = (arr, px, y0, align, maxW) => { let y = y0; arr.forEach((s2, n) => { const big = n === 0; const z = put(s2, W * (big ? 0.05 : 0.032), px, y, align, big ? accent : "#fff", big ? "900" : "700", maxW, big ? F : FS); y += z * 1.45; }); return y; };
         const v = Math.floor(Math.random() * 4);
-        if (v === 0) {        // 经典：顶上大刊名，左下一栏
-          shade(0, H * 0.28, .35, 0); shade(H * 0.55, H, 0, .55);
-          put("我们", W * 0.24, W / 2, H * 0.17, "center", "#fff", "900", W * 0.86);
-          put(issue + "　·　" + special, W * 0.026, W / 2, H * 0.215, "center", "rgba(255,255,255,.92)", "600", W * 0.86, FS);
-          put("封面故事", W * 0.03, L, H * 0.6, "left", accent, "800", W * 0.5, FS); x.fillStyle = accent; x.fillRect(L, H * 0.612, W * 0.12, Math.max(2, H * 0.004));
-          const tz = put(T, W * 0.085, L, H * 0.69, "left", "#fff", "900");
-          put(names + "　独家专访", W * 0.034, L, H * 0.69 + tz * 0.75, "left", "rgba(255,255,255,.95)", "600", W * 0.84, FS);
-          ls.slice(0, 2).forEach((s2, n) => put(s2, W * 0.03, L, H * 0.69 + tz * 0.75 + W * 0.06 * (n + 1), "left", "rgba(255,255,255,.85)", "500", W * 0.84, FS));
-          barcode(W - L - W * 0.2, H - L - H * 0.055, W * 0.2, H * 0.055, "定价 ¥ 20.00");
-        } else if (v === 1) { // 竖排刊名贴左边，右侧一列小标题
-          shade(H * 0.6, H, 0, .5);
-          vput("我们", W * 0.2, L + W * 0.1, H * 0.05, "#fff");
-          put(issue, W * 0.024, W - L, H * 0.06, "right", "#fff", "600", W * 0.5, FS);
-          ls.slice(0, 3).forEach((s2, n) => { put(s2, W * 0.032, W - L, H * 0.16 + n * W * 0.07, "right", n === 0 ? accent : "#fff", n === 0 ? "800" : "600", W * 0.55, FS); });
-          const tz = put(T, W * 0.08, W - L, H * 0.86, "right", "#fff", "900", W * 0.7);
-          put(names + "　·　" + special, W * 0.03, W - L, H * 0.86 + tz * 0.7, "right", "rgba(255,255,255,.9)", "600", W * 0.7, FS);
-        } else if (v === 2) { // 白边框＋深色字刊名压在照片上
-          x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.018; x.strokeRect(W * 0.035, W * 0.035, W - W * 0.07, H - W * 0.07);
-          shade(H * 0.62, H, 0, .5);
-          put("我 们", W * 0.18, W / 2, H * 0.15, "center", "#fff", "900", W * 0.8);
-          put(special + "　|　" + issue, W * 0.024, W / 2, H * 0.195, "center", "#fff", "600", W * 0.8, FS);
-          const tz = put(T, W * 0.075, W / 2, H * 0.8, "center", "#fff", "900", W * 0.8);
-          put(ls[0] || "", W * 0.032, W / 2, H * 0.8 + tz * 0.8, "center", accent, "700", W * 0.8, FS);
-          put(names + "　独家专访", W * 0.026, W / 2, H * 0.8 + tz * 0.8 + W * 0.055, "center", "rgba(255,255,255,.9)", "500", W * 0.8, FS);
-        } else {              // 底部一大块纯色条，刊名在条上
-          const bh = H * 0.24; x.fillStyle = pick(["rgba(110,77,143,.92)", "rgba(20,20,20,.88)", "rgba(166,60,80,.9)", "rgba(240,236,228,.94)"]); x.fillRect(0, H - bh, W, bh);
-          const light = /240,236/.test(x.fillStyle) || x.fillStyle.indexOf("240") >= 0, ink = light ? "#1d1a18" : "#fff";
-          shade(0, H * 0.2, .3, 0);
-          put(issue + "　·　" + special, W * 0.024, L, H * 0.06, "left", "#fff", "600", W * 0.8, FS);
-          put("我们", W * 0.16, L, H - bh + W * 0.17, "left", ink, "900", W * 0.5, F, false);
-          const tz = put(T, W * 0.05, W - L, H - bh + W * 0.09, "right", ink, "800", W * 0.45, F, false);
-          ls.slice(0, 2).forEach((s2, n) => put(s2, W * 0.026, W - L, H - bh + W * 0.09 + tz * 0.6 + W * 0.045 * (n + 1), "right", ink, "500", W * 0.45, FS, false));
-          put(names, W * 0.024, L, H - W * 0.04, "left", ink, "500", W * 0.5, FS, false);
+        if (v === 0) {        // 经典：顶上刊名，左边一栏，左下大标题，右下条码
+          shade(0, H * 0.3, .4, 0); shade(H * 0.6, H, 0, .6);
+          const mz = masthead("#fff", H * 0.025);
+          put(issue + "　|　" + special, W * 0.024, W / 2, H * 0.025 + mz * 1.08, "center", "#fff", "600", W * 0.86, FS);
+          column(ls.slice(0, 3), L, H * 0.4, "left", W * 0.42);
+          const tz = put(T, W * 0.09, L, H * 0.84, "left", "#fff", "900", W * 0.62);
+          put(names + "　独家专访", W * 0.032, L, H * 0.84 + tz * 0.7, "left", accent, "700", W * 0.6, FS);
+          barcode(W - L - W * 0.18, H - L - H * 0.05, W * 0.18, H * 0.05, "¥ 20.00");
+        } else if (v === 1) { // 刊名用强调色，两边各一栏
+          shade(0, H * 0.25, .35, 0); shade(H * 0.7, H, 0, .55);
+          const mz = masthead(accent, H * 0.02);
+          put(special, W * 0.03, L, H * 0.02 + mz * 1.12, "left", "#fff", "800", W * 0.4, FS);
+          put(issue, W * 0.024, W - L, H * 0.02 + mz * 1.12, "right", "#fff", "600", W * 0.4, FS);
+          column(ls.slice(0, 2), L, H * 0.42, "left", W * 0.36);
+          column(ls.slice(2, 3).concat([names]), W - L, H * 0.58, "right", W * 0.36);
+          put(T, W * 0.085, W / 2, H * 0.93, "center", "#fff", "900", W * 0.86);
+        } else if (v === 2) { // 白边框款
+          x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.016; x.strokeRect(W * 0.03, W * 0.03, W - W * 0.06, H - W * 0.06);
+          shade(0, H * 0.28, .3, 0); shade(H * 0.62, H, 0, .5);
+          const mz = masthead("#fff", H * 0.035);
+          put(special + "　·　" + issue, W * 0.024, W / 2, H * 0.035 + mz * 1.08, "center", "#fff", "600", W * 0.8, FS);
+          column(ls.slice(0, 3), W - L, H * 0.42, "right", W * 0.4);
+          const tz = put(T, W * 0.08, L, H * 0.85, "left", "#fff", "900", W * 0.7);
+          put(names + "　独家专访", W * 0.03, L, H * 0.85 + tz * 0.7, "left", "rgba(255,255,255,.92)", "600", W * 0.7, FS);
+        } else {              // 底部纯色条，刊名在顶上，标题和小标题在色条里
+          const bh = H * 0.2, band = pick([[110, 77, 143], [20, 20, 20], [166, 60, 80], [240, 236, 228]]);
+          x.fillStyle = "rgba(" + band.join(",") + ",.92)"; x.fillRect(0, H - bh, W, bh);
+          const ink = band[0] > 200 ? "#1d1a18" : "#fff";
+          shade(0, H * 0.28, .35, 0);
+          const mz = masthead("#fff", H * 0.025);
+          put(issue + "　|　" + special, W * 0.024, W / 2, H * 0.025 + mz * 1.08, "center", "#fff", "600", W * 0.86, FS);
+          column(ls.slice(0, 2), L, H * 0.45, "left", W * 0.4);
+          const tz = put(T, W * 0.07, L, H - bh + W * 0.1, "left", ink, "900", W * 0.84, F, false);
+          put((ls[2] || "") + (ls[2] ? "　·　" : "") + names, W * 0.028, L, H - bh + W * 0.1 + tz * 0.9, "left", ink, "500", W * 0.84, FS, false);
         }
       } else {
         const tag = cp.tagline || pick(["有些人，一遇见就是一辈子", "这一次，换我先走向你", "全世界只有我们知道", "故事，从那天开始"]);
@@ -25077,9 +25084,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: kind === "magazine"
-          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑名（4~6 字，比如「吃醋特辑」）。"
+          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑名（4~6 字，比如「吃醋特辑」）；mast＝这本杂志的刊名（2~4 个字，像真杂志名，跟你们有关）。"
           : "你们俩要上一部电影的海报。照你们真实发生过的事，写海报上的字：" + (title ? "" : "title＝片名（2~8 字）；") + "tagline＝一句宣传语（16 字以内，要像电影海报，跟你们的事有关）；date＝上映日期（写成「X 月 X 日」，可以挑一个对你们有意义的日子）。",
-        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\"}" : "{\"title\":\"\",\"tagline\":\"\",\"date\":\"\"}",
+        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\",\"mast\":\"\"}" : "{\"title\":\"\",\"tagline\":\"\",\"date\":\"\"}",
         maxTokens: 8000
       });
       return d || null;
@@ -25155,7 +25162,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   穿着、衣柜、场景一概不发——发了图像端就照文字重新拍一张，原图只剩个参考
       const STYLE_BODY = { "Q版": "这张是平面的 Q 版二次元插画（不是立体手办、不是 3D）：两个人都缩成二到三头身，头占身高一半左右，手脚短短圆圆；干净利落的黑色或深色勾线，赛璐璐平涂上色，大大的亮晶晶眼睛，脸颊淡淡的腮红，像贴纸或周边立绘那样可爱；背景照原图但画得简单柔和。", "手办": "整张变成一个精致的 PVC 手办／盲盒小人实拍：两个人是二到三头身的立体小公仔，大头短手短脚，表面是光滑的树脂质感，站在照原图那个场景缩小后的桌面上，像拍手办的照片。", "黏土": "整个画面像黏土定格动画，人物圆润有指纹质感。", "毛毡": "整个画面像羊毛毡手作，人物和背景都是毛茸茸的毡质。", "像素": "整张是像素画，人物和背景都由清晰的方块像素组成。", "油画": "像精心完成的古典油画肖像：笔触柔和、色彩干净通透、皮肤光滑有光泽，不要粗糙的刮刀肌理、不要满屏的颗粒和裂纹，脸上不要脏污感。", "水彩": "水彩要清透、留白多、颜色淡雅，不要发灰发脏。" };
       const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
+      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
