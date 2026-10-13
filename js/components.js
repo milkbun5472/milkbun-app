@@ -16418,6 +16418,8 @@ function DoodleEditor({ src, charId, onClose }) {
   const [wide, setWide] = useState(false);
   const [stamp, setStamp] = useState(DOODLE_STAMPS[0]);
   const [n, setN] = useState(0);
+  const [cutName, setCutName] = useState("");   // 抠出来那张叫什么（她 2026-10-13）
+  const [ownStamp, setOwnStamp] = useState(""); // 自己写一个贴的：表情、字、分数都行（她 2026-10-13「贴 emoji 没有自定义，打分也是」）
   const toast = msg => window.__toast && window.__toast(msg);
   const paint = () => {
     const c = cv.current, im = img.current; if (!c || !im) return;
@@ -16482,7 +16484,7 @@ function DoodleEditor({ src, charId, onClose }) {
     lasso.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip();
     x.drawImage(img.current, 0, 0, cv.current.width, cv.current.height);
     let url = ""; try { url = o.toDataURL("image/png"); } catch (e) { toast("这张是外链图，浏览器不让抠，先保存到相册再试"); return; }
-    const ok = typeof window.__addSelfSticker === "function" && await window.__addSelfSticker(url, charId);
+    const ok = typeof window.__addSelfSticker === "function" && await window.__addSelfSticker(url, charId, cutName);
     toast(ok ? "抠好了，放进表情包里了" : "没放进表情包，再试一次");
     if (ok) onClose();
   };
@@ -16503,8 +16505,15 @@ function DoodleEditor({ src, charId, onClose }) {
         DOODLE_INK.map(c => h("button", { key: c, onClick: () => setInk(c), "aria-label": "颜色", style: { width: 30, height: 30, borderRadius: 999, background: c,
           border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)" } }))) : null,
       mode === "stamp" ? h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8, marginBottom: 10 } },
-        DOODLE_STAMPS.map(x => btn(x, () => setStamp(x), stamp === x))) : null,
-      mode === "cut" ? h("div", { style: { textAlign: "center", color: "rgba(255,255,255,.75)", fontFamily: F_BODY, fontSize: 12.5, marginBottom: 10 } }, "用手指沿着他描一圈，圈住的部分会剪成透明底的表情") : null,
+        DOODLE_STAMPS.map(x => btn(x, () => setStamp(x), stamp === x)),
+        // 自己写一个：填数字就当分数（7 → 7分），别的照原样贴
+        h("input", { "data-wk": "doodleownstamp", value: ownStamp, maxLength: 6, placeholder: "自己写：😭 / 7 / 绝了",
+          onChange: e => { const v = e.target.value; setOwnStamp(v); const k = v.trim(); if (k) setStamp(/^\d+(\.\d+)?$/.test(k) ? k + "分" : k); },
+          style: { width: 150, minHeight: 36, padding: "0 12px", borderRadius: 999, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } })) : null,
+      mode === "cut" ? h("div", { style: { textAlign: "center", color: "rgba(255,255,255,.75)", fontFamily: F_BODY, fontSize: 12.5, marginBottom: 10 } }, "用手指沿着他描一圈，圈住的部分会剪成透明底的表情",
+        h("input", { "data-wk": "doodlecutname", value: cutName, maxLength: 20, placeholder: "这张叫什么（他发表情就认这个词，比如：委屈巴巴）",
+          onChange: e => setCutName(e.target.value),
+          style: { display: "block", width: "100%", marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } })) : null,
       h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8 } },
         mode === "draw" ? btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)) : null,
         mode === "draw" ? h("button", { "data-wk": "doodleask", onClick: () => send(true), className: "active:opacity-70", style: btnSt(false) }, "圈出来问他") : null,

@@ -11864,7 +11864,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const ownIds = new Set(); own.forEach(pk => pk.emotes.forEach(e => ownIds.add(e.id)));
             const rest = emotes.filter(e => !ownIds.has(e.id));
             return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
-              + own.map(pk => "「" + (pk.name || "未命名") + "」：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
+              + own.map(pk => "「" + (pk.name || "未命名") + "」" + (pk.fromCharFace === charId ? "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）" : "") + "：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
               + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "");
           })());
       }
@@ -27370,14 +27370,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { console.warn("[drawBack]", e && e.message); }
   };
   // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
-  window.__addSelfSticker = async (dataUrl, charId) => {
+  // name：她在抠图页给这张起的名字（她 2026-10-13「扣成表情包没有地方设置这张叫啥」），就是他发表情时用的那个词
+  window.__addSelfSticker = async (dataUrl, charId, name) => {
     try {
       const url = await imgToVault(dataUrl);
       const c = characters.find(x => x.id === charId);
       const name = (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
-      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: (c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1), url };
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url };
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
         : [...packs, { id: "ep_face_" + Date.now(), name, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
