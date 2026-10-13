@@ -10286,7 +10286,7 @@ function ChatThread({
       key: i,
       className: "text-center py-1.5"
     }, /*#__PURE__*/React.createElement("span", {
-      "data-wk": "note",
+      "data-wk": "note", "data-part": "recalled",
       style: {
         fontFamily: F_BODY,
         fontSize: 11,
@@ -10298,7 +10298,8 @@ function ChatThread({
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
     const cardRow = (i, m, card) => {
       const isU = m.role === "user";
-      return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+      // data-kind：卡片挂点 card 全 App 二十几处共用，靠外面这一行认出是哪一种卡（她 2026-10-13：改一处牵扯别处）
+      return h("div", { key: i, "data-wk": "cardrow", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
         !isU && h(Avatar, { character: character, size: 40, radius: 10 }),
         h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
         isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
@@ -10312,7 +10313,7 @@ function ChatThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "text-center py-1.5"
     }, h("span", {
-      "data-wk": "note",
+      "data-wk": "note", "data-part": "pat",
       style: {
         fontFamily: F_BODY,
         fontSize: 11.5,
@@ -10370,8 +10371,8 @@ function ChatThread({
     if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
     if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
-    if (m.kind === "locknote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
-    if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
+    if (m.kind === "locknote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "lock", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
+    if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "busy", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
     const _oldKeep = (m.kind === "system" || m.role === "system") && m.kind !== "carved" && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
     if (_oldKeep) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
@@ -10430,9 +10431,9 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
+    if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "recalled", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
-    if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11, fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
+    if (m.kind === "silence") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", "data-part": "silence", style: { fontFamily: F_BODY, fontSize: 11, fontStyle: "italic", color: t.fog, opacity: 0.8, ...plate() } }, cName + " 看了你的消息，没有回"));
     if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", {
@@ -13203,7 +13204,7 @@ function CallEndPill({ m, chars, onBg, i, selMode, selected, startPress, endPres
       // 挂断回执和它下面那句小结都飘在聊天底上：换了皮肤，底是皮肤的、字还是主题的灰
       // ——她 2026-09-04：「语音挂断后的 summary 也是灰的在 line 皮肤看不见」。
       // 跟时间分割那颗药丸同一档处理（挂点 note，见 theme-studio 里那条规则）。
-      "data-wk": "note",
+      "data-wk": "note", "data-part": "call",
       onClick: log.length ? () => setOpen(o => !o) : undefined,
       className: "flex items-center gap-1.5" + (log.length ? " active:opacity-60" : ""),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, background: t.bg2, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, maxWidth: "88%" }
@@ -13212,7 +13213,7 @@ function CallEndPill({ m, chars, onBg, i, selMode, selected, startPress, endPres
     // 电话挂了那张图不该跟着没，它是这通电话的一部分。
     (m.shots || []).length ? h("div", { className: "flex justify-center", style: { gap: 6, marginTop: 7, flexWrap: "wrap", maxWidth: "88%" } },
       m.shots.map(k => h(CallShotThumb, { key: k, imgKey: k }))) : null,
-    m.sum && !open ? h("div", { "data-wk": "note", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 },
+    m.sum && !open ? h("div", { "data-wk": "note", "data-part": "callsum", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 },
       // 这一行原来也是直接写在背景上的字，壁纸一来就看不清
       onBg ? { background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 9, padding: "3px 10px" } : {}) }, m.sum) : null,
     open ? h("div", { style: { marginTop: 8, width: "88%", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", maxHeight: 300, overflowY: "auto" } },
@@ -17719,7 +17720,7 @@ function GroupThread({
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined, className: "text-center py-1.5" },
-      h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, m.content));
+      h("span", { "data-wk": "note", "data-part": "pat", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, m.content));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },
@@ -17939,7 +17940,7 @@ function GroupThread({
       }
       // 只显示被引用的原话，不写「引用 XXX：」——是谁说的代码里有 replyToSenderName，
       // 界面上照旧只摆一句原文就够了（她 2026-08-24）
-    }, h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, m.replyTo)), m.recalled ? h(m.origText ? "button" : "div", { "data-wk": "note", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+    }, h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, m.replyTo)), m.recalled ? h(m.origText ? "button" : "div", { "data-wk": "note", "data-part": "recalled", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),
