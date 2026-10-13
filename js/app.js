@@ -13945,6 +13945,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         toast("只能重Roll角色的消息");
         return;
       }
+      // 在「发送失败」那一行上重 Roll（群友 2026-10-13：两个角色同时发，一个报「无可用渠道」，换了线路他也回了，
+      //   结果刚回的那几条全没了）：失败那行压在聊天中间时，原来是从它开始往后整段截掉——它后面成功的回复一起被删。
+      //   失败那行本来就不是一轮回复：只撤掉它自己，再让 TA 回一次，后面的一条都不动。
+      if (window.ChatContextFilter && window.ChatContextFilter.isFailureNotice(m)) {
+        pChat(threadKey, p => p.filter(x => x !== m && !(x && m.turnId && x.turnId === m.turnId && window.ChatContextFilter.isFailureNotice(x))));
+        setTimeout(() => {
+          const roomId = window.ChatRooms && window.ChatRooms.isSideKey(threadKey) ? String(threadKey).split("::room::")[1] : "main";
+          replyNow(activeChar.id, null, null, { chatKey: threadKey, room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, roomId) : null });
+        }, 200);
+        return;
+      }
       const turnId = m.turnId;
       let rerollAvoid = "";
       const avoidOf = rm => (rm || []).filter(x => x && (x.role === "assistant" || x.who === "char") && x.content && !x.recalled).map(x => String(x.content)).join("\n");
