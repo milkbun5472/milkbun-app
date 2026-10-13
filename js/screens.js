@@ -14655,7 +14655,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, setBusy, onRenameEmote, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   const t = useTheme();
@@ -14746,6 +14746,8 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
       !pack ? h("div", { "data-wk": "emoempty", "data-part": "packs", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情字典。\n点上面「新开一版」开一版空白的。")
         : h("div", null,
           // 这一版叫什么：写在版纸边上，虚线表示可以改
+          onCaptionPack && (pack.emotes || []).some(e => !e.captioned) ? h("button", { "data-wk": "emocaptionpack", onClick: () => onCaptionPack(pack.id), className: "active:opacity-70",
+            style: { marginTop: 14, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "给这一组每张底下印上名字") : null,
           h("input", { "data-wk": "emopacktitle", value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "w-full outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, borderBottom: "1px dashed " + t.line, paddingBottom: 3, marginTop: 16, marginBottom: 4 } }),
           // 两条开关：印在纸上的说明行，不是两张圆角卡
           h("div", { "data-wk": "emoswitchrow", "data-part": "global", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },

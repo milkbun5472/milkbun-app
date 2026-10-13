@@ -27731,14 +27731,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
   // name：她在抠图页给这张起的名字（她 2026-10-13「扣成表情包没有地方设置这张叫啥」），就是他发表情时用的那个词
-  window.__addSelfSticker = async (dataUrl, charId, name, drawn) => {
+  window.__addSelfSticker = async (dataUrl, charId, name, drawn, captioned) => {
     try {
       const url = await imgToVault(dataUrl);
       const c = characters.find(x => x.id === charId);
       const packName = (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
-      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}) };
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}), ...(captioned ? { captioned: true } : {}) };
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
         : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
@@ -27747,6 +27747,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 他的一套表情包（她 2026-10-13）：先让他照自己的性子挑九个表情、起名字，再一张图画成 3×3，
   //   切开存进「抠他图」那同一组（fromCharFace），所以他自己也能发、你也能发
   const [emoteSetBusy, setEmoteSetBusy] = useState("");
+  // 表情图底下印名字：画新的那套和给旧的补印走同一处，字号位置一模一样
+  const paintEmoteCaption = (g2, word, W, H) => {
+    word = String(word || "").trim(); if (!word) return;
+    let z = Math.round(W * 0.12); const F2 = "'ZCOOL KuaiLe','Ma Shan Zheng','PingFang SC',sans-serif";
+    g2.font = "900 " + z + "px " + F2; while (z > W * 0.057 && g2.measureText(word).width > W * 0.91) { z -= 2; g2.font = "900 " + z + "px " + F2; }
+    g2.textAlign = "center"; g2.textBaseline = "alphabetic"; g2.lineJoin = "round";
+    g2.lineWidth = Math.max(5, z / 5); g2.strokeStyle = "#fff"; g2.strokeText(word, W / 2, H * 0.97);
+    g2.fillStyle = "#2b2622"; g2.fillText(word, W / 2, H * 0.97);
+  };
+  // 给一组里还没印字的补印上名字（她 2026-10-13：「不能再补印上去吗」）：印好换成新图，原来那张不动（换下来的旧图留在图库里）
+  const captionEmotePack = async packId => {
+    const pk = (emotePacksRef.current || []).find(x => x.id === packId);
+    if (!pk) return;
+    toast("在印…", 2500);
+    const out = []; let n = 0;
+    for (const e of (pk.emotes || [])) {
+      if (e.captioned || !String(e.keyword || "").trim() || /\.gif($|\?)/i.test(String(e.url || ""))) { out.push(e); continue; }
+      try {
+        const src = typeof stickerSrc === "function" ? stickerSrc(e.url) : (typeof resolveImg === "function" ? resolveImg(e.url) : e.url);
+        const blob = await (await fetch(src)).blob();
+        const u = URL.createObjectURL(blob);
+        const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+        URL.revokeObjectURL(u);
+        const W = Math.min(512, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth);
+        const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+        const g2 = cv.getContext("2d"); g2.drawImage(im, 0, 0, W, H); paintEmoteCaption(g2, e.keyword, W, H);
+        out.push({ ...e, url: await imgToVault(cv.toDataURL("image/png")), captioned: true }); n++;
+      } catch (err) { out.push(e); }
+    }
+    commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: out } : x));
+    toast(n ? "印好了 " + n + " 张" : "这一组没有能印的（已经印过、没名字或是动图）", 5000);
+  };
   const makeEmoteSet = async (charId, setOpt) => {
     const char = characters.find(c => c.id === charId);
     if (!char || emoteSetBusy) return;
@@ -27784,14 +27816,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const g2 = cv.getContext("2d");
         g2.drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
         // 图上印字（她 2026-10-13：「不然我光看图忘记是什么意思」）：字是 app 写的，不让图像端写（会乱码）
-        if (setOpt && setOpt.caption) {
-          const word = items[k].name; let z = 46; const F2 = "'ZCOOL KuaiLe','Ma Shan Zheng','PingFang SC',sans-serif";
-          g2.font = "900 " + z + "px " + F2; while (z > 22 && g2.measureText(word).width > 350) { z -= 2; g2.font = "900 " + z + "px " + F2; }
-          g2.textAlign = "center"; g2.textBaseline = "alphabetic"; g2.lineJoin = "round";
-          g2.lineWidth = Math.max(5, z / 5); g2.strokeStyle = "#fff"; g2.strokeText(word, 192, 372);
-          g2.fillStyle = "#2b2622"; g2.fillText(word, 192, 372);
-        }
-        if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name, true)) n++;
+        if (setOpt && setOpt.caption) paintEmoteCaption(g2, items[k].name, 384, 384);
+        if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name, true, !!(setOpt && setOpt.caption))) n++;
       }
       toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
@@ -29502,7 +29528,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
     onAddImages: addEmoteImages,
-    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy,
+    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy, onCaptionPack: captionEmotePack,
     onRenameEmote: renameEmote,
     onDeleteEmotes: deleteEmotes
   });else if (screen === "favorites") body = h(Favorites, {
