@@ -737,6 +737,13 @@ function decodeTextBytes(bytes) {
   if (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return dec("utf-8", 3);
   if (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE) return dec("utf-16le", 2);
   if (b.length >= 2 && b[0] === 0xFE && b[1] === 0xFF) return dec("utf-16be", 2);
+  // 没有 BOM 的 UTF-16（有的电脑、小说站导出来就是这种）：中文字节里一半是 0，按 UTF-8 解出来满屏怪字
+  if (b.length >= 4) {
+    const n = Math.min(b.length - (b.length % 2), 4000); let z0 = 0, z1 = 0;
+    for (let k = 0; k < n; k += 2) { if (b[k] === 0) z0++; if (b[k + 1] === 0) z1++; }
+    if (z1 > n / 2 * 0.3 && z0 < z1 / 4) return dec("utf-16le");
+    if (z0 > n / 2 * 0.3 && z1 < z0 / 4) return dec("utf-16be");
+  }
   try { return new TextDecoder("utf-8", { fatal: true }).decode(b); } catch (_) {}
   // gb18030 是浏览器规范里的必备编码；真碰上不认的环境（老 Node 少 ICU）也不能整个卡住，
   // 退回宽松的 UTF-8——那正是改这一层之前的老样子，不会比原来更坏。
