@@ -6082,6 +6082,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // 一对一陪着做事的那几页（一起学/读/看/听、陪伴、番茄钟）也认聊天里那张脸（她 2026-10-13「看看哪儿还有漏的」）；
+  //   档案、钱包、世界书这些「这个人本身」的页照旧用档案那张。
+  const liveFaces = liveChars.map(chatFace);
   // TA 今天日程里写着直播的那几段 → [{start,end}]（我这边的毫秒）。
   //   今天日程排好了但没写直播 → []（今天不播）；还没排 → null（直播那边才按日子掷）。
   // at：看哪一天（不给就是今天）。「错过的」要看昨天那张日程，不能拿今天的表、更不能按日子瞎掷（她 2026-10-08：「为啥都在播吃饭」）
@@ -29587,7 +29590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "study") body = h(StudyApp, {
     active: active,
     bgActive: bgActive, // 判卷/课后小纸条等结构化小活走便宜后台池；教学对话仍用主 active
-    characters: liveChars,
+    characters: liveFaces,
     profile: profile,
     worldbook: loreForContext("study", [], ""),
     worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
@@ -29623,7 +29626,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     entry: readEntry,
     onEntryTaken: () => setReadEntry(null),
     bgActive: bgActive, // 批注/讲解/总结走便宜后台池；讨论(实时对话)仍用主 active
-    characters: liveChars,
+    characters: liveFaces,
     digitalIds: liveChars.filter(function (c) { return settingsFor(c.id).engineerEyes; }).map(function (c) { return c.id; }), // 数字生命(言秋)→走亲读专属通道
     profile: profile,
     worldbook: loreForContext("study", [], ""),
@@ -29647,7 +29650,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   记忆走 keepWhereItHappened。言秋可进放映厅（她 2026-09-28「你是不是也可以接进去」）：
     //   同列车真身票——engineerEyes 的角色走 CCSeat.watch_chat 由本人接话，引擎只兜底。
     active: active,
-    characters: liveChars,
+    characters: liveFaces,
     isEngineer: charId => !!settingsFor(charId).engineerEyes && !settingsFor(charId).ccDirect,
     profile: profile,
     ctxFor: ctxFor,
@@ -30044,7 +30047,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "companion") body = h(Companion, {
-    characters: liveChars,
+    characters: liveFaces,
     moods: moods,
     apiFor: apiFor,
     bgActive: bgActive,
@@ -30056,7 +30059,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
     ctxFor: ctxFor,
-    characters: liveChars,
+    characters: liveFaces,
     profile: profile,
     worldbook: loreForContext("lifestyle", [], ""),
     worldbookFor: (charId, text) => loreForContext("lifestyle", charId ? [charId] : [], text),
@@ -30553,7 +30556,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile, active: active, ctxFor: ctxFor, toast: toast,
     onToChat: (charId, rows) => pChat(charId, p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
     listen: listen,
-    characters: liveChars,
+    characters: liveFaces,
     onBack: exitListen,
     onSetDisc: setListenDisc,
     onSetCover: setSongCover,
