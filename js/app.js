@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.560";
+const APP_VERSION = "v75.563";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7581,8 +7581,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       try {
         const hn = window.HealthCtx && window.HealthCtx.nudgeDue();
         if (hn) {
-          const cand = characters.find(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
+          // 轮着来（群友 2026-10-14「来来回回都是第一个人来问」）：原来 find 永远挑名单里排第一个能来的。
+          //   按「哪天哪一顿」定一个起点轮转——同一顿重试还是同一个人，换一顿、换一天就换人。
+          const _ok = characters.filter(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
+          const _seed = String(hn.day) + ":" + String(hn.meal);
+          let _h = 0; for (let _i = 0; _i < _seed.length; _i++) _h = (_h * 31 + _seed.charCodeAt(_i)) >>> 0;
+          const cand = _ok.length ? _ok[_h % _ok.length] : null;
           if (cand && !pSkip("health:" + hn.meal)) {
             pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
               () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } })
@@ -27742,11 +27747,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!char.refPhoto) { toast("先在人格档案馆给 TA 传一张参考照，脸才锁得住"); return; }
     setEmoteSetBusy(charId);
     try {
+      // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
+      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === charId);
+      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
+        instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
         schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
         maxTokens: 8000
       });
+      // 重名的照样留着（她 2026-10-13：「重复的照样留着吧都花了钱的」）——去重只靠上面把已有的告诉他、降低概率
       const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
       if (items.length < 9) throw new Error("他没挑够九个，再试一次");
       const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
