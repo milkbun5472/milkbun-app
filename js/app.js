@@ -13523,6 +13523,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           } catch (e) {/* 刻不上不连累这一轮回复 */}
         }
       }
+      // 替她勾掉备忘录里已经办完的那条（她 2026-10-13）。memoNote 里只有过期没勾的那几条才会教TA填这一栏。
+      if (parsed.memoDone && typeof window.memoDoneByChar === "function" && (!room || !!(room.writeback && room.writeback.sharedState))) {
+        const _md = window.memoDoneByChar(charId, parsed.memoDone);
+        if (_md.length) toast(char.name + " 替你在备忘录里勾掉了「" + _md.join("」「") + "」");
+      }
       // 替她记进备忘录 / 记一笔账（她 2026-08-30）。
       // ⚠️落盘成功才在聊天里出卡片：模型把「下周三」原样填进 date 的话 memoAddByChar 会退回 null，
       // 这时候绝不能显示「已记下」——那就是骗她，而她多半再也不会去核对。
