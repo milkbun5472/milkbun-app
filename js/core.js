@@ -740,10 +740,69 @@ function decodeTextBytes(bytes) {
   try { return new TextDecoder("utf-8", { fatal: true }).decode(b); } catch (_) {}
   // gb18030 是浏览器规范里的必备编码；真碰上不认的环境（老 Node 少 ICU）也不能整个卡住，
   // 退回宽松的 UTF-8——那正是改这一层之前的老样子，不会比原来更坏。
-  try { return dec("gb18030"); } catch (_) { return dec("utf-8"); }
+  // 繁体的 txt 多半是 Big5，当 GBK 解出来整本是乱码（她 2026-10-13 群里：「导进去是乱码」）。
+  //   两种都解一遍，看哪一份里「，。的是了」这类最常见的字和标点多，就用哪份。
+  try {
+    const gb = dec("gb18030");
+    let b5 = ""; try { b5 = dec("big5"); } catch (_) { return gb; }
+    const score = t => { let n = 0; const m = t.slice(0, 20000).match(/[，。的是了不我你他她在有這个個們们說说]/g); return m ? m.length : 0; };
+    return score(b5) > score(gb) * 1.5 ? b5 : gb;
+  } catch (_) { return dec("utf-8"); }
 }
 async function readTextFileSmart(file) {
   return decodeTextBytes(await file.arrayBuffer());
+}
+// ---- 读 zip 里的文件（epub 用；docx 走 mammoth 那一份）----
+// 只用浏览器自带的 DecompressionStream，不再拉一个库进来。返回 { names, read(name) → Uint8Array }。
+async function openZip(buf) {
+  const view = new DataView(buf), dec = new TextDecoder("utf-8");
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error("不是有效的压缩包");
+  const n = view.getUint16(eocd + 10, true); let pos = view.getUint32(eocd + 16, true);
+  const map = {};
+  for (let i = 0; i < n && pos + 46 <= buf.byteLength; i++) {
+    if (view.getUint32(pos, true) !== 0x02014b50) break;
+    const nameLen = view.getUint16(pos + 28, true), extraLen = view.getUint16(pos + 30, true), commentLen = view.getUint16(pos + 32, true);
+    const name = dec.decode(new Uint8Array(buf, pos + 46, nameLen));
+    map[name] = { method: view.getUint16(pos + 10, true), size: view.getUint32(pos + 20, true), off: view.getUint32(pos + 42, true) };
+    pos += 46 + nameLen + extraLen + commentLen;
+  }
+  const read = async name => {
+    const e = map[name]; if (!e) return null;
+    const start = e.off + 30 + view.getUint16(e.off + 26, true) + view.getUint16(e.off + 28, true);
+    const raw = new Uint8Array(buf, start, e.size);
+    if (e.method === 0) return raw;
+    if (e.method !== 8 || typeof DecompressionStream === "undefined") throw new Error("这台手机解不开这个文件，换成 txt 再传");
+    return new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+  };
+  return { names: Object.keys(map), read };
+}
+// ---- epub → 纯文字（她 2026-10-13 群里：「一起读要么导入不了，要么导进去是乱码」——书多半是 epub）----
+//   按书脊（spine）的顺序一章章读，每段一行，章与章之间空一行。
+async function epubToText(buf) {
+  const z = await openZip(buf), dec = new TextDecoder("utf-8");
+  const txt = async name => { const b = await z.read(name); return b ? dec.decode(b) : ""; };
+  const container = await txt("META-INF/container.xml");
+  const opfPath = ((container.match(/full-path="([^"]+)"/) || [])[1]) || z.names.find(x => /\.opf$/i.test(x));
+  if (!opfPath) throw new Error("这本 epub 里找不到目录");
+  const base = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1) : "";
+  const opf = new DOMParser().parseFromString(await txt(opfPath), "application/xml");
+  const items = {}; Array.from(opf.getElementsByTagNameNS("*", "item")).forEach(it => { items[it.getAttribute("id")] = it.getAttribute("href"); });
+  let order = Array.from(opf.getElementsByTagNameNS("*", "itemref")).map(r => items[r.getAttribute("idref")]).filter(Boolean);
+  if (!order.length) order = z.names.filter(x => /\.x?html?$/i.test(x)).map(x => x.slice(base.length));
+  const norm = p => { const out = []; p.split("/").forEach(seg => { if (seg === "..") out.pop(); else if (seg && seg !== ".") out.push(seg); }); return out.join("/"); };
+  const chapters = [];
+  for (const href of order) {
+    const html = await txt(norm(base + decodeURIComponent(href.split("#")[0])));
+    if (!html) continue;
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("script,style").forEach(x => x.remove());
+    doc.querySelectorAll("p,div,h1,h2,h3,h4,h5,h6,li,br,tr").forEach(x => x.insertAdjacentText("afterend", "\n"));
+    const t = String((doc.body && doc.body.textContent) || "").replace(/[ \t\u00a0]+/g, " ").split("\n").map(x => x.trim()).filter(Boolean).join("\n");
+    if (t) chapters.push(t);
+  }
+  return chapters.join("\n\n");
 }
 // ---- 大段正文放 IndexedDB 的一张表：key＝id，value＝全文字符串 ----
 // 原来只长在一起读里（一本书的正文）；一起学的课程资料是第二处，所以搬到这儿共用。

@@ -304,10 +304,22 @@
       if (!f) return;
       const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
       const isTxt = /\.txt$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
-      if (!isPdf && !isTxt) { props.toast && props.toast("支持 .txt 或已 OCR 的 .pdf"); return; }
+      const isEpub = /\.epub$/i.test(f.name) || f.type === "application/epub+zip";
+      const isDocx = /\.docx$/i.test(f.name);
+      if (/\.(mobi|azw3?)$/i.test(f.name)) { props.toast && props.toast("mobi / azw 读不了：先转成 epub 或 txt 再传"); return; }
+      if (/\.doc$/i.test(f.name)) { props.toast && props.toast("老的 .doc 读不了：在 Word 里另存为 .docx 或 txt 再传"); return; }
+      if (!isPdf && !isTxt && !isEpub && !isDocx) { props.toast && props.toast("支持 .txt、.epub、.docx，或者有文字层的 .pdf"); return; }
       try {
         let text;
-        if (isPdf) {
+        if (isEpub) {
+          props.toast && props.toast("在拆这本 epub…");
+          text = await epubToText(await f.arrayBuffer());
+          if (!text || !text.trim()) { props.toast && props.toast("这本 epub 里没读到文字（可能整本是图片）"); return; }
+        } else if (isDocx) {
+          if (typeof docxToText !== "function") throw new Error("这台手机读不了 docx，存成 txt 再传");
+          text = await docxToText(await f.arrayBuffer());
+          if (!text || !text.trim()) { props.toast && props.toast("这个 docx 里没读到文字"); return; }
+        } else if (isPdf) {
           props.toast && props.toast("解析 PDF 中…");
           text = await extractPdfText(f, function (p, n) { if (p === 1 || p % 20 === 0 || p === n) props.toast && props.toast("解析 PDF " + p + "/" + n + " 页…"); });
           if (!text || !text.trim()) { props.toast && props.toast("没读到文字——这份 PDF 可能是没 OCR 的扫描图，先 OCR 成带文本层的 PDF 再传"); return; }
@@ -318,7 +330,7 @@
         }
         const id = "bk_" + Date.now();
         await idbPut(id, text);
-        const title = f.name.replace(/\.(txt|pdf)$/i, "").slice(0, 40);
+        const title = f.name.replace(/\.(txt|pdf|epub|docx)$/i, "").slice(0, 40);
         // roomId＝这本书算哪间房的（"main"＝主聊天）。写回边界要认这一戳，
         // 否则「不带出门」那间房里读的书会从主线的TA嘴里说出来（同一起学那一戳）。
         persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, roomId: "main", perPass: 3, annotations: [], explains: {}, synopsis: "", showExplains: true }].concat(loadBooks()));
@@ -411,7 +423,7 @@
     }
     return h("div", { className: "h-full flex flex-col", style: shelfPage, "data-wk": "readshelfboard", "data-part": "r2" },
       h(Head, { zh: "一起读", onBack: props.onBack, bg: "transparent" }),
-      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
+      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf,.epub,application/epub+zip,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
         rows,
         books.length === 0
