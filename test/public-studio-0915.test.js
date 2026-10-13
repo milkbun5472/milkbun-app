@@ -4,7 +4,7 @@ test('实际照相馆调用带两边选中单品描述、不带未选衣柜且�
  const start=app.indexOf('  const studioShoot = async '),end=app.indexOf('  const DRAWER_CAP',start);
  let scene,options,record;
  // 形状对应 genDateOutfits 的 put(): outfit/用户桶→closet→sets→name,note。
- assert.match(app,/saveMyCloset\(put\(myClosetRef.current, d && d.hers\)\)/);
+ assert.match(app,/const nextMine = myClosetPut\(myClosetRef\.current, occ, setOf\(d && d\.hers\)\);/);
  const c={profile:{name:'测试用户',refPhoto:'fixture-user'},imgApiReady:()=>true,setGen:()=>{},toast:()=>{},statesRef:{current:{}},
  carryRef:{current:{fictional:{outfit:{closet:[{occasion:'测试',sets:[{name:'外套',note:'蓝色棉外套'},{name:'鞋',note:'白色帆布鞋'},{name:'没选的',note:'不该发出'}]}]}}}},
  myClosetRef:{current:{closet:[{sets:[{name:'衬衣',note:'米色衬衣'}]}]}},

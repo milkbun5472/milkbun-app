@@ -14943,7 +14943,7 @@ const CARRY_SECTIONS = [
 // 她刚添上的那几套会在界面上被静默砍掉，人还以为没添进去。
 // 天花板是许可不是指标（她 2026-09-12 那句，v67.25 同一条）：
 // 用不到的时候它一分钱不花，太低的时候才实打实掐掉她攒的东西。
-const CLOSET_MAX_OCCASIONS = 10, CLOSET_MAX_SETS = 12, CLOSET_MAX_TOTAL = 72;
+const CLOSET_MAX_OCCASIONS = 16, CLOSET_MAX_SETS = 20, CLOSET_MAX_TOTAL = 120;   // 她 2026-10-13：「上限放宽点」
 // 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
 function closetGroups(data) {
   if (!data) return [];
@@ -15274,7 +15274,7 @@ function clothFigure(o) {
         h("div", { style: { position: "absolute", inset: 0, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.09)" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: Math.round(34 * k), background: "linear-gradient(180deg,rgba(0,0,0,0)," + c.dark2 + ")", opacity: 0.5 } }),
         o.pinned ? h("div", {
-          title: "钉住了，刷新不会换掉",
+          title: "留着的，刷新不会换掉",
           style: { position: "absolute", top: Math.round(26 * k), left: 0, right: 0, textAlign: "center", fontSize: Math.round(10 * k), lineHeight: 1, color: c.onDark ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.4)" }
         }, "◆") : null)));
 }
@@ -15653,7 +15653,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
   const isPinned = it => pinSet.has(carryItemKey(it));
   // 钉住＝这件东西不许被下一次刷新换掉。随身物没有「号码/账号 id」那种客观硬字段，
   // 唯一说得清「这件绝不许换」的人是她（施工规则/phone-data-layers.md 的 🔒 层）。
-  const pinDot = it => isPinned(it) ? h("span", { "data-wk": "carrypin", title: "钉住了，刷新不会换掉", style: { fontSize: 11, color: t.accent, marginLeft: 6 } }, "\u25c6") : null;
+  const pinDot = it => isPinned(it) ? h("span", { "data-wk": "carrypin", title: "留着的，刷新不会换掉", style: { fontSize: 11, color: t.accent, marginLeft: 6 } }, "\u25c6") : null;
   let content;
   if (isGifts) {
     content = (gifts || []).length === 0
@@ -15769,8 +15769,12 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
       : h("div", { "data-wk": "carrycloset", style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
             h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
-              (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"),
+              (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"
+                + (onTogglePin ? (() => { const n = groups.reduce((a, g) => a + g.sets.filter(isPinned).length, 0); return n ? " · \u25c6 留着 " + n : ""; })() : "")),
             h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg,rgba(74,58,40,.16),rgba(74,58,40,0))" } })),
+          // 钉子藏在点开那一页里，她不点开就不知道有（群友 2026-10-13：「能不能钉起来就不会被 roll 掉」）
+          onTogglePin ? h("div", { "data-wk": "carrypinhint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: -6, marginBottom: 14 } },
+            "喜欢的那身点开 →「留着」（标 \u25c6），刷新时就不会被换掉；没留的一次最多换两身。想让 TA 穿哪身，点开点「让他换上这一身」。") : null,
           groups.map((g, gi) => h("div", { "data-wk": "carryoccasion", key: gi, style: { marginBottom: 20 } },
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
               h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
@@ -15806,7 +15810,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
           h("div", { className: "flex-1 min-w-0" },
             h("div", { "data-wk": "carrycardname", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, lineHeight: 1.38, wordBreak: "break-word" } }, it.name),
             it.note ? h("div", { "data-wk": "carrycardnote", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.note) : null),
-          on ? h("span", { title: "钉住了，刷新不会换掉", style: { fontSize: 10, lineHeight: 1.6, color: c.ink, flexShrink: 0 } }, "◆") : null));
+          on ? h("span", { title: "留着的，刷新不会换掉", style: { fontSize: 10, lineHeight: 1.6, color: c.ink, flexShrink: 0 } }, "◆") : null));
     };
     content = !items.length
       ? h("div", { "data-wk": "carryempty", "data-part": "stuff", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "空空如也")
@@ -15868,7 +15872,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
               background: isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.07) : "transparent") : "transparent",
               color: isPinned(sheet) ? (tone ? tone.ink : t.accent) : t.ink
             }
-          }, isPinned(sheet) ? "◆ 钉住了" : "钉住这一件") : null,
+          }, isPinned(sheet) ? "◆ 留着了" : "留着这一件") : null,
           // 摆到TA面前：和查手机那条链是同一张卡（v57.96）
           onPeek ? h("button", { "data-wk": "carrysheetbtn", "data-part": "peek",
             onClick: () => { onPeek(char.id, sectionKey, sheet); setSheet(null); },
@@ -15879,14 +15883,14 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         // ⚠️单独一行、不跟上面那两颗挤在一排：那两颗是【留下它】的动作，这颗是反的。
         onDeleteItem ? h("button", { "data-wk": "carrysheetbtn", "data-part": "delete",
           onClick: () => requestAppConfirm("删掉「" + sheet.name + "」？",
-            (isPinned(sheet) ? "这一件是钉住的，删掉时钉子也一起拔掉——不然下次刷新它会被补回来。\n" : "")
+            (isPinned(sheet) ? "这一件是留着的，删掉时一起取消——不然下次刷新它会被补回来。\n" : "")
             + "删掉之后 " + (char.remark || char.name) + " 身上就没有这件东西了，聊天里也不会再提到它。",
             () => { onDeleteItem(char.id, sectionKey, sheet.name); setSheet(null); }, "删掉"),
           className: "w-full py-2.5 active:opacity-70",
           style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid #c25a4a55", color: "#c25a4a" }
         }, "删掉这一件") : null,
         h("div", { "data-wk": "carrysheethint", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
-          (onTogglePin ? "钉住的东西刷新时不会被换掉，没钉住的一次最多换两件。" : "")
+          (onTogglePin ? "留着的东西刷新时不会被换掉，没留的一次最多换两件。" : "")
           + (onPeek ? characterText(char, "「摆到他面前」会在聊天里发一条——他会知道你翻过。") : ""))) : null;
       const think = h("div", { "data-wk": "carrythink", style: { marginTop: tone ? 18 : 0 } },
         h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: tone ? tone.ink : t.accent, marginBottom: 7 } }, char.name + " 的想法"),
@@ -16975,10 +16979,10 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
       h("span", { style: { position: "absolute", right: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } })),
     h("div", { "data-wk": "closetscroll", className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-10" },
       h("div", { "data-wk": "closetintro", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
-        "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。点「钉住」，以后出图每张都穿那一身；再点一次取消。"),
+        "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。点「固定穿」，以后出图每张都穿那一身；再点一次取消。这里的衣服不会被刷掉，不用另外留。"),
       // 现在钉着哪一身（不在柜子里的老写法也照样显示，好让她取消）
       pinned ? h("div", { "data-wk": "closetpinned", className: "flex items-start", style: { gap: 10, borderRadius: 13, border: "1px solid " + t.ink, background: t.bg2, padding: "10px 12px", marginBottom: 11 } },
-        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, wordBreak: "break-word" } }, "现在钉着：" + pinned),
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, wordBreak: "break-word" } }, "现在固定穿：" + pinned),
         onPin ? h("button", { onClick: () => onPin(""), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "取消") : null) : null,
       // 关键词生成
       h("div", { "data-wk": "closetgen", style: { borderRadius: 16, border: "1px solid " + t.line, background: t.bg2, padding: "14px 14px 13px" } },
@@ -17016,9 +17020,9 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
                 h("div", { className: "flex items-start", style: { gap: 10 } },
                   h("div", { "data-wk": "closetsetname", className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, x.name),
                   onPin ? h("button", { "data-wk": "closetsetpin", "data-on": pinned === pinText(x) ? "1" : "0", onClick: () => onPin(pinned === pinText(x) ? "" : pinText(x)), className: "active:opacity-60 shrink-0",
-                    "aria-label": pinned === pinText(x) ? "取消钉住" : "钉住这身",
+                    "aria-label": pinned === pinText(x) ? "不再固定穿这身" : "以后出图固定穿这身",
                     style: { fontFamily: F_BODY, fontSize: 11, color: pinned === pinText(x) ? t.bg : t.ink, background: pinned === pinText(x) ? t.ink : "transparent",
-                      border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "已钉住" : "钉住") : null,
+                      border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉")),
                 x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null)))))
@@ -17043,7 +17047,16 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
   const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
   const [styleDraft, setStyleDraft] = useState(null);
-  const doRestyle = async st => {                 const ref = await photoDataUrl(big); if (!ref) return;                 const src = bigStack.find(y => !y.style) || big; const ref2 = src === big ? ref : (await photoDataUrl(src)) || ref;                 setSharp(true); const row = await onShoot({ scene: src.scene || "", restyle: { ref: ref2, style: st, parent: stackKey(big) } }); setSharp(false); if (row) setBig(row); };
+  const [reText, setReText] = useState(true);   // 杂志封面／电影海报换画风后把字照原样印回去
+  const doRestyle = async st => {
+    const src = bigStack.find(y => !y.style) || big;
+    // 有不带字的那一份就拿它去重画（带着字去画，字会被画糊或者干脆没了）
+    const ref = (src.rawKey ? await photoDataUrl({ imgKey: src.rawKey }) : "") || await photoDataUrl(src) || await photoDataUrl(big);
+    if (!ref) return;
+    setSharp(true);
+    const row = await onShoot({ scene: src.scene || "", restyle: { ref, style: st, parent: stackKey(big), ...(src.overlay && reText ? { overlay: src.overlay } : {}) } });
+    setSharp(false); if (row) setBig(row);
+  };
   const photoDataUrl = async ph => {
     let b = ph && ph.imgKey && typeof idbImgGet === "function" ? await idbImgGet(ph.imgKey).catch(() => null) : null;
     if (!b && ph && ph.imgUrl) { try { b = await (await fetch(ph.imgUrl)).blob(); } catch (e) { b = null; } }
@@ -17104,6 +17117,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
               className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px " + (myStyles.includes(st) ? "dashed " : "solid ") + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st)),
             h("button", { "data-wk": "studiostyleadd", disabled: !!(sharp || busy), onClick: () => setStyleDraft(""), className: "active:opacity-70 disabled:opacity-40",
               style: { padding: "5px 11px", borderRadius: 999, border: "1px dashed #b9a6cc", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, "＋自己写")),
+          (bigStack.find(y => !y.style) || big).overlay ? h("button", { "data-wk": "studioretext", "data-on": reText ? "1" : "0", onClick: () => setReText(v => !v), className: "active:opacity-70",
+            style: { marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+            h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1.5px solid " + t.ink, background: reText ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "13px", textAlign: "center" } }, reText ? "✓" : ""),
+            "重画后把封面上的字照原样印回去") : null,
           styleDraft !== null ? h("div", { "data-wk": "studiostyleedit", className: "flex items-center", style: { gap: 8, marginTop: 8, border: "1px solid " + t.line, borderRadius: 12, padding: "6px 10px" } },
             h("input", { value: styleDraft, onChange: e => setStyleDraft(e.target.value), maxLength: 40, placeholder: "想要什么画风（如：赛博朋克插画、老式明信片）",
               style: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),

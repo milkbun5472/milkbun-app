@@ -44,6 +44,10 @@ const takeTheirsStampLines = p => {
   return !/^<<<<<<< /m.test(s);
 };
 
+// 开跑前：上一次合到一半没收完、或者文件里还留着冲突标记，一律不动
+if (existsSync(".git/MERGE_HEAD")) die("有一次合并还没收完（.git/MERGE_HEAD 在）：先收好或 git merge --abort 再跑");
+{ const left = tryd("git grep -lE \"^(<<<<<<<|>>>>>>>) \" -- js index.html test scripts");
+  if (left) die("这些文件里还有冲突标记，先收干净：\n" + left); }
 for (let round = 1; round <= 4; round++) {
   console.log("── 第 " + round + " 轮");
   // 1) 收进一个本地提交（发版提交最后再做一次，这个只是为了能合 main）
@@ -56,7 +60,9 @@ for (let round = 1; round <= 4; round++) {
     for (const f of conflicted) {
       if (VERSION_FILES.includes(f) && f !== "js/app.js") { sh("git show " + REMOTE + "/main:" + f + " > " + f, { shell: "/bin/bash" }); continue; }
       if (/assistant-manual\.js$|theme-studio\.js$|js\/app\.js$/.test(f) && takeTheirsStampLines(f)) continue;
-      die("合 main 有真冲突：" + f + "——先手动收（不许 checkout --ours），再重跑");
+      // 先把合了一半的状态退回去再停：不然下次一跑，开头那个 wip 提交会把带冲突标记的文件原样提交掉（2026-10-13 真出过）
+      tryd("git merge --abort");
+      die("合 main 有真冲突：" + f + "——已经退回合并前。手动 git merge " + REMOTE + "/main 收好（不许 checkout --ours）再重跑");
     }
     sh("git add -A"); sh("git commit -qm \"merge main\"");
   }

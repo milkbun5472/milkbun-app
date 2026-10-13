@@ -19177,7 +19177,14 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       } finally { setClearBusy(false); }
     }, "清除");
   };
-  const patch = p => setDraft(d => ({ ...d, ...p }));
+  // 已经建好的房间：改一下就存一下（她 2026-10-13：「你不能点右上角的保存，得在最下面进入房间才行，右上角的保存跟装饰似的」）——
+  //   房间设置嵌在聊天设置里，右上角那颗 ✓ 存的是聊天设置，房间这边改的开关根本没人存，一退出就没了。
+  //   新建中的房间不自动存：还没点「进入」就不该凭空多出一间。
+  const patch = p => setDraft(d => {
+    const n = { ...d, ...p };
+    if (!creating && Kit && n && n.id) { const saved = Kit.save(character.id, n); if (saved) setTimeout(() => setRooms(Kit.list(character.id)), 0); }
+    return n;
+  });
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
     h(Eyebrow, null, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
