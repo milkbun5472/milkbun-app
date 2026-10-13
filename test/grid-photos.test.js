@@ -26,3 +26,8 @@ test("照片日记：只有点了才拍，一次生图", () => {
 { const a4 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
   require("node:assert").match(a4, /纯侧脸、背影最多一格/);
   require("node:assert").match(a4, /晚上不等于睡觉/); }
+// 照片日记三格各掷一个机位（她 2026-10-13：「为什么又是同一个角度！」——整张只掷一个，三格全被钉成一样）
+{ const e5 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const a5 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("node:assert").match(e5, /else if \(opts\.panels > 1\)/);
+  require("node:assert").match(a5, /panels: 3 \}\)/); }

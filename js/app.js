@@ -17041,7 +17041,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const body = (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900);
       const st = statesRef.current[charId] || {};
       const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
-        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样，像别人在不同距离随手拍的：一格平视中景、一格远一点带上周围环境、一格近景；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样（每格具体怎么拍见下面「每一格的机位」）；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
         // 穿什么：先看写日记时记下的、再查状态历史；这天换过几身，每格穿那个时刻的那身
         + (() => { const w = (Array.isArray(entry.wears) && entry.wears.length ? entry.wears : wearsOnDay(charId, entry.ts));
             if (!w.length) return "三格里他穿的是同一身衣服。";
@@ -17051,7 +17051,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n这篇日记：\n" + body
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
-      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240) });
+      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3 });
       const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
       let imgKey = null, imgUrl = null;
       if (out && out.blob) { imgKey = "img_pdiary_" + charId + "_" + entry.id; await idbImgPut(imgKey, out.blob); }

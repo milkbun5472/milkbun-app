@@ -5122,6 +5122,16 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _ed); else parts.push(_ed);
   }
+  // opts.panels：一张图里画好几格（照片日记三格）。原来整张只掷【一个】机位，又写着「这一条比什么都优先」，
+  //   于是三格全被同一句钉成一个角度（她 2026-10-13：「为什么又是同一个角度！」）。改成每格各掷一个、互不重复。
+  else if (opts.panels > 1) {
+    const pool = PHOTO_SHOTS_OTHER.slice(), pick = [];
+    for (let k = 0; k < opts.panels && pool.length; k++) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    const _pl = "【每一格的机位·各不相同，由这次拍摄决定，不许沿用参考图】" + pick.map((x, k) => "第" + (k + 1) + "格：" + x).join("；")
+      + "。参考图只决定这是谁，每格脸的朝向、离镜头多远都照这几句来，三格不许是同一个角度。";
+    const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
+    if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
+  }
   else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
   else {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
