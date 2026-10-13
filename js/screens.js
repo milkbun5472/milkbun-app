@@ -17043,7 +17043,16 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
   const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
   const [styleDraft, setStyleDraft] = useState(null);
-  const doRestyle = async st => {                 const ref = await photoDataUrl(big); if (!ref) return;                 const src = bigStack.find(y => !y.style) || big; const ref2 = src === big ? ref : (await photoDataUrl(src)) || ref;                 setSharp(true); const row = await onShoot({ scene: src.scene || "", restyle: { ref: ref2, style: st, parent: stackKey(big) } }); setSharp(false); if (row) setBig(row); };
+  const [reText, setReText] = useState(true);   // 杂志封面／电影海报换画风后把字照原样印回去
+  const doRestyle = async st => {
+    const src = bigStack.find(y => !y.style) || big;
+    // 有不带字的那一份就拿它去重画（带着字去画，字会被画糊或者干脆没了）
+    const ref = (src.rawKey ? await photoDataUrl({ imgKey: src.rawKey }) : "") || await photoDataUrl(src) || await photoDataUrl(big);
+    if (!ref) return;
+    setSharp(true);
+    const row = await onShoot({ scene: src.scene || "", restyle: { ref, style: st, parent: stackKey(big), ...(src.overlay && reText ? { overlay: src.overlay } : {}) } });
+    setSharp(false); if (row) setBig(row);
+  };
   const photoDataUrl = async ph => {
     let b = ph && ph.imgKey && typeof idbImgGet === "function" ? await idbImgGet(ph.imgKey).catch(() => null) : null;
     if (!b && ph && ph.imgUrl) { try { b = await (await fetch(ph.imgUrl)).blob(); } catch (e) { b = null; } }
@@ -17104,6 +17113,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
               className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px " + (myStyles.includes(st) ? "dashed " : "solid ") + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st)),
             h("button", { "data-wk": "studiostyleadd", disabled: !!(sharp || busy), onClick: () => setStyleDraft(""), className: "active:opacity-70 disabled:opacity-40",
               style: { padding: "5px 11px", borderRadius: 999, border: "1px dashed #b9a6cc", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, "＋自己写")),
+          (bigStack.find(y => !y.style) || big).overlay ? h("button", { "data-wk": "studioretext", "data-on": reText ? "1" : "0", onClick: () => setReText(v => !v), className: "active:opacity-70",
+            style: { marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+            h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1.5px solid " + t.ink, background: reText ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "13px", textAlign: "center" } }, reText ? "✓" : ""),
+            "重画后把封面上的字照原样印回去") : null,
           styleDraft !== null ? h("div", { "data-wk": "studiostyleedit", className: "flex items-center", style: { gap: 8, marginTop: 8, border: "1px solid " + t.line, borderRadius: 12, padding: "6px 10px" } },
             h("input", { value: styleDraft, onChange: e => setStyleDraft(e.target.value), maxLength: 40, placeholder: "想要什么画风（如：赛博朋克插画、老式明信片）",
               style: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),

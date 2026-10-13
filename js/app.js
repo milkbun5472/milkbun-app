@@ -25207,7 +25207,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = (studioRef.current || []).map(x => x.id === id ? { ...x, developAt: 0 } : x);
     studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
   };
-  const studioOverlay = async (blob, kind, title, names, copy) => {
+  const studioOverlay = async (blob, kind, title, names, copy, seed) => {
+    // 版式、颜色都由 seed 定：同一张换画风后再印一次，排出来跟原来那张一模一样
+    let _sd = (Number(seed) || 1) >>> 0;
+    const rnd = () => { _sd = (_sd + 0x6D2B79F5) >>> 0; let t = _sd; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     try {
       const u = URL.createObjectURL(blob);
       const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
@@ -25234,7 +25237,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         while (cx < bx + bw) { seed = (seed * 37 + 11) % 97; const w = W * (0.002 + (seed % 3) * 0.0018); x.fillRect(cx, by, w, bh); cx += w + W * (0.002 + (seed % 2) * 0.002); }
         x.font = "600 " + Math.round(W * 0.018) + "px " + FS; x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillText(price, bx + bw / 2, by + bh + W * 0.03); };
       const issue = now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊";
-      const pick = a => a[Math.floor(Math.random() * a.length)];
+      const pick = a => a[Math.floor(rnd() * a.length)];
       if (kind === "magazine") {
         const special = cp.special || pick(["恋爱特辑", "两个人特辑", "秋冬特辑", "纪念特辑", "私人特辑"]);
         const ls = lines.length ? lines : ["「我们是怎么走到今天的」", "两个人的日常", names + " 的私房话"];
@@ -25245,7 +25248,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           x.textAlign = "center"; x.textBaseline = "alphabetic"; x.shadowColor = "rgba(0,0,0,.25)"; x.shadowBlur = z / 12; x.fillStyle = color; x.fillText(mast, W / 2, y + z * 0.88); x.shadowBlur = 0; return z; };
         // 一栏封面小标题：一句大一句小、一句带色，像报摊上那种
         const column = (arr, px, y0, align, maxW) => { let y = y0; arr.forEach((s2, n) => { const big = n === 0; const z = put(s2, W * (big ? 0.05 : 0.032), px, y, align, big ? accent : "#fff", big ? "900" : "700", maxW, big ? F : FS); y += z * 1.45; }); return y; };
-        const v = Math.floor(Math.random() * 4);
+        const v = Math.floor(rnd() * 4);
         if (v === 0) {        // 经典：顶上刊名，左边一栏，左下大标题，右下条码
           shade(0, H * 0.3, .4, 0); shade(H * 0.6, H, 0, .6);
           const mz = masthead("#fff", H * 0.025);
@@ -25283,8 +25286,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
       } else {
         const tag = cp.tagline || pick(["有些人，一遇见就是一辈子", "这一次，换我先走向你", "全世界只有我们知道", "故事，从那天开始"]);
-        const day = cp.date || (() => { const d = new Date(Date.now() + (7 + Math.floor(Math.random() * 60)) * 86400000); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; })();
-        const v = Math.floor(Math.random() * 3);
+        const day = cp.date || (() => { const d = new Date(Date.now() + (7 + Math.floor(rnd() * 60)) * 86400000); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; })();
+        const v = Math.floor(rnd() * 3);
         if (v === 0) {        // 底部片名
           shade(H * 0.58, H, 0, .8);
           put(tag, W * 0.034, W / 2, H * 0.1, "center", "rgba(255,255,255,.9)", "600", W * 0.86, FS);
@@ -25397,7 +25400,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
-      let imgKey = null, imgUrl = null, pol = null;
+      let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {
         imgKey = "img_studio_" + char.id + "_" + Date.now();
 
@@ -25406,7 +25409,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           try { const d = await runProbe(apiFor(char.id), ctxFor(char), { instruction: "你们刚用拍立得拍了一张合照：" + scene + "。你拿笔在相纸底下白边上写一行字（14 字以内，就是你此刻想写在这张照片上的话，像你自己的口气）。", schemaHint: "{\"line\":\"\"}", maxTokens: 8000 }); cap = String((d && d.line) || "").trim(); } catch (e) {}
           pol = await polaroidCompose(out.blob, cap); pol.cap = cap;
         }
-        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我"), await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim())) : out.blob;
+        // 杂志封面／电影海报：字照原样记下来、不带字的那张也留一份——换画风时拿没字的去重画，画完照原样再印一次（她 2026-10-13）
+        if (theme && theme.overlay) {
+          const _t = String((opt && opt.scene) || "").trim();
+          ovl = { kind: theme.overlay, title: _t, names: (char.remark || char.name) + " " + (me.name || "我"), copy: await coverCopy(char, theme.overlay, _t), seed: Math.floor(Math.random() * 1e9) + 1 };
+          await idbImgPut(imgKey + "_raw", out.blob);
+        } else if (opt && opt.restyle && opt.restyle.overlay) {
+          ovl = opt.restyle.overlay;
+        }
+        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : ovl ? await studioOverlay(out.blob, ovl.kind, ovl.title, ovl.names, ovl.copy, ovl.seed) : out.blob;
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
@@ -25414,7 +25425,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
         mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}), ...(pol ? { polaroid: true, developAt: Date.now() + 2 * 3600000, polCap: pol.cap || "", ...(pol.flaw ? { flaw: pol.flaw } : {}) } : {}),
-        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
+        ...(theme ? { theme: opt.theme } : {}), ...(ovl ? { overlay: ovl, ...(theme && theme.overlay ? { rawKey: imgKey + "_raw" } : {}) } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style, ...(opt.restyle.parent ? { parentId: opt.restyle.parent } : {}) } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
