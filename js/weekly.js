@@ -689,8 +689,10 @@
       // ⚠️「每条都两三句」是生成感最明显的那个破绽
       characterText(char, "· 回答的长短要不齐：至少一轮短到一句、甚至半句（不想说、懒得说、一个字顶回去都算），至少一轮是他真的说开了的一大段。全篇每条都两三句，那是稿子不是采访。\n") +
       "② 狗仔：同一个你，写一段花边小道消息，只报 " + char.name + " 本周的戏。全程「据悉／知情人士向本刊透露／本刊直击」式无实锤爆料，暧昧、留白、点到为止，不给实锤。\n" +
+      // 专访开篇要的两样（她 2026-10-13 改版：专访照铺满开篇，标题和导语压在上面）
+      "③ 这篇专访的标题 headline（12 字以内，从 " + char.name + " 说过的话或这周的事里来，不写空话）和导语 lead（两三句，第三人称，交代在哪儿采访、他当时什么状态，只写看得见的，不下评价）。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
-      '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）；有括号动作就夹在它真的发生的那一处"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
+      '{"interview":{"headline":"专访标题","lead":"导语","qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）；有括号动作就夹在它真的发生的那一处"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
     for (let i = 0; i < 2; i++) {
       try {
         const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 14000);
@@ -700,7 +702,7 @@
           const qa = d.interview.qa.filter(function (x) { return x && (x.q || x.a); })
             .map(function (x) { return { q: String(x.q || "").trim(), a: String(x.a || "").trim(), action: String(x.action || "").trim() }; });
           const pap = d.paparazzi || {};
-          return { interview: { qa: qa }, paparazzi: { title: String(pap.title || "").trim(), body: String(pap.body || "").trim() } };
+          return { interview: { qa: qa, headline: String(d.interview.headline || "").trim().slice(0, 24), lead: String(d.interview.lead || "").trim().slice(0, 200) }, paparazzi: { title: String(pap.title || "").trim(), body: String(pap.body || "").trim() } };
         }
       } catch (e) { if (i) throw e; }
     }
@@ -1482,15 +1484,23 @@
   // 头版详情
   function CoverSection(props) {
     const c = props.cover; const L = sectionLooks().cover;
+    // 拍了封面照：头条压在照片下沿（跟专访开篇同一个做法）；没拍：原来那块实色头条
+    const headBlock = props.photo
+      ? h("div", { "data-wk": "wklycoverhero", style: { position: "relative", margin: "0 -22px 22px" } },
+          h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "80px 22px 20px", background: "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.66))", color: "#fffaf3" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .8, marginBottom: 10 } }, "头条 · 01"),
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 29, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)))
+      : h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
+          h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline));
     return h("div", { "data-wk": "wklycoversection" },
-      h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
-      props.onShoot ? h("div", { style: { margin: "0 0 18px", color: L.tint } },
-        props.photo ? h("div", { style: { marginBottom: 10 } }, h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" })) : null,
-        h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: props.photo ? "重拍封面" : "拍这期封面（本期受访的人上封面）" })) : null,
-      h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
-        h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)),
-      c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 ? 2 : 1, columnGap: 22 } }, c.lead) : null,
+      props.photo ? headBlock : null,
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 14, color: L.tint } },
+        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: props.photo ? "重拍封面" : "拍这期封面（本期受访的人上封面）" }) : h("span"),
+        h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
+      props.photo ? null : headBlock,
+      c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 || (props.photo && c.lead.length > 120) ? 2 : 1, columnGap: 22 } }, c.lead) : null,
       (c.highlights || []).length ? h("div", { style: { borderTop: "5px solid " + L.tint, padding: "15px 0 4px", marginBottom: 8 } },
         h("div", { style: { fontFamily: F_BODY, letterSpacing: ".05em", fontSize: 10.5, color: L.tint, marginBottom: 12 } }, "本期看点"),
         (c.highlights || []).map(function (hl, i) {
@@ -1505,16 +1515,40 @@
   function InterviewEntry(props) {
     const t = useTheme(); const e = props.entry; const L = sectionLooks().interview;
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 专访回答朗读
+    // 专访开篇（她 2026-10-13 改版）：有专访照就铺满开篇、名字和标题压在照片下沿；没有就用头像＋大字名字做纯排版开篇。
+    //   接着一句大引文（从他的回答里挑）、一段导语，再进问答。
+    const ivx = e.interview || {};
+    const qas = ivx.qa || [];
+    const quotes = [];
+    qas.forEach(function (x) { (spokenOnly(x.a || "").match(/[^。！？!?…]{8,34}[。！？!?…]/g) || []).forEach(function (q) { quotes.push(q.trim()); }); });
+    quotes.sort(function (a, b) { return Math.abs(a.length - 18) - Math.abs(b.length - 18); });
+    const pullTop = quotes[0] || "", pullMid = quotes[1] || "";
+    const midAt = Math.floor(qas.length / 2);
+    const kicker = h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, marginBottom: 7, opacity: .85 } }, "独家专访 · 04");
+    const opener = e.photo
+      ? h("div", { "data-wk": "wklyivopener", "data-part": "photo", style: { position: "relative", margin: "0 -22px 0" } },
+          h(WeeklyPhoto, { imgKey: e.photo, alt: e.charName }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "70px 22px 18px", background: "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.62))", color: "#fffaf3" } },
+            kicker,
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 34, fontWeight: 600, lineHeight: 1.02 } }, e.charName),
+            ivx.headline ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15, marginTop: 8, lineHeight: 1.45, opacity: .95 } }, ivx.headline) : null))
+      : h("div", { "data-wk": "wklyivopener", "data-part": "type", style: { display: "grid", gridTemplateColumns: "64px minmax(0,1fr)", gap: 14, alignItems: "end", margin: "0 -10px", padding: "20px 16px 18px", background: L.tint, color: "#fffaf3" } },
+          h(Avatar, { character: props.spk || { name: e.charName }, size: 64, radius: 0 }),
+          h("div", { style: { minWidth: 0 } }, kicker,
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.04 } }, e.charName),
+            ivx.headline ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 14, marginTop: 6, lineHeight: 1.45, opacity: .92 } }, ivx.headline) : null));
+    const bigQuote = function (q, mid) { return q ? h("div", { "data-wk": "wklyivquote", style: { margin: mid ? "4px 0 26px" : "20px 0 16px", padding: mid ? "14px 0" : 0, borderTop: mid ? "3px solid " + L.tint : "none", borderBottom: mid ? "1px solid " + L.tint : "none",
+      fontFamily: "'Songti SC',Georgia,serif", fontSize: mid ? 19 : 22, fontWeight: 600, lineHeight: 1.45, color: L.tint } }, "「" + q + "」") : null; };
     return h("div", { style: { position: "relative" }, "data-wk": "wklyinterviewentry" },
-      h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 74px", alignItems: "end", borderBottom: "7px solid " + L.tint, margin: "0 -2px 22px", paddingBottom: 13 } },
-        h("div", null,
-          h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, color: L.tint, marginBottom: 7 } }, "独家专访 · 04"),
-          h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 29, fontWeight: 600, color: L.ink, lineHeight: 1.05 } }, e.charName)),
+      opener,
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, margin: "12px 0 0", color: L.tint } },
+        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: e.photo ? "重拍专访照" : "拍一张专访照" }) : h("span"),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
-      e.photo ? h("div", { style: { margin: "-8px -2px 20px" } }, h(WeeklyPhoto, { imgKey: e.photo, alt: e.charName })) : null,
-      props.onShoot ? h("div", { style: { margin: "0 0 20px", color: L.tint } }, h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: e.photo ? "重拍专访照" : "拍一张专访照" })) : null,
+      bigQuote(pullTop, false),
+      ivx.lead ? h("div", { "data-wk": "wklyivlead", style: { fontFamily: "'STKaiti','KaiTi',serif", fontSize: 14, lineHeight: 1.85, color: L.muted, margin: "0 0 24px", paddingBottom: 18, borderBottom: "7px solid " + L.tint } }, ivx.lead)
+        : h("div", { style: { borderBottom: "7px solid " + L.tint, margin: "0 0 22px" } }),
       (e.interview && e.interview.qa || []).map(function (qa, i) {
-        return h("div", { key: i, style: { display: "grid", gridTemplateColumns: i % 2 ? "1fr 37px" : "37px 1fr", gap: 13, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid " + pageColor("weekly", "line", paletteAlpha(L.tint, "33")) }, "data-wk": "wklyinterviewentry", "data-part": "r2" },
+        return h(React.Fragment, { key: i }, i === midAt && i > 0 ? bigQuote(pullMid, true) : null, h("div", { key: i, style: { display: "grid", gridTemplateColumns: i % 2 ? "1fr 37px" : "37px 1fr", gap: 13, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid " + pageColor("weekly", "line", paletteAlpha(L.tint, "33")) }, "data-wk": "wklyinterviewentry", "data-part": "r2" },
           i % 2 ? null : h("span", { style: { gridColumn: 1, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1 } }, "Q"),
           h("div", { style: { gridColumn: i % 2 ? 1 : 2, fontFamily: "'STKaiti','KaiTi',serif", fontSize: 14, color: L.muted, lineHeight: 1.7 } }, qa.q),
           h("div", { style: { gridColumn: i % 2 ? 1 : 2, marginTop: 7, fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, color: L.ink, lineHeight: 1.82 } },
@@ -1529,7 +1563,7 @@
               qa.action ? h("span", { style: { fontFamily: "'STKaiti','KaiTi',serif", fontStyle: "italic", color: L.muted } }, "（" + qa.action + "）") : null,
               // ⚠️朗读只念TA说的话：括号里那几下是动作，念出来就成了「TA伸手」这种旁白
               (tp && props.spk && typeof TtsDot === "function") ? h(TtsDot, { k: "wiv" + i, text: spokenOnly(qa.a), spk: props.spk, tp: tp }) : null),
-          i % 2 ? h("span", { style: { gridColumn: 2, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1, textAlign: "right" } }, "Q") : null);
+          i % 2 ? h("span", { style: { gridColumn: 2, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1, textAlign: "right" } }, "Q") : null));
       }),
       e.paparazzi && (e.paparazzi.title || e.paparazzi.body) ? h("div", { style: { margin: "26px -10px 0 36px", padding: "17px 18px", background: L.tint, color: "#fff" } },
         h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, opacity: .7, marginBottom: 8 } }, "边角闲话"),
@@ -1920,16 +1954,19 @@
           }))));
     } else if (sub && sub.kind === "pics") {
       headZh = "本周画报"; headEn = "";
+      // 画报的排法：一张整幅、两张并排交替（单出来的最后一张也整幅）；图说是角上的小字，不抢图
       detail = h("div", { "data-wk": "wklypics" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, "这一周在照相馆拍下的 " + pics.length + " 张"),
-        pics.map(function (r, i) {
-          const d = new Date(r.ts);
-          return h("figure", { key: r.id || i, style: { margin: "0 0 26px" } },
-            h(WeeklyPhoto, { imgKey: r.imgKey, imgUrl: r.imgUrl, alt: r.scene || "" }),
-            h("figcaption", { style: { display: "grid", gridTemplateColumns: "30px 1fr", gap: 8, marginTop: 8, fontFamily: "'Songti SC',Georgia,serif", fontSize: 13, lineHeight: 1.6, color: t.ink } },
-              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog } }, String(i + 1).padStart(2, "0")),
-              h("span", null, (r.scene || "合照") + "　", h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (d.getMonth() + 1) + "月" + d.getDate() + "日"))));
-        }));
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", columnGap: 10, rowGap: 20, margin: "0 -8px" } },
+          pics.map(function (r, i) {
+            const d = new Date(r.ts);
+            const k = i % 3, wide = k === 0 || (k === 1 && i === pics.length - 1);
+            return h("figure", { key: r.id || i, "data-wk": "wklypic", "data-part": wide ? "wide" : "half", style: { margin: 0, gridColumn: wide ? "1 / -1" : "auto", minWidth: 0 } },
+              h(WeeklyPhoto, { imgKey: r.imgKey, imgUrl: r.imgUrl, alt: r.scene || "" }),
+              h("figcaption", { style: { display: "flex", gap: 7, alignItems: "baseline", marginTop: 6, fontFamily: F_BODY, fontSize: wide ? 11.5 : 10.5, lineHeight: 1.5, color: t.sub } },
+                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: t.fog, flexShrink: 0 } }, String(i + 1).padStart(2, "0")),
+                h("span", { style: { minWidth: 0 } }, (r.scene || "合照") + " · " + (d.getMonth() + 1) + "月" + d.getDate() + "日")));
+          })));
     } else if (sub && sub.kind === "media") {
       const sec = medias.find(function (s) { return s.id === sub.id; });
       if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = ""; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }

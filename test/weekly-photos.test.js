@@ -16,3 +16,12 @@ test("周刊：封面照存在这一期上，专访照存在那一条采访上�
   assert.match(wk, /\{ key: "pics", label: "本周画报", sub: \{ kind: "pics" \} \}/);
   assert.match(wk, /onShoot: props\.onShoot/);
 });
+
+test("改版：专访开篇（照片压字/纯排版）、大引文、导语；头版照片压头条；画报整幅并排交替", () => {
+  assert.match(wk, /"data-wk": "wklyivopener", "data-part": "photo"/);
+  assert.match(wk, /"data-wk": "wklyivopener", "data-part": "type"/);
+  assert.match(wk, /headline":"专访标题","lead":"导语"/);
+  assert.match(wk, /i === midAt && i > 0 \? bigQuote\(pullMid, true\)/);
+  assert.match(wk, /"data-wk": "wklycoverhero"/);
+  assert.match(wk, /const k = i % 3, wide = k === 0/);
+});
