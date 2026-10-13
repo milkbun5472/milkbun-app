@@ -14,7 +14,14 @@ test("群里：两边钱包一减一加，不超过他余额", () => {
   assert.match(app, /adjustCharBalance\(char\.id, -a,/);
   assert.match(app, /adjustCharBalance\(to\.id, a,/);
 });
-test("手机那头接上了，¥ 键只在能替他发的会话里出现", () => {
+test("手机那头接上了，转账收在「＋」里", () => {
   assert.match(phone, /onTransferAs: onTransferAs \? \(sess, amt, note, toId\) => onTransferAs\(char, sess, amt, note, toId\) : null/);
   assert.match(phone, /!drive && asCanSend && tfOpen \?/);
+});
+
+test("「＋」里有转账、跟她的私聊里还有买东西（走他送礼物那条路，标 byUser）", () => {
+  assert.match(phone, /"data-part": "plus", onClick: \(\) => setPlus\(v => v \? null : "menu"\)/);
+  assert.ok(!/"¥"\) : null,/.test(phone), "不要单独那颗钱符号");
+  assert.match(app, /postCharGift\(char\.id, nm, pr, note, \{ byUser: true \}\)/);
+  assert.match(app, /id !== "actual:private:" \+ char\.id\) return false;/);
 });
