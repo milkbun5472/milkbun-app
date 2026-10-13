@@ -48,11 +48,9 @@ assert.match(app, /平面的 Q 版二次元插画/);
 assert.match(scr, /"Q版", "手办"/);
 console.log("ok figure");
 // 杂志封面：字量着写不出画；挑了衣服题材照穿（她 2026-10-13）
-assert.match(app, /const put = \(str, size, px, py, align, color, weight, maxW, font, shadow\) =>/);
 assert.match(app, /const coverCopy = async \(char, kind, title\) =>/);
-assert.match(app, /const v = Math.floor\(Math.random\(\) \* 4\);/);
 assert.match(app, /\(!theme \|\| picked\)/);
-assert.match(app, /const masthead = \(color, y\) =>/);
+assert.match(app, /window\.PosterLayout\.compose\(blob, plan, copy, names\)/);
 assert.match(app, /editorial: theme.overlay/);
 assert.match(require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8"), /绝对不是自拍/);
 console.log("ok cover");

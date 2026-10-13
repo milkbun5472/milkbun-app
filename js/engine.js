@@ -5118,7 +5118,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   else if (opts.editorial) {
     const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；两个人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
       + (opts.editorial === "movie" ? "电影感布光、有景深和氛围，像正式定妆海报，两人摆出有戏的站位（背靠背、一前一后、对视、同看远方都行）。" : "棚拍或精心挑过的外景，讲究的打光，半身到全身构图，两人摆时尚大片的姿势（站姿、倚靠、一坐一站、肩挨肩看镜头都行），表情有态度，像真的杂志封面人物。")
-      + "画面上方和一侧要留出排字的空间，人物别顶满画面。";
+      + (opts.editorialSpace || "画面上方和一侧要留出排字的空间，人物别顶满画面。");
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _ed); else parts.push(_ed);
   }
