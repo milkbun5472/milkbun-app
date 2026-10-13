@@ -1,0 +1,395 @@
+// ============================================================
+// 照相馆 · 电影海报 / 杂志封面的排字（她 2026-10-13 跟 GPT 一起讨论出来的那套）
+//
+// 原来是「拍完图 → 掷骰子挑一种排法 → 把字贴上去」：图和字各说各的，
+// 生图那句写「下方留空」，排字却可能挑中「竖排贴右」，正好压在人身上。
+//
+// 现在倒过来：
+//   ① TA 写字那一轮顺手定【方向】：类型、气质、字的性格、片名怎么断行（不给坐标）；
+//   ② 本地照方向挑一整张的【文字构图】（片名、宣传语、主演、日期各在哪、彼此什么关系），
+//      把主要留白写进生图提示词——图是照着字的位置画的；
+//   ③ 图回来以后，本地在【这张构图之内】排两三个候选（片名结构、对齐、深浅字），
+//      用规则打分挑一张：碰撞、出界、看不看得清。亮度和杂乱只是辅助——
+//      只有真的看不清时才换构图，不会因为哪块「干净」就把片名挪过去（黑衣服胸口也很干净）。
+//
+// 设计约束（她那天改过的两条要记住）：
+//   · 不强制片名最大最粗——片名可以很细很小（文艺片），要的是层级清楚；
+//   · 不强制所有字一条对齐线——片名靠右、宣传语靠左是正常的，要的是每一组自己有逻辑。
+//
+// 字体：只用已经在用的那几款（思源宋/黑、站酷小薇/快乐、马善政、志莽行、龙藏），
+//   而且按这一张真用到的字取子集（&text=），一张海报下来只拉几十 KB，不加大字体文件。
+//   连不上就退回系统字体，不卡出图。
+// ============================================================
+(function () {
+  "use strict";
+  const A = s => Array.from(String(s == null ? "" : s));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // ---------- 字的性格 → 用哪款字、多重、字距 ----------
+  // tr＝字距（以字号为单位）；title/small 各一套，一张最多两种字体
+  const PERSONA = {
+    elegant: { zh: "优雅", title: ["Noto Serif SC", 300], small: ["Noto Sans SC", 300], tr: 0.18, trS: 0.25 },
+    heavy:   { zh: "厚重", title: ["Noto Sans SC", 900], small: ["Noto Sans SC", 500], tr: -0.02, trS: 0.12 },
+    sharp:   { zh: "锐利", title: ["Noto Serif SC", 900], small: ["Noto Sans SC", 700], tr: 0.02, trS: 0.15 },
+    retro:   { zh: "复古", title: ["Ma Shan Zheng", 400], small: ["ZCOOL XiaoWei", 400], tr: 0.04, trS: 0.18 },
+    playful: { zh: "俏皮", title: ["ZCOOL KuaiLe", 400], small: ["Noto Sans SC", 700], tr: 0.02, trS: 0.06 },
+    cold:    { zh: "冷峻", title: ["Noto Sans SC", 200], small: ["Noto Sans SC", 300], tr: 0.32, trS: 0.4 },
+    hand:    { zh: "手写", title: ["Zhi Mang Xing", 400], small: ["ZCOOL XiaoWei", 400], tr: 0, trS: 0.15 }
+  };
+  const PERSONA_KEYS = Object.keys(PERSONA);
+  const GOOGLE = {
+    "Noto Serif SC": "Noto+Serif+SC:wght@200;300;500;700;900",
+    "Noto Sans SC": "Noto+Sans+SC:wght@200;300;500;700;900",
+    "ZCOOL XiaoWei": "ZCOOL+XiaoWei", "ZCOOL KuaiLe": "ZCOOL+KuaiLe",
+    "Ma Shan Zheng": "Ma+Shan+Zheng", "Zhi Mang Xing": "Zhi+Mang+Xing"
+  };
+  const FALLBACK = { "Noto Serif SC": "'Songti SC','STSong',serif", "Noto Sans SC": "'PingFang SC','Microsoft YaHei',sans-serif",
+    "ZCOOL XiaoWei": "'Songti SC',serif", "ZCOOL KuaiLe": "'PingFang SC',sans-serif", "Ma Shan Zheng": "'Kaiti SC','STKaiti',serif", "Zhi Mang Xing": "'Kaiti SC','STKaiti',serif" };
+  const stackOf = fam => "'" + fam + "'," + (FALLBACK[fam] || "sans-serif");
+
+  // 类型 → 没给性格时的默认性格、信息量
+  const GENRE = [
+    [/恐怖|惊悚|灵异/, "heavy", "min"], [/悬疑|犯罪|推理|黑色/, "sharp", "std"], [/喜剧|搞笑|青春|校园/, "playful", "rich"],
+    [/科幻|赛博|未来/, "cold", "std"], [/古装|武侠|民国|年代/, "retro", "std"], [/文艺|剧情|独立/, "elegant", "min"],
+    [/动作|战争|冒险|灾难/, "heavy", "std"], [/奇幻|童话|动画/, "playful", "std"], [/爱情|浪漫/, "elegant", "std"]
+  ];
+  const genreDefault = g => { const s = String(g || ""); for (const [re, p, d] of GENRE) if (re.test(s)) return { persona: p, density: d }; return { persona: "elegant", density: "std" }; };
+
+  // ---------- 一整张的文字构图 ----------
+  // 每一组是一块【区域】（占画面的比例，可以横跨、可以竖着拉长），不是一个点；
+  //   a＝这一组自己的对齐；titles＝这块地方适合哪几种片名结构；space＝写进生图提示词的那句留白。
+  //   各组可以不同轴（片名靠右、宣传语靠左），这是故意的。
+  const MOVIE = {
+    bottomSpan: { space: "画面下方约三分之一是干净的暗部、地面或虚化背景，留给横跨整幅的片名；两个人在画面中上部，脸和身体都别落进下方那一块",
+      title: { x: .06, y: .70, w: .88, h: .15, a: "center" }, tagline: { x: .1, y: .05, w: .8, h: .05, a: "center" },
+      credits: { x: .1, y: .64, w: .8, h: .04, a: "center" }, date: { x: .1, y: .90, w: .8, h: .04, a: "center" }, en: "under", titles: ["line", "spread", "stack"], scrim: "bottom" },
+    topSky: { space: "画面上方约三分之一是干净的天空、墙面或暗部，留给片名；两个人在画面中下部，头顶离上方那一块有距离",
+      title: { x: .06, y: .07, w: .88, h: .17, a: "center" }, tagline: { x: .12, y: .27, w: .76, h: .04, a: "center" },
+      credits: { x: .1, y: .025, w: .8, h: .03, a: "center" }, date: { x: .1, y: .92, w: .8, h: .035, a: "center" }, en: "under", titles: ["line", "stack", "spread"], scrim: "top" },
+    rightColumn: { space: "画面右侧约五分之一是干净的竖条（墙、天空、暗部），从上到下留给一列竖排片名；两个人偏画面左侧和中间，别伸进右边那一条",
+      title: { x: .80, y: .07, w: .14, h: .62, a: "center" }, tagline: { x: .06, y: .80, w: .62, h: .04, a: "left" },
+      credits: { x: .06, y: .86, w: .62, h: .035, a: "left" }, date: { x: .06, y: .91, w: .62, h: .03, a: "left" }, en: "beside", titles: ["vertical"], scrim: "right" },
+    leftStack: { space: "画面左下方有一大片干净的留白（暗部、墙或虚化背景），留给两行错开排的片名；两个人偏画面右侧",
+      title: { x: .06, y: .54, w: .54, h: .24, a: "left" }, tagline: { x: .46, y: .06, w: .48, h: .045, a: "right" },
+      credits: { x: .06, y: .89, w: .5, h: .035, a: "left" }, date: { x: .5, y: .89, w: .44, h: .035, a: "right" }, en: "under", titles: ["stack", "bigsmall"], scrim: "left" },
+    quietLow: { space: "构图大量留白，两个人在画面里占得不大（中景或远景），画面下方四分之一是安静干净的一块",
+      title: { x: .15, y: .78, w: .7, h: .07, a: "center" }, tagline: { x: .2, y: .07, w: .6, h: .035, a: "center" },
+      credits: { x: .15, y: .91, w: .7, h: .03, a: "center" }, date: { x: .15, y: .945, w: .7, h: .025, a: "center" }, en: "under", titles: ["spread", "line"], scrim: "bottom" },
+    diagonal: { space: "画面左上角和右下角各有一块干净的区域（天空、墙或暗部），两个人站在画面中间那条斜线上",
+      title: { x: .06, y: .06, w: .56, h: .18, a: "left" }, title2: { x: .42, y: .74, w: .52, h: .11, a: "right" },
+      tagline: { x: .06, y: .27, w: .5, h: .04, a: "left" }, credits: { x: .06, y: .9, w: .44, h: .03, a: "left" }, date: { x: .5, y: .9, w: .44, h: .03, a: "right" },
+      en: "none", titles: ["bigsmall"], scrim: "diag" }
+  };
+  // 性格 → 偏爱哪几张构图（不是写死，只是加权）
+  const MOVIE_PREF = {
+    elegant: ["quietLow", "rightColumn", "topSky", "bottomSpan"], heavy: ["bottomSpan", "diagonal", "leftStack"],
+    sharp: ["leftStack", "bottomSpan", "rightColumn", "topSky"], retro: ["rightColumn", "leftStack", "topSky"],
+    playful: ["diagonal", "topSky", "leftStack"], cold: ["quietLow", "topSky", "bottomSpan"], hand: ["rightColumn", "quietLow", "leftStack"]
+  };
+  // 杂志：刊名永远顶天立地在最上面——这是杂志的语言，不跟电影共用构图
+  const MAG = {
+    classic: { space: "画面最上方约六分之一留给刊名（头顶可以离刊名下沿近一点，但脸别进去），左侧约三分之一留白给一栏封面小标题，两个人偏右、半身到全身",
+      mast: { x: .05, y: .02, w: .9, h: .16 }, column: { x: .06, y: .38, w: .4, h: .3, a: "left" }, head: { x: .06, y: .78, w: .62, h: .1, a: "left" }, sub: { x: .06, y: .9, w: .6, h: .03, a: "left" }, barcode: "br" },
+    twoCol: { space: "画面最上方约六分之一留给刊名，左右两边各留一窄条给封面小标题，两个人在画面正中、半身构图，底部留一条给大标题",
+      mast: { x: .05, y: .02, w: .9, h: .15 }, column: { x: .05, y: .38, w: .3, h: .22, a: "left" }, column2: { x: .65, y: .56, w: .3, h: .18, a: "right" }, head: { x: .06, y: .86, w: .88, h: .08, a: "center" }, barcode: "none" },
+    framed: { space: "画面最上方约六分之一留给刊名，右侧约三分之一留白给一栏封面小标题，两个人偏左",
+      mast: { x: .07, y: .035, w: .86, h: .15 }, column: { x: .56, y: .40, w: .38, h: .3, a: "right" }, head: { x: .07, y: .8, w: .66, h: .09, a: "left" }, sub: { x: .07, y: .91, w: .6, h: .03, a: "left" }, barcode: "none", frame: true },
+    band: { space: "画面最上方约六分之一留给刊名，左侧中部留白给两句封面小标题，画面最下方五分之一会被一条色带盖住，两个人在中部、别落进最底下那一截",
+      mast: { x: .05, y: .02, w: .9, h: .15 }, column: { x: .06, y: .44, w: .4, h: .18, a: "left" }, head: { x: .06, y: .83, w: .88, h: .07, a: "left" }, sub: { x: .06, y: .92, w: .88, h: .03, a: "left" }, barcode: "none", band: true }
+  };
+  const MAG_PREF = { elegant: ["framed", "classic"], heavy: ["classic", "band"], sharp: ["twoCol", "classic"], retro: ["band", "framed"], playful: ["twoCol", "band"], cold: ["framed", "twoCol"], hand: ["framed", "band"] };
+
+  const pickW = (arr, rnd) => { const w = arr.map((_, i) => arr.length - i); const s = w.reduce((a, b) => a + b, 0); let r = rnd() * s; for (let i = 0; i < arr.length; i++) { r -= w[i]; if (r <= 0) return arr[i]; } return arr[0]; };
+
+  // ---------- ① 出图之前：定方向和构图 ----------
+  function plan(kind, copy, rnd) {
+    rnd = rnd || Math.random;
+    const cp = copy || {};
+    const gd = genreDefault(cp.genre);
+    const persona = PERSONA[cp.persona] ? cp.persona : gd.persona;
+    const density = ["min", "std", "rich"].indexOf(cp.density) >= 0 ? cp.density : gd.density;
+    if (kind === "magazine") {
+      const comp = pickW(MAG_PREF[persona] || Object.keys(MAG), rnd);
+      return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
+    }
+    const T = A(cp.title).length;
+    let prefs = (MOVIE_PREF[persona] || Object.keys(MOVIE)).slice();
+    // 长片名不进竖排、不进对角（竖排太长会顶满一列，对角要拆成两截）
+    if (T > 7) prefs = prefs.filter(k => k !== "rightColumn" && k !== "diagonal");
+    if (T < 2) prefs = prefs.filter(k => k !== "diagonal" && k !== "leftStack");
+    if (!prefs.length) prefs = ["bottomSpan"];
+    const comp = pickW(prefs, rnd);
+    return { kind, persona, density, comp, genre: String(cp.genre || ""), mood: String(cp.mood || "") };
+  }
+  // 写进生图提示词的那一句：留白在哪 + 照类型打光（不写坐标，写画面）
+  function spaceLine(p) {
+    if (!p) return "";
+    const c = (p.kind === "magazine" ? MAG : MOVIE)[p.comp];
+    const look = (p.genre || p.mood) ? "这是一部" + (p.genre || "") + (p.mood ? "，气质" + p.mood : "") + (p.kind === "magazine" ? "的封面" : "的电影") + "，光影、色调和场景照这个类型来。" : "";
+    return look + "【排字留白】" + (c ? c.space : "") + "；留白那几块里不要有文字、字母、logo。";
+  }
+
+  // ---------- 字体：只拉这一张用到的字 ----------
+  async function ensureFonts(list, text) {
+    if (typeof document === "undefined") return;
+    const chars = Array.from(new Set(A(text))).join("");
+    const jobs = [];
+    list.forEach(([fam, wt]) => {
+      if (!GOOGLE[fam]) return;
+      const id = "pl-font-" + fam.replace(/\s+/g, "-") + "-" + (chars.length + ":" + chars.slice(0, 12)).replace(/[^\w:]/g, "").slice(0, 20) + chars.length;
+      if (!document.getElementById(id)) {
+        try { const l = document.createElement("link"); l.id = id; l.rel = "stylesheet";
+          l.href = "https://fonts.googleapis.com/css2?family=" + GOOGLE[fam] + "&display=swap&text=" + encodeURIComponent(chars);
+          document.head.appendChild(l); } catch (e) {}
+      }
+      if (document.fonts && document.fonts.load) jobs.push(document.fonts.load(wt + " 40px '" + fam + "'", chars).catch(() => {}));
+    });
+    // 连不上不卡出图：最多等 4 秒，等不到就用系统字体
+    await Promise.race([Promise.all(jobs), new Promise(ok => setTimeout(ok, 4000))]);
+  }
+
+  // ---------- 量字、画字（字距一律自己摆：canvas 的 letterSpacing 不是哪台手机都有） ----------
+  // 数字连成一串当一个字摆（「11 月」不能被字距拆成「1 1 月」）
+  const toks = str => String(str).match(/\d+|[\s\S]/gu) || [];
+  function measure(x, str, size, fam, wt, tr) {
+    x.font = wt + " " + Math.round(size) + "px " + stackOf(fam);
+    const ch = toks(str); let w = 0; ch.forEach(c => { w += x.measureText(c).width; });
+    return w + Math.max(0, ch.length - 1) * size * tr;
+  }
+  function drawLine(x, str, size, fam, wt, tr, px, py, align, ink) {
+    const w = measure(x, str, size, fam, wt, tr);
+    let cx = align === "center" ? px - w / 2 : align === "right" ? px - w : px;
+    x.textAlign = "left"; x.textBaseline = "alphabetic"; x.fillStyle = ink;
+    toks(str).forEach(c => { x.fillText(c, cx, py); cx += x.measureText(c).width + size * tr; });
+    return { x: align === "center" ? px - w / 2 : align === "right" ? px - w : px, y: py - size * 0.88, w, h: size * 1.08 };
+  }
+  // 往一个框里塞一行：先按框高起手，宽了就缩，最小到起手的 floor
+  function fitSize(x, str, box, fam, wt, tr, start, floor) {
+    let z = start; while (z > start * floor && measure(x, str, z, fam, wt, tr) > box.w) z -= Math.max(1, z * 0.03);
+    return z;
+  }
+
+  // ---------- 看图：一块区域的平均亮度和杂乱程度（只做辅助判断） ----------
+  function sampler(x, W, H) {
+    const gw = 40, gh = Math.max(20, Math.round(40 * H / W));
+    const c = document.createElement("canvas"); c.width = gw; c.height = gh;
+    const g = c.getContext("2d"); g.drawImage(x.canvas, 0, 0, gw, gh);
+    const d = g.getImageData(0, 0, gw, gh).data;
+    const lum = new Float32Array(gw * gh);
+    for (let i = 0; i < gw * gh; i++) lum[i] = (0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]) / 255;
+    return r => {
+      const x0 = clamp(Math.floor(r.x / W * gw), 0, gw - 1), x1 = clamp(Math.ceil((r.x + r.w) / W * gw), x0 + 1, gw);
+      const y0 = clamp(Math.floor(r.y / H * gh), 0, gh - 1), y1 = clamp(Math.ceil((r.y + r.h) / H * gh), y0 + 1, gh);
+      let s = 0, s2 = 0, n = 0;
+      for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { const v = lum[yy * gw + xx]; s += v; s2 += v * v; n++; }
+      const m = s / n; return { mean: m, busy: Math.sqrt(Math.max(0, s2 / n - m * m)) };
+    };
+  }
+  const px = (r, W, H) => ({ x: r.x * W, y: r.y * H, w: r.w * W, h: r.h * H });
+  const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+  // 一组字底下要不要垫、垫多少、用深字还是浅字：照那块真实的明暗来
+  function inkFor(st) { return st.mean > 0.62 ? { ink: "#17130f", glow: "rgba(255,255,255,.55)", dark: false } : { ink: "#fbf7f0", glow: "rgba(0,0,0,.55)", dark: true }; }
+  function scrim(x, W, H, side, strength, dark) {
+    if (strength <= 0) return;
+    const col = a => (dark ? "rgba(0,0,0," : "rgba(255,255,255,") + (a * strength).toFixed(3) + ")";
+    let g;
+    if (side === "bottom") { g = x.createLinearGradient(0, H * 0.5, 0, H); g.addColorStop(0, col(0)); g.addColorStop(1, col(0.75)); }
+    else if (side === "top") { g = x.createLinearGradient(0, 0, 0, H * 0.45); g.addColorStop(0, col(0.7)); g.addColorStop(1, col(0)); }
+    else if (side === "right") { g = x.createLinearGradient(W * 0.6, 0, W, 0); g.addColorStop(0, col(0)); g.addColorStop(1, col(0.65)); }
+    else if (side === "left") { g = x.createLinearGradient(0, 0, W * 0.65, 0); g.addColorStop(0, col(0.65)); g.addColorStop(1, col(0)); }
+    else { g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, col(0.55)); g.addColorStop(0.45, col(0)); g.addColorStop(0.55, col(0)); g.addColorStop(1, col(0.55)); }
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+  }
+
+  // ---------- 片名的几种结构 ----------
+  // 返回画出来占的框（打分用）。dry=true 只量不画。
+  function drawTitle(x, struct, lines, box, P, ink, dry, scale) {
+    const [fam, wt] = P.title, tr = P.tr, out = [];
+    const all = lines.join("");
+    const draw = (s, z, X, Y, al, f2, w2, t2) => dry ? (() => { const w = measure(x, s, z, f2 || fam, w2 || wt, t2 == null ? tr : t2); return { x: al === "center" ? X - w / 2 : al === "right" ? X - w : X, y: Y - z * 0.88, w, h: z * 1.08 }; })() : drawLine(x, s, z, f2 || fam, w2 || wt, t2 == null ? tr : t2, X, Y, al, ink);
+    const ax = box.a === "center" ? box.x + box.w / 2 : box.a === "right" ? box.x + box.w : box.x;
+    if (struct === "vertical") {
+      const ch = A(all); let z = Math.min(box.w * 0.9, box.h / Math.max(1, ch.length) / 1.05) * scale;
+      x.font = wt + " " + Math.round(z) + "px " + stackOf(fam);
+      let y = box.y + z; const cx = box.x + box.w / 2;
+      ch.forEach(c => { const w = x.measureText(c).width; if (!dry) { x.textAlign = "left"; x.fillStyle = ink; x.fillText(c, cx - w / 2, y); } out.push({ x: cx - w / 2, y: y - z * 0.88, w, h: z }); y += z * (1.05 + Math.max(0, tr) * 0.5); });
+      return out;
+    }
+    if (struct === "spread") {
+      // 整行拉开字距撑满框宽——字号克制，靠字距出气质
+      const ch = A(all); const z0 = Math.min(box.h * 0.7, box.w / Math.max(1, ch.length) * 0.75) * scale;
+      const natural = measure(x, all, z0, fam, wt, 0); const t2 = ch.length > 1 ? clamp((box.w - natural) / (ch.length - 1) / z0, 0.1, 1.6) : 0;
+      out.push(draw(all, z0, ax, box.y + box.h * 0.75, box.a, fam, wt, t2)); return out;
+    }
+    if (struct === "stack" && lines.length > 1) {
+      // 两行错开：第二行往对齐那侧反方向让出一截，像手排的
+      const z = Math.min(...lines.map(l => fitSize(x, l, { w: box.w * 0.92 }, fam, wt, tr, box.h / lines.length * 0.82 * scale, 0.5)));
+      const off = box.a === "center" ? 0 : box.w * 0.12 * (box.a === "left" ? 1 : -1);
+      lines.slice(0, 3).forEach((l, i) => out.push(draw(l, z, ax + (i % 2 ? off : 0), box.y + z * 0.95 + i * z * 1.16, box.a)));
+      return out;
+    }
+    if (struct === "bigsmall") {
+      // 第一截大、其余小；第二截的位置由构图给（title2），没有就跟在下面
+      const big = lines.length > 1 ? lines[0] : A(all).slice(0, Math.ceil(A(all).length / 2)).join("");
+      const rest = lines.length > 1 ? lines.slice(1).join("") : A(all).slice(A(big).length).join("");
+      const zb = fitSize(x, big, box, fam, wt, tr, box.h * 0.85 * scale, 0.45);
+      out.push(draw(big, zb, ax, box.y + zb * 0.92, box.a));
+      const b2 = box.second || { x: box.x, y: box.y + zb * 1.1, w: box.w, h: zb * 0.5, a: box.a };
+      if (rest) { const ax2 = b2.a === "center" ? b2.x + b2.w / 2 : b2.a === "right" ? b2.x + b2.w : b2.x;
+        const zs = fitSize(x, rest, b2, fam, wt, tr, Math.min(b2.h * 0.8, zb * 0.55), 0.45); out.push(draw(rest, zs, ax2, b2.y + zs * 0.92, b2.a)); }
+      return out;
+    }
+    // line：一行；放不下先拆成两行，不一直缩
+    const z1 = box.h * 0.8 * scale; const z = fitSize(x, all, box, fam, wt, tr, z1, 0.62);
+    if (measure(x, all, z, fam, wt, tr) > box.w && lines.length > 1) return drawTitle(x, "stack", lines, box, P, ink, dry, scale);
+    out.push(draw(all, z, ax, box.y + box.h * 0.5 + z * 0.36, box.a)); return out;
+  }
+  // 片名怎么断：模型给了就照它，没给就从中间断（不拆在一个词中间这事管不了，交给模型那一栏）
+  function titleLines(cp, T) { const L = (Array.isArray(cp.titleLines) ? cp.titleLines : []).map(s => A(s).join("").trim()).filter(Boolean);
+    if (L.length && L.join("") === T) return L.slice(0, 3); const ch = A(T); if (ch.length < 4) return [T]; const m = Math.ceil(ch.length / 2); return [ch.slice(0, m).join(""), ch.slice(m).join("")]; }
+
+  // 一组小字：一行，按框缩
+  function smallLine(x, s, box, P, ink, dry, sizeK) {
+    if (!s) return null;
+    const [fam, wt] = P.small; const z = fitSize(x, s, box, fam, wt, P.trS, box.h * (sizeK || 0.8), 0.5);
+    const ax = box.a === "center" ? box.x + box.w / 2 : box.a === "right" ? box.x + box.w : box.x;
+    if (dry) { const w = measure(x, s, z, fam, wt, P.trS); return { x: box.a === "center" ? ax - w / 2 : box.a === "right" ? ax - w : ax, y: box.y + box.h * 0.75 - z * 0.88, w, h: z * 1.08 }; }
+    return drawLine(x, s, z, fam, wt, P.trS, ax, box.y + box.h * 0.75, box.a, ink);
+  }
+
+  // ---------- 打分：只筛明显不合格的，不冒充审美 ----------
+  // 按【组】算平均，不按块数加——不然拆得越碎分越高
+  function score(boxes, W, H, look, planned, region) {
+    let s = planned ? 30 : 0; const m = W * 0.03; const grp = {};
+    boxes.forEach(b => {
+      if (b.x < m || b.y < m * 0.6 || b.x + b.w > W - m || b.y + b.h > H - m * 0.6) s -= 25;   // 出界、贴边
+      const st = look(b); const c = Math.abs(st.mean - (b.dark ? 0.98 : 0.08));
+      const v = c * 10 - (b.title ? st.busy * 30 : st.busy * 10);
+      (grp[b.g] = grp[b.g] || []).push(v);
+    });
+    Object.keys(grp).forEach(k => { s += grp[k].reduce((a, b) => a + b, 0) / grp[k].length; });
+    // 片名把定好的那块地方用起来（不是越大越好：细字那一路的 region 本来就小）
+    if (region) { const t = boxes.filter(b => b.title); if (t.length) {
+      const x0 = Math.min(...t.map(b => b.x)), x1 = Math.max(...t.map(b => b.x + b.w)), y0 = Math.min(...t.map(b => b.y)), y1 = Math.max(...t.map(b => b.y + b.h));
+      s += 12 * Math.min(1, ((x1 - x0) * (y1 - y0)) / (region.w * region.h)); } }
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      if (boxes[i].g === boxes[j].g) continue;
+      const o = overlap(boxes[i], boxes[j]); if (o > 0) s -= 40 + o / (W * H) * 2000;                // 两组字撞在一起
+    }
+    return s;
+  }
+
+  // ---------- 电影海报 ----------
+  function movieTexts(cp, names) {
+    return {
+      tagline: A(cp.tagline).slice(0, 22).join(""),
+      credits: cp.credit ? A(cp.credit).slice(0, 28).join("") : names.join("　"),
+      date: (cp.date ? String(cp.date) + "　" : "") + "上映",
+      en: A(cp.en).slice(0, 36).join("").toUpperCase()
+    };
+  }
+  function renderMovie(x, W, H, look, compKey, struct, cp, T, names, P, density, dry) {
+    const C = MOVIE[compKey]; const boxes = [];
+    const lines = titleLines(cp, T);
+    const tb = px(C.title, W, H); tb.a = C.title.a; if (C.title2) { tb.second = px(C.title2, W, H); tb.second.a = C.title2.a; }
+    const tst = look(tb); const tk = inkFor(tst);
+    // 片名不强制最大：文艺那一路（细字）照框排、字号本来就克制
+    drawTitle(x, struct, lines, tb, P, tk.ink, dry, P.title[1] <= 300 ? 0.82 : 1).forEach(b => boxes.push({ ...b, g: "t", title: true, dark: tk.dark }));
+    const tx = movieTexts(cp, names);
+    const put = (key, s, k) => { const r = C[key]; if (!r || !s) return; const b = px(r, W, H); b.a = r.a; const ik = inkFor(look(b)); const o = smallLine(x, s, b, P, ik.ink, dry, k); if (o) boxes.push({ ...o, g: key, dark: ik.dark }); };
+    if (density !== "min" || !C.tagline) put("tagline", tx.tagline, 0.85); else put("tagline", tx.tagline, 0.7);
+    put("credits", tx.credits, 0.8);
+    put("date", tx.date, 0.75);
+    if (tx.en && density !== "min" && C.en !== "none") {
+      const last = boxes.filter(b => b.title).sort((a, b) => b.y + b.h - (a.y + a.h))[0];
+      if (C.en === "under" && last) { const b = { x: tb.x, y: last.y + last.h + H * 0.012, w: tb.w, h: H * 0.022, a: tb.a }; const o = smallLine(x, tx.en, b, { ...P, trS: 0.3 }, tk.ink, dry, 0.9); if (o) boxes.push({ ...o, g: "en", dark: tk.dark }); }
+      else if (C.en === "beside" && !dry) {
+        // 竖排片名旁边那一列英文：转九十度沿边走
+        x.save(); x.translate(tb.x - W * 0.012, tb.y); x.rotate(Math.PI / 2);
+        smallLine(x, tx.en, { x: 0, y: -H * 0.022, w: tb.h, h: H * 0.02, a: "left" }, { ...P, trS: 0.35 }, tk.ink, false, 0.9); x.restore();
+      }
+    }
+    return boxes;
+  }
+
+  // ---------- 杂志封面 ----------
+  function renderMag(x, W, H, look, compKey, variant, cp, T, names, P, accent, dry) {
+    const C = MAG[compKey]; const boxes = [];
+    const now = new Date(); const issue = now.getFullYear() + " 年 " + (now.getMonth() + 1) + " 月刊";
+    const mast = A(cp.mast).slice(0, 4).join("") || "我们";
+    const lines = (Array.isArray(cp.lines) ? cp.lines : []).map(v => A(v).slice(0, 18).join("").trim()).filter(Boolean);
+    const special = A(cp.special).slice(0, 8).join("");
+    if (C.frame && !dry) { x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.016; x.strokeRect(W * 0.03, W * 0.03, W - W * 0.06, H - W * 0.06); }
+    let bandInk = null;
+    if (C.band && !dry) { const b = { x: 0, y: H * 0.8, w: W, h: H * 0.2 }; const st = look(b); x.fillStyle = st.mean > 0.5 ? "rgba(24,20,18,.9)" : "rgba(244,239,230,.92)"; x.fillRect(0, H * 0.8, W, H * 0.2); bandInk = st.mean > 0.5 ? "#fbf7f0" : "#1d1a18"; }
+    // 刊名：顶天立地，字号撑满宽度；颜色照那一条的明暗，variant 1 用强调色
+    const mb = px(C.mast, W, H); const mk = inkFor(look(mb)); const [mf, mw] = [P.title[0], Math.max(700, P.title[1])];
+    let z = mb.h * 0.95; while (z > 10 && measure(x, mast, z, mf, mw, 0.02) > mb.w) z -= 2;
+    const mo = dry ? { x: W / 2 - measure(x, mast, z, mf, mw, 0.02) / 2, y: mb.y, w: measure(x, mast, z, mf, mw, 0.02), h: z } : drawLine(x, mast, z, mf, mw, 0.02, W / 2, mb.y + z * 0.88, "center", variant === 1 ? accent : mk.ink);
+    boxes.push({ ...mo, g: "mast", dark: mk.dark });
+    const meta = smallLine(x, issue + (special ? "　|　" + special : ""), { x: mb.x, y: mb.y + z * 1.08, w: mb.w, h: H * 0.03, a: "center" }, P, mk.ink, dry, 0.75); if (meta) boxes.push({ ...meta, g: "meta", dark: mk.dark });
+    const col = (r, arr) => { if (!r || !arr.length) return; const b = px(r, W, H); b.a = r.a; const ik = inkFor(look(b)); let y = b.y;
+      arr.forEach((s, n) => { const k = n === 0 ? 1 : 0.62; const bb = { x: b.x, y, w: b.w, h: b.h / arr.length * 0.7 * k + H * 0.012, a: b.a };
+        const o = smallLine(x, s, bb, n === 0 ? { ...P, small: [P.title[0], Math.max(700, P.title[1])], trS: 0.02 } : P, n === 0 && variant !== 2 ? accent : ik.ink, dry, 0.9); if (o) { boxes.push({ ...o, g: "col" + r.x, dark: ik.dark }); y = o.y + o.h + H * 0.012; } }); };
+    const ls = lines.length ? lines : [];
+    col(C.column, C.column2 ? ls.slice(0, 2) : ls.slice(0, 3)); col(C.column2, ls.slice(2, 3));
+    const hb = px(C.head, W, H); hb.a = C.head.a; const hk = bandInk ? { ink: bandInk, dark: bandInk === "#fbf7f0" } : inkFor(look(hb));
+    const hz = fitSize(x, T, hb, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5, hb.h * 0.9, 0.5);
+    const hax = hb.a === "center" ? hb.x + hb.w / 2 : hb.a === "right" ? hb.x + hb.w : hb.x;
+    const ho = dry ? (() => { const w = measure(x, T, hz, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5); return { x: hb.a === "center" ? hax - w / 2 : hax, y: hb.y, w, h: hz }; })() : drawLine(x, T, hz, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5, hax, hb.y + hz * 0.9, hb.a, hk.ink);
+    boxes.push({ ...ho, g: "head", title: true, dark: hk.dark });
+    if (C.sub) { const sb = px(C.sub, W, H); sb.a = C.sub.a; const o = smallLine(x, names.join(" × ") + "　独家专访", sb, P, bandInk || inkFor(look(sb)).ink, dry, 0.8); if (o) boxes.push({ ...o, g: "sub", dark: bandInk ? bandInk === "#fbf7f0" : inkFor(look(sb)).dark }); }
+    if (C.barcode === "br" && !dry) {
+      const bw = W * 0.16, bh = H * 0.045, bx = W - W * 0.07 - bw, by = H - W * 0.07 - bh;
+      x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05); x.fillStyle = "#111";
+      let cx = bx, seed = (A(T).length * 7 + 3) % 11; while (cx < bx + bw) { seed = (seed * 37 + 11) % 97; const w = W * (0.002 + (seed % 3) * 0.0018); x.fillRect(cx, by, w, bh); cx += w + W * (0.002 + (seed % 2) * 0.002); }
+    }
+    return boxes;
+  }
+
+  // ---------- ③ 图回来以后：排几个候选、挑一张 ----------
+  async function compose(blob, p, copy, names) {
+    const cp = copy || {}; const kind = p && p.kind === "magazine" ? "magazine" : "movie";
+    const P = PERSONA[p && p.persona] || PERSONA.elegant;
+    const T = A(cp.title).slice(0, 16).join("") || (kind === "magazine" ? "我们的故事" : "我们");
+    const nm = (Array.isArray(names) ? names : String(names || "").split(/\s+/)).filter(Boolean);
+    const u = URL.createObjectURL(blob);
+    const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = u; });
+    URL.revokeObjectURL(u);
+    const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const x = c.getContext("2d"), W = c.width, H = c.height;
+    x.drawImage(im, 0, 0);
+    const look = sampler(x, W, H);
+    const allText = T + (cp.tagline || "") + (cp.credit || "") + nm.join("") + (cp.date || "") + (cp.genre || "") + (cp.lines || []).join("") + (cp.special || "") + (cp.mast || "") + "上映年月刊独家专访我们的故事|×　0123456789";
+    await ensureFonts([P.title, P.small, [P.title[0], 700]], allText);
+    const accent = ["#ffd36b", "#ff9db8", "#9fe3ff", "#ff5a4e"][Math.floor(Math.random() * 4)];
+    // 候选：先在【定好的构图】里换片名结构/变体；只有全都看不清，才去别的构图找
+    const cands = [];
+    if (kind === "magazine") {
+      [0, 1, 2].forEach(v => cands.push({ comp: p.comp, v, planned: true }));
+      Object.keys(MAG).filter(k => k !== p.comp).forEach(k => cands.push({ comp: k, v: 0, planned: false }));
+    } else {
+      const C = MOVIE[p.comp] || MOVIE.bottomSpan;
+      C.titles.forEach(s => cands.push({ comp: p.comp in MOVIE ? p.comp : "bottomSpan", v: s, planned: true }));
+      Object.keys(MOVIE).filter(k => k !== p.comp).forEach(k => cands.push({ comp: k, v: MOVIE[k].titles[0], planned: false }));
+    }
+    const run = (cd, dry) => kind === "magazine" ? renderMag(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, accent, dry) : renderMovie(x, W, H, look, cd.comp, cd.v, cp, T, nm, P, p.density, dry);
+    const regionOf = cd => kind === "magazine" ? px(MAG[cd.comp].head, W, H) : px(MOVIE[cd.comp].title, W, H);
+    cands.forEach(cd => { cd.s = score(run(cd, true), W, H, look, cd.planned, regionOf(cd)); });
+    const best = cands.slice().sort((a, b) => b.s - a.s)[0];
+    // 看得清就照画；字底下太杂、对比不够才垫一层渐变（照那块的明暗选黑垫还是白垫）
+    const C2 = kind === "magazine" ? null : MOVIE[best.comp];
+    const tb = C2 ? px(C2.title, W, H) : px(MAG[best.comp].mast, W, H); const st = look(tb);
+    const need = clamp((st.busy - 0.08) * 4 + (st.mean > 0.35 && st.mean < 0.62 ? 0.4 : 0), 0, 1);
+    if (C2) scrim(x, W, H, C2.scrim, 0.35 + need * 0.65, st.mean <= 0.62);
+    else scrim(x, W, H, "top", 0.25 + need * 0.5, st.mean <= 0.62);
+    // 字带一层很淡的光晕，压在任何底上都读得出（不是粗黑影）
+    x.shadowColor = st.mean > 0.62 ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.45)"; x.shadowBlur = W * 0.008;
+    run(best, false);
+    x.shadowBlur = 0;
+    return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
+  }
+
+  window.PosterLayout = { plan, spaceLine, compose, PERSONA_KEYS, MOVIE_COMPS: Object.keys(MOVIE), MAG_COMPS: Object.keys(MAG), _t: { titleLines, genreDefault, score, overlap } };
+})();

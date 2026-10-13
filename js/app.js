@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.571";
+const APP_VERSION = "v75.572";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25107,8 +25107,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     marriage: { zh: "结婚登记照", line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
     grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
     band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
-    magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图：两人占画面中下部，上方和左侧留出排标题的空位，打光讲究；是摄影棚里摄影师拍的时尚大片，两人摆杂志感的姿势、看镜头或看彼此，不是手机自拍；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
-    movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景，画面下方留出排片名的空位；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
+    magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图，打光讲究；是摄影棚里摄影师拍的时尚大片，两人摆杂志感的姿势、看镜头或看彼此，不是手机自拍；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
+    movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
   };
   // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
   const customThemes = () => { const a = loadJSON("x_studioThemes", []); return Array.isArray(a) ? a.filter(x => x && x.k && x.zh) : []; };
@@ -25207,6 +25207,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = (studioRef.current || []).map(x => x.id === id ? { ...x, developAt: 0 } : x);
     studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
   };
+<<<<<<< HEAD
   const studioOverlay = async (blob, kind, title, names, copy, seed) => {
     // 版式、颜色都由 seed 定：同一张换画风后再印一次，排出来跟原来那张一模一样
     let _sd = (Number(seed) || 1) >>> 0;
@@ -25310,19 +25311,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
     } catch (e) { return blob; }
+=======
+  // 封面上的字交给 PosterLayout（js/poster-layout.js）：构图是出图前就定好的（plan），这里照它排、挑一张
+  const studioOverlay = async (blob, plan, copy, names) => {
+    try { return window.PosterLayout ? await window.PosterLayout.compose(blob, plan, copy, names) : blob; }
+    catch (e) { return blob; }
+>>>>>>> origin/main
   };
+
   // 封面上的字让他写：从你们最近的事里挑（多花一次文字调用；没写成就用兜底的）
   const coverCopy = async (char, kind, title) => {
+    // 字＋方向一起要（她 2026-10-13）：类型、气质、字的性格、片名怎么断——只给方向，不给坐标；
+    //   位置由本地 PosterLayout 照这几样定，再写进生图那句留白里。
+    const persona = "persona＝封面上字的性格，从 elegant（优雅）/heavy（厚重）/sharp（锐利）/retro（复古）/playful（俏皮）/cold（冷峻）/hand（手写）里挑一个最贴的；density＝信息量，min/std/rich 挑一个；";
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: kind === "magazine"
-          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑名（4~6 字，比如「吃醋特辑」）；mast＝这本杂志的刊名（2~4 个字，像真杂志名，跟你们有关）。"
-          : "你们俩要上一部电影的海报。照你们真实发生过的事，写海报上的字：" + (title ? "" : "title＝片名（2~8 字）；") + "tagline＝一句宣传语（16 字以内，要像电影海报，跟你们的事有关）；date＝上映日期（写成「X 月 X 日」，可以挑一个对你们有意义的日子）。",
-        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\",\"mast\":\"\"}" : "{\"title\":\"\",\"tagline\":\"\",\"date\":\"\"}",
+          ? "你们俩要上一本杂志的封面。照你们真实发生过的事（最近的聊天、记得的事），写这期封面上的字：" + (title ? "" : "title＝封面大标题（8 字以内）；") + "lines＝三句封面小标题（每句 14 字以内，像杂志封面上那种，要是你们之间真的事，比如某次吵架、某个梗、某个第一次，别写空话）；special＝这期特辑叫什么（6 字以内）；mast＝杂志刊名（2~4 字）；genre＝这是本什么杂志（时尚、生活、八卦、文艺……一个词）；mood＝这期封面的气质（两三个词）；" + persona
+          : "你们俩要上一部电影的海报。照你们真实发生过的事，定这部电影是什么样的，再写海报上的字：" + (title ? "片名用「" + title + "」；" : "title＝片名（2~8 字）；") + "titleLines＝片名分成几行排（数组，拼起来要等于片名，按意思断，不拆开一个词；短片名就一行）；genre＝类型（照你们的事来定，不一定是爱情片，一两个词）；mood＝这部片的气质（两三个词）；tagline＝一句宣传语（16 字以内，要像电影海报，跟你们的事有关）；date＝上映日期（写成「X 月 X 日」，可以挑一个对你们有意义的日子）；en＝英文片名（可以留空）；" + persona,
+        schemaHint: kind === "magazine" ? "{\"title\":\"\",\"lines\":[\"\",\"\",\"\"],\"special\":\"\",\"mast\":\"\",\"genre\":\"\",\"mood\":\"\",\"persona\":\"\",\"density\":\"\"}" : "{\"title\":\"\",\"titleLines\":[\"\"],\"genre\":\"\",\"mood\":\"\",\"tagline\":\"\",\"date\":\"\",\"en\":\"\",\"persona\":\"\",\"density\":\"\"}",
         maxTokens: 8000
       });
-      return d || null;
-    } catch (e) { return null; }
+      if (d && title) d.title = title;
+      return d || (title ? { title } : null);
+    } catch (e) { return title ? { title } : null; }
   };
   const studioShoot = async (char, opt) => {
     const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
@@ -25394,7 +25406,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   穿着、衣柜、场景一概不发——发了图像端就照文字重新拍一张，原图只剩个参考
       const STYLE_BODY = { "Q版": "这张是平面的 Q 版二次元插画（不是立体手办、不是 3D）：两个人都缩成二到三头身，头占身高一半左右，手脚短短圆圆；干净利落的黑色或深色勾线，赛璐璐平涂上色，大大的亮晶晶眼睛，脸颊淡淡的腮红，像贴纸或周边立绘那样可爱；背景照原图但画得简单柔和。", "手办": "整张变成一个精致的 PVC 手办／盲盒小人实拍：两个人是二到三头身的立体小公仔，大头短手短脚，表面是光滑的树脂质感，站在照原图那个场景缩小后的桌面上，像拍手办的照片。", "黏土": "整个画面像黏土定格动画，人物圆润有指纹质感。", "毛毡": "整个画面像羊毛毡手作，人物和背景都是毛茸茸的毡质。", "像素": "整张是像素画，人物和背景都由清晰的方块像素组成。", "油画": "像精心完成的古典油画肖像：笔触柔和、色彩干净通透、皮肤光滑有光泽，不要粗糙的刮刀肌理、不要满屏的颗粒和裂纹，脸上不要脏污感。", "水彩": "水彩要清透、留白多、颜色淡雅，不要发灰发脏。" };
       const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay } : {}) });
+      // 封面先定字：TA写字＋定方向 → 本地挑整张的文字构图 → 留白写进生图那句（图照字的位置画）
+      let cover = null, coverPlan = null;
+      if (theme && theme.overlay && !RESTYLE_ONLY && window.PosterLayout) {
+        cover = await coverCopy(char, theme.overlay, String((opt && opt.scene) || "").trim());
+        coverPlan = window.PosterLayout.plan(theme.overlay, cover || {});
+      }
+      const prompt = RESTYLE_ONLY || buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "" } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
@@ -25409,6 +25427,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           try { const d = await runProbe(apiFor(char.id), ctxFor(char), { instruction: "你们刚用拍立得拍了一张合照：" + scene + "。你拿笔在相纸底下白边上写一行字（14 字以内，就是你此刻想写在这张照片上的话，像你自己的口气）。", schemaHint: "{\"line\":\"\"}", maxTokens: 8000 }); cap = String((d && d.line) || "").trim(); } catch (e) {}
           pol = await polaroidCompose(out.blob, cap); pol.cap = cap;
         }
+<<<<<<< HEAD
         // 杂志封面／电影海报：字照原样记下来、不带字的那张也留一份——换画风时拿没字的去重画，画完照原样再印一次（她 2026-10-13）
         if (theme && theme.overlay) {
           const _t = String((opt && opt.scene) || "").trim();
@@ -25418,6 +25437,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ovl = opt.restyle.overlay;
         }
         const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : ovl ? await studioOverlay(out.blob, ovl.kind, ovl.title, ovl.names, ovl.copy, ovl.seed) : out.blob;
+=======
+        const finalBlob = pol ? pol.blob : opt && opt.comic ? await comicCompose(out.blob, opt.comic) : coverPlan ? await studioOverlay(out.blob, coverPlan, cover || {}, [char.remark || char.name, me.name || "我"]) : out.blob;
+>>>>>>> origin/main
         await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
