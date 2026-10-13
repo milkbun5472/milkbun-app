@@ -1,6 +1,6 @@
 import {createHomeDecor} from './home-decor.mjs?v=fg-337afd5f97d06984';
 import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-337afd5f97d06984';
-import {HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-337afd5f97d06984';
+import {HOME_BED_SURFACE,HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-337afd5f97d06984';
 import {createCollectionFurniture} from './home-collections.mjs?v=fg-337afd5f97d06984';
 import {soupPot,preparationSurface} from './places/kitchen-kit.mjs?v=fg-337afd5f97d06984';
 
@@ -35,7 +35,7 @@ export function createHomeFurniture(k,a,p){
   upright('ScallopedHeadboard',scallop(a.w-.035,1.28),{y:.39,z:headZ,depth:.14,color:a.variant==='soft'?p.fabric:p.wood,bevel:.025});
   if(a.variant==='soft')for(const side of [-1,1])upright('PaddedHeadPetal',arch(1.22,.87),{x:side*.68,y:.6,z:headZ+.092,depth:.06,color:p.fabric});
   else for(let i=0;i<11;i++)b('HeadboardFlute',{x:-a.w/2+.2+i*(a.w-.4)/10,y:.95,z:headZ+.08,w:.045,h:.84-Math.abs(i-5)*.058,d:.015,color:p.dark,radius:.015});
-  flat('Quilt',rounded(a.w-.21,a.d-1.02,.16),{y:.755,z:.49,depth:.11,color:p.fabric});
+  flat('Quilt',rounded(a.w-.21,a.d-1.02,.16),{y:HOME_BED_SURFACE-.055,z:.49,depth:.11,color:p.fabric});
   flat('QuiltTurnback',rounded(a.w-.22,.28,.075),{y:.806,z:-.53,depth:.075,color:p.accent});
   for(let i=0;i<6;i++)b('QuiltStitch',{x:-a.w/2+.28+i*.46,y:.814,z:.55,w:.008,h:.003,d:1.86,color:p.paper,radius:0});
   for(const x of [-.67,.67]){k.ellipsoid('Pillow',{x,y:.785,z:-1.03,w:1.07,h:.23,d:.58,color:p.paper},g);k.tube('PillowSeam',{points:[[x-.35,.83,-.9],[x,.86,-.88],[x+.35,.83,-.9]],r:.008,color:p.accent},g);}

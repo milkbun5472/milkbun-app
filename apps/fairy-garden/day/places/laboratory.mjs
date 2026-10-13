@@ -1,3 +1,5 @@
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
+import {KEYBOARD} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
 import {keyboard} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
 import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-337afd5f97d06984';
 
@@ -16,7 +18,8 @@ const furniture=[
   {id:'break-side-table',kind:'table',x:-4.42,z:2.78,w:.58,d:.6,top:.58,color:'#bba68a'},
   {id:'laboratory-plant',kind:'plant',x:4.35,z:3.05,w:.5,d:.5}
 ];
-const piece=id=>furniture.find(p=>p.id===id);
+
+deskWorkSurfaces(furniture,['computer-desk']);const piece=id=>furniture.find(p=>p.id===id);
 const seats={
   computer:roomSeat(furniture,'computer-chair',{x:3.18,z:-1.22}),
   records:roomSeat(furniture,'records-chair',{x:3.15,z:2.26}),
@@ -98,7 +101,7 @@ function computerWorkstation(kit,p){
   kit.box('monitor',{y:top+.47,z:-.29,w:.9,h:.57,d:.095,color:'#778e84'},g);
   kit.box('screen',{y:top+.47,z:-.235,w:.79,h:.45,d:.012,color:'#c9dddb',radius:.009},g);
   for(let i=0;i<4;i++)kit.box('screen-data-bar',{x:-.27+i*.16,y:top+.365+i*.045,z:-.225,w:.065,h:.13+i*.09,d:.005,color:'#7ca294',radius:0},g);
-  keyboard(kit,g,{y:top,z:.41});
+  keyboard(kit,g,{y:top,z:KEYBOARD.labZ});
   kit.box('mouse',{x:.53,y:top+.047,z:.22,w:.105,h:.07,d:.16,color:'#7f998a'},g);
   kit.book('reference-book',{x:-.76,y:top+.058,z:-.03,w:.3,d:.42,color:'#9dad90',flat:true},g);
 }

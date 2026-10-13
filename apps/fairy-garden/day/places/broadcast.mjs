@@ -1,3 +1,5 @@
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
+import {MIXER} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
 import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-337afd5f97d06984';
 import {computer,cabinet} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
 import {cameraRig,microphone} from './media-kit.mjs?v=fg-337afd5f97d06984';
@@ -15,7 +17,8 @@ const furniture=[
  {id:'break-bench',kind:'bench',x:-3.72,z:3.48,w:2.92,d:.65,seat:.45,heading:0,color:'#99aaa2'},
  {id:'entry-plant',kind:'plant',x:5.55,z:4.32,w:.55,d:.55}
 ];
-const seats={script:roomSeat(furniture,'script-chair',{x:-3.58,z:-.17}),mix:roomSeat(furniture,'mix-chair',{x:2.88,z:-2.91}),stream:roomSeat(furniture,'stream-chair',{x:4.21,z:1.25}),rest:roomSeat(furniture,'break-bench',{x:-3.72,z:2.66})};
+
+deskWorkSurfaces(furniture,['mix-desk', 'stream-desk']);const seats={script:roomSeat(furniture,'script-chair',{x:-3.58,z:-.17}),mix:roomSeat(furniture,'mix-chair',{x:2.88,z:-2.91}),stream:roomSeat(furniture,'stream-chair',{x:4.21,z:1.25}),rest:roomSeat(furniture,'break-bench',{x:-3.72,z:2.66})};
 const sit=(id,label,description,piece,action='work')=>({id,label,description,action,gesture:action==='read'?'read':'rest',target:seats[id].approach,heading:seats[id].heading,seat:seats[id],furniture:piece});
 export const broadcastMap={label:'录音／直播间',renderer:'dayBroadcast',radius:12,bounds:SIZE,floor:FLOOR,spawn:{x:0,z:5.38},view:{x:0,z:0},furniture,seats,obstacles:roomObstacles(furniture,SIZE),spots:[
  {id:'entrance',label:'录制空间入口',description:'从入口进入，走向录音区或直播工位。',action:'rest',gesture:'rest',target:{x:0,z:5.1},heading:Math.PI},
@@ -36,8 +39,8 @@ export function createBroadcast(){
  const divider=k.group('booth-divider',{x:-1.9,z:-3.73});k.box('BoothLowWall',{y:.45,w:.14,h:.75,d:3.89,color:'#829492'},divider);for(let z=-1.81;z<1.85;z+=.30)k.box('AcousticSlat',{y:1.8,z,w:.13,h:1.90,d:.065,color:'#b2b4a0'},divider);k.box('SlatHeader',{y:2.77,w:.14,h:.08,d:3.89,color:'#829492'},divider);
  for(const p of furniture){if(p.kind==='table')k.table(p);else if(p.kind==='chair')k.chair(p);else if(p.kind==='bench')k.bench(p);else if(p.kind==='cabinet')cabinet(k,p,'#7d94a3');else if(p.kind==='plant'){const g=k.plant(p.x,p.z);g.name=p.id;}}
  const mic=furniture.find(p=>p.id==='record-mic'),micRoot=k.group(mic.id,{x:mic.x,z:mic.z});microphone(k,micRoot,{y:1.20,furniture:mic.id});
- const mix=k.root.getObjectByName('mix-desk');k.box('MixConsole',{y:.97,z:.17,w:2.58,h:.075,d:.82,color:'#5c7282'},mix);
- for(let i=0;i<8;i++){const x=-1.02+i*.29;k.box('FaderTrack',{x,y:1.012,z:.33,w:.035,h:.005,d:.30,color:'#9cb0b5',radius:0},mix);const fader=k.replaceableGroup('MixFader:'+i,{x,y:1.024,z:.32},mix);fader.userData.dayFader={furniture:'mix-desk',index:i};k.box('FaderCap',{w:.07,h:.023,d:.055,color:'#d4d8c9'},fader);for(let n=0;n<3;n++)k.cylinder('MixKnob',{x,y:1.028,z:-.04-n*.09,r:.024,h:.034,color:'#a9bab1'},mix);}
+ const mix=k.root.getObjectByName('mix-desk');k.box('MixConsole',{y:.8475,z:.17,w:2.58,h:.035,d:.82,color:'#5c7282'},mix);
+ for(let i=0;i<8;i++){const x=MIXER.start+i*MIXER.step;k.box('FaderTrack',{x,y:.872,z:MIXER.z,w:.035,h:.005,d:.30,color:'#9cb0b5',radius:0},mix);const fader=k.replaceableGroup('MixFader:'+i,{x,y:FLOOR+MIXER.y-.0115,z:MIXER.z},mix);fader.userData.dayFader={furniture:'mix-desk',index:i};k.box('FaderCap',{w:.07,h:.023,d:.055,color:'#d4d8c9'},fader);for(let n=0;n<3;n++)k.cylinder('MixKnob',{x,y:.888,z:-.04-n*.09,r:.024,h:.034,color:'#a9bab1'},mix);}
  const levels=k.group('MixLevelMeter',{x:2.05,y:1.8,z:-4.16});for(let i=0;i<12;i++){const bar=k.replaceableGroup('Level:'+i,{x:-.85+i*.155},levels);bar.userData.dayLevel={furniture:'mix-desk',index:i};k.box('LevelBar',{y:.15,w:.10,h:.30,d:.018,color:i>8?'#c89e88':'#9ebaa3'},bar);}k.box('MeterFrame',{x:2.05,y:1.86,z:-4.19,w:2.3,h:.69,d:.06,color:'#5e7580'});
  computer(k,furniture.find(p=>p.id==='stream-desk'));
  const stream=k.root.getObjectByName('stream-desk');microphone(k,stream,{x:-.91,y:1.17,z:.25,furniture:'stream-desk',desk:true});

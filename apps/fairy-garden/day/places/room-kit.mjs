@@ -23,7 +23,8 @@ export function roomSeat(furniture,id,approach){
     const s=Math.sin(chair.heading||0),c=Math.cos(chair.heading||0);
     for(const table of furniture.filter(p=>p.kind==='table')){
       const dx=table.x-chair.x,dz=table.z-chair.z,forward=dx*s+dz*c,side=Math.abs(dx*c-dz*s),depth=(Math.abs(s)*table.w+Math.abs(c)*table.d)/2,width=(Math.abs(c)*table.w+Math.abs(s)*table.d)/2;
-      if(forward>0&&side<width+.1&&forward-depth<.50){const shift=.50-(forward-depth);chair.x-=s*shift;chair.z-=c*shift;}
+      const gap=table.seatedWork?.34:.50;
+      if(forward>0&&side<width+.1&&(forward-depth<gap||table.seatedWork&&forward-depth<.65)){const shift=gap-(forward-depth);chair.x-=s*shift;chair.z-=c*shift;}
     }
   }
   const p=furniture.find(p=>p.id===id);

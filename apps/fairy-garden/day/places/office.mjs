@@ -1,3 +1,4 @@
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
 import * as T from 'three';
 import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-337afd5f97d06984';
 import {computer,notebook,cabinet,board} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
@@ -21,7 +22,8 @@ const furniture=[
  {id:'office-plant',kind:'plant',x:5.92,z:3.67,w:.55,d:.55},
  {id:'entry-plant',kind:'plant',x:-5.9,z:3.64,w:.55,d:.55}
 ];
-const seats={computer:roomSeat(furniture,'window-chair',{x:-3.77,z:-2.34}),notes:roomSeat(furniture,'notes-chair',{x:-1.13,z:-2.34}),meeting:roomSeat(furniture,'meeting-chair',{x:1.96,z:-1.98}),meetingNotes:roomSeat(furniture,'meeting-notes-chair',{x:5.20,z:-1.98}),tea:roomSeat(furniture,'tea-chair',{x:1.53,z:2.49}),rest:roomSeat(furniture,'break-bench',{x:-1.70,z:2.73})};
+
+deskWorkSurfaces(furniture,['window-workstation']);const seats={computer:roomSeat(furniture,'window-chair',{x:-3.77,z:-2.34}),notes:roomSeat(furniture,'notes-chair',{x:-1.13,z:-2.34}),meeting:roomSeat(furniture,'meeting-chair',{x:1.96,z:-1.98}),meetingNotes:roomSeat(furniture,'meeting-notes-chair',{x:5.20,z:-1.98}),tea:roomSeat(furniture,'tea-chair',{x:1.53,z:2.49}),rest:roomSeat(furniture,'break-bench',{x:-1.70,z:2.73})};
 const sit=(id,label,description,key,piece,action='work')=>({id,label,description,action,gesture:action==='tea'?'tea':'rest',target:seats[key].approach,heading:seats[key].heading,seat:seats[key],furniture:piece});
 export const officeMap={label:'办公室／会议室',renderer:'dayOffice',radius:12,bounds:SIZE,floor:FLOOR,spawn:{x:0,z:4.87},view:{x:0,z:0},furniture,seats,obstacles:roomObstacles(furniture,SIZE),spots:[
  {id:'entrance',label:'办公区入口',description:'从入口穿过通道，走向工位或会议区。',action:'rest',gesture:'rest',target:{x:0,z:4.6},heading:Math.PI},

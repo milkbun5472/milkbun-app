@@ -9,9 +9,9 @@ test('全部沙发餐椅的旋转坐点：臀部下方是真坐面，深椅坐�
   const offset={x:p.kind==='sofa'?.6:0},seat=furnitureSeat(p,null,offset),forward={x:Math.sin(heading),z:Math.cos(heading)};
   const at=distance=>new T.Vector3(seat.x-forward.x*distance,2,seat.z-forward.z*distance);
   const cast=distance=>new T.Raycaster(at(distance),new T.Vector3(0,-1,0)).intersectObject(g,true).find(h=>h.point.y<=.533);
-  const support=cast(.1);assert.ok(support,item.id+' pelvis needs a cushion');assert.ok(Math.abs(support.point.y-.53)<.003,item.id+' actual seat height');
-  // The most rearward heel in the real wardrobe lies .033 behind the hip.
-  if(p.kind==='sofa'){const heel=cast(.033);assert.ok(!heel||heel.point.y<.51,item.id+' heel crosses cushion');}else{assert.equal(seat.pose,'deep');assert.ok(Math.abs((seat.x-p.x)*forward.x+(seat.z-p.z)*forward.z)<p.d/2-.1);}
+  const support=cast(p.kind==='sofa'?0:.1);assert.ok(support,item.id+' pelvis needs a cushion');assert.ok(Math.abs(support.point.y-.53)<.003,item.id+' actual seat height');
+  // The bent knee places the shoes forward of the supported pelvis.
+  if(p.kind==='sofa'){const heel=cast(-.10);assert.ok(!heel||heel.point.y<.51,item.id+' heel crosses cushion');}else{assert.equal(seat.pose,'deep');assert.ok(Math.abs((seat.x-p.x)*forward.x+(seat.z-p.z)*forward.z)<p.d/2-.1);}
  }
 });
 test('窄长椅的坐点在坐板内，四个朝向都由真实坐面承托',()=>{

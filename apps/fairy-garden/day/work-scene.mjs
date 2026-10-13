@@ -1,3 +1,4 @@
+import {MIXER,mixerPoint} from './work-contacts.mjs?v=fg-337afd5f97d06984';
 // The scenery and traveler follow the same task. Reset movable props when work stops.
 export function updateWorkScene(root,task,moving,time,otherTasks=[]){
  if(!root)return;
@@ -6,7 +7,7 @@ export function updateWorkScene(root,task,moving,time,otherTasks=[]){
  if(!moving&&['paint','craft'].includes(task?.kind)){root.userData.workProgress||={};root.userData.workProgress[task.kind]=Math.max(root.userData.workProgress[task.kind]||0,task.progress||0);}
  root.traverse(o=>{
   if(o.userData.daySignal){const s=o.userData.daySignal,furniture=Array.isArray(s.furniture)?s.furniture:[s.furniture];o.visible=!moving&&furniture.includes(task?.furniture)&&s.kinds.includes(task?.kind)&&(!s.spot||task?.spot===s.spot);}
-  if(o.userData.dayFader){const f=o.userData.dayFader;o.position.z=.32+(!moving&&task?.kind==='console'&&task?.furniture===f.furniture?Math.sin(time*1.2+f.index)*.055:0);}
+  if(o.userData.dayFader){const f=o.userData.dayFader;o.position.z=!moving&&task?.kind==='console'&&task?.furniture===f.furniture&&[MIXER.right,MIXER.left].includes(f.index)?mixerPoint(f.index,task.elapsed).z:MIXER.z;}
   if(o.userData.dayLevel){const l=o.userData.dayLevel;o.scale.y=!moving&&['console','voice','sing','stream'].includes(task?.kind)? .25+(Math.sin(time*3+l.index)+1)*.50: .15;}
   if(o.userData.dayCamera){const filming=!moving&&task?.kind==='camera'&&task?.furniture===o.userData.dayCamera;o.rotation.y=filming?Math.sin(time*.7)*.025:0;}
   if(o.userData.dayPass){o.visible=moving||task?.kind!=='serve'||task?.furniture!==o.userData.dayPass;}

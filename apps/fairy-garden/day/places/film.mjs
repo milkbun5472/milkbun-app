@@ -1,3 +1,4 @@
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
 import * as T from 'three';
 import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-337afd5f97d06984';
 import {computer} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
@@ -17,7 +18,8 @@ const furniture=[
  {id:'monitor-chair',kind:'chair',x:-.03,z:3.41,w:.56,d:.57,heading:Math.PI,color:'#778e9b'},
  {id:'wait-bench',kind:'bench',x:4.12,z:4.35,w:2.83,d:.65,seat:.45,heading:0,color:'#bba2a1'}
 ];
-const seats={makeup:roomSeat(furniture,'vanity-chair',{x:3.86,z:-3.12}),script:roomSeat(furniture,'script-chair',{x:3.86,z:-.19}),review:roomSeat(furniture,'monitor-chair',{x:.79,z:3.41}),rest:roomSeat(furniture,'wait-bench',{x:4.12,z:3.53})};
+
+deskWorkSurfaces(furniture,['monitor-desk']);const seats={makeup:roomSeat(furniture,'vanity-chair',{x:3.86,z:-3.12}),script:roomSeat(furniture,'script-chair',{x:3.86,z:-.19}),review:roomSeat(furniture,'monitor-chair',{x:.79,z:3.41}),rest:roomSeat(furniture,'wait-bench',{x:4.12,z:3.53})};
 const sit=(id,label,description,piece,action='work')=>({id,label,description,action,gesture:action==='read'?'read':'rest',target:seats[id].approach,heading:seats[id].heading,seat:seats[id],furniture:piece});
 export const filmMap={label:'拍摄棚／妆造区',renderer:'dayFilm',radius:13,bounds:SIZE,floor:FLOOR,spawn:{x:0,z:5.38},view:{x:0,z:0},furniture,seats,obstacles:roomObstacles(furniture,SIZE),spots:[
  {id:'entrance',label:'拍摄棚入口',description:'经过候场区，走向当天拍摄需要的位置。',action:'rest',gesture:'rest',target:{x:0,z:5.1},heading:Math.PI},

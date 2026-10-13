@@ -1,3 +1,5 @@
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
+import {PIANO} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
 import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-337afd5f97d06984';
 
 const FLOOR=.08;
@@ -12,7 +14,8 @@ const furniture=[
   {id:'score-cabinet',kind:'cabinet',x:3.05,z:2.66,w:1.9,d:.7,h:.95},
   {id:'entry-plant',kind:'plant',x:-3.85,z:3.08,w:.55,d:.55}
 ];
-const seats={piano:roomSeat(furniture,'piano-chair',{x:2.39,z:-2.10}),rest:roomSeat(furniture,'rest-bench',{x:-2.6,z:-2.79})};
+
+deskWorkSurfaces(furniture,['piano-table']);const seats={piano:roomSeat(furniture,'piano-chair',{x:2.39,z:-2.10}),rest:roomSeat(furniture,'rest-bench',{x:-2.6,z:-2.79})};
 export const rehearsalMap={
   label:'排练室',renderer:'dayRehearsal',radius:9,bounds:{w:10,d:9},floor:FLOOR,
   spawn:{x:0,z:4},view:{x:0,z:0},furniture,obstacles:roomObstacles(furniture),seats,
@@ -61,10 +64,10 @@ function cabinets(kit,p){
 }
 function instruments(kit){
   const g=kit.replaceableGroup('RehearsalInstruments');
-  const piano=kit.group('ElectricPiano',{x:3.25,y:FLOOR+.85,z:-3.06},g);
+  const piano=kit.group('ElectricPiano',{x:3.25,y:FLOOR+furniture.find(p=>p.id==='piano-table').top,z:-3.06},g);
   kit.box('piano-case',{y:.027,w:2.03,h:.054,d:.98,color:'#6e8077'},piano);
   for(let i=0;i<21;i++){
-    const key=kit.replaceableGroup('PianoKey-'+i,{x:-.86+i*.086,y:.071,z:.22},piano);
+    const key=kit.replaceableGroup('PianoKey-'+i,{x:PIANO.start+i*PIANO.step,y:.071,z:.22},piano);
     key.userData.key=i;kit.box('white-key',{z:.16,w:.080,h:.018,d:.31,color:'#eee9da',radius:.002},key);
     if(i<20&&![2,6].includes(i%7))kit.box('black-key',{x:.041,y:.022,z:.045,w:.047,h:.035,d:.18,color:'#53655c',radius:.004},key);
   }

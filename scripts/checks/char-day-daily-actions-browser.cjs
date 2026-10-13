@@ -10,7 +10,7 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
   await p.evaluate(async writer=>{
    let plans={};window.dailyRef={current:plans};window.dailySave=new Function('setSchedules','schedulesRef','saveJSON',writer+'return saveSchedDay;')(fn=>{plans=fn(plans);},dailyRef,saveJSON);
    window.dailyPlan=(scene,spot,title)=>dailySave('daily-a','2026-10-09',{seqs:[{seq:1,time:'10:00',end:'11:00',title,location:scene==='dayCafe'?'街角小店':'共同小家',type:'home',world:spot?{scene,spot}:null}]});
-   dailyPlan('dayHome','read','在家读书');window.dailyWrites=[];const original=saveJSON;window.saveJSON=(key,...args)=>{dailyWrites.push(key);return original(key,...args);};window.dailyModels=0;window.callAI=()=>{dailyModels++;throw Error('Unexpected model request');};
+   dailyPlan('dayHome','read','在家读书');await saveJSONDurable('x_charDayHomes',{version:3,socialPreferences:{'daily-a':{autoInteractions:false}}});window.dailyWrites=[];const original=saveJSON;window.saveJSON=(key,...args)=>{dailyWrites.push(key);return original(key,...args);};window.dailyModels=0;window.callAI=()=>{dailyModels++;throw Error('Unexpected model request');};
    window.dailyGames=JSON.stringify(loadJSON('x_fairyGardenSaves',[]));const el=document.createElement('div');el.id='daily-root';el.style.cssText='position:fixed;inset:0;z-index:999999;height:100dvh';document.body.append(el);window.dailyRoot=ReactDOM.createRoot(el);
    dailyRoot.render(React.createElement(CharDayApp,{initialCharId:'daily-a',characters:[{id:'daily-a',name:'小家动作测试',gender:'male',tz:'0'}],plansFor:c=>dailyRef.current[c.id]||{},lookFor:()=>({outfit:'academy',hair:'korean',hairColor:'#43352e'}),taFor:()=> '他',onBack:()=>{},build:'daily-actions-browser'}));
   },writer);

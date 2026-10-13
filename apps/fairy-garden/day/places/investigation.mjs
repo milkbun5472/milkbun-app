@@ -1,3 +1,4 @@
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-337afd5f97d06984';
 import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-337afd5f97d06984';
 import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
 const FLOOR=.08,SIZE={w:14,d:11};
@@ -16,7 +17,8 @@ const furniture=[
  {id:'break-bench',kind:'bench',x:3.50,z:3.54,w:2.9,d:.65,seat:.45,heading:0,color:'#8b9c8a'},
  {id:'entry-plant',kind:'plant',x:-5.9,z:3.8,w:.55,d:.55}
 ];
-const seats={notes:roomSeat(furniture,'case-chair',{x:-3.67,z:-1.73}),computer:roomSeat(furniture,'analysis-chair',{x:-.63,z:-1.73}),duty:roomSeat(furniture,'duty-chair',{x:4.48,z:-1.52}),tea:roomSeat(furniture,'tea-chair',{x:-.58,z:2}),rest:roomSeat(furniture,'break-bench',{x:3.5,z:2.72})};
+
+deskWorkSurfaces(furniture,['analysis-desk']);const seats={notes:roomSeat(furniture,'case-chair',{x:-3.67,z:-1.73}),computer:roomSeat(furniture,'analysis-chair',{x:-.63,z:-1.73}),duty:roomSeat(furniture,'duty-chair',{x:4.48,z:-1.52}),tea:roomSeat(furniture,'tea-chair',{x:-.58,z:2}),rest:roomSeat(furniture,'break-bench',{x:3.5,z:2.72})};
 const sit=(id,label,description,piece,action='work')=>({id,label,description,action,gesture:action==='tea'?'tea':'rest',target:seats[id].approach,heading:seats[id].heading,seat:seats[id],furniture:piece});
 export const investigationMap={label:'办案室／值勤区',renderer:'dayInvestigation',radius:12,bounds:SIZE,floor:FLOOR,spawn:{x:0,z:4.87},view:{x:0,z:0},furniture,seats,obstacles:roomObstacles(furniture,SIZE),spots:[
  {id:'entrance',label:'值勤区入口',description:'沿中央通道进入办案区，走向当前案件工位。',action:'rest',gesture:'rest',target:{x:0,z:4.6},heading:Math.PI},

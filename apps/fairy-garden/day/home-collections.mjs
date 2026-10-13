@@ -1,5 +1,5 @@
 import {rounded,arch,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-337afd5f97d06984';
-import {furnitureSeatSurface} from './home-catalog.mjs?v=fg-337afd5f97d06984';
+import {HOME_BED_SURFACE,furnitureSeatSurface} from './home-catalog.mjs?v=fg-337afd5f97d06984';
 
 // Collections change construction as well as their default palette. All seats
 // end at .53 and all mattresses share the existing bed contact surface.
@@ -26,7 +26,7 @@ export function createCollectionFurniture(k,a,p,g){
  }
  function bedding(){
   flat('CollectionMattress',rounded(W-.18,D-.18,.13),{y:.605,depth:.21,color:p.paper},'fabric');
-  flat('CollectionDuvet',rounded(W-.26,D-1.06,.12),{y:.755,z:.49,depth:.11,color:p.fabric},'fabric');
+  flat('CollectionDuvet',rounded(W-.26,D-1.06,.12),{y:HOME_BED_SURFACE-.055,z:.49,depth:.11,color:p.fabric},'fabric');
   flat('CollectionFold',rounded(W-.27,.28,.07),{y:.809,z:-.52,depth:.055,color:p.accent},'fabric');
   for(const x of [-.67,.67])e('CollectionPillow',{x,y:.785,z:-1.03,w:1.05,h:.23,d:.58,color:p.paper});
  }

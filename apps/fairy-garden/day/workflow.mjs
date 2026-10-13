@@ -1,3 +1,4 @@
+import {workControls} from './work-contacts.mjs?v=fg-337afd5f97d06984';
 import {errandsTaskAt} from './errands-workflow.mjs?v=fg-337afd5f97d06984';
 import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-337afd5f97d06984';
 import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-337afd5f97d06984';
@@ -92,6 +93,7 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,mot
  if(kind==='piano')task.leftTarget={...target,x:p.x+.12};
  if(kind==='paint'){task.tool=stage.map===CAMPUS?'chalk':'brush';if(task.tool==='chalk')task.target={x:task.contact.x,y:task.contact.y,z:task.contact.z+.09};}
  occupationTask(task,{...map,id:stage.map},spot,p);
+ workControls(task,map,p);
  if(carryType==='luggage'){
   const rack=map.furniture.find(f=>f.id==='luggage-shelf'),storedAt={x:rack.x-.12,y:map.floor+.145,z:rack.z+.27};
   const stored=stage.phase==='work'&&!['pack','take-luggage'].includes(stage.motion)||stage.phase==='tidy'&&moving;
