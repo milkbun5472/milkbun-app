@@ -380,7 +380,20 @@
     const special = A(cp.special).slice(0, 8).join("");
     if (C.frame && !dry) { x.strokeStyle = "rgba(255,255,255,.95)"; x.lineWidth = W * 0.016; x.strokeRect(W * 0.03, W * 0.03, W - W * 0.06, H - W * 0.06); }
     let bandInk = null;
-    if (C.band && !dry) { const b = { x: 0, y: H * 0.8, w: W, h: H * 0.2 }; const st = look(b); x.fillStyle = st.mean > 0.5 ? "rgba(24,20,18,.9)" : "rgba(244,239,230,.92)"; x.fillRect(0, H * 0.8, W, H * 0.2); bandInk = st.mean > 0.5 ? "#fbf7f0" : "#1d1a18"; }
+    // 色带不再一刀切（她 2026-10-13：「图片往下移然后 fade 背景就好看了，然后跟电影刚改的一样字体颜色变化」）：
+    //   从画面中下部开始慢慢渐进成色带，照片像是沉进色带里；色带和上面的字都带上这张照片的主色，不再是死黑死白
+    let bandAccent = null;
+    if (C.band && !dry) {
+      const b = { x: 0, y: H * 0.8, w: W, h: H * 0.2 }; const st = look(b), P0 = PAL || { h: 38, s: 0.55 }, darkBand = st.mean > 0.5;
+      const bh = P0.h, bs = Math.min(P0.s, 0.6) * (darkBand ? 0.35 : 0.25), bl = darkBand ? 0.12 : 0.93;
+      const hsla = a2 => "hsla(" + Math.round(bh) + "," + Math.round(bs * 100) + "%," + Math.round(bl * 100) + "%," + a2 + ")";
+      // 一整条渐变画到底（分两块画，接缝那一行会叠出一道细线）
+      const g = x.createLinearGradient(0, H * 0.56, 0, H);
+      g.addColorStop(0, hsla(0)); g.addColorStop(0.3, hsla(0.55)); g.addColorStop(0.55, hsla(0.94)); g.addColorStop(1, hsla(0.94));
+      x.fillStyle = g; x.fillRect(0, Math.floor(H * 0.56), W, H - Math.floor(H * 0.56));
+      bandInk = darkBand ? hsl(bh, Math.min(P0.s, 0.4) * 0.45, 0.95) : hsl(bh, Math.min(P0.s, 0.5) * 0.6, 0.11);
+      bandAccent = hsl(bh, P0.s, darkBand ? 0.74 : 0.32);
+    }
     // 刊名：顶天立地，字号撑满宽度；颜色照那一条的明暗，variant 1 用强调色
     const mb = px(C.mast, W, H); const mk = inkFor(look(mb)); const [mf, mw] = [P.title[0], Math.max(700, P.title[1])];
     let z = mb.h * 0.95; while (z > 10 && measure(x, mast, z, mf, mw, 0.02) > mb.w) z -= 2;
@@ -392,12 +405,12 @@
         const o = smallLine(x, s, bb, n === 0 ? { ...P, small: [P.title[0], Math.max(700, P.title[1])], trS: 0.02 } : P, n === 0 && variant !== 2 ? accent : ik.ink, dry, 0.9); if (o) { boxes.push({ ...o, g: "col" + r.x, dark: ik.dark }); y = o.y + o.h + H * 0.012; } }); };
     const ls = lines.length ? lines : [];
     col(C.column, C.column2 ? ls.slice(0, 2) : ls.slice(0, 3)); col(C.column2, ls.slice(2, 3));
-    const hb = px(C.head, W, H); hb.a = C.head.a; const hk = bandInk ? { ink: bandInk, dark: bandInk === "#fbf7f0" } : inkFor(look(hb));
+    const hb = px(C.head, W, H); hb.a = C.head.a; const hk = bandInk ? { ink: bandAccent || bandInk, dark: /,9\d%\)$/.test(bandInk) } : inkFor(look(hb));
     const hz = fitSize(x, T, hb, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5, hb.h * 0.9, 0.5);
     const hax = hb.a === "center" ? hb.x + hb.w / 2 : hb.a === "right" ? hb.x + hb.w : hb.x;
     const ho = dry ? (() => { const w = measure(x, T, hz, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5); return { x: hb.a === "center" ? hax - w / 2 : hax, y: hb.y, w, h: hz }; })() : drawLine(x, T, hz, P.title[0], Math.max(500, P.title[1]), P.tr * 0.5, hax, hb.y + hz * 0.9, hb.a, hk.ink);
     boxes.push({ ...ho, g: "head", title: true, dark: hk.dark });
-    if (C.sub) { const sb = px(C.sub, W, H); sb.a = C.sub.a; const o = smallLine(x, names.join(" × ") + "　独家专访", sb, P, bandInk || inkFor(look(sb)).ink, dry, 0.8); if (o) boxes.push({ ...o, g: "sub", dark: bandInk ? bandInk === "#fbf7f0" : inkFor(look(sb)).dark }); }
+    if (C.sub) { const sb = px(C.sub, W, H); sb.a = C.sub.a; const o = smallLine(x, names.join(" × ") + "　独家专访", sb, P, bandInk || inkFor(look(sb)).ink, dry, 0.8); if (o) boxes.push({ ...o, g: "sub", dark: bandInk ? /,9\d%\)$/.test(bandInk) : inkFor(look(sb)).dark }); }
     if (C.barcode === "br" && !dry) {
       const bw = W * 0.16, bh = H * 0.045, bx = W - W * 0.07 - bw, by = H - W * 0.07 - bh;
       x.fillStyle = "#fff"; x.fillRect(bx - W * 0.012, by - W * 0.012, bw + W * 0.024, bh + W * 0.05); x.fillStyle = "#111";
