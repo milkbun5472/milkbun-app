@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.563";
+const APP_VERSION = "v75.564";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7583,7 +7583,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (hn) {
           // 轮着来（群友 2026-10-14「来来回回都是第一个人来问」）：原来 find 永远挑名单里排第一个能来的。
           //   按「哪天哪一顿」定一个起点轮转——同一顿重试还是同一个人，换一顿、换一天就换人。
-          const _ok = characters.filter(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
+          const _ok = liveChars.filter(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
           const _seed = String(hn.day) + ":" + String(hn.meal);
           let _h = 0; for (let _i = 0; _i < _seed.length; _i++) _h = (_h * 31 + _seed.charCodeAt(_i)) >>> 0;
