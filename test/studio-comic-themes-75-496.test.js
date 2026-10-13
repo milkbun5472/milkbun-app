@@ -28,3 +28,8 @@ assert.match(scr, /"data-wk": "studiostack"/);
 assert.match(scr, /"data-wk": "studiostackbadge"/);
 assert.match(scr, /const stackKey = x =>/);
 console.log("ok stack");
+// 画风可自定义（她 2026-10-13）
+assert.match(scr, /"data-wk": "studiostyleadd"/);
+assert.match(scr, /saveJSON\("x_studioStyles"/);
+assert.match(scr, /STYLES\.concat\(myStyles\)/);
+console.log("ok styles");

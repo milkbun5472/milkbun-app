@@ -16964,7 +16964,12 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [themeTick, setThemeTick] = useState(0);
   const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
   const [themeEdit, setThemeEdit] = useState(null);   // { k?, zh, line } 正在写的自定义题材
-  const STYLES = ["漫画", "水彩", "像素", "Q版", "油画", "铅笔素描"];
+  // 预设画风（她 2026-10-13：「还有啥有意思的画风」）＋她自己写的（存 x_studioStyles）
+  const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];
+  const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
+  const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
+  const [styleDraft, setStyleDraft] = useState(null);
+  const doRestyle = async st => {                 const ref = await photoDataUrl(big); if (!ref) return;                 const src = bigStack.find(y => !y.style) || big; const ref2 = src === big ? ref : (await photoDataUrl(src)) || ref;                 setSharp(true); const row = await onShoot({ scene: src.scene || "", restyle: { ref: ref2, style: st, parent: stackKey(big) } }); setSharp(false); if (row) setBig(row); };
   const photoDataUrl = async ph => {
     let b = ph && ph.imgKey && typeof idbImgGet === "function" ? await idbImgGet(ph.imgKey).catch(() => null) : null;
     if (!b && ph && ph.imgUrl) { try { b = await (await fetch(ph.imgUrl)).blob(); } catch (e) { b = null; } }
@@ -17021,11 +17026,20 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
           // 换画风：拿这张当底，整张重画成另一种画法（花一次生图，拍好是新的一张，原来那张还在）
           h("div", { "data-wk": "studiorestyle", className: "flex items-center flex-wrap", style: { gap: 6, marginTop: 12 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, sharp ? "在重画…" : "换画风："),
-            STYLES.map(st => h("button", { key: st, disabled: !!(sharp || busy), onClick: async () => {
-                const ref = await photoDataUrl(big); if (!ref) return;
-                const src = bigStack.find(y => !y.style) || big; const ref2 = src === big ? ref : (await photoDataUrl(src)) || ref;
-                setSharp(true); const row = await onShoot({ scene: src.scene || "", restyle: { ref: ref2, style: st, parent: stackKey(big) } }); setSharp(false); if (row) setBig(row); },
-              className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st))),
+            STYLES.concat(myStyles).map(st => h("button", { key: st, disabled: !!(sharp || busy), onClick: () => doRestyle(st),
+              className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px " + (myStyles.includes(st) ? "dashed " : "solid ") + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st)),
+            h("button", { "data-wk": "studiostyleadd", disabled: !!(sharp || busy), onClick: () => setStyleDraft(""), className: "active:opacity-70 disabled:opacity-40",
+              style: { padding: "5px 11px", borderRadius: 999, border: "1px dashed #b9a6cc", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, "＋自己写")),
+          styleDraft !== null ? h("div", { "data-wk": "studiostyleedit", className: "flex items-center", style: { gap: 8, marginTop: 8, border: "1px solid " + t.line, borderRadius: 12, padding: "6px 10px" } },
+            h("input", { value: styleDraft, onChange: e => setStyleDraft(e.target.value), maxLength: 40, placeholder: "想要什么画风（如：赛博朋克插画、老式明信片）",
+              style: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
+            h("button", { onClick: () => setStyleDraft(null), style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
+            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); if (!myStyles.includes(v) && !STYLES.includes(v)) saveStyles(myStyles.concat(v).slice(-20)); setStyleDraft(null); doRestyle(v); },
+              className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下并重画")) : null,
+          styleDraft !== null && myStyles.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, alignSelf: "center" } }, "自己写过的，点 ✕ 拿掉："),
+            myStyles.map(st => h("button", { key: st, onClick: () => saveStyles(myStyles.filter(x => x !== st)), className: "active:opacity-70",
+              style: { padding: "3px 9px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, st + " ✕"))) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
