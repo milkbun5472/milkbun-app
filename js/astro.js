@@ -1125,6 +1125,17 @@
           return h("path", { key: deg, d: sparkle(x, y, deg ? 3.2 : 4.4), fill: deg ? "#f6e3a1" : "#fff7d6" }); })),
       children);
   }
+  // 顶栏头像的光圈不再套壳（她 2026-10-14：套壳把主题 CSS 的「顶栏 > 头像」截断了）：头像自己挂 data-halo，这条样式画光。
+  //   只用 box-shadow 和外描边，不改头像的尺寸、位置、层级——主题怎么摆头像，光就跟到哪儿。
+  try {
+    if (typeof document !== "undefined" && !document.getElementById("qq-astro-halo-css")) {
+      const st = document.createElement("style"); st.id = "qq-astro-halo-css";
+      st.textContent = "@keyframes qqHaloPulse{0%,100%{box-shadow:0 0 0 2px #f6e3a1,0 0 8px 2px " + SKY_BASE.tint + "66}50%{box-shadow:0 0 0 2px #f6e3a1,0 0 16px 5px " + SKY_BASE.tint + "99}}"
+        + "[data-halo=\"1\"]{animation:qqHaloPulse 3.2s ease-in-out infinite}"
+        + "@media (prefers-reduced-motion:reduce){[data-halo=\"1\"]{animation:none;box-shadow:0 0 0 2px #f6e3a1,0 0 10px 3px " + SKY_BASE.tint + "77}}";
+      document.head.appendChild(st);
+    }
+  } catch (e) {}
   g.AstroHalo = AstroHalo; g.Astro.isGoodDay = isGoodDay;
   g.Astro.signInstruction = signInstruction; g.Astro.todayFacts = todayFacts; g.Astro.SIGN_SCHEMA = SIGN_SCHEMA;
   g.Astro.markSeen = markSeen; g.Astro.seenDay = seenDay;
