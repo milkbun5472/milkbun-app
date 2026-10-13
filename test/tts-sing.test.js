@@ -12,6 +12,7 @@ test("eleven_v3：♪ 包起来的那几句换成 [sings] 送去合成，提示�
   assert.match(out, /\[sings\] 月亮代表我的心/);
   assert.ok(!/♪/.test(out));
   assert.match(f.voiceSoundHint(), /♪月亮代表我的心♪/);
+  assert.equal(make({ enabled: true, provider: "elevenlabs", elModel: "eleven_v4" }).ttsSingOn(), true, "v4 以后也认");
 });
 
 test("不会唱的那几家：♪ 去掉照常念，提示词一个字都不多", () => {
