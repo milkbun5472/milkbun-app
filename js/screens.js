@@ -14943,7 +14943,7 @@ const CARRY_SECTIONS = [
 // 她刚添上的那几套会在界面上被静默砍掉，人还以为没添进去。
 // 天花板是许可不是指标（她 2026-09-12 那句，v67.25 同一条）：
 // 用不到的时候它一分钱不花，太低的时候才实打实掐掉她攒的东西。
-const CLOSET_MAX_OCCASIONS = 10, CLOSET_MAX_SETS = 12, CLOSET_MAX_TOTAL = 72;
+const CLOSET_MAX_OCCASIONS = 16, CLOSET_MAX_SETS = 20, CLOSET_MAX_TOTAL = 120;   // 她 2026-10-13：「上限放宽点」
 // 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
 function closetGroups(data) {
   if (!data) return [];
@@ -15769,8 +15769,12 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
       : h("div", { "data-wk": "carrycloset", style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
             h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
-              (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"),
+              (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"
+                + (onTogglePin ? (() => { const n = groups.reduce((a, g) => a + g.sets.filter(isPinned).length, 0); return n ? " · \u25c6 钉住 " + n : ""; })() : "")),
             h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg,rgba(74,58,40,.16),rgba(74,58,40,0))" } })),
+          // 钉子藏在点开那一页里，她不点开就不知道有（群友 2026-10-13：「能不能钉起来就不会被 roll 掉」）
+          onTogglePin ? h("div", { "data-wk": "carrypinhint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: -6, marginBottom: 14 } },
+            "喜欢的那身点开 →「钉住」（标 \u25c6），刷新时就不会被换掉；没钉的一次最多换两身。") : null,
           groups.map((g, gi) => h("div", { "data-wk": "carryoccasion", key: gi, style: { marginBottom: 20 } },
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
               h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),

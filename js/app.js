@@ -24998,7 +24998,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我的衣柜只添不挤（群友 2026-10-13：「生成新的之后旧的就会被覆盖」）：原来一类满 6 身就把最老那身挤掉、
   //   满 6 类就把最老那一类整个挤掉，而且一声不吭——看着就是「新的把旧的盖了」。
   //   现在挂满了就不挂，交给调用的地方说一声，收不收由她自己决定。
-  const MYCLOSET_MAX_OCC = 12, MYCLOSET_MAX_SETS = 12;
+  const MYCLOSET_MAX_OCC = 16, MYCLOSET_MAX_SETS = 20;   // 跟 TA 的衣柜同一档（她 2026-10-13：「上限放宽点，我和他的都是」）
   const myClosetN = box => ((box && box.closet) || []).reduce((n, g) => n + ((g && g.sets) || []).length, 0);
   const myClosetPut = (box, occ, set) => {
     const occasion = String(occ || "").trim().slice(0, 8) || "平常";
