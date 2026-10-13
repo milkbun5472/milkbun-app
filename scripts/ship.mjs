@@ -10,7 +10,8 @@
 // 用法（先把改动写好，不用自己 commit）：
 //   node scripts/ship.mjs --msg-file /tmp/msg.txt --entries couple,chat
 //   node scripts/ship.mjs --msg-file /tmp/msg.txt --none "纯修内部，用法没变"
-//   可选：--brief "新增 xxx、yyy 挂点。"（不传就写「没动挂点」）
+//   可选：--tests "test/x.test.js test/y.test.mjs"（只跑相关的；不传才跑全套）
+//         --brief "新增 xxx、yyy 挂点。"（不传就写「没动挂点」）
 //         --allow 测试名片段（某个红灯【在 main 上也红、跟这次无关】时才用，要在回复里写明）
 // msg 文件里写整段提交说明（含 Co-Authored-By 等尾注）；脚本会在第一行前面补上版本号。
 //
@@ -24,6 +25,8 @@ const msgFile = arg("--msg-file");
 const entries = (arg("--entries") || "").split(",").map(s => s.trim()).filter(Boolean);
 const none = arg("--none") || "";
 const brief = arg("--brief") || "";
+// --tests "test/a.test.js test/b.test.mjs"：只跑这次动过的那几份（她 2026-10-13：「不要跑全套！就跑动过的」）
+const only = arg("--tests") || "";
 const allow = argv.flatMap((v, i) => v === "--allow" ? [argv[i + 1]] : []).filter(Boolean);
 if (!msgFile || !existsSync(msgFile)) die("要给 --msg-file（提交说明，含尾注）");
 if (!entries.length && !none) die("攻略那一关：--entries 写这版改了哪几条攻略，或 --none 写为什么不用改（manual-stamp 规矩）");
@@ -93,9 +96,9 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("node scripts/check-version.mjs") === null) die("check-version 不过：" + (tryd("node scripts/check-version.mjs 2>&1; true") || ""));
   for (const f of changed) if (existsSync("js/" + f + ".js") && tryd("node --check js/" + f + ".js") === null) die("语法错：js/" + f + ".js");
   if (tryd("git diff --check " + REMOTE + "/main") === null) die("git diff --check 不过（行尾空白／冲突标记）");
-  console.log("跑全套测试（并行）…");
+  console.log(only ? "跑这次相关的测试：" + only : "跑全套测试（并行）…");
   let out = "";
-  try { out = sh("node --test test/*.test.js test/*.test.mjs 2>&1", { shell: "/bin/bash" }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
+  try { out = sh("node --test " + (only || "test/*.test.js test/*.test.mjs") + " 2>&1", { shell: "/bin/bash" }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
   const pass = (out.match(/^# pass (\d+)/m) || [])[1], fail = (out.match(/^# fail (\d+)/m) || [])[1];
   console.log("测试：" + pass + " 过，" + fail + " 不过" + (allow.length ? "（--allow 放过：" + allow.join("、") + "）" : ""));

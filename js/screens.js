@@ -17047,6 +17047,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
   const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
   const [styleDraft, setStyleDraft] = useState(null);
+  const [paint, setPaint] = useState("");   // 拍之前就挑画风（空＝照片），一次出图，不用先拍再转
   const [reText, setReText] = useState(true);   // 杂志封面／电影海报换画风后把字照原样印回去
   const doRestyle = async st => {
     const src = bigStack.find(y => !y.style) || big;
@@ -17080,8 +17081,8 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   // 墙上每摞露一张：原图还在就是原图，删了就是下一张顶上
   const covers = Object.keys(stacks).map(k => stacks[k][0]).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   // 分类：合照／四宫格／题材／漫画（她 2026-10-13：图一多会很乱）
-  const kindOf = x => x.comic ? "comic" : x.grid ? "grid" : x.theme ? "theme" : "photo";
-  const KINDS = [["all", "全部"], ["photo", "合照"], ["grid", "四宫格"], ["theme", "题材"], ["comic", "漫画"]];
+  const kindOf = x => x.comic ? "comic" : x.grid ? "grid" : x.theme ? "theme" : x.paint ? "paint" : "photo";
+  const KINDS = [["all", "全部"], ["photo", "合照"], ["grid", "四宫格"], ["theme", "题材"], ["paint", "画风"], ["comic", "漫画"]];
   const [kind, setKind] = useState("all");
   const [themeF, setThemeF] = useState("");
   const themeName = k => { const f = themes.find(y => y.k === k); return f ? f.zh : "题材"; };
@@ -17104,7 +17105,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                   style: { display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } },
                   bigStack.map(y => h("div", { key: y.id, style: { flex: "0 0 100%", scrollSnapAlign: "center", display: "flex", justifyContent: "center" } }, h(AlbumPhoto, { photo: y, full: true })))),
                 h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8 } },
-                  (big.style ? big.style : "原图") + " · " + (bigStack.findIndex(y => y.id === big.id) + 1) + " / " + bigStack.length + " · 左右划看这一摞"))
+                  (big.style ? big.style : big.paint ? "原图 · " + big.paint : "原图") + " · " + (bigStack.findIndex(y => y.id === big.id) + 1) + " / " + bigStack.length + " · 左右划看这一摞"))
             : h("div", { className: "flex justify-center" }, h(AlbumPhoto, { photo: big, full: true })),
           big.grid === "2x2" ? h(GridCells, { photo: big, rows: 2, cols: 2, sharpBusy: sharp || busy,
             onSharpen: async (cell, i) => { setSharp(true);
@@ -17167,6 +17168,11 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h(StudioPicker, { zh: "我穿", groups: mySets, value: mine, onPick: setMine, tint: "#a74d70", character: partner }),
             // 两行（她 2026-10-13：「这个按键太挤了重做排版」——四颗挤一行，「拍一张四宫格」被挤成竖排）：
             //   上一行挑拍成什么（三选一、等宽）；下一行左边「让他配一对」、右边整条的拍摄键
+            // 画风一排：横着划，第一个「照片」就是不换；挑了别的就一次直接画成那样（只花一次生图）
+            h("div", { "data-wk": "studiopaint", className: "flex items-center", style: { gap: 6, marginTop: 12, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 } },
+              h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, "画风"),
+              [""].concat(STYLES, myStyles.filter(x => !STYLES.includes(x))).map(st => h("button", { key: st || "_photo", "data-on": paint === st ? "1" : "0", onClick: () => setPaint(st), className: "shrink-0 active:opacity-70",
+                style: { padding: "5px 11px", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid " + (paint === st ? "#6d4d8f" : "#e2d9ea"), background: paint === st ? "#6d4d8f" : "#fff", color: paint === st ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, st || "照片"))),
             h("div", { "data-wk": "studiomodes", className: "flex", style: { marginTop: 14, padding: 3, borderRadius: 13, border: "1px solid " + t.line, gap: 3 } },
               h("button", { "data-wk": "studiosingle", "data-on": !grid && !polaroid ? "1" : "0", onClick: () => { setGrid(false); setPolaroid(false); }, className: "flex-1 active:opacity-70",
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: !grid && !polaroid ? "#6d4d8f" : "transparent", color: !grid && !polaroid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "单张"),
@@ -17177,7 +17183,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { className: "flex gap-2", style: { marginTop: 10 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "11px 14px", whiteSpace: "nowrap", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : polaroid ? "咔嚓" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
