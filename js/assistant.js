@@ -885,6 +885,11 @@
       + "  ② 页面 CSS 会被系统【自动加上作用域】。你只管写普通选择器，**绝不要自己加 .theme-xxx 或 [data-page=...] 这类前缀**，加了就永远匹配不到。\n"
       + "  ③ 能稳稳抓住的就是下面这些钩子，**别去猜别的类名**（这个 App 没有语义 class，只有 Tailwind 工具类）。\n"
       + "  ⚠️图标是 SVG：要给它上色得写 **stroke**（少数实心的写 fill），color 管不到它。\n"
+      // 群友 2026-10-14：「顶栏太高了秋秋不会修」——她的 CSS 给 chathead 写了 padding:5px 4px，把刘海那条安全区一起抹掉了，顶栏钻进状态栏底下
+      + "  ⚠️顶栏（chathead、各页 Head）和底栏（composer）自带一截【刘海／底部横条的安全区】，是写在 padding-top／padding-bottom 里的。\n"
+      + "     **别对它们写 padding 简写，也别把 padding-top（底栏是 padding-bottom）写成死数**——一写就把安全区抹了，顶栏钻进时间、信号那条状态栏底下，看起来像「顶栏太高、跟时间叠在一起」。\n"
+      + "     要调上下留白就写 padding-top: calc(var(--app-safe-top) + 6px) !important（底栏用 var(--app-safe-bottom)），左右单独写 padding-left/right。\n"
+      + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"
       + wkHere()
