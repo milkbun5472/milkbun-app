@@ -669,6 +669,9 @@
     }
   };
 
+  // 秋秋多管的几样（聊天设置、小房间开关、记忆库改删、衣柜、日历）住在 assistant-extras.js，并进同一张表
+  if (typeof window !== "undefined" && window.AssistExtras) Object.assign(TARGETS, window.AssistExtras.TARGETS);
+
   // ---- 代码/框架那道门（她 2026-09-03 点名的那条）----
   // 判的是【这东西怎么造出来的】，不是【这东西哪儿不对劲】：
   // 她说「购物有 bug」是在报毛病，那要答；问「用什么框架写的」才回绝。
@@ -841,7 +844,8 @@
       .map(k => ({ id: k, 谁: relName(k, ctx), 关系: String((R[k] || {}).label || "") }));
     return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
-      最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
+      最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
+      ...(typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.snapshotExtra(ctx, hot) : {}) };
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
@@ -963,6 +967,7 @@
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
+      + (typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.docLines() : "")
       + "· rel 两个人之间的一条关系线（快照里【关系】那一栏）：id 写成 \"A->B\"（A、B 是角色或配角的名字或 id，她本人写「我」），text＝A 对 B 是什么关系（几个字）；both:true＝两个方向写成同一句；text 留空＝删掉这条线。"
       + "她说「这几个人其实是一伙的」，就给每两个该连的人各出一张；有就改、没有就加，快照里已经对的别重复出。\n"
       + "· npc 新建一位配角（id 填 new；text 是一份 JSON：{\"name\":\"名字\",\"brief\":\"TA 是个什么样的人\",\"owner\":\"在谁身边（角色名；她本人写「我」；大家共同认识的留空）\",\"links\":[{\"who\":\"认识的人（角色、配角，或「我」）\",\"label\":\"是什么关系\"}]}）。"
@@ -1061,7 +1066,7 @@
     });
     // 关系那一条 text 空着＝删掉这条线，是正经的一张卡
     const relDrop = x => x.target === "rel" && String(x.id || "").trim();
-    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x)))
+    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x) || (typeof window !== "undefined" && window.AssistExtras && window.AssistExtras.okWithoutText(x))))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
       // 导世界书、把一串人连起来：全是世界书／关系／配角的那一轮放宽到 12 张
       .slice(0, (rawPatches.length && rawPatches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
@@ -1076,6 +1081,7 @@
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
         ...(x.target === "rel" ? { both: x.both === true || x.both === "true" } : {}),
+        ...(/^(memedit|closet|cal)$/.test(x.target) ? { drop: x.drop === true || x.drop === "true", date: clip(x.date, 12), occasion: clip(x.occasion, 20), view: clip(x.view, 60) } : {}),
         ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
     // 现成的 Worker 代码（她 2026-10-13「有些人直接复制不了，让他们用秋秋发的复制」）：
@@ -1306,6 +1312,7 @@
   function before(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) return "";
+    if (typeof T.before === "function") { try { return String(T.before(patch, ctx) || ""); } catch (e) { return ""; } }
     const rows = T.read(ctx) || [];
     const hit = rows.find(x => String(x.id) === String(patch.id));
     if (!hit) return "";
@@ -1316,6 +1323,11 @@
   // 摆给她看的那一份：气泡那一栏存的是 JSON，直接摆出来的话，改前是人话、改后是一串
   // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
   const previewText = patch => {
+    if (patch && patch.drop) return "（删掉这一条）";
+    if (patch && patch.target === "setting") { const d = window.AssistExtras && window.AssistExtras.SET_BY[String(patch.id).split(":")[1]]; return (d ? d.zh : "") + "：" + String(patch.text || ""); }
+    if (patch && patch.target === "roomset") return String(patch.id).split(":")[2] + "：" + String(patch.text || "");
+    if (patch && patch.target === "cal") return [patch.date, patch.name, patch.text].filter(x => String(x || "").trim()).join("　");
+    if (patch && patch.target === "closet") return (patch.occasion ? "【" + patch.occasion + "】" : "") + (patch.name || "") + (String(patch.text || "").trim() ? "：" + patch.text : "");
     if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");
     if (patch && patch.target === "rel") return String(patch.text || "").trim() ? patch.text + (patch.both ? "（两个方向都是）" : "") : "（删掉这条关系）";
     if (patch && patch.target === "npc") {

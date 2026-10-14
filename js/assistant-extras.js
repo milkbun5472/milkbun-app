@@ -1,0 +1,279 @@
+// ============================================================
+// 秋秋多管的几样（她 2026-10-14：「都做吧，特别是各种设置按钮和拉条可以给清楚，
+//   这样别人想改说清楚它也能帮忙，包括小房间各种开关是干啥的」）
+//
+//   · 查毛病：这个人走哪条线路、那条线路选没选模型、哪些自动功能开着（只看不改）
+//   · 记忆库：能改一条、删一条（原来只能加）
+//   · 衣柜：加一身、改一身的描述、拿掉一身
+//   · 日历：记一天、改一天、删一天
+//   · 聊天设置：每个开关、拉条叫什么、管什么、能填什么，照名单改
+//   · 小房间：每间房那几排开关叫什么、管什么，照名单拨
+//
+// ⚠️跟 assistant.js 里原来那几样同一个规矩：秋秋只出改动卡，她点「应用」才落库。
+// ⚠️开关、拉条的名单只有这一份（下面 SETTINGS）；小房间的开关名单问 ChatRooms.GROUPS 那一份，这里不抄。
+// ============================================================
+(function () {
+  "use strict";
+  const S = v => String(v == null ? "" : v);
+  const clip = (v, n) => { const s = S(v).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n) + "…" : s; };
+  const yes = v => /^(1|true|开|打开|开启|是|on|yes)$/i.test(S(v).trim());
+  const no = v => /^(0|false|关|关掉|关闭|否|off|no)$/i.test(S(v).trim());
+
+  // ── 聊天设置里能改的那几格（单聊右上角「关于 TA 的十件事」）──────────────
+  //   key＝存档里的名字；where＝在设置里哪一格；type: bool / num（min-max） / pick（几个选项）
+  //   what 写给她看的：这一格管什么、开了会怎样。⚠️跟攻略「聊天设置」那一条说的要对得上。
+  const SETTINGS = [
+    { key: "ctxN", zh: "带多少条上下文", where: "记 · 他知道什么", type: "num", min: 10, max: 300, def: 50,
+      what: "每轮把最近多少条聊天带给他。越多越记得前文，也越贵、越慢。" },
+    { key: "sumThresh", zh: "多少条以后自动总结", where: "记 · 他知道什么", type: "num", min: 40, max: 600, def: 150,
+      what: "聊天攒到这么多条，就把早的那些压成长期记忆。" },
+    { key: "sumBuffer", zh: "总结后留几条原文", where: "记 · 他知道什么", type: "num", min: 5, max: 100, def: 20,
+      what: "压成总结的时候，最近这么多条保留原样不压。" },
+    { key: "autoMoment", zh: "自己发朋友圈", where: "动 · 他会主动做什么", type: "bool", def: false,
+      what: "开了他会时不时自己发一条朋友圈。" },
+    { key: "defaultOffline", zh: "点进来先进线下", where: "窗 · 这个聊天窗", type: "bool", def: false,
+      what: "点开这个人默认直接进线下见面那一屏，适合同居或者常在一起的。" },
+    { key: "actDesc", zh: "线上带动作描写", where: "窗 · 这个聊天窗", type: "bool", def: false,
+      what: "线上聊天时，他的话旁边带一行括号里的动作描写（状态卡「在做什么」那一格）。" },
+    { key: "actLong", zh: "动作描写写一小段", where: "窗 · 这个聊天窗", type: "bool", def: false,
+      what: "关＝动作描写只写一句此刻在哪儿做什么；开＝能写两三句，神态和身边的样子也写进去。" },
+    { key: "actPerson", zh: "动作描写里他怎么称呼自己", where: "窗 · 这个聊天窗", type: "pick", opts: { me: "我", ta: "他／她（第三人称）" }, def: "me",
+      what: "动作描写那一行里，他用「我」还是用第三人称写自己。" },
+    { key: "userPerson", zh: "动作描写里怎么称呼你", where: "窗 · 这个聊天窗", type: "pick", opts: { you: "你", ta: "她／他（第三人称）" }, def: "you",
+      what: "动作描写那一行里，你是「你」还是第三人称。" },
+    { key: "keepRerolls", zh: "重 Roll 留着旧的", where: "窗 · 这个聊天窗", type: "bool", def: false,
+      what: "开了以后重 Roll 不扔上一版，最后一条底下左右翻着挑，最多留 5 版。" },
+    { key: "showMyAvatar", zh: "显示我的头像", where: "窗 · 气泡显示", type: "bool", def: false, what: "你自己的气泡旁边要不要露头像。" },
+    { key: "showTime", zh: "显示时间戳", where: "窗 · 气泡显示", type: "bool", def: false, what: "气泡底下显示几点发的。" },
+    { key: "timeSec", zh: "时间精确到秒", where: "窗 · 气泡显示", type: "bool", def: false, what: "开了时间戳以后，要不要精确到秒。" },
+    { key: "showRead", zh: "显示已读", where: "窗 · 气泡显示", type: "bool", def: true, what: "气泡底下显示「已读」。" },
+    { key: "splitBubbles", zh: "长消息自动拆成短句", where: "窗 · 气泡显示", type: "bool", def: true,
+      what: "他一句话写长了，按句号问号拆成几个气泡，像微信一句一句发。关了就整段一个气泡。" },
+    { key: "autoTts", zh: "新消息自动念", where: "窗 · 气泡显示", type: "bool", def: false,
+      what: "他新回的每条自动合成语音按顺序念，你一发消息就停。要先给他选了音色；每条都花一次语音额度。" },
+    { key: "showReasoning", zh: "显示模型思考链", where: "听 · 思考链／译文／通话", type: "bool", def: false,
+      what: "模型有思考过程的话，在回复上面能展开看。" },
+    { key: "bilingual", zh: "外语消息自带中译", where: "听 · 思考链／译文／通话", type: "bool", def: false,
+      what: "他说外语时每句都带中文翻译，译文显示在气泡里。" },
+    { key: "callStream", zh: "通话流式字幕", where: "听 · 思考链／译文／通话", type: "bool", def: false,
+      what: "打电话时字幕一个字一个字往外出，不用等整句。" },
+    { key: "callAuto", zh: "通话连续播报", where: "听 · 思考链／译文／通话", type: "bool", def: null,
+      what: "打电话时他说完一句自动接着念下一句，不用一条条点。没单独设过就跟着设置里的总开关。" },
+    { key: "bodyMode", zh: "本体模式", where: "性 · 他是什么脾气（最上面）", type: "bool", def: false,
+      what: "一般不用开。开了他就是 AI 本人，不是 App 在演的角色：人设原样当系统提示词、不拆短气泡、不排日程不刷查手机。想让他照人设演角色就保持关着。" }
+  ];
+  const SET_BY = Object.fromEntries(SETTINGS.map(x => [x.key, x]));
+  const showVal = (def, v) => {
+    if (v == null) return def.type === "bool" ? (def.def == null ? "跟着总开关" : (def.def ? "开" : "关")) : def.type === "pick" ? def.opts[def.def] : String(def.def);
+    return def.type === "bool" ? (v ? "开" : "关") : def.type === "pick" ? (def.opts[v] || String(v)) : String(v);
+  };
+  // 她说的值 → 存进去的值；认不出就报错（不猜）
+  function parseVal(def, raw) {
+    const t = S(raw).trim();
+    if (def.type === "bool") { if (yes(t)) return true; if (no(t)) return false; throw new Error("「" + def.zh + "」只能是开或关"); }
+    if (def.type === "num") {
+      const n = Math.round(Number(t.replace(/[^\d.]/g, "")));
+      if (!isFinite(n) || !t) throw new Error("「" + def.zh + "」要填一个数");
+      if (n < def.min || n > def.max) throw new Error("「" + def.zh + "」只能在 " + def.min + "～" + def.max + " 之间");
+      return n;
+    }
+    const k = Object.keys(def.opts).find(k => k === t || def.opts[k] === t || def.opts[k].indexOf(t) === 0);
+    if (!k) throw new Error("「" + def.zh + "」只能是：" + Object.values(def.opts).join("、"));
+    return k;
+  }
+
+  // ── 小房间那几排开关：名单问 ChatRooms.GROUPS（跟房间设置页同一份字） ───────────
+  const GROUP_ZH = { cognition: "TA进这扇门带着什么", actions: "TA在这间房能主动拉你做什么", writeback: "出门时带走什么" };
+  const roomGroups = () => (typeof window !== "undefined" && window.ChatRooms && window.ChatRooms.GROUPS) || {};
+  const roomsOf = id => { try { return (window.ChatRooms && window.ChatRooms.list(id)) || []; } catch (e) { return []; } };
+  function roomSwitchRows(room) {
+    const G = roomGroups(), out = [];
+    Object.keys(G).forEach(g => (G[g] || []).forEach(([k, zh, what]) => {
+      const box = room && room[g] && typeof room[g] === "object" ? room[g] : {};
+      const on = box[k] == null ? (k === "worldbook") : !!box[k];
+      out.push({ 开关: g + "." + k, 叫什么: zh, 管什么: what, 在哪一排: GROUP_ZH[g] || g, 现在: on ? "开" : "关" });
+    }));
+    return out;
+  }
+
+  // ── 新的几种改动卡 ──────────────────────────────────────────
+  const TARGETS = {
+    // 聊天设置：id＝「角色id:设置名」，text＝新值（开／关、数字、选项）
+    setting: {
+      zh: "聊天设置",
+      read: ctx => [],
+      before: (p, ctx) => {
+        const [cid, key] = S(p.id).split(":"); const def = SET_BY[key]; if (!def) return "";
+        const cur = ctx.settingsOf ? (ctx.settingsOf(cid) || {})[key] : undefined;
+        return def.zh + "：" + showVal(def, cur);
+      },
+      write: (id, patch, ctx) => {
+        const [cid, key] = S(id).split(":");
+        const def = SET_BY[key];
+        if (!def) throw new Error("聊天设置里没有「" + key + "」这一格");
+        if (!ctx.onPatchChatSetting) throw new Error("这个页面没接聊天设置的写入口");
+        if (!(ctx.characters || []).some(c => c && c.id === cid)) throw new Error("找不到这个角色");
+        ctx.onPatchChatSetting(cid, { [key]: parseVal(def, patch.text) });
+        return 1;
+      }
+    },
+    // 小房间开关：id＝「角色id:房间id:排.开关」，text＝开／关
+    roomset: {
+      zh: "小房间开关",
+      read: ctx => [],
+      before: (p, ctx) => {
+        const [cid, rid, sw] = S(p.id).split(":"); const [g, k] = S(sw).split(".");
+        const room = roomsOf(cid).find(r => r.id === rid); if (!room) return "";
+        const row = roomSwitchRows(room).find(r => r.开关 === g + "." + k);
+        return row ? "「" + (room.name || room.title || (room.main ? "主聊天" : rid)) + "」" + row.叫什么 + "：" + row.现在 : "";
+      },
+      write: (id, patch, ctx) => {
+        const [cid, rid, sw] = S(id).split(":"); const [g, k] = S(sw).split(".");
+        const R = window.ChatRooms; if (!R) throw new Error("这台设备没有小房间");
+        const G = roomGroups();
+        if (!G[g] || !(G[g] || []).some(x => x[0] === k)) throw new Error("小房间里没有「" + sw + "」这个开关");
+        const room = roomsOf(cid).find(r => r.id === rid); if (!room) throw new Error("找不到这间房");
+        const t = S(patch.text).trim(); if (!yes(t) && !no(t)) throw new Error("房间开关只能是开或关");
+        R.save(cid, Object.assign({}, room, { [g]: Object.assign({}, room[g] || {}, { [k]: yes(t) }) }));
+        if (ctx.onRoomsChanged) ctx.onRoomsChanged();
+        return 1;
+      }
+    },
+    // 记忆库：改一条＝id 照抄那条，text 是改完的；删一条＝drop:true
+    memedit: {
+      zh: "记忆库（改／删）",
+      read: ctx => ((ctx.memList && ctx.memList()) || []).map(e => ({ id: e.id, name: "记忆", text: e.text })),
+      write: (id, patch, ctx) => {
+        if (!ctx.memList || !ctx.onSaveMemLib) throw new Error("这个页面没接记忆库写入口");
+        const list = ctx.memList() || [];
+        if (!list.some(e => S(e.id) === S(id))) throw new Error("记忆库里找不到这一条了");
+        if (patch.drop) { ctx.onSaveMemLib(list.filter(e => S(e.id) !== S(id))); return 1; }
+        const t = S(patch.text).trim(); if (!t) throw new Error("改完的这一条是空的");
+        ctx.onSaveMemLib(list.map(e => S(e.id) === S(id) ? Object.assign({}, e, { text: t, ts: Date.now() }) : e));
+        return 1;
+      }
+    },
+    // 衣柜：id＝角色 id；occasion＝场合（哪一组），name＝这一身叫什么，text＝款式颜色料子；drop:true 拿掉这一身
+    closet: {
+      zh: "衣柜",
+      read: ctx => [],
+      write: (id, patch, ctx) => {
+        if (!ctx.closetOf || !ctx.onSaveCloset) throw new Error("这个页面没接衣柜写入口");
+        const name = S(patch.name).trim(); if (!name) throw new Error("这一身要有个名字");
+        const box = Object.assign({}, ctx.closetOf(id) || {});
+        let groups = Array.isArray(box.closet) ? box.closet.map(g => Object.assign({}, g, { sets: (g.sets || []).slice() })) : [];
+        const hit = groups.find(g => (g.sets || []).some(x => S(x.name).trim() === name));
+        if (patch.drop) {
+          if (!hit) throw new Error("衣柜里找不到「" + name + "」");
+          hit.sets = hit.sets.filter(x => S(x.name).trim() !== name);
+          groups = groups.filter(g => g.sets.length);
+        } else if (hit) {
+          hit.sets = hit.sets.map(x => S(x.name).trim() === name ? Object.assign({}, x, { note: S(patch.text).trim() || x.note }) : x);
+        } else {
+          const occ = S(patch.occasion).trim() || "日常";
+          let g = groups.find(x => S(x.occasion || x.name).trim() === occ);
+          if (!g) { g = { occasion: occ, sets: [] }; groups.push(g); }
+          g.sets.push({ name: name, note: S(patch.text).trim() });
+        }
+        ctx.onSaveCloset(id, Object.assign(box, { closet: groups }));
+        return 1;
+      }
+    },
+    // 日历：新建＝id 填 new（date 必填，name＝标题，text＝备注，view＝mine 我的／world 世界／角色 id）；改／删＝id 照抄那条
+    cal: {
+      zh: "日历",
+      read: ctx => [],
+      write: (id, patch, ctx) => {
+        if (!ctx.calendarGet || !ctx.onSaveCalendar) throw new Error("这个页面没接日历写入口");
+        const cal = JSON.parse(JSON.stringify(ctx.calendarGet() || { world: {}, chars: {}, mine: {} }));
+        cal.world = cal.world || {}; cal.mine = cal.mine || {}; cal.chars = cal.chars || {};
+        const bucketOf = v => v === "world" ? cal.world : (!v || v === "mine") ? cal.mine : (cal.chars[v] = cal.chars[v] || {});
+        const all = [["world", cal.world], ["mine", cal.mine]].concat(Object.keys(cal.chars).map(k => [k, cal.chars[k]]));
+        const find = () => { for (const [, b] of all) for (const d of Object.keys(b)) { const i = (b[d] || []).findIndex(e => S(e.id) === S(id)); if (i >= 0) return { b, d, i }; } return null; };
+        if (!id || id === "new") {
+          const d = S(patch.date).trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error("日期要写成 2026-03-14 这样");
+          const title = S(patch.name).trim(); if (!title) throw new Error("这一天要有个标题");
+          const b = bucketOf(S(patch.view).trim());
+          b[d] = (b[d] || []).concat([{ id: "ev_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: title, note: S(patch.text).trim() }]);
+        } else {
+          const at = find(); if (!at) throw new Error("日历里找不到这一条了");
+          if (patch.drop) { at.b[at.d].splice(at.i, 1); if (!at.b[at.d].length) delete at.b[at.d]; }
+          else {
+            const ev = Object.assign({}, at.b[at.d][at.i], S(patch.name).trim() ? { title: S(patch.name).trim() } : {}, S(patch.text).trim() ? { note: S(patch.text).trim() } : {});
+            const nd = S(patch.date).trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(nd) && nd !== at.d) { at.b[at.d].splice(at.i, 1); if (!at.b[at.d].length) delete at.b[at.d]; at.b[nd] = (at.b[nd] || []).concat([ev]); }
+            else at.b[at.d][at.i] = ev;
+          }
+        }
+        ctx.onSaveCalendar(cal);
+        return 1;
+      }
+    }
+  };
+  // 这几种卡 text 可以空着：删的那种（drop）、日历新建只写了标题的
+  const okWithoutText = x => (x.drop === true || x.drop === "true") && S(x.id).trim() && /^(memedit|closet|cal)$/.test(x.target)
+    || (x.target === "cal" && S(x.name).trim()) || (x.target === "closet" && S(x.name).trim() && S(x.id).trim());
+
+  // ── 快照里多给的几栏（只给这会儿在说的那几个人） ───────────────────────
+  function snapshotExtra(ctx, hot) {
+    const chars = (ctx.characters || []).filter(c => c && hot.has(c.id));
+    const out = {};
+    // 查毛病：线路、模型、自动功能
+    out.线路和自动功能 = chars.map(c => {
+      const r = ctx.routeInfo ? ctx.routeInfo(c.id) : null;
+      return { 谁: c.name, id: c.id,
+        线路: r ? (r.name || "（没起名的线路）") + (r.own ? "（单独挑的）" : "（跟随全局主模型）") : "（没有可用线路：设置 · 文字模型 里一条都没配）",
+        模型: r ? (r.model || "（这条线路没选模型——会报「尚未指定模型」）") : "（无）",
+        填了密钥: r ? !!r.hasKey : false,
+        自动功能: ctx.autoInfo ? ctx.autoInfo(c.id) : "（看不到）" };
+    });
+    // 聊天设置现在的值
+    out.聊天设置 = chars.map(c => {
+      const s = (ctx.settingsOf && ctx.settingsOf(c.id)) || {};
+      return { 谁: c.name, id: c.id, 现在: SETTINGS.map(d => ({ 设置名: d.key, 叫什么: d.zh, 现在: showVal(d, s[d.key]) })) };
+    });
+    // 小房间：每间房、每个开关现在开没开
+    out.小房间 = chars.map(c => ({ 谁: c.name, id: c.id, 房间: roomsOf(c.id).map(r => ({ 房间id: r.id, 名字: r.name || r.title || (r.main ? "主聊天" : r.id), 开关: roomSwitchRows(r) })) }))
+      .filter(x => x.房间.length > 1 || (x.房间[0] && x.房间[0].开关.length));
+    // 记忆库：这几个人名下的，最多 60 条
+    const mem = (ctx.memList && ctx.memList()) || [];
+    out.记忆库 = chars.map(c => ({ 谁: c.name, 条目: mem.filter(e => e && Array.isArray(e.charIds) && e.charIds.includes(c.id)).slice(-60).map(e => ({ id: e.id, text: clip(e.text, 200) })) }));
+    // 衣柜
+    out.衣柜 = chars.map(c => {
+      const box = (ctx.closetOf && ctx.closetOf(c.id)) || {};
+      const g = Array.isArray(box.closet) ? box.closet : [];
+      return { 谁: c.name, id: c.id, 衣柜: g.length ? g.map(x => ({ 场合: x.occasion || x.name || "（没写场合）", 衣服: (x.sets || []).map(s => ({ 名字: s.name, 描述: clip(s.note, 160) })) })) : "（空）" };
+    });
+    // 日历：前后两个月
+    const cal = (ctx.calendarGet && ctx.calendarGet()) || {};
+    const now = Date.now(), lo = now - 62 * 864e5, hi = now + 62 * 864e5;
+    const rows = [];
+    const take = (who, b) => Object.keys(b || {}).forEach(d => { const t = Date.parse(d); if (isFinite(t) && t >= lo && t <= hi) (b[d] || []).forEach(e => rows.push({ id: e.id, 日期: d, 谁的: who, 标题: e.title, 备注: clip(e.note, 80) })); });
+    take("我的", cal.mine); take("世界", cal.world);
+    Object.keys(cal.chars || {}).forEach(k => { const c = (ctx.characters || []).find(x => x && x.id === k); take(c ? c.name : k, cal.chars[k]); });
+    out.日历 = rows.length ? rows.sort((a, b) => a.日期 < b.日期 ? -1 : 1).slice(0, 80) : ["（前后两个月没有记过的日子）"];
+    return out;
+  }
+
+  // ── 写给秋秋的说明：哪几种卡、各怎么填，开关和拉条各管什么 ───────────────
+  function docLines() {
+    return "· setting 某个人的【聊天设置】里的一格（id＝「角色id:设置名」，text＝新值：开／关、一个数、或者选项里的那几个字）。能改的只有下面这几格，"
+      + "每格叫什么、在哪、管什么都写着——她问「这个开关是干嘛的」「拉条拉多少合适」，照这份说；她说清了要怎么改，就出卡：\n"
+      + SETTINGS.map(d => "    " + d.key + "「" + d.zh + "」（" + d.where + "；" + (d.type === "bool" ? "开／关" : d.type === "num" ? d.min + "～" + d.max + "，默认 " + d.def : Object.values(d.opts).join("／")) + "）：" + d.what).join("\n") + "\n"
+      + "  快照【聊天设置】那一栏是这几个人现在的值。名单外的设置（线路、面具、头像、CSS 这些）不走这一栏。\n"
+      + "· roomset 某个人某间【小房间】的一个开关（id＝「角色id:房间id:排.开关」，如 c1:room_x:writeback.memoryCandidate；text＝开／关）。"
+      + "快照【小房间】里每间房每个开关都写着叫什么、管什么、现在开没开——她问「这个开关干嘛的」就照那几句讲给她听；三排的意思："
+      + "cognition＝TA进这扇门带着什么（记不记得你们的事、知不知道今天几号）；actions＝TA在这间房能主动拉你做什么；writeback＝这间房里的事出门以后算不算数、进不进记忆。主聊天的房间 id 是 main。\n"
+      + "· memedit 改或删记忆库里的一条（快照【记忆库】那一栏；id 照抄那一条；改＝text 写改完的整条；删＝\"drop\":true、text 留空）。加新记忆还是用 memory。\n"
+      + "· closet 某个人的衣柜（id＝角色 id；name＝这一身叫什么；text＝款式颜色料子（写给拍照用，具体到能画出来）；occasion＝放进哪个场合那一组，不填放「日常」；"
+      + "改一身＝name 跟快照里那身一字不差、text 写新的描述；拿掉一身＝name＋\"drop\":true）。\n"
+      + "· cal 日历上的一天（快照【日历】是前后两个月的；新建＝id 填 new，date 写 2026-03-14 这样，name＝标题，text＝备注，view＝mine 记在我这边／world 世界的事／角色 id 记在那个人那边；"
+      + "改＝id 照抄、只填要改的那几样；删＝id＋\"drop\":true）。\n"
+      + "· 【查毛病】快照【线路和自动功能】写着这几个人走哪条线路、那条线路选没选模型、填没填密钥、哪些自动功能开着关着。"
+      + "她说「为什么他不回／报错了／某个功能没动静」，先看这一栏和【最近报错】，能对上就直接告诉她卡在哪、去哪改；这一栏只看不改。\n";
+  }
+
+  const api = { SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows };
+  if (typeof window !== "undefined") window.AssistExtras = api;
+  if (typeof module === "object" && module.exports) module.exports = api;
+})();

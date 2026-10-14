@@ -28215,6 +28215,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return l && l !== "（暂无已设定的关系）" ? l : "";
   };
 
+  // 秋秋多管的几样要的读写口（她 2026-10-14「都做吧」）：整页和悬浮屏是同一个秋秋，两处都 spread 这一份，别各写各的
+  const assistExtraCtx = () => ({
+    memList: () => memLibRef.current || [],
+    onSaveMemLib: list => saveMemLib(list),
+    closetOf: id => ((carryRef && carryRef.current ? carryRef.current : carry)[id] || {}).outfit || {},
+    onSaveCloset: (id, box) => saveCarrySection(id, "outfit", box),
+    calendarGet: () => calendar,
+    onSaveCalendar: next => saveCalendar(next),
+    settingsOf: id => settingsFor(id),
+    // 查毛病：只给名字、模型、填没填密钥，密钥本身一个字都不给
+    routeInfo: id => { const r = apiFor(id); return r ? { name: r.name || "", model: r.model || "", hasKey: !!(r.apiKey || r.proxyRef), own: routePicked((chatSettings[id] || {}).apiId) } : null; },
+    autoInfo: id => { try { return (window.AutoRefreshPolicy.FEATURES || []).map(f => f.title + "：" + (autoRefreshOn(f.id, id) ? "开" : "关")).join("、") + (loadJSON("x_bgApi", null) === "__off__" ? "（后台线路选了「无」，自己跑的一律不跑）" : ""); } catch (e) { return "（看不到）"; } },
+    onRoomsChanged: () => setChatSettings(p => ({ ...p }))
+  });
   // ---- geo ----
   const doRequestGeo = async () => {
     toast("正在定位…");
@@ -30753,6 +30767,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : where === "group" ? saveGroupSettings(id, patch) : saveOfflineSettings(id, patch),
     onBack: () => setScreen("home")
   });else if (screen === "assistant") body = h(AssistantApp, {
+    ...assistExtraCtx(),
     // 秋秋：答功能、查毛病、出改动稿（文风/人设/外貌/档案/装修/记忆库）。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
     // active＝跟随全局那一档走的线路；她在秋秋设置里单独挑了别的就走那条。
@@ -31424,6 +31439,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 扮演当场就散了（真机上它正好压在发送键上）。
     if (!window.AssistantDock || call || ringing || watching) return null;
     return h(window.AssistantDock, {
+      ...assistExtraCtx(),
       // 她此刻开着哪一页 + 这一页上是谁（她 2026-09-03 点名要的「页面上下文」）：
       // 有了它，「这一页」「这里」「TA」才有指代对象，秋秋不用反问是哪一页。
       // ⚠️id 也要给：不然它没法填 patch 的 id，只能反问「你说的是谁」——她正开着那个窗口
