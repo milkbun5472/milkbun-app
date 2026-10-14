@@ -2442,9 +2442,19 @@ if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
 // （那是故意的，否则会甩出一个巨大的气泡），可拆出来的那一泡要是只剩「）」「」」，
 // 屏幕上就是一个空气泡里吊着半个标点。粘回上一泡，最难看的那一种就没了。
 const BUBBLE_ORPHAN_TAIL = /^[）)」』”’\]】]+[。！？!?…、，,\s]*$/;
+// 颜文字／表情跟在问号后面（她 2026-10-14：「问号后面的表情包被强行截了，它不应该是个单独气泡」）：
+//   按「？」断句会把「…してない？(￣ω￣)」后面那张脸甩成一泡。一个汉字都没有、没有成词的字母、
+//   假名谚文最多一个、又不长的那一段，就是一张脸或几个 emoji，粘回上一泡
+function bubbleIsFace(x) {
+  const t = String(x || "").replace(/\s+/g, "");
+  if (!t || t.length > 18) return false;
+  if (/[\u4e00-\u9fff\uac00-\ud7af]/.test(t) || /[A-Za-z]{2,}/.test(t)) return false;
+  if ((t.match(/[\u3040-\u30ff]/g) || []).length > 1) return false;
+  return /[^\w。！？!?…、，,.\s]/.test(t);
+}
 function bubbleGlueOrphans(list) {
   return list.reduce((a, x) => {
-    if (a.length && BUBBLE_ORPHAN_TAIL.test(String(x).trim())) a[a.length - 1] += x;
+    if (a.length && (BUBBLE_ORPHAN_TAIL.test(String(x).trim()) || bubbleIsFace(x))) a[a.length - 1] += x;
     else a.push(x);
     return a;
   }, []);
