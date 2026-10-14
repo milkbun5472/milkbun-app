@@ -31,3 +31,17 @@ test('沿真实home writer保存切块和摆盘，失败重试、重进、收好
  await write({kind:'shop',recipeId:'fruit-salad'});await write({kind:'begin',id:'dish',recipeId:'fruit-salad',choices:{mode:'auto',lead:'me'}});const j=homes.kitchens.a.pending;let p=j.cooking.progress;for(let i=0;i<1200&&p.index<3;i++)p=L.stepCooking(j,p,{kind:'tick',dt:.1});assert.equal(p.index,3);const before=JSON.stringify(homes);await assert.rejects(write({kind:'progress',id:j.id,progress:{index:3,rev:1}}));assert.equal(JSON.stringify(homes),before);await assert.rejects(write({kind:'ready',id:j.id}));fail=true;await assert.rejects(write({kind:'progress',id:j.id,progress:p}));assert.equal(JSON.stringify(homes),before);fail=false;
  await write({kind:'progress',id:j.id,progress:p});assert.deepEqual(homes.kitchens.a.pending.cooking.progress.table,JSON.parse(JSON.stringify(p.table)));await write({kind:'finish',id:j.id,at:123});assert.ok(homes.kitchens.a.dishes[0].tabletop.sealed);assert.equal(homes.kitchens.a.ingredients.apple,0);await assert.rejects(write({kind:'finish',id:j.id,at:124}));assert.equal(homes.kitchens.other.ingredients.egg,8);assert.equal(homes.future.keep,1);
 });
+test('从食材内部短划、斜切和往返划切会响应；空处和微小抖动不切，体积守恒',()=>{
+ const j=job(),piece=j.cooking.progress.table.items[0],board=drop(j,j.cooking.progress,piece.id,'board'),center=Z.board;
+ for(const path of [[center,{x:center.x+.09,z:center.z}], [{x:center.x-.10,z:center.z-.035},{x:center.x+.11,z:center.z+.035}], [center,{x:center.x+.09,z:center.z},center]]){
+  const next=step(j,board,{kind:'slice',from:path[0],to:path.at(-1),path});assert.equal(next.table.items.filter(p=>p.zone==='board').length,2);assert.ok(Math.abs(next.table.items.reduce((n,p)=>n+p.w*p.d*p.h,0)-board.table.items.reduce((n,p)=>n+p.w*p.d*p.h,0))<1e-9);
+ }
+ for(const path of [[center,{x:center.x+.02,z:center.z}], [{x:center.x,z:center.z+.3},{x:center.x+.15,z:center.z+.3}]])assert.deepEqual(step(j,board,{kind:'slice',from:path[0],to:path.at(-1),path}),board);
+});
+test('下一步按实际食材所在位置给选项，已熟、火候过重与口味结果沿同一writer保留',()=>{
+ const j=job();let p=j.cooking.progress;assert.equal(K.primaryStation(j,p),'basket');assert.ok(K.cookingGuide(j,p).text.includes('食材'));
+ p=drop(j,p,p.table.items[0].id,'board');assert.equal(K.primaryStation(j,p),'board');assert.ok(K.cookingGuide(j,p,'board').choices.some(c=>c.event.kind==='board-pan'));
+ const result=K.dishResult({...j,cooking:{...j.cooking,progress:p}});assert.equal(result.label,'还没做熟');
+ for(const x of p.table.items){x.zone='plate';x.top=x.bottom=1;x.heatTime=27;}p.table.sealed=true;p.index=3;
+ let s=K.kitchenChange({}, {kind:'shop',recipeId:j.recipeId});s=K.kitchenChange(s,{kind:'begin',id:j.id,recipeId:j.recipeId,choices:{lead:'ta'}});s=K.kitchenChange(s,{kind:'progress',id:j.id,progress:{...p,rev:100}});s=K.kitchenChange(s,{kind:'finish',id:j.id,at:123});const saved=JSON.parse(JSON.stringify(s));assert.equal(K.dishResult(saved.dishes[0]).label,'火候偏重');assert.ok(K.dishResult(saved.dishes[0]).texture.includes('偏干'));assert.equal(saved.dishes[0].tabletop.items[0].heatTime,27);
+});

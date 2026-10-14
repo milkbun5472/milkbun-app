@@ -36,6 +36,8 @@ const tryd = c => { try { return sh(c); } catch (e) { return null; } };
 function die(m) { console.error("✗ " + m); process.exit(1); }
 const REMOTE = (() => { const rs = (tryd("git remote") || "origin").split("\n"); return rs.includes("origin") ? "origin" : rs[0]; })();
 const BRANCH = sh("git rev-parse --abbrev-ref HEAD");
+const GIT_DIR = sh("git rev-parse --absolute-git-dir");
+const quote = s => "'" + String(s).replaceAll("'", "'\\''") + "'";
 const VERSION_FILES = ["index.html", "manifest.json", "rescue.html", "js/app.js"];
 
 // 版本那几行冲突：两边都只是号不同，取 main 那侧（反正马上重写）
@@ -48,7 +50,7 @@ const takeTheirsStampLines = p => {
 };
 
 // 开跑前：上一次合到一半没收完、或者文件里还留着冲突标记，一律不动
-if (existsSync(".git/MERGE_HEAD")) die("有一次合并还没收完（.git/MERGE_HEAD 在）：先收好或 git merge --abort 再跑");
+if (existsSync(GIT_DIR + "/MERGE_HEAD")) die("有一次合并还没收完（.git/MERGE_HEAD 在）：先收好或 git merge --abort 再跑");
 { const left = tryd("git grep -lE \"^(<<<<<<<|>>>>>>>) \" -- js index.html test scripts");
   if (left) die("这些文件里还有冲突标记，先收干净：\n" + left); }
 for (let round = 1; round <= 4; round++) {
@@ -105,8 +107,8 @@ for (let round = 1; round <= 4; round++) {
   if (fails.length) die("有红灯，不推：\n" + fails.join("\n"));
   // 6) 发版提交 + 推
   const msg = readFileSync(msgFile, "utf8").replace(/^\s*/, "v" + V + " ");
-  writeFileSync(".git/SHIP_MSG", msg);
-  sh("git add -A"); sh("git commit -q --allow-empty -F .git/SHIP_MSG");   // 上一次停在半路时版本号已经跟着 wip 提交进去了，这里可能没有新改动，说明照样要落一条
+  writeFileSync(GIT_DIR + "/SHIP_MSG", msg);
+  sh("git add -A"); sh("git commit -q --allow-empty -F " + quote(GIT_DIR + "/SHIP_MSG"));   // 上一次停在半路时版本号已经跟着 wip 提交进去了，这里可能没有新改动，说明照样要落一条
   sh("git push -q " + REMOTE + " HEAD:" + BRANCH);
   sh("git fetch -q " + REMOTE + " main");
   if (tryd("git merge-base --is-ancestor " + REMOTE + "/main HEAD") === null) { console.log("main 在这期间又被别人推了，重来一轮"); continue; }

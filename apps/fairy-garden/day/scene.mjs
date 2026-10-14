@@ -1,46 +1,46 @@
-import {createRoomCutaway} from './camera-view.mjs?v=fg-6155029e59419336';
-import {createKitchenStation} from './board-station.mjs?v=fg-6155029e59419336';
+import {createRoomCutaway} from './camera-view.mjs?v=fg-13f81fdc88b83696';
+import {createKitchenStation} from './board-station.mjs?v=fg-13f81fdc88b83696';
 const boardStation=createKitchenStation();let kitchenStation='';
-import './kitchen.js?v=fg-6155029e59419336';
-import {createLunchCarry} from './lunch-carry.mjs?v=fg-6155029e59419336';
-import {createKitchenView} from './kitchen-view.mjs?v=fg-6155029e59419336';
+import './kitchen.js?v=fg-13f81fdc88b83696';
+import {createLunchCarry} from './lunch-carry.mjs?v=fg-13f81fdc88b83696';
+import {createKitchenView} from './kitchen-view.mjs?v=fg-13f81fdc88b83696';
 const kitchenView=createKitchenView({actors:()=>[avatar,visitorAvatar]});
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-6155029e59419336';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-6155029e59419336';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-6155029e59419336';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-13f81fdc88b83696';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-13f81fdc88b83696';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-13f81fdc88b83696';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-6155029e59419336';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-6155029e59419336';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-6155029e59419336';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-6155029e59419336';
-import {seatLook} from '../wardrobe.mjs?v=fg-6155029e59419336';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-6155029e59419336';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-6155029e59419336';
-import {stepRoute} from '../locomotion.mjs?v=fg-6155029e59419336';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-6155029e59419336';
-import {updateWorkScene} from './work-scene.mjs?v=fg-6155029e59419336';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-6155029e59419336';
-import {activityPose} from './activity.mjs?v=fg-6155029e59419336';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-6155029e59419336';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-13f81fdc88b83696';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-13f81fdc88b83696';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-13f81fdc88b83696';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-13f81fdc88b83696';
+import {seatLook} from '../wardrobe.mjs?v=fg-13f81fdc88b83696';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-13f81fdc88b83696';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-13f81fdc88b83696';
+import {stepRoute} from '../locomotion.mjs?v=fg-13f81fdc88b83696';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-13f81fdc88b83696';
+import {updateWorkScene} from './work-scene.mjs?v=fg-13f81fdc88b83696';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-13f81fdc88b83696';
+import {activityPose} from './activity.mjs?v=fg-13f81fdc88b83696';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-13f81fdc88b83696';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-6155029e59419336';
-import {createSpaceView} from './space-view.mjs?v=fg-6155029e59419336';
-import {setHomeClock} from './home-shell.mjs?v=fg-6155029e59419336';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-6155029e59419336';
-import {createTogether} from './together.mjs?v=fg-6155029e59419336';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-6155029e59419336';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-6155029e59419336';
-import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-6155029e59419336';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-6155029e59419336';
-import {createSceneVisit} from './visit.mjs?v=fg-6155029e59419336';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-6155029e59419336';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-6155029e59419336';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-6155029e59419336';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-13f81fdc88b83696';
+import {createSpaceView} from './space-view.mjs?v=fg-13f81fdc88b83696';
+import {setHomeClock} from './home-shell.mjs?v=fg-13f81fdc88b83696';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-13f81fdc88b83696';
+import {createTogether} from './together.mjs?v=fg-13f81fdc88b83696';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-13f81fdc88b83696';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-13f81fdc88b83696';
+import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-13f81fdc88b83696';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-13f81fdc88b83696';
+import {createSceneVisit} from './visit.mjs?v=fg-13f81fdc88b83696';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-13f81fdc88b83696';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-13f81fdc88b83696';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-13f81fdc88b83696';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-6155029e59419336';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-6155029e59419336';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-13f81fdc88b83696';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-13f81fdc88b83696';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -163,7 +163,7 @@ function commitEdit(result){if(!snapshot?.editing||changing||drag)return false;i
 function editAction(action){if(!snapshot?.editing||changing||drag)return false;if(action==='undo'){const previous=history.pop();if(!previous){editorNotice('还没有需要撤销的摆放。');return false;}apply({...snapshot,homePlacements:previous},true);editorNotice('已撤销上一次摆放。');return true;}return commitEdit(changeHomeFurniture(snapshot.homePlacements,selected,action));}
 canvas.addEventListener('pointerdown',e=>{
  if(e.pointerType==='mouse'&&e.button!==0)return;editorPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});try{canvas.setPointerCapture(e.pointerId);}catch{}
- if(!snapshot?.editing&&editorPointers.size===1){const hit=kitchenStation?boardStation.hit(e.clientX,e.clientY):hitKitchen(e.clientX,e.clientY);if(hit){kitchenDrag={id:e.pointerId,target:typeof hit==='string'?hit:null,tag:typeof hit==='object'?hit:null,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,distance:0,worked:false,path:[],point:null};if(kitchenStation){kitchenDrag.station=kitchenStation;const p=boardStation.point(e.clientX,e.clientY);if(p){kitchenDrag.path.push(p);kitchenDrag.point=p;}}return;}}
+ if(!snapshot?.editing&&editorPointers.size===1&&!kitchenProgress?.preview){const hit=kitchenStation?boardStation.hit(e.clientX,e.clientY):hitKitchen(e.clientX,e.clientY);if(hit){kitchenDrag={id:e.pointerId,target:typeof hit==='string'?hit:null,tag:typeof hit==='object'?hit:null,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,distance:0,worked:false,path:[],point:null};if(kitchenStation){kitchenDrag.station=kitchenStation;const p=boardStation.point(e.clientX,e.clientY);if(p){kitchenDrag.path.push(p);kitchenDrag.point=p;}}return;}}
  if(kitchenStation){if(editorPointers.size>1)kitchenDrag=null;return;}
  if(snapshot?.editing&&editorPointers.size===1&&!changing){const id=hitFurniture(e.clientX,e.clientY),p=homeFurniture(snapshot.homePlacements).find(p=>p.id===id),point=piecePoint(e.clientX,e.clientY,p);if(id&&point){selectFurniture(id);drag={id:e.pointerId,startX:e.clientX,startY:e.clientY,offsetX:p.x-point.x,offsetZ:p.z-point.z,offsetY:p.mount?p.y-point.y:0,candidate:{...p},moved:false};editorNotice();return;}}
  if(editorPointers.size>1){kitchenDrag=null;cancelDrag();gesture.cancel();for(const [id,p]of editorPointers)gesture.down(id,p.x,p.y);}else gesture.down(e.pointerId,e.clientX,e.clientY);
@@ -366,7 +366,7 @@ function tick(dt,time){
   if(!avatar.root.visible)return;
   if(transfer?.inspect()){transfer.tick(dt,time);trackCamera(Math.min(1,dt*8));return;}
   if(map==='dayHome'&&visitSetting()&&!snapshot.visitorPreview&&snapshot.visitorData?.homePresence!=='away'&&!homeAutoSuppressed&&!autoJoinFailed&&!visitor?.inspect().present&&!visitLoading)joinVisit({automatic:true});
-  if(together?.inspect()){if(together.inspect().automatic&&together.inspect().phase==='active'&&together.inspect().elapsed>=8){together.stop('小互动结束，继续各自活动。');autoInteraction.reset();}together.tick(dt,time);if(together.inspect()){if(mealReturn&&together.inspect()?.kind==='feed'&&together.inspect()?.phase==='active'&&together.inspect().elapsed>3.5){mealReturn=false;visitAction('together:meal');}taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);trackCamera(Math.min(1,dt*8));updateKitchen(dt);return;}}
+  if(together?.inspect()){if(together.inspect().automatic&&together.inspect().phase==='active'&&together.inspect().elapsed>=8){together.stop('小互动结束，继续各自活动。');autoInteraction.reset();}together.tick(dt,time);if(together.inspect()){if((mealReturn||together.inspect()?.tableMeal)&&currentKitchenJob()?.kind==='meal'&&together.inspect()?.kind==='feed'&&together.inspect()?.phase==='active'){const q=together.inspect(),contact=q.intimate,done=q.elapsed>=5&&contact?.spoonDistance<.06&&(contact.contacts||[]).every(c=>c.error<.06);if(done||q.elapsed>12){mealReturn=false;visitAction('together:meal');if(!done&&parent!==window)parent.postMessage({type:'char-day-kitchen-notice',charId:snapshot?.charId,notice:'这一口还够不到，先留在餐桌上一起尝。'},location.origin);}}taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);trackCamera(Math.min(1,dt*8));updateKitchen(dt);return;}}
   const moving=route.length>0;
   if(moving){
     const step=stepRoute(position,route,dt,{speed,walkSpeed:1.6*(hostMotion?.walk||1),clear:(a,b)=>segmentClear(a,b,map,companionAvoid())});position=step.position;speed=step.speed;if(step.heading!=null)yaw=step.heading;
@@ -457,7 +457,7 @@ function finishStationDrag(d){
  const job=currentKitchenJob(),K=globalThis.CharDayKitchen,q=K.cookingSpec(job,kitchenProgress.progress),tag=d.tag,point=d.point;
  if(!q.tabletop){if(tag.type==='heat'){kitchenInput({kind:'heat',value:Math.max(0,Math.min(2,kitchenProgress.progress.heat+(d.startY-d.lastY>18?1:d.lastY-d.startY>18?-1:0)))});return;}
   if(q.operation==='plate'){if(tag.type==='legacy-plate'&&point?.zone==='legacyTray')kitchenInput({kind:'work',target:'serve',operation:'plate'});return;}
-  if(q.passive)return;if(q.operation==='flip'&&d.startY-d.lastY<18)return;const n=Math.min(6,Math.floor(d.distance/35));for(let i=0;i<n;i++){if(K.cookingSpec(job,kitchenProgress.progress).index!==q.index)break;kitchenInput({kind:'work',operation:q.operation,target:q.target});}return;
+  if(q.passive)return;if(q.operation==='flip'&&d.startY-d.lastY<18)return;const n=d.distance<14?0:Math.min(6,Math.max(1,Math.floor(d.distance/24)));for(let i=0;i<n;i++){if(K.cookingSpec(job,kitchenProgress.progress).index!==q.index)break;kitchenInput({kind:'work',operation:q.operation,target:q.target});}return;
  }
  if(tag.type==='ingredient'&&tag.zone==='pan'&&point?.zone==='pan'&&d.distance>18){kitchenInput({kind:'stir',path:d.path});return;}
  if(tag.type==='heat'&&d.distance<8&&d.station!=='heat'){kitchenInput({kind:'station',value:'heat'});return;}
@@ -467,7 +467,7 @@ function finishStationDrag(d){
 function finishTabletopDrag(d){
  const kind=d.tag.type,point=d.point||tabletopPointer(d.lastX,d.lastY,d.tag.zone),path=d.path;
  if(kind==='ingredient'&&point){kitchenInput({kind:'drop',id:d.tag.id,point});const item=kitchenProgress?.progress?.table?.items.find(p=>p.id===d.tag.id);if(item&&(item.zone==='board'||!d.station&&item.zone!==d.tag.zone||item.zone==='plate'&&kitchenProgress.progress.table.items.every(p=>p.zone==='plate')))kitchenInput({kind:'station',value:item.zone});}
- else if(kind==='knife'&&path.length>1)kitchenInput({kind:'slice',from:path[0],to:path.at(-1)});
+ else if(kind==='knife'&&path.length>1)kitchenInput({kind:'slice',from:path[0],to:path.at(-1),path});
  else if(['pan','stir'].includes(kind)&&path.length>1)kitchenInput({kind:'stir',path});
  else if(kind==='flip'&&d.lastY-d.startY<-18)kitchenInput({kind:'flip'});
  else if(kind==='heat')kitchenInput({kind:'heat',value:Math.max(0,Math.min(2,(kitchenProgress?.progress?.heat??1)+((d.startY-d.lastY)>12?1:(d.startY-d.lastY)<-12?-1:1)))});
@@ -476,13 +476,13 @@ function finishTabletopDrag(d){
 }
 function focusKitchen(){const table=kitchenView.tabletop();if(!table)return false;tabletopCamera={heading:table.root.parent.rotation.y};orbitPivot.copy(new T.Box3().setFromObject(table.root).getCenter(new T.Vector3()));setFollowing(false);homeOverview=false;const box=new T.Box3().setFromObject(table.root).expandByScalar(.12);const wide=innerWidth>innerHeight,insets=wide?{top:snapshot?.viewInsets?.top||130,bottom:30,left:18,right:Math.max(320,snapshot?.viewInsets?.right||0)}:{top:snapshot?.viewInsets?.top||165,bottom:snapshot?.viewInsets?.right>50?150:snapshot?.viewInsets?.bottom||150,left:20,right:20};frameBox(box,insets,7);return true;}
 function kitchenInput(event){const k=syncKitchen(),job=currentKitchenJob(),K=globalThis.CharDayKitchen;if(!job||map!=='dayHome'||snapshot?.scenePaused||changing)return {ok:false,reason:'先回到这份料理的现场。'};
- if(event.kind==='offer'&&job.kind==='meal'){const ok=visitAction('together:feed',{initiator:'b'});mealReturn=ok;return {ok};}
+ if(event.kind==='offer'&&job.kind==='meal'){if(together?.inspect()?.kind!=='meal'||together.inspect().phase!=='active')return {ok:false,reason:'先坐到餐桌，再给TA尝这一口。'};const ok=visitAction('together:feed',{initiator:'b'});mealReturn=ok;return {ok};}
  if(event.kind==='taste'&&job.kind==='meal')return {ok:visitAction('together:meal')};
  if(!job.cooking)return {ok:false};const spec=K.cookingSpec(job,k.progress);
  if(event.kind==='moment'){if(!together?.inspect()||together.inspect().kind!=='cook'||together.inspect().phase!=='active'||together.inspect().moment)return {ok:false,reason:'等两个人到锅边、做完当前这一下。'};const choice=K.cooperation(job,k.progress).find(q=>q.id===event.value);if(!choice||choice.disabled)return {ok:false,reason:choice?.reason||'这一步还没到。'};const result=together.start('cook',{lead:k.lead,moment:event.value});if(result.ok){kitchenInput({kind:'station',value:''});tabletopCamera=null;setCameraMode('both');route=[];onArrive=null;}return result;}
  if(together?.inspect()?.moment&&!(event.kind==='station'&&!event.value))return {ok:false,reason:'等这一小下做完，再接着操作。'};
- if(event.kind==='station'){const chosen=K.stationInfo(job,event.value,k.progress);if(event.value&&(!K.cookingStations(job,k.progress).some(q=>q.id===event.value)||chosen.disabled))return {ok:false,reason:'先做完当前这一步，再用这件道具。'};kitchenStation=event.value||'';place.style.display=kitchenStation?'none':'';kitchenDrag=null;boardStation.clear();if(parent!==window)parent.postMessage({type:'char-day-kitchen-station',charId:snapshot.charId,station:kitchenStation},location.origin);if(!kitchenStation)focusKitchen();return {ok:true};}
- if(event.kind==='board-pan'&&kitchenStation==='board'){for(const [i,p]of k.progress.table.items.filter(p=>p.zone==='board').entries())k.progress=K.stepCooking(job,k.progress,{kind:'drop',id:p.id,point:{x:K.TABLE_ZONES.pan.x+(i%3-1)*.075,z:K.TABLE_ZONES.pan.z+(i%2-.5)*.075}});kitchenInput({kind:'station',value:'pan'});updateKitchen(0);return {ok:true};}
+ if(event.kind==='station'){const chosen=K.stationInfo(job,event.value,k.progress);if(event.value&&(!K.cookingStations(job,k.progress).some(q=>q.id===event.value)||chosen.disabled))return {ok:false,reason:'先做完当前这一步，再用这件道具。'};k.preview=spec.ready&&event.value==='plate';kitchenStation=event.value||'';place.style.display=kitchenStation?'none':'';kitchenDrag=null;boardStation.clear();if(parent!==window)parent.postMessage({type:'char-day-kitchen-station',charId:snapshot.charId,station:kitchenStation},location.origin);if(!kitchenStation)focusKitchen();return {ok:true};}
+ if(event.kind==='board-pan'&&spec.tabletop){if(together?.inspect()?.phase!=='active')return {ok:false,reason:'等两个人到厨房再下锅。'};if(!k.progress.table.items.some(p=>p.zone==='board'))return {ok:false,reason:'先从食材篮拿一份到砧板。'};for(const [i,p]of k.progress.table.items.filter(p=>p.zone==='board').entries())k.progress=K.stepCooking(job,k.progress,{kind:'drop',id:p.id,point:{x:K.TABLE_ZONES.pan.x+(i%3-1)*.075,z:K.TABLE_ZONES.pan.z+(i%2-.5)*.075}});k.feedback='这批已下锅，接着看锅里的熟度。';kitchenInput({kind:'station',value:'pan'});updateKitchen(0);return {ok:true};}
  if(event.kind==='focus'){if(focusKitchen())return {ok:true};const target=kitchenView.targets().find(o=>o.userData.kitchenTarget===spec.target);if(target){const p=target.getWorldPosition(new T.Vector3());pan.x=p.x;pan.z=p.z;setFollowing(false);gesture.setZoom(2.7);cameraPose();return {ok:true};}return {ok:false};}
  if(event.kind==='away'&&spec.passive){together?.stop('正在慢慢煮，先去忙自己的事。');visitor?.act('auto');return {ok:true};}
  if(event.kind==='lead'){const result=together.start('cook',{lead:event.value});if(!result.ok)return result;k.lead=event.value==='me'?'me':'ta';k.progress={...k.progress,rev:k.progress.rev+1};route=[];onArrive=null;updateKitchen(0);return {ok:true};}
@@ -490,7 +490,12 @@ function kitchenInput(event){const k=syncKitchen(),job=currentKitchenJob(),K=glo
  if(['work','drop','slice','stir','flip','sauce','serve-plate'].includes(event.kind)&&together?.inspect()?.phase!=='active')return {ok:false,reason:'等两个人走到自己的位置。'};
  if(event.kind==='work'&&event.target&&event.target!==spec.target)return {ok:false};
  if(event.kind==='heat'&&!spec.tabletop&&spec.index!==1)return {ok:false};
- k.progress=K.stepCooking(job,k.progress,{...event,operation:event.operation||spec.operation});updateKitchen(0);return {ok:true};
+ const before=k.progress,next=K.stepCooking(job,before,{...event,operation:event.operation||spec.operation}),changed=next.rev!==before.rev;
+ if(['slice','drop','stir','flip','sauce','serve-plate','work'].includes(event.kind)){
+  const message=changed?(event.kind==='slice'?'切开了 · 现在砧板上有 '+next.table.items.filter(p=>p.zone==='board').length+' 块':event.kind==='work'?K.cookingSpec(job,next).index!==spec.index?'这一步完成了，接着'+K.cookingSpec(job,next).label:'做到了 '+Math.round(next.work/Math.max(1,spec.required)*100)+'%':({stir:'已经翻动拌匀',flip:'已翻面，让另一面也煎熟',sauce:'淋酱已经留在盘上',drop:'食材已放好','serve-plate':'摆盘完成了'})[event.kind]):event.kind==='slice'?'从食材中间划过试试；已经很小的块可以直接下锅。':event.kind==='drop'?'没放进去：熟好的菜才能盛盘，把食材拖到道具里再松手。':'这一下还没完成，照下面的提示再试一次。';
+  k.feedback=message;if(parent!==window)parent.postMessage({type:'char-day-kitchen-notice',charId:snapshot.charId,notice:message},location.origin);
+ }
+ k.progress=next;updateKitchen(0);return {ok:changed||!['slice','drop','stir','flip','sauce','serve-plate','work'].includes(event.kind),notice:k.feedback};
 }
 function updateKitchen(dt){
  const k=syncKitchen(),job=currentKitchenJob(),shared=together?.inspect(),K=globalThis.CharDayKitchen;
@@ -500,10 +505,10 @@ function updateKitchen(dt){
  if(job.cooking){if((active||!!shared?.moment||stage.passive&&map==='dayHome')&&!k.ready)k.progress=K.stepCooking(job,k.progress,{kind:'tick',dt,active,prepPaused:!!shared?.moment||['board','basket'].includes(kitchenStation),chefPaused:!!shared?.moment||['pan','heat','plate','sauce'].includes(kitchenStation),operationPaused:!!shared?.moment||!!kitchenStation,held:kitchenDrag?.tag?.id});k.elapsed=k.progress.elapsed;k.ready=k.progress.index===3;stage=K.cookingStage(job,k.progress);}
  else if(active&&!k.ready){k.elapsed+=dt;if(k.elapsed>=stage.duration)k.ready=true;stage=K.cookingStage(job,k.elapsed);}
  kitchenView.update(mapLoader.views[map]?.root,MAPS[map],job,shared,stage,k.elapsed,shared?.moment?.kind==='pass'?{hideId:shared.moment.sourceId}:kitchenDrag);
- if(kitchenStation&&k.ready)kitchenInput({kind:'station',value:''});else if(kitchenStation&&!stage.tabletop&&K.stationInfo(job,kitchenStation,k.progress).disabled)kitchenInput({kind:'station',value:K.primaryStation(job,k.progress)});
+ if(kitchenStation&&k.ready&&!k.preview)kitchenInput({kind:'station',value:''});else if(kitchenStation&&!stage.tabletop&&K.stationInfo(job,kitchenStation,k.progress).disabled)kitchenInput({kind:'station',value:K.primaryStation(job,k.progress)});
  if(active&&stage.tabletop&&k.focused!==job.id){k.focused=job.id;focusKitchen();}
  const momentKey=shared?.moment?shared.moment.id+':'+shared.phase:'',phase=k.ready?'ready':!active&&!stage.passive?'paused':stage.phase,step=Math.floor(k.elapsed*2);k.sinceNotice=(k.sinceNotice||0)+dt;
- if(k.momentKey!==momentKey||k.reported!==step||k.phase!==phase||job.cooking&&(k.savedRev!==k.progress.rev)||k.ready&&!job.ready&&k.sinceNotice>=1){k.sinceNotice=0;k.momentKey=momentKey;k.reported=step;k.phase=phase;k.savedRev=k.progress?.rev;if(parent!==window)parent.postMessage({type:'char-day-kitchen',charId:snapshot.charId,id:k.id,phase,moment:shared?.moment?{id:shared.moment.id,kind:shared.moment.kind,phase:shared.phase}:null,label:stage.label,elapsed:k.elapsed,ready:k.ready,...(job.cooking?{progress:{...k.progress},mode:k.mode,lead:k.lead}:{})},location.origin);}
+ if(k.momentKey!==momentKey||k.reported!==step||k.phase!==phase||job.cooking&&(k.savedRev!==k.progress.rev)||k.ready&&!job.ready&&k.sinceNotice>=1){k.sinceNotice=0;k.momentKey=momentKey;k.reported=step;k.phase=phase;k.savedRev=k.progress?.rev;if(parent!==window)parent.postMessage({type:'char-day-kitchen',charId:snapshot.charId,id:k.id,phase,moment:shared?.moment?{id:shared.moment.id,kind:shared.moment.kind,phase:shared.phase}:null,label:stage.label,elapsed:k.elapsed,ready:k.ready,feedback:k.feedback||'',...(job.cooking?{progress:{...k.progress},mode:k.mode,lead:k.lead}:{})},location.origin);}
 }
 function KITCHEN_TOOL_INSPECT(){return {...boardStation.inspect(),info:globalThis.CharDayKitchen.stationInfo(currentKitchenJob(),kitchenStation,kitchenProgress?.progress)};}
 function capturePhoto(){

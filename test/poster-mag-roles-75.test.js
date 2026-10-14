@@ -36,3 +36,9 @@ test("文案要真事、不要空话", () => {
   assert.match(app, /不许写「独家揭秘」「甜蜜瞬间」/);
   assert.match(app, /mtype＝这是本什么杂志/);
 });
+
+test("挑了衣服，海报的 shot 和生图那句都不许另换装（她 2026-10-13：挑了衬衫拍成女仆装）", () => {
+  assert.match(app, /coverCopy\(char, theme\.overlay, [^\n]*, picked\)/);
+  assert.match(app, /shot 里只写站位、动作和镜头，不许写穿什么/);
+  assert.match(app, /\(picked \? "两个人身上穿的一律照上面挑好的那身/);
+});

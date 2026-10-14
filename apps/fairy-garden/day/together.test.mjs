@@ -66,3 +66,11 @@ test('站姿动作只在TA附近微调；周围全堵住时拒绝，不挑房间
  MAPS[id]={id,radius:10,floor:.08,furniture:[],spots:[],obstacles:[{x:.45,z:0,w:.1,d:1.3},{x:-.45,z:0,w:.1,d:1.3},{x:0,z:.45,w:.7,d:.1},{x:0,z:-.45,w:.7,d:.1}]};
  for(const kind of ['hand','hug','kiss','pat','back-hug'])assert.equal(togetherPlans(MAPS[id],kind,origin).length,0,kind);
 });
+test('共餐夹菜以正在坐的餐椅为锚，TA留在原座，我沿路走到椅旁，餐桌不改成沙发',()=>{
+ for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+  MAPS.dayHome=buildSpace('dayHome',{...Object.fromEntries(buildSpace('dayHome').furniture.filter(p=>!['dining-table','dining-chair','partner-chair'].includes(p.id)).map(p=>[p.id,{stored:true}])),...Object.fromEntries(['dining-table','dining-chair','partner-chair'].map(id=>{const p=buildSpace('dayHome').furniture.find(p=>p.id===id);const c=Math.cos(heading),s=Math.sin(heading);return [id,{x:p.x*c+p.z*s,z:p.z*c-p.x*s,heading:(p.heading||0)+heading}];}))});
+  const map=MAPS.dayHome,origins={a:{x:Math.sin(heading)*3.3,z:Math.cos(heading)*3.3},b:{x:Math.sin(heading)*4.8,z:Math.cos(heading)*4.8}},meal=togetherPlans(map,'meal',origins)[0];assert.ok(meal);
+  const from={a:{...meal.a,seat:meal.seats.a},b:{...meal.b,seat:meal.seats.b}},plans=togetherPlans(map,'feed',from,{tableSeats:meal.seats});assert.ok(plans.length);
+  for(const p of plans){assert.equal(p.tableMeal,true);assert.equal(p.retain.a,true);assert.deepEqual(p.seats.a,meal.seats.a);assert.equal(p.seats.b,null);assert.deepEqual(p.aRoute,[]);assert.deepEqual(p.mealSeats,meal.seats);let at=from.b;for(const to of p.bRoute){assert.ok(segmentClear(at,to,'dayHome'));at=to;}}
+ }
+});

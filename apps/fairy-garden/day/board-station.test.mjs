@@ -9,3 +9,7 @@ test('放大砧板显示同一块真实食材，四尺寸投影能反向找到�
  const before=p.table.items.map(q=>[q.id,q.zone,q.x,q.z]);for(let i=0;i<40;i++)p=K.stepCooking(job,p,{kind:'tick',dt:.1,active:true,prepPaused:true});assert.deepEqual(p.table.items.map(q=>[q.id,q.zone,q.x,q.z]),before);
  for(const q of p.table.items.filter(q=>q.zone==='board'))p=K.stepCooking(job,p,{kind:'drop',id:q.id,point:K.TABLE_ZONES.pan});station.update(job,p,390,725);assert.equal(station.inspect().pieces,0);assert.ok(Math.abs(p.table.items.reduce((n,q)=>n+q.w*q.d*q.h,0)-volume)<1e-9);station.dispose();
 });
+test('划切期间锁住砧板镜头，食材变化不把正在滑动的手指投影挪走',()=>{
+ const j={recipeId:'tomato-egg',cooking:K.cookingSession('tomato-egg',{lead:'ta'})},station=createBoardStation();let p=K.stepCooking(j,j.cooking.progress,{kind:'drop',id:'food-0',point:K.TABLE_ZONES.board});station.update(j,p,390,725);const before=station.point(210,350);
+ p.table.items.push({...p.table.items[0],id:'new',x:K.TABLE_ZONES.board.x+.24});station.update(j,p,390,725,{path:[before]});assert.deepEqual(station.point(210,350),before);station.dispose();
+});

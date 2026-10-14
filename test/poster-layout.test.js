@@ -24,7 +24,7 @@ test("留白写进生图提示词：写画面不写坐标，类型带着光影",
   assert.match(line, /排字留白/); assert.match(line, /恐怖/);
   assert.doesNotMatch(line, /\d+px|坐标/);
   assert.match(eng, /opts\.editorialSpace \|\|/);
-  assert.match(app, /editorialSpace: coverPlan \? window\.PosterLayout\.spaceLine\(coverPlan\)/);
+  assert.match(app, /editorialSpace: \(?coverPlan \? window\.PosterLayout\.spaceLine\(coverPlan\)/);
 });
 
 test("先写字再出图（字的方向要在出图前定），出图后照同一份 plan 排", () => {

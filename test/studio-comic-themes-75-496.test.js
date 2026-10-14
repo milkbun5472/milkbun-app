@@ -48,7 +48,7 @@ assert.match(app, /平面的 Q 版二次元插画/);
 assert.match(scr, /"Q版", "手办"/);
 console.log("ok figure");
 // 杂志封面：字量着写不出画；挑了衣服题材照穿（她 2026-10-13）
-assert.match(app, /const coverCopy = async \(char, kind, title\) =>/);
+assert.match(app, /const coverCopy = async \(char, kind, title(, picked)?\) =>/);
 assert.match(app, /\(!theme \|\| picked\)/);
 assert.match(app, /window\.PosterLayout\.compose\(blob, plan, copy, names\)/);
 assert.match(app, /editorial: theme.overlay/);
