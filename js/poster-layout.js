@@ -476,8 +476,14 @@
         const probe = { x: b.x, y, w: b.w, h: kh + lh }; if ((look(probe).skin || 0) > 0.08) return;   // 正好压在人身上：也不要
         const gid = "col" + n + r.x;
         if (g.kicker) { const o = smallLine(x, g.kicker, { x: b.x, y, w: b.w, h: kh, a: b.a }, { ...P, trS: 0.18 }, variant !== 2 ? accent : ik.ink, dry, 0.9); if (o) { boxes.push({ ...o, g: gid, dark: ik.dark, role: "line" }); y = o.y + o.h + H * 0.004; } }
-        const o = smallLine(x, g.line, { x: b.x, y, w: b.w, h: lh, a: b.a }, big ? { ...P, small: bold, trS: 0.02 } : P, ik.ink, dry, 0.9);
-        if (o) { boxes.push({ ...o, g: gid, dark: ik.dark, role: "line" }); y = o.y + o.h + H * 0.022; } });
+        const LP = big ? { ...P, small: bold, trS: 0.02 } : P;
+        // 一行放不下（要缩到七成以下）就按意思断成两行，不把字缩成蚂蚁、也不截掉半句
+        const wide = measure(x, g.line, lh * 0.9, LP.small[0], LP.small[1], LP.trS) > b.w / 0.72;
+        const parts = wide && A(g.line).length >= 8 ? titleLines({}, g.line) : [g.line];
+        if (parts.length > 1 && y + kh + lh * 2 > bottom + H * 0.02) return;
+        parts.forEach(t2 => { const o = smallLine(x, t2, { x: b.x, y, w: b.w, h: lh, a: b.a }, LP, ik.ink, dry, 0.9);
+          if (o) { boxes.push({ ...o, g: gid, dark: ik.dark, role: "line" }); y = o.y + o.h + H * 0.006; } });
+        y += H * 0.016; });
     };
     const ls = mc.groups.slice(0, M.lines);
     col(C.column, C.column2 ? ls.slice(0, 2) : ls, !C.column2); col(C.column2, ls.slice(2, 3), false);

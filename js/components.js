@@ -9734,7 +9734,7 @@ function ChatThread({
   const _me = meProfile || profile;
   // 这个聊天窗单独给我设过头像，就用那张；没设就是我的资料（或这个人认的那张面具）那张
   const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: (character && character.myChatAvatar) || (_me && _me.avatarImage) };
-  const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
+  const fmtT = ts => { const d = new Date(typeof vclockMap === "function" && character ? vclockMap(ts || Date.now(), character.id) : (ts || Date.now())); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
   // 旁白模式里分两档：此刻发生了什么（旁白卡）／往后的大概方向（导演便签，只给模型看，管两轮或整场）
@@ -15681,7 +15681,7 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: offlineSubSkin(t) },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
-        h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(session.startTs)),
+        h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(session.startTs, char ? char.id : undefined)),
         // 读着读着想留一份：这一页也给一颗（跟往期那一行同一支，喂它这一场）
         h("button", { onClick: () => {
           const one = offlineSessionsText([session], fmtStamp, (char && (char.remark || char.name)) || "线下", members);
@@ -16769,7 +16769,7 @@ function OffPickBar({ t, pick, setPick, onPin }) {
       pick.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, pick), hi = Math.max.apply(null, pick); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setPick(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
       h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻")));
 }
-function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason }) {
+function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -16791,7 +16791,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
   const castPick = isNovel ? cast.find(o => o.c.id === castWho) || null : null;
   // 线下语音只念台词：从这段叙事里抠出引号内的话，纯旁白（没引号台词）就不给 ▶
   const offSpeech = typeof extractSpeech === "function" ? extractSpeech(m.content) : m.content;
-  const timeEl = m.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, opacity: 0.7, letterSpacing: 0.3, flexShrink: 0 } }, fmtStamp(m.ts)) : null;
+  const timeEl = m.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, opacity: 0.7, letterSpacing: 0.3, flexShrink: 0 } }, fmtStamp(m.ts, clockId !== undefined ? clockId : (char ? char.id : undefined))) : null;
   const meChar = { name: (meProfile && meProfile.name) || "我", avatarImage: meProfile && meProfile.avatarImage, color: (meProfile && meProfile.color) || "#7a6cf0" };
   // 线下当场拍下来的那一格（她 2026-08-29 要的合照）。和线上单聊同一个气泡组件，
   // 只是外面套的是线下这张卡：有头像、有名字、有时间、能删。
@@ -17220,7 +17220,7 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
+      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
@@ -17391,8 +17391,9 @@ function GroupThread({
       sub ? h("span", null, sub) : null, dot);
   };
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
-  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
-  const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
+  // 这个群单独给我设过头像就用那张（她 2026-10-14：「群聊我改不了自己的头像」——单聊有这一格，群一直没有）
+  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: gsp.myAvatar || (profile && profile.avatarImage) };
+  const fmtT = ts => { const d = new Date(typeof vclockMap === "function" && group && group.id ? vclockMap(ts || Date.now(), "g:" + group.id) : (ts || Date.now())); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [panel, setPanel] = useState(false);
   const [gInviteOpen, setGInviteOpen] = useState(false);
@@ -18501,6 +18502,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const _gAllSame = (() => { const ks = ((group && group.memberIds) || []).map(_gMk); return ks.length && ks.every(k => k && k === ks[0]) ? ks[0] : ""; })();
   const [gMask, setGMask] = useState(gs.maskId != null ? String(gs.maskId || "") : _gAllSame);
   const [gAvatar, setGAvatar] = useState((group && group.avatarImage) || null);
+  const [gMyAv, setGMyAv] = useState((gs && gs.myAvatar) || null);
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -18583,7 +18585,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -18594,6 +18596,9 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     h("div", { className: "pt-4 flex items-center gap-3" },
       h(AvatarPicker, { character: { name: gName || "群", color: t.tint, avatarImage: gAvatar }, size: 48, radius: 10, onPick: setGAvatar }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } }, gAvatar ? "群头像。点「移除照片」回到成员四宫格。" : "没设群头像就用成员四宫格。点左边设一张。")),
+    h("div", { "data-wk": "gmyavatar", className: "pt-3 flex items-center gap-3" },
+      h(AvatarPicker, { character: { name: "我", color: t.tint, avatarImage: gMyAv }, size: 48, radius: 10, onPick: setGMyAv, onClear: gMyAv ? () => setGMyAv(null) : null }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } }, gMyAv ? "我在这个群里的头像，只在这个群用，你资料里那张不动。点「移除照片」用回原来那张。" : "我在这个群里的头像：没单独设就用你资料（或这个群戴的面具）那张。点左边换一张，只在这个群里换。")),
     h("div", { className: "pt-4" },
       h("input", {
         value: gName,
