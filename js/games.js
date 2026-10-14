@@ -5408,10 +5408,16 @@
   function GameTalkLog(props) {
     const t = props.t, lines = props.lines || [], pAvatar = avatarFor(t);
     const ref = useRef(null);
-    useEffect(function () { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [lines.length, props.busy]);
+    // flow：跟着整页一起滚，不另开一个小框（约会那盒，她 2026-10-14）——新的一条出来就把它带进视线
+    const flow = props.maxHeight === "none", endRef = useRef(null);
+    useEffect(function () {
+      if (flow) { if (endRef.current && lines.length) try { endRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {} }
+      else if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+    }, [lines.length, props.busy]);
     const bub = function (mine) { return { maxWidth: mine ? "78%" : "100%", padding: "7px 11px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, wordBreak: "break-word" }; };
-    return h("div", { "data-wk": "gametalk", ref: ref, style: { maxHeight: props.maxHeight || 190, minHeight: 64, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, padding: "4px 2px", marginBottom: 12 } },
-      lines.length ? lines.slice(-30).map(function (l, i) {
+    return h("div", { "data-wk": "gametalk", ref: ref, style: { maxHeight: flow ? "none" : (props.maxHeight || 190), minHeight: flow ? 0 : 64, overflowY: flow ? "visible" : "auto", display: "flex", flexDirection: "column", gap: 8, padding: "4px 2px", marginBottom: 12 } },
+      lines.length ? (flow ? lines : lines.slice(-30)).map(function (l, i) {
+        if (l.node) return h("div", { key: i, style: { alignSelf: "stretch" } }, l.node);   // 夹在对话里的一张卡（约会每站的小票）
         if (l.sys) return h("div", { key: i, style: { alignSelf: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, l.text);
         if (l.me) return h("div", { key: i, "data-wk": "gametalkrow", "data-me": "1", style: { display: "flex", justifyContent: "flex-end", gap: 7, alignItems: "flex-start" } },
           h("div", { style: bub(true) }, l.text), pAvatar({ isUser: true, name: props.uName, char: props.me }, 28));
@@ -5422,7 +5428,8 @@
             props.names ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 0 2px 2px" } }, l.name) : null,
             h("div", { style: bub(false) }, l.text, c ? h(GameVoiceDot, { p: { char: c }, k: (props.k || "gt") + i + "_" + l.at, text: l.text }) : null)));
       }) : h("div", { style: { alignSelf: "center", margin: "auto 0", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, props.empty || ""),
-      props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingLeft: 36 } }, "…") : null);
+      props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingLeft: 36 } }, "…") : null,
+      flow ? h("div", { ref: endRef }) : null);
   }
 
   if (typeof window !== "undefined") window.GameTalkLog = GameTalkLog;   // 约会那盒（date-game.js）也用这一份气泡

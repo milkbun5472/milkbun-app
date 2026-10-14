@@ -118,7 +118,7 @@
     if (kind === "guess" && s.aiGuess !== null) throw Error("TA 已经交好猜测了。");
     if (proposedId && !legalPlaces(s).some(p => p.id === proposedId)) throw Error("这处现在去不了。");
     const n = clone(s);
-    if (line) n.talk.push({ who: "user", text: String(line).slice(0, 600), round: n.round });
+    if (line) n.talk.push({ who: "user", text: String(line).slice(0, 600), round: n.round, n: (n.seq = (n.seq || 0) + 1) });
     n.pending = { kind, proposedId: proposedId || null };
     return n;
   }
@@ -144,7 +144,7 @@
       if (reply.guess !== "unknown" && !mission(reply.guess)) throw Error("TA 的猜测没收完整。");
       n.aiGuess = reply.guess;
     }
-    n.talk.push({ who: "char", text: reply.say.trim().slice(0, 1200), round: n.round });
+    n.talk.push({ who: "char", text: reply.say.trim().slice(0, 1200), round: n.round, n: (n.seq = (n.seq || 0) + 1) });
     n.pending = null;
     return n;
   }
@@ -183,7 +183,7 @@
       text = p.name + "：你" + o[1] + "。"; extra.choice = choice;
     }
     if (s.incident) { text = "（" + s.incident.text + "）" + text; extra.incident = s.incident.id; }
-    n.events.push(Object.assign({ place: p.id, at: s.arrival, text, round: s.round }, extra));
+    n.events.push(Object.assign({ place: p.id, at: s.arrival, text, round: s.round, n: (n.seq = (n.seq || 0) + 1) }, extra));
     n.phase = "after";
     return n;
   }
@@ -217,7 +217,15 @@
   }
   // 翻牌前要不要请裁判读聊天：两人里有一张是看人的任务才要
   const needsJudge = s => [s.missions.user, s.missions.char].some(id => (mission(id) || {}).social);
-  const api = { PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
+  // 路上的一条时间线（她 2026-10-14：「节奏和气泡显示有点不对」）：说过的话和每站的小票按发生的先后排在一起，
+  //   原来话在上、小票在下，TA 对这一站的反应排在「发生了什么」前面。旧存档没有先后号：同一站里话在前、小票在后。
+  function feed(s) {
+    const key = (x, kind, i) => x.n != null ? x.n : (Number(x.round) || 0) * 10000 + (kind === "event" ? 9000 : 0) + i;
+    return (s.talk || []).map((x, i) => ({ kind: "talk", item: x, k: key(x, "talk", i) }))
+      .concat((s.events || []).map((x, i) => ({ kind: "event", item: x, k: key(x, "event", i) })))
+      .sort((a, b) => a.k - b.k);
+  }
+  const api = { feed, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
   if (typeof module === "object" && module.exports) module.exports = api;
   root.DateGameCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

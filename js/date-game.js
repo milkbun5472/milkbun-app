@@ -32,7 +32,7 @@
       + "\n【一起玩的用户】\n" + (pf.name || "你") + "\n" + (pf.persona || pf.bio || "")
       + (state.config.injectChat && props.recentChatFor ? "\n【开局前最近聊天·只读背景】\n" + props.recentChatFor(char.id) : "");
     const game = "\n你正在玩独立的「各怀心思的约会」。你就是这名玩家，有自己的任务与性格，主动争取想去的地方；怎样藏心思、让步、讨价还价由你自己决定。\n"
-      + "【规则】180 分钟、200 枚游戏币，最多四站，不重复逛。同意一处只代表提议，具体走路和活动由游戏结算。奇数站用户做主，偶数站你做主。商量时认真读对方这句话在做什么，用短台词接话。\n"
+      + "【规则】180 分钟、200 枚游戏币，最多四站，不重复逛。同意一处只代表提议，具体走路和活动由游戏结算。奇数站用户做主，偶数站你做主。商量时认真读对方这句话在做什么，用短台词接话。say 像发消息一样，可以拆成一到三句、用换行隔开，一句一个气泡。\n"
       + (state.config.mode === "easy" ? "【放水局】这局你让着对方：好说话，愿意成全对方想去的地方和想做的事，猜任务时也不必太较真。\n" : "")
       + "你的秘密任务只有你知道。对方的任务不在资料里，靠公开行动猜；可以试探、误导，也可以主动说破自己的任务。所有数值和成功都由裁判判断。\n"
       + "【你实际能看见的这一局】\n" + JSON.stringify(C.aiView(state));
@@ -64,9 +64,10 @@
     const t = props.t, cfg = props.config, char = (props.characters || []).find(c => c.id === cfg.charIds[0]);
     const [s, setS] = useState(() => props.savedState && props.savedState.state || C.newGame(cfg));
     const ref = useRef(s), ticket = useRef(0), abortRef = useRef(null), busyRef = useRef(false), alive = useRef(true);
-    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [showTask, setShowTask] = useState(true);
+    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
     const save = n => { const ok = props.onSave({ config: cfg, state: n, label: n.phase === "finished" ? "这一局已翻牌 · 可以回看" : "第 " + n.round + " 站 · 剩 " + n.minutes + " 分钟" }) !== false; setUnsaved(!ok); return ok; };
     const put = n => { ref.current = n; setS(n); return save(n); };
+    useEffect(() => { if (s.visits.length === 1) setShowTask(false); }, [s.visits.length]);   // 走完第一站就折起任务纸条（想看再点「偷看一眼」）
     useEffect(() => { alive.current = true; save(ref.current); return () => { alive.current = false; ticket.current++; if (abortRef.current) abortRef.current.abort(); }; }, []);
     const act = fn => { if (busyRef.current || unsaved) return; try { put(fn(ref.current)); setErr(""); } catch (e) { setErr(e.message); } };
     // 做完一站：TA 当场接一句（她 2026-10-12：「TA 在场」），点单／挑东西那几处 TA 也替你挑一样
@@ -130,6 +131,25 @@
     const slip = (kids, extra, key) => h("div", { key: key, style: Object.assign({ position: "relative", padding: "16px 16px 13px", margin: "6px 4px 16px", background: "#fffdf6", color: "#3a332b", borderRadius: 2,
       boxShadow: "0 1px 0 rgba(0,0,0,.04), 0 6px 14px -8px rgba(40,25,10,.35)", transform: "rotate(-.7deg)" }, extra || {}) },
       h("span", { "aria-hidden": "true", style: { position: "absolute", top: -8, left: "50%", width: 54, height: 16, marginLeft: -27, background: "rgba(235,215,160,.75)", transform: "rotate(2deg)" } }), kids);
+    // 一站的小票：上下锯齿虚线，像店里打出来的那张。夹在路上的对话里，排在那一站说的话中间（按发生先后）
+    const receipt = (e, i) => h("div", { "data-part": "receipt", style: { margin: "4px 8px", padding: "12px 14px", background: "#fffdf6", color: "#3a332b", fontSize: 13.5, lineHeight: 1.8,
+        borderTop: "2px dashed " + t.line, borderBottom: "2px dashed " + t.line, boxShadow: "0 6px 14px -10px rgba(40,25,10,.45)" } },
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9a8f80", letterSpacing: 1, marginBottom: 4 } }, h("span", null, (ICON[e.place] || "") + " " + ((C.place(e.place) || {}).name || "")), h("span", null, "第 " + (i + 1) + " 站")),
+      e.text);
+    // 路上的话和小票排成一条：每到新的一站先落一行站名，TA 一句话拆成几个气泡（她 2026-10-14：「节奏和气泡显示有点不对」）
+    const feedLines = (() => {
+      const out = [], uName = (props.profile || {}).name || "你", cName = char ? (char.remark || char.name) : "TA";
+      let lastRound = 0, ev = 0;
+      C.feed(s).forEach((f, k) => {
+        const r = Number(f.item.round) || 0;
+        if (r && r !== lastRound) { lastRound = r; const vid = s.visits[r - 1]; out.push({ sys: true, text: "· 第 " + r + " 站" + (vid ? " · " + (ICON[vid] || "") + " " + C.place(vid).name : "") + " ·" }); }
+        if (f.kind === "event") { out.push({ node: receipt(f.item, ev++) }); return; }
+        const m = f.item;
+        if (m.who === "user") { out.push({ me: true, name: uName, text: m.text, at: k }); return; }
+        String(m.text || "").split(/\n+/).map(x => x.trim()).filter(Boolean).forEach((x, j) => out.push({ id: char && char.id, name: cName, text: x, at: k + "_" + j }));
+      });
+      return out;
+    })();
     const sectionTitle = (label, sub) => h("div", { style: { margin: "4px 2px 10px", display: "flex", alignItems: "baseline", gap: 8 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, label), sub ? h("span", { style: { fontSize: 11.5, color: t.fog } }, sub) : null);
     if (!char || (props.isEngineer && props.isEngineer(char.id))) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "各怀心思的约会", onBack: props.onBack }), card(t, "这一局的角色不可用。存档还留着，可以返回重新选人。"));
@@ -144,9 +164,8 @@
           showTask ? h("div", { key: "task", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.7, marginTop: 4 } }, mine.text,
             h("div", { style: { fontFamily: F_BODY, color: C.progress(s, mine.id).done ? "#5d8b4c" : "#9a8f80", fontSize: 11, marginTop: 4 } }, mine.social ? "看你们聊了什么——翻牌前会读一遍聊天" : C.progress(s, mine.id).done ? (mine.id === "save" && s.phase !== "finished" ? "✓ 目前达成 · 别把剩的钱花掉了" : "✓ 已经达成了") : "藏好一点，TA 不知道你抽中了什么")) : null])),
         // 路上聊的：跟五子棋、你画我猜同一个左右气泡（GameTalkLog），不另画一套
-        s.talk.length && root.GameTalkLog ? h(root.GameTalkLog, { t, uName: (props.profile || {}).name || "你", me: props.profile || {}, maxHeight: 260, k: "date",
-          lines: s.talk.map((m, i) => m.who === "user" ? { me: true, name: (props.profile || {}).name || "你", text: m.text, at: i } : { id: char.id, name: char.remark || char.name, text: m.text, at: i }),
-          charOf: () => char }) : null,
+        feedLines.length && root.GameTalkLog ? h(root.GameTalkLog, { t, uName: (props.profile || {}).name || "你", me: props.profile || {}, maxHeight: "none", k: "date",
+          lines: feedLines, charOf: () => char }) : null,
         s.phase === "plan" ? h("div", { "data-wk": "datemap" },
           sectionTitle("下一站去哪儿", s.round % 2 ? "这一站你做主" : "这一站 TA 做主"),
           // 一张纸地图：街道是几道浅浅的斜线，地点是贴在上面的圆形贴纸，错落着摆，不排成格子
@@ -199,11 +218,7 @@
                 style: { minHeight: 64, padding: "10px 12px", background: "#fffdf6", color: "#3a332b", border: "none", borderRadius: 2, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.4, textAlign: "left",
                   boxShadow: "0 6px 12px -8px rgba(40,25,10,.45)", transform: "rotate(" + (i % 2 ? .8 : -.8) + "deg)", borderLeft: "3px solid " + t.tint } }, o[1])))))) : null,
         // 这一站的小票：上下锯齿虚线，像店里打出来的那张
-        s.phase === "after" ? h("div", { "data-part": "receipt" },
-          h("div", { style: { margin: "4px 10px 14px", padding: "14px 16px", background: "#fffdf6", color: "#3a332b", fontSize: 13.5, lineHeight: 1.8,
-            borderTop: "2px dashed " + t.line, borderBottom: "2px dashed " + t.line, boxShadow: "0 6px 14px -10px rgba(40,25,10,.45)" } },
-            h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9a8f80", letterSpacing: 1, marginBottom: 6 } }, h("span", null, (ICON[current.id] || "") + " " + current.name), h("span", null, "第 " + s.visits.length + " 站")),
-            s.events[s.events.length - 1].text),
+        s.phase === "after" ? h("div", { "data-part": "after" },
           !s.retryUsed && s.minutes >= 5 && ((current.kind === "photo" && !s.events[s.events.length - 1].match) || (current.kind === "claw" && !s.events[s.events.length - 1].win)) ? button(t, "再配合一次 · 5 分钟", () => act(C.retryActivity), busy, "retry-activity") : null,
           h("div", { style: { margin: "4px 2px" } }, primary(s.visits.length >= 4 || !available.length ? "收工，准备翻牌" : "接着逛，听听 TA", goNext, !!s.pending, "next"))) : null,
         // 猜：任务一张张摊成纸条，点哪张就翻起哪张
