@@ -135,7 +135,7 @@ test("预览每一栏都能改，改过的带进导入；能从文件导入", ()
   assert.match(sheet, /seeds: textToSeeds\(val\("seeds"\)\)/, "改过的种子没被带进导入");
   assert.match(sheet, /persona: persona\.trim\(\)/, "改过的人设没被带进导入");
   assert.match(sheet, /readOfflineStyleDocument\(file\)/, "文件导入没走公共的 docx 读取");
-  assert.match(sheet, /accept: "\.docx/, "选不了 docx");
+  assert.match(sheet, /accept: (ANY_FILE|"\.docx)/, "选不了 docx");
 });
 
 // no-half-sheet.md：这一页要装粘贴框＋预览＋一串提醒，半窗先扣掉一半屏幕

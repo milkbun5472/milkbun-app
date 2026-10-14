@@ -2442,9 +2442,19 @@ if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
 // （那是故意的，否则会甩出一个巨大的气泡），可拆出来的那一泡要是只剩「）」「」」，
 // 屏幕上就是一个空气泡里吊着半个标点。粘回上一泡，最难看的那一种就没了。
 const BUBBLE_ORPHAN_TAIL = /^[）)」』”’\]】]+[。！？!?…、，,\s]*$/;
+// 颜文字／表情跟在问号后面（她 2026-10-14：「问号后面的表情包被强行截了，它不应该是个单独气泡」）：
+//   按「？」断句会把「…してない？(￣ω￣)」后面那张脸甩成一泡。一个汉字都没有、没有成词的字母、
+//   假名谚文最多一个、又不长的那一段，就是一张脸或几个 emoji，粘回上一泡
+function bubbleIsFace(x) {
+  const t = String(x || "").replace(/\s+/g, "");
+  if (!t || t.length > 18) return false;
+  if (/[\u4e00-\u9fff\uac00-\ud7af]/.test(t) || /[A-Za-z]{2,}/.test(t)) return false;
+  if ((t.match(/[\u3040-\u30ff]/g) || []).length > 1) return false;
+  return /[^\w。！？!?…、，,.\s]/.test(t);
+}
 function bubbleGlueOrphans(list) {
   return list.reduce((a, x) => {
-    if (a.length && BUBBLE_ORPHAN_TAIL.test(String(x).trim())) a[a.length - 1] += x;
+    if (a.length && (BUBBLE_ORPHAN_TAIL.test(String(x).trim()) || bubbleIsFace(x))) a[a.length - 1] += x;
     else a.push(x);
     return a;
   }, []);
@@ -10131,8 +10141,30 @@ function vclockCfg(id) {
   const c = (W.clocks || {})[key || "main"];
   return c && c.on && isFinite(Number(c.base)) ? c : null;
 }
+// 拨过钟以后，旧消息要照【当时那一版钟】算（群友 2026-10-14：「9点、9点10分、9点30写的三轮，前两轮最后都变成9点30了」）：
+//   每次拨钟（base/at/speed 变得接不上）把上一版存进 hist：{ until: 现实那一刻, base, at, speed, awayAt }。
+//   算某条消息时，先找 until 在它之后的最早那一版；都没有才用现在这版。
+function vclockSeg(c, ts) {
+  const h = Array.isArray(c && c.hist) ? c.hist : null;
+  if (h) for (let i = 0; i < h.length; i++) if (h[i] && Number(ts) < Number(h[i].until)) return h[i];
+  return c;
+}
+function vclockKeepHist(oldClocks, newClocks, now) {
+  const out = { ...(newClocks || {}) }; now = now || Date.now();
+  Object.keys(out).forEach(k => {
+    const o = oldClocks && oldClocks[k], n = out[k];
+    if (!o || !n || !o.on || !n.on) return;
+    // 只要这版钟的四样有一样变了（拨钟、改速度、离开停住又回来），旧消息照旧版算才不会挪
+    const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
+    if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
+    const seg = { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) };
+    out[k] = { ...n, hist: [...(Array.isArray(o.hist) ? o.hist : []), seg].slice(-300) };
+  });
+  return out;
+}
 function vclockMap(ts, id) {
-  const c = vclockCfg(id); if (!c) return Number(ts);
+  const c0 = vclockCfg(id); if (!c0) return Number(ts);
+  const c = vclockSeg(c0, ts);
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
   const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);

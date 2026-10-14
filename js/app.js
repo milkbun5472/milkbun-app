@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.636";
+const APP_VERSION = "v75.651";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10916,7 +10916,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         else next[k] = c;
       });
       if (!changed) return;
-      const p = { ...cur, vclocks: next }; delete p.vclock;
+      const p = { ...cur, vclocks: typeof vclockKeepHist === "function" ? vclockKeepHist(all, next, now) : next }; delete p.vclock;
       prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p);
     };
     const onVis = () => touch(document.visibilityState === "hidden");
@@ -11782,7 +11782,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const had = (discSongsOf(charId) || []).slice(0, 12).map(x => x.title).filter(Boolean);
         // ⚠️说清判据和维度，不给内容示范（施工规则/prompt-no-content-samples.md）：
         //   写一句「比如……」进去，模型会把那一句当模板，每次刻的理由都长一个样。
-        return "刻＝【送】不是【推荐】：只有这一轮真有一首非送给 " + uName + " 不可的歌才刻。"
+        // 原来那道门槛「非送不可才刻」太高，TA几乎从来不刻（她 2026-10-14：「他是不是也不会特别主动发情侣空间刻歌」）。
+        //   现在写清什么时候算合适，隔得久了再推一把；她开口要就一定刻。
+        const lastTs = Math.max(0, ...(discSongsOf(charId) || []).map(x => Number(x && (x.ts || x.at || x.addedAt)) || 0));
+        const days = lastTs ? Math.floor((Date.now() - lastTs) / 86400000) : -1;
+        const asked = /刻(一首|首|歌|进|到)|唱片/.test(String(recentUserText || "").slice(-80));
+        return (asked ? "她刚提到刻歌／唱片：这一轮就挑一首刻给她（填 carve，别只在嘴上说刻了）。" : "")
+          + "刻＝把一首歌【送】给 " + uName + "，不是推荐：聊天里提到了某首歌、某句歌词，你想起她、想她，有个纪念的日子，一起听过的那首让你还在回味——这种时候就可以刻一首。"
+          + (days >= 5 || days < 0 ? (days < 0 ? "你还一首都没刻过。" : "你已经 " + days + " 天没往唱片上刻歌了。") : "")
           + "note 是刻在 B 面的一句话，写清【为什么是这一首、给这个人】——不是夸这首歌本身好听。一轮最多一首。"
           + (had.length ? "架上已经有这几首，别再刻一遍：" + had.join(" / ") : "架上还是空的，这会是第一首。");
       })();
@@ -11981,22 +11988,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //     叙事输出，整套能力字段都没有口子（whisper 也一样没接）。要给得单开一条。
       // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了TA每轮都可能填、每轮都白填。
       if (_canCarve) { openCaps.push("carve"); capState.push("carve：" + _carveWord); }
-      // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的）────────────────────────
-      // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
-      //   单聊线上 ✅ 就是这里。言秋走的是同一条回复链（engineerEyes 只关掉扮演类的层，
-      //     不关能力），所以TA有情侣关系就自动有这一项——不用也不该去动TA的文件。
-      //   群聊 ❌ 有真理由：唱片是【你俩】的东西，群里三个人，"你俩"没有指代对象。
-      //     跟 whisper 同一条理由。
-      //   单聊线下 ❌ 【这是欠的，不是有理由不给】：线下走 OFFLINE_PROTOCOL_V2 那套
-      //     叙事输出，整套能力字段都没有口子（whisper 也一样没接）。要给得单开一条。
-      // ⚠️没配云村接口就不开：discAdd 搜不到歌，开了TA每轮都可能填、每轮都失败。
-      if (isCouple && musicReady) {
-        openCaps.push("carve");
-        const had = (discSongsOf(charId) || []).slice(0, 12).map(x => x.title).filter(Boolean);
-        capState.push("carve：架上已经有这几首，别再刻一遍——" + (had.length ? had.join(" / ") : "还是空的，这会是第一首")
-          + "。刻＝【送】不是【推荐】：只有这一轮真有一首非送不可才刻，note 写清为什么是这一首给这个人，"
-          + "不是夸这首歌本身好听。一轮最多一首。");
-      }
       // ── 语音和电话：有格式，没场合（她 2026-09-15）────────────────────
       // 她原话：「我总觉得他们不是很主动发语音打电话之类的都是我问才会」。
       // 查下来就是这个：voice 和 call 一直在 openCaps 里、能力字典里也写着长什么样，
@@ -28229,6 +28220,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return l && l !== "（暂无已设定的关系）" ? l : "";
   };
 
+  // 秋秋多管的几样要的读写口（她 2026-10-14「都做吧」）：整页和悬浮屏是同一个秋秋，两处都 spread 这一份，别各写各的
+  const assistExtraCtx = () => ({
+    memList: () => memLibRef.current || [],
+    onSaveMemLib: list => saveMemLib(list),
+    closetOf: id => ((carryRef && carryRef.current ? carryRef.current : carry)[id] || {}).outfit || {},
+    onSaveCloset: (id, box) => saveCarrySection(id, "outfit", box),
+    calendarGet: () => calendar,
+    onSaveCalendar: next => saveCalendar(next),
+    settingsOf: id => settingsFor(id),
+    // 查毛病：只给名字、模型、填没填密钥，密钥本身一个字都不给
+    routeInfo: id => { const r = apiFor(id); return r ? { name: r.name || "", model: r.model || "", hasKey: !!(r.apiKey || r.proxyRef), own: routePicked((chatSettings[id] || {}).apiId) } : null; },
+    autoInfo: id => { try { return (window.AutoRefreshPolicy.FEATURES || []).map(f => f.title + "：" + (autoRefreshOn(f.id, id) ? "开" : "关")).join("、") + (loadJSON("x_bgApi", null) === "__off__" ? "（后台线路选了「无」，自己跑的一律不跑）" : ""); } catch (e) { return "（看不到）"; } },
+    onRoomsChanged: () => setChatSettings(p => ({ ...p })),
+    apiProfiles: apiProfiles,
+    masks: () => masksRef.current || [],
+    onSetAuto: (feature, charId, on) => setAutoFromPage(feature, charId, on),
+    onSetAutoRate: (feature, charId, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, feature, charId, rate)),
+    // 删角色走 delChar（它自己会再弹一道二次确认、说清先导出）；清聊天走设置里那颗同一个 clearChat
+    onDeleteChar: id => delChar(id),
+    onClearChat: (id, wipeMem) => clearChat(id, !!wipeMem)
+  });
   // ---- geo ----
   const doRequestGeo = async () => {
     toast("正在定位…");
@@ -30767,6 +30779,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : where === "group" ? saveGroupSettings(id, patch) : saveOfflineSettings(id, patch),
     onBack: () => setScreen("home")
   });else if (screen === "assistant") body = h(AssistantApp, {
+    ...assistExtraCtx(),
     // 秋秋：答功能、查毛病、出改动稿（文风/人设/外貌/档案/装修/记忆库）。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
     // active＝跟随全局那一档走的线路；她在秋秋设置里单独挑了别的就走那条。
@@ -31438,6 +31451,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 扮演当场就散了（真机上它正好压在发送键上）。
     if (!window.AssistantDock || call || ringing || watching) return null;
     return h(window.AssistantDock, {
+      ...assistExtraCtx(),
       // 她此刻开着哪一页 + 这一页上是谁（她 2026-09-03 点名要的「页面上下文」）：
       // 有了它，「这一页」「这里」「TA」才有指代对象，秋秋不用反问是哪一页。
       // ⚠️id 也要给：不然它没法填 patch 的 id，只能反问「你说的是谁」——她正开着那个窗口
@@ -31791,7 +31805,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     vclock: (() => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
       const c = ({ ...(prefs.vclock ? { main: prefs.vclock } : {}), ...(prefs.vclocks || {}) })[k]; return c && c.on ? c : null; })(),
     onVClock: v => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
-      const cur = prefsRef.current; const all = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}), [k]: v };
+      const cur = prefsRef.current; const old = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}) };
+      const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台关了：自己跑的那些都不跑了" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {

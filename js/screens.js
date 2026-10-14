@@ -192,7 +192,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
         className: "w-full active:opacity-70",
         style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13.5 }
       }, fileBusy ? "正在读文件…" : "从文件导入"),
-      h("input", { ref: fileRef, type: "file", accept: ".docx,.txt,.md,.markdown,.json,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importFile }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
       h("textarea", { value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
@@ -2279,7 +2279,7 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
   return h("div", { "data-wk": "loreedit", className: "absolute inset-0 z-50 h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: isNew ? "新建设定" : "编辑设定", sub: "给谁看、什么时候翻出来、去哪几处", bg: "transparent", onBack: onClose,
       right: isNew ? h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, importing ? "读取中" : "导入") : onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null }),
-    h("input", { ref: importRef, type: "file", accept: ".docx,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importDocument }),
+    h("input", { ref: importRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
     importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, importError),
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
@@ -10723,7 +10723,7 @@ function SenseConfig({
   })), typeof VClockMasks === "function" ? h(VClockMasks, { masks, primaryId: maskPrimary,
     clocks: { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) },
     // 旧的那一只（vclock）并进 vclocks.main 以后就不再单放
-    onChange: c => { const np = { ...p, vclocks: c }; delete np.vclock; save(np); } }) : null, h("div", {
+    onChange: c => { const old = { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) }; const np = { ...p, vclocks: typeof vclockKeepHist === "function" ? vclockKeepHist(old, c) : c }; delete np.vclock; save(np); } }) : null, h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
@@ -10915,7 +10915,7 @@ function BubbleSkinConfig({ toast }) {
     h("div", { className: "flex gap-2", style: { marginTop: 8 } },
       h("button", { onClick: exportSkin, className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导出这套气泡"),
       h("button", { onClick: () => skinFile.current && skinFile.current.click(), className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导入气泡")),
-    h("input", { ref: skinFile, type: "file", accept: "application/json,.json", className: "hidden", onChange: importSkin }),
+    h("input", { ref: skinFile, type: "file", accept: ANY_FILE, className: "hidden", onChange: importSkin }),
     typeof window !== "undefined" && window.ThemePackPasteBox
       ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: applySkinText, open: "挑不开文件？把气泡的 JSON 贴进来" }))
       : null));
@@ -11837,7 +11837,7 @@ function DataConfig({
           h("br"), "3）几段得是同一次导出的：段头第三格那串字母要一样。"))
       : null,
     h(HomeLayoutProbe, { toast: toast }),
-    h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
+    h("input", { ref: ref, type: "file", accept: ANY_FILE, className: "hidden", onChange: e => {
       const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
     } }));
   if (part === "danger") content = h("div", { style: { paddingTop: 8 } },
@@ -14814,7 +14814,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           note("往这版上贴新的"),
           h("div", { "data-wk": "emohelp", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "14px 16px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
-            h(FilePick, { accept: "text/plain,text/markdown,.txt,.text,.md", onChange: readFile, label: "从文件里读表情包清单" },
+            h(FilePick, { accept: ANY_FILE, onChange: readFile, label: "从文件里读表情包清单" },
               h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
             h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
