@@ -28246,6 +28246,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_geo", g);
     toast("现在你在：" + g.label);
   };
+  // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14，单聊、群聊同一支）：
+  //   世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路。realmOf＝拿谁眼里的我来判断（群里传 null＝设置里那一份）
+  const setMyPlaceFrom = (p, realmOf) => {
+    const w = p && p.from ? (worldsRef.current || []).find(x => x && x.name === p.from) : null;
+    if (w) {
+      saveWorlds((worldsRef.current || []).map(x => x.id === w.id ? { ...x, pins: { ...(x.pins || {}), __me: p.name } } : x));
+      const my = myRealm(realmOf);
+      toast(my && my.kind === "world" && my.world && my.world.id === w.id ? "现在你在：" + w.name + "·" + p.name : "已把你在「" + w.name + "」的位置挪到 " + p.name + "；要他们认你在这个世界，去 设置 · 位置感知 选它");
+    } else if (p && p.name) doSetGeoPlace(p.name).then(c => { if (Array.isArray(c)) toast("同名的地方不止一个，去 设置 · 位置感知 里手填挑一个"); });
+  };
   const doSetGeoPoint = async pt => {
     if (!pt) return;
     const g = await geoFromPoint(pt);
@@ -28938,14 +28948,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
     invitePlaces: invitePlacesFor(activeChar),
     // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14）：世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路
-    onSetMyPlace: p => {
-      const w = p && p.from ? (worldsRef.current || []).find(x => x && x.name === p.from) : null;
-      if (w) {
-        saveWorlds((worldsRef.current || []).map(x => x.id === w.id ? { ...x, pins: { ...(x.pins || {}), __me: p.name } } : x));
-        const my = myRealm(activeChar.id);
-        toast(my && my.kind === "world" && my.world && my.world.id === w.id ? "现在你在：" + w.name + "·" + p.name : "已把你在「" + w.name + "」的位置挪到 " + p.name + "；要他认你在这个世界，去 设置 · 位置感知 选它");
-      } else if (p && p.name) doSetGeoPlace(p.name).then(c => { if (Array.isArray(c)) toast("同名的地方不止一个，去 设置 · 位置感知 里手填挑一个"); });
-    },
+    onSetMyPlace: p => setMyPlaceFrom(p, activeChar.id),
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
       .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
       .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),
@@ -29339,6 +29342,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGroupDateInvite: (place, v) => sendGroupDateInvite(activeGroup.id, place, v),
     onGroupDateGo: m => groupDateGo(activeGroup.id, m),
     invitePlaces: groupInvitePlacesFor(activeGroup),
+    onSetMyPlace: p => setMyPlaceFrom(p, null),
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
     messages: groupChats[activeGroup.id] || [],

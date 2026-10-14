@@ -17396,7 +17396,7 @@ function GroupThread({
   onRestoreOffline,
   onForward,
   onSaveSettings,
-  onGroupDateInvite, onGroupDateGo, invitePlaces,   // 群里的邀约（她 2026-10-02）：挑地方、挑请谁；人齐了点出发进群线下
+  onGroupDateInvite, onGroupDateGo, invitePlaces, onSetMyPlace,   // 群里的邀约（她 2026-10-02）：挑地方、挑请谁；人齐了点出发进群线下
   sameRoom,
   onToggleSameRoom,
   onOpenMemberState,
@@ -18218,6 +18218,8 @@ function GroupThread({
     onCancel: () => setGInviteOpen(false),
     onSend: v => { setGInviteOpen(false); onGroupDateInvite(v.place, v); } }), geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
+    places: invitePlaces || [],
+    onMoveMe: onSetMyPlace || null,
     onClose: () => setGeoOpen(false),
     onSend: name => {
       sendRich({ role: "user", kind: "geo", name: name, content: "[位置] " + name });
