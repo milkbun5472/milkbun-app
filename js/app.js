@@ -25215,6 +25215,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = (studioRef.current || []).map(x => x.id === id ? { ...x, developAt: 0 } : x);
     studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
   };
+  // 单人聊天导出成 txt：每条「时间 谁：说了什么」；照片、语音、转账这些写成「[照片] …」那种字。
+  //   连线下一起时，每一场线下按开始时间插进线上聊天中间，格式跟线下自己的导出同一支（offlineSessionsText）。
+  const exportChatText = async (char, key, withOff) => {
+    if (!char) return;
+    const me = (profile && profile.name) || "我", who = char.remark || char.name;
+    const pad = n => String(n).padStart(2, "0");
+    const stamp = ts => { const d = new Date(ts || 0); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+    const KIND = { photo: "照片", selfie: "照片", voice: "语音", transfer: "转账", redpacket: "红包", gift: "礼物", takeout: "外卖", location: "位置", emote: "表情" };
+    const bodyOf = m => { const c = String(m.content || "").trim(); const k = KIND[m.kind];
+      if (!k) return c; if (/^\[[^\]]{1,24}\]/.test(c)) return c; return "[" + k + "] " + (c || m.desc || m.keyword || ""); };
+    const rows = (chatsRef.current[key] || []).filter(m => m && !m.recalled && (m.content || m.desc) && m.role !== "system" && m.kind !== "system")
+      .map(m => ({ ts: m.ts || 0, text: stamp(m.ts) + " " + (m.role === "user" ? me : m.role === "narration" ? "旁白" : who) + (m.kind === "ooc" ? "（出戏）" : "") + "：" + bodyOf(m) }));
+    if (withOff) {
+      const sess = (offlinesRef.current[key] || []).filter(x => x && (x.msgs || []).length);
+      sess.forEach(x => { const t = offlineSessionsText([x], stamp, who); if (t.trim()) rows.push({ ts: x.startTs || 0, text: "\n【线下】\n" + t + "\n" }); });
+    }
+    rows.sort((a, b) => a.ts - b.ts);
+    if (!rows.length) { toast("还没有可导的聊天"); return; }
+    const txt = "和 " + who + " 的聊天记录（导出于 " + stamp(Date.now()) + "）\n\n" + rows.map(r => r.text).join("\n");
+    await saveTextFile(who + "-聊天记录" + (withOff ? "（含线下）" : "") + ".txt", txt, "text/plain");
+  };
   // 周刊配图（她 2026-10-13）：封面＝这一期被采访的那几位上封面（不带你），专访＝那一位的单人大片。
   //   都是点了才拍、一张一次生图；封面照这一期头版的头条和看点排成杂志封面（PosterLayout 那一套）。
   const weeklyShoot = async (kind, p) => {
@@ -31561,6 +31582,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     // 聊天设置里的「清除 / 重置」开同一张选择页（她 2026-10-08：只想删聊天重新开始，不要跑去人格档案馆）
     onClearChat: () => { setChatSettingsOpen(false); setResetAsk({ id: activeChar.id, preset: "chat" }); },
+    // 导出这一段线上聊天（群友 2026-10-14 问「单人的聊天记录可以导出吗」）：一份 txt，可连线下一起按时间排
+    onExportChat: withOff => exportChatText(activeChar, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, withOff),
     iBlocked: !!(blocks[blockChatKey(activeChar.id)] && blocks[blockChatKey(activeChar.id)].iBlocked),
     onToggleBlock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
     memLibCount: memLib.filter(e => !e.charIds || e.charIds.length === 0 || e.charIds.includes(activeChar.id)).length,

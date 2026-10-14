@@ -19650,6 +19650,7 @@ function ResetChooser({ character, preset, onClose, onRun }) {
             on.size ? (all ? "完全重置 " + nm : "清掉选中的 " + on.size + " 样") : "至少打开一样")));
 }
 function ChatSettings({
+  onExportChat,
   character,
   meProfile,
   settings,
@@ -19682,6 +19683,7 @@ function ChatSettings({
   onSummarizeRoom,
   renderContextDebug
 }) {
+  const [exportWithOff, setExportWithOff] = useState(false);   // 导出聊天记录：要不要把线下一起导
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
   const [openSec, setOpenSec] = useState("");
@@ -20814,6 +20816,12 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, iBlocked ? "已拉黑 " + cNm : "拉黑 " + cNm),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, iBlocked ? "点击解除拉黑。" : "拉黑后，按「回复」TA 会以被拉黑的方式反应（碎碎念/生气/申请解除），气泡旁带红色感叹号。")),
       h(Toggle, { on: !!iBlocked, onChange: onToggleBlock }))),
+  onExportChat && h("div", { className: "pt-6", "data-wk": "csexport" },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "导出聊天记录"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "把跟 " + cNm + " 的线上聊天存成一份 txt，每条带时间。开着别的房间时只导这一间。"),
+    h("label", { className: "flex items-center gap-2", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } },
+      h("input", { type: "checkbox", checked: exportWithOff, onChange: e => setExportWithOff(e.target.checked) }), "线下的记录也一起，按时间排进去"),
+    h("button", { "data-wk": "csexportbtn", onClick: () => onExportChat(exportWithOff), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15, minHeight: 44 } }, "导出 txt")),
   onClearChat && h("div", { className: "pt-6" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "清除 / 重置"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "想跟 " + cNm + " 重新开始：点开挑要清哪几样——只清聊天，还是连记忆、好感、日程一起清，像第一次见面。卷宗和这页的设置都留着。"),
