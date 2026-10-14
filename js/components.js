@@ -251,7 +251,8 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
   const exportCSS = () => { if (css.trim() && typeof saveTextFile === "function") saveTextFile((fileBase || "聊天") + "-聊天.css", css, "text/css"); };
   const importCSS = e => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
-    if (f) f.text().then(txt => setCSS(String(txt || ""))).catch(() => {});
+    // 选文件一律放行（ANY_FILE）：挑了图片、压缩包这种就拦下，不把乱码塞进 CSS 框
+    if (f) f.text().then(txt => { const t2 = String(txt || ""); if ((t2.match(/[\uFFFD\u0000]/g) || []).length > Math.max(8, t2.length * 0.02)) { typeof toast === "function" && toast("这不像 CSS 文件，换一份 .css 或 .txt"); return; } setCSS(t2); }).catch(() => {});
   };
   const btn = (label, fn, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70",
     style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: dis ? t.fog : t.ink, opacity: dis ? .5 : 1 } }, label);
@@ -274,7 +275,7 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
       window.CssImageButton ? h(window.CssImageButton, { css: css, setCSS: setCSS, editorRef: editRef, toast: (m, ms) => window.__toast && window.__toast(m, ms) }) : null),
     // 抓得住哪些挂点：跟主题工作台同一个名单同一个组件
     window.CssHookPicker ? h(window.CssHookPicker, { page: page || "thread", css: css, setCSS: setCSS }) : null,
-    h("input", { ref: fileRef, type: "file", accept: ".css,.txt,text/css,text/plain", onChange: importCSS, style: { display: "none" } }));
+    h("input", { ref: fileRef, type: "file", accept: ANY_FILE, onChange: importCSS, style: { display: "none" } }));
 }
 // ── 整套美化打包（她 2026-09-30：「美化打包分享」）──────────────────────────────
 //   皮肤、气泡、字、背景、排版、头像框、自己写的 CSS 装进一个 .json；里面用到的保险箱图片（iv_…）一起装进去，
@@ -363,7 +364,7 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
         h("button", { onClick: () => dropOne(it), className: "active:opacity-70",
           style: { minHeight: 40, minWidth: 48, padding: "0 10px", fontFamily: F_BODY, fontSize: 12, color: delId === it.id ? t.accent : t.fog } }, delId === it.id ? "确定删" : "删")))) : null,
     window.ThemePackPasteBox ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: take, open: "挑不开文件？把美化 JSON 贴进来", ph: "把导出的那份 .json 全文贴在这里" })) : null,
-    h("input", { ref: ref, type: "file", accept: ".json,application/json,text/plain", onChange: pick, style: { display: "none" } }));
+    h("input", { ref: ref, type: "file", accept: ANY_FILE, onChange: pick, style: { display: "none" } }));
 }
 // 排版里「头像框 / 挂件」那一行：一个人一行，框和挂件各一张透明图（png 最好），各一根大小
 function AvatarDecoRow({ who, k, layout, setLayout, note }) {
@@ -791,7 +792,7 @@ function pickTextFile(onMsg, opts) {
   inp.type = "file";
   // 一律放行、读的时候再看是不是字（她 2026-10-14：「秋秋不收 css 文件吗」——iPhone 的文件选择器不认 .css 这种后缀，
   //   照后缀列的清单会把它变灰，点都点不了；一起读那边早就是这么改的）
-  inp.accept = "*/*";
+  inp.accept = ANY_FILE;
   inp.onchange = async () => {
     const f = inp.files && inp.files[0];
     if (!f) return;
@@ -15891,7 +15892,7 @@ function useOfflineCustomStyles(t, styleKey, setStyleKey) {
   };
   const styleImportControl = h("span", { className: "inline-flex" },
     h("button", { onClick: () => styleFileRef.current && styleFileRef.current.click(), className: "px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog } }, "⇧ 导入文件"),
-    h("input", { ref: styleFileRef, type: "file", accept: ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importStyleFile }));
+    h("input", { ref: styleFileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importStyleFile }));
   return { customStyles, styleSheet, setStyleSheet, custOpen, setCustOpen, cName2, setCName2, cPrompt, setCPrompt, editingStyleKey, setEditingStyleKey, allStyles, curStyle, saveCustomStyle, delCustomStyle, editCustomStyle, styleImportControl, styleKey, setStyleKey };
 }
 function OfflineCustomStyleSection({ t, editor }) {

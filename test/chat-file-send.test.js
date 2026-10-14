@@ -7,7 +7,7 @@ const ts = fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8");
 test("chat ＋ panels (single and group) offer 文件; text files only; gbk fallback; cap", () => {
   assert.equal((comp.match(/\["file", "文件", "file"\]/g) || []).length, 2);
   assert.match(comp, /function pickTextFile\(onMsg, opts\)/);
-  assert.match(comp, /inp\.accept = "(\*\/\*|\.txt,\.md)/);
+  assert.match(comp, /inp\.accept = (ANY_FILE|"\*\/\*|\.txt,\.md)/);
   assert.match(comp, /new TextDecoder\("gb18030"\)/);
   assert.match(comp, /const FILE_MAX = 12000;/);
   assert.equal((comp.match(/if \(m\.kind === "file"\) \{/g) || []).length, 2, "单聊群聊都要画文件卡");

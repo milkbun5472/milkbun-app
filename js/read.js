@@ -428,7 +428,7 @@
     }
     return h("div", { className: "h-full flex flex-col", style: shelfPage, "data-wk": "readshelfboard", "data-part": "r2" },
       h(Head, { zh: "一起读", onBack: props.onBack, bg: "transparent" }),
-      h("input", { ref: fileRef, type: "file", accept: "*/*", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
         rows,
         books.length === 0

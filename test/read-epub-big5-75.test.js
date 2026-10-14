@@ -4,7 +4,7 @@ const fs = require("node:fs"), path = require("node:path");
 const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 const read = fs.readFileSync(path.join(__dirname, "..", "js", "read.js"), "utf8");
 // 选择框什么都给选，进来再看文件头认类型
-assert.match(read, /accept: "\*\/\*", style: \{ display: "none" \}, onChange: onFile, "data-wk": "readpageinput"/);
+assert.match(read, /accept: (ANY_FILE|"\*\/\*"), style: \{ display: "none" \}, onChange: onFile, "data-wk": "readpageinput"/);
 assert.match(read, /const sniffPdf = headStr\.indexOf\("%PDF"\) === 0/);
 assert.match(core, /async function epubToText\(buf\)/);
 // txt 几种编码都认
