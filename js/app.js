@@ -25243,7 +25243,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const people = (p.charIds || []).map(id => characters.find(c => c && c.id === id)).filter(c => c && c.refPhoto).slice(0, 4);
     if (!people.length) { toast("要先给TA传一张参考照，才锁得住脸"); return null; }
     const lead = people[0];
-    const cast = people.length > 1 ? people.map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto })) : null;
+    // 每个人带上自己的衣服（她 2026-10-14：「封面中间是个王爷，但穿的现代装」——原来名单里只有脸，衣柜只给了第一个人，
+    //   别人就跟着「时尚杂志大片」穿成现代装）：固定服装锁 → 衣柜 → 他此刻身上那身
+    const cast = people.length > 1 ? people.map(c => { const w = String(((statesRef.current[c.id] || {}).wearing) || "").trim();
+      return { id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto, outfit: c.photoOutfit || "", closet: closetTextFor(c.id, 240) || (w ? "他平时这几天穿的：" + w : "") }; }) : null;
     const names = people.map(c => c.remark || c.name);
     let cp = null, plan = null;
     if (kind === "cover" && window.PosterLayout) {
@@ -25257,7 +25260,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       plan = window.PosterLayout.plan("magazine", cp);
     }
     const scene = kind === "cover"
-      ? "这一期周刊的封面人物大片：" + names.join("、") + (cast ? "一起" : "") + "上封面。本期头条是「" + (p.headline || "") + "」，照这件事的气质来拍。"
+      ? "这一期周刊的封面人物大片：" + names.join("、") + (cast ? "一起" : "") + "上封面。" + (cast ? "每个人照自己所在的世界和年代穿（古代的人穿古装、现代的人穿现代装、奇幻世界的人穿那个世界的衣服），不要为了杂志感统一换成同一种现代时装。" : "") + "本期头条是「" + (p.headline || "") + "」，照这件事的气质来拍。"
       : "人物专访的配图：" + names[0] + "一个人的专访大片" + (p.about ? "，照这篇专访的气质来拍：" + String(p.about).slice(0, 80) : "") + "。";
     const space = plan ? window.PosterLayout.spaceLine(plan) : "人物是画面主体，背景干净、有质感，像杂志内页的人物专访照。";
     try {
