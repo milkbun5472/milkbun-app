@@ -789,7 +789,9 @@ function pickTextFile(onMsg, opts) {
   const MAX = (opts && opts.max) || FILE_MAX;
   const inp = document.createElement("input");
   inp.type = "file";
-  inp.accept = ".txt,.md,.markdown,.csv,.json,.srt,.log,.css,.pdf,.docx,text/css,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  // 一律放行、读的时候再看是不是字（她 2026-10-14：「秋秋不收 css 文件吗」——iPhone 的文件选择器不认 .css 这种后缀，
+  //   照后缀列的清单会把它变灰，点都点不了；一起读那边早就是这么改的）
+  inp.accept = "*/*";
   inp.onchange = async () => {
     const f = inp.files && inp.files[0];
     if (!f) return;
@@ -807,6 +809,9 @@ function pickTextFile(onMsg, opts) {
       } else {
         txt = new TextDecoder("utf-8").decode(buf);
         if ((txt.match(/\uFFFD/g) || []).length > 8) { try { txt = new TextDecoder("gb18030").decode(buf); } catch (e) {} }
+        // 放行了所有类型，图片、压缩包这种就在这儿拦下：乱码太多、或者带着一串 0 字节的，不是文本
+        const bad = (txt.match(/[\uFFFD\u0000]/g) || []).length;
+        if (bad > Math.max(8, txt.length * 0.02)) { typeof toast === "function" && toast("这不像文字文件：能发 txt、md、css、json、csv 这类，还有 PDF 和 Word（.docx）"); return; }
       }
       txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
       if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
