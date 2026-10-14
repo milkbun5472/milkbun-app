@@ -34,7 +34,10 @@
     const game = "\n你正在玩独立的「各怀心思的约会」。你就是这名玩家，有自己的任务与性格，主动争取想去的地方；怎样藏心思、让步、讨价还价由你自己决定。\n"
       + "【规则】180 分钟、200 枚游戏币，最多四站，不重复逛。同意一处只代表提议，具体走路和活动由游戏结算。奇数站用户做主，偶数站你做主。商量时认真读对方这句话在做什么，用短台词接话。say 像发消息一样，可以拆成一到三句、用换行隔开，一句一个气泡。\n"
       + (state.config.mode === "easy" ? "【放水局】这局你让着对方：好说话，愿意成全对方想去的地方和想做的事，猜任务时也不必太较真。\n" : "")
+      + ((C.THEMES[state.theme] || {}).prompt ? "【这一局】" + C.THEMES[state.theme].prompt + "\n" : "")
       + "你的秘密任务只有你知道。对方的任务不在资料里，靠公开行动猜；可以试探、误导，也可以主动说破自己的任务。所有数值和成功都由裁判判断。\n"
+      + (state.bonus ? "走完第二站你多抽到一张追加任务（yourBonus），完成多 1 分。\n" : "")
+      + "每句台词另填 scheme：这句是不是在暗暗为你的任务使劲（是就 true，平常就是 false）。对方翻牌前可以指认你哪句在演，被指中对方多 1 分。\n"
       + "【你实际能看见的这一局】\n" + JSON.stringify(C.aiView(state));
     if (state.pending.kind === "react") {
       const p = C.place(state.current) || {}, last = state.events[state.events.length - 1] || {};
@@ -44,7 +47,7 @@
         + (p.options ? "这里能挑东西：你替对方挑一样，pick 填下面一个选项 id：" + p.options.map(o => o[0] + "＝" + o[1]).join("、") + "。" : "")
         + "\nmood：这一站下来你心情变了多少，-10～10 的整数——照你自己的喜好和性子判：合不合你的胃口、刚才那个小意外对方怎么处理的、你们聊得怎么样。"
         + (C.wantsChallenge(state) ? "\n这一站你还可以给对方出一道小题，照你的性子出（不想出就不填 challenge）：lie＝说三件关于你自己的事，两真一假，fake 填假的那句是第几句（0～2）；dare＝一个开放的小要求，比如逗你笑、猜你喜欢的某样东西、用一句话夸你，text 写要求。" : "")
-        + "\n只输出 JSON：{\"say\":\"你的台词\",\"mood\":0" + (p.options ? ",\"pick\":\"选项 id\"" : "")
+        + "\n只输出 JSON：{\"say\":\"你的台词\",\"mood\":0,\"scheme\":false" + (p.options ? ",\"pick\":\"选项 id\"" : "")
         + (C.wantsChallenge(state) ? ",\"challenge\":{\"kind\":\"lie 或 dare\",\"lines\":[\"第一句\",\"第二句\",\"第三句\"],\"fake\":1,\"text\":\"dare 的要求\"}" : "") + "}。";
     }
     if (state.pending.kind === "dare") {
@@ -55,18 +58,20 @@
     if (state.pending.kind === "chat") {
       const p = C.place(state.current) || {}, said = (state.talk || []).filter(x => x.who === "user").slice(-1)[0];
       return ctx + game + "\n【现在】" + (state.phase === "plan" ? "你们在商量下一站去哪儿" : state.phase === "guess" ? "逛完了，正准备翻牌" : "你们在「" + (p.name || "路上") + "」") + "，对方跟你说：「" + ((said && said.text) || "") + "」。"
-        + "\n像真在一起那样接话（say），聊什么都行，不用把话题拉回游戏；别复述规则和分数。mood 是这句话让你心情变了多少（-3～3 的整数，平常就是 0）。只输出 JSON：{\"say\":\"你的台词\",\"mood\":0}。";
+        + "\n像真在一起那样接话（say），聊什么都行，不用把话题拉回游戏；别复述规则和分数。mood 是这句话让你心情变了多少（-3～3 的整数，平常就是 0）。只输出 JSON：{\"say\":\"你的台词\",\"mood\":0,\"scheme\":false}。";
     }
     if (state.pending.kind === "guess") return ctx + game
-      + "\n收工了。现在秘密提交你对用户任务的猜测，guess 填任务池里的一个 id，拿不准填 unknown。say 是翻牌前给对方的一句台词，猜测由游戏藏好，翻牌后才显示。rate 是你给今天这次约会打几分（1～10，照你真实的感受），heart 是一句没说出口的心里话（翻牌后对方才看得到）。只输出 JSON：{\"guess\":\"任务 id 或 unknown\",\"say\":\"你的台词\",\"rate\":8,\"heart\":\"心里话\"}";
+      + "\n收工了。现在秘密提交你对用户任务的猜测，guess 填任务池里的一个 id，拿不准填 unknown。say 是翻牌前给对方的一句台词，猜测由游戏藏好，翻牌后才显示。rate 是你给今天这次约会打几分（1～10，照你真实的感受），heart 是一句没说出口的心里话（翻牌后对方才看得到），title 是你给今天这次约会起的名字（八个字以内，会印在纪念票根上）。只输出 JSON：{\"guess\":\"任务 id 或 unknown\",\"say\":\"你的台词\",\"rate\":8,\"heart\":\"心里话\",\"title\":\"今天叫什么\"}";
     return ctx + game + "\n提出下一站。对方有提议时，你可接受或另提；accept=true 时 place 必须与对方提议相同。place 只选目前去得了的 id。pose 是合照准备动作的索引 0～2，row 是抓钩准备停的前后排 0～2；在游乐屋挑有玩偶的排，并用 hint 指点对方左右怎么配合。hint 是到了活动现场你给的短提示，可以直说，也可以逗对方猜。\n"
-      + "只输出 JSON：{\"place\":\"地点 id\",\"accept\":true,\"pose\":0,\"row\":0,\"hint\":\"现场配合提示\",\"say\":\"商量这一站的台词\"}。";
+      + "只输出 JSON：{\"place\":\"地点 id\",\"accept\":true,\"pose\":0,\"row\":0,\"hint\":\"现场配合提示\",\"say\":\"商量这一站的台词\",\"scheme\":false}。";
   }
   // 翻牌前的裁判：只读聊天和走过的路，判两张「看人」的任务成没成。不看猜测、不给分。
   function buildJudge(props, char, state) {
     const pf = props.profile || {}, uName = pf.name || "用户", cName = char.name || "TA";
-    const ask = [["user", uName], ["char", cName]].filter(x => (C.mission(state.missions[x[0]]) || {}).social)
-      .map(x => "· " + x[0] + "（" + x[1] + "）的任务：" + C.mission(state.missions[x[0]]).text + "——对方是" + (x[0] === "user" ? cName : uName));
+    const rows = [["user", uName, state.missions.user], ["char", cName, state.missions.char]]
+      .concat(state.bonus ? [["userBonus", uName, state.bonus.user], ["charBonus", cName, state.bonus.char]] : []);
+    const ask = rows.filter(x => (C.mission(x[2]) || {}).social)
+      .map(x => "· " + x[0] + "（" + x[1] + "）的" + (/Bonus/.test(x[0]) ? "追加任务" : "任务") + "：" + C.mission(x[2]).text + "——对方是" + (x[1] === uName ? cName : uName));
     return "你是这局「各怀心思的约会」的裁判，只判事实。读下面的聊天和走过的路，判每一条任务有没有真的发生：要有一句话能当证据，引出来；含糊、勉强、是自己说的不算对方说的，都判没成。\n"
       + ask.join("\n")
       + "\n【聊天】\n" + state.talk.map(m => (m.who === "user" ? uName : cName) + "：" + m.text).join("\n")
@@ -77,7 +82,7 @@
     const t = props.t, cfg = props.config, char = (props.characters || []).find(c => c.id === cfg.charIds[0]);
     const [s, setS] = useState(() => props.savedState && props.savedState.state || C.newGame(cfg));
     const ref = useRef(s), ticket = useRef(0), abortRef = useRef(null), busyRef = useRef(false), alive = useRef(true);
-    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [talkText, setTalkText] = useState(""), [dareText, setDareText] = useState(""), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
+    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [talkText, setTalkText] = useState(""), [dareText, setDareText] = useState(""), [accuse, setAccuse] = useState(null), [copied, setCopied] = useState(false), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
     const save = n => { const ok = props.onSave({ config: cfg, state: n, label: n.phase === "finished" ? "这一局已翻牌 · 可以回看" : "第 " + n.round + " 站 · 剩 " + n.minutes + " 分钟" }) !== false; setUnsaved(!ok); return ok; };
     const put = n => { ref.current = n; setS(n); return save(n); };
     useEffect(() => { if (s.visits.length === 1) setShowTask(false); }, [s.visits.length]);   // 走完第一站就折起任务纸条（想看再点「偷看一眼」）
@@ -101,7 +106,7 @@
         } catch (e) { setErr("裁判没读完聊天：" + String(e.message || e) + "。再按一次翻牌。"); busyRef.current = false; setJudging(false); return; }
         busyRef.current = false; setJudging(false);
       }
-      act(x => C.finish(x, guess, judged));
+      act(x => C.finish(x, guess, judged, accuse));
     };
     async function run(pendingState) {
       if (busyRef.current || !char || (props.isEngineer && props.isEngineer(char.id))) return;
@@ -130,7 +135,7 @@
     const primary = (label, fn, disabled, part) => button(t, label, fn, disabled || busy || unsaved, part, true);
     const title = (label, body) => h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 9 } }, label), body);
     // 一路的进度：四个站点连成一条虚线，走过的那站换成那处的小图标（她 2026-10-12：「一堆框好无聊」——不再是一行数字）
-    const ICON = { cafe: "☕", noodle: "🍜", dessert: "🍦", bbq: "🍢", photo: "📸", studio: "🎞️", arcade: "🧸", capsule: "🥚", shop: "🛍️", flower: "💐", record: "💿", river: "🌊", rooftop: "🌆", park: "🌳", book: "📚", library: "📖", cinema: "🎬", observatory: "🔭" };
+    const ICON = { cafe: "☕", noodle: "🍜", dessert: "🍦", bbq: "🍢", photo: "📸", studio: "🎞️", arcade: "🧸", capsule: "🥚", shop: "🛍️", flower: "💐", record: "💿", river: "🌊", rooftop: "🌆", park: "🌳", book: "📚", library: "📖", cinema: "🎬", observatory: "🔭", breakfast: "🥟", nightmarket: "🏮", sunset: "🌇" };
     const remaining = h("div", { "data-part": "route", style: { display: "flex", alignItems: "center", gap: 6, margin: "6px 2px 16px" } },
       [0, 1, 2, 3].map(i => {
         const id = s.visits[i], now = i === s.visits.length && s.phase !== "finished" && s.phase !== "guess";
@@ -179,6 +184,11 @@
           h("button", { key: "toggle", onClick: () => setShowTask(!showTask), style: { display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", color: "#a0603f", fontSize: 11.5, letterSpacing: 1, minHeight: 28, background: "none", border: "none", padding: 0 } }, "我的秘密任务", showTask ? "折起来" : "偷看一眼"),
           showTask ? h("div", { key: "task", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.7, marginTop: 4 } }, mine.text,
             h("div", { style: { fontFamily: F_BODY, color: C.progress(s, mine.id).done ? "#5d8b4c" : "#9a8f80", fontSize: 11, marginTop: 4 } }, mine.social ? "看你们聊了什么——翻牌前会读一遍聊天" : C.progress(s, mine.id).done ? (mine.id === "save" && s.phase !== "finished" ? "✓ 目前达成 · 别把剩的钱花掉了" : "✓ 已经达成了") : "藏好一点，TA 不知道你抽中了什么")) : null])),
+        // 追加任务（走完第二站抽的，完成多 1 分）
+        s.bonus && s.phase !== "finished" ? h("div", { "data-part": "bonus" }, slip([
+          h("div", { key: "h", style: { color: "#a0603f", fontSize: 11.5, letterSpacing: 1 } }, "追加任务 · +1"),
+          h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.6, marginTop: 3 } }, C.mission(s.bonus.user).text)
+        ], { padding: "13px 15px 11px", transform: "rotate(.6deg)", background: "#fff8e6" }, "bonus")) : null,
         // 路上聊的：跟五子棋、你画我猜同一个左右气泡（GameTalkLog），不另画一套
         feedLines.length && root.GameTalkLog ? h(root.GameTalkLog, { t, uName: (props.profile || {}).name || "你", me: props.profile || {}, maxHeight: "none", k: "date",
           lines: feedLines, charOf: () => char }) : null,
@@ -271,6 +281,12 @@
                     boxShadow: on ? "0 0 0 2px " + t.tint + ", 0 8px 14px -8px rgba(40,25,10,.5)" : "0 6px 12px -8px rgba(40,25,10,.45)", transform: "rotate(" + ((i % 3) - 1) * .9 + "deg) translateY(" + (on ? -3 : 0) + "px)", transition: "transform .15s" } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, m.title), h("div", { style: { fontSize: 11, color: "#7a7064", lineHeight: 1.5, marginTop: 3 } }, m.text));
               })),
+            // 指认（她 2026-10-14 挑的第 5 条）：挑 TA 的一句，说它是在为任务使劲，指对了多 1 分。可以不挑
+            sectionTitle("指认一句", "觉得 TA 哪句是在演？指对 +1，可以不挑"),
+            h("div", { "data-part": "accuse", style: { display: "flex", flexDirection: "column", gap: 6, margin: "0 2px 16px" } },
+              (s.talk || []).map((m, i) => ({ m, i })).filter(x => x.m.who === "char").slice(-8).map(x => h("button", { key: x.i, "data-part": "accuse-" + x.i, onClick: () => setAccuse(accuse === x.i ? null : x.i),
+                style: { textAlign: "left", minHeight: 40, padding: "7px 11px", borderRadius: 10, fontSize: 13, lineHeight: 1.5, color: t.ink, background: accuse === x.i ? t.tint + "1f" : t.bg2, border: "1px solid " + (accuse === x.i ? t.tint : t.line) } },
+                (accuse === x.i ? "🎭 " : "") + x.m.text.slice(0, 60)))),
             primary(judging ? "裁判在读你们的聊天…" : "一起翻牌", reveal, !guess || judging, "reveal")) : null) : null,
         // 翻牌：两张任务纸条并排翻开，各自盖上「完成／没完成」的章
         s.phase === "finished" ? h("div", { "data-wk": "datemission", "data-part": "result" },
@@ -282,7 +298,9 @@
               h("div", { key: "m", style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.6, margin: "6px 0" } }, m.text),
               h("div", { key: "st", style: { display: "inline-block", padding: "1px 7px", border: "1.5px solid " + (r.mission.done ? "#5d8b4c" : "#b0553f"), color: r.mission.done ? "#5d8b4c" : "#b0553f", borderRadius: 4, fontSize: 11, transform: "rotate(-6deg)" } }, r.mission.done ? "完成 +2" : "没完成"),
               h("div", { key: "e", style: { fontSize: 10.5, color: "#9a8f80", lineHeight: 1.5, marginTop: 6 } }, r.mission.evidence),
-              h("div", { key: "g", style: { fontSize: 11.5, marginTop: 8, color: r.guess ? "#5d8b4c" : "#7a7064" } }, "猜：" + (C.mission(guessed) || { title: "没猜出来" }).title + (r.guess ? " ✓ +1" : " ✗"))
+              h("div", { key: "g", style: { fontSize: 11.5, marginTop: 8, color: r.guess ? "#5d8b4c" : "#7a7064" } }, "猜：" + (C.mission(guessed) || { title: "没猜出来" }).title + (r.guess ? " ✓ +1" : " ✗")),
+              r.bonus ? h("div", { key: "b", style: { fontSize: 11.5, marginTop: 4, color: r.bonus.done ? "#5d8b4c" : "#7a7064" } }, "追加：" + C.mission(s.bonus[who]).title + (r.bonus.done ? " ✓ +1" : " ✗")) : null,
+              r.accuse ? h("div", { key: "a", style: { fontSize: 11.5, marginTop: 4, color: r.accuse.hit ? "#5d8b4c" : "#7a7064" } }, "指认「" + r.accuse.text.slice(0, 14) + "…」" + (r.accuse.hit ? " ✓ +1" : " ✗ 那句是真心的")) : null
             ], { margin: "8px 0", transform: "rotate(" + (i ? 1 : -1.2) + "deg)" }, who);
           })),
           // TA 给这次约会打几分＋一句心里话＋一路的心情（她 2026-10-14）
@@ -291,6 +309,22 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#a0603f", margin: "2px 0" } }, s.rating && s.rating.score ? s.rating.score + " / 10" : "—"),
             h("div", { style: { fontSize: 12, color: t.sub } }, moodLine.replace(/ ↑| ↓/, "") + " · 一路" + ((s.moodLog || []).length ? (s.moodLog || []).map(x => (x.d > 0 ? "+" : "") + x.d).join(" ") : "没怎么变")),
             s.rating && s.rating.heart ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.7, marginTop: 10 } }, "「" + s.rating.heart + "」") : null),
+          // 纪念票根（第 6 条）：TA 给今天起的名字、四站图标、每站一句。只在游戏存档里，能复制
+          (() => {
+            const name = (s.rating && s.rating.title) || "今天";
+            const rows = s.events.map(e => (ICON[e.place] || "·") + " " + ((C.place(e.place) || {}).name || "") + "：" + String(e.text || "").replace(/^（[^）]*）/, "").replace(/^[^：]*：/, "").slice(0, 26));
+            const text = "《" + name + "》\n" + rows.join("\n") + (s.rating && s.rating.score ? "\n" + (char.remark || char.name) + " 打了 " + s.rating.score + " 分" : "");
+            return h("div", { "data-part": "ticket", style: { position: "relative", margin: "16px 6px 6px", padding: "14px 18px 12px", background: "#fffdf6", color: "#3a332b", borderRadius: 10,
+                boxShadow: "0 8px 18px -10px rgba(40,25,10,.5)", borderLeft: "2px dashed " + t.line } },
+              h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
+                h("span", { style: { fontSize: 10.5, letterSpacing: 3, color: "#9a8f80" } }, "ADMIT TWO · 约会票根"),
+                h("span", { style: { fontSize: 10.5, color: "#9a8f80" } }, new Date().toLocaleDateString())),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, margin: "6px 0 8px" } }, "《" + name + "》"),
+              h("div", { style: { display: "flex", gap: 8, marginBottom: 8, fontSize: 22 } }, s.visits.map(v => h("span", { key: v }, ICON[v] || "·"))),
+              rows.map((r, i) => h("div", { key: i, style: { fontSize: 12, lineHeight: 1.7, color: "#5a5045" } }, r)),
+              h("button", { "data-part": "ticketcopy", onClick: () => { try { (typeof copyText === "function" ? copyText : x => navigator.clipboard.writeText(x))(text); setCopied(true); } catch (e) {} },
+                style: { marginTop: 8, fontSize: 12, color: "#a0603f", background: "none", border: "1px dashed #d8c9b0", borderRadius: 8, padding: "5px 12px", minHeight: 34 } }, copied ? "已复制" : "复制票根"));
+          })(),
           h("p", { style: { color: t.fog, fontSize: 11, lineHeight: 1.7, textAlign: "center", marginTop: 8 } }, "这局只留在游戏存档里。回忆、关系和主聊天都没有改。")) : null,
         s.events.length ? h("details", { style: { color: t.sub, fontSize: 12, lineHeight: 1.8, margin: "14px 0" } }, h("summary", { style: { minHeight: 36 } }, "回看你们走过的路"), s.events.map((e, i) => h("div", { key: i, style: { padding: "7px 0", borderTop: "1px dashed " + t.line } }, C.place(e.place).name + " · " + e.text))) : null,
         unsaved ? h("div", { style: { margin: "10px 4px" } }, h("p", { role: "alert", style: { color: t.tint, fontSize: 13, marginBottom: 8 } }, "这一局暂时没存好，先别退出。"), button(t, "重试保存", () => save(ref.current), false, "retry-save")) : null,

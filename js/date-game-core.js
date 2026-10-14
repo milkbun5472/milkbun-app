@@ -21,8 +21,13 @@
     { id: "book", name: "旧书摊", time: 40, cost: 0, note: "一起翻翻书，不花钱", kind: "book", options: [["browse", "一起翻翻", []], ["recommend", "互相推荐一本", []]] },
     { id: "library", name: "社区图书馆", time: 35, cost: 0, note: "安静地坐一会儿，小声说话", kind: "book", options: [["browse", "各看各的", []], ["recommend", "互相推荐一本", []]] },
     { id: "cinema", name: "电影院", time: 60, cost: 70, note: "看一场，出来聊聊", kind: "talk" },
-    { id: "observatory", name: "城郊观星台", time: 50, cost: 30, note: "等星星出来，聊点平时不聊的", kind: "talk" }
+    { id: "observatory", name: "城郊观星台", time: 50, cost: 30, note: "等星星出来，聊点平时不聊的", kind: "talk" },
+    // 按现实钟点才开的（她 2026-10-14 挑的第 7 条）：hours＝[开, 关)，关比开小就是跨过半夜
+    { id: "breakfast", name: "早餐铺", time: 25, cost: 20, note: "趁热，豆浆油条或者小笼包", kind: "menu", hours: [6, 11], options: [["fritter", "豆浆油条", []], ["bun", "一笼小笼包", []], ["sweetsoy", "甜豆花", ["sweet"]]] },
+    { id: "nightmarket", name: "夜市小吃街", time: 45, cost: 55, note: "一路走一路吃，灯一盏一盏亮着", kind: "menu", hours: [18, 2], options: [["skewers", "边走边吃一路小串", []], ["tanghulu", "一人一串糖葫芦", ["sweet"]], ["stall", "挑一家坐下慢慢吃", []]] },
+    { id: "sunset", name: "江堤看日落", time: 35, cost: 0, note: "赶在天黑前，看太阳掉进水里", kind: "walk", hours: [16, 19] }
   ]);
+  const openAt = (p, hour) => !p.hours || (p.hours[0] < p.hours[1] ? hour >= p.hours[0] && hour < p.hours[1] : hour >= p.hours[0] || hour < p.hours[1]);
   // 旧存档没有 s.places：退回最早那六处
   const LEGACY_PLACES = ["cafe", "photo", "arcade", "shop", "river", "book"];
   const PLACES = PLACE_POOL;
@@ -59,13 +64,33 @@
     { id: "next", title: "约下一次", text: "让对方先提出下次还要一起出来。", social: true },
     { id: "secret", title: "交换秘密", text: "让对方说一件没跟别人说过的事。", social: true }
   ]);
+  // 主题局（第 8 条）：开局页挑。TA 的态度跟着变，任务池多一张这个主题专属的
+  const THEMES = Object.freeze({
+    plain: { zh: "随便逛逛", prompt: "" },
+    first: { zh: "第一次约会", prompt: "这是你们第一次单独出来约会：有点拘谨、互相试探，想给对方留个好印象，话不会说得太满。" },
+    anniv: { zh: "纪念日", prompt: "今天是你们的纪念日：想起以前的事会更多，也更想把今天过得特别一点。" },
+    makeup: { zh: "吵架之后和好", prompt: "你们前几天刚闹过别扭，今天出来算是和好：一开始有点别扭、嘴硬，慢慢才软下来。" }
+  });
+  const THEME_MISSIONS = Object.freeze([
+    { id: "askme", theme: "first", title: "被好奇", text: "让对方主动问你一个关于你自己的问题。", social: true },
+    { id: "oldday", theme: "anniv", title: "提起从前", text: "让对方先说起你们以前一起做过的一件事。", social: true },
+    { id: "softword", theme: "makeup", title: "先服软", text: "让对方先说一句软话（道歉、认错或者「我也有不对」）。", social: true }
+  ]);
+  // 追加任务（第 4 条）：走完第二站各抽一张小的，完成多 1 分；都是看聊天的，翻牌前裁判一起判
+  const BONUS = Object.freeze([
+    { id: "hand", title: "牵手", text: "回家前牵到对方的手（谁先伸手都算，聊天里要说到）。", social: true },
+    { id: "fav", title: "最喜欢哪站", text: "让对方说出今天最喜欢哪一站。", social: true },
+    { id: "nick", title: "叫个昵称", text: "让对方用昵称叫你一次。", social: true },
+    { id: "nexttime", title: "下次去哪", text: "让对方说出下次想一起去的一个地方。", social: true },
+    { id: "photoask", title: "要合照", text: "让对方主动说想和你拍一张。", social: true }
+  ]);
   const POSES = ["比个耶", "托着脸", "歪歪头"];
   const clone = x => JSON.parse(JSON.stringify(x));
   const pick = (a, rng) => a[Math.min(a.length - 1, Math.floor(rng() * a.length))];
   const place = id => PLACE_POOL.find(p => p.id === id);
   const placesOf = s => (Array.isArray(s.places) && s.places.length ? s.places : LEGACY_PLACES);
   const optionOf = (p, id) => (p && p.options || []).find(o => o[0] === id);
-  const mission = id => MISSIONS.find(m => m.id === id);
+  const mission = id => MISSIONS.find(m => m.id === id) || THEME_MISSIONS.find(m => m.id === id) || BONUS.find(m => m.id === id);
   function newGame(config, rng, opts) {
     rng = rng || Math.random;
     opts = opts || {};
@@ -73,14 +98,17 @@
     let places = opts.places;
     if (!places) {
       const kinds = ["menu", "photo", "claw", "gift", "walk", "book", "talk"], picked = [];
-      kinds.forEach(k => { const c = PLACE_POOL.filter(p => p.kind === k); picked.push(pick(c, rng).id); });
+      const hour = opts.hour != null ? opts.hour : new Date().getHours();
+      // 这个钟点开着的地方优先：限时段的那几处一开门就排在前面抽
+      kinds.forEach(k => { const c = PLACE_POOL.filter(p => p.kind === k && openAt(p, hour)), timed = c.filter(p => p.hours); picked.push(pick(timed.length && rng() < .7 ? timed : c, rng).id); });
       while (picked.length > 6) picked.splice(Math.floor(rng() * picked.length), 1);
       places = picked;
     }
     const has = k => places.some(id => (place(id) || {}).kind === k);
-    const pool = MISSIONS.filter(m => !m.needs || has(m.needs));
+    const pool = MISSIONS.filter(m => !m.needs || has(m.needs)).concat(THEME_MISSIONS.filter(m => m.theme === (config && config.dateTheme)));
     const me = pick(pool, rng), ta = pick(pool.filter(m => m.id !== me.id), rng);
     return { v: 2, places: places, noEvents: opts.events === false, id: Date.now().toString(36) + "-" + rng().toString(36).slice(2), config: clone(config),
+      theme: THEMES[config && config.dateTheme] ? config.dateTheme : "plain", bonus: null,
       missions: { user: me.id, char: ta.id }, phase: "plan", round: 1, minutes: 180, money: 200,
       visits: [], events: [], talk: [], proposal: null, prepared: null, exchanges: 0, retryUsed: false,
       toys: [0, 1, 2].map(() => Math.floor(rng() * 3)), pending: null, aiGuess: null, userGuess: null, result: null };
@@ -106,10 +134,11 @@
   // 唯一模型投影：完整存档、用户任务、用户末轮猜测都不会进这条路。
   function aiView(s) {
     return { phase: s.phase, round: s.round, leader: s.round % 2 ? "用户" : "你", minutes: s.minutes, money: s.money,
-      yourMission: mission(s.missions.char), missionPool: MISSIONS.filter(m => !m.needs || placesOf(s).some(id => (place(id) || {}).kind === m.needs)), places: legalPlaces(s),
+      yourMission: mission(s.missions.char), missionPool: MISSIONS.filter(m => !m.needs || placesOf(s).some(id => (place(id) || {}).kind === m.needs)).concat(THEME_MISSIONS.filter(m => m.theme === s.theme)), places: legalPlaces(s),
       current: s.current || null, lastEvent: s.events.length ? s.events[s.events.length - 1] : null,
       visits: s.visits, events: s.events, talk: s.talk, proposal: s.pending && s.pending.proposedId || s.proposal,
-      exchanges: s.exchanges, toys: s.toys, poses: POSES, mood: moodOf(s), challenge: s.challenge || null };
+      exchanges: s.exchanges, toys: s.toys, poses: POSES, mood: moodOf(s), challenge: s.challenge || null,
+      theme: (THEMES[s.theme] || THEMES.plain).zh, yourBonus: s.bonus ? mission(s.bonus.char) : null };
   }
   function startRequest(s, kind, line, proposedId) {
     if (s.pending) throw Error("这一句还在等回复。");
@@ -163,9 +192,9 @@
       n.aiGuess = reply.guess;
       // 这次约会 TA 打几分、一句心里话（翻牌后跟心情条一起摊开）
       const r = Math.round(Number(reply.rate));
-      n.rating = { score: r >= 1 && r <= 10 ? r : null, heart: String(reply.heart || "").trim().slice(0, 200) };
+      n.rating = { score: r >= 1 && r <= 10 ? r : null, heart: String(reply.heart || "").trim().slice(0, 200), title: String(reply.title || "").trim().slice(0, 16) };
     }
-    n.talk.push({ who: "char", text: reply.say.trim().slice(0, 1200), round: n.round, n: (n.seq = (n.seq || 0) + 1) });
+    n.talk.push(Object.assign({ who: "char", text: reply.say.trim().slice(0, 1200), round: n.round, n: (n.seq = (n.seq || 0) + 1) }, reply.scheme === true ? { scheme: true } : {}));
     n.pending = null;
     return n;
   }
@@ -261,6 +290,10 @@
     if (s.phase !== "after") throw Error("先做完这一站。");
     if (s.challenge && !s.challenge.done) throw Error("TA 出的题还没答。");
     const n = clone(s); n.challenge = null;
+    if (!n.bonus && n.visits.length === 2) {
+      const r = Math.random, a = BONUS[Math.floor(r() * BONUS.length)], rest = BONUS.filter(b => b.id !== a.id);
+      n.bonus = { user: a.id, char: rest[Math.floor(r() * rest.length)].id };
+    }
     if (s.visits.length >= 4 || !legalPlaces(s).length) n.phase = "guess";
     else { n.phase = "plan"; n.round++; n.proposal = null; n.prepared = null; n.exchanges = 0; n.incident = null; n.topic = null; }
     return n;
@@ -269,19 +302,26 @@
     if (!["plan", "after"].includes(s.phase) || s.pending) throw Error("先做完当前这一步。");
     const n = clone(s); if (n.challenge && !n.challenge.done) { n.challenge.done = true; n.challenge.skipped = true; } n.phase = "guess"; return n;
   }
-  function finish(s, guess, judged) {
+  function finish(s, guess, judged, accuse) {
     if (s.phase !== "guess" || s.aiGuess === null || s.pending) throw Error("先等 TA 交好猜测。");
     if (guess !== "unknown" && !mission(guess)) throw Error("先选一个猜测。");
     const n = clone(s); n.userGuess = guess;
     judged = judged || {};
     const mine = progress(s, s.missions.user, judged.user), theirs = progress(s, s.missions.char, judged.char);
     n.result = { user: { mission: mine, guess: guess === s.missions.char }, char: { mission: theirs, guess: s.aiGuess === s.missions.user } };
-    n.result.user.score = (mine.done ? 2 : 0) + (n.result.user.guess ? 1 : 0);
-    n.result.char.score = (theirs.done ? 2 : 0) + (n.result.char.guess ? 1 : 0);
+    // 追加任务各 +1（第 4 条）；指认 TA 哪句在演，指对 +1（第 5 条）
+    if (s.bonus) {
+      n.result.user.bonus = progress(s, s.bonus.user, judged.userBonus);
+      n.result.char.bonus = progress(s, s.bonus.char, judged.charBonus);
+    }
+    const tl = (s.talk || [])[accuse];
+    if (accuse != null && tl && tl.who === "char") n.result.user.accuse = { text: tl.text.slice(0, 80), hit: !!tl.scheme };
+    n.result.user.score = (mine.done ? 2 : 0) + (n.result.user.guess ? 1 : 0) + (n.result.user.bonus && n.result.user.bonus.done ? 1 : 0) + (n.result.user.accuse && n.result.user.accuse.hit ? 1 : 0);
+    n.result.char.score = (theirs.done ? 2 : 0) + (n.result.char.guess ? 1 : 0) + (n.result.char.bonus && n.result.char.bonus.done ? 1 : 0);
     n.phase = "finished"; return n;
   }
   // 翻牌前要不要请裁判读聊天：两人里有一张是看人的任务才要
-  const needsJudge = s => [s.missions.user, s.missions.char].some(id => (mission(id) || {}).social);
+  const needsJudge = s => [s.missions.user, s.missions.char].concat(s.bonus ? [s.bonus.user, s.bonus.char] : []).some(id => (mission(id) || {}).social);
   // 路上的一条时间线（她 2026-10-14：「节奏和气泡显示有点不对」）：说过的话和每站的小票按发生的先后排在一起，
   //   原来话在上、小票在下，TA 对这一站的反应排在「发生了什么」前面。旧存档没有先后号：同一站里话在前、小票在后。
   function feed(s) {
@@ -290,7 +330,7 @@
       .concat((s.events || []).map((x, i) => ({ kind: "event", item: x, k: key(x, "event", i) })))
       .sort((a, b) => a.k - b.k);
   }
-  const api = { feed, moodOf, chooseIncident, answerLie, skipChallenge, wantsChallenge, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
+  const api = { THEMES, THEME_MISSIONS, BONUS, openAt, feed, moodOf, chooseIncident, answerLie, skipChallenge, wantsChallenge, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
   if (typeof module === "object" && module.exports) module.exports = api;
   root.DateGameCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

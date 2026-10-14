@@ -55,5 +55,51 @@ test("开放的小要求：她回一句，TA 判过没过；格式不全的题�
 test("收工时 TA 给今天打分、留一句心里话", () => {
   let s = C.closeDate(C.resolveActivity(go(fresh(), "cafe"), "cake"));
   s = C.receiveReply(C.startRequest(s, "guess", "", ""), { guess: "unknown", say: "翻吧", rate: 8, heart: "其实挺想再来一次" });
-  assert.deepEqual(s.rating, { score: 8, heart: "其实挺想再来一次" });
+  assert.deepEqual(s.rating, { score: 8, heart: "其实挺想再来一次", title: "" });
+});
+
+// 她 2026-10-14：「后面全部做」——追加任务、指认、票根名字、按钟点开的地方、主题局
+test("按钟点开的地方：早餐铺只在早上、夜市跨过半夜、开局抽到的都是这会儿开着的", () => {
+  const P = n => C.PLACE_POOL.find(p => p.id === n);
+  assert.equal(C.openAt(P("breakfast"), 8), true); assert.equal(C.openAt(P("breakfast"), 20), false);
+  assert.equal(C.openAt(P("nightmarket"), 23), true); assert.equal(C.openAt(P("nightmarket"), 1), true); assert.equal(C.openAt(P("nightmarket"), 12), false);
+  for (const hour of [3, 8, 13, 17, 21]) for (let i = 0; i < 30; i++) {
+    const s = C.newGame(config, Math.random, { hour });
+    s.places.forEach(id => assert.ok(C.openAt(P(id), hour), id + " 在 " + hour + " 点没开"));
+  }
+});
+
+test("主题局：任务池多一张这个主题的，TA 也看得到是哪种约会", () => {
+  let seen = false;
+  for (let i = 0; i < 200 && !seen; i++) {
+    const s = C.newGame({ ...config, dateTheme: "makeup" });
+    assert.equal(s.theme, "makeup");
+    if ([s.missions.user, s.missions.char].includes("softword")) seen = true;
+    assert.ok(![s.missions.user, s.missions.char].includes("askme"), "别的主题的任务不该抽到");
+  }
+  assert.ok(seen, "和好局抽得到「先服软」");
+  assert.equal(C.aiView(C.newGame({ ...config, dateTheme: "anniv" })).theme, "纪念日");
+});
+
+test("走完第二站各抽一张追加任务；指认 TA 在演的那句，指中 +1", () => {
+  let s = fresh();
+  s = C.nextStop(C.receiveReply(C.startRequest(C.resolveActivity(go(s, "cafe"), "cake"), "react", "", ""), { say: "嗯", scheme: true }));
+  assert.equal(s.bonus, null);
+  s = C.nextStop(C.resolveActivity(go(s, "shop"), "pair"));
+  assert.ok(s.bonus && C.mission(s.bonus.user) && C.mission(s.bonus.char) && s.bonus.user !== s.bonus.char);
+  assert.ok(C.needsJudge(s), "追加任务要裁判读聊天");
+  s = C.closeDate(s);
+  s = C.receiveReply(C.startRequest(s, "guess", "", ""), { guess: "unknown", say: "翻吧", rate: 7, heart: "", title: "雨天小店" });
+  const idx = s.talk.findIndex(m => m.scheme);
+  const done = C.finish(s, "unknown", { userBonus: { done: true, evidence: "那句" } }, idx);
+  assert.equal(done.result.user.accuse.hit, true);
+  assert.equal(done.result.user.bonus.done, true);
+  assert.equal(done.result.user.score, 2, "追加 +1、指认 +1");
+  assert.equal(done.rating.title, "雨天小店");
+});
+
+test("地点池里每一处都有自己的图标（票根和路线上不显示成一个点）", () => {
+  const src = require("fs").readFileSync(__dirname + "/../js/date-game.js", "utf8");
+  const icon = src.slice(src.indexOf("const ICON = {"), src.indexOf("};", src.indexOf("const ICON = {")));
+  C.PLACE_POOL.forEach(p => assert.ok(icon.indexOf(p.id + ":") >= 0, p.id + " 没有图标"));
 });
