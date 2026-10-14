@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.629";
+const APP_VERSION = "v75.633";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12093,11 +12093,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
       }
       // TA主动约她出来（她 2026-10-02）：只在不闹别扭、没有挂着的邀约、三天没约过时偶尔给一次
-      if (!_peekTurn && !(room && !room.main) && !_body && !_moodNeg && !_harsh && !_inv && !charInviteOf(charId) && dateAskReady(charId) && Math.random() < 0.1) {
+      // 她开口叫TA发邀约（她 2026-10-14：「你给我发个邀约」，TA只在旁白里写「新建约会日程…确认发送」，卡没出来）：
+      //   那一轮必给这张卡，不看三天冷却、不掷骰子；只要现在没有一张TA发的还挂着
+      // 主动约她（她 2026-10-14：「我从来没触发过这个邀约他主动」）——原来三道闸叠在一起几乎打不开：
+      //   ①每轮只有一成；②她最近三句里有「傻」「蠢」这种打情骂俏的字就算吵架；③就算给了，TA也常常不用。
+      //   现在：只看她【这一句】有没有真火药味（不再把「傻瓜」当吵架）；隔得越久越想约（三天起一成五，一周后到四成）；提示也写得更像个念头。
+      const _lastU = String((history.filter(m => m.role === "user" && m.content).slice(-1)[0] || {}).content || "");
+      const _harshNow = /滚|分手|去死|恶心|讨厌你|烦你|闭嘴|骗子|渣男|渣女|贱|婊|操你|草你|恨你|出轨|劈腿|备胎|玩玩而已/.test(_lastU);
+      const _askDays = (() => { const a = loadJSON("x_dateAskLast", {}) || {}; return a[charId] ? (Date.now() - a[charId]) / 86400000 : 7; })();
+      const _dateAskP = Math.min(0.4, 0.15 + Math.max(0, _askDays - 3) * 0.06);
+      const _askedInvite = /(发|给我|来)[^。！？\n]{0,6}(邀约|约会邀请|邀请函)|约我(出去|吃饭|见面)?[吧呀啊嘛]?$|邀约/.test(String(recentUserText || "").slice(-80));
+      if (!_peekTurn && !(room && !room.main) && !_body && !_inv && !charInviteOf(charId) && (_askedInvite || (!_moodNeg && !_harshNow && dateAskReady(charId) && Math.random() < _dateAskP))) {
         openCaps.push("dateAsk");
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
-        capState.push("dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
-          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + "没这个心思就别填；话照常写在 word 里。");
+        capState.push((_askedInvite ? "" : "你们有" + (_askDays >= 7 ? "一阵子" : "几天") + "没一起出去了，你心里有点想她、想见面。") + "dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
+          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就别填；") + "话照常写在 word 里。");
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
@@ -13468,7 +13478,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           delivered = true;
         }
       }
-      if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && dateAskReady(charId) && !charInviteOf(charId)) {
+      if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && (dateAskReady(charId) || (typeof recentUserText === "string" && /邀约|约会邀请|邀请函/.test(recentUserText.slice(-80)))) && !charInviteOf(charId)) {
         const da = parsed.dateAsk, nm = String(da.place || "").trim().slice(0, 24);
         if (nm) {
           const nt = String(da.note || "").trim().slice(0, 60), wt = String(da.when || "").trim().slice(0, 24), say = String(da.say || "").trim().slice(0, 60);
@@ -28236,6 +28246,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_geo", g);
     toast("现在你在：" + g.label);
   };
+  // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14，单聊、群聊同一支）：
+  //   世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路。realmOf＝拿谁眼里的我来判断（群里传 null＝设置里那一份）
+  const setMyPlaceFrom = (p, realmOf) => {
+    const w = p && p.from ? (worldsRef.current || []).find(x => x && x.name === p.from) : null;
+    if (w) {
+      saveWorlds((worldsRef.current || []).map(x => x.id === w.id ? { ...x, pins: { ...(x.pins || {}), __me: p.name } } : x));
+      const my = myRealm(realmOf);
+      toast(my && my.kind === "world" && my.world && my.world.id === w.id ? "现在你在：" + w.name + "·" + p.name : "已把你在「" + w.name + "」的位置挪到 " + p.name + "；要他们认你在这个世界，去 设置 · 位置感知 选它");
+    } else if (p && p.name) doSetGeoPlace(p.name).then(c => { if (Array.isArray(c)) toast("同名的地方不止一个，去 设置 · 位置感知 里手填挑一个"); });
+  };
   const doSetGeoPoint = async pt => {
     if (!pt) return;
     const g = await geoFromPoint(pt);
@@ -28927,6 +28947,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMyKin: () => runRoomAction(activeChar.id, "herkinspend", () => { setMyKinFor(activeChar.id); myKinBackRef.current = "thread"; setScreen("mykin"); }),
     onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
     invitePlaces: invitePlacesFor(activeChar),
+    // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14）：世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路
+    onSetMyPlace: p => setMyPlaceFrom(p, activeChar.id),
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
       .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
       .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),
@@ -29320,6 +29342,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGroupDateInvite: (place, v) => sendGroupDateInvite(activeGroup.id, place, v),
     onGroupDateGo: m => groupDateGo(activeGroup.id, m),
     invitePlaces: groupInvitePlacesFor(activeGroup),
+    onSetMyPlace: p => setMyPlaceFrom(p, null),
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
     messages: groupChats[activeGroup.id] || [],
