@@ -1565,13 +1565,15 @@ function ChatJumpArrows({ scroller, onTop, t }) {
     return () => { el.removeEventListener("scroll", upd); window.removeEventListener("resize", upd); };
   }, [scroller && scroller.current]);
   if (!st.down || !st.r) return null;
-  const btn = (wk, label, d, onClick) => h("button", { "data-wk": wk, "aria-label": label, onClick, className: "active:opacity-70",
+  // 挂点名必须是写死的字面量，所以按【转交】那一支写：组件里原样放上去，名字由调用点给字面量
+  //   （施工规则 theme-hooks：拼不进变量，调用点那一半靠挂点名必须写成字面量来守）
+  const btn = ({ wk, label, d, onClick }) => h("button", { "data-wk": wk || undefined, "aria-label": label, onClick, className: "active:opacity-70",
     style: { width: 36, height: 36, borderRadius: 18, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 2px 8px rgba(0,0,0,.12)", display: "flex", alignItems: "center", justifyContent: "center" } },
     h(Svg, { size: 18, color: t.sub, sw: 2 }, h("path", { d })));
   const go = top => { const el = scroller.current; if (el) el.scrollTo({ top, behavior: "smooth" }); };
   return h("div", { "data-wk": "chatjump", style: { position: "fixed", right: Math.max(10, window.innerWidth - st.r.right + 12), top: st.r.bottom - (st.up ? 92 : 48), zIndex: 30, display: "flex", flexDirection: "column", gap: 8 } },
-    st.up ? btn("chatjumptop", "跳到最早", "M6 15l6-6 6 6", () => { onTop && onTop(); requestAnimationFrame(() => requestAnimationFrame(() => go(0))); }) : null,
-    btn("chatjumpbottom", "回到最新", "M6 9l6 6 6-6", () => go((scroller.current || {}).scrollHeight || 0)));
+    st.up ? btn({ wk: "chatjumptop", label: "跳到最早", d: "M6 15l6-6 6 6", onClick: () => { onTop && onTop(); requestAnimationFrame(() => requestAnimationFrame(() => go(0))); } }) : null,
+    btn({ wk: "chatjumpbottom", label: "回到最新", d: "M6 9l6 6 6-6", onClick: () => go((scroller.current || {}).scrollHeight || 0) }));
 }
 function useChatWindow(ref, total, resetKey, recentLimit = 0) {
   const limit = Math.max(0, Math.floor(Number(recentLimit) || 0));
