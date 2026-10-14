@@ -9842,6 +9842,27 @@ function ChatThread({
     if (!spk || !spk.voiceId) return;
     tp.toggle("say" + i, String(m.content || ""), spk.voiceId);
   };
+  // 新消息自动念（群友 2026-10-14 许愿「点进去角色单聊可以自动将文字生成语音并且读语音，不用手点合成」）：
+  //   只念打开以后新来的；一条念完接下一条；她一发消息就清队列、停下。
+  const ttsSeenRef = useRef(messages.length), ttsQRef = useRef([]), ttsBusyRef = useRef(false);
+  const ttsMsgsRef = useRef(messages); ttsMsgsRef.current = messages;
+  const ttsNext = () => {
+    const i = ttsQRef.current.shift();
+    if (i == null) { ttsBusyRef.current = false; return; }
+    const m = ttsMsgsRef.current[i];
+    if (!m || !canSpeakMsg(m)) { ttsNext(); return; }
+    ttsBusyRef.current = true;
+    tp.toggle("say" + i, String(m.content || ""), speakerOf(m).voiceId, undefined, () => setTimeout(ttsNext, 120));
+  };
+  useEffect(() => {
+    const n = messages.length, from = ttsSeenRef.current; ttsSeenRef.current = n;
+    if (n <= from) return;
+    const fresh = messages.slice(from).map((m, k) => [m, from + k]);
+    if (fresh.some(([m]) => m && m.role === "user")) { ttsQRef.current = []; if (ttsBusyRef.current) { ttsBusyRef.current = false; tp.stop(); } }
+    if (!(dsp && dsp.autoTts)) return;
+    fresh.forEach(([m, i]) => { if (m && m.role === "assistant" && (!m.kind || m.kind === "text" || m.kind === "voice") && canSpeakMsg(m)) ttsQRef.current.push(i); });
+    if (!ttsBusyRef.current && ttsQRef.current.length) ttsNext();
+  }, [messages.length]);
   // 气泡上那颗播放键：跟长按菜单里的「念出来」同一个门槛、同一个动作，
   // 只是常驻在那儿——她不用每次长按，而且实心/空心一眼看得出这一句花没花过钱。
   // 气泡底下那一行：「听一下」和「已读 20:19」并排。
@@ -19775,6 +19796,7 @@ function ChatSettings({
   const [confirmClear, setConfirmClear] = useState(false);
   const [showMyAvatar, setShowMyAvatar] = useState(!!settings.showMyAvatar);
   const [showTime, setShowTime] = useState(!!settings.showTime);
+  const [autoTts, setAutoTts] = useState(!!settings.autoTts);   // 新消息自动念（群友 2026-10-14 许愿）
   const [timeSec, setTimeSec] = useState(!!settings.timeSec);
   const [showRead, setShowRead] = useState(settings.showRead !== false);
   // 长消息自动拆成短句：默认开着＝跟原来一模一样（她 2026-09-29）
@@ -20112,6 +20134,7 @@ function ChatSettings({
       proactiveMin: proactiveHr * 60,
       showMyAvatar,
       showTime,
+      autoTts,
       timeSec,
       showRead,
       splitBubbles,
@@ -20376,6 +20399,8 @@ function ChatSettings({
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    character.voiceId ? h("div", { "data-wk": "autotts" }, dispRow("新消息自动念", autoTts, setAutoTts),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 4 } }, "TA 新回的每一条都自动合成、按顺序念出来，你一发消息就停。每条都花一次语音额度。iPhone 要先在页面上点过一下才出得了声。")) : null,
     dispRow("长消息自动拆成短句", splitBubbles, setSplitBubbles),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "开着：TA 一段话会按句子拆成好几个气泡，像一条条打出来的。"

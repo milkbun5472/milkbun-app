@@ -28630,7 +28630,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 小号房里「我」显示小号那张（小号没头像就不显示头像图，只换名字）
     meProfile: (() => { const rm = window.ChatRooms && window.ChatRooms.altOf ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
       return rm && window.ChatRooms.altShowsMe(rm) ? { ...profileFor(activeChar.id), avatarImage: undefined, ...window.ChatRooms.altProfile(rm) } : profileFor(activeChar.id); })(),
-    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
+    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, autoTts: !!settingsFor(activeChar.id).autoTts, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
@@ -31542,6 +31542,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             proactiveMin: s.proactiveMin,
             showMyAvatar: s.showMyAvatar,
             showTime: s.showTime,
+            autoTts: !!s.autoTts,
             timeSec: s.timeSec,
             showRead: s.showRead,
             splitBubbles: s.splitBubbles,
