@@ -544,6 +544,10 @@
   }
   // ---- 数据版：全部在本地算，模型只负责写标题和点评，一个数字都不许改 ----
   const STOP2 = ["什么", "这样", "那样", "没有", "可以", "我们", "你们", "他们", "自己", "一个", "一下", "怎么", "知道", "现在", "时候", "因为", "所以", "但是", "如果", "还是", "就是", "不是", "这个", "那个", "已经"];
+  // 只留嘴上说的：括号里的动作／神态描写（动描）、星号旁白都拿掉（她 2026-10-14：「反复出现的词是不是把动描也算进去了」）
+  function saidOnly(t) {
+    return String(t || "").replace(/（[^（）]*）|\([^()]*\)|【[^【】]*】|\*[^*\n]+\*|〔[^〔〕]*〕/g, " ").replace(/\s+/g, " ").trim();
+  }
   function weeklyStats(mat, characters, uName) {
     const rows = (mat && mat.global) || [];
     const byWho = {}, hours = new Array(24).fill(0);
@@ -560,7 +564,7 @@
       byWho[who] = (byWho[who] || 0) + 1;
       hours[new Date(r.ts).getHours()]++;
       if (!longest || txt.length > longest.len) longest = { who: who, len: txt.length, text: txt.slice(0, 40) };
-      const pure = txt.replace(/[^\u4e00-\u9fa5]/g, "");
+      const pure = saidOnly(txt).replace(/[^\u4e00-\u9fa5]/g, "");
       for (let k = 0; k + 2 <= pure.length; k++) { const g = pure.slice(k, k + 2); if (STOP2.indexOf(g) < 0) gram[g] = (gram[g] || 0) + 1; }
     });
     const talkers = Object.keys(byWho).map(function (k) { return { who: k, n: byWho[k] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 4);
@@ -647,9 +651,10 @@
     const pre = String(name || "") + "：";
     return String(material || "").split("\n")
       .filter(function (l) { return l.indexOf(pre) === 0 || l.indexOf("】" + pre) > -1; })
-      .map(function (l) { return l.slice(l.lastIndexOf(pre) + pre.length).trim(); })
-      .filter(function (x) { return x.length >= 4 && x.length <= 60; })
-      .slice(-10);
+      // 声纹样本只要嘴上的话：动作描写混进来，模型学到的是旁白腔（她 2026-10-14：「专访回答的风格跟本人说话不太像」）
+      .map(function (l) { return saidOnly(l.slice(l.lastIndexOf(pre) + pre.length)); })
+      .filter(function (x, k, arr) { return x.length >= 2 && x.length <= 90 && arr.indexOf(x) === k; })
+      .slice(-24);
   }
   async function genInterview(active, char, material, userName, reportLabel, interviewer) {
     const ownLines = ownVoiceLines(material, char.name);
@@ -664,7 +669,7 @@
       // 素材里本来就有TA这周说过的原话，但以「记录」身份进去权重不够；单拎出来当声纹样本，
       // 和日记那边同一个做法（日记有、周刊一直没有，2026-08-18 补齐）
       (ownLines.length ? "\n\n【" + char.name + " 本周真实说过的话 · 声纹最高优先】\n" + ownLines.map(function (x, k) { return (k + 1) + ". " + x; }).join("\n") +
-        characterText(char, "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。") : "") +
+        characterText(char, "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。\n具体对照这几样：他平时一句话多长、用不用句号和感叹号、爱不爱用省略号和语气词（嗯、啧、哦）、说话直不直接、会不会反问——专访里照他平时的样子来，不要因为是「接受采访」就变得完整、礼貌、有条理；他平时说话怎么短、怎么冲、怎么绕，在这儿也一样。") : "") +
       "\n【本周出场人物（人名铁律用）】" + char.name + "、" + uName + NAME_GUARD +
       "\n\n【本期报道窗口】" + (reportLabel || "上一完整周") + "。这里只描述本期采编取材范围，不等于角色最近一次聊天的日期。\n" +
       "【机械核验，不得推翻】本期采集器为 " + char.name + " 收录了 " + materialCount + " 条上下文。" +
