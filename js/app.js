@@ -3045,8 +3045,38 @@ function App() {
   //   好感度和心情」（v62.42 审计）。搬进 IDB 之后那句不成立了，所以删掉重写，
   //   不在后面挂「但是」（施工规则/no-yes-unless.md）。
   const MOMENTS_CAP = 100000;
+  // 朋友圈新消息（她 2026-10-14 转来的许愿：「像微信一样有提示能看到 pyq 回复」）：
+  //   跟我有关的新评论（评在我发的那条底下、或者「回复 我：」）打上 unseen，我那条新来的赞记在 newLikes；
+  //   都挂在那条朋友圈自己身上，不另开存储。看过就清（markMomentsSeen）。
+  const flagMomentNews = (p, n) => {
+    if (!Array.isArray(p) || !Array.isArray(n)) return n;
+    const old = new Map(p.map(m => [m && m.id, m]));
+    return n.map(m => {
+      const o = m && old.get(m.id); if (!o) return m;
+      const oc = (o.comments || []).length, cs = m.comments || [];
+      const mine = new Set([...(m.mine ? [m.author] : []), ...cs.filter(c => c && c.mine).map(c => c.author)].map(x => String(x || "").trim()).filter(Boolean));
+      let chg = false;
+      const nc = cs.map((c, i) => {
+        if (i < oc || !c || c.mine || c.unseen) return c;
+        const rp = /^回复 ([^：]+)：/.exec(String(c.text || ""));
+        if (m.mine ? !rp || mine.has(rp[1].trim()) : rp && mine.has(rp[1].trim())) { chg = true; return { ...c, unseen: true, at: Date.now() }; }
+        return c;
+      });
+      const ol = new Set(o.likers || []);
+      const nl = m.mine ? (m.likers || []).filter(x => !ol.has(x) && !mine.has(String(x || "").trim())) : [];
+      if (!chg && !nl.length) return m;
+      return { ...m, comments: nc, ...(nl.length ? { newLikes: [...new Set([...(m.newLikes || []), ...nl])] } : {}) };
+    });
+  };
+  // 新消息推一条系统通知（跟论坛「有人回你了」一样）：数出来比上次多了才推
+  const momNewsCountRef = useRef(-1);
+  useEffect(() => {
+    const n = (moments || []).reduce((a, m) => a + (m.comments || []).filter(c => c && c.unseen).length + (m.newLikes || []).length, 0);
+    if (momNewsCountRef.current >= 0 && n > momNewsCountRef.current && window.Notify) window.Notify.push({ title: "朋友圈", body: "有 " + n + " 条新消息", tag: "mom-news" });
+    momNewsCountRef.current = n;
+  }, [moments]);
   const pMom = u => setMoments(p => {
-    let n = typeof u === "function" ? u(p) : u;
+    let n = flagMomentNews(p, typeof u === "function" ? u(p) : u);
     if (Array.isArray(n) && n.length > MOMENTS_CAP) n = [...n].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, MOMENTS_CAP);
     saveJSON("x_moments", n);
     return n;
@@ -29016,6 +29046,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
     }
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
+    onMomentsSeen: () => setMoments(p => { const n = (p || []).map(m => (m.newLikes || (m.comments || []).some(c => c && c.unseen)) ? { ...m, newLikes: undefined, comments: (m.comments || []).map(c => c && c.unseen ? { ...c, unseen: undefined } : c) } : m); saveJSON("x_moments", n); return n; }),
     characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },

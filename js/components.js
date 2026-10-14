@@ -1551,6 +1551,28 @@ function useBrowserKbPad() {
 // 单聊的列表和「定位」那一头都问它——两处各写一遍，一边改了另一边就数错格子。
 const hasReasonRow = m => !!(m && (m.reasoning || (m.searched || []).length || (m.usedTools || []).length));
 const CHAT_WINDOW = 200;
+// 一键回到最底／跳到最顶（群友 2026-10-14 许愿）：单聊、群聊、线下共用这一支。
+//   往上翻离开最新那段才露出来；位置照滚动框自己的矩形贴在它右下角（position:fixed），放在哪个子节点里都一样。
+//   onTop：先把窗口撑开到第 0 条（reveal(0)），再滚到顶——不然一到顶就触发往上补，又被顶回中间。
+function ChatJumpArrows({ scroller, onTop, t }) {
+  const [st, setSt] = useState({ down: false, up: false, r: null });
+  useEffect(() => {
+    const el = scroller && scroller.current; if (!el) return;
+    const upd = () => { const ch = el.clientHeight || 1, fromBottom = el.scrollHeight - el.scrollTop - ch;
+      const down = fromBottom > ch * 1.2, up = down && el.scrollTop > ch * 0.5;
+      setSt(o => o.down === down && o.up === up && o.r ? o : { down, up, r: el.getBoundingClientRect() }); };
+    upd(); el.addEventListener("scroll", upd, { passive: true }); window.addEventListener("resize", upd);
+    return () => { el.removeEventListener("scroll", upd); window.removeEventListener("resize", upd); };
+  }, [scroller && scroller.current]);
+  if (!st.down || !st.r) return null;
+  const btn = (wk, label, d, onClick) => h("button", { "data-wk": wk, "aria-label": label, onClick, className: "active:opacity-70",
+    style: { width: 36, height: 36, borderRadius: 18, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 2px 8px rgba(0,0,0,.12)", display: "flex", alignItems: "center", justifyContent: "center" } },
+    h(Svg, { size: 18, color: t.sub, sw: 2 }, h("path", { d })));
+  const go = top => { const el = scroller.current; if (el) el.scrollTo({ top, behavior: "smooth" }); };
+  return h("div", { "data-wk": "chatjump", style: { position: "fixed", right: Math.max(10, window.innerWidth - st.r.right + 12), top: st.r.bottom - (st.up ? 92 : 48), zIndex: 30, display: "flex", flexDirection: "column", gap: 8 } },
+    st.up ? btn("chatjumptop", "跳到最早", "M6 15l6-6 6 6", () => { onTop && onTop(); requestAnimationFrame(() => requestAnimationFrame(() => go(0))); }) : null,
+    btn("chatjumpbottom", "回到最新", "M6 9l6 6 6-6", () => go((scroller.current || {}).scrollHeight || 0)));
+}
 function useChatWindow(ref, total, resetKey, recentLimit = 0) {
   const limit = Math.max(0, Math.floor(Number(recentLimit) || 0));
   const [winN, setWinN] = useState(CHAT_WINDOW);
@@ -7972,6 +7994,7 @@ function Messages({
   onPostMoment,
   tab: tabProp,
   onTab,
+  onMomentsSeen,
   onOpenSettings
 }) {
   const t = useTheme();
@@ -8006,6 +8029,12 @@ function Messages({
     cy: 8,
     r: 4
   }), NP("M5 21v-1a7 7 0 0114 0v1")]]];
+  // 朋友圈新消息（她 2026-10-14）：跟我有关的新评论（unseen）和我那条新来的赞（newLikes），挂在每条朋友圈自己身上
+  const momNews = (moments || []).flatMap(m => [
+    ...(m.comments || []).filter(c => c && c.unseen).map(c => ({ m, who: c.author, text: String(c.text || "").replace(/^回复 [^：]+：/, ""), reply: /^回复 /.test(String(c.text || "")), at: c.at || m.ts || 0 })),
+    ...(m.newLikes || []).map(x => ({ m, who: x, like: true, at: m.ts || 0 }))
+  ]).sort((a, b) => (b.at || 0) - (a.at || 0));
+  const [newsOpen, setNewsOpen] = useState(false);
   // 聊天列表：群+角色合并，置顶的排最前，其余按最后一条消息时间倒序（最近的在上）
   const pinnedSet = new Set(pinned || []);
   const offLast = offlineLastTs || {};
@@ -8189,7 +8218,18 @@ function Messages({
                   : null),
               h(IChevR, { size: 15, color: t.line }))))))
       );
-  })(), tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
+  })(), tab === "moments" && momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
+    h("button", { onClick: () => setNewsOpen(v => !v), className: "w-full flex items-center active:opacity-70", style: { gap: 8, padding: "10px 12px", fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+      h(Avatar, { character: (characters || []).find(c => c && (c.name === momNews[0].who || c.remark === momNews[0].who)) || { name: momNews[0].who }, size: 24, radius: 6 }),
+      h("span", { className: "flex-1 text-left" }, momNews.length + " 条新消息"), h("span", { style: { color: t.fog, fontSize: 12 } }, newsOpen ? "收起" : "看看")),
+    newsOpen ? h("div", { style: { borderTop: "1px solid " + t.line } },
+      momNews.slice(0, 50).map((x, i) => h("div", { key: i, "data-wk": "momnewsrow", className: "flex", style: { gap: 9, padding: "9px 12px", borderBottom: "1px solid " + t.line } },
+        h(Avatar, { character: (characters || []).find(c => c && (c.name === x.who || c.remark === x.who)) || { name: x.who }, size: 32, radius: 7 }),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, x.who),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.5 } }, x.like ? "赞了你" : (x.reply ? "回复了你：" : "评论：") + x.text)),
+        h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
+      h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
     characters: characters,
     moments: moments,
     profile: profile,
@@ -8379,11 +8419,11 @@ function Messages({
     "data-wk": "mltab", "data-tab": k, "data-on": tab === k ? "1" : "0",
     onClick: () => setTab(k),
     className: "flex-1 flex flex-col items-center gap-1 py-2.5 active:opacity-60"
-  }, h(Svg, {
+  }, h("span", { style: { position: "relative", display: "inline-flex" } }, h(Svg, {
     size: 22,
     color: tab === k ? t.tint : t.fog,
     sw: 1.7
-  }, icon), h("span", {
+  }, icon), k === "moments" && momNews.length ? h("span", { "data-wk": "momnewsbadge", style: { position: "absolute", top: -5, right: -9, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: "#e5484d", color: "#fff", fontFamily: F_BODY, fontSize: 10, lineHeight: "16px", textAlign: "center" } }, momNews.length > 99 ? "99+" : momNews.length) : null), h("span", {
     style: {
       fontFamily: F_BODY,
       fontSize: 10.5,
@@ -10250,7 +10290,7 @@ function ChatThread({
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     className: "flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-1"
-  }, winStart > 0 && !recentLimit ? h("button", {
+  }, h(ChatJumpArrows, { scroller: ref, t, onTop: () => revealMsg(0) }), winStart > 0 && !recentLimit ? h("button", {
     onClick: growMore, className: "w-full active:opacity-70",
     style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0", marginBottom: 2 }
   }, "↑ 上面还有 " + winStart + " 条 · 点开或往上翻") : null,
@@ -16359,6 +16399,7 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", style: Number(os.fontSize) ? { "--off-fs": Number(os.fontSize) + "px" } : undefined },
+      h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
@@ -17219,6 +17260,7 @@ function GroupOfflineMode({
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     directorNotes,
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
+      h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
       msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
@@ -17665,7 +17707,7 @@ function GroupThread({
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     "data-wk": "body",
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
-  }, (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
+  }, h(ChatJumpArrows, { scroller: ref, t, onTop: () => revealMsg(0) }), (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
     h("button", { "data-wk": "gunreadjump", onClick: () => {
         const idx = Math.max(0, messages.length - openUnread);
         revealMsg(idx);
