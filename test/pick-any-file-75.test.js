@@ -5,3 +5,4 @@ const fn = c.slice(c.indexOf("function pickTextFile("), c.indexOf("function pick
 assert.match(fn, /inp\.accept = ANY_FILE;/);
 assert.match(fn, /这不像文字文件/);
 console.log("ok");
+assert.match(fn, /document\.body\.appendChild\(inp\)/);
