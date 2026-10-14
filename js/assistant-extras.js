@@ -264,11 +264,11 @@
   const DANGER_WARN = "删之前先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份 json 在手机或电脑上——云端备份没有历史，被盖掉就回不来，只有你自己存的那份谁也动不了。";
 
   // 这几种卡 text 可以空着：删的那种（drop）、日历新建只写了标题的
-  const okWithoutText = x => (x.target === "danger" && S(x.id).trim()) || (x.drop === true || x.drop === "true") && S(x.id).trim() && /^(memedit|closet|cal)$/.test(x.target)
+  let okWithoutText = x => (x.target === "danger" && S(x.id).trim()) || (x.drop === true || x.drop === "true") && S(x.id).trim() && /^(memedit|closet|cal)$/.test(x.target)
     || (x.target === "cal" && S(x.name).trim()) || (x.target === "closet" && S(x.name).trim() && S(x.id).trim());
 
   // ── 快照里多给的几栏（只给这会儿在说的那几个人） ───────────────────────
-  function snapshotExtra(ctx, hot) {
+  let snapshotExtra = function (ctx, hot) {
     const chars = (ctx.characters || []).filter(c => c && hot.has(c.id));
     const out = {};
     // 查毛病：线路、模型、自动功能
@@ -309,7 +309,7 @@
   }
 
   // ── 写给秋秋的说明：哪几种卡、各怎么填，开关和拉条各管什么 ───────────────
-  function docLines() {
+  let docLines = function () {
     return "· setting 某个人的【聊天设置】里的一格（id＝「角色id:设置名」，text＝新值：开／关、一个数、或者选项里的那几个字）。能改的只有下面这几格，"
       + "每格叫什么、在哪、管什么都写着——她问「这个开关是干嘛的」「拉条拉多少合适」，照这份说；她说清了要怎么改，就出卡：\n"
       + SETTINGS.map(d => "    " + d.key + "「" + d.zh + "」（" + d.where + "；" + (d.type === "bool" ? "开／关" : d.type === "num" ? d.min + "～" + d.max + "，默认 " + d.def : d.type === "route" ? "线路名字／跟随全局" : d.type === "mask" ? "面具名字／主面具" : Object.values(d.opts).join("／")) + "）：" + d.what).join("\n") + "\n"
@@ -331,7 +331,231 @@
       + "她说「为什么他不回／报错了／某个功能没动静」，先看这一栏和【最近报错】，能对上就直接告诉她卡在哪、去哪改；这一栏只看不改。\n";
   }
 
-  const api = { SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
+  // ════ 第二批（她 2026-10-14「都做吧」：群聊设置、线下设置、全局开关、行程、情侣空间、表情包） ════
+  //   规矩照旧：只出卡，她点「应用」才落库。名单各只有这一份，跟设置页那几格的字对得上。
+  const GROUP_SETTINGS = [
+    { key: "memoryInterop", zh: "记忆互通", type: "bool", def: false, what: "开了群里的事算数：会进各人的记忆、私聊里也知道；关着这个群是封闭的，里面的事不往外带。" },
+    { key: "privateCtxN", zh: "带入私聊条数", type: "num", min: 0, max: 30, def: 0, what: "每人在群里开口时，顺带看自己跟你私聊的最近多少条。0＝不看。" },
+    { key: "preJoinN", zh: "入群前上文条数", type: "num", min: 0, max: 50, def: 0, what: "新拉进来的人能看到进群之前的多少条。" },
+    { key: "autoChat", zh: "群里自己聊起来", type: "bool", def: false, what: "开了你不说话群里也会自己聊；要「设置 · 动」里群聊那个总闸也开着。" },
+    { key: "autoChatMin", zh: "自发间隔（分钟）", type: "num", min: 1, max: 60, def: 10, what: "自己聊起来时，隔多少分钟冒一次。" },
+    { key: "autoChatRounds", zh: "一次聊几轮", type: "num", min: 1, max: 60, def: 3, what: "每次自己聊起来，连着说几轮就停。" },
+    { key: "autoChatMaxMsg", zh: "你不在时最多攒几条", type: "num", min: 10, max: 300, def: 60, what: "你一直不回，自己聊到这么多条就停下来等你。" },
+    { key: "autoChatResetHours", zh: "多久没人管就停", type: "num", min: 1, max: 48, def: 6, what: "你这么多小时没进群，自己聊就歇着。" },
+    { key: "ctxN", zh: "带多少条上下文", type: "num", min: 10, max: 300, def: 50, what: "每轮把群里最近多少条带给模型。" },
+    { key: "sumThresh", zh: "多少条以后自动总结", type: "num", min: 40, max: 400, def: 150, what: "群聊攒到这么多条就把早的压成总结。" },
+    { key: "sumBuffer", zh: "总结后留几条原文", type: "num", min: 0, max: 60, def: 20, what: "压总结时最近这么多条留原样。" },
+    { key: "drama", zh: "修罗场", type: "bool", def: false, what: "开了群里每个人都知道大家各自跟你是什么关系（会在群里落一条灰提示）；关掉那条灰提示一起撤。" },
+    { key: "defaultOffline", zh: "点进来先进线下", type: "bool", def: false, what: "点开这个群直接进群线下。" },
+    { key: "actDesc", zh: "线上带动作描写", type: "bool", def: false, what: "群里每句话旁边带一行括号动作。" },
+    { key: "showMyAvatar", zh: "显示我的头像", type: "bool", def: true, what: "我发的消息旁边带不带头像。" },
+    { key: "showTime", zh: "显示时间", type: "bool", def: true, what: "气泡底下显示时间。" },
+    { key: "showRead", zh: "显示已读", type: "bool", def: false, what: "我发的消息底下显示已读。" }
+  ];
+  const OFFLINE_SETTINGS = [
+    { key: "maxTokens", zh: "单次输出上限", type: "num", min: 1000, max: 65000, def: 4000, what: "一拍最多能写多长。思考型模型写长场景容易截断掉格式，就往上拉；太大不会更长，只是不会被截。" },
+    { key: "minWords", zh: "最低字数目标", type: "num", min: 0, max: 20000, def: 0, what: "希望每拍至少写这么多字。0＝不要求。上限给够（大概字数×2）才写得出来。" },
+    { key: "lengthMode", zh: "长度", type: "pick", opts: { natural: "自然长度", immersive: "沉浸长文" }, def: "natural", what: "自然＝该短就短；沉浸＝每拍都往长了铺。" },
+    { key: "memN", zh: "带几条记忆", type: "num", min: 0, max: 20, def: 6, what: "每拍带几条相关的长期记忆。" },
+    { key: "onlineCtxN", zh: "带多少条线上聊天", type: "num", min: 0, max: 100, def: 20, what: "见面时顺带看线上最近多少条，接得上刚才在微信里说的事。" },
+    { key: "selfP", zh: "他称自己", type: "pick", opts: { first: "我", third: "他／她" }, def: "third", what: "叙述里他用第一人称还是第三人称。" },
+    { key: "userP", zh: "称呼你", type: "pick", opts: { second: "你", third: "她／他（第三人称）" }, def: "second", what: "叙述里怎么称呼你。" },
+    { key: "describeMe", zh: "替我写动作", type: "bool", def: false, what: "开了会写你的动作和反应；关着只写他，你的那份留给你。" },
+    { key: "tastePace", zh: "节奏", type: "pick", opts: { auto: "自然", slow: "慢慢磨", forward: "往前走" }, def: "auto", what: "慢慢磨＝细细地在一个场景里待着；往前走＝推剧情。" },
+    { key: "tasteFocus", zh: "侧重", type: "pick", opts: { auto: "自然", dialogue: "对话", action: "动作", atmosphere: "氛围" }, def: "auto", what: "多写对白、多写动作，还是多写环境气氛。" },
+    { key: "tasteDensity", zh: "密度", type: "pick", opts: { auto: "自然", airy: "留白", rich: "浓密" }, def: "auto", what: "句子松一点留白，还是写得满一点。" },
+    { key: "fontSize", zh: "字号", type: "num", min: 12, max: 22, def: 15, what: "线下正文的字号。" }
+  ];
+  const GLOBALS = [
+    { key: "timeAware", zh: "时间感知", type: "bool", def: true, what: "全局开关：角色知不知道现在几点、今天星期几。单个人的聊天设置里可以另外开关。" },
+    { key: "geoAware", zh: "位置感知", type: "bool", def: false, what: "角色知不知道你在哪（现实定位或架空世界里的位置）、那边天气。" },
+    { key: "msgBanner", zh: "App 内消息提醒", type: "bool", def: true, what: "在别的页面时，有人发消息顶上弹一条。" },
+    { key: "bgToast", zh: "后台跑完提示我", type: "bool", def: true, what: "日记、行程这些后台活跑完了弹一句。" },
+    { key: "bgApi", zh: "后台线路", type: "route", def: "", what: "记忆整理、翻译、日记、行程、查手机这些后台活走哪条线路。填线路名字，或「跟随线上」，或「无」＝后台一律不跑（省钱，但自动功能全停）。" },
+    { key: "musicProvider", zh: "一起听的音乐源", type: "pick", opts: { netease: "网易云", gd: "GD音乐台" }, def: "netease", what: "网易云要自己在设置里填接口地址；GD音乐台不用填，直接能搜能播。网易云接口挂了、搜不到歌，换成 GD音乐台。" }
+  ];
+  const byKey = L => L.reduce((o, d) => (o[d.key] = d, o), {});
+  const GSET_BY = byKey(GROUP_SETTINGS), OSET_BY = byKey(OFFLINE_SETTINGS), GLOB_BY = byKey(GLOBALS);
+  const valDoc = d => d.type === "bool" ? "开／关" : d.type === "num" ? d.min + "～" + d.max + "，默认 " + d.def : d.type === "route" ? "线路名字／跟随线上／无" : Object.values(d.opts).join("／");
+  const routeOfGlobal = (t, ctx) => {
+    t = S(t).trim();
+    if (/^(无|关|不跑|off|__off__)$/i.test(t)) return "__off__";
+    if (!t || /^(跟随|默认|跟随线上|跟随全局|follow)$/i.test(t)) return null;
+    const r = ((ctx.apiProfiles) || []).find(x => x && (x.id === t || S(x.name).trim() === t || S(x.model).trim() === t));
+    if (!r) throw new Error("没有叫「" + t + "」的线路");
+    return r.id;
+  };
+  const groupOf = (ctx, id) => ((ctx.groupsList && ctx.groupsList()) || []).find(g => g && g.id === id);
+  const keyed = (zh, L, BY, getCur, onWrite, check) => ({
+    zh, read: () => [],
+    before: (p, ctx) => { const i = S(p.id).lastIndexOf(":"); const def = BY[S(p.id).slice(i + 1)]; if (!def) return ""; const cur = getCur(ctx, S(p.id).slice(0, i)); return def.zh + "：" + showVal(def, cur ? cur[def.key] : undefined, ctx); },
+    write: (id, patch, ctx) => {
+      const i = S(id).lastIndexOf(":"), who = S(id).slice(0, i), key = S(id).slice(i + 1), def = BY[key];
+      if (!def) throw new Error(zh + "里没有「" + key + "」这一格");
+      check(ctx, who);
+      onWrite(ctx, who, { [key]: parseVal(def, patch.text, ctx) });
+      return 1;
+    }
+  });
+  TARGETS.gsetting = keyed("群聊设置", GROUP_SETTINGS, GSET_BY, (ctx, g) => ctx.groupSettingsOf && ctx.groupSettingsOf(g),
+    (ctx, g, v) => ctx.onPatchGroupSetting(g, v),
+    (ctx, g) => { if (!ctx.onPatchGroupSetting) throw new Error("这个页面没接群聊设置的写入口"); if (!groupOf(ctx, g)) throw new Error("找不到这个群"); });
+  TARGETS.osetting = keyed("线下设置", OFFLINE_SETTINGS, OSET_BY, (ctx, c) => ctx.offlineSettingsOf && ctx.offlineSettingsOf(c),
+    (ctx, c, v) => ctx.onPatchOfflineSetting(c, v),
+    (ctx, c) => { if (!ctx.onPatchOfflineSetting) throw new Error("这个页面没接线下设置的写入口"); if (!(ctx.characters || []).some(x => x && x.id === c) && !groupOf(ctx, c)) throw new Error("找不到这个人或这个群"); });
+  // 全局开关：id＝开关名（timeAware / geoAware / msgBanner / bgToast / bgApi / musicProvider）
+  TARGETS.global = {
+    zh: "全局设置", read: () => [],
+    before: (p, ctx) => { const def = GLOB_BY[S(p.id)]; if (!def) return ""; const g = (ctx.globalsGet && ctx.globalsGet()) || {};
+      if (def.key === "bgApi") return def.zh + "：" + (g.bgApi === "__off__" ? "无" : (((ctx.apiProfiles || []).find(r => r.id === g.bgApi) || {}).name || "跟随线上"));
+      return def.zh + "：" + showVal(def, g[def.key], ctx); },
+    write: (id, patch, ctx) => {
+      const def = GLOB_BY[S(id)]; if (!def) throw new Error("全局设置里没有「" + id + "」这一格");
+      if (!ctx.onSetGlobal) throw new Error("这个页面没接全局设置的写入口");
+      ctx.onSetGlobal(def.key, def.type === "route" ? routeOfGlobal(patch.text, ctx) : parseVal(def, patch.text, ctx));
+      return 1;
+    }
+  };
+  // 行程里的一段：id＝「角色id:日期:第几段」（日期照快照抄）；name＝做什么，text＝在哪，time＝几点（09:30）
+  TARGETS.sched = {
+    zh: "行程", read: () => [],
+    before: (p, ctx) => { const [c, d, n] = S(p.id).split(":"); const row = (((ctx.schedOf && ctx.schedOf(c)) || {})[d] || {}).seqs; const r = Array.isArray(row) && row.find(x => x && String(x.seq) === n); return r ? (r.time || "") + " " + (r.title || "") + (r.location ? " @ " + r.location : "") : ""; },
+    write: (id, patch, ctx) => {
+      const [c, d, n] = S(id).split(":");
+      if (!ctx.onEditSchedSeq) throw new Error("这个页面没接行程写入口");
+      const fix = {};
+      if (S(patch.name).trim()) fix.title = S(patch.name).trim();
+      if (S(patch.text).trim()) fix.location = S(patch.text).trim();
+      if (/^\d{1,2}:\d{2}$/.test(S(patch.time).trim())) fix.time = S(patch.time).trim().padStart(5, "0");
+      if (!Object.keys(fix).length) throw new Error("这一段什么都没改");
+      if (!ctx.onEditSchedSeq(c, d, Number(n), fix)) throw new Error("那天的行程里找不到这一段了（可能已经重排过）");
+      return 1;
+    }
+  };
+  // 情侣空间档案：id＝「角色id:栏」，text＝这一栏整段新的
+  const COUPLE_FIELDS = [["nicknames", "你们怎么称呼彼此"], ["insideJokes", "只有你俩懂的梗"], ["rituals", "你俩之间的小仪式"],
+    ["comfort", "难过的时候想被怎样接住，什么反而会踩雷"], ["boundaries", "你俩认真约定过、不该越过的线"], ["favorites", "你俩都喜欢的东西"], ["firsts", "你俩的那些第一次"]];
+  TARGETS.couple = {
+    zh: "情侣空间档案", read: () => [],
+    before: (p, ctx) => { const [c, k] = S(p.id).split(":"); const f = COUPLE_FIELDS.find(x => x[0] === k); return f ? f[1] + "：" + (S((((ctx.coupleHomeOf && ctx.coupleHomeOf(c)) || {}).archive || {})[k]) || "（空）") : ""; },
+    write: (id, patch, ctx) => {
+      const [c, k] = S(id).split(":");
+      if (!COUPLE_FIELDS.some(x => x[0] === k)) throw new Error("档案里没有「" + k + "」这一栏");
+      if (!ctx.onSaveCoupleHome) throw new Error("这个页面没接情侣空间写入口");
+      if (!(ctx.characters || []).some(x => x && x.id === c)) throw new Error("找不到这个角色");
+      ctx.onSaveCoupleHome(c, cur => Object.assign({}, cur, { archive: Object.assign({}, (cur && cur.archive) || {}, { [k]: S(patch.text).trim().slice(0, 260) }) }));
+      return 1;
+    }
+  };
+  // 愿望板：id＝「角色id:new」新许一个／「角色id:愿望id」改或删；name＝愿望，text＝备注，type＝一起做/一起去/一起吃/一起学/想送 TA；done:true 标成做到了
+  const WISH_TYPES = ["一起做", "一起去", "一起吃", "一起学", "想送 TA"];
+  TARGETS.wish = {
+    zh: "愿望板", read: () => [],
+    write: (id, patch, ctx) => {
+      const [c, w] = S(id).split(":");
+      if (!ctx.onSaveCoupleHome) throw new Error("这个页面没接情侣空间写入口");
+      if (!(ctx.characters || []).some(x => x && x.id === c)) throw new Error("找不到这个角色");
+      const cur = ((ctx.coupleHomeOf && ctx.coupleHomeOf(c)) || {}).wishes || [];
+      const now = Date.now(), type = WISH_TYPES.indexOf(S(patch.type)) >= 0 ? S(patch.type) : null;
+      if (!w || w === "new") {
+        const title = S(patch.name).trim(); if (!title) throw new Error("愿望要有个名字");
+        ctx.onSaveCoupleHome(c, h => Object.assign({}, h, { wishes: [{ id: "wish_" + now + "_" + Math.random().toString(36).slice(2, 6), title: title.slice(0, 60), type: type || "一起做",
+          note: S(patch.text).trim().slice(0, 80), status: "wish", createdAt: now, updatedAt: now }].concat((h && h.wishes) || []) }));
+        return 1;
+      }
+      if (!cur.some(x => x && x.id === w)) throw new Error("愿望板上找不到这一条了");
+      ctx.onSaveCoupleHome(c, h => Object.assign({}, h, { wishes: ((h && h.wishes) || []).filter(x => !(patch.drop && x && x.id === w)).map(x => x && x.id === w ? Object.assign({}, x,
+        S(patch.name).trim() ? { title: S(patch.name).trim().slice(0, 60) } : {}, S(patch.text).trim() ? { note: S(patch.text).trim().slice(0, 80) } : {}, type ? { type } : {},
+        patch.done ? { status: "done" } : {}, { updatedAt: now }) : x) }));
+      return 1;
+    }
+  };
+  // 纪念日：id＝「角色id:new」／纪念日 id（删＝drop）；name＝叫什么，date＝03-14 或 2024-03-14，yearly 默认每年重复
+  TARGETS.anniv = {
+    zh: "纪念日", read: () => [],
+    write: (id, patch, ctx) => {
+      const [c, a] = S(id).split(":");
+      if (a && a !== "new") {
+        if (!patch.drop) throw new Error("纪念日只能新建或删掉；要改就删了重建");
+        if (!ctx.onRemoveAnniv) throw new Error("这个页面没接纪念日写入口");
+        if (!((ctx.annivList && ctx.annivList()) || []).some(x => x && x.id === a)) throw new Error("找不到这个纪念日了");
+        ctx.onRemoveAnniv(a); return 1;
+      }
+      if (!ctx.onAddAnniv) throw new Error("这个页面没接纪念日写入口");
+      const ch = (ctx.characters || []).find(x => x && x.id === c); if (!ch) throw new Error("找不到这个角色");
+      const m = /^(?:(\d{4})-)?(\d{1,2})-(\d{1,2})$/.exec(S(patch.date).trim()); if (!m) throw new Error("日期写成 03-14 或 2024-03-14");
+      const name = S(patch.name).trim(); if (!name) throw new Error("纪念日要有个名字");
+      ctx.onAddAnniv(ch, name, +m[2], +m[3], !(patch.yearly === false || patch.yearly === "false"), false, m[1] ? +m[1] : null);
+      return 1;
+    }
+  };
+  // 表情包给谁用：id＝表情包 id，text＝「全局」或者几个角色名（顿号隔开）＝只给这几个人
+  TARGETS.emote = {
+    zh: "表情包分配", read: () => [],
+    before: (p, ctx) => { const k = ((ctx.emotePacks && ctx.emotePacks()) || []).find(x => x && x.id === S(p.id)); return k ? "「" + k.name + "」：" + (k.global ? "全局" : whoNames(ctx, k.charIds)) : ""; },
+    write: (id, patch, ctx) => {
+      const packs = (ctx.emotePacks && ctx.emotePacks()) || [];
+      if (!ctx.onSaveEmotePacks) throw new Error("这个页面没接表情包写入口");
+      const k = packs.find(x => x && x.id === S(id)); if (!k) throw new Error("找不到这套表情包");
+      const t = S(patch.text).trim();
+      if (/^(全局|所有人|大家|global)$/i.test(t)) { if (ctx.onSaveEmotePacks(packs.map(x => x.id === k.id ? Object.assign({}, x, { global: true }) : x)) === false) throw new Error("没存上：本地空间可能满了"); return 1; }
+      const chars = ctx.characters || [];
+      const ids = t.split(/[,，、\s]+/).filter(Boolean).map(n => { const c = chars.find(x => x && (x.id === n || x.name === n || x.remark === n)); if (!c) throw new Error("没有叫「" + n + "」的角色"); return c.id; });
+      if (!ids.length) throw new Error("写「全局」，或者写给哪几个人");
+      if (ctx.onSaveEmotePacks(packs.map(x => x.id === k.id ? Object.assign({}, x, { global: false, charIds: Array.from(new Set(ids)) }) : x)) === false) throw new Error("没存上：本地空间可能满了");
+      return 1;
+    }
+  };
+  const whoNames = (ctx, ids) => (ids || []).map(i => { const c = (ctx.characters || []).find(x => x && x.id === i); return c ? (c.remark || c.name) : null; }).filter(Boolean).join("、") || "（谁都没给）";
+
+  function snapshotExtra2(ctx, hot) {
+    const chars = (ctx.characters || []).filter(c => c && hot.has(c.id));
+    const out = {};
+    const groups = ((ctx.groupsList && ctx.groupsList()) || []).filter(g => g && (!hot.size || (g.memberIds || []).some(i => hot.has(i)) || hot.has(g.id))).slice(0, 8);
+    if (groups.length) out.群聊设置 = groups.map(g => { const s = (ctx.groupSettingsOf && ctx.groupSettingsOf(g.id)) || {}; return { 群: g.name, id: g.id, 现在: GROUP_SETTINGS.map(d => d.key + "=" + showVal(d, s[d.key], ctx)).join("；") }; });
+    out.线下设置 = chars.map(c => { const s = (ctx.offlineSettingsOf && ctx.offlineSettingsOf(c.id)) || {}; return { 谁: c.name, id: c.id, 现在: OFFLINE_SETTINGS.map(d => d.key + "=" + showVal(d, s[d.key], ctx)).join("；") }; });
+    const g = (ctx.globalsGet && ctx.globalsGet()) || {};
+    out.全局设置 = GLOBALS.map(d => d.key + "=" + (d.key === "bgApi" ? (g.bgApi === "__off__" ? "无" : (((ctx.apiProfiles || []).find(r => r.id === g.bgApi) || {}).name || "跟随线上")) : showVal(d, g[d.key], ctx))).join("；");
+    out.行程 = chars.map(c => { const book = (ctx.schedOf && ctx.schedOf(c.id)) || {}; const days = Object.keys(book).sort().slice(-4);
+      return { 谁: c.name, id: c.id, 天: days.map(d => ({ 日期: d, 段: ((book[d] || {}).seqs || []).filter(Boolean).map(r => r.seq + ". " + (r.time || "") + " " + clip(r.title, 30) + (r.location ? " @ " + clip(r.location, 20) : "")) })) }; });
+    const ann = (ctx.annivList && ctx.annivList()) || [];
+    out.情侣空间 = chars.map(c => { const h = (ctx.coupleHomeOf && ctx.coupleHomeOf(c.id)) || {}; const a = h.archive || {};
+      return { 谁: c.name, id: c.id, 档案: COUPLE_FIELDS.map(([k, zh]) => k + "（" + zh + "）=" + (clip(a[k], 120) || "空")),
+        愿望板: (h.wishes || []).filter(Boolean).slice(0, 20).map(w => ({ id: w.id, 愿望: clip(w.title, 40), 类: w.type, 状态: w.status === "done" ? "做到了" : "还没" })),
+        纪念日: ann.filter(x => x && x.characterId === c.id).map(x => ({ id: x.id, 名字: x.name, 日期: (x.year ? x.year + "-" : "") + x.month + "-" + x.day })) }; });
+    out.表情包 = ((ctx.emotePacks && ctx.emotePacks()) || []).slice(0, 30).map(k => ({ id: k.id, 名字: k.name, 几张: (k.emotes || []).length, 给谁: k.global ? "全局" : whoNames(ctx, k.charIds) }));
+    return out;
+  }
+
+  const LORE_STAMPS = { chat: "聊天与线下", subjects: "查手机", lifestyle: "生活功能", diary: "日记", study: "共读学习", creative: "故事创作", social: "公开世界", debate: "擂台" };
+  function docLines2() {
+    const list = (L, pre) => L.map(d => "    " + d.key + "「" + d.zh + "」（" + valDoc(d) + "）：" + d.what).join("\n");
+    return "· gsetting 某个【群】的设置（id＝「群id:设置名」，text＝新值）。快照【群聊设置】是现在的值：\n" + list(GROUP_SETTINGS) + "\n"
+      + "· osetting 某个人（或某个群）的【线下设置】（见面页右上角；id＝「角色id或群id:设置名」）。快照【线下设置】是现在的值：\n" + list(OFFLINE_SETTINGS) + "\n"
+      + "· global 整个 app 的开关（id＝下面的名字，text＝新值）。快照【全局设置】是现在的值：\n" + list(GLOBALS) + "\n"
+      + "  她说「网易云搜不到／播不了／接口挂了」，直接出 global musicProvider → GD音乐台 的卡。\n"
+      + "· sched 改某人行程里的一段（快照【行程】；id＝「角色id:日期:段号」，name＝做什么，text＝在哪，time＝几点如 09:30，只填要改的）。整周重排让她去行程页点「AI 排」。\n"
+      + "· couple 情侣空间档案的一栏（id＝「角色id:栏名」，text＝这一栏改完的整段，最多 260 字）。栏名：" + COUPLE_FIELDS.map(x => x[0] + "＝" + x[1]).join("、") + "。只记她亲口给的，别替她编你俩的事。\n"
+      + "· wish 愿望板（id＝「角色id:new」许一个／「角色id:愿望id」改；name＝愿望，text＝备注，type＝" + WISH_TYPES.join("/") + "；\"done\":true 标成做到了；\"drop\":true 删）。\n"
+      + "· anniv 纪念日（id＝「角色id:new」，name＝叫什么，date＝03-14 或 2024-03-14，\"yearly\":false＝不每年重复；删＝「角色id:纪念日id」＋\"drop\":true）。\n"
+      + "· emote 表情包给谁用（id＝表情包 id，text＝「全局」或者几个角色名用顿号隔开＝只给这几个人用）。快照【表情包】写着现在每套给了谁。\n"
+      + "· 【世界书怎么起作用】（她问、或者你写 lore 卡时照这个来）：\n"
+      + "    分类（cat）：世界观/地点/组织/人物/规则/共同经历/用语＝事实，他知道但不会因此去做什么；照做＝指令，被翻出来那一轮他照着做（比如提到冰箱就发一张 HTML 小卡），排在最后念、格式规矩压不住它；生图＝只拼进画图的画面要求，聊天里一个字都不带（画风、配色、服装建筑），改不动身份锁里的长相年龄；其他。\n"
+      + "    什么时候出现：always:true 每次常驻（紧跟人设，他最看得见，最要紧的放这）；填 keyword＝最近聊天里出现关键词才翻出来（可当正则；生图类对的是这张图的画面描述）。\n"
+      + "    给谁（bind）：不填＝所有角色共用；填几个名字＝只给他们和有他们在的群。\n"
+      + "    去哪（stamps，用顿号隔开）：" + Object.values(LORE_STAMPS).join("、") + "。不填默认只去「聊天与线下」。一处没盖就发不出去。\n"
+      + "    顺序（priority 1–5）：越大越靠前。\n"
+      + "    他好像不读世界书：查①停用了或一处没盖 ②绑给了别人 ③关键词最近没提到 ④在小房间里聊、那间房关了世界书。都对还不认＝条目太多太长，最要紧的挪进人设。\n"
+      + "    跟人设打架的要删一边，别两头写。\n"
+      + "· 【生图能干啥】她问「能画什么」照攻略里「能生图的地方」那一条讲（都要先在 设置 → 图像 API 配好；要锁脸得先在人格档案馆传参考照）。照片日记绝不自动拍。\n";
+  }
+  const _snap1 = snapshotExtra, _doc1 = docLines;
+  snapshotExtra = (ctx, hot) => Object.assign(_snap1(ctx, hot), snapshotExtra2(ctx, hot));
+  docLines = () => _doc1() + docLines2();
+  const okWithoutText1 = okWithoutText;
+  okWithoutText = x => okWithoutText1(x) || (/^(sched|wish|anniv)$/.test(x.target) && S(x.id).trim() && (S(x.name).trim() || S(x.time).trim() || x.drop === true || x.drop === "true" || x.done === true || x.done === "true"));
+
+  const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })();

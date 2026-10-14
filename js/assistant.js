@@ -632,6 +632,7 @@
     //   id＝new 是新建；其余照快照里那条的 id。关键词／常驻／绑谁跟着 patch 走，没写就保持原样。
     lore: {
       zh: "世界书词条",
+      // 分类、去哪几处（她 2026-10-14「知道世界书有什么用、照做」）：跟世界书页同一份分类名、同一套章
       read: ctx => ((ctx.loreList && ctx.loreList()) || []).map(e => ({ id: e.id, name: e.title, text: e.payload })),
       write: (id, patch, ctx) => {
         if (!ctx.onSaveLore || !ctx.loreList) throw new Error("这个页面没接世界书写入口");
@@ -643,7 +644,10 @@
         const extra = e => Object.assign({},
           kw != null ? { keyword: kw } : {},
           patch.always != null ? { alwaysOn: !!patch.always } : (kw != null ? { alwaysOn: !kw } : {}),
-          bindIds.length ? { charIds: bindIds } : {});
+          bindIds.length ? { charIds: bindIds } : {},
+          LORE_CATS.indexOf(String(patch.cat || "").trim()) >= 0 ? { category: String(patch.cat).trim() } : {},
+          /^[1-5]$/.test(String(patch.priority || "").trim()) ? { priority: Number(patch.priority) } : {},
+          stampsOf(patch.stamps, e));
         if (!id || id === "new") {
           const e = Object.assign({ id: "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: String(patch.name || "").trim() || "秋秋写的设定",
             payload: String(patch.text || ""), keyword: "", alwaysOn: true, enabled: true, priority: 3, ensemble: false, ts: Date.now() }, extra({}));
@@ -675,7 +679,18 @@
   // ---- 坏 JSON 里把改动卡一张张抠回来 ----
   //   字段名单就是 apply 认的那几个；text 这种长的读到「下一个字段名」或「这张卡收尾」为止，
   //   所以里头夹着没转义的双引号（CSS 选择器、HTML 属性）也能整段拿回来。
-  const PATCH_KEYS = ["target", "id", "field", "find", "append", "whole", "title", "name", "text", "why", "both", "keyword", "keywords", "always", "bind", "drop", "date", "occasion", "view"];
+  const LORE_CATS = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
+  // stamps：「聊天与线下、日记」这样的中文章名 → e.scope；不填不动。chat 默认是开的，没列就明写 false
+  const stampsOf = (txt, e) => {
+    const t = String(txt || "").trim(); if (!t) return {};
+    const ZH = (window.AssistExtras && window.AssistExtras.LORE_STAMPS) || {};
+    const want = t.split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean).map(x => Object.keys(ZH).find(k => k === x || ZH[k] === x || ZH[k].indexOf(x) === 0)).filter(Boolean);
+    if (!want.length) return {};
+    const scope = Object.assign({}, (e && e.scope) || {});
+    Object.keys(ZH).forEach(k => { scope[k] = want.indexOf(k) >= 0; });
+    return { scope };
+  };
+  const PATCH_KEYS = ["target", "id", "field", "find", "append", "whole", "title", "name", "text", "why", "both", "keyword", "keywords", "always", "bind", "drop", "date", "occasion", "view", "type", "time", "done", "yearly", "cat", "stamps", "priority"];
   const unJ = v => String(v).replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   function salvageField(chunk, key) {
     const re = new RegExp('"' + key + '"\\s*:\\s*');
@@ -1103,7 +1118,7 @@
     // 世界书只改关键词／常驻／绑谁的那种（她 2026-10-10 截图：「4 条常驻改成关键词」两次都没出卡）：
     //   正文一个字不动，text 本来就该空着——原来这道筛子只认有正文的，四张卡被当成空的整批丢掉，回话却照样说「卡在下面」
     const loreMetaOnly = x => x.target === "lore" && x.id && x.id !== "new" && !String(x.text || "").trim()
-      && (x.keyword != null || x.always != null || String(x.bind || "").trim());
+      && (x.keyword != null || x.always != null || String(x.bind || "").trim() || String(x.cat || "").trim() || String(x.stamps || "").trim() || String(x.priority || "").trim());
     // 有的模型把改动稿放进别的名字里（cards／changes／patch 单张），或者关键词写成 keywords 数组——
     //   她 2026-10-12 截图：秋秋连说两遍「卡在下面」，一张都没出。认得出就收下，认不出下面照实说。
     const rawList = Array.isArray(d.patches) ? d.patches : Array.isArray(d.cards) ? d.cards : Array.isArray(d.changes) ? d.changes
@@ -1131,8 +1146,11 @@
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
         ...(x.target === "rel" ? { both: x.both === true || x.both === "true" } : {}),
-        ...(/^(memedit|closet|cal)$/.test(x.target) ? { drop: x.drop === true || x.drop === "true", date: clip(x.date, 12), occasion: clip(x.occasion, 20), view: clip(x.view, 60) } : {}),
-        ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
+        ...(/^(memedit|closet|cal|wish|anniv)$/.test(x.target) ? { drop: x.drop === true || x.drop === "true", date: clip(x.date, 12), occasion: clip(x.occasion, 20), view: clip(x.view, 60) } : {}),
+        ...(x.target === "wish" ? { type: clip(x.type, 10), done: x.done === true || x.done === "true" } : {}),
+        ...(x.target === "anniv" ? { yearly: !(x.yearly === false || x.yearly === "false") } : {}),
+        ...(x.target === "sched" ? { time: clip(x.time, 5) } : {}),
+        ...(x.target === "lore" ? { cat: clip(x.cat, 6), stamps: clip(x.stamps, 80), priority: clip(x.priority, 2), keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
     // 现成的 Worker 代码（她 2026-10-13「有些人直接复制不了，让他们用秋秋发的复制」）：
     //   模型只报是哪一段，代码从 App 里那一份原样取——模型抄一遍，少一个括号整段就不能用。
@@ -1378,6 +1396,11 @@
     if (patch && patch.target === "auto") return String(patch.id).split(":")[1] + "：" + String(patch.text || "");
     if (patch && patch.target === "setting") { const d = window.AssistExtras && window.AssistExtras.SET_BY[String(patch.id).split(":")[1]]; return (d ? d.zh : "") + "：" + String(patch.text || ""); }
     if (patch && patch.target === "roomset") return String(patch.id).split(":")[2] + "：" + String(patch.text || "");
+    if (patch && /^(gsetting|osetting|global)$/.test(patch.target)) { const A = window.AssistExtras || {}; const k = String(patch.id).split(":").pop();
+      const d = (patch.target === "global" ? A.GLOBALS : patch.target === "gsetting" ? A.GROUP_SETTINGS : A.OFFLINE_SETTINGS || []).find(x => x.key === k); return (d ? d.zh : k) + "：" + String(patch.text || ""); }
+    if (patch && patch.target === "sched") return [patch.time, patch.name, String(patch.text || "").trim() ? "@ " + patch.text : ""].filter(x => String(x || "").trim()).join(" ");
+    if (patch && patch.target === "wish") return patch.done ? "（标成做到了）" : [patch.type ? "【" + patch.type + "】" : "", patch.name, patch.text].filter(x => String(x || "").trim()).join(" ");
+    if (patch && patch.target === "anniv") return [patch.date, patch.name, patch.yearly === false ? "（只这一次）" : "（每年）"].filter(Boolean).join(" ");
     if (patch && patch.target === "cal") return [patch.date, patch.name, patch.text].filter(x => String(x || "").trim()).join("　");
     if (patch && patch.target === "closet") return (patch.occasion ? "【" + patch.occasion + "】" : "") + (patch.name || "") + (String(patch.text || "").trim() ? "：" + patch.text : "");
     if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.652";
+const APP_VERSION = "v75.658";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11169,15 +11169,37 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {}
   }, [chats]);
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
-  //   只认【TA答应了、还没去、定了日子钟点】的回执；弹过一次记上 popped，不反复弹
-  const [dateArrive, setDateArrive] = useState(null);   // { charId, m } 或群里那张 { groupId, m }
+  //   只认【TA答应了、还没去、定了日子钟点】的回执，和【TA约她、她答应了】的那张（她 2026-10-14：「为啥到点了没有弹出来卡」——原来只认她约TA的）；
+  //   弹过一次记上 popped，不反复弹
+  const [dateArrive, setDateArrive] = useState(null);
+  // TA约的那张只存了一句话（「今天 18:30」「明晚七点」），没有日子：照发卡那天往后推出到点的时刻。认不出来＝不弹，不瞎猜
+  const dateAtOf = m => {
+    const w = m && m.when; if (!w) return 0;
+    if (w.date) return new Date(w.date + "T" + (w.time || "00:00")).getTime();
+    const t = String(w.text || ""), base = new Date(Number(m.ts) || Date.now());
+    let day = /后天/.test(t) ? 2 : /明[天晚早]|明儿/.test(t) ? 1 : /今[天晚]|今儿|晚上|下午|中午|早上|上午/.test(t) || /^\s*\d/.test(t) ? 0 : -1;
+    const md = /(\d{1,2})月(\d{1,2})[日号]/.exec(t);
+    const d0 = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    if (md) { d0.setMonth(+md[1] - 1, +md[2]); if (d0 < new Date(base.getFullYear(), base.getMonth(), base.getDate())) d0.setFullYear(d0.getFullYear() + 1); }
+    else if (day < 0) return 0; else d0.setDate(d0.getDate() + day);
+    const CN = { 一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 十一: 11, 十二: 12 };
+    let hh = null, mm = 0;
+    const hm = /(\d{1,2})[:：](\d{2})/.exec(t);
+    if (hm) { hh = +hm[1]; mm = +hm[2]; }
+    else { const k = /(\d{1,2}|十[一二]?|[一两二三四五六七八九十])点(半|(\d{1,2})分?)?/.exec(t); if (k) { hh = /\d/.test(k[1]) ? +k[1] : CN[k[1]]; mm = k[2] === "半" ? 30 : k[3] ? +k[3] : 0; } }
+    if (hh == null) return 0;
+    if (hh < 12 && /下午|晚|傍晚|夜/.test(t)) hh += 12;
+    d0.setHours(hh, mm, 0, 0);
+    return d0.getTime();
+  };   // { charId, m } 或群里那张 { groupId, m }
   useEffect(() => {
     const tick = () => {
       if (dateArrive || offlineChar || offlineGroup) return;
       for (const c of (characters || [])) {
-        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && x.kind === "datereceipt" && x.state === "pending" && !x.popped && x.when && x.when.date);
+        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && !x.popped && x.when && (x.when.date || x.when.text)
+          && ((x.kind === "datereceipt" && x.state === "pending") || (x.kind === "dateask" && x.state === "accepted")));
         if (!m) continue;
-        const at = new Date(m.when.date + "T" + (m.when.time || "00:00")).getTime();
+        const at = dateAtOf(m);
         if (!at || at > Date.now() || Date.now() - at > 12 * 3600e3) continue;
         pChat(c.id, p => p.map(x => x.id === m.id ? { ...x, popped: true } : x));
         setDateArrive({ charId: c.id, m });
@@ -16523,6 +16545,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("生成失败：" + e.message); } finally { setGen(g => ({ ...g, calendar: false })); }
   };
 
+  // 给我自己排这几天（她 2026-10-14 转群友「日程可以让 ai 也帮我排一下吗，我自己想不出来」，她：「为啥不直接搞个角色一样的 ai 帮排」）：
+  //   跟角色那档一样排「今天到本周日」；我已经写了的日程原样给它看，只往空档里排，不动我写的。
+  //   落成我自己的普通日程（备注「AI 排的」），想改想删跟手填的一样点开改。
+  const genMyWeek = async promptText => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const pad = n => String(n).padStart(2, "0"), key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const t0 = new Date(), dow = (t0.getDay() + 6) % 7;
+    const days = Array.from({ length: 7 - dow }, (_, i) => { const d = new Date(t0); d.setDate(t0.getDate() + i); return key(d); });
+    const mine = (calEventsRef.current || []).filter(e => e && (e.owner || "mine") === "mine" && e.startDate <= days[days.length - 1] && (e.endDate || e.startDate) >= days[0]);
+    setGen(g => ({ ...g, myweek: true }));
+    try {
+      const d = await runProbe(active, { char: { id: "__me", name: userName(profile), persona: "" }, chars: characters, rels, profile, timeAware: true }, {
+        instruction: "替「" + userName(profile) + "」（用这个 App 的人自己，不是任何角色）排她 " + days[0] + " 到 " + days[days.length - 1] + " 这几天的日程。"
+          + "现在是 " + key(t0) + " " + pad(t0.getHours()) + ":" + pad(t0.getMinutes()) + "，今天已经过去的钟点不要排。"
+          + (mine.length ? "她已经写好的日程（原样保留，不许挪、不许重复排，只往空档里排）：" + mine.map(e => e.startDate + " " + (e.startTime || "全天") + (e.endTime ? "-" + e.endTime : "") + " " + e.title).join("；") + "。" : "")
+          + (promptText && promptText.trim() ? "她自己说的要求：" + promptText.trim() + "。" : "她没说具体要求：按普通人过日子排，吃饭、休息、该做的事都留出来，别排太满。")
+          + "每天 3-6 条，时间不重叠。每条：date(YYYY-MM-DD，必须是上面这几天) / start(HH:MM) / end(HH:MM) / title(简短) / place(可空)。",
+        schemaHint: "{\"items\":[{\"date\":\"2026-01-01\",\"start\":\"09:00\",\"end\":\"10:00\",\"title\":\"事项\",\"place\":\"\"}]}",
+        maxTokens: 9500
+      });
+      const hm = v => /^\d{1,2}:\d{2}$/.test(String(v || "").trim()) ? String(v).trim().padStart(5, "0") : "";
+      const items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && String(x.title || "").trim() && days.indexOf(String(x.date || "").trim()) >= 0);
+      if (!items.length) { toast("没有排出来，换个说法再试一次"); return; }
+      items.forEach(x => saveCalTimedEvent({ owner: "mine", startDate: String(x.date).trim(), startTime: hm(x.start), endTime: hm(x.end),
+        title: String(x.title).trim().slice(0, 40), location: String(x.place || "").trim().slice(0, 30), note: "AI 排的" }));
+      toast("排好了 " + items.length + " 条");
+    } catch (e) { toast("排失败：" + e.message); } finally { setGen(g => ({ ...g, myweek: false })); }
+  };
   // ---- probes ----
   // ============================================================
   // 行程 Lifestyle —— x_schedules[charId][dayKey]=dayPlan；当天首开给所有人生成，过去可点(懒生成)，未来锁
@@ -28248,7 +28298,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetAutoRate: (feature, charId, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, feature, charId, rate)),
     // 删角色走 delChar（它自己会再弹一道二次确认、说清先导出）；清聊天走设置里那颗同一个 clearChat
     onDeleteChar: id => delChar(id),
-    onClearChat: (id, wipeMem) => clearChat(id, !!wipeMem)
+    onClearChat: (id, wipeMem) => clearChat(id, !!wipeMem),
+    // 第二批：群聊／线下设置、全局开关、行程、情侣空间、表情包——各走设置页那一处同一个写口
+    groupsList: () => groups || [],
+    groupSettingsOf: id => gsFor(id),
+    offlineSettingsOf: id => osFor(id),
+    globalsGet: () => ({ timeAware: prefsRef.current.timeAware !== false, geoAware: !!prefsRef.current.geoAware, msgBanner: prefsRef.current.msgBanner !== false,
+      bgToast: bgToastOn(), bgApi: loadJSON("x_bgApi", null), musicProvider: musicProvider }),
+    onSetGlobal: (key, v) => {
+      if (key === "timeAware" || key === "geoAware" || key === "msgBanner") { const p = { ...prefsRef.current, [key]: !!v }; prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p); }
+      else if (key === "bgToast") saveJSON("x_bgToast", !!v);
+      else if (key === "bgApi") setBgApi(v || null);
+      else if (key === "musicProvider") saveListen(p => ({ ...p, musicProvider: v === "gd" ? "gd" : "netease" }));
+    },
+    schedOf: id => (schedulesRef.current || {})[id] || {},
+    onEditSchedSeq: (id, dayKey, seq, patch) => editSchedSeq(id, dayKey, seq, patch),
+    coupleHomeOf: id => (coupleHomeRef.current || {})[id] || {},
+    onSaveCoupleHome: (id, fn) => saveCoupleHome(id, fn),
+    annivList: () => coupleAnniv || [],
+    onAddAnniv: (char, name, m, d, yearly, linkCal, year) => addAnniv(char, name, m, d, yearly, linkCal, year),
+    onRemoveAnniv: id => removeAnniv(id),
+    emotePacks: () => emotePacksRef.current || [],
+    onSaveEmotePacks: next => commitEmotePacks(next)
   });
   // ---- geo ----
   const doRequestGeo = async () => {
@@ -31130,6 +31201,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveEvent: saveCalEvent,
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
+    onGenMyWeek: genMyWeek,
+    myWeekBusy: !!gen.myweek,
     onSavePeriod: savePeriodSettings,
     onRecordPeriod: recordPeriodStart,
     onSaveTimed: saveCalTimedEvent,
@@ -31779,7 +31852,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     m: dateArrive.m, character: dateArrive.groupId
       ? { name: (dateArrive.m.invitees || []).filter(x => (dateArrive.m.replies || {})[x.id] === "yes").map(x => x.name).join("、") || "大家" }
       : (characters || []).find(x => x.id === dateArrive.charId) || {},
-    onGo: () => { const d = dateArrive; setDateArrive(null); if (d.groupId) groupDateGo(d.groupId, d.m); else dateGo(d.charId, d.m); },
+    onGo: () => { const d = dateArrive; setDateArrive(null); if (d.groupId) groupDateGo(d.groupId, d.m); else dateGo(d.charId, d.m);
+      // 点了出发就带她过去（她 2026-10-14「还是得手动进他聊天」）：跟消息提醒点进去是同一处
+      openChatById(d.groupId || d.charId, d.groupId ? "group" : undefined); },
     onLater: () => setDateArrive(null)
   }), peekPlay && window.PeekPhone && h(window.PeekPhone.PeekPlayer, {
     charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",

@@ -3941,7 +3941,7 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
   const today = new Date();
@@ -3962,6 +3962,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const [seqEdit, setSeqEdit] = useState(null);  // 改 AI 排的那一段（她 2026-10-11：「日程能不能搞个编辑，现在只能删除手动加」）
   const [evTitle, setEvTitle] = useState("");
   const [genOpen, setGenOpen] = useState(false);
+  const [myOpen, setMyOpen] = useState(false), [myAsk, setMyAsk] = useState("");
   const [genPrompt, setGenPrompt] = useState("");
   const [pSet, setPSet] = useState(false);
   const [visPick, setVisPick] = useState(false);
@@ -4265,6 +4266,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         // 角色那档不再给这个：他们的日子现在由「AI 排剩下这几天」整天整天地排出来，
         // 再来一层月度事件是重复的（她 2026-08-26）。手填照常，旧数据照常显示、照常喂给角色。
         // 世界大事是另一回事——所有角色都知道的公共事件，留在「我」这档。
+        view === "mine" && onGenMyWeek && h("button", { "data-wk": "calfabitem", "data-part": "genmyweek", onClick: () => { setFab(false); setMyOpen(true); }, disabled: myWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, myWeekBusy ? "　　正在排…" : "✨　AI 帮我排这几天"),
         view === "mine" && h("button", { "data-wk": "calfabitem", "data-part": "genmonth", onClick: () => { setFab(false); setGenOpen(true); }, disabled: busy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } },
           "🌐　AI 生成本月世界大事")),
       h("button", { "data-wk": "calfab", onClick: () => setFab(v => !v), className: "active:opacity-70 flex items-center justify-center", style: { width: 52, height: 52, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 26, boxShadow: "0 8px 22px rgba(0,0,0,0.22)" } }, fab ? "×" : "＋")),
@@ -4356,6 +4358,12 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: visSet.includes(c.id) ? t.tint : t.fog } }, visSet.includes(c.id) ? "可见" : "不可见"))))),
 
     // AI 生成本月（沿用旧的全天事件那一层）
+    myOpen && h(PageSheet, { onClose: () => setMyOpen(false) },
+      h("div", { "data-wk": "calgen", "data-part": "myweek", className: "px-1 pb-2" },
+        h(Eyebrow, { style: { marginBottom: 8 } }, "AI 帮我排这几天"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "排今天到这周日。你已经写好的日程不动，只往空档里排；排出来的跟手填的一样，点开能改能删。"),
+        h("textarea", { "data-wk": "calinput", "data-part": "myweekprompt", value: myAsk, onChange: e => setMyAsk(e.target.value), rows: 4, placeholder: "这几天要做什么、几点有空、想几点睡……（可留空）", className: "w-full outline-none", style: { padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink, resize: "none" } }),
+        h("button", { "data-wk": "calbtn", "data-part": "genmyweek", onClick: () => { onGenMyWeek(myAsk); setMyOpen(false); setMyAsk(""); }, disabled: myWeekBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { marginTop: 12, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "排吧"))),
     genOpen && h(PageSheet, { onClose: () => setGenOpen(false) },
       h("div", { "data-wk": "calgen", className: "px-1 pb-2" },
         h(Eyebrow, { style: { marginBottom: 8 } }, "AI 生成 " + (ym.m + 1) + " 月 · " + (view === "mine" ? "世界大事" : (curChar ? (curChar.remark || curChar.name) : ""))),

@@ -13541,7 +13541,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
       sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: ".16em", marginBottom: 16 } }, sub) : null,
       (entry.paras || []).some(p => p.secret) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 16 } }, "点一下墨块，那句话会化开") : null,
       (entry.paras || []).map((p, i) => {
-        if (p.pasted) return h("div", { key: i, style: { position: "relative", margin: "8px 2px 24px", padding: "13px 14px", background: "rgba(" + iRGB + ",.045)", border: "1px solid rgba(" + iRGB + ",.10)", borderRadius: 3, transform: "rotate(-.6deg)", boxShadow: "0 2px 10px rgba(0,0,0,.06)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.sub, whiteSpace: "pre-wrap" } },
+        if (p.pasted) return h("div", { key: i, style: { position: "relative", margin: "8px 2px 24px", padding: "13px 14px", background: "rgba(" + iRGB + ",.045)", border: "1px solid rgba(" + iRGB + ",.10)", borderRadius: 3, transform: "rotate(-.6deg)", boxShadow: "0 2px 10px rgba(0,0,0,.06)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.sub, whiteSpace: "pre-wrap", textAlign: "center" } },
           h("span", { "aria-hidden": "true", style: { position: "absolute", top: -8, left: "42%", width: 46, height: 15, background: "rgba(" + iRGB + ",.07)", border: "1px solid rgba(" + iRGB + ",.06)", transform: "rotate(-3deg)" } }),
           p.text);
         const body = { fontFamily: F_BODY, fontSize: 16.5, lineHeight: 2.05, color: t.ink, marginBottom: 20 };
