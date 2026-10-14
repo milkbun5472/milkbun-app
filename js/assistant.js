@@ -889,6 +889,7 @@
       + "  ⚠️顶栏（chathead、各页 Head）和底栏（composer）自带一截【刘海／底部横条的安全区】，是写在 padding-top／padding-bottom 里的。\n"
       + "     **别对它们写 padding 简写，也别把 padding-top（底栏是 padding-bottom）写成死数**——一写就把安全区抹了，顶栏钻进时间、信号那条状态栏底下，看起来像「顶栏太高、跟时间叠在一起」。\n"
       + "     要调上下留白就写 padding-top: calc(var(--app-safe-top) + 6px) !important（底栏用 var(--app-safe-bottom)），左右单独写 padding-left/right。\n"
+      + "     顶栏里用 position:absolute; top:50% 居中的东西（名字、头像）会比两边按钮高半截刘海——要写 top: calc(50% + var(--app-safe-top) / 2) !important。她说「名字／头像太高了、没跟按钮对齐」就先找这个。\n"
       + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"

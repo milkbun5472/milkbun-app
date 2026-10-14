@@ -6,3 +6,4 @@ assert.match(a, /padding-top: calc\(var\(--app-safe-top\) \+ 6px\) !important/);
 assert.match(a, /顶栏太高／跟时间叠了/);
 assert.match(ts, /"7\. 顶栏（chathead）和底栏（composer）自带刘海／底部横条的安全区/);
 console.log("ok");
+assert.match(a, /top: calc\(50% \+ var\(--app-safe-top\) \/ 2\) !important/);
