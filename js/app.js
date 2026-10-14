@@ -21785,6 +21785,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveForumComments(keep); setForumComments(keep);
     return kill.size;
   };
+  // 给角色的论坛小号换个网名（她 2026-10-14：「做吧」——原来资料生成一次就钉死，改不了）。
+  //   只认【没人用过】的名字；这个号以前发的帖、楼、楼中楼一起改署名——同一个号前后两个名字，别人就认成两个人了。
+  const renameCharAlt = (charId, name) => {
+    const nm = String(name || "").replace(/\s+/g, " ").trim().slice(0, 16);
+    if (!nm) { toast("网名不能空着"); return false; }
+    const c = (characters || []).find(x => x.id === charId); if (!c) return false;
+    const old = charForumMeta(c).altName;
+    if (nm === old) return true;
+    if ((characters || []).some(o => o.id !== charId && charForumMeta(o).altName === nm) || nm === String(forumMe.altName || "").trim()) { toast("「" + nm + "」已经有人在用了，换一个"); return false; }
+    setForumCharMeta(prev => { const n = { ...prev, [charId]: { ...(prev[charId] || {}), altName: nm } }; saveJSON("x_forumCharMeta", n); forumCharMetaRef.current = n; return n; });
+    const mine = x => x && x.authorId === charId && x.authorType === "character_alt";
+    const posts = (forumPostsRef.current || []).map(x => mine(x) ? { ...x, authorName: nm } : x);
+    saveJSON("x_forumPosts", posts); setForumPosts(posts); forumPostsRef.current = posts;
+    const cur = forumCommentsRef.current || {}, next = {};
+    Object.keys(cur).forEach(pid => { next[pid] = (cur[pid] || []).map(f => {
+      const f2 = mine(f) ? { ...f, authorName: nm } : f;
+      return Array.isArray(f2.replies) ? { ...f2, replies: f2.replies.map(r => mine(r) ? { ...r, authorName: nm } : (r && r.toName === old ? { ...r, toName: nm } : r)) } : f2;
+    }); });
+    saveForumComments(next); setForumComments(next);
+    toast("小号改叫「" + nm + "」了，以前的帖和楼也跟着改了");
+    return true;
+  };
+  // 让它照 TA 的性子重新起一个（只起名字，不动别的资料）
+  const regenCharAlt = async charId => {
+    const c = (characters || []).find(x => x.id === charId); if (!c) return "";
+    if (!bgActive && !active) { toast("请先到设置配置 API"); return ""; }
+    const taken = (characters || []).map(o => charForumMeta(o).altName).filter(Boolean);
+    try {
+      const d = extractJSON(await callAI(bgActive || active,
+        ANTI_CLICHE + "\n\n给「" + c.name + "」起一个论坛小号网名：认识TA的人看到也认不出是TA，不带真名、不带身份头衔，像真人随手起的网名，2~8 个字。\n"
+          + "【这个人】" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 400) + "\n"
+          + (taken.length ? "【这些网名别人已经在用，别撞】" + taken.join("、") + "\n" : "")
+          + "\n【输出】只输出合法 JSON：{\"altName\":\"网名\"}",
+        [{ role: "user", content: "起吧。" }], { maxTokens: 8000 })) || {};
+      const nm = String(d.altName || "").trim();
+      if (!nm) { toast("这次没起出来，再点一次"); return ""; }
+      return nm;
+    } catch (e) { toast("没起出来：" + (e.message || "重试")); return ""; }
+  };
   // 删一楼（她 2026-10-02 转群友「加一个可以删楼层」）：只动这一帖的楼，楼中楼跟着楼走
   const deleteForumFloor = (postId, floorId) => {
     const cur = forumCommentsRef.current || {};
@@ -29608,6 +29647,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, label: m.label || "" }))),
     forumMaskNow: forumMaskNow(),
     charMetaOf: charForumMeta,
+    onRenameCharAlt: renameCharAlt, onRegenCharAlt: regenCharAlt,
     forumOff: forumOff,
     onToggleForumChar: toggleForumChar,
     onBack: goHome,

@@ -2621,7 +2621,7 @@ function Forum({
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
-  onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
+  onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onDeletePost, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
@@ -2681,6 +2681,7 @@ function Forum({
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
   const [npcProfile, setNpcProfile] = useState(null); // 普通网友公开足迹（不含匿名）
   const [altProfile, setAltProfile] = useState(null); // 角色小号公开足迹；页面不暴露背后真身
+  const [altEdit, setAltEdit] = useState(null), [altBusy, setAltBusy] = useState(false); // 换个网名：null＝收着，字符串＝正在改的草稿
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
@@ -2866,6 +2867,7 @@ function Forum({
   const maskCur = (forumMasks || []).find(m => m.id === (forumMaskNow || "")) || null;
   const meChar = { name: (forumMaskNow && maskCur ? maskCur.name : ((forumMe && forumMe.handle) || profile.name || "我")), avatarImage: (maskCur && maskCur.avatarImage) || profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
+  useEffect(() => { setAltEdit(null); }, [altProfile && altProfile.authorId]);
   useEffect(() => { if (altProfile && altProfile.authorId && onEnsureCharMeta) { const c = charOf(altProfile.authorId); if (c) onEnsureCharMeta(c); } }, [altProfile && altProfile.authorId]);
   useEffect(() => {
     const markSeen = () => { try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} };
@@ -3242,6 +3244,16 @@ function Forum({
             h("div",{className:"flex items-center gap-2",style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},h("span",null,displayName),accountBadge(identity)),
             h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},"@"+displayHandle)),
           h("button",{onClick:()=>toggleNpcFollow(key),className:"px-3.5 py-1.5 active:opacity-70",style:{borderRadius:999,background:following?t.ink:"transparent",border:`1px solid ${t.line}`,fontFamily:F_BODY,fontSize:12,color:following?t.bg2:t.ink}},following?"已关注":"关注")),
+        // 换个网名（她 2026-10-14）：自己填，或者让它照 TA 的性子再起一个；改了以后这个号以前的帖和楼一起改署名
+        onRenameCharAlt&&owner?(altEdit==null
+          ?h("button",{"data-wk":"forumaltrename",onClick:()=>setAltEdit(displayName),className:"active:opacity-60",style:{marginTop:8,fontFamily:F_BODY,fontSize:12,color:t.sub,border:`1px solid ${t.line}`,borderRadius:999,padding:"4px 12px",minHeight:32}},"换个网名")
+          :h("div",{"data-wk":"forumaltedit",style:{marginTop:10,padding:"10px",borderRadius:12,background:t.bg2,border:`1px solid ${t.line}`}},
+            h("input",{value:altEdit,onChange:e=>setAltEdit(e.target.value.slice(0,16)),placeholder:"新的小号网名",style:{width:"100%",boxSizing:"border-box",fontFamily:F_BODY,fontSize:14,padding:"8px 11px",borderRadius:10,border:`1px solid ${t.line}`,background:t.bg,color:t.ink,outline:"none"}}),
+            h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog,marginTop:6,lineHeight:1.5}},"不能跟别人的小号重名；改了以后，这个号以前发的帖和楼也一起换成新名字。"),
+            h("div",{className:"flex gap-2",style:{marginTop:8}},
+              h("button",{"data-wk":"forumaltregen",disabled:altBusy||!onRegenCharAlt,onClick:async()=>{setAltBusy(true);const n=await onRegenCharAlt(owner.id);setAltBusy(false);if(n)setAltEdit(n);},className:"flex-1 active:opacity-70 disabled:opacity-40",style:{minHeight:38,borderRadius:10,fontFamily:F_BODY,fontSize:12.5,color:t.ink,background:"transparent",border:`1px solid ${t.line}`}},altBusy?"在想…":"让它起一个"),
+              h("button",{onClick:()=>setAltEdit(null),className:"active:opacity-70",style:{minHeight:38,padding:"0 14px",borderRadius:10,fontFamily:F_BODY,fontSize:12.5,color:t.fog,background:"transparent"}},"取消"),
+              h("button",{"data-wk":"forumaltsave",disabled:altBusy||!String(altEdit||"").trim(),onClick:()=>{if(onRenameCharAlt(owner.id,altEdit)){setAltProfile(p=>p?{...p,name:String(altEdit).trim()}:p);setAltEdit(null);}},className:"active:opacity-70 disabled:opacity-40",style:{minHeight:38,padding:"0 16px",borderRadius:10,fontFamily:F_BODY,fontSize:12.5,fontWeight:700,color:t.bg2,background:t.ink}},"存")))):null,
         h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:10}},meta.altBio||"这个账号习惯把大号不方便说的话留在这里。"),
         h("div",{className:"flex items-center flex-wrap gap-x-4 gap-y-1 mt-3",style:{minWidth:0}},
           h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog,whiteSpace:"nowrap"}},forumAge(meta.altJoinTs)),
