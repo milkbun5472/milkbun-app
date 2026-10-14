@@ -5079,6 +5079,8 @@ const STICKY_COLORS = [
 const STICKY_BG = "#efeae0";
 function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
+  // 录音那种能真的放出来（她 2026-10-14）：配了音色就用TA的嗓子把转写念出来，跟游戏台词那颗 ▶ 同一个（TtsDot + useTtsPlayer）
+  const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
   const A = a => Array.isArray(a) ? a : [];
   // ──「看TA玩」驱动：这是【改】那一类——TA把写好的那条划掉重写（她举的例子之一）
   const driveItem = drive && drive.item;
@@ -5125,7 +5127,9 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: c.ink, opacity: .62 } }, (voice ? "录音 " + (open.duration || "") + " · " : "") + (open.time || ""))),
           h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.45, color: c.ink } }, open.title || ""),
-        voice ? wave(c.ink, 34) : null,
+        voice ? h("div", { className: "flex items-end", style: { gap: 10 } },
+          tp && typeof TtsDot === "function" && open.body ? h("span", { "data-wk": "pnotevoice", style: { color: c.ink, display: "inline-flex" } }, h(TtsDot, { k: "note:" + (open.time || "") + (open.title || ""), text: open.body, spk: char, tp: tp })) : null,
+          wave(c.ink, 34)) : null,
         // ⚠️「看TA玩」里TA正在改这条：显示手上那份草稿，不是存档里那份。
         //   驱动时哪怕草稿是空的也要占着位（TA刚把整段划掉，那一下正是要看见的）。
         drive && drive.typing != null
