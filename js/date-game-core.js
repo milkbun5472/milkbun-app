@@ -113,8 +113,10 @@
   }
   function startRequest(s, kind, line, proposedId) {
     if (s.pending) throw Error("这一句还在等回复。");
-    if ((kind === "plan" && s.phase !== "plan") || (kind === "guess" && s.phase !== "guess") || (kind === "react" && s.phase !== "after")) throw Error("现在不是这一步。");
-    if (!["plan", "guess", "react"].includes(kind)) throw Error("未知的游戏动作。");
+    // chat：路上随便说一句，哪一步都能说，不改地点、不动进度（她 2026-10-14：「每次说完一轮话就不给我说了」）
+    if ((kind === "plan" && s.phase !== "plan") || (kind === "guess" && s.phase !== "guess") || (kind === "react" && s.phase !== "after") || (kind === "chat" && s.phase === "finished")) throw Error("现在不是这一步。");
+    if (!["plan", "guess", "react", "chat"].includes(kind)) throw Error("未知的游戏动作。");
+    if (kind === "chat" && !String(line || "").trim()) throw Error("先说一句。");
     if (kind === "guess" && s.aiGuess !== null) throw Error("TA 已经交好猜测了。");
     if (proposedId && !legalPlaces(s).some(p => p.id === proposedId)) throw Error("这处现在去不了。");
     const n = clone(s);
@@ -128,11 +130,12 @@
     const n = clone(s);
     if (s.pending.kind === "plan") {
       if (!legalPlaces(s).some(p => p.id === reply.place)) throw Error("TA 提议了当前去不了的地方。");
-      if (typeof reply.accept !== "boolean" || !Number.isInteger(reply.pose) || reply.pose < 0 || reply.pose > 2
-        || !Number.isInteger(reply.row) || reply.row < 0 || reply.row > 2 || typeof reply.hint !== "string") throw Error("TA 的配合动作没收完整。");
-      if (reply.accept && s.pending.proposedId && reply.place !== s.pending.proposedId) throw Error("答应的地方和提议对不上。");
-      n.proposal = reply.place; n.prepared = { pose: reply.pose, row: reply.row, hint: reply.hint.slice(0, 300) };
+      // 配合动作缺了就补默认值，不为它把整句作废——作废了输入框就一直锁着（她 2026-10-14）
+      const idx = v => Number.isInteger(Number(v)) && Number(v) >= 0 && Number(v) <= 2 ? Number(v) : 0;
+      n.proposal = reply.place; n.prepared = { pose: idx(reply.pose), row: idx(reply.row), hint: String(reply.hint || "").slice(0, 300) };
       n.exchanges++;
+    } else if (s.pending.kind === "chat") {
+      // 只接话，不动地点和进度
     } else if (s.pending.kind === "react") {
       // 到了现场 TA 的那一句；点单／挑礼物那几处 TA 也替你挑一样（pick 是选项 id，挑不中就当没挑）
       const last = n.events[n.events.length - 1], p = place(s.current);

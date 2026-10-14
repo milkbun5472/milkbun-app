@@ -25,9 +25,11 @@ test("模型视角只给自己的任务与公共事件，原存档的私密字�
 test("无效回复保留待办；不扣资源、不换任务、不伪造 TA 发言", () => {
   const s = C.startRequest(fresh(), "plan", "测试提议", "photo"), before = JSON.stringify(s);
   assert.throws(() => C.receiveReply(s, reply("does-not-exist")), /去不了/);
-  assert.throws(() => C.receiveReply(s, reply("cafe")), /对不上/);
-  assert.throws(() => C.receiveReply(s, reply("photo", { row: 6 })), /动作/);
   assert.equal(JSON.stringify(s), before);
+  // 她 2026-10-14：「每次说完一轮话就不给我说了」——配合动作缺了、答应的地方没对上，都不再整句作废（作废了输入框一直锁着）：
+  //   说了「答应」却报了另一处＝当它另提一处；配合动作出界就补默认值
+  assert.equal(C.receiveReply(s, reply("cafe")).proposal, "cafe");
+  assert.equal(C.receiveReply(s, reply("photo", { row: 6 })).prepared.row, 0);
   assert.throws(() => C.commitPlace(s, "photo"), /先听听/);
   const n = C.receiveReply(s, reply("photo")); assert.equal(n.pending, null); assert.equal(n.minutes, 180);
   assert.equal(n.talk.length, 2); assert.equal(s.talk.length, 1);

@@ -44,6 +44,11 @@
         + (p.options ? "这里能挑东西：你替对方挑一样，pick 填下面一个选项 id：" + p.options.map(o => o[0] + "＝" + o[1]).join("、") + "。" : "")
         + "\n只输出 JSON：{\"say\":\"你的台词\"" + (p.options ? ",\"pick\":\"选项 id\"" : "") + "}。";
     }
+    if (state.pending.kind === "chat") {
+      const p = C.place(state.current) || {}, said = (state.talk || []).filter(x => x.who === "user").slice(-1)[0];
+      return ctx + game + "\n【现在】" + (state.phase === "plan" ? "你们在商量下一站去哪儿" : state.phase === "guess" ? "逛完了，正准备翻牌" : "你们在「" + (p.name || "路上") + "」") + "，对方跟你说：「" + ((said && said.text) || "") + "」。"
+        + "\n像真在一起那样接话（say），聊什么都行，不用把话题拉回游戏；别复述规则和分数。只输出 JSON：{\"say\":\"你的台词\"}。";
+    }
     if (state.pending.kind === "guess") return ctx + game
       + "\n收工了。现在秘密提交你对用户任务的猜测，guess 填任务池里的一个 id，拿不准填 unknown。say 是翻牌前给对方的一句台词，猜测由游戏藏好，翻牌后才显示。只输出 JSON：{\"guess\":\"任务 id 或 unknown\",\"say\":\"你的台词\"}。";
     return ctx + game + "\n提出下一站。对方有提议时，你可接受或另提；accept=true 时 place 必须与对方提议相同。place 只选目前去得了的 id。pose 是合照准备动作的索引 0～2，row 是抓钩准备停的前后排 0～2；在游乐屋挑有玩偶的排，并用 hint 指点对方左右怎么配合。hint 是到了活动现场你给的短提示，可以直说，也可以逗对方猜。\n"
@@ -64,7 +69,7 @@
     const t = props.t, cfg = props.config, char = (props.characters || []).find(c => c.id === cfg.charIds[0]);
     const [s, setS] = useState(() => props.savedState && props.savedState.state || C.newGame(cfg));
     const ref = useRef(s), ticket = useRef(0), abortRef = useRef(null), busyRef = useRef(false), alive = useRef(true);
-    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
+    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [talkText, setTalkText] = useState(""), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
     const save = n => { const ok = props.onSave({ config: cfg, state: n, label: n.phase === "finished" ? "这一局已翻牌 · 可以回看" : "第 " + n.round + " 站 · 剩 " + n.minutes + " 分钟" }) !== false; setUnsaved(!ok); return ok; };
     const put = n => { ref.current = n; setS(n); return save(n); };
     useEffect(() => { if (s.visits.length === 1) setShowTask(false); }, [s.visits.length]);   // 走完第一站就折起任务纸条（想看再点「偷看一眼」）
@@ -256,7 +261,11 @@
         ["plan", "after"].includes(s.phase) ? h("button", { "data-part": "close", onClick: close, disabled: busy || !!s.pending, style: { display: "block", margin: "18px auto 4px", minHeight: 40, padding: "0 12px", background: "none", border: "none", color: t.fog, fontSize: 12, textDecoration: "underline", textUnderlineOffset: 3 } }, "今天先逛到这里，提前翻牌") : null),
       s.phase === "plan" ? h("form", { "data-wk": "datecomposer", className: "shrink-0 flex items-center gap-2 px-3 py-2.5", onSubmit: e => { e.preventDefault(); ask("plan", text || (selected ? "我想去「" + C.place(selected).name + "」。" : ""), selected); }, style: { borderTop: "1px solid " + t.line, background: t.bg2, paddingBottom: COMPOSER_PAD_BOTTOM } },
         h("input", { "data-wk": "gameinput", "data-part": "chat", disabled: busy || unsaved || !!s.pending, value: text, maxLength: 600, onChange: e => setText(e.target.value), placeholder: selected ? "劝 TA 去这里，或者藏一下心思…" : "聊一句、试探一下，或让 TA 先提议…", style: { flex: 1, minWidth: 0, minHeight: 44, padding: "8px 10px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, background: t.bg, fontSize: 13 } }),
-        h("button", { "data-part": "send", type: "submit", disabled: busy || unsaved || !!s.pending, style: { minHeight: 44, padding: "0 10px", borderRadius: 12, color: "#fff", background: t.tint, fontSize: 12, opacity: busy || s.pending ? .4 : 1 } }, selected ? "提议" : text ? "说一句" : "听 TA")) : null);
+        h("button", { "data-part": "send", type: "submit", disabled: busy || unsaved || !!s.pending, style: { minHeight: 44, padding: "0 10px", borderRadius: 12, color: "#fff", background: t.tint, fontSize: 12, opacity: busy || s.pending ? .4 : 1 } }, selected ? "提议" : text ? "说一句" : "听 TA"))
+      // 别的几步也能说话：到了站里、看小票、翻牌前，都留一个输入框（只聊天，不改地点和进度）
+      : s.phase !== "finished" ? h("form", { "data-wk": "datecomposer", "data-part": "chatbar", className: "shrink-0 flex items-center gap-2 px-3 py-2.5", onSubmit: e => { e.preventDefault(); if (talkText.trim()) { ask("chat", talkText.trim(), ""); setTalkText(""); } }, style: { borderTop: "1px solid " + t.line, background: t.bg2, paddingBottom: COMPOSER_PAD_BOTTOM } },
+        h("input", { "data-wk": "gameinput", "data-part": "talk", disabled: busy || unsaved || !!s.pending, value: talkText, maxLength: 600, onChange: e => setTalkText(e.target.value), placeholder: "跟 " + (char.remark || char.name) + " 说句话…", style: { flex: 1, minWidth: 0, minHeight: 44, padding: "8px 10px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, background: t.bg, fontSize: 13 } }),
+        h("button", { "data-part": "talksend", type: "submit", disabled: busy || unsaved || !!s.pending || !talkText.trim(), style: { minHeight: 44, padding: "0 12px", borderRadius: 12, color: "#fff", background: t.tint, fontSize: 12, opacity: busy || s.pending || !talkText.trim() ? .4 : 1 } }, "说")) : null);
   }
   root.DateGameSetup = DateGameSetup; root.DateGame = DateGame;
   if (typeof module === "object" && module.exports) module.exports = { buildPrompt, buildJudge };
