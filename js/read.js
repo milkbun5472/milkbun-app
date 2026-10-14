@@ -15,6 +15,15 @@
 
   // ---- 元数据存取 ----
   function loadBooks() { return loadJSON("x_read_books", []); }
+  // 一起读正文能挑的字体：书宋（原来那支）打头，后面是 FontChoice 名单里的（去掉「默认」和重复的思源宋体）
+  function readFaces() {
+    const F = (typeof window !== "undefined" && window.FontChoice && window.FontChoice.FACES) || [];
+    return [{ key: "", zh: "书宋", stack: "'Noto Serif SC',serif" }].concat(F.filter(function (f) { return f.key && f.key !== "songti"; }));
+  }
+  function readFontStack(key) {
+    const f = readFaces().filter(function (x) { return x.key === (key || ""); })[0];
+    return (f && f.stack) || "'Noto Serif SC',serif";
+  }
   function saveBooks(list) { return saveJSON("x_read_books", list); }
 
   const PAGE_CHARS = 1600; // 每页目标字数（按段落边界切）
@@ -443,6 +452,8 @@
   function Reader(props) {
     const t = useTheme();
     const book = props.book;
+    // 挑过要下载的字体（站酷、手写这几支）：重开这本书时也得把它拉回来，不然退回书宋（ensure 自己会查重）
+    if (book && book.font && typeof window !== "undefined" && window.FontChoice) { try { window.FontChoice.ensure({ body: book.font }, []); } catch (e) {} }
     const [pages, setPages] = useState(null);
     const [pageIdx, setPageIdx] = useState(book.page || 0);
     const [loading, setLoading] = useState(true);
@@ -837,11 +848,13 @@
       // 「设定」展开才出现：一次批几条、覆盖几页
       (partner && setOpen) ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
         // 正文字体（群友 2026-10-14：「希望能让一起读界面字体修改为默认系统字体」）：书宋／系统，记在这本书上
-        h("div", { "data-wk": "readfont", style: { display: "flex", alignItems: "center", gap: 5 } },
+        // 正文字体（群友 2026-10-14：「希望能让一起读界面字体修改为默认系统字体」，她：「不能多搞几个字体选择吗」）：
+        //   名单只问 FontChoice 那一份（跟主题换字体同一份，one-public-mechanism），书宋＝原来那支，记在这本书上
+        h("div", { "data-wk": "readfont", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, width: "100%" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "字体"),
-          [["serif", "书宋"], ["system", "系统"]].map(function (o) { const on = (book.font === "system" ? "system" : "serif") === o[0];
-            return h("button", { key: o[0], "data-on": on ? "1" : "0", onClick: function () { props.onPatch({ font: o[0] }); },
-              style: { fontFamily: F_BODY, fontSize: 11, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o[1]); })),
+          readFaces().map(function (o) { const on = (book.font || "") === o.key;
+            return h("button", { key: o.key || "_def", "data-on": on ? "1" : "0", onClick: function () { if (window.FontChoice && o.key) window.FontChoice.ensure({ body: o.key }, []); props.onPatch({ font: o.key }); },
+              style: { fontFamily: o.stack || "'Noto Serif SC',serif", fontSize: 11.5, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o.zh); })),
         h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
@@ -869,7 +882,7 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: book.font === "system" ? "-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif" : "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
+              h("p", { style: { fontFamily: readFontStack(book.font), fontSize: 16, lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
                 paddingLeft: 11, marginLeft: -11,
                 // 页边那道记号：TA批过就实线、只讲解过就虚一点，两种一眼分得开
