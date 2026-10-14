@@ -64,3 +64,22 @@ test("接进秋秋：整页和悬浮屏都给；说明书写进提示词；脚�
   assert.ok(idx.indexOf("assistant-extras.js") > 0 && idx.indexOf("assistant-extras.js") < idx.indexOf("js/assistant.js?v="));
   assert.match(X.docLines(), /autoTts「新消息自动念」/);
 });
+
+test("线路、面具、自动功能、会删东西的那几样也能出卡；删的卡必带先导出", () => {
+  const got = []; const ctx = { characters: [{ id: "c1", name: "陆衍" }], apiProfiles: [{ id: "r1", name: "便宜线" }],
+    masks: () => [{ id: "k2", name: "小号" }], onPatchChatSetting: (id, p) => got.push(p) };
+  X.TARGETS.setting.write("c1:apiId", { text: "便宜线" }, ctx);
+  X.TARGETS.setting.write("c1:apiId", { text: "跟随全局" }, ctx);
+  X.TARGETS.setting.write("c1:maskId", { text: "小号" }, ctx);
+  assert.deepEqual(got, [{ apiId: "r1" }, { apiId: null }, { maskId: "k2" }]);
+  assert.throws(() => X.TARGETS.setting.write("c1:apiId", { text: "不存在" }, ctx), /现有的：便宜线/);
+  window.AutoRefreshPolicy = { FEATURES: [{ id: "proactive", title: "主动私聊", sub: "", rates: [{ id: "high", zh: "高频" }] }] };
+  const a = []; const actx = { onSetAuto: (f, c, on) => a.push([f, on]), onSetAutoRate: (f, c, r) => a.push([f, r]) };
+  X.TARGETS.auto.write("c1:proactive", { text: "开" }, actx); X.TARGETS.auto.write("c1:proactive", { text: "高频" }, actx);
+  assert.deepEqual(a, [["proactive", true], ["proactive", "high"]]);
+  const d = []; const dctx = { characters: [{ id: "c1" }], onDeleteChar: id => d.push("del " + id), onClearChat: (id, m) => d.push("clear " + id + " " + m) };
+  X.TARGETS.danger.write("delchar:c1", {}, dctx); X.TARGETS.danger.write("clearchatmem:c1", {}, dctx);
+  assert.deepEqual(d, ["del c1", "clear c1 true"]);
+  assert.match(X.DANGER_WARN, /导出全部数据/);
+  assert.match(X.docLines(), /reply 里必须先说这一句/);
+});

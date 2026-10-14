@@ -59,17 +59,37 @@
       what: "打电话时字幕一个字一个字往外出，不用等整句。" },
     { key: "callAuto", zh: "通话连续播报", where: "听 · 思考链／译文／通话", type: "bool", def: null,
       what: "打电话时他说完一句自动接着念下一句，不用一条条点。没单独设过就跟着设置里的总开关。" },
+    { key: "apiId", zh: "他走哪条线路（线上）", where: "动／记 页里的线路那一格", type: "route", def: "",
+      what: "这个人线上聊天走哪条线路。填线路的名字；填「跟随全局」就是不单独挑、跟主模型走。" },
+    { key: "offlineApiId", zh: "他线下走哪条线路", where: "线下设置", type: "route", def: "",
+      what: "跟这个人线下见面时走哪条线路。填线路名字或「跟随全局」。" },
+    { key: "maskId", zh: "他认你哪张面具", where: "记 · 他知道什么", type: "mask", def: "",
+      what: "他把你当成哪一张面具：名字、头像、人设、在哪个世界都照这一张。填面具名字，填「主面具」回到主面具。" },
     { key: "bodyMode", zh: "本体模式", where: "性 · 他是什么脾气（最上面）", type: "bool", def: false,
       what: "一般不用开。开了他就是 AI 本人，不是 App 在演的角色：人设原样当系统提示词、不拆短气泡、不排日程不刷查手机。想让他照人设演角色就保持关着。" }
   ];
   const SET_BY = Object.fromEntries(SETTINGS.map(x => [x.key, x]));
-  const showVal = (def, v) => {
+  const showVal = (def, v, ctx) => {
+    if (def.type === "route") { const r = ((ctx && ctx.apiProfiles) || []).find(p => p && p.id === v); return r ? (r.name || "（没起名的线路）") : "跟随全局"; }
+    if (def.type === "mask") { const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && x.id === v); return m ? m.name : "主面具"; }
     if (v == null) return def.type === "bool" ? (def.def == null ? "跟着总开关" : (def.def ? "开" : "关")) : def.type === "pick" ? def.opts[def.def] : String(def.def);
     return def.type === "bool" ? (v ? "开" : "关") : def.type === "pick" ? (def.opts[v] || String(v)) : String(v);
   };
   // 她说的值 → 存进去的值；认不出就报错（不猜）
-  function parseVal(def, raw) {
+  function parseVal(def, raw, ctx) {
     const t = S(raw).trim();
+    if (def.type === "route") {
+      if (/^(跟随全局|跟随主模型|全局|默认|不单独挑)$/.test(t)) return null;
+      const r = ((ctx && ctx.apiProfiles) || []).find(p => p && (S(p.name).trim() === t || S(p.id) === t));
+      if (!r) throw new Error("没有叫「" + t + "」的线路；现有的：" + (((ctx && ctx.apiProfiles) || []).map(p => p.name).filter(Boolean).join("、") || "一条都没配"));
+      return r.id;
+    }
+    if (def.type === "mask") {
+      if (/^(主面具|默认|不选)$/.test(t)) return "";
+      const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && (S(x.name).trim() === t || S(x.id) === t));
+      if (!m) throw new Error("没有叫「" + t + "」的面具；现有的：" + (((ctx && ctx.masks && ctx.masks()) || []).map(x => x.name).filter(Boolean).join("、") || "只有主面具"));
+      return m.id;
+    }
     if (def.type === "bool") { if (yes(t)) return true; if (no(t)) return false; throw new Error("「" + def.zh + "」只能是开或关"); }
     if (def.type === "num") {
       const n = Math.round(Number(t.replace(/[^\d.]/g, "")));
@@ -105,7 +125,7 @@
       before: (p, ctx) => {
         const [cid, key] = S(p.id).split(":"); const def = SET_BY[key]; if (!def) return "";
         const cur = ctx.settingsOf ? (ctx.settingsOf(cid) || {})[key] : undefined;
-        return def.zh + "：" + showVal(def, cur);
+        return def.zh + "：" + showVal(def, cur, ctx);
       },
       write: (id, patch, ctx) => {
         const [cid, key] = S(id).split(":");
@@ -113,7 +133,7 @@
         if (!def) throw new Error("聊天设置里没有「" + key + "」这一格");
         if (!ctx.onPatchChatSetting) throw new Error("这个页面没接聊天设置的写入口");
         if (!(ctx.characters || []).some(c => c && c.id === cid)) throw new Error("找不到这个角色");
-        ctx.onPatchChatSetting(cid, { [key]: parseVal(def, patch.text) });
+        ctx.onPatchChatSetting(cid, { [key]: parseVal(def, patch.text, ctx) });
         return 1;
       }
     },
@@ -210,8 +230,41 @@
       }
     }
   };
+  // 自动功能（设置 · 动 那一页每个人的开关和频率）：id＝「角色id:功能id」，text＝开／关，或者频率那一档的名字
+  const FEATS = () => (typeof window !== "undefined" && window.AutoRefreshPolicy && window.AutoRefreshPolicy.FEATURES) || [];
+  TARGETS.auto = {
+    zh: "自动功能",
+    read: ctx => [],
+    write: (id, patch, ctx) => {
+      const [cid, fid] = S(id).split(":"); const f = FEATS().find(x => x.id === fid);
+      if (!f) throw new Error("没有「" + fid + "」这个自动功能");
+      if (!ctx.onSetAuto) throw new Error("这个页面没接自动功能的写入口");
+      const t = S(patch.text).trim();
+      if (yes(t) || no(t)) { ctx.onSetAuto(fid, cid, yes(t)); return 1; }
+      const r = (f.rates || []).find(x => x.zh === t || x.id === t);
+      if (!r) throw new Error("「" + f.title + "」只能开／关" + ((f.rates || []).length ? "，或者挑频率：" + f.rates.map(x => x.zh).join("、") : ""));
+      if (!ctx.onSetAutoRate) throw new Error("这个页面没接频率的写入口");
+      ctx.onSetAutoRate(fid, cid, r.id); return 1;
+    }
+  };
+  // 会让东西消失的那几样（她 2026-10-14：「没给它碰的也都给它吧，反正都是她们自己决定应不应用，最多让它多提示一句」）：
+  //   id＝「delchar:角色id」删角色 / 「clearchat:角色id」清聊天记录（线上＋单人线下）/ 「clearchatmem:角色id」清聊天连记忆一起。
+  //   ⚠️卡上必带「先导出」那一句（.claude/rules/never-say-delete-first.md）；删角色还会再弹 App 自己那道二次确认。
+  TARGETS.danger = {
+    zh: "⚠️ 会删掉东西的操作",
+    read: ctx => [],
+    write: (id, patch, ctx) => {
+      const [op, cid] = S(id).split(":");
+      if (!(ctx.characters || []).some(c => c && c.id === cid)) throw new Error("找不到这个角色");
+      if (op === "delchar") { if (!ctx.onDeleteChar) throw new Error("这个页面没接删角色的入口"); ctx.onDeleteChar(cid); return 1; }
+      if (op === "clearchat" || op === "clearchatmem") { if (!ctx.onClearChat) throw new Error("这个页面没接清聊天的入口"); ctx.onClearChat(cid, op === "clearchatmem"); return 1; }
+      throw new Error("不认得「" + op + "」这种操作");
+    }
+  };
+  const DANGER_WARN = "删之前先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份 json 在手机或电脑上——云端备份没有历史，被盖掉就回不来，只有你自己存的那份谁也动不了。";
+
   // 这几种卡 text 可以空着：删的那种（drop）、日历新建只写了标题的
-  const okWithoutText = x => (x.drop === true || x.drop === "true") && S(x.id).trim() && /^(memedit|closet|cal)$/.test(x.target)
+  const okWithoutText = x => (x.target === "danger" && S(x.id).trim()) || (x.drop === true || x.drop === "true") && S(x.id).trim() && /^(memedit|closet|cal)$/.test(x.target)
     || (x.target === "cal" && S(x.name).trim()) || (x.target === "closet" && S(x.name).trim() && S(x.id).trim());
 
   // ── 快照里多给的几栏（只给这会儿在说的那几个人） ───────────────────────
@@ -230,7 +283,7 @@
     // 聊天设置现在的值
     out.聊天设置 = chars.map(c => {
       const s = (ctx.settingsOf && ctx.settingsOf(c.id)) || {};
-      return { 谁: c.name, id: c.id, 现在: SETTINGS.map(d => ({ 设置名: d.key, 叫什么: d.zh, 现在: showVal(d, s[d.key]) })) };
+      return { 谁: c.name, id: c.id, 现在: SETTINGS.map(d => ({ 设置名: d.key, 叫什么: d.zh, 现在: showVal(d, s[d.key], ctx) })) };
     });
     // 小房间：每间房、每个开关现在开没开
     out.小房间 = chars.map(c => ({ 谁: c.name, id: c.id, 房间: roomsOf(c.id).map(r => ({ 房间id: r.id, 名字: r.name || r.title || (r.main ? "主聊天" : r.id), 开关: roomSwitchRows(r) })) }))
@@ -259,7 +312,7 @@
   function docLines() {
     return "· setting 某个人的【聊天设置】里的一格（id＝「角色id:设置名」，text＝新值：开／关、一个数、或者选项里的那几个字）。能改的只有下面这几格，"
       + "每格叫什么、在哪、管什么都写着——她问「这个开关是干嘛的」「拉条拉多少合适」，照这份说；她说清了要怎么改，就出卡：\n"
-      + SETTINGS.map(d => "    " + d.key + "「" + d.zh + "」（" + d.where + "；" + (d.type === "bool" ? "开／关" : d.type === "num" ? d.min + "～" + d.max + "，默认 " + d.def : Object.values(d.opts).join("／")) + "）：" + d.what).join("\n") + "\n"
+      + SETTINGS.map(d => "    " + d.key + "「" + d.zh + "」（" + d.where + "；" + (d.type === "bool" ? "开／关" : d.type === "num" ? d.min + "～" + d.max + "，默认 " + d.def : d.type === "route" ? "线路名字／跟随全局" : d.type === "mask" ? "面具名字／主面具" : Object.values(d.opts).join("／")) + "）：" + d.what).join("\n") + "\n"
       + "  快照【聊天设置】那一栏是这几个人现在的值。名单外的设置（线路、面具、头像、CSS 这些）不走这一栏。\n"
       + "· roomset 某个人某间【小房间】的一个开关（id＝「角色id:房间id:排.开关」，如 c1:room_x:writeback.memoryCandidate；text＝开／关）。"
       + "快照【小房间】里每间房每个开关都写着叫什么、管什么、现在开没开——她问「这个开关干嘛的」就照那几句讲给她听；三排的意思："
@@ -269,11 +322,16 @@
       + "改一身＝name 跟快照里那身一字不差、text 写新的描述；拿掉一身＝name＋\"drop\":true）。\n"
       + "· cal 日历上的一天（快照【日历】是前后两个月的；新建＝id 填 new，date 写 2026-03-14 这样，name＝标题，text＝备注，view＝mine 记在我这边／world 世界的事／角色 id 记在那个人那边；"
       + "改＝id 照抄、只填要改的那几样；删＝id＋\"drop\":true）。\n"
+      + "· auto 某个人的自动功能（设置 · 动 那一页；id＝「角色id:功能id」，text＝开／关，或频率那一档的名字）。功能有："
+      + FEATS().map(f => f.id + "「" + f.title + "」（" + f.sub + (f.rates ? "；频率：" + f.rates.map(r => r.zh).join("／") : "") + "）").join("、") + "。快照【线路和自动功能】里写着现在开没开。\n"
+      + "· danger 会删掉东西的操作（id＝delchar:角色id 删掉这个角色／clearchat:角色id 清掉跟TA的线上和单人线下聊天记录／clearchatmem:角色id 连记忆一起清；text 写一句你要删的是什么）。"
+      + "只有她亲口说要删才出这张卡；出卡的同时 reply 里必须先说这一句：「" + DANGER_WARN + "」。删角色之后 App 还会再弹一道确认。\n"
+      + "  她的头像、聊天背景这种图你画不出来，跟她说去哪里换；云同步（上传、从云端恢复）不在你手里，让她自己去设置里点，并且同样先提醒她导出。\n"
       + "· 【查毛病】快照【线路和自动功能】写着这几个人走哪条线路、那条线路选没选模型、填没填密钥、哪些自动功能开着关着。"
       + "她说「为什么他不回／报错了／某个功能没动静」，先看这一栏和【最近报错】，能对上就直接告诉她卡在哪、去哪改；这一栏只看不改。\n";
   }
 
-  const api = { SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows };
+  const api = { SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })();

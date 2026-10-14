@@ -28227,7 +28227,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 查毛病：只给名字、模型、填没填密钥，密钥本身一个字都不给
     routeInfo: id => { const r = apiFor(id); return r ? { name: r.name || "", model: r.model || "", hasKey: !!(r.apiKey || r.proxyRef), own: routePicked((chatSettings[id] || {}).apiId) } : null; },
     autoInfo: id => { try { return (window.AutoRefreshPolicy.FEATURES || []).map(f => f.title + "：" + (autoRefreshOn(f.id, id) ? "开" : "关")).join("、") + (loadJSON("x_bgApi", null) === "__off__" ? "（后台线路选了「无」，自己跑的一律不跑）" : ""); } catch (e) { return "（看不到）"; } },
-    onRoomsChanged: () => setChatSettings(p => ({ ...p }))
+    onRoomsChanged: () => setChatSettings(p => ({ ...p })),
+    apiProfiles: apiProfiles,
+    masks: () => masksRef.current || [],
+    onSetAuto: (feature, charId, on) => setAutoFromPage(feature, charId, on),
+    onSetAutoRate: (feature, charId, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, feature, charId, rate)),
+    // 删角色走 delChar（它自己会再弹一道二次确认、说清先导出）；清聊天走设置里那颗同一个 clearChat
+    onDeleteChar: id => delChar(id),
+    onClearChat: (id, wipeMem) => clearChat(id, !!wipeMem)
   });
   // ---- geo ----
   const doRequestGeo = async () => {

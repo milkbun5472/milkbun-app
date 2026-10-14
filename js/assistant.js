@@ -1374,6 +1374,8 @@
   // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
   const previewText = patch => {
     if (patch && patch.drop) return "（删掉这一条）";
+    if (patch && patch.target === "danger") return "⚠️ " + String(patch.text || patch.id) + "\n" + (window.AssistExtras ? window.AssistExtras.DANGER_WARN : "");
+    if (patch && patch.target === "auto") return String(patch.id).split(":")[1] + "：" + String(patch.text || "");
     if (patch && patch.target === "setting") { const d = window.AssistExtras && window.AssistExtras.SET_BY[String(patch.id).split(":")[1]]; return (d ? d.zh : "") + "：" + String(patch.text || ""); }
     if (patch && patch.target === "roomset") return String(patch.id).split(":")[2] + "：" + String(patch.text || "");
     if (patch && patch.target === "cal") return [patch.date, patch.name, patch.text].filter(x => String(x || "").trim()).join("　");
