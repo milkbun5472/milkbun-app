@@ -11171,15 +11171,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
   //   只认【TA答应了、还没去、定了日子钟点】的回执，和【TA约她、她答应了】的那张（她 2026-10-14：「为啥到点了没有弹出来卡」——原来只认她约TA的）；
   //   弹过一次记上 popped，不反复弹
-  const [dateArrive, setDateArrive] = useState(null);   // { charId, m } 或群里那张 { groupId, m }
+  const [dateArrive, setDateArrive] = useState(null);
+  // TA约的那张只存了一句话（「今天 18:30」「明晚七点」），没有日子：照发卡那天往后推出到点的时刻。认不出来＝不弹，不瞎猜
+  const dateAtOf = m => {
+    const w = m && m.when; if (!w) return 0;
+    if (w.date) return new Date(w.date + "T" + (w.time || "00:00")).getTime();
+    const t = String(w.text || ""), base = new Date(Number(m.ts) || Date.now());
+    let day = /后天/.test(t) ? 2 : /明[天晚早]|明儿/.test(t) ? 1 : /今[天晚]|今儿|晚上|下午|中午|早上|上午/.test(t) || /^\s*\d/.test(t) ? 0 : -1;
+    const md = /(\d{1,2})月(\d{1,2})[日号]/.exec(t);
+    const d0 = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    if (md) { d0.setMonth(+md[1] - 1, +md[2]); if (d0 < new Date(base.getFullYear(), base.getMonth(), base.getDate())) d0.setFullYear(d0.getFullYear() + 1); }
+    else if (day < 0) return 0; else d0.setDate(d0.getDate() + day);
+    const CN = { 一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 十一: 11, 十二: 12 };
+    let hh = null, mm = 0;
+    const hm = /(\d{1,2})[:：](\d{2})/.exec(t);
+    if (hm) { hh = +hm[1]; mm = +hm[2]; }
+    else { const k = /(\d{1,2}|十[一二]?|[一两二三四五六七八九十])点(半|(\d{1,2})分?)?/.exec(t); if (k) { hh = /\d/.test(k[1]) ? +k[1] : CN[k[1]]; mm = k[2] === "半" ? 30 : k[3] ? +k[3] : 0; } }
+    if (hh == null) return 0;
+    if (hh < 12 && /下午|晚|傍晚|夜/.test(t)) hh += 12;
+    d0.setHours(hh, mm, 0, 0);
+    return d0.getTime();
+  };   // { charId, m } 或群里那张 { groupId, m }
   useEffect(() => {
     const tick = () => {
       if (dateArrive || offlineChar || offlineGroup) return;
       for (const c of (characters || [])) {
-        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && !x.popped && x.when && x.when.date
+        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && !x.popped && x.when && (x.when.date || x.when.text)
           && ((x.kind === "datereceipt" && x.state === "pending") || (x.kind === "dateask" && x.state === "accepted")));
         if (!m) continue;
-        const at = new Date(m.when.date + "T" + (m.when.time || "00:00")).getTime();
+        const at = dateAtOf(m);
         if (!at || at > Date.now() || Date.now() - at > 12 * 3600e3) continue;
         pChat(c.id, p => p.map(x => x.id === m.id ? { ...x, popped: true } : x));
         setDateArrive({ charId: c.id, m });
