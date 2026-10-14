@@ -1588,6 +1588,9 @@ function App() {
   const walletWeekly = () => { try { return window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.wallet.rate === "week"; } catch (e) { return false; } };
   // 给了 charId 就看这个人自己挑的档（聊天设置里单独挑过的），没挑过跟总的
   const proactiveX = charId => (window.AutoRefreshPolicy.rateX ? window.AutoRefreshPolicy.rateX(autoRefreshRef.current, "proactive", charId) : 1) || 1;
+  // 离上次说话多久之后才可能主动：有动念＝45 分钟防刷屏底线，「黏人」那一档放到 15；没动念（引擎没载）兜底 3 小时
+  const proactiveFloorMin = (charId, jw) => !jw ? 180
+    : (window.AutoRefreshPolicy.rateOf && window.AutoRefreshPolicy.rateOf(autoRefreshRef.current, "proactive", charId) === "cling") ? 15 : 45;
   const setAutoRefreshGlobal = (feature, on) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, on));
   const setAutoRefreshChar = (feature, charId, on) => {
     saveAutoRefreshPolicy(window.AutoRefreshPolicy.setChar(autoRefreshRef.current, feature, charId, on));
@@ -7828,7 +7831,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // ⭐dongnian 阶段二（v48.80/81）：有 dongnian 就【由心理动机决定开口】——思念漂到 contact 阈值才主动，时机全交给它（线上线下同一套门槛）；
           //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 dongnian=45min 底线(真时机 dongnian 说了算)，没 dongnian(引擎没载)兜底 3h。
           const jw = (typeof window !== "undefined" && window.__dongnian && window.__dongnian[cid]) || null;
-          const floorMin = jw ? 45 : 180;
+          const floorMin = proactiveFloorMin(cid, jw);
           const offMsgs = activeOffScene ? (activeOffScene.msgs || []) : [];
           const lastInteract = Math.max(ms.length ? (ms[ms.length - 1].ts || 0) : 0, latestSharedInteractionTs(cid), offMsgs.length ? (offMsgs[offMsgs.length - 1].ts || 0) : 0);
           if (Date.now() - lastInteract < floorMin * 60000) pWhy(cid, "离你们上次说话还不满 " + floorMin + " 分钟");
@@ -7940,7 +7943,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
     if (!ms.length) return "你们还没聊过天";
     const jw = (window.__dongnian && window.__dongnian[cid]) || null;
-    const floorMin = jw ? 45 : 180;
+    const floorMin = proactiveFloorMin(cid, jw);
     const lastInteract = Math.max(ms[ms.length - 1].ts || 0, latestSharedInteractionTs(cid));
     const left = Math.ceil((floorMin * 60000 - (Date.now() - lastInteract)) / 60000);
     if (left > 0) return "离你们上次说话还不满 " + floorMin + " 分钟（还差 " + left + " 分钟）";
