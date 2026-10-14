@@ -25266,11 +25266,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const log = pick.map(m => (m.role === "user" ? (profile.name || "我") : char.name) + "：" + String(m.content).slice(0, 200)).join("\n");
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "把下面这段你们的聊天改编成一则四格漫画。按时间顺序分成正好四格，每格给：scene＝这一格画什么（两个人在哪、在做什么、什么表情，一句话，不写台词；画面里" + char.name + "永远在左边、" + (profile.name || "我") + "永远在右边）；bubbles＝这一格的对话气泡，0~2 个，每个 who＝ta（" + char.name + "说的）或 me（" + (profile.name || "我") + "说的），text＝气泡里的话（从聊天里挑或浓缩，14 字以内，不要写名字），shout＝是不是喊出来的；narr＝这一格的旁白框（交代时间地点那种，8 字以内，多数格不用，留空）；sfx＝拟声字（一到三个字，真有声响或动作才写，多数格不用，留空）。四格要有起承转合，第四格要有个收尾的小包袱或者情绪落点。\n聊天：\n" + log,
-        schemaHint: "{\"panels\":[{\"scene\":\"\",\"bubbles\":[{\"who\":\"ta\",\"text\":\"\",\"shout\":false}],\"narr\":\"\",\"sfx\":\"\"}]}",
+        instruction: "把下面这段你们的聊天改编成一则四格漫画。按时间顺序分成正好四格，每格给：scene＝这一格画什么（两个人在哪、在做什么、什么表情，一句话，不写台词；画面里" + char.name + "永远在左边、" + (profile.name || "我") + "永远在右边）；shot＝这一格的镜头（景别＋机位＋两个人的身体动作，比如「远景俯拍，他起身往门口走、我扭头看」）——四格的镜头和动作要一格一个样（景别轮换、有人站起来/走动/凑近/转身/伸手），别四格都是同一个坐姿同一个角度，聊天里没写动作就照情绪编一个合理的；bubbles＝这一格的对话气泡，0~2 个，每个 who＝ta（" + char.name + "说的）或 me（" + (profile.name || "我") + "说的），text＝气泡里的话（从聊天里挑或浓缩，14 字以内，不要写名字），shout＝是不是喊出来的；narr＝这一格的旁白框（交代时间地点那种，8 字以内，多数格不用，留空）；sfx＝拟声字（一到三个字，真有声响或动作才写，多数格不用，留空）。四格要有起承转合，第四格要有个收尾的小包袱或者情绪落点。\n聊天：\n" + log,
+        schemaHint: "{\"panels\":[{\"scene\":\"\",\"shot\":\"\",\"bubbles\":[{\"who\":\"ta\",\"text\":\"\",\"shout\":false}],\"narr\":\"\",\"sfx\":\"\"}]}",
         maxTokens: 8000
       });
-      panels = (d && Array.isArray(d.panels) ? d.panels : []).slice(0, 4).map(p => ({ scene: String((p && p.scene) || "").trim().slice(0, 120),
+      panels = (d && Array.isArray(d.panels) ? d.panels : []).slice(0, 4).map(p => ({ scene: (String((p && p.scene) || "").trim().slice(0, 120) + (p && p.shot ? "；镜头：" + String(p.shot).trim().slice(0, 60) : "")),
         bubbles: (Array.isArray(p && p.bubbles) ? p.bubbles : []).filter(b => b && String(b.text || "").trim()).slice(0, 2).map(b => ({ who: b.who === "me" ? "me" : "ta", text: String(b.text).trim().slice(0, 28), shout: !!b.shout })),
         narr: String((p && p.narr) || "").trim().slice(0, 12), sfx: String((p && p.sfx) || "").trim().slice(0, 4) }));
     } catch (e) { toast("分镜没想出来：" + (e.message || "重试"), 7000); return; }
@@ -25463,7 +25463,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 换画风（她 2026-10-12）：照第一张参考图（就是那张合照）的构图人物重画，长相照后两张参考照
       const RESTYLE_LINE = opt && opt.restyle ? "【换画风】照第一张参考图的构图、人物位置、动作和表情，整张重画成「" + opt.restyle.style + "」的画风；两个人的长相照后两张参考照，别换人。" : "";
       // 聊天画成漫画（她 2026-10-12）：四格一张图里画，字不让图像端写（它写中文会乱码），台词由 app 自己排在每格下面
-      const COMIC_LINE = opt && opt.comic ? "【版式·四格漫画】整张图是一张 2×2 四格漫画，四格大小一样、格子之间留白边，" + (opt.comicStyle === "photo" ? "四格都是写实的真人照片质感（照片漫画），" : "漫画画风：清晰的黑色勾线、平涂或网点上色，是画出来的漫画，不是照片，" ) + "每一格里" + char.name + "都在画面左边、" + (me.name || "我") + "都在右边，人别顶满格子、上方留一点空给对话气泡；四格都是你们俩，按顺序依次是：" + opt.comic.map((c, i) => "第" + (i + 1) + "格（左上、右上、左下、右下依次）" + c.scene).join("；") + "。画面里不要任何文字、不要对话气泡、不要拟声字。" : "";
+      const COMIC_LINE = opt && opt.comic ? "【版式·四格漫画】整张图是一张 2×2 四格漫画，四格大小一样、格子之间留白边，" + (opt.comicStyle === "photo" ? "四格都是写实的真人照片质感（照片漫画），" : "漫画画风：清晰的黑色勾线、平涂或网点上色，是画出来的漫画，不是照片，" ) + "每一格里" + char.name + "都在画面左边、" + (me.name || "我") + "都在右边，人别顶满格子、上方留一点空给对话气泡；四格都是你们俩，四格的景别、机位和人物动作各不相同，别画成同一个姿势换表情；按顺序依次是：" + opt.comic.map((c, i) => "第" + (i + 1) + "格（左上、右上、左下、右下依次）" + c.scene).join("；") + "。画面里不要任何文字、不要对话气泡、不要拟声字。" : "";
       // 挑了衣服就照挑的穿，题材也一样（她 2026-10-13：选了杂志封面，挑好的衣服没穿上）
       const picked = !!(String((opt && opt.mine) || "").trim() || String((opt && opt.theirs) || "").trim());
       const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !(opt && opt.restyle) && (!theme || picked) ? "。" + (theme ? "衣服照下面挑好的穿，不用题材默认的那身：" : "") + fits : "");
