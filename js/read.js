@@ -836,6 +836,12 @@
       ) : null,
       // 「设定」展开才出现：一次批几条、覆盖几页
       (partner && setOpen) ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
+        // 正文字体（群友 2026-10-14：「希望能让一起读界面字体修改为默认系统字体」）：书宋／系统，记在这本书上
+        h("div", { "data-wk": "readfont", style: { display: "flex", alignItems: "center", gap: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "字体"),
+          [["serif", "书宋"], ["system", "系统"]].map(function (o) { const on = (book.font === "system" ? "system" : "serif") === o[0];
+            return h("button", { key: o[0], "data-on": on ? "1" : "0", onClick: function () { props.onPatch({ font: o[0] }); },
+              style: { fontFamily: F_BODY, fontSize: 11, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o[1]); })),
         h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
@@ -863,7 +869,7 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
+              h("p", { style: { fontFamily: book.font === "system" ? "-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif" : "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
                 paddingLeft: 11, marginLeft: -11,
                 // 页边那道记号：TA批过就实线、只讲解过就虚一点，两种一眼分得开
