@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.651";
+const APP_VERSION = "v75.652";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25986,6 +25986,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     }
     setGen(g => ({ ...g, coupleLetter: true }));
+    // 前几封写过什么（她 2026-10-14：「最近有几封都在重复主题」）：原来每封都是白纸起笔、看不到自己写过的，
+    //   聊天素材一样多，就总落回同一件最有分量的事。把最近几封的标题和开头递过去，让它换一条线写。
+    const pastLetters = coupleLetters.filter(l => l.characterId === char.id && l.authorId !== "user").sort((a, b) => b.createdAt - a.createdAt).slice(0, 6)
+      .map(l => "·《" + (l.title || "无题") + "》" + String(l.body || "").replace(/\s+/g, " ").slice(0, 80));
+    const PAST_LETTERS = pastLetters.length ? "\n你之前写给她的几封（标题＋开头）：\n" + pastLetters.join("\n") + "\n这封换一条线：挑一件那几封没写过的事、一个没说过的角度（最近的一件小事、一个你一直没说的习惯、一个以后的打算……）。" : "";
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
@@ -25993,7 +25998,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 那是张卡片的长度，不是一封信。下限比上限重要：说清至少要写到这个份上。
         instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。" + LETTER_PERSON
           + "一个标题 + 一封完整的信：**至少 450 个汉字、别超过 1000**，4-7 个自然段，贴人设，可回顾你们的点滴、说心里话，结尾落款。"
-          + "别喊口号、别写成流水账。⚠️长不等于绕：每一段都要有一件具体的事或一句真话，别用感慨和排比把篇幅填满。信要写完整，别中途断。",
+          + "别喊口号、别写成流水账。⚠️长不等于绕：每一段都要有一件具体的事或一句真话，别用感慨和排比把篇幅填满。信要写完整，别中途断。" + PAST_LETTERS,
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
         maxTokens: 20000   // 放宽字数之后 12000 会截在半句（max-tokens-floor：新 = min(24000, 旧+8000)）
 
