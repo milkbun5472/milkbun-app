@@ -12095,11 +12095,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // TA主动约她出来（她 2026-10-02）：只在不闹别扭、没有挂着的邀约、三天没约过时偶尔给一次
       // 她开口叫TA发邀约（她 2026-10-14：「你给我发个邀约」，TA只在旁白里写「新建约会日程…确认发送」，卡没出来）：
       //   那一轮必给这张卡，不看三天冷却、不掷骰子；只要现在没有一张TA发的还挂着
+      // 主动约她（她 2026-10-14：「我从来没触发过这个邀约他主动」）——原来三道闸叠在一起几乎打不开：
+      //   ①每轮只有一成；②她最近三句里有「傻」「蠢」这种打情骂俏的字就算吵架；③就算给了，TA也常常不用。
+      //   现在：只看她【这一句】有没有真火药味（不再把「傻瓜」当吵架）；隔得越久越想约（三天起一成五，一周后到四成）；提示也写得更像个念头。
+      const _lastU = String((history.filter(m => m.role === "user" && m.content).slice(-1)[0] || {}).content || "");
+      const _harshNow = /滚|分手|去死|恶心|讨厌你|烦你|闭嘴|骗子|渣男|渣女|贱|婊|操你|草你|恨你|出轨|劈腿|备胎|玩玩而已/.test(_lastU);
+      const _askDays = (() => { const a = loadJSON("x_dateAskLast", {}) || {}; return a[charId] ? (Date.now() - a[charId]) / 86400000 : 7; })();
+      const _dateAskP = Math.min(0.4, 0.15 + Math.max(0, _askDays - 3) * 0.06);
       const _askedInvite = /(发|给我|来)[^。！？\n]{0,6}(邀约|约会邀请|邀请函)|约我(出去|吃饭|见面)?[吧呀啊嘛]?$|邀约/.test(String(recentUserText || "").slice(-80));
-      if (!_peekTurn && !(room && !room.main) && !_body && !_inv && !charInviteOf(charId) && (_askedInvite || (!_moodNeg && !_harsh && dateAskReady(charId) && Math.random() < 0.1))) {
+      if (!_peekTurn && !(room && !room.main) && !_body && !_inv && !charInviteOf(charId) && (_askedInvite || (!_moodNeg && !_harshNow && dateAskReady(charId) && Math.random() < _dateAskP))) {
         openCaps.push("dateAsk");
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
-        capState.push("dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
+        capState.push((_askedInvite ? "" : "你们有" + (_askDays >= 7 ? "一阵子" : "几天") + "没一起出去了，你心里有点想她、想见面。") + "dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
           + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就别填；") + "话照常写在 word 里。");
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
