@@ -15474,7 +15474,7 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
 //   【多几身】，不是【换几身】，所以这一枪只要新的那几身。
 // ⚠️已经挂着的那几身要点名列出来「别再写一遍」：不列的话它会把老的重写一遍，
 //   撞名全被 closetMerge 挡掉，一枪白打。
-function closetMoreSpec(char, known, room, material, elsewhere) {
+function closetMoreSpec(char, known, room, material, elsewhere, keywords) {
   const nm = char.name;
   const have = closetGroups(known);
   const list = have.map(g => "· 〔" + (g.occasion || "没写场合") + "〕" + g.sets.map(x => x.name).join("、")).join("\n");
@@ -15483,6 +15483,7 @@ function closetMoreSpec(char, known, room, material, elsewhere) {
     maxTokens: 65000,
     schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}",
     instruction: "给「" + nm + "」的衣柜再添几身衣服，**只写新添的那几身**。"
+      + (keywords ? "\n\n【她给的关键词】" + keywords + "\n这一次添的照这几个词来（款式、颜色、场合都可以是关键词），但还得是他这个人、他这个处境穿得出来的。" : "")
       + (list ? "\n\n【柜子里已经挂着这些】\n" + list
           + "\n新添的要和上面这些真的是两回事——不是同一件换个颜色，也不是同一句话换个说法。" : "")
       + characterText(char, "\n\n【添在哪个场合由这个人决定】可以补进上面已经有的场合——同一种场合下他反复挑中的那几身，")
@@ -15542,7 +15543,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -15625,11 +15626,12 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack
+          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
+  const [closetKw, setClosetKw] = useState(""), [hangOpen, setHangOpen] = useState(false), [hang, setHang] = useState({ occ: "", name: "", note: "" });
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -15766,7 +15768,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     //   一身都不会多出来。所以「想多几身」在界面上原本是【没有路】的，
     //   不是她没找到。这个按钮走的是另一条：closetMoreSpec 只要新的，closetMerge 只添不换。
     const moreBtn = onGenClosetMore ? h("button", { "data-wk": "carrymorebtn",
-      onClick: () => onGenClosetMore(char),
+      onClick: () => onGenClosetMore(char, closetKw),
       disabled: !!busyKey || !!closetBusy,
       className: "w-full active:opacity-70 disabled:opacity-40",
       style: {
@@ -15775,9 +15777,25 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         background: carryTint("outfit", .10),
         boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(60,48,30,.14)"
       }
-    }, closetBusy ? "正在添…" : (total ? "再添几身 ＋" : "添几身进来 ＋")) : null;
+    }, closetBusy ? "正在添…" : closetKw.trim() ? "照这几个词添几身 ＋" : (total ? "再添几身 ＋" : "添几身进来 ＋")) : null;
+    // 给 TA 添衣服的两种办法，跟「我的衣柜」一个样（她 2026-10-14 转群友「能给 char 生成特定衣服，和 user 差不多」）：
+    //   填几个词再添——照词配，配出来的都留着；或者自己写一身直接挂上去（不经过模型，挂上也留着）。
+    const inSt = { width: "100%", boxSizing: "border-box", fontFamily: F_BODY, fontSize: 13, padding: "9px 12px", borderRadius: 10, border: "1px solid " + carryTint("outfit", .25), background: t.bg2, color: t.ink, outline: "none", marginBottom: 7 };
+    const addBox = h("div", { "data-wk": "carryclosetadd", style: { marginTop: total ? 4 : 18 } },
+      onGenClosetMore ? h("input", { "data-wk": "carryclosetkw", value: closetKw, onChange: e => setClosetKw(e.target.value.slice(0, 80)), placeholder: "想要什么样的？给几个词（可空）：比如 黑色风衣、约会、毛衣", style: inSt }) : null,
+      moreBtn,
+      onClosetHang ? (hangOpen
+        ? h("div", { "data-wk": "carryclosethang", style: { marginTop: 10, padding: "11px 11px 4px", borderRadius: 12, background: carryTint("outfit", .07) } },
+            h("input", { value: hang.occ, onChange: e => setHang({ ...hang, occ: e.target.value.slice(0, 8) }), placeholder: "什么场合（留空算「日常」）", style: inSt }),
+            h("input", { value: hang.name, onChange: e => setHang({ ...hang, name: e.target.value.slice(0, 40) }), placeholder: "这身叫什么", style: inSt }),
+            h("textarea", { value: hang.note, onChange: e => setHang({ ...hang, note: e.target.value.slice(0, 140) }), rows: 2, placeholder: "是什么衣服——版型、颜色、料子、鞋（可空）", style: { ...inSt, resize: "none" } }),
+            h("div", { className: "flex gap-2", style: { marginBottom: 7 } },
+              h("button", { onClick: () => { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"),
+              h("button", { "data-wk": "carryclosethangsave", disabled: !hang.name.trim(), onClick: () => { if (onClosetHang(char.id, hang.occ, hang.name, hang.note)) { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); } },
+                className: "flex-1 active:opacity-70 disabled:opacity-40", style: { minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: t.ink } }, "挂进去")))
+        : h("button", { "data-wk": "carryclosethangopen", onClick: () => setHangOpen(true), className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: carryTint("outfit", .95), background: "transparent", border: "1px dashed " + carryTint("outfit", .35), borderRadius: 12 } }, "自己挂一身 ＋")) : null);
     content = !total
-      ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的", moreBtn)
+      ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的", addBox)
       : h("div", { "data-wk": "carrycloset", style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
             h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
@@ -15792,7 +15810,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
               h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
               h("span", { "data-wk": "carryoccasioncount", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, g.sets.length + " 套")) : null,
             bay(g.sets.map((it, si) => hanger(it, g, gi, si))))),
-          moreBtn);
+          addBox);
   } else if (sec.stuff) {
     // 包内／口袋／珍藏：把包倒在内衬上。每件东西一张小牌，牌上不画那个东西
     // （画不完也画不像），只留一条它的【材质色】——铜的、纸的、布的、瓷的。
@@ -16034,7 +16052,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -16124,7 +16142,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear,
+    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

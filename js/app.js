@@ -28005,7 +28005,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   刷新那条走 carryEvolveMerge，规矩是「默认原样照抄回来、一次最多真换掉两件」——
   //   也就是说【按多少次刷新，衣柜都不会多出一身】。想多几身在界面上原本没有路。
   //   这条只要新的那几身（closetMoreSpec），落盘走 closetMerge：只添不换，老的一身不动。
-  const genClosetMore = async char => {
+  const genClosetMore = async (char, keywords) => {
+    const kw = String(keywords || "").trim().slice(0, 80);
     if (!active) { toast("请先到设置配置 API"); return; }
     setSelCarry(char.id);
     setGen(g => ({ ...g, closetMore: char.id }));
@@ -28014,14 +28015,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const room = closetRoom(known);
       if (!room) { toast("衣柜已经挂满了"); return; }
       const other = carryElsewhere("outfit", carryRef.current[char.id], (carryGiftsRef.current || {})[char.id]);
-      const d = await runProbe(carryApi(), ctxFor(char), closetMoreSpec(char, known, room, carryMaterialFor(char.id), other));
-      const merged = closetMerge(known, carryDedupe("outfit", d, other));
+      const d = await runProbe(carryApi(), ctxFor(char), closetMoreSpec(char, known, room, carryMaterialFor(char.id), other, kw));
+      const fresh = carryDedupe("outfit", d, other);
+      const merged = closetMerge(known, fresh);
       // ⚠️添了几身要真数出来再说话：模型把老的重写一遍时，撞名全被 closetMerge 挡掉，
       //   衣柜一身没多——这时候报「添好了」就是一句假回执（回执是个承诺）。
       const add = closetCount(merged) - closetCount(known);
       if (add <= 0) { toast("这次没添出新的，再试一次"); return; }
       saveCarrySection(char.id, "outfit", merged);
-      toast("衣柜里多了 " + add + " 身");
+      // 照她给的关键词配的那几身是她点名要的：顺手留着，别下次刷新被换掉
+      if (kw) { const was = new Set(closetGroups(known).flatMap(g => g.sets.map(x => x.name))); closetGroups(merged).forEach(g => g.sets.forEach(x => { if (!was.has(x.name)) setCarryPin(char.id, "outfit", x.name, true); })); }
+      toast("衣柜里多了 " + add + " 身" + (kw ? "，都留着了" : ""));
     } catch (e) {
       toast("添衣服失败：" + e.message);
     } finally {
@@ -28045,6 +28049,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     putLiveField(patch, live, "wearing", v, now);
     setStateFor(charId, { ...live, ...patch, ts: now });
     toast("换上了，状态卡也改了");
+  };
+  // 她亲手给TA挂一身（她 2026-10-14 转群友：「能给 char 生成特定衣服，和 user 差不多」）：名字、说明照她写的，不经过模型；
+  //   落盘、查重、挂完留着，跟「挂进衣柜」那条礼物路是同一层（closetGiftToChar 就是 note＝你送的 的这一条）。
+  const closetHangToChar = (charId, occ, name, note) => {
+    const nm = String(name || "").trim().slice(0, 40);
+    if (!nm) { toast("先写这身叫什么"); return false; }
+    const known = (carryRef.current[charId] || {}).outfit || null;
+    if (closetRoom(known) <= 0) { toast("衣柜已经挂满了，先拿掉几身"); return false; }
+    const merged = closetMerge(known, { closet: [{ occasion: String(occ || "日常").trim().slice(0, 8) || "日常", sets: [{ name: nm, note: String(note || "").trim().slice(0, 140) }] }] });
+    if (closetCount(merged) - closetCount(known) <= 0) { toast("衣柜里已经有这一身了"); return false; }
+    saveCarrySection(charId, "outfit", merged);
+    setCarryPin(charId, "outfit", nm, true);
+    toast("挂上了，刷新不会换掉");
+    return true;
   };
   const closetGiftToChar = (charId, name, occ) => {
     const nm = String(name || "").trim();
@@ -29593,7 +29611,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenAll: genCarryAll,
     onGenClosetMore: genClosetMore,
     onGenGiftThought: genGiftThought,
-    onClosetGift: closetGiftToChar,
+    onClosetGift: closetGiftToChar, onClosetHang: closetHangToChar,
     onWear: wearFromCloset
   });else if (screen === "cwallet") body = h(CharWallet, {
     characters: liveChars,
