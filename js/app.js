@@ -25248,8 +25248,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let cp = null, plan = null;
     if (kind === "cover" && window.PosterLayout) {
       const hl = (p.highlights || []).map(x => String(x || "").trim()).filter(Boolean);
-      cp = { mtype: "八卦", mast: "周刊", title: Array.from(String(p.headline || "本周")).slice(0, 12).join(""), story: { kicker: "本期封面" },
-        coverLines: hl.slice(0, 3).map(l => ({ kicker: "本期看点", line: Array.from(l).slice(0, 14).join("") })), no: String(p.no || ""), genre: "周刊", mood: String(p.mood || "") };
+      // 截断要截在标点上（她 2026-10-14：「周刊封面被截断了」——原来硬切第 14 个字，「靖安王」「前」「敏」半句挂在那儿）
+      const cut = (t, n) => { const ch = Array.from(String(t || "").trim()); if (ch.length <= n) return ch.join("").replace(/[，。、；：,.;:]$/, "");
+        let k = -1; for (let i = Math.min(n, ch.length) - 1; i >= Math.floor(n / 2); i--) if (/[，。、！？；：,.!?;:—]/.test(ch[i])) { k = i; break; }
+        return k > 0 ? ch.slice(0, k).join("") : ch.slice(0, n).join(""); };
+      cp = { mtype: "八卦", mast: "周刊", title: cut(p.headline || "本周", 14), story: { kicker: "本期封面" },
+        coverLines: hl.slice(0, 3).map((l, i) => ({ kicker: i ? "" : "本期看点", line: cut(l, 18) })), no: String(p.no || ""), genre: "周刊", mood: String(p.mood || "") };
       plan = window.PosterLayout.plan("magazine", cp);
     }
     const scene = kind === "cover"

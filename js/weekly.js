@@ -1487,10 +1487,12 @@
     // 拍了封面照：头条压在照片下沿（跟专访开篇同一个做法）；没拍：原来那块实色头条
     const headBlock = props.photo
       ? h("div", { "data-wk": "wklycoverhero", style: { position: "relative", margin: "0 -22px 22px" } },
+          // 封面照上已经排好了刊名、头条和看点（PosterLayout），这里不再叠一层网页字——叠了就是两份头条重影（她 2026-10-14）
           h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" }),
-          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "80px 22px 20px", background: "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.66))", color: "#fffaf3" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .8, marginBottom: 10 } }, "头条 · 01"),
-            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 29, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)))
+          // 封面上的头条按标点截过，完整那句排在照片底下
+          h("div", { style: { padding: "16px 22px 0" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", color: L.tint, marginBottom: 8 } }, "头条 · 01"),
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 25, fontWeight: 600, lineHeight: 1.18, letterSpacing: "-.02em" } }, c.headline)))
       : h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
           h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline));
