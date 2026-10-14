@@ -123,8 +123,11 @@ test("到站掷小意外，时间和钱当场结算、不扣成负数", () => {
   let s = C.newGame(config, () => .01, { places: ["cafe", "photo", "arcade", "shop", "river", "book"] });
   s = C.receiveReply(C.startRequest(s, "plan", "", "photo"), reply("photo"));
   const rainy = C.commitPlace(s, "photo", false, () => 2 / C.EVENTS.length + .001);
-  assert.equal(rainy.incident.id, "rain"); assert.equal(rainy.minutes, 180 - 30 - 10);
-  assert.match(C.resolveActivity(rainy, 2).events[0].text, /下起雨/);
+  // 下雨现在是二选一（她 2026-10-14「小意外有选择」）：到站先不扣，挑了哪条再结算
+  assert.equal(rainy.incident.id, "rain"); assert.equal(rainy.minutes, 180 - 30);
+  assert.throws(() => C.resolveActivity(rainy, 2), /路上那件事/);
+  const waited = C.chooseIncident(rainy, "eaves"); assert.equal(waited.minutes, 180 - 30 - 15);
+  assert.match(C.resolveActivity(waited, 2).events[0].text, /下起雨/);
 });
 test("到了现场 TA 接一句；点单那几处 TA 替你挑的也算数（甜的谁点都算）", () => {
   let s = C.commitPlace(plan(fresh(), "cafe"), "cafe");

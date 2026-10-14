@@ -42,15 +42,23 @@
         + (last.topic ? "\n这一站抽到的聊天签：「" + last.topic + "」" + (last.line ? "，对方先说了：「" + last.line + "」" : "，对方没先开口") + "。就着它聊，照你自己的经历和性子说。" : "")
         + "\n像真在现场那样接一句（say），反应这件事、这个地方、或者刚才那个小意外；别复述规则和分数。"
         + (p.options ? "这里能挑东西：你替对方挑一样，pick 填下面一个选项 id：" + p.options.map(o => o[0] + "＝" + o[1]).join("、") + "。" : "")
-        + "\n只输出 JSON：{\"say\":\"你的台词\"" + (p.options ? ",\"pick\":\"选项 id\"" : "") + "}。";
+        + "\nmood：这一站下来你心情变了多少，-10～10 的整数——照你自己的喜好和性子判：合不合你的胃口、刚才那个小意外对方怎么处理的、你们聊得怎么样。"
+        + (C.wantsChallenge(state) ? "\n这一站你还可以给对方出一道小题，照你的性子出（不想出就不填 challenge）：lie＝说三件关于你自己的事，两真一假，fake 填假的那句是第几句（0～2）；dare＝一个开放的小要求，比如逗你笑、猜你喜欢的某样东西、用一句话夸你，text 写要求。" : "")
+        + "\n只输出 JSON：{\"say\":\"你的台词\",\"mood\":0" + (p.options ? ",\"pick\":\"选项 id\"" : "")
+        + (C.wantsChallenge(state) ? ",\"challenge\":{\"kind\":\"lie 或 dare\",\"lines\":[\"第一句\",\"第二句\",\"第三句\"],\"fake\":1,\"text\":\"dare 的要求\"}" : "") + "}。";
+    }
+    if (state.pending.kind === "dare") {
+      const said = (state.talk || []).filter(x => x.who === "user").slice(-1)[0];
+      return ctx + game + "\n【现在】你刚才给对方出了题：「" + (state.challenge || {}).text + "」。对方回：「" + ((said && said.text) || "") + "」。"
+        + "\n照你出题时心里的标准判过没过（pass），别为了哄人就放水，也别故意刁难；再接一句（say）。只输出 JSON：{\"pass\":true,\"say\":\"你的台词\"}。";
     }
     if (state.pending.kind === "chat") {
       const p = C.place(state.current) || {}, said = (state.talk || []).filter(x => x.who === "user").slice(-1)[0];
       return ctx + game + "\n【现在】" + (state.phase === "plan" ? "你们在商量下一站去哪儿" : state.phase === "guess" ? "逛完了，正准备翻牌" : "你们在「" + (p.name || "路上") + "」") + "，对方跟你说：「" + ((said && said.text) || "") + "」。"
-        + "\n像真在一起那样接话（say），聊什么都行，不用把话题拉回游戏；别复述规则和分数。只输出 JSON：{\"say\":\"你的台词\"}。";
+        + "\n像真在一起那样接话（say），聊什么都行，不用把话题拉回游戏；别复述规则和分数。mood 是这句话让你心情变了多少（-3～3 的整数，平常就是 0）。只输出 JSON：{\"say\":\"你的台词\",\"mood\":0}。";
     }
     if (state.pending.kind === "guess") return ctx + game
-      + "\n收工了。现在秘密提交你对用户任务的猜测，guess 填任务池里的一个 id，拿不准填 unknown。say 是翻牌前给对方的一句台词，猜测由游戏藏好，翻牌后才显示。只输出 JSON：{\"guess\":\"任务 id 或 unknown\",\"say\":\"你的台词\"}。";
+      + "\n收工了。现在秘密提交你对用户任务的猜测，guess 填任务池里的一个 id，拿不准填 unknown。say 是翻牌前给对方的一句台词，猜测由游戏藏好，翻牌后才显示。rate 是你给今天这次约会打几分（1～10，照你真实的感受），heart 是一句没说出口的心里话（翻牌后对方才看得到）。只输出 JSON：{\"guess\":\"任务 id 或 unknown\",\"say\":\"你的台词\",\"rate\":8,\"heart\":\"心里话\"}";
     return ctx + game + "\n提出下一站。对方有提议时，你可接受或另提；accept=true 时 place 必须与对方提议相同。place 只选目前去得了的 id。pose 是合照准备动作的索引 0～2，row 是抓钩准备停的前后排 0～2；在游乐屋挑有玩偶的排，并用 hint 指点对方左右怎么配合。hint 是到了活动现场你给的短提示，可以直说，也可以逗对方猜。\n"
       + "只输出 JSON：{\"place\":\"地点 id\",\"accept\":true,\"pose\":0,\"row\":0,\"hint\":\"现场配合提示\",\"say\":\"商量这一站的台词\"}。";
   }
@@ -69,7 +77,7 @@
     const t = props.t, cfg = props.config, char = (props.characters || []).find(c => c.id === cfg.charIds[0]);
     const [s, setS] = useState(() => props.savedState && props.savedState.state || C.newGame(cfg));
     const ref = useRef(s), ticket = useRef(0), abortRef = useRef(null), busyRef = useRef(false), alive = useRef(true);
-    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [talkText, setTalkText] = useState(""), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
+    const [busy, setBusy] = useState(false), [unsaved, setUnsaved] = useState(false), [err, setErr] = useState(""), [text, setText] = useState(""), [selected, setSelected] = useState(""), [aim, setAim] = useState(1), [guess, setGuess] = useState(""), [talkText, setTalkText] = useState(""), [dareText, setDareText] = useState(""), [showTask, setShowTask] = useState(() => { const v = props.savedState && props.savedState.state; return !v || !(v.visits || []).length; });   // 第一站摊开给她看，之后折着，别把聊天往下挤
     const save = n => { const ok = props.onSave({ config: cfg, state: n, label: n.phase === "finished" ? "这一局已翻牌 · 可以回看" : "第 " + n.round + " 站 · 剩 " + n.minutes + " 分钟" }) !== false; setUnsaved(!ok); return ok; };
     const put = n => { ref.current = n; setS(n); return save(n); };
     useEffect(() => { if (s.visits.length === 1) setShowTask(false); }, [s.visits.length]);   // 走完第一站就折起任务纸条（想看再点「偷看一眼」）
@@ -158,8 +166,11 @@
     const sectionTitle = (label, sub) => h("div", { style: { margin: "4px 2px 10px", display: "flex", alignItems: "baseline", gap: 8 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, label), sub ? h("span", { style: { fontSize: 11.5, color: t.fog } }, sub) : null);
     if (!char || (props.isEngineer && props.isEngineer(char.id))) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "各怀心思的约会", onBack: props.onBack }), card(t, "这一局的角色不可用。存档还留着，可以返回重新选人。"));
+    // TA 的心情条（她 2026-10-14）：座位卡上一颗心＋数，最近一次涨跌跟在后面
+    const mood = C.moodOf(s), lastMood = (s.moodLog || []).slice(-1)[0];
+    const moodLine = (mood >= 80 ? "💗" : mood >= 60 ? "🙂" : mood >= 40 ? "😐" : "😕") + " 心情 " + mood + (lastMood && lastMood.round === s.round ? (lastMood.d > 0 ? " ↑" : " ↓") : "");
     const seats = [{ key: "user", name: (props.profile || {}).name || "你", isUser: true, char: props.profile || {}, sub: s.phase === "finished" ? s.result.user.score + " 分" : "秘密任务已装好", on: s.phase === "plan" && !!(s.round % 2) },
-      { key: char.id, name: char.remark || char.name, char, sub: s.phase === "finished" ? s.result.char.score + " 分" : "TA 也有自己的算盘", on: s.phase === "plan" && !(s.round % 2) }];
+      { key: char.id, name: char.remark || char.name, char, sub: s.phase === "finished" ? s.result.char.score + " 分" : moodLine, on: s.phase === "plan" && !(s.round % 2) }];
     return h("div", { "data-wk": "datepage", className: "h-full flex flex-col", style: props.table("date", t) },
       h(Head, { zh: "各怀心思的约会", sub: s.phase === "finished" ? "翻牌时间" : "第 " + s.round + " 站 · " + (s.round % 2 ? "这一站你做主" : "这一站 TA 做主"), bg: "transparent", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-5", "data-part": "scroll" },
@@ -205,8 +216,13 @@
             h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, current.name), h("div", { style: { fontSize: 11.5, color: t.fog, marginTop: 2 } }, current.note))),
           h("div", null,
             s.prepared.hint && (current.kind === "photo" || current.kind === "claw") ? h("p", { style: { fontSize: 13, color: t.sub, lineHeight: 1.7, margin: "0 4px 14px" } }, "💬 " + (char.remark || char.name) + "：" + s.prepared.hint) : null,
-            s.incident ? h("div", { "data-part": "incident", style: { display: "inline-block", padding: "7px 11px", margin: "0 0 14px 4px", background: "#fdf1b8", color: "#5a4a20", fontSize: 12.5, lineHeight: 1.6, transform: "rotate(1.2deg)", boxShadow: "0 4px 8px -5px rgba(0,0,0,.4)" } }, "⚡ 路上：" + s.incident.text + (s.incident.minutes ? " · " + s.incident.minutes + " 分钟" : "") + (s.incident.money ? " · " + (s.incident.money > 0 ? "+" : "") + s.incident.money + " 币" : "")) : null,
-            current.kind === "photo" ? h("div", null,
+            // 路上的小意外有两条路时，先挑一条再做这一站（她 2026-10-14）
+            s.incident && s.incident.choices && !s.incident.picked ? h("div", { "data-part": "incidentchoice", style: { margin: "0 0 16px" } },
+              h("div", { style: { display: "inline-block", padding: "7px 11px", margin: "0 0 10px 4px", background: "#fdf1b8", color: "#5a4a20", fontSize: 13, lineHeight: 1.6, transform: "rotate(1.2deg)", boxShadow: "0 4px 8px -5px rgba(0,0,0,.4)" } }, "⚡ 路上：" + s.incident.text + "，怎么办？"),
+              h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, s.incident.choices.map((c, i) => h("button", { key: c.id, "data-part": "incident-" + c.id, disabled: busy, onClick: () => act(x => C.chooseIncident(x, c.id)),
+                style: { minHeight: 56, padding: "9px 11px", background: "#fffdf6", color: "#3a332b", border: "none", borderRadius: 2, fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.4, textAlign: "left", boxShadow: "0 6px 12px -8px rgba(40,25,10,.45)", transform: "rotate(" + (i ? .8 : -.8) + "deg)", borderLeft: "3px solid #e0b735" } }, c.label)))) :
+            s.incident ? h("div", { "data-part": "incident", style: { display: "inline-block", padding: "7px 11px", margin: "0 0 14px 4px", background: "#fdf1b8", color: "#5a4a20", fontSize: 12.5, lineHeight: 1.6, transform: "rotate(1.2deg)", boxShadow: "0 4px 8px -5px rgba(0,0,0,.4)" } }, "⚡ 路上：" + s.incident.text + (s.incident.pickedLabel ? "，" + s.incident.pickedLabel : "") + (s.incident.minutes ? " · " + s.incident.minutes + " 分钟" : "") + (s.incident.money ? " · " + (s.incident.money > 0 ? "+" : "") + s.incident.money + " 币" : "")) : null,
+            s.incident && s.incident.choices && !s.incident.picked ? null : current.kind === "photo" ? h("div", null,
               h("div", { style: { display: "flex", justifyContent: "space-around", padding: "18px 0", border: "8px solid " + t.line, borderBottomWidth: 28, borderRadius: 8, background: t.bg, transform: "rotate(1deg)", marginBottom: 18 } }, h(Avatar, { character: props.profile || {}, size: 60, radius: 14 }), h(Avatar, { character: char, size: 60, radius: 14 })),
               h("label", { style: { display: "block", color: t.ink, fontSize: 13 } }, "你的动作：" + C.POSES[aim], h("input", { "data-part": "aim", type: "range", min: 0, max: 2, step: 1, value: aim, onChange: e => setAim(Number(e.target.value)), style: { width: "100%", minHeight: 44, accentColor: t.tint } })),
               primary("准备好了，拍", () => doActivity(aim), false, "shoot"))
@@ -224,8 +240,24 @@
                   boxShadow: "0 6px 12px -8px rgba(40,25,10,.45)", transform: "rotate(" + (i % 2 ? .8 : -.8) + "deg)", borderLeft: "3px solid " + t.tint } }, o[1])))))) : null,
         // 这一站的小票：上下锯齿虚线，像店里打出来的那张
         s.phase === "after" ? h("div", { "data-part": "after" },
+          // TA 出的小题（她 2026-10-14）：三句里猜一句假的，或者回 TA 一个小要求；答上了多 10 分钟、TA 心情 +5
+          s.challenge ? h("div", { "data-part": "challenge" }, slip([
+            h("div", { key: "h", style: { color: "#a0603f", fontSize: 11.5, letterSpacing: 1 } }, (char.remark || char.name) + " 出了道题"),
+            h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.7, marginTop: 4 } }, s.challenge.text),
+            s.challenge.kind === "lie" ? h("div", { key: "o", style: { display: "flex", flexDirection: "column", gap: 7, marginTop: 9 } }, s.challenge.options.map((o, i) => {
+              const done = s.challenge.done, isFake = done && i === s.challenge.answer, picked = done && i === s.challenge.picked;
+              return h("button", { key: i, "data-part": "lie-" + i, disabled: done || busy, onClick: () => act(x => C.answerLie(x, i)),
+                style: { minHeight: 44, padding: "8px 11px", textAlign: "left", fontSize: 13.5, lineHeight: 1.5, color: "#3a332b", background: picked ? "#fff4d6" : "#fffaf0", border: "1px solid " + (isFake ? "#b0553f" : "#e8dfcf"), borderRadius: 8 } },
+                o, isFake ? h("span", { style: { marginLeft: 6, color: "#b0553f", fontSize: 11.5 } }, "← 假的") : null);
+            })) : null,
+            s.challenge.kind === "dare" && !s.challenge.done ? h("div", { key: "d", style: { display: "flex", gap: 8, marginTop: 9 } },
+              h("input", { "data-part": "dareline", value: dareText, onChange: e => setDareText(e.target.value.slice(0, 300)), placeholder: "回 TA 一句…", disabled: busy || !!s.pending, style: { flex: 1, minWidth: 0, minHeight: 42, padding: "8px 10px", borderRadius: 10, border: "1px solid #e8dfcf", background: "#fffaf0", color: "#3a332b", fontSize: 13 } }),
+              h("button", { "data-part": "daresend", disabled: busy || !!s.pending || !dareText.trim(), onClick: () => { ask("dare", dareText.trim(), ""); setDareText(""); }, style: { minHeight: 42, padding: "0 14px", borderRadius: 10, color: "#fff", background: t.tint, fontSize: 13, opacity: busy || !dareText.trim() ? .45 : 1 } }, "回答")) : null,
+            s.challenge.done ? h("div", { key: "r", style: { marginTop: 9, fontSize: 12.5, color: s.challenge.pass ? "#5d8b4c" : "#9a8f80" } }, s.challenge.skipped ? "没接这题" : s.challenge.pass ? "✓ 答上了 · 多了 10 分钟，TA 心情 +5" : "✗ 没答上，不扣东西")
+              : h("button", { key: "s", "data-part": "skipchallenge", onClick: () => act(C.skipChallenge), disabled: busy || !!s.pending, style: { marginTop: 8, fontSize: 11.5, color: "#9a8f80", background: "none", border: "none", textDecoration: "underline", minHeight: 32 } }, "不接这题")
+          ], { margin: "8px 4px 14px" }, "challenge")) : null,
           !s.retryUsed && s.minutes >= 5 && ((current.kind === "photo" && !s.events[s.events.length - 1].match) || (current.kind === "claw" && !s.events[s.events.length - 1].win)) ? button(t, "再配合一次 · 5 分钟", () => act(C.retryActivity), busy, "retry-activity") : null,
-          h("div", { style: { margin: "4px 2px" } }, primary(s.visits.length >= 4 || !available.length ? "收工，准备翻牌" : "接着逛，听听 TA", goNext, !!s.pending, "next"))) : null,
+          h("div", { style: { margin: "4px 2px" } }, primary(s.visits.length >= 4 || !available.length ? "收工，准备翻牌" : "接着逛，听听 TA", goNext, !!s.pending || !!(s.challenge && !s.challenge.done), "next"))) : null,
         // 猜：任务一张张摊成纸条，点哪张就翻起哪张
         s.phase === "guess" ? h("div", { "data-part": "guess" },
           sectionTitle("你猜 TA 藏着什么任务", s.aiGuess === null ? "TA 先封猜测" : "TA 已经封好，看不到你选什么"),
@@ -253,6 +285,12 @@
               h("div", { key: "g", style: { fontSize: 11.5, marginTop: 8, color: r.guess ? "#5d8b4c" : "#7a7064" } }, "猜：" + (C.mission(guessed) || { title: "没猜出来" }).title + (r.guess ? " ✓ +1" : " ✗"))
             ], { margin: "8px 0", transform: "rotate(" + (i ? 1 : -1.2) + "deg)" }, who);
           })),
+          // TA 给这次约会打几分＋一句心里话＋一路的心情（她 2026-10-14）
+          h("div", { "data-part": "rating", style: { margin: "10px 4px 4px", padding: "14px 16px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, textAlign: "center" } },
+            h("div", { style: { fontSize: 12, color: t.fog } }, (char.remark || char.name) + " 给今天打"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#a0603f", margin: "2px 0" } }, s.rating && s.rating.score ? s.rating.score + " / 10" : "—"),
+            h("div", { style: { fontSize: 12, color: t.sub } }, moodLine.replace(/ ↑| ↓/, "") + " · 一路" + ((s.moodLog || []).length ? (s.moodLog || []).map(x => (x.d > 0 ? "+" : "") + x.d).join(" ") : "没怎么变")),
+            s.rating && s.rating.heart ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.7, marginTop: 10 } }, "「" + s.rating.heart + "」") : null),
           h("p", { style: { color: t.fog, fontSize: 11, lineHeight: 1.7, textAlign: "center", marginTop: 8 } }, "这局只留在游戏存档里。回忆、关系和主聊天都没有改。")) : null,
         s.events.length ? h("details", { style: { color: t.sub, fontSize: 12, lineHeight: 1.8, margin: "14px 0" } }, h("summary", { style: { minHeight: 36 } }, "回看你们走过的路"), s.events.map((e, i) => h("div", { key: i, style: { padding: "7px 0", borderTop: "1px dashed " + t.line } }, C.place(e.place).name + " · " + e.text))) : null,
         unsaved ? h("div", { style: { margin: "10px 4px" } }, h("p", { role: "alert", style: { color: t.tint, fontSize: 13, marginBottom: 8 } }, "这一局暂时没存好，先别退出。"), button(t, "重试保存", () => save(ref.current), false, "retry-save")) : null,

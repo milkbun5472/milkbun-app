@@ -30,14 +30,14 @@
   const EVENTS = Object.freeze([
     { id: "none", text: "", minutes: 0, money: 0 },
     { id: "none2", text: "", minutes: 0, money: 0 },
-    { id: "rain", text: "突然下起雨，躲了一会儿", minutes: -10, money: 0 },
+    { id: "rain", text: "突然下起雨", minutes: 0, money: 0, choices: [["umbrella", "一起冲进便利店买一把伞，挤着撑", -5, -15, 4], ["eaves", "躲在屋檐下等雨停，顺便聊会儿", -15, 0, 2]] },
     { id: "sale", text: "正好赶上限时打折，省了一点", minutes: 0, money: 15 },
-    { id: "queue", text: "排了好长的队", minutes: -15, money: 0 },
-    { id: "lastone", text: "店里只剩最后一份/一件", minutes: 0, money: 0 },
-    { id: "busker", text: "门口有人在街头弹唱，停下来听了一首", minutes: -5, money: -5 },
-    { id: "cat", text: "路边一只猫跟了你们好一段", minutes: -5, money: 0 },
+    { id: "queue", text: "门口排着好长的队", minutes: 0, money: 0, choices: [["wait", "排着，边等边聊", -15, 0, 2], ["skip", "加钱买快速通道", 0, -20, 0]] },
+    { id: "lastone", text: "店里只剩最后一份/一件", minutes: 0, money: 0, choices: [["give", "让给对方", 0, 0, 4], ["share", "分着来，一人一半", 0, 0, 3]] },
+    { id: "busker", text: "门口有人在街头弹唱", minutes: 0, money: 0, choices: [["listen", "停下来听一首，往琴盒里放点钱", -5, -5, 3], ["pass", "拉着对方接着走", 0, 0, -1]] },
+    { id: "cat", text: "路边一只猫跟上了你们", minutes: 0, money: 0, choices: [["pet", "蹲下来一起逗猫", -10, 0, 3], ["feed", "去小卖部买根火腿肠喂它", -5, -5, 4]] },
     { id: "wallet", text: "差点把钱包落在上一站，折回去拿了一趟", minutes: -10, money: 0 },
-    { id: "friend", text: "撞见了一个认识的人", minutes: -5, money: 0 },
+    { id: "friend", text: "撞见了一个认识的人", minutes: 0, money: 0, choices: [["introduce", "大大方方介绍身边这位", -5, 0, 4], ["dodge", "拉着对方躲开", 0, 0, -2]] },
     { id: "coupon", text: "捡到一张别人不要的优惠券", minutes: 0, money: 10 },
     { id: "lost", text: "走错了一个路口，绕了一圈", minutes: -10, money: 0 }
   ]);
@@ -109,13 +109,15 @@
       yourMission: mission(s.missions.char), missionPool: MISSIONS.filter(m => !m.needs || placesOf(s).some(id => (place(id) || {}).kind === m.needs)), places: legalPlaces(s),
       current: s.current || null, lastEvent: s.events.length ? s.events[s.events.length - 1] : null,
       visits: s.visits, events: s.events, talk: s.talk, proposal: s.pending && s.pending.proposedId || s.proposal,
-      exchanges: s.exchanges, toys: s.toys, poses: POSES };
+      exchanges: s.exchanges, toys: s.toys, poses: POSES, mood: moodOf(s), challenge: s.challenge || null };
   }
   function startRequest(s, kind, line, proposedId) {
     if (s.pending) throw Error("这一句还在等回复。");
     // chat：路上随便说一句，哪一步都能说，不改地点、不动进度（她 2026-10-14：「每次说完一轮话就不给我说了」）
-    if ((kind === "plan" && s.phase !== "plan") || (kind === "guess" && s.phase !== "guess") || (kind === "react" && s.phase !== "after") || (kind === "chat" && s.phase === "finished")) throw Error("现在不是这一步。");
-    if (!["plan", "guess", "react", "chat"].includes(kind)) throw Error("未知的游戏动作。");
+    if ((kind === "plan" && s.phase !== "plan") || (kind === "guess" && s.phase !== "guess") || (kind === "react" && s.phase !== "after") || (kind === "chat" && s.phase === "finished")
+      || (kind === "dare" && !(s.challenge && s.challenge.kind === "dare" && !s.challenge.done))) throw Error("现在不是这一步。");
+    if (!["plan", "guess", "react", "chat", "dare"].includes(kind)) throw Error("未知的游戏动作。");
+    if (kind === "dare" && !String(line || "").trim()) throw Error("先回一句。");
     if (kind === "chat" && !String(line || "").trim()) throw Error("先说一句。");
     if (kind === "guess" && s.aiGuess !== null) throw Error("TA 已经交好猜测了。");
     if (proposedId && !legalPlaces(s).some(p => p.id === proposedId)) throw Error("这处现在去不了。");
@@ -135,8 +137,21 @@
       n.proposal = reply.place; n.prepared = { pose: idx(reply.pose), row: idx(reply.row), hint: String(reply.hint || "").slice(0, 300) };
       n.exchanges++;
     } else if (s.pending.kind === "chat") {
-      // 只接话，不动地点和进度
+      // 只接话，不动地点和进度；心情可以小动一下
+      bumpMood(n, Math.max(-3, Math.min(3, Number(reply.mood) || 0)), "路上聊天");
+    } else if (s.pending.kind === "dare") {
+      settleChallenge(n, reply.pass === true, reply.pass === true ? "TA 认了" : "TA 不认");
     } else if (s.pending.kind === "react") {
+      bumpMood(n, reply.mood, "这一站");
+      // TA 顺手出的题（只在 wantsChallenge 那几站问）：格式不全就当没出，不作废这一句
+      const ch = reply.challenge;
+      if (wantsChallenge(s) && ch && typeof ch === "object") {
+        const lines = Array.isArray(ch.lines) ? ch.lines.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : [];
+        if (ch.kind === "lie" && lines.length === 3 && Number.isInteger(Number(ch.fake)) && Number(ch.fake) >= 0 && Number(ch.fake) <= 2)
+          n.challenge = { kind: "lie", text: "我说三件关于我的事，有一件是假的，你猜哪句", options: lines, answer: Number(ch.fake), done: false };
+        else if (ch.kind === "dare" && String(ch.text || "").trim())
+          n.challenge = { kind: "dare", text: String(ch.text).trim().slice(0, 120), done: false };
+      }
       // 到了现场 TA 的那一句；点单／挑礼物那几处 TA 也替你挑一样（pick 是选项 id，挑不中就当没挑）
       const last = n.events[n.events.length - 1], p = place(s.current);
       if (last && p && p.options && typeof reply.pick === "string" && optionOf(p, reply.pick)) {
@@ -146,6 +161,9 @@
     } else {
       if (reply.guess !== "unknown" && !mission(reply.guess)) throw Error("TA 的猜测没收完整。");
       n.aiGuess = reply.guess;
+      // 这次约会 TA 打几分、一句心里话（翻牌后跟心情条一起摊开）
+      const r = Math.round(Number(reply.rate));
+      n.rating = { score: r >= 1 && r <= 10 ? r : null, heart: String(reply.heart || "").trim().slice(0, 200) };
     }
     n.talk.push({ who: "char", text: reply.say.trim().slice(0, 1200), round: n.round, n: (n.seq = (n.seq || 0) + 1) });
     n.pending = null;
@@ -160,13 +178,15 @@
     // 路上的小意外：掷一个，当场结算（不扣成负数）
     const ev = s.noEvents ? EVENTS[0] : rng ? pick(EVENTS, rng) : EVENTS[Math.floor(Math.random() * EVENTS.length)];
     n.minutes = Math.max(0, n.minutes + ev.minutes); n.money = Math.max(0, n.money + ev.money);
-    n.incident = ev.text ? { id: ev.id, text: ev.text, minutes: ev.minutes, money: ev.money } : null;
+    // 有两条路的小意外先不结算，摆给她挑（她 2026-10-14：「小意外有选择」）
+    n.incident = ev.text ? { id: ev.id, text: ev.text, minutes: ev.minutes, money: ev.money, choices: ev.choices ? ev.choices.map(c => ({ id: c[0], label: c[1] })) : null, picked: null } : null;
     // 聊天签：talk / walk 那几处抽一张
     n.topic = (p.kind === "talk" || p.kind === "walk") ? TOPICS[Math.min(TOPICS.length - 1, Math.floor((rng ? rng() : Math.random()) * TOPICS.length))] : null;
     return n;
   }
   function resolveActivity(s, choice) {
     if (s.phase !== "activity" || s.pending) throw Error("现在不是活动时间。");
+    if (s.incident && s.incident.choices && !s.incident.picked) throw Error("先决定路上那件事怎么办。");
     const p = place(s.current), n = clone(s); let text, extra = {};
     if (p.kind === "photo") {
       if (!Number.isInteger(choice) || choice < 0 || choice > 2) throw Error("先摆好动作。");
@@ -185,10 +205,51 @@
       if (!o) throw Error("这个活动没有这项动作。");
       text = p.name + "：你" + o[1] + "。"; extra.choice = choice;
     }
-    if (s.incident) { text = "（" + s.incident.text + "）" + text; extra.incident = s.incident.id; }
+    if (s.incident) { text = "（" + s.incident.text + (s.incident.picked ? "，" + s.incident.pickedLabel : "") + "）" + text; extra.incident = s.incident.id; if (s.incident.picked) extra.incidentChoice = s.incident.picked; }
     n.events.push(Object.assign({ place: p.id, at: s.arrival, text, round: s.round, n: (n.seq = (n.seq || 0) + 1) }, extra));
     n.phase = "after";
     return n;
+  }
+  // ---- 心情条（她 2026-10-14 挑的第 2 条）：TA 这一路过得怎么样，0~100，从 60 起 ----
+  const MOOD0 = 60;
+  const moodOf = s => s.mood == null ? MOOD0 : s.mood;
+  function bumpMood(n, d, why) {
+    const v = Math.max(-10, Math.min(10, Math.round(Number(d) || 0)));
+    if (!v) return n;
+    n.mood = Math.max(0, Math.min(100, moodOf(n) + v));
+    (n.moodLog = n.moodLog || []).push({ d: v, why: String(why || "").slice(0, 60), round: n.round });
+    return n;
+  }
+  // 路上的小意外挑一条路（第 3 条）：时间、钱当场结算，心情跟着挑的那条走
+  function chooseIncident(s, id) {
+    if (s.phase !== "activity" || s.pending || !s.incident || !s.incident.choices || s.incident.picked) throw Error("现在不用选。");
+    const ev = EVENTS.find(e => e.id === s.incident.id), c = ev && (ev.choices || []).find(x => x[0] === id);
+    if (!c) throw Error("没有这个选项。");
+    const n = clone(s);
+    n.minutes = Math.max(0, n.minutes + c[2]); n.money = Math.max(0, n.money + c[3]);
+    n.incident.picked = c[0]; n.incident.pickedLabel = c[1]; n.incident.minutes = c[2]; n.incident.money = c[3];
+    return bumpMood(n, c[4], s.incident.text + "，" + c[1]);
+  }
+  // ---- TA 出的小题（第 1 条）：到站接话时，有时 TA 顺手出一道。
+  //   lie＝三句里一句是假的，她猜哪句（代码判）；dare＝开放的小要求（逗我笑、猜我喜欢什么…），她回一句，TA 自己判过没过。
+  //   过了：多 10 分钟、TA 心情 +5；没过：TA 笑一笑，不扣东西。
+  const CHALLENGE_STOPS = [2, 3];
+  const wantsChallenge = s => CHALLENGE_STOPS.indexOf(s.visits.length) >= 0 && (s.challenges || 0) < 2 && !s.challenge;
+  function settleChallenge(n, pass, note) {
+    const c = n.challenge; c.done = true; c.pass = !!pass; c.note = String(note || "").slice(0, 120);
+    n.challenges = (n.challenges || 0) + 1;
+    if (pass) { n.minutes += 10; bumpMood(n, 5, "答上了 TA 出的题"); }
+    (n.events[n.events.length - 1] || {}).challenge = { text: c.text, pass: c.pass };
+    return n;
+  }
+  function answerLie(s, idx) {
+    if (!s.challenge || s.challenge.done || s.challenge.kind !== "lie" || s.pending) throw Error("现在没有要猜的题。");
+    const n = clone(s); n.challenge.picked = idx;
+    return settleChallenge(n, idx === s.challenge.answer, idx === s.challenge.answer ? "猜中了哪句是假的" : "没猜中");
+  }
+  function skipChallenge(s) {
+    if (!s.challenge || s.challenge.done || s.pending) throw Error("现在没有题。");
+    const n = clone(s); n.challenge.done = true; n.challenge.skipped = true; n.challenges = (n.challenges || 0) + 1; return n;
   }
   function retryActivity(s) {
     const last = s.events[s.events.length - 1];
@@ -198,14 +259,15 @@
   }
   function nextStop(s) {
     if (s.phase !== "after") throw Error("先做完这一站。");
-    const n = clone(s);
+    if (s.challenge && !s.challenge.done) throw Error("TA 出的题还没答。");
+    const n = clone(s); n.challenge = null;
     if (s.visits.length >= 4 || !legalPlaces(s).length) n.phase = "guess";
     else { n.phase = "plan"; n.round++; n.proposal = null; n.prepared = null; n.exchanges = 0; n.incident = null; n.topic = null; }
     return n;
   }
   function closeDate(s) {
     if (!["plan", "after"].includes(s.phase) || s.pending) throw Error("先做完当前这一步。");
-    const n = clone(s); n.phase = "guess"; return n;
+    const n = clone(s); if (n.challenge && !n.challenge.done) { n.challenge.done = true; n.challenge.skipped = true; } n.phase = "guess"; return n;
   }
   function finish(s, guess, judged) {
     if (s.phase !== "guess" || s.aiGuess === null || s.pending) throw Error("先等 TA 交好猜测。");
@@ -228,7 +290,7 @@
       .concat((s.events || []).map((x, i) => ({ kind: "event", item: x, k: key(x, "event", i) })))
       .sort((a, b) => a.k - b.k);
   }
-  const api = { feed, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
+  const api = { feed, moodOf, chooseIncident, answerLie, skipChallenge, wantsChallenge, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
   if (typeof module === "object" && module.exports) module.exports = api;
   root.DateGameCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
