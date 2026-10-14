@@ -21709,6 +21709,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 角色贴吧资料（AI 生成一次存 forumCharMeta；没生成时用 charId 稳定兜底）
   // 兜底注册时间锚在固定过去点（不随 now 漂移，这样吧龄才会随真实时间增长）
   const FORUM_EPOCH = 1704067200000; // 2024-01-01
+  // 小号网名和 id 怎么起：首次配资料、「让它起一个」两处共用（她 2026-10-14：「能不能取符合角色的小号名和 handle」）
+  const FORUM_ALT_NAME_RULE = "网名（altName，2~8 个字）要像这个人自己会起的：从他私下的喜好、口头禅、常待的地方、心里那点小别扭或最近在意的事里取材，"
+    + "带着他的审美和说话习惯；熟人第一眼认不出是他，可知道是他之后会觉得「果然是他会起的」。不带真名、不带职位头衔。"
+    + "id（altHandle）跟网名配套：网名的拼音、英文意思、谐音或缩写都行，只用英文字母、数字、下划线，像真人注册时随手打的。";
   const FORUM_ALT_NAMES = ["潮汐背面", "纸箱里的月亮", "低电量漫游", "未读草稿", "玻璃杯沿", "倒数第二排", "雨停再走", "临时观众", "不响的铃", "偏航一厘米", "凌晨便利店", "折叠地图",
     "晒不干的袜子", "第七个路灯", "没拆的快递", "旧耳机线", "楼道感应灯", "过期优惠券", "半杯凉白开", "错站下车", "反光的窗", "周四的雨", "便签背面", "慢半拍的钟"];
   const FORUM_HABIT_PRESETS = [
@@ -21816,12 +21820,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!bgActive && !active) { toast("请先到设置配置 API"); return null; }
     const taken = (characters || []).map(o => charForumMeta(o).altName).filter(Boolean);
     try {
-      const d = extractJSON(await callAI(bgActive || active,
-        ANTI_CLICHE + "\n\n给「" + c.name + "」起一个论坛小号网名：认识TA的人看到也认不出是TA，不带真名、不带身份头衔，像真人随手起的网名，2~8 个字。\n"
-          + "【这个人】" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 400) + "\n"
-          + (taken.length ? "【这些网名别人已经在用，别撞】" + taken.join("、") + "\n" : "")
-          + "再给一个配这个网名的账号 id（altHandle：只用英文字母、数字、下划线，像真人随手起的）。\n【输出】只输出合法 JSON：{\"altName\":\"网名\",\"altHandle\":\"id\"}",
-        [{ role: "user", content: "起吧。" }], { maxTokens: 8000 })) || {};
+      // 走整份人设（ctxFor），不是只截四百字——原来起出来的名字跟这个人不沾边（她 2026-10-14：「能不能取符合角色的小号名和 handle」）
+      const d = (await runProbe(apiFor(c.id), ctxFor(c), {
+        instruction: "以你自己的身份，给你在论坛上的小号重新起个网名和账号 id。" + FORUM_ALT_NAME_RULE
+          + (taken.length ? "\n【这些网名别人已经在用，别撞】" + taken.join("、") : ""),
+        schemaHint: "{\"altName\":\"网名\",\"altHandle\":\"id\"}",
+        maxTokens: 8000
+      })) || {};
       const nm = String(d.altName || "").trim();
       if (!nm) { toast("这次没起出来，再点一次"); return null; }
       return { name: nm, handle: String(d.altHandle || "").replace(/^@/, "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 20) };
@@ -23679,7 +23684,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!active) return;
     try {
       const d = await runProbe(apiFor(c.id), ctxFor(c), {
-        instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称，不能直接暴露真名）、altHandle（固定小号 id）、altBio（小号独立签名，不能泄露大号）、altAvatarSeed（几个词描述小号会用的头像意象，不出现本人真名）、boardPrefs（最常逛的 2 个主页板块）、participation（稳定参与习惯，如潜水/回帖/开帖）、replyStyle（稳定回帖风格）、identityBias（main 或 alt）、followers、following、altFollowers、altFollowing。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。",
+        instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称）、altHandle（固定小号 id）、altBio（小号独立签名，不能泄露大号）、altAvatarSeed（几个词描述小号会用的头像意象，不出现本人真名）、boardPrefs（最常逛的 2 个主页板块）、participation（稳定参与习惯，如潜水/回帖/开帖）、replyStyle（稳定回帖风格）、identityBias（main 或 alt）、followers、following、altFollowers、altFollowing。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。" + FORUM_ALT_NAME_RULE,
         schemaHint: "{\"handle\":\"id\",\"bio\":\"签名\",\"altName\":\"固定小号昵称\",\"altHandle\":\"固定小号id\",\"altBio\":\"小号签名\",\"altAvatarSeed\":\"头像意象\",\"boardPrefs\":[\"兴趣吧\",\"日常吧\"],\"participation\":\"参与习惯\",\"replyStyle\":\"回帖风格\",\"identityBias\":\"main|alt\",\"followers\":1234,\"following\":88,\"altFollowers\":321,\"altFollowing\":45}",
         maxTokens: FTOK.meta
       });

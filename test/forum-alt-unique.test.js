@@ -40,3 +40,10 @@ test("小号主页能换网名：查重、旧帖旧楼一起改署名、也能�
   assert.match(scr, /"data-wk":"forumaltrename"/);
   assert.match(scr, /onRenameCharAlt\(owner\.id,altEdit\.name,altEdit\.handle\)/);
 });
+
+test("小号网名和 id 照这个人起：两处共用一条规矩，「让它起一个」读整份人设", () => {
+  assert.match(app, /const FORUM_ALT_NAME_RULE = /);
+  assert.equal((app.match(/FORUM_ALT_NAME_RULE/g) || []).length, 3, "首次配资料和让它起一个，两处都得用这一条");
+  const fnG = cut("  const regenCharAlt = async charId => {", "\n  };\n");
+  assert.match(fnG, /runProbe\(apiFor\(c\.id\), ctxFor\(c\),/);
+});
