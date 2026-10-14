@@ -30,12 +30,13 @@ test("资料卡读的就是这一份；新生成的网名撞了别人的不收",
 
 test("小号主页能换网名：查重、旧帖旧楼一起改署名、也能让它起一个", () => {
   const scr = require("fs").readFileSync(__dirname + "/../js/screens.js", "utf8");
-  const fnR = cut("  const renameCharAlt = (charId, name) => {", "\n  };\n");
+  const fnR = cut("  const renameCharAlt = (charId, name, handle) => {", "\n  };\n");
   assert.match(fnR, /已经有人在用了/);
   assert.match(fnR, /x_forumCharMeta/);
-  assert.match(fnR, /mine\(x\) \? \{ \.\.\.x, authorName: nm \}/, "帖子署名没跟着改");
-  assert.match(fnR, /mine\(r\) \? \{ \.\.\.r, authorName: nm \}/, "楼中楼署名没跟着改");
+  assert.match(fnR, /mine\(x\) \? \{ \.\.\.x, authorName: nm, authorHandle: hd \}/, "帖子署名和 @id 没跟着改");
+  assert.match(fnR, /altName: nm, altHandle: hd/, "资料里的 @id 没改");
+  assert.match(fnR, /mine\(r\) \? \{ \.\.\.r, authorName: nm, authorHandle: hd \}/, "楼中楼署名没跟着改");
   assert.match(app, /onRenameCharAlt: renameCharAlt, onRegenCharAlt: regenCharAlt,/);
   assert.match(scr, /"data-wk":"forumaltrename"/);
-  assert.match(scr, /onRenameCharAlt\(owner\.id,altEdit\)/);
+  assert.match(scr, /onRenameCharAlt\(owner\.id,altEdit\.name,altEdit\.handle\)/);
 });
