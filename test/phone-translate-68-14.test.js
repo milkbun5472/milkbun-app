@@ -33,7 +33,8 @@ test("各 app 自己那几处正文也接了", () => {
     /PTX\(m\.text\)/,            // 微信气泡
     /PTX\(m\.content\)/,         // 朋友圈正文
     /PTX\(x\.text\)/,            // 朋友圈评论
-    /PTX\(it\.body\)/,           // 便签／录音
+    // v75.636 录音的正文要先剥掉语音标记再给人看，PTX 里多了一层；守的是 it.body 仍从 PTX 过
+    /PTX\((?:[^()]|\([^()]*\))*it\.body/,  // 便签／录音
     /PTX\(article\.title\)/,     // 公众号
     /PTX\(article\.summary\)/,
     /PTX\(article\.thought\)/,
