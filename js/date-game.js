@@ -65,6 +65,20 @@
     return ctx + game + "\n提出下一站。对方有提议时，你可接受或另提；accept=true 时 place 必须与对方提议相同。place 只选目前去得了的 id。pose 是合照准备动作的索引 0～2，row 是抓钩准备停的前后排 0～2；在游乐屋挑有玩偶的排，并用 hint 指点对方左右怎么配合。hint 是到了活动现场你给的短提示，可以直说，也可以逗对方猜。\n"
       + "只输出 JSON：{\"place\":\"地点 id\",\"accept\":true,\"pose\":0,\"row\":0,\"hint\":\"现场配合提示\",\"say\":\"商量这一站的台词\",\"scheme\":false}。";
   }
+  // 开局配料（她 2026-10-14：「放开让模型想」）：照 TA 的人设和世界，给这一局的六处起名、写样子、配能挑的东西，
+  //   再编几件路上的小意外和两三张看聊天的专属任务。玩法种类和判分不归它管。
+  function buildPrep(props, char, state) {
+    const pf = props.profile || {};
+    const KIND = { menu: "吃东西（到了挑一样吃的）", photo: "合照（两人摆动作拍一张）", claw: "合力小游戏（一人管排一人管格）", gift: "挑东西（买一样或一对）", walk: "散步（边走边聊）", book: "翻书（一起看看书）", talk: "坐下来聊（看完东西或者待着聊天）" };
+    const list = C.placesOf(state).map(id => { const b = C.PLACE_POOL.find(p => p.id === id); return "· " + id + "：" + KIND[b.kind] + "，默认叫「" + b.name + "」" + (b.options ? "，要配 3 样能挑的" + (b.kind === "menu" ? "（至少一样是甜的，tags 填 sweet）" : b.kind === "gift" ? "（至少一样是成对的，tags 填 pair）" : "") : ""); }).join("\n");
+    return "你在给一局约会小游戏备料。去约会的是「" + (char.name || "TA") + "」和「" + (pf.name || "对方") + "」。\n【" + (char.name || "TA") + "】\n" + (char.persona || "")
+      + "\n【" + (pf.name || "对方") + "】\n" + (pf.persona || pf.bio || "")
+      + ((C.THEMES[state.theme] || {}).prompt ? "\n【这一次】" + C.THEMES[state.theme].zh : "")
+      + "\n\n这局会去的六处，每处的玩法定好了，你只管它在这两个人的世界里长什么样：照他们所在的时代、城市、身份来起名（八个字以内）、写一句样子（二十字以内）、配一个 emoji 图标；要挑东西的那几处，配 3 样这里真会有的。\n" + list
+      + "\n\n再编 5 件这两个人约会路上可能撞上的小意外（贴着他们的世界，别是谁都能用的那种），每件给两个怎么办，各写要花几分钟（-20~0）、几枚钱（-30~15，正数是省了或捡到）、对方心情会怎么变（-3~5）。"
+      + "\n再写 3 张只属于这两个人的小任务，都要靠聊天才能完成（比如让对方说出某句话、承认某件事），照他们的关系和过去写，裁判会读聊天判。"
+      + "\n只输出 JSON：{\"places\":{\"地点id\":{\"name\":\"\",\"note\":\"\",\"icon\":\"🍵\",\"options\":[{\"label\":\"\",\"tags\":[]}]}},\"incidents\":[{\"text\":\"\",\"choices\":[{\"label\":\"\",\"minutes\":-5,\"money\":0,\"mood\":2}]}],\"missions\":[{\"title\":\"四字以内\",\"text\":\"让对方……\"}]}";
+  }
   // 翻牌前的裁判：只读聊天和走过的路，判两张「看人」的任务成没成。不看猜测、不给分。
   function buildJudge(props, char, state) {
     const pf = props.profile || {}, uName = pf.name || "用户", cName = char.name || "TA";
@@ -121,6 +135,18 @@
         if (alive.current && seq === ticket.current) setErr("这一句没接上，进度和预算都留着。\n" + String(e.message || e) + (raw ? "\n原回复：" + String(raw).slice(0, 800) : ""));
       } finally { if (alive.current && seq === ticket.current) { busyRef.current = false; setBusy(false); } }
     }
+    // 开局先配料：没配过就请 TA 的模型配一次；配不出来照默认的玩，不卡住
+    const [prepping, setPrepping] = useState(false);
+    const prep = async () => {
+      if (busyRef.current || ref.current.prepped || !char) return;
+      busyRef.current = true; setPrepping(true); const seq = ++ticket.current;
+      try {
+        const raw = await props.call(props.active, buildPrep(props, char, ref.current), [{ role: "user", content: "备料。" }], { maxTokens: 12000, logLabel: "各怀心思的约会·备料", timeout: 90000 });
+        if (alive.current && seq === ticket.current) put(C.applyCustom(ref.current, typeof raw === "string" ? extractJSON(raw) : raw));
+      } catch (e) { if (alive.current && seq === ticket.current) put(C.skipPrep(ref.current)); }
+      finally { if (seq === ticket.current) { busyRef.current = false; if (alive.current) setPrepping(false); } }
+    };
+    useEffect(() => { if (!ref.current.prepped && !(ref.current.visits || []).length && !(ref.current.talk || []).length) prep(); else if (!ref.current.prepped) put(C.skipPrep(ref.current)); }, []);
     const ask = (kind, line, place) => {
       if (busyRef.current || unsaved) return;
       try { const n = C.startRequest(ref.current, kind, line, place); if (!put(n)) return; setText(""); run(n); } catch (e) { setErr(e.message); }
@@ -131,17 +157,19 @@
       ask(n.phase === "guess" ? "guess" : "plan", "", "");
     };
     const close = () => { if (busyRef.current || unsaved) return; const n = C.closeDate(ref.current); if (!put(n)) return; ask("guess", "", ""); };
+    C.bind(s);
+    const iconOf = id => ((C.place(id) || {}).icon) || ICON[id] || "📍";
     const available = C.legalPlaces(s), prop = C.place(s.proposal), current = C.place(s.current), mine = C.mission(s.missions.user);
     const primary = (label, fn, disabled, part) => button(t, label, fn, disabled || busy || unsaved, part, true);
     const title = (label, body) => h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 9 } }, label), body);
     // 一路的进度：四个站点连成一条虚线，走过的那站换成那处的小图标（她 2026-10-12：「一堆框好无聊」——不再是一行数字）
-    const ICON = { cafe: "☕", noodle: "🍜", dessert: "🍦", bbq: "🍢", photo: "📸", studio: "🎞️", arcade: "🧸", capsule: "🥚", shop: "🛍️", flower: "💐", record: "💿", river: "🌊", rooftop: "🌆", park: "🌳", book: "📚", library: "📖", cinema: "🎬", observatory: "🔭", breakfast: "🥟", nightmarket: "🏮", sunset: "🌇" };
+    const ICON = { cafe: "☕", noodle: "🍜", dessert: "🍦", bbq: "🍢", photo: "📸", studio: "🎞️", arcade: "🧸", capsule: "🥚", shop: "🛍️", flower: "💐", record: "💿", river: "🌊", rooftop: "🌆", park: "🌳", book: "📚", library: "📖", cinema: "🎬", observatory: "🔭", breakfast: "🥟", nightmarket: "🏮", sunset: "🌇", rings: "⭕", balloon: "🎈", ktv: "🎤" };
     const remaining = h("div", { "data-part": "route", style: { display: "flex", alignItems: "center", gap: 6, margin: "6px 2px 16px" } },
       [0, 1, 2, 3].map(i => {
         const id = s.visits[i], now = i === s.visits.length && s.phase !== "finished" && s.phase !== "guess";
         return [i ? h("span", { key: "l" + i, style: { flex: 1, borderTop: "2px dashed " + (id ? t.tint : t.line), opacity: id ? .7 : 1 } }) : null,
           h("span", { key: "d" + i, title: id ? C.place(id).name : "", style: { width: 34, height: 34, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: id ? 17 : 12, color: t.fog,
-            background: id ? t.bg2 : "transparent", border: (now ? "2px solid " + t.tint : "1.5px dashed " + t.line), boxShadow: id ? "0 2px 6px rgba(30,20,10,.12)" : "none" } }, id ? (ICON[id] || "·") : String(i + 1))];
+            background: id ? t.bg2 : "transparent", border: (now ? "2px solid " + t.tint : "1.5px dashed " + t.line), boxShadow: id ? "0 2px 6px rgba(30,20,10,.12)" : "none" } }, id ? iconOf(id) : String(i + 1))];
       }),
       h("span", { style: { marginLeft: 10, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } },
         h("span", null, "⏱ " + s.minutes), h("span", null, "🪙 " + s.money)));
@@ -152,7 +180,7 @@
     // 一站的小票：上下锯齿虚线，像店里打出来的那张。夹在路上的对话里，排在那一站说的话中间（按发生先后）
     const receipt = (e, i) => h("div", { "data-part": "receipt", style: { margin: "4px 8px", padding: "12px 14px", background: "#fffdf6", color: "#3a332b", fontSize: 13.5, lineHeight: 1.8,
         borderTop: "2px dashed " + t.line, borderBottom: "2px dashed " + t.line, boxShadow: "0 6px 14px -10px rgba(40,25,10,.45)" } },
-      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9a8f80", letterSpacing: 1, marginBottom: 4 } }, h("span", null, (ICON[e.place] || "") + " " + ((C.place(e.place) || {}).name || "")), h("span", null, "第 " + (i + 1) + " 站")),
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9a8f80", letterSpacing: 1, marginBottom: 4 } }, h("span", null, iconOf(e.place) + " " + ((C.place(e.place) || {}).name || "")), h("span", null, "第 " + (i + 1) + " 站")),
       e.text);
     // 路上的话和小票排成一条：每到新的一站先落一行站名，TA 一句话拆成几个气泡（她 2026-10-14：「节奏和气泡显示有点不对」）
     const feedLines = (() => {
@@ -160,7 +188,7 @@
       let lastRound = 0, ev = 0;
       C.feed(s).forEach((f, k) => {
         const r = Number(f.item.round) || 0;
-        if (r && r !== lastRound) { lastRound = r; const vid = s.visits[r - 1]; out.push({ sys: true, text: "· 第 " + r + " 站" + (vid ? " · " + (ICON[vid] || "") + " " + C.place(vid).name : "") + " ·" }); }
+        if (r && r !== lastRound) { lastRound = r; const vid = s.visits[r - 1]; out.push({ sys: true, text: "· 第 " + r + " 站" + (vid ? " · " + iconOf(vid) + " " + C.place(vid).name : "") + " ·" }); }
         if (f.kind === "event") { out.push({ node: receipt(f.item, ev++) }); return; }
         const m = f.item;
         if (m.who === "user") { out.push({ me: true, name: uName, text: m.text, at: k }); return; }
@@ -192,6 +220,9 @@
         // 路上聊的：跟五子棋、你画我猜同一个左右气泡（GameTalkLog），不另画一套
         feedLines.length && root.GameTalkLog ? h(root.GameTalkLog, { t, uName: (props.profile || {}).name || "你", me: props.profile || {}, maxHeight: "none", k: "date",
           lines: feedLines, charOf: () => char }) : null,
+        prepping ? h("div", { "data-part": "prep", style: { display: "flex", alignItems: "center", gap: 10, margin: "8px 4px 16px", color: t.sub, fontSize: 13 } },
+          h(Avatar, { character: char, size: 28, radius: 9 }), h("span", { role: "status" }, (char.remark || char.name) + " 在想今天去哪儿逛…"),
+          h("button", { "data-part": "skipprep", onClick: () => { ticket.current++; busyRef.current = false; setPrepping(false); put(C.skipPrep(ref.current)); }, style: { marginLeft: "auto", fontSize: 12, color: t.fog, textDecoration: "underline", background: "none", border: "none", minHeight: 32 } }, "不等了")) :
         s.phase === "plan" ? h("div", { "data-wk": "datemap" },
           sectionTitle("下一站去哪儿", s.round % 2 ? "这一站你做主" : "这一站 TA 做主"),
           // 一张纸地图：街道是几道浅浅的斜线，地点是贴在上面的圆形贴纸，错落着摆，不排成格子
@@ -206,23 +237,23 @@
                 h("span", { style: { position: "relative", width: 52, height: 52, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25,
                   background: "#fffdf6", boxShadow: on ? "0 0 0 3px " + t.tint + ", 0 6px 12px -6px rgba(0,0,0,.4)" : "0 4px 10px -6px rgba(0,0,0,.45)",
                   filter: went ? "grayscale(1)" : "none", transform: on ? "scale(1.08) rotate(-4deg)" : "none", transition: "transform .15s" } },
-                  ICON[p.id] || "📍",
+                  iconOf(p.id),
                   went ? h("span", { style: { position: "absolute", bottom: -4, right: -8, padding: "1px 5px", border: "1.5px solid #b0553f", color: "#b0553f", borderRadius: 4, fontSize: 9.5, background: "#fffdf6", transform: "rotate(-12deg)" } }, "去过") : null,
                   proposed && !went ? h("span", { style: { position: "absolute", top: -10, right: -12, fontSize: 18 } }, "💭") : null),
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.3, textAlign: "center" } }, p.name),
                 h("span", { style: { fontSize: 10, color: t.fog } }, went ? "" : p.time + "分 · " + (p.cost ? p.cost + "币" : "免费")));
             }))),
-          selected ? h("div", { style: { fontSize: 12, color: t.sub, lineHeight: 1.6, margin: "0 4px 12px" } }, ICON[selected] + " " + C.place(selected).name + "：" + C.place(selected).note) : null,
+          selected ? h("div", { style: { fontSize: 12, color: t.sub, lineHeight: 1.6, margin: "0 4px 12px" } }, iconOf(selected) + " " + C.place(selected).name + "：" + C.place(selected).note) : null,
           // TA 想去哪儿：一句气泡，按钮跟在后面，不再套一个框
           prop ? h("div", { "data-part": "proposal", style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 2px 12px" } },
             h(Avatar, { character: char, size: 30, radius: 10 }),
-            h("span", { style: { padding: "7px 12px", borderRadius: "4px 14px 14px 14px", background: t.bg2, border: "1px solid " + t.line, fontSize: 13, color: t.ink } }, "想去 " + (ICON[prop.id] || "") + " " + prop.name),
+            h("span", { style: { padding: "7px 12px", borderRadius: "4px 14px 14px 14px", background: t.bg2, border: "1px solid " + t.line, fontSize: 13, color: t.ink } }, "想去 " + iconOf(prop.id) + " " + prop.name),
             primary("就去这里", () => act(x => C.commitPlace(x, s.proposal)), !!s.pending, "accept"),
             s.round % 2 && s.exchanges >= 2 && selected && selected !== s.proposal ? button(t, "这站我来定", () => act(x => C.commitPlace(x, selected, true)), busy || !!s.pending, "override") : null) : null,
           h("p", { style: { fontSize: 11, color: t.fog, lineHeight: 1.7, margin: "0 4px 10px" } }, s.round % 2 ? "点一处贴纸，在底下说句话提议。商量两次后可以拍板，也可以直接答应 TA。" : "这站 TA 说了算。挑另一处贴纸，说句话劝 TA 改主意，或者就跟着 TA 走。")) : null,
         s.phase === "activity" ? h("div", { "data-wk": "dateactivity" }, h("div", null,
           h("div", { "data-part": "scene", style: { display: "flex", alignItems: "center", gap: 12, margin: "2px 2px 14px" } },
-            h("span", { style: { fontSize: 40, lineHeight: 1, filter: "drop-shadow(0 4px 6px rgba(0,0,0,.18))" } }, ICON[current.id] || "📍"),
+            h("span", { style: { fontSize: 40, lineHeight: 1, filter: "drop-shadow(0 4px 6px rgba(0,0,0,.18))" } }, iconOf(current.id)),
             h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, current.name), h("div", { style: { fontSize: 11.5, color: t.fog, marginTop: 2 } }, current.note))),
           h("div", null,
             s.prepared.hint && (current.kind === "photo" || current.kind === "claw") ? h("p", { style: { fontSize: 13, color: t.sub, lineHeight: 1.7, margin: "0 4px 14px" } }, "💬 " + (char.remark || char.name) + "：" + s.prepared.hint) : null,
@@ -238,9 +269,9 @@
               primary("准备好了，拍", () => doActivity(aim), false, "shoot"))
             : current.kind === "claw" ? h("div", null,
               h("div", { style: { fontSize: 12, color: t.sub, marginBottom: 8 } }, "TA 管前后，停在第 " + (s.prepared.row + 1) + " 排。你拖动下面的滑杆，管左右。"),
-              h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, background: t.bg, padding: 12, border: "6px solid " + t.line, borderRadius: 14 } }, Array.from({ length: 9 }, (_, i) => h("div", { key: i, style: { minHeight: 50, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "2px solid " + (Math.floor(i / 3) === s.prepared.row && i % 3 === aim ? t.tint : t.line), fontSize: 25 } }, s.toys[Math.floor(i / 3)] === i % 3 ? (current.id === "capsule" ? "🥚" : "🧸") : "·"))),
+              h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, background: t.bg, padding: 12, border: "6px solid " + t.line, borderRadius: 14 } }, Array.from({ length: 9 }, (_, i) => h("div", { key: i, style: { minHeight: 50, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "2px solid " + (Math.floor(i / 3) === s.prepared.row && i % 3 === aim ? t.tint : t.line), fontSize: 25 } }, s.toys[Math.floor(i / 3)] === i % 3 ? ({ capsule: "🥚", rings: "🎁", balloon: "🎈" }[current.id] || "🧸") : "·"))),
               h("input", { "data-part": "aim", "aria-label": "左右移动", type: "range", min: 0, max: 2, step: 1, value: aim, onChange: e => setAim(Number(e.target.value)), style: { width: "100%", minHeight: 44, accentColor: t.tint } }),
-              primary(current.id === "capsule" ? "一起扭" : "一起下钩", () => doActivity(aim), false, "claw"))
+              primary(({ capsule: "一起扭", rings: "扔圈", balloon: "开枪" }[current.id] || "一起下钩"), () => doActivity(aim), false, "claw"))
             : (current.kind === "walk" || current.kind === "talk") ? h("div", null,
               s.topic ? h("div", { "data-part": "topic", style: { padding: "12px 14px", borderRadius: 4, border: "1px dashed " + t.line, background: t.bg, color: t.ink, fontSize: 14, lineHeight: 1.7, marginBottom: 10, transform: "rotate(-.8deg)" } }, "抽到的聊天签：" + s.topic) : null,
               h("input", { "data-wk": "gameinput", "data-part": "topicline", value: text, maxLength: 300, onChange: e => setText(e.target.value), placeholder: "你先说两句（可空，空着就让 TA 先说）", style: { width: "100%", minHeight: 44, padding: "8px 10px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, background: t.bg, fontSize: 13, marginBottom: 8 } }),
@@ -312,7 +343,7 @@
           // 纪念票根（第 6 条）：TA 给今天起的名字、四站图标、每站一句。只在游戏存档里，能复制
           (() => {
             const name = (s.rating && s.rating.title) || "今天";
-            const rows = s.events.map(e => (ICON[e.place] || "·") + " " + ((C.place(e.place) || {}).name || "") + "：" + String(e.text || "").replace(/^（[^）]*）/, "").replace(/^[^：]*：/, "").slice(0, 26));
+            const rows = s.events.map(e => iconOf(e.place) + " " + ((C.place(e.place) || {}).name || "") + "：" + String(e.text || "").replace(/^（[^）]*）/, "").replace(/^[^：]*：/, "").slice(0, 26));
             const text = "《" + name + "》\n" + rows.join("\n") + (s.rating && s.rating.score ? "\n" + (char.remark || char.name) + " 打了 " + s.rating.score + " 分" : "");
             return h("div", { "data-part": "ticket", style: { position: "relative", margin: "16px 6px 6px", padding: "14px 18px 12px", background: "#fffdf6", color: "#3a332b", borderRadius: 10,
                 boxShadow: "0 8px 18px -10px rgba(40,25,10,.5)", borderLeft: "2px dashed " + t.line } },
@@ -320,7 +351,7 @@
                 h("span", { style: { fontSize: 10.5, letterSpacing: 3, color: "#9a8f80" } }, "ADMIT TWO · 约会票根"),
                 h("span", { style: { fontSize: 10.5, color: "#9a8f80" } }, new Date().toLocaleDateString())),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, margin: "6px 0 8px" } }, "《" + name + "》"),
-              h("div", { style: { display: "flex", gap: 8, marginBottom: 8, fontSize: 22 } }, s.visits.map(v => h("span", { key: v }, ICON[v] || "·"))),
+              h("div", { style: { display: "flex", gap: 8, marginBottom: 8, fontSize: 22 } }, s.visits.map(v => h("span", { key: v }, iconOf(v) || "·"))),
               rows.map((r, i) => h("div", { key: i, style: { fontSize: 12, lineHeight: 1.7, color: "#5a5045" } }, r)),
               h("button", { "data-part": "ticketcopy", onClick: () => { try { (typeof copyText === "function" ? copyText : x => navigator.clipboard.writeText(x))(text); setCopied(true); } catch (e) {} },
                 style: { marginTop: 8, fontSize: 12, color: "#a0603f", background: "none", border: "1px dashed #d8c9b0", borderRadius: 8, padding: "5px 12px", minHeight: 34 } }, copied ? "已复制" : "复制票根"));

@@ -22,6 +22,10 @@
     { id: "library", name: "社区图书馆", time: 35, cost: 0, note: "安静地坐一会儿，小声说话", kind: "book", options: [["browse", "各看各的", []], ["recommend", "互相推荐一本", []]] },
     { id: "cinema", name: "电影院", time: 60, cost: 70, note: "看一场，出来聊聊", kind: "talk" },
     { id: "observatory", name: "城郊观星台", time: 50, cost: 30, note: "等星星出来，聊点平时不聊的", kind: "talk" },
+    // 合力玩法多两处（她 2026-10-14：「地点任务多加点」）——跟游乐屋同一套：TA 管前后，你管左右
+    { id: "rings", name: "套圈摊", time: 25, cost: 30, note: "TA 看准哪一排，你瞄哪一格", kind: "claw" },
+    { id: "balloon", name: "打气球摊", time: 25, cost: 35, note: "TA 报哪一排，你扣扳机", kind: "claw" },
+    { id: "ktv", name: "小包厢唱歌", time: 50, cost: 60, note: "点一首，唱着唱着就聊起来了", kind: "talk" },
     // 按现实钟点才开的（她 2026-10-14 挑的第 7 条）：hours＝[开, 关)，关比开小就是跨过半夜
     { id: "breakfast", name: "早餐铺", time: 25, cost: 20, note: "趁热，豆浆油条或者小笼包", kind: "menu", hours: [6, 11], options: [["fritter", "豆浆油条", []], ["bun", "一笼小笼包", []], ["sweetsoy", "甜豆花", ["sweet"]]] },
     { id: "nightmarket", name: "夜市小吃街", time: 45, cost: 55, note: "一路走一路吃，灯一盏一盏亮着", kind: "menu", hours: [18, 2], options: [["skewers", "边走边吃一路小串", []], ["tanghulu", "一人一串糖葫芦", ["sweet"]], ["stall", "挑一家坐下慢慢吃", []]] },
@@ -52,7 +56,7 @@
   // 任务：一半看真事件（代码判），一半看你俩说了什么（翻牌前由裁判读一遍聊天判）
   const MISSIONS = Object.freeze([
     { id: "photo", title: "默契合照", text: "拍到一张两人动作相同的合照。", needs: "photo" },
-    { id: "plush", title: "合力带走", text: "一起抓到一个玩偶或扭到一个蛋。", needs: "claw" },
+    { id: "plush", title: "合力带走", text: "在一处两人合力的小游戏里，一起赢到点什么。", needs: "claw" },
     { id: "cake", title: "留点甜的", text: "吃到一样甜的东西（谁点的都算）。", needs: "menu" },
     { id: "pair", title: "成双成对", text: "买到一对东西。", needs: "gift" },
     { id: "late", title: "晚一点再走", text: "把一处散步的地方放在已经走过至少 90 分钟之后。", needs: "walk" },
@@ -87,10 +91,14 @@
   const POSES = ["比个耶", "托着脸", "歪歪头"];
   const clone = x => JSON.parse(JSON.stringify(x));
   const pick = (a, rng) => a[Math.min(a.length - 1, Math.floor(rng() * a.length))];
-  const place = id => PLACE_POOL.find(p => p.id === id);
+  // 这一局模型配的料（她 2026-10-14：「放开让模型想」）：地点的名字、样子、能挑的东西，路上的小意外，专属任务。
+  //   玩法种类和判分规则不变，只盖在默认那份上面；读哪一局就先 bind 哪一局（所有收存档的函数进门先 bind）。
+  let CUR = null;
+  const bind = s => { CUR = (s && s.custom) || null; return s; };
+  const place = id => { const b = PLACE_POOL.find(p => p.id === id); const c = CUR && CUR.places && CUR.places[id]; return b && c ? Object.assign({}, b, c) : b; };
   const placesOf = s => (Array.isArray(s.places) && s.places.length ? s.places : LEGACY_PLACES);
   const optionOf = (p, id) => (p && p.options || []).find(o => o[0] === id);
-  const mission = id => MISSIONS.find(m => m.id === id) || THEME_MISSIONS.find(m => m.id === id) || BONUS.find(m => m.id === id);
+  const mission = id => MISSIONS.find(m => m.id === id) || THEME_MISSIONS.find(m => m.id === id) || BONUS.find(m => m.id === id) || ((CUR && CUR.missions) || []).find(m => m.id === id);
   function newGame(config, rng, opts) {
     rng = rng || Math.random;
     opts = opts || {};
@@ -134,7 +142,7 @@
   // 唯一模型投影：完整存档、用户任务、用户末轮猜测都不会进这条路。
   function aiView(s) {
     return { phase: s.phase, round: s.round, leader: s.round % 2 ? "用户" : "你", minutes: s.minutes, money: s.money,
-      yourMission: mission(s.missions.char), missionPool: MISSIONS.filter(m => !m.needs || placesOf(s).some(id => (place(id) || {}).kind === m.needs)).concat(THEME_MISSIONS.filter(m => m.theme === s.theme)), places: legalPlaces(s),
+      yourMission: mission(s.missions.char), missionPool: MISSIONS.filter(m => !m.needs || placesOf(s).some(id => (place(id) || {}).kind === m.needs)).concat(THEME_MISSIONS.filter(m => m.theme === s.theme)).concat((s.custom && s.custom.missions) || []), places: legalPlaces(s),
       current: s.current || null, lastEvent: s.events.length ? s.events[s.events.length - 1] : null,
       visits: s.visits, events: s.events, talk: s.talk, proposal: s.pending && s.pending.proposedId || s.proposal,
       exchanges: s.exchanges, toys: s.toys, poses: POSES, mood: moodOf(s), challenge: s.challenge || null,
@@ -205,7 +213,11 @@
     const n = clone(s); n.minutes -= p.time; n.money -= p.cost; n.visits.push(id);
     n.phase = "activity"; n.current = id; n.arrival = 180 - s.minutes; n.retryUsed = false;
     // 路上的小意外：掷一个，当场结算（不扣成负数）
-    const ev = s.noEvents ? EVENTS[0] : rng ? pick(EVENTS, rng) : EVENTS[Math.floor(Math.random() * EVENTS.length)];
+    const r0 = rng || Math.random, used = n.usedIncidents || [];
+    const fresh = ((s.custom && s.custom.incidents) || []).filter(e => used.indexOf(e.id) < 0);
+    // 这一局配好的小意外先用（六成），用过的不再掷；没有就回默认那几件
+    const ev = s.noEvents ? EVENTS[0] : fresh.length && r0() < .6 ? fresh[0] : rng ? pick(EVENTS, rng) : EVENTS[Math.floor(Math.random() * EVENTS.length)];
+    if (fresh.length && ev === fresh[0]) n.usedIncidents = used.concat([ev.id]);
     n.minutes = Math.max(0, n.minutes + ev.minutes); n.money = Math.max(0, n.money + ev.money);
     // 有两条路的小意外先不结算，摆给她挑（她 2026-10-14：「小意外有选择」）
     n.incident = ev.text ? { id: ev.id, text: ev.text, minutes: ev.minutes, money: ev.money, choices: ev.choices ? ev.choices.map(c => ({ id: c[0], label: c[1] })) : null, picked: null } : null;
@@ -239,6 +251,42 @@
     n.phase = "after";
     return n;
   }
+  // 收模型配的料：一样一样验，不合格的那一样就用默认的，不为一处坏了作废整份
+  const EMOJI_RE = /^\p{Extended_Pictographic}/u;
+  function applyCustom(s, raw) {
+    const n = clone(s), out = { places: {}, incidents: [], missions: [] }, src = raw && typeof raw === "object" ? raw : {};
+    placesOf(s).forEach(id => {
+      const b = PLACE_POOL.find(p => p.id === id), c = (src.places || {})[id]; if (!b || !c || typeof c !== "object") return;
+      const o = {};
+      if (String(c.name || "").trim()) o.name = String(c.name).trim().slice(0, 10);
+      if (String(c.note || "").trim()) o.note = String(c.note).trim().slice(0, 28);
+      if (EMOJI_RE.test(String(c.icon || ""))) o.icon = Array.from(String(c.icon))[0];
+      if (b.options && Array.isArray(c.options)) {
+        const need = b.kind === "menu" ? "sweet" : b.kind === "gift" ? "pair" : "";
+        const opts = c.options.filter(x => x && String(x.label || "").trim()).slice(0, 3).map((x, i) => {
+          const tags = (Array.isArray(x.tags) ? x.tags : []).filter(t => t === need);
+          return ["o" + (i + 1), String(x.label).trim().slice(0, 16), tags];
+        });
+        // 任务认「甜的」「成对」：配的东西里没有这一样，就不收这份选项，照用默认的
+        if (opts.length >= 2 && (!need || opts.some(x => x[2].length))) o.options = opts;
+      }
+      if (Object.keys(o).length) out.places[id] = o;
+    });
+    const num = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || 0)));
+    (Array.isArray(src.incidents) ? src.incidents : []).slice(0, 6).forEach((e, i) => {
+      const cs = (Array.isArray(e && e.choices) ? e.choices : []).filter(c => c && String(c.label || "").trim()).slice(0, 2);
+      if (!String((e && e.text) || "").trim() || cs.length < 2) return;
+      out.incidents.push({ id: "cx" + (i + 1), text: String(e.text).trim().slice(0, 40), minutes: 0, money: 0,
+        choices: cs.map((c, j) => ["c" + (j + 1), String(c.label).trim().slice(0, 24), num(c.minutes, -20, 0), num(c.money, -30, 15), num(c.mood, -3, 5)]) });
+    });
+    (Array.isArray(src.missions) ? src.missions : []).slice(0, 3).forEach((m, i) => {
+      if (!String((m && m.text) || "").trim()) return;
+      out.missions.push({ id: "cm" + (i + 1), title: String(m.title || "专属任务").trim().slice(0, 8), text: String(m.text).trim().slice(0, 50), social: true, custom: true });
+    });
+    n.custom = out; n.prepped = true;
+    return n;
+  }
+  function skipPrep(s) { const n = clone(s); n.prepped = true; return n; }
   // ---- 心情条（她 2026-10-14 挑的第 2 条）：TA 这一路过得怎么样，0~100，从 60 起 ----
   const MOOD0 = 60;
   const moodOf = s => s.mood == null ? MOOD0 : s.mood;
@@ -252,7 +300,7 @@
   // 路上的小意外挑一条路（第 3 条）：时间、钱当场结算，心情跟着挑的那条走
   function chooseIncident(s, id) {
     if (s.phase !== "activity" || s.pending || !s.incident || !s.incident.choices || s.incident.picked) throw Error("现在不用选。");
-    const ev = EVENTS.find(e => e.id === s.incident.id), c = ev && (ev.choices || []).find(x => x[0] === id);
+    const ev = EVENTS.find(e => e.id === s.incident.id) || ((s.custom && s.custom.incidents) || []).find(e => e.id === s.incident.id), c = ev && (ev.choices || []).find(x => x[0] === id);
     if (!c) throw Error("没有这个选项。");
     const n = clone(s);
     n.minutes = Math.max(0, n.minutes + c[2]); n.money = Math.max(0, n.money + c[3]);
@@ -291,7 +339,8 @@
     if (s.challenge && !s.challenge.done) throw Error("TA 出的题还没答。");
     const n = clone(s); n.challenge = null;
     if (!n.bonus && n.visits.length === 2) {
-      const r = Math.random, a = BONUS[Math.floor(r() * BONUS.length)], rest = BONUS.filter(b => b.id !== a.id);
+      const pool = BONUS.concat((s.custom && s.custom.missions) || []).filter(b => b.id !== s.missions.user && b.id !== s.missions.char);
+      const r = Math.random, a = pool[Math.floor(r() * pool.length)], rest = pool.filter(b => b.id !== a.id);
       n.bonus = { user: a.id, char: rest[Math.floor(r() * rest.length)].id };
     }
     if (s.visits.length >= 4 || !legalPlaces(s).length) n.phase = "guess";
@@ -330,7 +379,11 @@
       .concat((s.events || []).map((x, i) => ({ kind: "event", item: x, k: key(x, "event", i) })))
       .sort((a, b) => a.k - b.k);
   }
-  const api = { THEMES, THEME_MISSIONS, BONUS, openAt, feed, moodOf, chooseIncident, answerLie, skipChallenge, wantsChallenge, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
+  const api0 = { applyCustom, skipPrep, THEMES, THEME_MISSIONS, BONUS, openAt, feed, moodOf, chooseIncident, answerLie, skipChallenge, wantsChallenge, PLACES, PLACE_POOL, EVENTS, TOPICS, needsJudge, placesOf, optionOf, MISSIONS, POSES, newGame, legalPlaces, mission, place, progress, aiView, startRequest, receiveReply, commitPlace, resolveActivity, retryActivity, nextStop, closeDate, finish };
+  // 收存档的函数进门先 bind 这一局的料；place／mission 这种按 id 查的，跟着最近一次 bind 走
+  const TAKES_STATE = ["feed", "moodOf", "chooseIncident", "answerLie", "skipChallenge", "wantsChallenge", "needsJudge", "placesOf", "legalPlaces", "progress", "aiView", "startRequest", "receiveReply", "commitPlace", "resolveActivity", "retryActivity", "nextStop", "closeDate", "finish", "applyCustom", "skipPrep"];
+  const api = Object.assign({}, api0, { bind });
+  TAKES_STATE.forEach(k => { const f = api0[k]; if (typeof f === "function") api[k] = function (s) { bind(s); return f.apply(null, arguments); }; });
   if (typeof module === "object" && module.exports) module.exports = api;
   root.DateGameCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

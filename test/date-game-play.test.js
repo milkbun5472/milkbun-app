@@ -103,3 +103,37 @@ test("地点池里每一处都有自己的图标（票根和路线上不显示�
   const icon = src.slice(src.indexOf("const ICON = {"), src.indexOf("};", src.indexOf("const ICON = {")));
   C.PLACE_POOL.forEach(p => assert.ok(icon.indexOf(p.id + ":") >= 0, p.id + " 没有图标"));
 });
+
+// 她 2026-10-14：「放开让模型想」——开局备料，验过才收，坏了一样就那一样用默认
+test("模型配的料：名字、图标、选项盖在默认上；缺甜的／成对的那份选项不收；小意外和专属任务能用上", () => {
+  let s = C.newGame(config, () => .01, { places: ["cafe", "photo", "arcade", "shop", "river", "book"] });
+  s = C.applyCustom(s, {
+    places: {
+      cafe: { name: "茶楼", note: "点一壶茶配点心", icon: "🍵", options: [{ label: "桂花糕", tags: ["sweet"] }, { label: "虾饺", tags: [] }, { label: "清茶", tags: ["pair"] }] },
+      shop: { name: "庙会", options: [{ label: "一盏灯", tags: [] }, { label: "糖人", tags: [] }] },
+      photo: { icon: "not-an-emoji" }
+    },
+    incidents: [{ text: "路过的戏班子在搭台", choices: [{ label: "停下看一出", minutes: -99, money: 0, mood: 9 }, { label: "接着走", minutes: 0, money: 0, mood: 0 }] }, { text: "只有一个选项", choices: [{ label: "x" }] }],
+    missions: [{ title: "认错", text: "让对方承认上次迟到是 TA 的错" }]
+  });
+  C.bind(s);
+  assert.equal(C.place("cafe").name, "茶楼"); assert.equal(C.place("cafe").icon, "🍵");
+  assert.deepEqual(C.place("cafe").options.map(o => o[2]), [["sweet"], [], []], "只留 menu 认得的那个 tag");
+  assert.equal(C.place("shop").name, "庙会"); assert.equal(C.place("shop").options[0][0], "pair", "没有成对的那份选项不收，照用默认");
+  assert.equal(C.place("photo").icon, undefined);
+  assert.equal(s.custom.incidents.length, 1);
+  assert.deepEqual(s.custom.incidents[0].choices[0].slice(2), [-20, 0, 5], "时间、心情夹在范围里");
+  assert.equal(C.mission("cm1").text, "让对方承认上次迟到是 TA 的错");
+  assert.ok(C.aiView(s).missionPool.some(m => m.id === "cm1"), "猜任务的时候也认得");
+  // 茶楼里点「桂花糕」算吃到甜的
+  s = C.receiveReply(C.startRequest(s, "plan", "", "cafe"), { place: "cafe", accept: true, pose: 0, row: 0, hint: "", say: "走" });
+  s = C.commitPlace(s, "cafe", false, () => .99);
+  if (s.incident && s.incident.choices) s = C.chooseIncident(s, s.incident.choices[0].id);
+  s = C.resolveActivity(s, "o1");
+  assert.equal(C.progress(s, "cake").done, true);
+  assert.match(s.events[0].text, /茶楼：你桂花糕/);
+});
+test("配料没配出来也不卡：跳过就照默认的玩", () => {
+  const s = C.skipPrep(C.newGame(config));
+  assert.equal(s.prepped, true); assert.equal(s.custom, undefined);
+});
