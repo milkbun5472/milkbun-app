@@ -28937,6 +28937,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMyKin: () => runRoomAction(activeChar.id, "herkinspend", () => { setMyKinFor(activeChar.id); myKinBackRef.current = "thread"; setScreen("mykin"); }),
     onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
     invitePlaces: invitePlacesFor(activeChar),
+    // 发位置时勾了「把我的位置也改到这儿」（她 2026-10-14）：世界里的地点→挪那个世界里「我」的钉；别的→跟设置里手填地名同一条路
+    onSetMyPlace: p => {
+      const w = p && p.from ? (worldsRef.current || []).find(x => x && x.name === p.from) : null;
+      if (w) {
+        saveWorlds((worldsRef.current || []).map(x => x.id === w.id ? { ...x, pins: { ...(x.pins || {}), __me: p.name } } : x));
+        const my = myRealm(activeChar.id);
+        toast(my && my.kind === "world" && my.world && my.world.id === w.id ? "现在你在：" + w.name + "·" + p.name : "已把你在「" + w.name + "」的位置挪到 " + p.name + "；要他认你在这个世界，去 设置 · 位置感知 选它");
+      } else if (p && p.name) doSetGeoPlace(p.name).then(c => { if (Array.isArray(c)) toast("同名的地方不止一个，去 设置 · 位置感知 里手填挑一个"); });
+    },
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
       .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
       .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),

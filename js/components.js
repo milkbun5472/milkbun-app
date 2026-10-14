@@ -9747,7 +9747,7 @@ function ChatThread({
   onBdayPlanOpen, // 生日暗中准备的信封：生日当天拆开进线下
   onDateAnswer,  // TA约她的那张卡：好／改天
   onMyKin,   // ＋面板「亲属卡」（她 2026-10-07）：给TA开一张，开过了就是那张卡的账单页
-  onDateInvite, invitePlaces,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
+  onDateInvite, invitePlaces, onSetMyPlace,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
   onOffline,
@@ -11038,6 +11038,8 @@ function ChatThread({
     }
   }), geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
+    places: invitePlaces || [],
+    onMoveMe: onSetMyPlace || null,
     onClose: () => setGeoOpen(false),
     onSend: name => {
       sendRich({ role: "user", kind: "geo", name: name, content: "[位置] " + name });
@@ -15198,9 +15200,13 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
 // ⚠️为什么这一层还留半窗(见 施工规则/no-half-sheet.md):
 //   它是「选一下就走」的那一种,而且下面那一层【正是它要发进去的那个聊天】——
 //   正好踩中那条规矩里半窗仅有的两种合格形状之一。
-function GeoStampSheet({ recent, onClose, onSend }) {
+// places：跟「邀约」同一份（你俩钉过的地方＋他那个架空世界的地点）；onMoveMe 有才露出那个小开关（她 2026-10-14）
+function GeoStampSheet({ recent, places, onMoveMe, onClose, onSend }) {
   const t = useTheme();
   const [name, setName] = useState("");
+  const [picked, setPicked] = useState(null);   // 从上面那排点的那一个（带 from，知道是不是世界里的地点）
+  const [moveMe, setMoveMe] = useState(false);
+  const pl = (places || []).slice(0, 40);
   const lift = useKbLift();
   const v = name.trim();
   const past = (recent || []).slice(0, 5);
@@ -15213,22 +15219,34 @@ function GeoStampSheet({ recent, onClose, onSend }) {
         h("circle", { cx: 12, cy: 10.9, r: 2.3 })),
       h("input", {
         value: name,
-        onChange: e => setName(e.target.value),
+        onChange: e => { setName(e.target.value); setPicked(null); },
         placeholder: "你现在在哪儿",
         className: "flex-1 outline-none bg-transparent",
         style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line, paddingBottom: 7 }
       })),
+    pl.length ? h("div", { "data-wk": "geoplaces", style: { marginBottom: 20 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8 } }, "钉过的地方、他那个世界里的地点"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 132, overflowY: "auto" } }, pl.map((p, i) => {
+        const on = picked && picked.name === p.name;
+        return h("button", { key: i, onClick: () => { if (on) { setPicked(null); setName(""); } else { setPicked(p); setName(p.name); } }, className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 11px", borderRadius: 999, color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } },
+          p.name, p.from ? h("span", { style: { fontSize: 10, opacity: 0.6, marginLeft: 4 } }, p.from) : null);
+      }))) : null,
     past.length ? h("div", { style: { marginBottom: 24 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8 } }, "你之前发过"),
       past.map((x, k) => h("button", {
         key: k,
-        onClick: () => setName(x),
+        onClick: () => { setName(x); setPicked(null); },
         className: "w-full text-left active:opacity-60",
         style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, padding: "9px 0",
           borderTop: k ? "1px solid " + t.line : "none" }
       }, x))) : null,
+    onMoveMe ? h("button", { "data-wk": "geomoveme", "data-on": moveMe ? "1" : "0", onClick: () => setMoveMe(x => !x), className: "active:opacity-70",
+      style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+      h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1.5px solid " + t.ink, background: moveMe ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "13px", textAlign: "center" } }, moveMe ? "✓" : ""),
+      "把我的位置也改到这儿") : null,
     h("button", {
-      onClick: () => v && onSend(v),
+      onClick: () => { if (!v) return; onSend(v); if (moveMe && onMoveMe) onMoveMe(picked && picked.name === v ? picked : { name: v }); },
       disabled: !v,
       className: "w-full active:opacity-80",
       style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, borderRadius: 12, padding: "13px",
