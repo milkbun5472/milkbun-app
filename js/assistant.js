@@ -672,6 +672,34 @@
   // 秋秋多管的几样（聊天设置、小房间开关、记忆库改删、衣柜、日历）住在 assistant-extras.js，并进同一张表
   if (typeof window !== "undefined" && window.AssistExtras) Object.assign(TARGETS, window.AssistExtras.TARGETS);
 
+  // ---- 坏 JSON 里把改动卡一张张抠回来 ----
+  //   字段名单就是 apply 认的那几个；text 这种长的读到「下一个字段名」或「这张卡收尾」为止，
+  //   所以里头夹着没转义的双引号（CSS 选择器、HTML 属性）也能整段拿回来。
+  const PATCH_KEYS = ["target", "id", "field", "find", "append", "whole", "title", "name", "text", "why", "both", "keyword", "keywords", "always", "bind", "drop", "date", "occasion", "view"];
+  const unJ = v => String(v).replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  function salvageField(chunk, key) {
+    const re = new RegExp('"' + key + '"\\s*:\\s*');
+    const m = re.exec(chunk); if (!m) return "";
+    let i = m.index + m[0].length;
+    if (chunk[i] !== '"') { const lit = /^(true|false|null|-?\d+(?:\.\d+)?)/.exec(chunk.slice(i)); return lit ? lit[1] : ""; }
+    i++;
+    const others = PATCH_KEYS.concat(["reply", "patches", "file", "code"]).filter(k => k !== key).join("|");
+    const end = new RegExp('"\\s*,\\s*"(?:' + others + ')"\\s*:|"\\s*\\}\\s*,?\\s*(?:\\{|\\]|$)');
+    const rest = chunk.slice(i), e = end.exec(rest);
+    return unJ(e ? rest.slice(0, e.index) : rest.replace(/"\s*\}?\s*\]?\s*\}?\s*$/, ""));
+  }
+  function salvagePatches(raw) {
+    const s = String(raw || "");
+    const starts = []; const re = /\{\s*"target"\s*:/g; let m;
+    while ((m = re.exec(s))) starts.push(m.index);
+    return starts.map((st, k) => {
+      const chunk = s.slice(st, k + 1 < starts.length ? starts[k + 1] : s.length);
+      const o = {};
+      PATCH_KEYS.forEach(key => { const v = salvageField(chunk, key); if (v !== "") o[key] = v === "true" ? true : v === "false" ? false : v; });
+      return o.target ? o : null;
+    }).filter(Boolean);
+  }
+
   // ---- 代码/框架那道门（她 2026-09-03 点名的那条）----
   // 判的是【这东西怎么造出来的】，不是【这东西哪儿不对劲】：
   // 她说「购物有 bug」是在报毛病，那要答；问「用什么框架写的」才回绝。
@@ -1048,8 +1076,30 @@
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
-    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
-    const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    const sysText = buildSystem(ctx, text, history);
+    const raw = await callAI(active, sysText, msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+    let d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    // 卡掉了救回来（她 2026-10-14：「经常说点应用就可以了但是卡没发出来，有时候好几轮才成功」）：
+    //   最常见的是 CSS 里的 [data-wk="bubble"] 那种双引号没转义，整段 JSON 一下就坏了，所有卡一起丢。
+    //   ① 先在原文里一张张抠：认 "target" 打头，text 读到下一个字段名为止（里头有没转义的引号也不怕）
+    //   ② 还是一张没有、它嘴上又说了有卡：自动再问它一次，只要改动稿
+    const listOf = o => Array.isArray(o.patches) ? o.patches : Array.isArray(o.cards) ? o.cards : Array.isArray(o.changes) ? o.changes : (o.patch && typeof o.patch === "object") ? [o.patch] : [];
+    if (!listOf(d).length && /"target"\s*:/.test(raw)) {
+      const got = salvagePatches(raw);
+      if (got.length) d = Object.assign({}, d, { patches: got, reply: d.reply || salvageField(raw, "reply") });
+    }
+    const saidCard = o => /改动卡|改动稿|卡片|卡在下面|点.{0,3}应用/.test(String(o.reply || "")) || /"patches"\s*:\s*\[\s*\{/.test(raw);
+    if (!listOf(d).length && saidCard(Object.keys(d).length ? d : { reply: raw }) && !(signal && signal.aborted)) {
+      try {
+        const raw2 = await callAI(active, sysText, msgs.concat([{ role: "assistant", content: String(raw).slice(0, 60000) },
+          { role: "user", content: "（系统：你上一条说有改动卡，但卡没写出来或者格式坏了，她那边一张都没收到。别重复说话，只把这一轮的改动稿重新发一遍："
+            + "只输出 {\"reply\":\"\",\"patches\":[...]}。text 里的双引号一律写成 \\\"，换行写成 \\n。）" }]),
+          { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+        let d2 = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw2) : extractJSON(raw2)) || {};
+        if (!listOf(d2).length && /"target"\s*:/.test(raw2)) d2 = { patches: salvagePatches(raw2) };
+        if (listOf(d2).length) d = Object.assign({}, d, { patches: listOf(d2), reply: d.reply || salvageField(raw, "reply") || "" });
+      } catch (e) {}
+    }
     // 世界书只改关键词／常驻／绑谁的那种（她 2026-10-10 截图：「4 条常驻改成关键词」两次都没出卡）：
     //   正文一个字不动，text 本来就该空着——原来这道筛子只认有正文的，四张卡被当成空的整批丢掉，回话却照样说「卡在下面」
     const loreMetaOnly = x => x.target === "lore" && x.id && x.id !== "new" && !String(x.text || "").trim()
