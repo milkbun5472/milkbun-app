@@ -19,3 +19,8 @@ test("TA约的那张只有一句话：照发卡那天推出到点时刻", () => 
   assert.equal(at("下午三点"), "14 15:0");
   assert.equal(dateAtOf({ ts, when: { text: "改天" } }), 0);
 });
+
+test("弹出来的赴约卡点出发：顺手打开那个聊天", () => {
+  const i = src.indexOf("h(DateArrivePop");
+  assert.ok(/openChatById\(d\.groupId \|\| d\.charId/.test(src.slice(i, i + 800)));
+});

@@ -31812,7 +31812,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     m: dateArrive.m, character: dateArrive.groupId
       ? { name: (dateArrive.m.invitees || []).filter(x => (dateArrive.m.replies || {})[x.id] === "yes").map(x => x.name).join("、") || "大家" }
       : (characters || []).find(x => x.id === dateArrive.charId) || {},
-    onGo: () => { const d = dateArrive; setDateArrive(null); if (d.groupId) groupDateGo(d.groupId, d.m); else dateGo(d.charId, d.m); },
+    onGo: () => { const d = dateArrive; setDateArrive(null); if (d.groupId) groupDateGo(d.groupId, d.m); else dateGo(d.charId, d.m);
+      // 点了出发就带她过去（她 2026-10-14「还是得手动进他聊天」）：跟消息提醒点进去是同一处
+      openChatById(d.groupId || d.charId, d.groupId ? "group" : undefined); },
     onLater: () => setDateArrive(null)
   }), peekPlay && window.PeekPhone && h(window.PeekPhone.PeekPlayer, {
     charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",
