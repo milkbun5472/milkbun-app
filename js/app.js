@@ -11169,13 +11169,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {}
   }, [chats]);
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
-  //   只认【TA答应了、还没去、定了日子钟点】的回执；弹过一次记上 popped，不反复弹
+  //   只认【TA答应了、还没去、定了日子钟点】的回执，和【TA约她、她答应了】的那张（她 2026-10-14：「为啥到点了没有弹出来卡」——原来只认她约TA的）；
+  //   弹过一次记上 popped，不反复弹
   const [dateArrive, setDateArrive] = useState(null);   // { charId, m } 或群里那张 { groupId, m }
   useEffect(() => {
     const tick = () => {
       if (dateArrive || offlineChar || offlineGroup) return;
       for (const c of (characters || [])) {
-        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && x.kind === "datereceipt" && x.state === "pending" && !x.popped && x.when && x.when.date);
+        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && !x.popped && x.when && x.when.date
+          && ((x.kind === "datereceipt" && x.state === "pending") || (x.kind === "dateask" && x.state === "accepted")));
         if (!m) continue;
         const at = new Date(m.when.date + "T" + (m.when.time || "00:00")).getTime();
         if (!at || at > Date.now() || Date.now() - at > 12 * 3600e3) continue;
