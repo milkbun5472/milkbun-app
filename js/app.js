@@ -28234,7 +28234,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetAutoRate: (feature, charId, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, feature, charId, rate)),
     // 删角色走 delChar（它自己会再弹一道二次确认、说清先导出）；清聊天走设置里那颗同一个 clearChat
     onDeleteChar: id => delChar(id),
-    onClearChat: (id, wipeMem) => clearChat(id, !!wipeMem)
+    onClearChat: (id, wipeMem) => clearChat(id, !!wipeMem),
+    // 第二批：群聊／线下设置、全局开关、行程、情侣空间、表情包——各走设置页那一处同一个写口
+    groupsList: () => groups || [],
+    groupSettingsOf: id => gsFor(id),
+    offlineSettingsOf: id => osFor(id),
+    globalsGet: () => ({ timeAware: prefsRef.current.timeAware !== false, geoAware: !!prefsRef.current.geoAware, msgBanner: prefsRef.current.msgBanner !== false,
+      bgToast: bgToastOn(), bgApi: loadJSON("x_bgApi", null), musicProvider: musicProvider }),
+    onSetGlobal: (key, v) => {
+      if (key === "timeAware" || key === "geoAware" || key === "msgBanner") { const p = { ...prefsRef.current, [key]: !!v }; prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p); }
+      else if (key === "bgToast") saveJSON("x_bgToast", !!v);
+      else if (key === "bgApi") setBgApi(v || null);
+      else if (key === "musicProvider") saveListen(p => ({ ...p, musicProvider: v === "gd" ? "gd" : "netease" }));
+    },
+    schedOf: id => (schedulesRef.current || {})[id] || {},
+    onEditSchedSeq: (id, dayKey, seq, patch) => editSchedSeq(id, dayKey, seq, patch),
+    coupleHomeOf: id => (coupleHomeRef.current || {})[id] || {},
+    onSaveCoupleHome: (id, fn) => saveCoupleHome(id, fn),
+    annivList: () => coupleAnniv || [],
+    onAddAnniv: (char, name, m, d, yearly, linkCal, year) => addAnniv(char, name, m, d, yearly, linkCal, year),
+    onRemoveAnniv: id => removeAnniv(id),
+    emotePacks: () => emotePacksRef.current || [],
+    onSaveEmotePacks: next => commitEmotePacks(next)
   });
   // ---- geo ----
   const doRequestGeo = async () => {

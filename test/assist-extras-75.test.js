@@ -83,3 +83,61 @@ test("线路、面具、自动功能、会删东西的那几样也能出卡；�
   assert.match(X.DANGER_WARN, /导出全部数据/);
   assert.match(X.docLines(), /reply 里必须先说这一句/);
 });
+
+// 第二批（她 2026-10-14「都做吧。还有让它可以把网易云换成 GD 音乐台，知道世界书有什么用、照做，生图能干啥」）
+test("群聊设置、线下设置、全局开关：照名单改，名单外和超范围不认", () => {
+  const got = [];
+  const ctx = { characters: [{ id: "c1", name: "陆衍" }], groupsList: () => [{ id: "g1", name: "一家人", memberIds: ["c1"] }],
+    onPatchGroupSetting: (id, p) => got.push(["g", id, p]), onPatchOfflineSetting: (id, p) => got.push(["o", id, p]),
+    onSetGlobal: (k, v) => got.push(["G", k, v]), apiProfiles: [{ id: "r1", name: "便宜的" }] };
+  X.TARGETS.gsetting.write("g1:memoryInterop", { text: "开" }, ctx);
+  X.TARGETS.gsetting.write("g1:autoChatMin", { text: "15" }, ctx);
+  X.TARGETS.osetting.write("c1:tastePace", { text: "慢慢磨" }, ctx);
+  X.TARGETS.osetting.write("c1:maxTokens", { text: "8000" }, ctx);
+  X.TARGETS.global.write("musicProvider", { text: "GD音乐台" }, ctx);
+  X.TARGETS.global.write("bgApi", { text: "无" }, ctx);
+  X.TARGETS.global.write("bgApi", { text: "便宜的" }, ctx);
+  X.TARGETS.global.write("geoAware", { text: "关" }, ctx);
+  assert.deepEqual(got, [["g", "g1", { memoryInterop: true }], ["g", "g1", { autoChatMin: 15 }], ["o", "c1", { tastePace: "slow" }], ["o", "c1", { maxTokens: 8000 }],
+    ["G", "musicProvider", "gd"], ["G", "bgApi", "__off__"], ["G", "bgApi", "r1"], ["G", "geoAware", false]]);
+  assert.throws(() => X.TARGETS.gsetting.write("g9:drama", { text: "开" }, ctx), /找不到这个群/);
+  assert.throws(() => X.TARGETS.osetting.write("c1:fontSize", { text: "99" }, ctx), /12～22/);
+  assert.throws(() => X.TARGETS.global.write("apiKey", { text: "x" }, ctx), /没有/);
+});
+
+test("行程、情侣档案、愿望、纪念日、表情包分配", () => {
+  const sc = []; const home = { c1: { archive: {}, wishes: [{ id: "w1", title: "去看海", status: "wish" }] } };
+  let packs = [{ id: "p1", name: "猫猫", global: true, charIds: [] }]; const ann = [];
+  const ctx = { characters: [{ id: "c1", name: "陆衍" }, { id: "c2", name: "沈砚" }],
+    onEditSchedSeq: (c, d, n, p) => { sc.push([c, d, n, p]); return 1; },
+    coupleHomeOf: id => home[id] || {}, onSaveCoupleHome: (id, fn) => { home[id] = fn(home[id] || {}); },
+    annivList: () => ann, onAddAnniv: (ch, name, m, d, y, l, yr) => ann.push({ id: "a1", characterId: ch.id, name, m, d, y, yr }), onRemoveAnniv: id => ann.splice(0),
+    emotePacks: () => packs, onSaveEmotePacks: n => { packs = n; return true; } };
+  X.TARGETS.sched.write("c1:2026-10-14:2", { name: "去书店", time: "9:30" }, ctx);
+  assert.deepEqual(sc[0], ["c1", "2026-10-14", 2, { title: "去书店", time: "09:30" }]);
+  X.TARGETS.couple.write("c1:nicknames", { text: "他叫我小狗" }, ctx);
+  assert.equal(home.c1.archive.nicknames, "他叫我小狗");
+  X.TARGETS.wish.write("c1:new", { name: "一起包饺子", type: "一起吃" }, ctx);
+  X.TARGETS.wish.write("c1:w1", { done: true }, ctx);
+  assert.equal(home.c1.wishes[0].title, "一起包饺子");
+  assert.equal(home.c1.wishes.find(w => w.id === "w1").status, "done");
+  X.TARGETS.anniv.write("c1:new", { name: "第一次见面", date: "2024-03-14" }, ctx);
+  assert.deepEqual([ann[0].m, ann[0].d, ann[0].yr, ann[0].y], [3, 14, 2024, true]);
+  X.TARGETS.emote.write("p1", { text: "陆衍、沈砚" }, ctx);
+  assert.deepEqual([packs[0].global, packs[0].charIds], [false, ["c1", "c2"]]);
+  X.TARGETS.emote.write("p1", { text: "全局" }, ctx);
+  assert.equal(packs[0].global, true);
+  assert.throws(() => X.TARGETS.emote.write("p1", { text: "路人甲" }, ctx), /没有叫/);
+  assert.ok(X.okWithoutText({ target: "wish", id: "c1:w1", done: true }));
+});
+
+test("秋秋说明里写着世界书怎么起作用、生图去哪查、音乐源怎么换；App 两处都接了写口", () => {
+  const doc = X.docLines();
+  ["照做", "生图", "always:true", "stamps", "priority", "GD音乐台", "gsetting", "osetting", "anniv", "emote"].forEach(w => assert.ok(doc.includes(w), w));
+  const app = R("js/app.js");
+  ["onSetGlobal:", "groupSettingsOf:", "offlineSettingsOf:", "onEditSchedSeq: (id", "onSaveCoupleHome:", "onAddAnniv:", "onSaveEmotePacks:"].forEach(w => assert.ok(app.includes(w), w));
+  const man = R("js/assistant-manual.js");
+  assert.ok(man.includes('id: "imagegen"') && man.includes("GD音乐台"));
+  const as = R("js/assistant.js");
+  assert.ok(/stampsOf/.test(as) && /"cat", "stamps", "priority"/.test(as));
+});
