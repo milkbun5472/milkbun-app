@@ -10723,7 +10723,7 @@ function SenseConfig({
   })), typeof VClockMasks === "function" ? h(VClockMasks, { masks, primaryId: maskPrimary,
     clocks: { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) },
     // 旧的那一只（vclock）并进 vclocks.main 以后就不再单放
-    onChange: c => { const np = { ...p, vclocks: c }; delete np.vclock; save(np); } }) : null, h("div", {
+    onChange: c => { const old = { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) }; const np = { ...p, vclocks: typeof vclockKeepHist === "function" ? vclockKeepHist(old, c) : c }; delete np.vclock; save(np); } }) : null, h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {

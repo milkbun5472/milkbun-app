@@ -10916,7 +10916,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         else next[k] = c;
       });
       if (!changed) return;
-      const p = { ...cur, vclocks: next }; delete p.vclock;
+      const p = { ...cur, vclocks: typeof vclockKeepHist === "function" ? vclockKeepHist(all, next, now) : next }; delete p.vclock;
       prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p);
     };
     const onVis = () => touch(document.visibilityState === "hidden");
@@ -31786,7 +31786,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     vclock: (() => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
       const c = ({ ...(prefs.vclock ? { main: prefs.vclock } : {}), ...(prefs.vclocks || {}) })[k]; return c && c.on ? c : null; })(),
     onVClock: v => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
-      const cur = prefsRef.current; const all = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}), [k]: v };
+      const cur = prefsRef.current; const old = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}) };
+      const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台关了：自己跑的那些都不跑了" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
