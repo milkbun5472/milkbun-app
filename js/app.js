@@ -16545,6 +16545,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("生成失败：" + e.message); } finally { setGen(g => ({ ...g, calendar: false })); }
   };
 
+  // 给我自己排这几天（她 2026-10-14 转群友「日程可以让 ai 也帮我排一下吗，我自己想不出来」，她：「为啥不直接搞个角色一样的 ai 帮排」）：
+  //   跟角色那档一样排「今天到本周日」；我已经写了的日程原样给它看，只往空档里排，不动我写的。
+  //   落成我自己的普通日程（备注「AI 排的」），想改想删跟手填的一样点开改。
+  const genMyWeek = async promptText => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const pad = n => String(n).padStart(2, "0"), key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const t0 = new Date(), dow = (t0.getDay() + 6) % 7;
+    const days = Array.from({ length: 7 - dow }, (_, i) => { const d = new Date(t0); d.setDate(t0.getDate() + i); return key(d); });
+    const mine = (calEventsRef.current || []).filter(e => e && (e.owner || "mine") === "mine" && e.startDate <= days[days.length - 1] && (e.endDate || e.startDate) >= days[0]);
+    setGen(g => ({ ...g, myweek: true }));
+    try {
+      const d = await runProbe(active, { char: { id: "__me", name: userName(profile), persona: "" }, chars: characters, rels, profile, timeAware: true }, {
+        instruction: "替「" + userName(profile) + "」（用这个 App 的人自己，不是任何角色）排她 " + days[0] + " 到 " + days[days.length - 1] + " 这几天的日程。"
+          + "现在是 " + key(t0) + " " + pad(t0.getHours()) + ":" + pad(t0.getMinutes()) + "，今天已经过去的钟点不要排。"
+          + (mine.length ? "她已经写好的日程（原样保留，不许挪、不许重复排，只往空档里排）：" + mine.map(e => e.startDate + " " + (e.startTime || "全天") + (e.endTime ? "-" + e.endTime : "") + " " + e.title).join("；") + "。" : "")
+          + (promptText && promptText.trim() ? "她自己说的要求：" + promptText.trim() + "。" : "她没说具体要求：按普通人过日子排，吃饭、休息、该做的事都留出来，别排太满。")
+          + "每天 3-6 条，时间不重叠。每条：date(YYYY-MM-DD，必须是上面这几天) / start(HH:MM) / end(HH:MM) / title(简短) / place(可空)。",
+        schemaHint: "{\"items\":[{\"date\":\"2026-01-01\",\"start\":\"09:00\",\"end\":\"10:00\",\"title\":\"事项\",\"place\":\"\"}]}",
+        maxTokens: 9500
+      });
+      const hm = v => /^\d{1,2}:\d{2}$/.test(String(v || "").trim()) ? String(v).trim().padStart(5, "0") : "";
+      const items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && String(x.title || "").trim() && days.indexOf(String(x.date || "").trim()) >= 0);
+      if (!items.length) { toast("没有排出来，换个说法再试一次"); return; }
+      items.forEach(x => saveCalTimedEvent({ owner: "mine", startDate: String(x.date).trim(), startTime: hm(x.start), endTime: hm(x.end),
+        title: String(x.title).trim().slice(0, 40), location: String(x.place || "").trim().slice(0, 30), note: "AI 排的" }));
+      toast("排好了 " + items.length + " 条");
+    } catch (e) { toast("排失败：" + e.message); } finally { setGen(g => ({ ...g, myweek: false })); }
+  };
   // ---- probes ----
   // ============================================================
   // 行程 Lifestyle —— x_schedules[charId][dayKey]=dayPlan；当天首开给所有人生成，过去可点(懒生成)，未来锁
@@ -31163,6 +31191,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveEvent: saveCalEvent,
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
+    onGenMyWeek: genMyWeek,
+    myWeekBusy: !!gen.myweek,
     onSavePeriod: savePeriodSettings,
     onRecordPeriod: recordPeriodStart,
     onSaveTimed: saveCalTimedEvent,
