@@ -1077,8 +1077,19 @@
   // 读她选的那个文件：txt/md 自己认编码，pdf 抽文字层
   async function readMaterialFile(f, onProg) {
     const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
+    // Word 和 epub 跟一起读同一套解析（群友 2026-10-14：扫描 PDF 用 WPS 转成 Word，一起读能导，一起学选不中）
+    const isDocx = /\.docx$/i.test(f.name) || (f.type && f.type.indexOf("wordprocessingml") >= 0);
+    const isEpub = /\.epub$/i.test(f.name) || (f.type && f.type.indexOf("epub") >= 0);
+    if (/\.doc$/i.test(f.name)) throw new Error("老的 .doc 读不了，在 WPS 里另存为 .docx 再传");
+    if (isDocx || isEpub) {
+      const fn = isDocx ? (typeof docxToText === "function" ? docxToText : null) : (typeof epubToText === "function" ? epubToText : null);
+      if (!fn) throw new Error("这台设备读不了这种文件，存成 txt 再传");
+      const t2 = String(await fn(await f.arrayBuffer()) || "");
+      if (!t2.trim()) throw new Error("这份文件里没读到文字");
+      return { text: t2, kind: "txt" };
+    }
     const isTxt = /\.(txt|md|markdown)$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
-    if (!isPdf && !isTxt) throw new Error("现在能读 .txt、.md 和带文字层的 .pdf；拍的书页用课上的发图片");
+    if (!isPdf && !isTxt) throw new Error("现在能读 .txt、.md、.docx、.epub 和带文字层的 .pdf；拍的书页用课上的发图片");
     // 每页前面标「〔PDF 第 N 页〕」：她说「第十七页」时老师才知道是哪一页（书上印的页码可能跟 PDF 的第几页对不上，两个都在）
     const text = isPdf ? await extractPdfText(f, onProg, { pageMarks: true }) : await readTextFileSmart(f);
     if (!String(text || "").trim()) throw new Error(isPdf ? "没读到文字——这份 PDF 可能是扫描图，拍的书页用课上的发图片" : "这个文件是空的");
@@ -1086,7 +1097,7 @@
   }
   async function addMaterial(curId, file, onProg) {
     const got = await readMaterialFile(file, onProg);
-    return saveMaterialText(curId, String(file.name || "资料").replace(/\.(txt|md|markdown|pdf)$/i, ""), got.kind, got.text);
+    return saveMaterialText(curId, String(file.name || "资料").replace(/\.(txt|md|markdown|pdf|docx|epub)$/i, ""), got.kind, got.text);
   }
   // 一份正文收进这门课的资料：她传的文件、老师递来的讲义都走这一处
   async function saveMaterialText(curId, name, kind, text) {
@@ -2265,7 +2276,7 @@
               h("button", { onClick: function () { drop(m); }, className: "active:opacity-70", style: Object.assign({}, small, { marginLeft: "auto", padding: "4px 2px", background: "transparent", border: "none" }) }, "删掉这份")) : null);
         })),
       h(StudyFooter, null,
-        h("input", { ref: fileRef, type: "file", accept: ".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf", onChange: onFile, style: { display: "none" } }),
+        h("input", { ref: fileRef, type: "file", accept: ".txt,.md,.markdown,.pdf,.docx,.epub,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/epub+zip", onChange: onFile, style: { display: "none" } }),
         h("button", { onClick: function () { if (!busy && fileRef.current) fileRef.current.click(); }, disabled: !!busy, className: "w-full py-3 active:opacity-70",
           style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: busy ? STUDY_SKIN.fog : accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px" } }, busy || "传一份资料")));
   }
