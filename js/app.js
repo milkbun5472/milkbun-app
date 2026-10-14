@@ -12093,11 +12093,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
       }
       // TA主动约她出来（她 2026-10-02）：只在不闹别扭、没有挂着的邀约、三天没约过时偶尔给一次
-      if (!_peekTurn && !(room && !room.main) && !_body && !_moodNeg && !_harsh && !_inv && !charInviteOf(charId) && dateAskReady(charId) && Math.random() < 0.1) {
+      // 她开口叫TA发邀约（她 2026-10-14：「你给我发个邀约」，TA只在旁白里写「新建约会日程…确认发送」，卡没出来）：
+      //   那一轮必给这张卡，不看三天冷却、不掷骰子；只要现在没有一张TA发的还挂着
+      const _askedInvite = /(发|给我|来)[^。！？\n]{0,6}(邀约|约会邀请|邀请函)|约我(出去|吃饭|见面)?[吧呀啊嘛]?$|邀约/.test(String(recentUserText || "").slice(-80));
+      if (!_peekTurn && !(room && !room.main) && !_body && !_inv && !charInviteOf(charId) && (_askedInvite || (!_moodNeg && !_harsh && dateAskReady(charId) && Math.random() < 0.1))) {
         openCaps.push("dateAsk");
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
         capState.push("dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
-          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + "没这个心思就别填；话照常写在 word 里。");
+          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就别填；") + "话照常写在 word 里。");
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
@@ -13468,7 +13471,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           delivered = true;
         }
       }
-      if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && dateAskReady(charId) && !charInviteOf(charId)) {
+      if (parsed.dateAsk && typeof parsed.dateAsk === "object" && !(room && !room.main) && !_peekTurn && (dateAskReady(charId) || (typeof recentUserText === "string" && /邀约|约会邀请|邀请函/.test(recentUserText.slice(-80)))) && !charInviteOf(charId)) {
         const da = parsed.dateAsk, nm = String(da.place || "").trim().slice(0, 24);
         if (nm) {
           const nt = String(da.note || "").trim().slice(0, 60), wt = String(da.when || "").trim().slice(0, 24), say = String(da.say || "").trim().slice(0, 60);
