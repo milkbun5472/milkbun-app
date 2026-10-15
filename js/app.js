@@ -28183,6 +28183,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   所以不动上面那几个拍平的函数，另给一份分组视图；两边读的是同一份 emotePacks。
   const emotePacksForChar = charId => (emotePacksRef.current || [])
     .filter(pk => pk && pk.mine !== false)
+    // 专属给别人的那几套不摆在这个人的聊天里（她 2026-10-16「专属的我想在他的界面只显示他的，不要其他角色的」）：
+    //   全局的、没指定给谁的、指定里有这个人的才摆；群里照旧是成员们各自那份的并集
+    .filter(pk => pk.global || !(pk.charIds || []).length || (pk.charIds || []).map(String).includes(String(charId)))
     // ⚠️cover 必须跟着传（她 2026-09-30：「为啥设了表情包封面实际不会变」）。
     //   这一步是重新捏一个干净对象给聊天面板，原来只捡了 id/name/emotes——
     //   于是 packCoverOf 在那边永远找不到她挑的那张，每次都退回第一张。
