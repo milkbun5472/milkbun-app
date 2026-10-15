@@ -155,7 +155,7 @@
       + (same ? "\n这条是她照着 " + same.name + " 发的一条视频拍的同款（" + same.name + " 原来那条拍的是：" + S(same.scene).slice(0, 80) + "）。" + same.name + " 刷到了自己被拍同款，怎么接照TA这个人来。" : "")
       + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（3~6 条，name 网名、text）：多是嗑你俩的 CP 粉——催更、考古、起 CP 名、嗑到了、起哄，口气各不一样。" : "")
       + (co ? "\n这条是她和 " + co.name + " 一起出镜的合拍，" + co.name + " 就在画面里。" + co.name + " 评论时是合拍的另一半，当着大家的面怎么接，照TA跟她的关系来。另外写几条刷到这条的网友起哄 crowd（2~4 条，name 网名、text）。" : "")
-      + "\n\n下面这几个人都认识她，都刷到了这条。各自照自己的性子决定评不评、评什么——评论区是公开的，别人都看得见；谁跟她什么关系、此刻什么心情，决定他当着别人怎么说。"
+      + "\n\n下面这几个人都认识她，都刷到了这条，每人写一条评论（实在不想评的才不写）。每个人照自己的人设、跟她的关系、此刻的心情来——他们平时私聊里怎么跟她说话（下面各自那几句），评论区里还是那个人，只是别人也看得见。"
       + "\n\n" + briefs.join("\n\n")
       + "\n\n写：comments（name 只能是：" + chars.map(c => c.name).join("、") + "；不想评的人就不写）、likes（这条视频的点赞数，数字）。";
   }
@@ -842,8 +842,14 @@
       // 合拍的那一位一定在（TA就在画面里），其余随缘两个
       // 刷到、来评论的只叫认得出这张面具的人（合拍的那一位本来就在画面里，照旧来）
       const lead = cpChar || co || sameChar;
-      const pool = (lead ? [lead] : []).concat(characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).sort(() => Math.random() - 0.5).slice(0, lead ? 2 : 3));
-      if (!pool.length) return;
+      // 谁刷到了：本机先掷骰子（她 2026-10-15）——先掷有没有人刷到，再掷几个、是谁；
+      //   掷中的那几位一枪写完，各带自己的人设、跟你的关系、你俩最近怎么说话（briefFor），外加防八股那一套（AC）。
+      //   一个都没刷到就不花这次调用。合拍／情侣号／被拍同款的那一位本来就在，不掷。
+      const others = characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).sort(() => Math.random() - 0.5);
+      const anyone = lead ? true : Math.random() < 0.7;
+      const howMany = anyone ? [1, 1, 2, 2, 2, 3, 3, 4][Math.floor(Math.random() * 8)] - (lead ? 1 : 0) : 0;
+      const pool = (lead ? [lead] : []).concat(others.slice(0, Math.max(0, howMany)));
+      if (!pool.length) { patchV(v.id, x => Object.assign({}, x, { likes: Math.floor(Math.random() * 40), plays: Math.floor(Math.random() * 400) })); return; }
       setBusy("post");
       try {
         const r = await props.ask(mineSystem(v, uName, pool, pool.map(props.briefFor), co, cpChar ? { name: cpChar.name, handle: cps[cpId].handle } : null, sameChar && !onAlt ? { name: sameChar.name, scene: d.same.scene } : null), (co || cpChar) ? MINE_SHAPE.replace(/\}$/, ',"crowd":[{"name":"","text":""}]}') : MINE_SHAPE, pool[0].id);

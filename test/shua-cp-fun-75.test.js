@@ -31,3 +31,9 @@ test("纪念日：整百天、整周年那天进片刻TA自己发一条，一天
   assert.match(src, /a\.annivDone === key\) return;/);
   assert.match(app, /coupleOf: id => \(couplesRef\.current \|\| \{\}\)\[id\] \|\| null/);
 });
+test("她发视频：本机掷骰子定有没有人刷到、几个、是谁；没人刷到不花调用", () => {
+  assert.match(src, /const anyone = lead \? true : Math\.random\(\) < 0\.7;/);
+  assert.match(src, /if \(!pool\.length\) \{ patchV\(v\.id/);
+  assert.match(src, /他们平时私聊里怎么跟她说话（下面各自那几句），评论区里还是那个人/);
+  assert.match(app, /\.slice\(-10\)\.map\(m => \(m\.role === "user" \? uN : c\.name\)/);
+});

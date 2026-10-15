@@ -30449,8 +30449,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const present = Array.isArray(all) && all.length ? all : [c];
       if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
       const cp = (couplesRef.current || {})[c.id] || {};
+      // 最近十句：片刻里TA回你、刷到你的视频，要照你俩平时怎么说话来（她 2026-10-15），六句看不出口气
       const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
-        .slice(-6).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
+        .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
       return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
         + Object.values(groupNowSegs(c, { interop: true })).join("")
         + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
