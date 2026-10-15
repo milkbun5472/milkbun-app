@@ -39,7 +39,7 @@ test("控制字符转义只留一份实现，主聊天/群聊/小剧场共用", 
 
 test("行为验证：群聊回复里的真换行不再整轮报废", () => {
   const fn = (src, name) => {
-    const i = src.indexOf("function " + name);
+    const i = src.indexOf("function " + name + "(");   // 带上左括号：别撞上同前缀的另一个函数（extractJSONKey）
     return src.slice(i, src.indexOf("\n}\n", i) + 3);
   };
   const mod = new Function(fn(engine, "repairJSON") + fn(engine, "extractJSON") +

@@ -66,6 +66,9 @@ vm.runInContext([
   grab("const UPSTREAM_ERROR_PATTERNS", "\n];"),
   grab("const UPSTREAM_ERROR_PHRASES", "\n];"),
   grab("function upstreamErrorInContent", "\n}"),
+  // v75.7xx：assertNotUpstreamError 进门先剥一层泄漏的思考，沙盒里也得带上它和它认的那条正则
+  grab("const LEAK_HEAD_RE", "\n"),
+  grab("function stripLeakedThoughts", "\n}"),
   grab("function assertNotUpstreamError", "\n}"),
   "globalThis.U = upstreamErrorInContent; globalThis.A = assertNotUpstreamError; globalThis.P = UPSTREAM_ERROR_PATTERNS;"
 ].join("\n"), ctx);
