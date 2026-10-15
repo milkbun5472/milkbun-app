@@ -554,7 +554,7 @@
             style: { borderRadius: 11, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "传字体文件"),
           h("button", { onClick: addFontLink, className: "flex-1 py-3",
             style: { borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "贴一条链接")),
-        h("input", { ref: fontFile, type: "file", accept: ".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf", onChange: chooseFontFile, style: { display: "none" } }),
+        h("input", { ref: fontFile, type: "file", accept: ANY_FILE, onChange: chooseFontFile, style: { display: "none" } }),
         customFonts.length
           ? h("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
               customFonts.map(c => h("div", { key: c.id, className: "flex items-center",
@@ -585,7 +585,7 @@
           // ⚠️accept 的写法也跟着别处统一成 MIME 在前：iOS 上第一个 token 是它认不出的扩展名时，
           //   文件选择器可能整个弹不出来。备份恢复那一处（能用的那一处）就是 MIME 在前。
           h("button", { onClick: () => importFile.current && importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")),
-        h("input", { ref: importFile, type: "file", accept: "application/json,.json", className: "hidden", onChange: importTheme }),
+        h("input", { ref: importFile, type: "file", accept: ANY_FILE, className: "hidden", onChange: importTheme }),
         // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。
         // 勾一下就立刻改预览，所以她是【看着】挑的，不是盲选完再按确认。
         incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },

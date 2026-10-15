@@ -163,7 +163,7 @@
          ["⇧ 导入文件", () => fileRef.current && fileRef.current.click()],
          ["粘贴模块包", pasteBundle],
          ["搬旧文风", importOldStyle]].map(pair => h("button", { "data-wk": "sltool", key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
-        h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain,application/json,*/*", style: { display: "none" }, onChange: importFile })),
+        h("input", { key: "__f", ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile })),
 
       // 空台：台上一个空版位（虚线的），底下三步。原来是一整段灰字糊在那儿——
       // 这是她点开这一页看见的第一屏，得让人一眼知道该先按哪个。

@@ -17,7 +17,7 @@ test("设置里能写、能导出导入，存档接住且挡掉不安全的", ()
   assert.match(comp, /function ChatCssFields\(\{ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title \}\)/);
   assert.match(comp, /h\(ChatCssFields, \{ css: customCSS, setCSS: setCustomCSS,[\s\S]*?title: "只给 TA 写 CSS" \}\)/);
   assert.match(comp, /saveTextFile\(\(fileBase \|\| "聊天"\) \+ "-聊天\.css", css, "text\/css"\)/);
-  assert.match(comp, /accept: "\.css,\.txt,text\/css,text\/plain"/);
+  assert.match(comp, /accept: (ANY_FILE, onChange: importCSS|"\.css,\.txt,text\/css,text\/plain")/);
   assert.match(app, /customCSS: \(window\.ThemeStudio && s\.customCSS && !window\.ThemeStudio\.unsafeReason\(s\.customCSS\)\)/);
 });
 

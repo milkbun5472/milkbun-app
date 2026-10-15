@@ -3260,7 +3260,7 @@
               "整篇粘进来,或者直接选文件(.docx / .txt / .md)。用「# 标题」「**加粗**」「【】」分节就认得出:世界(背景/设定/地图)、开局处境、开场、主线(章节)、主角池、事件池、真相、安全线。认不出的节都并进世界,一个字不丢。拆得不对就在下面直接改。开团时从主角池里随机抽一个当这一局的你,剧情骰从事件池里抽。「复制模组」导出的 JSON 也粘这里。"),
             h("button", { onClick: () => { const el = document.getElementById("trpg-script-file"); el && el.click(); }, disabled: scriptBusy, className: "active:opacity-70",
               style: Object.assign({}, S.btn(false), { width: "100%", minHeight: 40, marginTop: 10 }) }, scriptBusy ? "正在读文件…" : "从文件导入"),
-            h("input", { id: "trpg-script-file", type: "file", accept: ".docx,.txt,.md,.markdown,.json,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importFile }),
+            h("input", { id: "trpg-script-file", type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
             scriptErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a4442e", marginTop: 6 } }, scriptErr) : null,
             h("textarea", { "data-wk": "trpginput", "data-part": "scriptraw", value: modTxt, onChange: e => { setModTxt(e.target.value); setScriptEdits({}); }, rows: 8, placeholder: "在这里粘贴整篇剧本…",
               style: { width: "100%", marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } })),

@@ -26,8 +26,9 @@ test("主题包那个 file input 跟能用的那一处同形", () => {
   const i = ui.indexOf('ref: importFile, type: "file"');
   assert.ok(i > 0, "抠不出主题包那个 file input");
   const seg = ui.slice(i, i + 200);
-  assert.ok(/accept: "application\/json,\.json"/.test(seg), "accept 不是 MIME 在前");
-  assert.ok(screens.includes('accept: "application/json,.json"'), "备份恢复那一处的写法变了，两处又不一样了");
+  // 2026-10-14 起所有选文件的地方共用 ANY_FILE（一律放行，读进来再判）：两处仍然同形
+  assert.ok(/accept: ANY_FILE/.test(seg), "主题包那一处没用公共的 ANY_FILE");
+  assert.ok(/ref: skinFile, type: "file", accept: ANY_FILE/.test(screens), "备份恢复那一处的写法变了，两处又不一样了");
 });
 
 // 文件挑不开的时候还有一条路——而且两条路必须汇到同一处，不许各写一份解析

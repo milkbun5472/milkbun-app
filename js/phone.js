@@ -251,7 +251,7 @@ function phoneTimeline(charData, live, nowTs) {
   A(g("wechat").chats).forEach(x => x && push("wechat", "聊天", x.time, x.name, x.last));
   A(g("wechat").moments).forEach(x => x && push("wechat", "朋友圈", x.time, (S(x.author) || "谁") + " 发了条朋友圈", x.content));
 
-  A(g("notes").items).forEach(x => x && push("notes", x.kind === "voice" ? "录音" : "便签", x.time, x.title, x.body));
+  A(g("notes").items).forEach(x => x && push("notes", x.kind === "voice" ? "录音" : "便签", x.time, x.title, x.kind === "voice" && typeof ttsMarkStrip === "function" ? ttsMarkStrip(x.body) : x.body));
 
   A(g("calls").calls).forEach(x => x && push("calls", x.answered === false ? "未接" : (x.dir === "out" ? "拨出" : "来电"),
     x.time, S(x.name) || S(x.number) || "陌生号", x.gist, x.thought));
@@ -5079,7 +5079,11 @@ const STICKY_COLORS = [
 const STICKY_BG = "#efeae0";
 function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
   const [open, setOpen] = useState(null);
+  // 录音那种能真的放出来（她 2026-10-14）：配了音色就用TA的嗓子把转写念出来，跟游戏台词那颗 ▶ 同一个（TtsDot + useTtsPlayer）
+  const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
   const A = a => Array.isArray(a) ? a : [];
+  // 录音的 body 带着语音标记（(sighs)、<#0.5#>）：念的时候用，给人看的时候剥掉
+  const noteSay = x => typeof ttsMarkStrip === "function" ? ttsMarkStrip(x) : x;
   // ──「看TA玩」驱动：这是【改】那一类——TA把写好的那条划掉重写（她举的例子之一）
   const driveItem = drive && drive.item;
   useEffect(() => {
@@ -5109,7 +5113,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
       voice ? h(PGlyph, { k: "mic", size: 11, color: c.ink }) : null,
       h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: c.ink, opacity: .6 } }, (voice && it.duration ? it.duration + " · " : "") + (it.time || ""))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
-    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.body)) : null,
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(voice ? noteSay(it.body) : it.body)) : null,
     voice ? wave(c.ink, 20) : null);
   };
   const cols = [[], []];
@@ -5125,16 +5129,18 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: c.ink, opacity: .62 } }, (voice ? "录音 " + (open.duration || "") + " · " : "") + (open.time || ""))),
           h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.45, color: c.ink } }, open.title || ""),
-        voice ? wave(c.ink, 34) : null,
+        voice ? h("div", { className: "flex items-end", style: { gap: 10 } },
+          tp && typeof TtsDot === "function" && open.body ? h("span", { "data-wk": "pnotevoice", style: { color: c.ink, display: "inline-flex" } }, h(TtsDot, { k: "note:" + (open.time || "") + (open.title || ""), text: open.body, spk: char, tp: tp })) : null,
+          wave(c.ink, 34)) : null,
         // ⚠️「看TA玩」里TA正在改这条：显示手上那份草稿，不是存档里那份。
         //   驱动时哪怕草稿是空的也要占着位（TA刚把整段划掉，那一下正是要看见的）。
         drive && drive.typing != null
           ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", minHeight: 30 } },
               drive.typing,
               h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 16, marginLeft: 1, verticalAlign: "-3px", background: c.ink, animation: "wkcaret 1s steps(2) infinite" } }))
-          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, open.body) : null,
+          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, voice ? noteSay(open.body) : open.body) : null,
         onPeek ? h("button", {
-          onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: open.body }),
+          onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: voice ? noteSay(open.body) : open.body }),
           className: "w-full active:opacity-60",
           style: { marginTop: 20, padding: "12px 0", borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + c.edge, color: c.ink }
         }, T("转发给 TA · 他会知道你翻了手机")) : null));
@@ -7846,7 +7852,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     notes: {
       instruction: "推演「" + char.name + characterText(char, "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n")
         + "每条：kind（typed = 打字的 / voice = 录音的）、title（很短的一句抬头，可以就是正文第一句）、time、body（正文）、color（0-5 的整数，定便签颜色）。\n"
-        + "kind=voice 的另给 duration（如 0:37 / 2:14）；它的 body 就是那段录音转成的字。\n\n"
+        + "kind=voice 的另给 duration（如 0:37 / 2:14）；它的 body 就是那段录音，照发语音的写法写：" + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") + (typeof mmSoundHint === "function" ? mmSoundHint() : "") + "\n\n"
         + "【两种要真的不一样，这是这个 app 唯一重要的事】\n"
         + "**打字的**：清单、待办、半句话、气话、抄下来的一行字、一串数字、一个地址。不必是完整的想法，很多条根本没有情绪。可以短到只有四五个字。\n"
         + "**录下来的**：**只有打字打不出来、必须说出口的东西才会被录**。所以它有语气词、有停顿、有说到一半改口、有自己都嫌烦的叹气；转成字之后是不通顺的。录音在总数里是少数（三分之一以内），而且往往在深夜、在路上、在刚吵完架之后。\n"

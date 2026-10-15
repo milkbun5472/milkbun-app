@@ -23,7 +23,7 @@ function fixture() {
     toast: message => notices.push(message), alert: message => notices.push(message),
     OFFLINE_STYLES: [{ key: "default", name: "默认", prompt: "" }],
     F_BODY: "body", F_DISPLAY: "display", OfflineStylePromptPreview: () => null,
-    React: { Fragment: 'fragment' }, requestAppConfirm: () => {}
+    React: { Fragment: 'fragment' }, requestAppConfirm: () => {}, ANY_FILE: "*/*"
   };
   vm.createContext(ctx); vm.runInContext(code, ctx);
   const t = { line: "#ccc", ink: "#111", bg: "#fff", bg2: "#eee", fog: "#888", sub: "#333", tint: "#555" };

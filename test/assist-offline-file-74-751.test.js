@@ -31,7 +31,7 @@ test("给她文件：file 原样保留不洗代码；卡片能复制全部、存
 
 test("她发文件：跟聊天发文件同一个 pickTextFile，收 CSS，内容接在这一句后面", () => {
   assert.match(asst, /pickTextFile\(m => setPic\(Object\.assign\(\{ kind: "file" \}, m\)\), \{ max: 60000 \}\)/);
-  assert.match(comp, /inp\.accept = "\.txt,\.md,\.markdown,\.csv,\.json,\.srt,\.log,\.css,/);
+  assert.match(comp, /inp\.accept = (ANY_FILE|"\*\/\*|\.txt,\.md,\.markdown,\.csv,\.json,\.srt,\.log,\.css,)/);
   assert.match(asst, /const fileTail = isFile \? "\\n\\n【她发来的文件《" \+ pic\.name/);
 });
 

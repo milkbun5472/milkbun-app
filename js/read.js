@@ -15,6 +15,31 @@
 
   // ---- 元数据存取 ----
   function loadBooks() { return loadJSON("x_read_books", []); }
+  // 一起读正文能挑的字体：书宋（原来那支）打头，后面是 FontChoice 名单里的（去掉「默认」和重复的思源宋体）
+  // 她在主题里自己传的字体也能挑（她 2026-10-14：「接吧」）：名单还是 FontChoice.facesWith 那一份
+  function readCustom() { try { return ((window.ThemeStudio && window.ThemeStudio.current && window.ThemeStudio.current()) || {}).customFonts || []; } catch (e) { return []; } }
+  function readFaces() {
+    const FC = typeof window !== "undefined" && window.FontChoice;
+    const F = FC ? (FC.facesWith ? FC.facesWith(readCustom()) : FC.FACES) : [];
+    return [{ key: "", zh: "书宋", stack: "'Noto Serif SC',serif" }].concat(F.filter(function (f) { return f.key && f.key !== "songti"; }));
+  }
+  // 挑了要下载／自己传的字体：拉链接、把文件字体的 @font-face 挂上（ensure、faceBlocks 都会查重，重复调没事）
+  function readEnsureFont(key) {
+    const FC = typeof window !== "undefined" && window.FontChoice; if (!FC || !key) return;
+    const custom = readCustom();
+    try { FC.ensure({ body: key }, custom); } catch (e) {}
+    if (String(key).indexOf("u:") === 0 && FC.faceBlocks && typeof document !== "undefined") {
+      try {
+        const css = FC.faceBlocks(custom, window.resolveImg); const id = "wk-read-fontfaces";
+        let el = document.getElementById(id); if (!el) { el = document.createElement("style"); el.id = id; document.head.appendChild(el); }
+        if (el.textContent !== css) el.textContent = css;
+      } catch (e) {}
+    }
+  }
+  function readFontStack(key) {
+    const f = readFaces().filter(function (x) { return x.key === (key || ""); })[0];
+    return (f && f.stack) || "'Noto Serif SC',serif";
+  }
   function saveBooks(list) { return saveJSON("x_read_books", list); }
 
   const PAGE_CHARS = 1600; // 每页目标字数（按段落边界切）
@@ -428,7 +453,7 @@
     }
     return h("div", { className: "h-full flex flex-col", style: shelfPage, "data-wk": "readshelfboard", "data-part": "r2" },
       h(Head, { zh: "一起读", onBack: props.onBack, bg: "transparent" }),
-      h("input", { ref: fileRef, type: "file", accept: "*/*", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
         rows,
         books.length === 0
@@ -443,6 +468,8 @@
   function Reader(props) {
     const t = useTheme();
     const book = props.book;
+    // 挑过要下载的字体（站酷、手写这几支）：重开这本书时也得把它拉回来，不然退回书宋（ensure 自己会查重）
+    if (book && book.font) readEnsureFont(book.font);
     const [pages, setPages] = useState(null);
     const [pageIdx, setPageIdx] = useState(book.page || 0);
     const [loading, setLoading] = useState(true);
@@ -833,18 +860,29 @@
           style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "4" }, "批注册"),
         h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0",
           style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "5" }, "设定")
-      ) : null,
-      // 「设定」展开才出现：一次批几条、覆盖几页
-      (partner && setOpen) ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
-        h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+      )
+      // 没邀人也能开「设定」（她 2026-10-14：「不用选人就可以设置」）：这时里头只有字体那一格
+      : h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 8 } },
+          h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0", "data-wk": "readreaderbtn", "data-part": "5",
+            style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" } }, "设定")),
+      // 「设定」展开才出现：字体；邀了人再加一次批几条、覆盖几页
+      setOpen ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
+        // 正文字体（群友 2026-10-14：「希望能让一起读界面字体修改为默认系统字体」，她：「不能多搞几个字体选择吗」）：
+        //   名单只问 FontChoice 那一份（跟主题换字体同一份，one-public-mechanism），书宋＝原来那支，记在这本书上
+        h("div", { "data-wk": "readfont", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, width: "100%" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "字体"),
+          readFaces().map(function (o) { const on = (book.font || "") === o.key;
+            return h("button", { key: o.key || "_def", "data-on": on ? "1" : "0", onClick: function () { readEnsureFont(o.key); props.onPatch({ font: o.key }); },
+              style: { fontFamily: o.stack || "'Noto Serif SC',serif", fontSize: 11.5, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o.zh); })),
+        partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")),
-        h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")) : null,
+        partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "范围"),
           h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")),
-        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")) : null,
+        partner && span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
       ) : null);
 
     // ---- 正文页 ----
@@ -863,7 +901,7 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
+              h("p", { style: { fontFamily: readFontStack(book.font), fontSize: 16, lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
                 paddingLeft: 11, marginLeft: -11,
                 // 页边那道记号：TA批过就实线、只讲解过就虚一点，两种一眼分得开

@@ -25,9 +25,11 @@ test("模型视角只给自己的任务与公共事件，原存档的私密字�
 test("无效回复保留待办；不扣资源、不换任务、不伪造 TA 发言", () => {
   const s = C.startRequest(fresh(), "plan", "测试提议", "photo"), before = JSON.stringify(s);
   assert.throws(() => C.receiveReply(s, reply("does-not-exist")), /去不了/);
-  assert.throws(() => C.receiveReply(s, reply("cafe")), /对不上/);
-  assert.throws(() => C.receiveReply(s, reply("photo", { row: 6 })), /动作/);
   assert.equal(JSON.stringify(s), before);
+  // 她 2026-10-14：「每次说完一轮话就不给我说了」——配合动作缺了、答应的地方没对上，都不再整句作废（作废了输入框一直锁着）：
+  //   说了「答应」却报了另一处＝当它另提一处；配合动作出界就补默认值
+  assert.equal(C.receiveReply(s, reply("cafe")).proposal, "cafe");
+  assert.equal(C.receiveReply(s, reply("photo", { row: 6 })).prepared.row, 0);
   assert.throws(() => C.commitPlace(s, "photo"), /先听听/);
   const n = C.receiveReply(s, reply("photo")); assert.equal(n.pending, null); assert.equal(n.minutes, 180);
   assert.equal(n.talk.length, 2); assert.equal(s.talk.length, 1);
@@ -121,8 +123,11 @@ test("到站掷小意外，时间和钱当场结算、不扣成负数", () => {
   let s = C.newGame(config, () => .01, { places: ["cafe", "photo", "arcade", "shop", "river", "book"] });
   s = C.receiveReply(C.startRequest(s, "plan", "", "photo"), reply("photo"));
   const rainy = C.commitPlace(s, "photo", false, () => 2 / C.EVENTS.length + .001);
-  assert.equal(rainy.incident.id, "rain"); assert.equal(rainy.minutes, 180 - 30 - 10);
-  assert.match(C.resolveActivity(rainy, 2).events[0].text, /下起雨/);
+  // 下雨现在是二选一（她 2026-10-14「小意外有选择」）：到站先不扣，挑了哪条再结算
+  assert.equal(rainy.incident.id, "rain"); assert.equal(rainy.minutes, 180 - 30);
+  assert.throws(() => C.resolveActivity(rainy, 2), /路上那件事/);
+  const waited = C.chooseIncident(rainy, "eaves"); assert.equal(waited.minutes, 180 - 30 - 15);
+  assert.match(C.resolveActivity(waited, 2).events[0].text, /下起雨/);
 });
 test("到了现场 TA 接一句；点单那几处 TA 替你挑的也算数（甜的谁点都算）", () => {
   let s = C.commitPlace(plan(fresh(), "cafe"), "cafe");

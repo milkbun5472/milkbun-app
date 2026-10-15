@@ -524,6 +524,12 @@ function mapSubSkin(t) {
     };
     const onPU = function (e) { const P = ptr.current; delete P.pts[e.pointerId]; P.dist = 0; };
     const zoomBtn = function (label, fn) { return h("button", { onClick: fn, className: "active:opacity-70", style: { width: 34, height: 34, borderRadius: 10, fontFamily: F_BODY, fontSize: 15, border: "1px solid " + t.line, background: "rgba(255,255,255,0.9)", color: t.ink }, "data-wk": "mapworldmapzoombtn" }, label); };
+    // 改一整块：借这一块里第一个地点的详情页开表单（表单本来就长在那儿），名字点哪块就改哪块
+    const openRegEdit = function (rn) {
+      const nd = built.nodes.find(function (n) { return n.region === rn; }); if (!nd) return;
+      const rg0 = (world.regions || []).find(function (r) { return r.name === rn; }) || {};
+      setSelNode(nd.name); setRegEdit({ name: rn, terrain: rg0.terrain || "平原", adj: (rg0.adj || []).slice() });
+    };
     const sel = selNode ? built.nodes.find(function (n) { return n.name === selNode; }) : null;
     // 节点页：整页（no-half-sheet）——这一层的正文（钩子、谁在这儿、通往哪儿）不需要同时看见地图
     const nodePage = sel ? h("div", { style: mapSubSkin(t) },
@@ -565,7 +571,7 @@ function mapSubSkin(t) {
           h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: 11.5, color: "#7a6a54", marginTop: 3 } },
             h("span", null, world.name + " · " + sel.region + "（" + (built.regions.find(function (r) { return r.name === sel.region; }) || {}).terrain + "）"),
             onEditRegion && !regEdit ? h("button", { onClick: function () { const rg0 = (world.regions || []).find(function (r) { return r.name === sel.region; }) || {}; setRegEdit({ name: sel.region, terrain: rg0.terrain || "平原", adj: (rg0.adj || []).slice() }); },
-              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", borderBottom: "1px dotted #7a6a54", padding: "4px 0 0", minHeight: 28 }, "data-wk": "mapworldmapbtn", "data-part": "5" }, "改这一块") : null),
+              className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#3b3227", border: "1px solid rgba(80,66,48,0.45)", borderRadius: 999, padding: "2px 10px", minHeight: 28 }, "data-wk": "mapworldmapbtn", "data-part": "5" }, "改这一块的名字") : null),
           regEdit ? h("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(120,104,80,0.35)" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", marginBottom: 6 } }, "这一块叫什么"),
             h("input", { value: regEdit.name, onChange: function (e) { setRegEdit(Object.assign({}, regEdit, { name: e.target.value })); },
@@ -680,7 +686,9 @@ function mapSubSkin(t) {
             // 从团块路径里抠出最高的那个点，把名字挂在上边缘
             const ys = (r.blob.match(/-?\d+(?:\.\d+)?/g) || []).filter(function (_, i) { return i % 2; }).map(Number);
             const top = ys.length ? Math.min.apply(null, ys) : r.cy - 40;
-            return h("text", { key: "t" + r.name, x: r.cx, y: top + 15, textAnchor: "middle", fontSize: 11.5, fill: "rgba(72,58,40,0.72)", fontFamily: F_DISPLAY, letterSpacing: 3, stroke: "#f0e9dd", strokeWidth: 3.4, paintOrder: "stroke", "data-wk": "mapworldmap", "data-part": "r9" }, r.name);
+            return h("text", { key: "t" + r.name, x: r.cx, y: top + 15, textAnchor: "middle", fontSize: 11.5, fill: "rgba(72,58,40,0.72)", fontFamily: F_DISPLAY, letterSpacing: 3, stroke: "#f0e9dd", strokeWidth: 3.4, paintOrder: "stroke", "data-wk": "mapworldmap", "data-part": "r9",
+              // 点这一块的名字就直接改这一块（她 2026-10-15「改吧」：原来要先点进一个地点、再找那行虚线小字）
+              onClick: onEditRegion ? function () { if (ptr.current.moved) return; openRegEdit(r.name); } : undefined, style: onEditRegion ? { cursor: "pointer" } : undefined }, r.name);
           }),
           built.roads.map(function (rd, i) { return h("path", { key: "r" + i, d: rd.d, fill: "none", stroke: "rgba(96,78,54,0.55)", strokeWidth: 1.2, strokeDasharray: "5 4", strokeLinecap: "round", "data-wk": "mapworldmap", "data-part": "r10" }); }),
           built.nodes.map(function (nd) {

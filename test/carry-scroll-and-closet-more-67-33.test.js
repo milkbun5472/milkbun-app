@@ -160,11 +160,12 @@ test("衣柜那一栏底下真有这个按钮，空柜子那一屏上也有", ()
   const i = S.indexOf("const moreBtn = onGenClosetMore ?");
   assert.ok(i > 0, "按钮没了");
   const blk = S.slice(i, i + 900);
-  assert.match(blk, /onClick: \(\) => onGenClosetMore\(char\)/);
+  assert.match(blk, /onClick: \(\) => onGenClosetMore\(char, closetKw\)/);   // 带上她填的关键词（可空）
   assert.match(blk, /disabled: !!busyKey \|\| !!closetBusy/, "正在翻的时候还能再点一次＝白烧一次钱");
   assert.match(blk, /minHeight: 44/, "指头点得到");
-  assert.match(blk, /"衣柜是空的", moreBtn/, "空柜子那一屏上没有这个按钮，她就只能干等自动生成");
-  assert.match(S, /bay\(g\.sets\.map\(\(it, si\) => hanger\(it, g, gi, si\)\)\)\)\),\n\s*moreBtn\);/, "挂着衣服那一屏上没接上");
+  assert.match(S, /"衣柜是空的", addBox\)/, "空柜子那一屏上没有这个按钮，她就只能干等自动生成");
+  assert.match(S, /const addBox = [\s\S]{0,400}moreBtn,/, "添衣服那一块里没有这个按钮");
+  assert.match(S, /bay\(g\.sets\.map\(\(it, si\) => hanger\(it, g, gi, si\)\)\)\)\),\n\s*addBox\);/, "挂着衣服那一屏上没接上");
 });
 
 test("prop 一路传到底（漏一处就是个点不动的按钮）", () => {
@@ -179,11 +180,11 @@ test("prop 一路传到底（漏一处就是个点不动的按钮）", () => {
 });
 
 test("添了几身要真数出来再说话——回执是个承诺", () => {
-  const i = A.indexOf("const genClosetMore = async char => {");
+  const i = A.indexOf("const genClosetMore = async (char, keywords) => {");
   assert.ok(i > 0, "genClosetMore 没了");
-  const blk = A.slice(i, i + 1500);
-  assert.match(blk, /closetMoreSpec\(char, known, room, carryMaterialFor\(char\.id\), other\)/);
-  assert.match(blk, /closetMerge\(known, carryDedupe\("outfit", d, other\)\)/, "跨栏避重那一道也得走（同一件东西只能待在一个地方）");
+  const blk = A.slice(i, A.indexOf("\n  };", i));
+  assert.match(blk, /closetMoreSpec\(char, known, room, carryMaterialFor\(char\.id\), other, kw\)/);
+  assert.match(blk, /const fresh = carryDedupe\("outfit", d, other\);\s*const merged = closetMerge\(known, fresh\);/, "跨栏避重那一道也得走（同一件东西只能待在一个地方）");
   assert.match(blk, /const add = closetCount\(merged\) - closetCount\(known\);/, "没数就报数");
   assert.match(blk, /if \(add <= 0\) \{ toast\("这次没添出新的，再试一次"\); return; \}/, "一身没添还说「多了 0 身」");
   assert.ok(blk.indexOf("saveCarrySection") > blk.indexOf("if (add <= 0)"), "白写一次也落盘了");

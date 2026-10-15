@@ -11,7 +11,7 @@ test("换上写进状态卡的穿着，一路接到衣柜详情", () => {
   assert.match(seg, /putLiveField\(patch, live, "wearing", v, now\)/);
   assert.match(seg, /setStateFor\(charId,/);
   assert.match(seg, /nt !== "你送的"/, "来路那三个字不进穿着");
-  assert.match(app, /onClosetGift: closetGiftToChar,\n    onWear: wearFromCloset/);
+  assert.match(app, /onClosetGift: closetGiftToChar, onClosetHang: closetHangToChar,\n    onWear: wearFromCloset/);
   assert.match(scr, /isCloth && onWear \? h\("button", \{ "data-wk": "carrysheetbtn", "data-part": "wear"/);
-  assert.equal((scr.match(/onClosetGift, onWear/g) || []).length, 5);
+  assert.equal((scr.match(/onClosetGift, onClosetHang, onWear/g) || []).length, 5);
 });

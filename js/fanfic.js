@@ -4281,7 +4281,7 @@
     }
     function importStyleFile() {
       const inp = document.createElement("input");
-      inp.type = "file"; inp.accept = ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      inp.type = "file"; inp.accept = ANY_FILE;
       inp.onchange = async function () {
         const file = inp.files && inp.files[0]; if (!file) return;
         setImporting(true);
