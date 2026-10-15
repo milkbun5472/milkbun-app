@@ -370,6 +370,17 @@
   // 只读、只感知，绝不碰钱包/角色余额。app.js 的 ctxFor 会调用它。
   // ============================================================
   // 聊天里 TA 替她记账的那张卡要跟账本同一套皮：玻璃皮就出小票（components.js RecordedCard 读这个）
+  // 一打开 App 就补记周期账单（她 2026-10-15「改吧宝宝 一打开就补」）：不用等进记账那一页。
+  //   ⚠️存档还没读出来（null）就什么都不做——拿默认空账本去补再写回，会把整本账盖掉。
+  window.ledgerCatchUp = function () {
+    try {
+      const raw = loadJSON("x_ledger", null);
+      if (!raw || !raw.settings || !(raw.settings.recurring || []).length) return 0;
+      const d = loadData(), n = runRecurring(d);
+      if (n) saveData(d);
+      return n;
+    } catch (e) { return 0; }
+  };
   window.ledgerIsGlass = function () { try { const d = loadJSON("x_ledger", null); return !(d && d.settings && d.settings.skin === "paper"); } catch (e) { return true; } };
   window.ledgerNoteFor = function (charId) {
     try {

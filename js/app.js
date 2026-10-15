@@ -1645,6 +1645,15 @@ function App() {
   const [themePeek, setThemePeek] = useState(null);   // { page, zh } 或 null
   const [configPage, setConfigPage] = useState("");   // 设置页要落在哪一栏（回程条用）
   const [loaded, setLoaded] = useState(false);
+  // 周期账单一打开就补（她 2026-10-15）：开机读完存档补一次，切回前台（可能隔了一夜）再补一次
+  useEffect(() => {
+    if (!loaded) return;
+    const run = () => { try { const n = window.ledgerCatchUp ? window.ledgerCatchUp() : 0; if (n) toast("自动记上了 " + n + " 笔周期账单"); } catch (e) {} };
+    run();
+    const vis = () => { if (document.visibilityState === "visible") run(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => document.removeEventListener("visibilitychange", vis);
+  }, [loaded]);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
   const lastToastAtRef = useRef(0);
   // MCP 列工具失败：原来只往控制台记一句，手机上看不见，TA就悄悄不带工具聊（她 2026-10-09）。

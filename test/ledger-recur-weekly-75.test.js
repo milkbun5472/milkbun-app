@@ -24,3 +24,9 @@ test("新建每周：起点是今天或之后最近的那个周几，不倒补",
 test("编辑页有「多久一次」，每周时换成选周几", () => {
   assert.ok(/label\("多久一次"\)/.test(src) && /label\("每周几"\)/.test(src));
 });
+test("一打开 App 就补：开机读完存档补一次、切回前台再补；存档没读出来不动", () => {
+  const app = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.ok(/window\.ledgerCatchUp \? window\.ledgerCatchUp\(\)/.test(app) && /visibilitychange", vis/.test(app));
+  const i = src.indexOf("window.ledgerCatchUp = function"), seg = src.slice(i, i + 400);
+  assert.ok(/if \(!raw \|\| !raw\.settings/.test(seg));
+});
