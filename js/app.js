@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.658";
+const APP_VERSION = "v75.659";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24234,6 +24234,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }].concat((coupleShotsRef.current || []).filter(x => x && (x.imgKey || x.imgUrl))).slice(0, COUPLE_SHOT_CAP);
     coupleShotsRef.current = next; setCoupleShots(next); saveJSON("x_coupleShots", next);
   };
+  // 合照墙上自己传一张（群友 2026-10-14）：压一下存进 IndexedDB，走同一个 addCoupleShot，墙、删、云备份全照旧
+  const uploadCoupleShot = async (cid, file, desc) => {
+    const data = await resizeImageFile(file, 1600, 0.88);
+    const blob = await (await fetch(data)).blob();
+    const key = "img_cs_up_" + Date.now();
+    await idbImgPut(key, blob);
+    addCoupleShot({ charId: cid, imgKey: key, desc: String(desc || "").trim() || "我放上来的", from: "我放的" });
+    toast("挂上墙了");
+  };
   // ── 一张照片的身份证（她 2026-09-16 转来的反馈：「照片里面可不可以弄个删除呀，
   //   因为有些生成的不是很合心意」）─────────────────────────────────────────
   // 合照墙不是一个相册，是【四个地方】拼出来的：聊天里拍的、线下拍的、照相馆拍的、
@@ -29894,6 +29903,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
     onDeletePhoto: confirmDeleteDuoPhoto,
+    onUploadPhoto: uploadCoupleShot,
     // 时光胶囊现在是情侣空间【里面】的一层（v62.41），不再是另一个屏。
     // characters / characterId / profile / onBack 由 Us 那头按当前这段关系补上。
     // onKeep：拆开之后往记忆库记一笔（v64.03）。走的是情侣空间那条现成的 coupleKeep，
