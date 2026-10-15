@@ -10980,6 +10980,7 @@ function ChatThread({
       background: ccLane.direct ? "transparent" : t.bg2
     }
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
+    keepKey: character && character.id ? "chat:" + character.id : null,
     inputProps: { "data-wk": "chatinput" },
     placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
@@ -14786,8 +14787,17 @@ function draftMeasure(el) {
     return m.scrollHeight + extra;
   } catch (e) { return el.scrollHeight; }
 }
-function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after }) {
-  const [draft, setDraft] = useState("");
+// keepKey（群友 2026-10-15：「聊天输入后可以保存在对话框，不会因为退出小窗就立刻消失」）：
+//   给了就把没发出去的那段留在本机，下次进这个对话还在；发出去就清掉。
+//   ⚠️故意不用 x_ 前缀：x_ 的每次写入都会排队云同步，打一个字推一次不值得，草稿只留这台设备。
+//   每个对话一把钥匙，单聊/群聊/线下各管各的。
+const draftKeyOf = k => "qq_draft:" + k;
+function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey }) {
+  const [draft, setDraftRaw] = useState(() => { if (!keepKey) return ""; try { return localStorage.getItem(draftKeyOf(keepKey)) || ""; } catch (e) { return ""; } });
+  const setDraft = v => { setDraftRaw(v); if (keepKey) try { v ? localStorage.setItem(draftKeyOf(keepKey), v) : localStorage.removeItem(draftKeyOf(keepKey)); } catch (e) {} };
+  // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
+  const lastKey = useRef(keepKey);
+  useEffect(() => { if (lastKey.current === keepKey) return; lastKey.current = keepKey; let v = ""; try { v = keepKey ? localStorage.getItem(draftKeyOf(keepKey)) || "" : ""; } catch (e) {} setDraftRaw(v); }, [keepKey]);
   const ref = useRef(null);
   // ⚠️量高度不许动真框（群里 2026-10-09 报：「一直反反复复弹上去弹下来」「修改对话很难」）：
   //   原来每打一个字都先把真框设成 auto 缩回一行再量，iOS 看见输入框忽高忽低，
@@ -16522,6 +16532,7 @@ function OfflineMode({
       narrMode && !oocMode ? h("button", { "data-wk": "offnarrpill", onClick: () => setNarrMode(false), title: "退出旁白", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, background: "transparent" } }, "旁白 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h(DraftInput, {
+    keepKey: char && char.id ? "off:" + char.id : null,
         placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : narrMode ? "旁白：写这一刻发生了什么（下雨了、门被推开、过了三个小时）" : "说话，或写你的动作…",
         inputStyle: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 },
         onSubmit: send,
@@ -17380,6 +17391,7 @@ function GroupOfflineMode({
       narrMode && !oocMode ? h("button", { "data-wk": "offnarrpill", onClick: () => setNarrMode(false), title: "退出旁白", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, background: "transparent" } }, "旁白 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h(DraftInput, {
+    keepKey: group && group.id ? "goff:" + group.id : null,
         placeholder: oocMode ? "出戏说：跟演TA的那位说，可以让它改、也可以问状态…" : narrMode ? "旁白：写这一刻发生了什么（下雨了、门被推开、过了三个小时）" : "说话，或写你的动作…",
         inputStyle: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 },
         onSubmit: send,
@@ -18195,6 +18207,7 @@ function GroupThread({
     size: 22,
     color: t.fog
   })), h(DraftInput, {
+    keepKey: group && group.id ? "group:" + group.id : null,
     inputProps: { "data-wk": "chatinput" },
     placeholder: chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     inputStyle: {
