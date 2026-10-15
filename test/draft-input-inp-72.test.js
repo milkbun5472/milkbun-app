@@ -17,7 +17,9 @@ function slice(src, fromFn, toFn) {
 
 test("DraftInput 自己攥着草稿：内部 useState + fire 清空上交", () => {
   const d = slice(comp, "function DraftInput(", "function ReplyKey(");
-  assert.match(d, /const \[draft, setDraft\] = useState\(""\)/);
+  // 2026-10-15 起草稿可以按 keepKey 留在本机（退出对话再进来还在），初值从本机读，所以不再是 useState("")
+  assert.match(d, /const \[draft, setDraftRaw\] = useState\(\(\) =>/);
+  assert.match(d, /const draftKeyOf = k => "qq_draft:" \+ k|keepKey/);
   assert.match(d, /const fire = \(\) => \{ const v = draft\.trim\(\); if \(!v\) return; setDraft\(""\); onSubmit && onSubmit\(v\); \}/);
   // 按钮区拿到的是 (draft, fire, clear)，靠它们亮灭发送键、带走草稿
   assert.match(d, /after \? after\(draft, fire, clear\) : null/);
