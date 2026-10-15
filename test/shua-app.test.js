@@ -13,7 +13,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /function RefreshPage\(/);
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
-  assert.match(S, /const genChars = async \(ids, forceCp\) =>/);   // 2026-10-15 多了 forceCp：情侣号那颗「让TA往这个号发一条」
+  assert.match(S, /const genChars = async \(ids, forceCp(, opts)?\) =>/);   // 2026-10-15 多了 forceCp：情侣号那颗「让TA往这个号发一条」
   assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
@@ -33,7 +33,7 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\][^\n]*?, shapeChar\(sk, !realFr && friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
+  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\][^\n]*?shapeChar\(sk, !realFr && friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 

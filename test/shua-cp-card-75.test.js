@@ -13,5 +13,5 @@ test("cpEdit 这个 hook 在所有提前 return 之前", () => {
   assert.ok(i > 0 && i < j);
 });
 test("TA 往情侣号发视频时知道简介", () => {
-  assert.match(src, /toCp\[c\.id\]\.bio \? "（主页简介：" \+ toCp\[c\.id\]\.bio/);
+  assert.match(src, /\(a\.bio \? "（主页简介：" \+ a\.bio \+ "）" : ""\)/);   // 2026-10-15 并进 cpPostLine
 });

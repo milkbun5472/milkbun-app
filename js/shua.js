@@ -153,7 +153,7 @@
     return AC() + CB()
       + "【场景】" + uName + "在「" + APP_NAME + "」上发了一条视频。拍的是：" + v.scene + "\n文案：" + (v.caption || "（没写）")
       + (same ? "\n这条是她照着 " + same.name + " 发的一条视频拍的同款（" + same.name + " 原来那条拍的是：" + S(same.scene).slice(0, 80) + "）。" + same.name + " 刷到了自己被拍同款，怎么接照TA这个人来。" : "")
-      + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（2~4 条，name 网名、text）。" : "")
+      + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（3~6 条，name 网名、text）：多是嗑你俩的 CP 粉——催更、考古、起 CP 名、嗑到了、起哄，口气各不一样。" : "")
       + (co ? "\n这条是她和 " + co.name + " 一起出镜的合拍，" + co.name + " 就在画面里。" + co.name + " 评论时是合拍的另一半，当着大家的面怎么接，照TA跟她的关系来。另外写几条刷到这条的网友起哄 crowd（2~4 条，name 网名、text）。" : "")
       + "\n\n下面这几个人都认识她，都刷到了这条。各自照自己的性子决定评不评、评什么——评论区是公开的，别人都看得见；谁跟她什么关系、此刻什么心情，决定他当着别人怎么说。"
       + "\n\n" + briefs.join("\n\n")
@@ -285,6 +285,32 @@
         h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: replyTo ? "回复 @" + replyTo.name + "（点这里左边的 ✕ 取消）" : "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
           style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5 } }),
         h("button", { "data-wk": "shuasend", onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
+  }
+
+  // 今天是不是在一起的整百天／整周年（不是就空）
+  function annivLabel(since, d0) {
+    const s0 = new Date(since); s0.setHours(0, 0, 0, 0);
+    const days = Math.round((d0 - s0) / 86400000), years = d0.getFullYear() - s0.getFullYear();
+    if (years >= 1 && d0.getMonth() === s0.getMonth() && d0.getDate() === s0.getDate()) return "在一起 " + years + " 周年";
+    return days > 0 && days % 100 === 0 ? "在一起第 " + days + " 天" : "";
+  }
+  // ── 情侣挑战（她 2026-10-15「都做吧」第 3 条）：两个人分开写答案，最后一起亮出来 ─────
+  const CP_CHALLENGES = ["对方手机里给我的备注是什么", "我们第一次见面，我穿的是什么", "对方最受不了我哪一点", "谁先说的喜欢", "吵完架通常谁先低头", "对方最常对我说的一句话",
+    "对方最喜欢我身上哪个地方", "我们俩谁更粘人", "对方吃醋的时候会怎么样", "如果明天放一天假，对方最想跟我干嘛", "对方偷偷存了我哪张照片", "我们之间最好笑的一次"];
+  function CpChallengePage({ P, cName, busy, onGo, onBack }) {
+    const [q, setQ] = useState(() => CP_CHALLENGES[Math.floor(Math.random() * CP_CHALLENGES.length)]);
+    const [ans, setAns] = useState("");
+    const next = () => setQ(x => { let y = x; while (y === x) y = CP_CHALLENGES[Math.floor(Math.random() * CP_CHALLENGES.length)]; return y; });
+    return h("div", { "data-wk": "shuacpchal", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
+      h(Head, { zh: "情侣挑战", bg: "transparent", ink: P.ink, onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 8, lineHeight: 1.6 } }, "你和 " + cName + " 各写各的答案，谁也看不见谁的，发出去的时候一起亮出来，评论区看你俩对不对得上。"),
+        h("div", { "data-wk": "shuacpq", style: { marginTop: 16, padding: "16px 18px", borderRadius: 16, background: "linear-gradient(120deg,#fe2c55,#7a3cff)", color: "#fff", fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.5 } }, q),
+        h("button", { onClick: next, className: "active:opacity-60", style: { marginTop: 8, minHeight: 36, fontFamily: F_BODY, fontSize: 12.5, color: P.accent } }, "换一题"),
+        h("textarea", { "data-wk": "shuafield", value: ans, onChange: e => setAns(e.target.value), rows: 3, placeholder: "你的答案", className: "w-full outline-none resize-none",
+          style: { borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, marginTop: 8 } }),
+        h("button", { "data-wk": "shuacpchalgo", disabled: !!busy || !ans.trim(), onClick: () => onGo(q, ans.trim()), className: "w-full active:opacity-80",
+          style: { marginTop: 18, minHeight: 48, borderRadius: 14, background: (!ans.trim() || busy) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } }, busy ? cName + " 在写他的答案…" : "写好了，一起亮出来")));
   }
 
   // ── 刷新那一页：两颗，跟论坛一样 ────────────────────────
@@ -552,7 +578,39 @@
     // ⚠️拍好一条就落一条，不等最慢那个（群友 2026-10-07：「刷新会卡着刷不出来」——原来 Promise.all 要等五个人全回来，
     //   一个人的线路卡住，整批都看不见；再加一层 3 分钟的兜底，过了就当这个人这回没拍）
     // forceCp：情侣号页上那颗「让TA往这个号发一条」（她 2026-10-15）——这一回不掷那三分之一，直接发在情侣号上
-    const genChars = async (ids, forceCp) => {
+    // ── 情侣号好玩一点（她 2026-10-15「都做吧」）────────────────────────
+    // TA往情侣号发一条时多知道的几件事：粉丝是嗑你俩的、这条是不是偷拍她、是不是纪念日、能不能顺手改号
+    const cpPostLine = (c, a, isCandid, anniv) => "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + a.handle + "」上" + (a.bio ? "（主页简介：" + a.bio + "）" : "") + "，号上有 " + (a.followers || 0) + " 个粉丝，多半是嗑你俩的 CP 粉。"
+      + (anniv ? "今天是你们的「" + anniv + "」，这一条是纪念日发的——拍什么、文案怎么写照你这个人来。" : isCandid ? "这一条是你背着她偷偷拍的她（她没注意的时候：睡着、吃东西、发呆、在忙……画面里是她），文案是你写的，她还不知道你发了。" : "拍的多半跟你俩有关，她也会看到。")
+      + "\n底下网友评论 comments 多是这个号的 CP 粉：催更、考古以前的视频、给你俩起 CP 名、嗑到了、起哄——口气各不一样。"
+      + "\n号名和简介你俩谁都能改" + (a.lastEdit && a.lastEdit.by === "me" ? "（她最近刚改过：现在这个名字和简介是她弄的）" : "") + "：想顺手改，就在 cpEdit 写新的 handle／bio；不改就都留空。";
+    // 情侣号涨粉；跨过一千、一万、十万、百万时消息里落一条，TA也记一笔（聊天时说不说看TA）
+    const cpFans = (id, add) => {
+      const a = (dbRef.current.cps || {})[id]; if (!a || !(add > 0)) return;
+      const was = a.followers || 0, now = was + Math.round(add);
+      save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { followers: now }) }) }));
+      const mark = [1000, 10000, 100000, 1000000].find(m => was < m && now >= m);
+      if (!mark) return;
+      const label = mark >= 10000 ? (mark / 10000) + " 万" : mark + "";
+      note("你俩的情侣号「" + a.handle + "」粉丝破 " + label + " 了", null);
+      if (props.remember) props.remember([id], "你和 " + uName + " 在「" + APP_NAME + "」上共用的情侣号「" + a.handle + "」粉丝破了 " + label + "。");
+    };
+    // 情侣挑战：TA照自己写答案（看不见她的），再当成你俩情侣号上的一条视频发出去——评论走发视频那一套（TA也会来评）
+    const playChallenge = async (q, mine) => {
+      const c = charOf(cpId); if (!c || !props.probeAs) return;
+      setBusy("chal");
+      let his = "";
+      try {
+        const d = await props.probeAs(c, "【这一轮发生在「" + APP_NAME + "」】你和 " + uName + " 在你俩的情侣号上玩情侣挑战，题目是：「" + q + "」。两个人分开写答案，谁也看不见谁的，待会儿一起亮出来。写你的答案——照你知道的、你俩真实的事来答，一两句。", '{"answer":""}');
+        his = S(d && d.answer).slice(0, 200);
+      } catch (e) { toast("挑战没玩成：" + ((e && e.message) || "")); setBusy(null); return; }
+      setBusy(null);
+      if (!his) { toast(c.name + " 没写出来，再试一次"); return; }
+      await postMine({ scene: "情侣挑战「" + q + "」：两个人分开写答案，一起亮出来。\n" + uName + " 写的：" + mine + "\n" + c.name + " 写的：" + his, caption: "#情侣挑战 " + q, who: "self", title: "情侣挑战｜" + q, withId: "", same: null, chal: { q, me: mine, him: his } });
+    };
+    // opts.anniv：纪念日那一条的由头（自动发）；opts.quiet：不切页、不弹「发了新视频」（后台自动发时）
+    const genChars = async (ids, forceCp, opts) => {
+      opts = opts || {};
       const pick = ids.map(charOf).filter(Boolean).slice(0, PICK_MAX);
       if (!pick.length) return;
       const sk = skin;
@@ -560,6 +618,7 @@
       let done = 0;
       const names = [], failed = [];
       const toCp = {};   // 这一批里谁这条发在情侣号上
+      const candid = {};   // 这一批里谁那条是偷拍她的
       const one = c => {
         const acc = (dbRef.current.accounts || {})[c.id] || {};
         const timeout = new Promise(res => setTimeout(() => res(null), 180000));
@@ -572,6 +631,8 @@
         // 有情侣号的那位，三回里大约有一回这条发在情侣号上
         const cpHere = (dbRef.current.cps || {})[c.id];
         if (cpHere && togetherIds.indexOf(c.id) >= 0 && (forceCp || Math.random() < 0.33)) toCp[c.id] = cpHere;
+        // 偷拍她（第 2 条）：发在情侣号上的，大约一半是背着她拍的她；纪念日那条不算
+        if (toCp[c.id] && !opts.anniv && Math.random() < 0.5) candid[c.id] = true;
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
         // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
         let extra = "";
@@ -584,7 +645,7 @@
           const heard = mineB.slice(0, 3).flatMap(x => arr(x.myDms).map(d => d.text)).slice(0, 6);
           if (heard.length) extra += "\n你最近几条视频画面上，有人发过这几条弹幕：" + heard.map(x => "「" + x + "」").join("") + "（不知道是谁发的）。";
         }
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上" + (toCp[c.id].bio ? "（主页简介：" + toCp[c.id].bio + "）" : "") + "——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
@@ -596,7 +657,17 @@
             hadAcc ? {} : { bio: S(d.bio).slice(0, 60), niche: S(d.niche).slice(0, 20) },
             { followers: Math.max(0, Math.round(Number(hadAcc ? prevAcc.followers : d.followers) || 0)) + Math.round((Number(d.likes) || 0) * 0.01) });
           const cpA = toCp[c.id];
-          const nv = mkVideo(d, cpA ? { by: "char", charId: c.id, author: cpA.handle, skin: sk, cp: c.id, withCharId: c.id } : { by: "char", charId: c.id, author: handle, skin: sk });
+          const nv = mkVideo(d, cpA ? { by: "char", charId: c.id, author: cpA.handle, skin: sk, cp: c.id, withCharId: c.id, ...(candid[c.id] ? { candid: true } : {}), ...(opts.anniv ? { anniv: opts.anniv } : {}) } : { by: "char", charId: c.id, author: handle, skin: sk });
+          // 号的掌控权（第 4 条）：TA顺手改了情侣号的名字／简介 → 改掉，消息里告诉她
+          if (cpA && d.cpEdit && typeof d.cpEdit === "object") {
+            const nh = S(d.cpEdit.handle).slice(0, 20), nb = S(d.cpEdit.bio).slice(0, 80);
+            const ch = {}; if (nh && nh !== cpA.handle) ch.handle = nh; if (nb && nb !== (cpA.bio || "")) ch.bio = nb;
+            if (Object.keys(ch).length) {
+              save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [c.id]: Object.assign({}, (dbRef.current.cps || {})[c.id], ch, { lastEdit: { by: c.id, ts: Date.now() } }) }) }));
+              if (ch.handle) nv.author = ch.handle;
+              note(c.name + " 把情侣号" + (ch.handle ? "的名字改成了「" + ch.handle + "」" : "") + (ch.handle && ch.bio ? "，" : "") + (ch.bio ? "简介改成了「" + ch.bio + "」" : ""), null);
+            }
+          }
           if (sk === "b" && S(d.series)) {
             nv.series = S(d.series).replace(/[《》]/g, "").slice(0, 20);
             nv.ep = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id && x.series === nv.series).length + 1;
@@ -613,6 +684,7 @@
             if (S(th.back) && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」发的视频（" + S(nv.scene).slice(0, 40) + "）底下，网友「" + thCm.name + "」说「" + S(thCm.text).slice(0, 60) + "」，你回了「" + S(th.reply).slice(0, 60) + "」，对方又回你「" + S(th.back).slice(0, 60) + "」。");
           }
           save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
+          if (cpA) cpFans(c.id, Math.round((Number(d.likes) || 0) * 0.03) + 20);
           // 追更（她 2026-10-08）：她追着的系列出了新一期，消息里落一条，点进去就是这一期
           if (nv.series && ((dbRef.current.me || {}).series || {})[c.id + "|" + nv.series]) note((accounts[c.id] || {}).handle + " 的《" + nv.series + "》更新到第 " + nv.ep + " 期", nv.id);
           names.push(c.name);
@@ -627,6 +699,7 @@
       };
       try {
         await Promise.all(pick.map(one));
+        if (opts.quiet) return;
         if (names.length) toast(names.join("、") + " 发了新视频" + (failed.length ? "（" + failed.join("、") + " 这回没拍出来）" : ""));
         else toast("这一轮没发出来，再点一次试试");
         if (names.length) { setPage(p => p && p.kind === "refresh" ? null : p); setTab("home"); setFeed("follow"); posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0; }
@@ -702,6 +775,7 @@
       const authorC = v.by === "char" ? charOf(v.charId) : (v.cp ? charOf(v.cp) : null);
       const known = [v.by !== "npc" ? v.author : "", myName].filter(Boolean);
       const sys = AC() + CB() + "【场景】「" + APP_NAME + "」上一条视频（@" + v.author + "）拍的是：" + S(v.scene).slice(0, 200) + (v.caption ? "；文案：" + S(v.caption).slice(0, 80) : "") + "。"
+        + (v.cp ? "\n这是一个情侣号，刷到的多半是这个号的 CP 粉：催更、考古以前的视频、给他俩起 CP 名、嗑到了、起哄。" : "")
         + (have ? "\n\n【底下已有的评论】\n" + have : "\n\n底下还没有评论。")
         + "\n\n写正好 " + n + " 条刚刷到这条的陌生网友的评论 items（name 网名、text、to：要是在回底下某一条就照抄那条的网名，另起一条就空着）。"
         + "\n他们素不相识，只看得见这条视频和这些评论，不认识「" + known.join("」「") + "」，只当普通账号。像真在刷评论区：短，一句甚至几个字；不复述视频、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问，有人在楼里接别人的话；口气、长短、标点各不一样。"
@@ -759,6 +833,7 @@
       const sameChar0 = d.same && d.same.by === "char" ? charOf(d.same.charId) : null;
       const sameChar = sameChar0 && knows(sameChar0) ? sameChar0 : null;
       if (d.same) { v.sameOf = d.same.id; v.sameAuthor = d.same.author; }
+      if (d.chal) v.chal = d.chal;
       // 发在情侣号上：TA也是这个号的主人，画面默认你俩（画出来锁两张脸），TA当然会看到
       const cpChar = onCp ? charOf(cpId) : null;
       if (cpChar) { v.cp = cpId; if (!co) { v.withCharId = cpChar.id; } }
@@ -778,7 +853,7 @@
         const likes = Math.max(0, Math.round(Number(r && r.likes) || 0));
         // 合拍的起哄：网友那几句（只有合拍才有）
         const crowd = (co || cpChar) ? normComments(r && r.crowd) : [];
-        if (cpChar) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [cpId]: Object.assign({}, (dbRef.current.cps || {})[cpId], { followers: ((((dbRef.current.cps || {})[cpId] || {}).followers) || 0) + Math.round(Math.max(0, Number(r && r.likes) || 0) * 0.02) }) }) }));
+        if (cpChar) cpFans(cpId, Math.round(Math.max(0, Number(r && r.likes) || 0) * 0.02) + 10);
         patchV(v.id, x => Object.assign({}, x, { likes, plays: Math.max(likes * 8, likes), comments: cms.concat(crowd) }));
         cms.forEach(c => note(c.name + " 评论了你的视频：" + c.text, v.id));
       } catch (e) { toast("评论区还空着：" + ((e && e.message) || "")); }
@@ -828,7 +903,27 @@
       const who = sub || (target.by !== "me" ? target : arr(target.replies).slice().reverse().find(r => r.by !== "me")) || null;
       crowd(v.id, cid, text, who);
     };
-    const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() }));
+    const like = v => { patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() })); sawCandid(v); };
+    // 纪念日自动发（第 5 条）：在一起满整百天、整周年那天，进片刻时TA自己往情侣号发一条（一天一回，一次调用）
+    useEffect(() => {
+      if (!props.coupleOf || !props.probeAs) return;
+      const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+      const key = d0.getFullYear() + "-" + (d0.getMonth() + 1) + "-" + d0.getDate();
+      togetherIds.forEach(id => {
+        const a = (dbRef.current.cps || {})[id], cp = props.coupleOf(id) || {};
+        if (!a || !cp.since || a.annivDone === key) return;
+        const label = annivLabel(cp.since, d0);
+        if (!label) return;
+        save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { annivDone: key }) }) }));
+        genChars([id], true, { anniv: label, quiet: true }).then(() => note((charOf(id) || {}).name + " 在你俩的情侣号上发了一条「" + label + "」", null)).catch(() => {});
+      });
+    }, []);
+    // 她刷到了TA偷拍她的那条（点赞或点开评论）：TA记一笔「她看到了」，只记一次
+    const sawCandid = v => {
+      if (!v || !v.candid || v.candidSeen || !v.charId) return;
+      patchV(v.id, x => Object.assign({}, x, { candidSeen: Date.now() }));
+      if (props.remember) props.remember([v.charId], uName + " 刷到了你背着她偷偷发在情侣号上的那条（" + S(v.scene).slice(0, 50) + "），她看到了。");
+    };
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
 
     // 两套各刷各的：没标皮的旧视频算竖屏那套
@@ -926,6 +1021,7 @@
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
       realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: () => genNpc(feed === "city" && cities.length ? cityNow : ""), npcCity: feed === "city" && cities.length ? cityNow : "", onChars: genChars, onBack: () => setPage(null) });
+    if (page && page.kind === "cpchal") return h(CpChallengePage, { P, cName: (charOf(cpId) || {}).name || "TA", busy: busy === "chal" || busy === "post", onGo: playChallenge, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, same: page.same || null, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
     // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
@@ -942,7 +1038,7 @@
       onScroll: e => { posRef.current[posKey] = Math.round(e.currentTarget.scrollTop / (paneH || 1)); }, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
       vids.length ? vids.map(v => h(VideoPane, { key: v.id, v, height: paneH, charOf,
         onLike: () => like(v), onFave: () => fave(v),
-        onComments: () => setSheet(v.id),
+        onComments: () => { setSheet(v.id); sawCandid(v); },
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
@@ -994,7 +1090,14 @@
       } catch (e) { toast("没起出来：" + ((e && e.message) || "")); }
       finally { setBusy(b => b === "cpname:" + id ? null : b); }
     };
-    const setCp = (id, patch) => save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, (dbRef.current.cps || {})[id], patch) }) }));
+    // 她自己改了号名／简介：记一笔「是她改的」，TA下回往这个号发东西时知道，聊天里也可能提（号的掌控权）
+    const setCp = (id, patch) => {
+      const a = (dbRef.current.cps || {})[id] || {};
+      const changed = Object.keys(patch).filter(k => S(patch[k]) !== S(a[k]));
+      if (!changed.length) return;
+      save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, patch, { lastEdit: { by: "me", ts: Date.now() } }) }) }));
+      if (props.remember) props.remember([id], uName + " 把你俩在「" + APP_NAME + "」的情侣号" + changed.map(k => (k === "handle" ? "名字从「" + (a.handle || "") + "」改成了「" + patch.handle + "」" : "简介改成了「" + patch.bio + "」")).join("，") + "。");
+    };
     const cpCard = id => {
       const c = charOf(id); if (!c) return null;
       const a = cps[id], on = cpId === id, naming = busy === "cpname:" + id, editing = cpEdit === id;
@@ -1129,6 +1232,8 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginBottom: 8 } }, "情侣号"),
           togetherIds.map(id => cpCard(id))) : null,
         onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
+        onCp && props.probeAs ? h("button", { "data-wk": "shuacpchalbtn", disabled: !!busy, onClick: () => setPage({ kind: "cpchal" }), className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 10, minHeight: 42, borderRadius: 12, background: "linear-gradient(120deg,#fe2c55,#7a3cff)", color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "玩一个情侣挑战") : null,
         // 平时TA发视频只有三回里一回落在情侣号上；想看就点这颗，专门发一条到这儿（一次调用）
         onCp ? h("button", { "data-wk": "shuacppost", disabled: !!busy, onClick: () => genChars([cpId], true), className: "w-full active:opacity-70 disabled:opacity-40",
           style: { marginTop: 8, minHeight: 38, borderRadius: 10, border: "1px solid " + P.accent, color: P.accent, background: "transparent", fontFamily: F_BODY, fontSize: 12.5 } },
