@@ -947,8 +947,8 @@
           return h("div", { "data-wk": "shuacprow", key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
             h(Avatar, { character: c, size: 26 }),
             a ? h("input", { key: "cp_" + id, defaultValue: a.handle, onBlur: e => { const v = e.target.value.trim().slice(0, 20); if (v) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { handle: v }) }) })); },
-              className: "flex-1 outline-none", style: { minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })
-              : h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
+              className: "flex-1 outline-none", style: { minWidth: 0, width: 0, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })   // ⚠️minWidth/width 0：输入框天生有个默认宽度，不压到 0 它会把右边「切回大号」挤出屏幕、整页横着滑（群友 2026-10-15）
+              : h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
             h("button", { onClick: () => {
                 const me2 = Object.assign({}, dbRef.current.me);
                 if (!a) { save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign(me2, { using: "cp:" + id }) })); return; }
