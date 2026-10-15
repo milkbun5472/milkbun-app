@@ -49,7 +49,8 @@ test("② 送进聊天面板的 packs 必须把 cover 带上（原来在这一�
   assert.match(seg, /cover: pk\.cover \|\| ""/,
     "只捡 id/name/emotes 重捏对象＝她挑的封面永远到不了聊天面板");
   // 真跑一遍那个 mapper：只切 .map( 的那一个箭头函数，别把后面的 .filter 也吃进来
-  const a = seg.indexOf(".map(") + ".map(".length;
+  // ⚠️认 .map(pk => ( 这一处，别只认 ".map("：上面那条「专属给谁」的闸里有 .map(String)（v75.7xx）
+  const a = seg.indexOf(".map(pk => (") + ".map(".length;
   const b = seg.indexOf("\n    .filter(pk => pk.emotes.length)");
   assert.ok(a > 5 && b > a, "抠不出 .map 那一个箭头函数");
   const f = new Function("pk", "return (" + seg.slice(a, b).trim().replace(/\)$/, "") + ")(pk);");
