@@ -5160,7 +5160,17 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
   }
-  else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
+  // TA 帮她拍：不掷机位（她 2026-10-15：「不是说不给具体机位吗，应该像照相馆那样」）——
+  //   掷到「她回头看过来」那一格，描述里写的咬汤匙就被盖掉了。跟照片日记同一个做法：怎么拍他自己定，池子只递几种当灵感。
+  else if (opts.pov) {
+    const pool = povSlotsFor(opts.pov.tier).slice();
+    for (let k = pool.length - 1; k > 0; k--) { const q = Math.floor(Math.random() * (k + 1)); [pool[k], pool[q]] = [pool[q], pool[k]]; }
+    const _pl = "【这一张怎么拍·他自己定】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作；"
+      + "远近和角度照这一刻来定，像他举着手机真会怎么拍下这一下的她。参考图只决定她是谁，姿势、角度、离镜头多远都不要照搬参考图。"
+      + "描述里没写她在做什么时，可以从这几种里挑，用不用都行：" + pool.slice(0, 4).join("／") + "。";
+    const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
+    if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
+  }
   else {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
     //   原来压在一长串外貌、画质、参考图说明的最后，出图模型读不到，照样回到它最熟的那个角度。

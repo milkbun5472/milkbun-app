@@ -1805,7 +1805,7 @@ function packCoverOf(pk) {
   const list = (pk && pk.emotes) || [];
   return (pk && pk.cover && list.find(e => e && e.id === pk.cover)) || list[0] || null;
 }
-function StickerPanel({ packs, emotes, onPick, onManage }) {
+function StickerPanel({ packs, emotes, onPick, onManage, caption, onCaption }) {
   const t = useTheme();
   const list = Array.isArray(packs) ? packs.filter(p => p && (p.emotes || []).length) : [];
   // 最近用过的那几张（她按下去的那一刻记一笔，只存 id）。
@@ -1830,16 +1830,21 @@ function StickerPanel({ packs, emotes, onPick, onManage }) {
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog } },
         cur ? cur.name : "表情包"),
-      onManage ? h("button", { onClick: onManage, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›") : null),
+      h("div", { className: "flex items-center", style: { gap: 14 } },
+        // 字开关（她 2026-10-16「能不能选开」）：默认关，开了每张图上印它的描述
+        onCaption ? h("button", { onClick: () => onCaption(!caption), "aria-pressed": !!caption, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: caption ? t.tint : t.fog } }, caption ? "显示字 ✓" : "显示字") : null,
+        onManage ? h("button", { onClick: onManage, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›") : null)),
     !shown.length
       ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
       : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "40vh", overflowY: "auto" } },
           shown.map(em => h("button", { key: (cur && cur.recent ? "r_" : "") + em.id, onClick: () => pick(em), className: "active:opacity-70",
-            style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
+            style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2, position: "relative" } },
             h("div", { style: { width: "100%", aspectRatio: "1" } },
               h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", alt: em.keyword || "",
                 style: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-                onError: e => { e.target.style.display = "none"; } }))))),
+                onError: e => { e.target.style.display = "none"; } })),
+            // 描述印在图上（她 2026-10-16：「白底太大、字看不清，跟生成的表情包一样直接字印在上面」）：底边一行，白字描黑边
+            caption && em.keyword ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 2, padding: "0 3px", fontFamily: F_BODY, fontSize: 11, fontWeight: 700, lineHeight: 1.25, color: "#fff", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: "0 0 2px #000, 0 0 2px #000, 0 1px 3px rgba(0,0,0,.8)", pointerEvents: "none" } }, em.keyword) : null))),
     // 底下那一排：每一套一格，摆它自己的封面（第一张）。多了横着滑。
     tabs.length > 1 ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line, overflowX: "auto" } },
       tabs.map(pk => {
@@ -7996,6 +8001,7 @@ function Messages({
   onSaveNpcBrief,
   onChatNpc,
   onDeleteNpc,
+  onPromoteNpc,
   onSetNpcMem,
   groups,
   chats,
@@ -8426,7 +8432,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -8733,7 +8739,8 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onDelete, onSetMem, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onClose }) {
+  const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
   //   「在谁身边」可以不挂。落成走 app 那头的 addNpcLinked，跟关系页、秋秋同一处。
@@ -8813,6 +8820,17 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
           }))) : null,
       onChat ? h("button", { onClick: () => onChat(cur.id), className: "w-full active:opacity-70",
         style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "发消息") : null,
+      // 转正（她 2026-10-15）：同一个 TA，只是从配角变成正式角色；先问一句再动
+      onPromote ? (promoArm === cur.id
+        ? h("div", { "data-wk": "npcpromote", style: { marginTop: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6 } }, "把「" + (cur.name || "这个配角") + "」转成正式角色？聊天、记忆、关系、头像都留着；之后在人格档案馆里，有心情好感、日程、朋友圈这些，也会自己找你说话（看你给 TA 开不开）。转了就不再挂在谁身边。"),
+            h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+              h("button", { "data-wk": "npcpromotego", onClick: () => { setPromoArm(null); setOpenId(null); onPromote(cur.id); }, className: "flex-1 active:opacity-70",
+                style: { padding: "10px 0", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5, border: "none" } }, "转正"),
+              h("button", { onClick: () => setPromoArm(null), className: "flex-1 active:opacity-70",
+                style: { padding: "10px 0", borderRadius: 10, background: "transparent", color: t.fog, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.line } }, "算了")))
+        : h("button", { "data-wk": "npcpromotebtn", onClick: () => setPromoArm(cur.id), className: "w-full active:opacity-70",
+            style: { marginTop: 12, padding: "11px 0", borderRadius: 12, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 13.5, border: "1px solid " + t.line } }, "转成正式角色")) : null,
       onDelete ? (delArm === cur.id
         ? h("div", { "data-wk": "npcdel", style: { marginTop: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6 } }, "删掉「" + (cur.name || "这个配角") + "」？会从通讯录、关系网和所有群里一起拿掉。跟 TA 的私聊要不要一起清？"),
@@ -9799,6 +9817,8 @@ function ChatThread({
   emotes,
   emotePacks,
   onManageEmotes,
+  emoteCaption,
+  onEmoteCaption,
   archCount,
   onLoadOlder,
   toast
@@ -11085,6 +11105,7 @@ function ChatThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
+      caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => {
         sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
         // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
@@ -17459,6 +17480,8 @@ function GroupThread({
   emotes,
   emotePacks,
   onManageEmotes,
+  emoteCaption,
+  onEmoteCaption,
   archCount,
   onLoadOlder,
   toast
@@ -18244,6 +18267,7 @@ function GroupThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
+      caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && h(RedPacketOpenSheet, {
