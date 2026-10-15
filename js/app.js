@@ -25823,6 +25823,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 问答小本也能接着聊（群友 2026-10-15：「能不能和情书一样也出一个回复的功能，这样我回了他们可以评价一下」）：
   //   两份都打开以后，这一页底下能留言，TA看着【两份答案＋前面聊的】回——这时候才是回话，写答案那一步照旧看不到她的。
   //   形状跟情书底下那串一样（replies:[{authorId,content,ts}]）。
+  // 改自己那条留言（同一条群友：「能不能可以编辑我的评论」）：只改字，不叫TA重回
+  const editQAReply = (entryId, idx, text) => {
+    const c = String(text || "").trim();
+    setCoupleQA(p => { const n = p.map(x => x.id !== entryId ? x : { ...x, replies: (x.replies || []).map((r, i) => i === idx && r.authorId === "user" ? (c ? { ...r, content: c, editedAt: Date.now() } : null) : r).filter(Boolean) }); saveJSON("x_coupleQA", n); return n; });
+  };
   const replyToQA = async (char, entryId, myText) => {
     const c = String(myText || "").trim(), e = (coupleQA || []).find(x => x.id === entryId);
     if (!c || !e || !char) return false;
@@ -25838,7 +25843,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         voice: true,
         instruction: "你们是恋人。你俩的「情侣问答小本」里，这道题两个人都写完、已经一起打开了。\n【题目】" + e.question
           + "\n【" + me + "写的】" + (e.myAnswer || "（没写）") + "\n【你写的】" + (e.charAnswer || "（没写）")
-          + "\n现在你们在这一页底下留言聊这题：\n" + thread + "\n\n以「" + char.name + "」的身份回她最新这句，可以说说看了她那份的感受、两份哪儿像哪儿不像。1-3 条短消息（气泡），贴人设，别复述题目。",
+          + "\n现在你们在这一页底下留言聊这题：\n" + thread + "\n\n以「" + char.name + "」的身份回她最新这句，可以说说看了她那份的感受、两份哪儿像哪儿不像。这是你在小本底下【打给她看的留言】，不是心里话、不是旁白；只回这一次，别替她接话。1-3 条短消息（气泡），贴人设，别复述题目。",
+        salvage: raw => { const m = String(raw).match(/"bubbles"\s*:\s*\[([\s\S]*?)\]/); if (!m) return null; const arr = (m[1].match(/"((?:[^"\\]|\\.)*)"/g) || []).map(x => { try { return JSON.parse(x); } catch (e) { return ""; } }).filter(Boolean); return arr.length ? { bubbles: arr } : null; },
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 9400
       });
@@ -30075,6 +30081,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,
     onReplyQA: replyToQA,
+    onEditQAReply: editQAReply,
     qaGen: gen.coupleQA,
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,

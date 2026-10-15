@@ -1424,6 +1424,19 @@ function extractJSON(raw) {
     r = tryParse(t.slice(0, e + 1));
     if (r !== undefined) return r;
   }
+  // JSON 后面又跟了一段话、话里还带括号（群友 2026-10-15 问答小本：```json {…} ``` 后面接着写「Lisa叫了…」）——
+  //   「切到最后一个 }」切进了那段话里。按括号配对找第一个对象自己的结尾（跳过字符串里的括号）再试一次。
+  {
+    let depth = 0, inStr = false, esc0 = false, end = -1;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (inStr) { if (esc0) esc0 = false; else if (ch === "\\") esc0 = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === "{" || ch === "[") depth++;
+      else if (ch === "}" || ch === "]") { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end > 0 && end < t.length - 1) { r = tryParse(t.slice(0, end + 1)); if (r !== undefined) return r; }
+  }
   // 正文里直接写了换行/制表符（最常见的坏法）：先把字符串里的控制字符补成转义再试。
   // 这一步原来只在 parseJSONLoose 里有，可全库大多数地方直接调的是 extractJSON（她 2026-09-29 要全 app 兜底）
   const esc = typeof escapeJsonStringControls === "function" ? escapeJsonStringControls(t) : t;
