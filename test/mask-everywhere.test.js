@@ -10,7 +10,10 @@ test("片刻：大号跟面具走，只叫认得出的人来评；她去评别�
   assert.match(SH, /const knows = c => !c \|\| onAlt \|\| onCp \|\| !props\.maskKeyOf \|\| props\.maskKeyOf\(c\.id\) === maskUse;/);
   assert.match(SH, /if \(maskUse\) v\.mask = maskUse;/);
   assert.match(SH, /characters\.filter\(c => \(!lead \|\| c\.id !== lead\.id\) && knows\(c\)\)/);
-  assert.match(SH, /const asAlt = onAlt \? altName : \(c0 && !knows\(c0\) \? myName : ""\);/);
+  // v75.711 起评论区改成一次调用：原来那句 asAlt 换成了 stranger 这个判据，
+  //   守的还是同一件事——她用小号、或者对方不认识这张面具时，她在那边就是个陌生账号。
+  assert.match(SH, /const stranger = !!onAlt \|\| \(resp && !knows\(resp\)\);/);
+  assert.match(SH, /是个谁都不认识的账号，没人知道背后是谁/);
   assert.match(SH, /"data-wk": "shuamaskrow"/);
 });
 

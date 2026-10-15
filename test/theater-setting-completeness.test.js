@@ -72,7 +72,7 @@ test("整理不回来才认输，且要说出模型到底回了什么", () => {
 test("控制字符与裸引号两种坏 JSON 都能抢救出必填字段", () => {
   const engine = fs.readFileSync(path.join(__dirname, "..", "js/engine.js"), "utf8");
   const fn = (src, name) => {
-    const i = src.indexOf("function " + name);
+    const i = src.indexOf("function " + name + "(");   // 带上左括号：别撞上同前缀的另一个函数（extractJSONKey）
     return src.slice(i, src.indexOf("\n}\n", i) + 3);
   };
   const body = theater.slice(theater.indexOf("  const decodeLooseJsonText"),
