@@ -616,6 +616,76 @@
   const _ok2 = okWithoutText;
   okWithoutText = x => _ok2(x) || (x.target === "presetmod" && S(x.id).trim() && (x.drop === true || x.drop === "true" || /:\+/.test(S(x.id))));
 
+  // ════ 小世界（她 2026-10-16「小世界那些做了吧」）：只放开设置类，游戏进度一笔不碰 ════
+  //   dayset：TA的一天——「角色id:thoughts」开／关此刻的念头；「角色id:clock」按TA的时间／按现实时间（走小世界自己那支 durable 写口）
+  //   look：小人的颜色——id＝角色id，text＝JSON {skin, eye, hairColor, hairColor2}，都是 #六位色号；发型、衣服款式在小世界面板里挑
+  //   gardenpartner：某一档换同行者——id＝存档id，text＝角色名／id，或「一个人」；庭院房那种绑死一个人的不让换
+  const LS = (k, d) => { try { return typeof loadJSON === "function" ? loadJSON(k, d) : d; } catch (e) { return d; } };
+  const charBy = (ctx, t) => (ctx.characters || []).find(c => c && (c.id === S(t).trim() || c.name === S(t).trim() || c.remark === S(t).trim()));
+  TARGETS.dayset = {
+    zh: "TA的一天设置", read: () => [],
+    write: (id, patch, ctx) => {
+      const K = typeof window !== "undefined" && window.CharDayKit; if (!K || !K.saveHomeChange) throw new Error("这台设备没有小世界");
+      const [cid, what] = S(id).split(":"); if (!charBy(ctx, cid)) throw new Error("找不到这个角色");
+      const t = S(patch.text).trim();
+      if (what === "thoughts") { if (!yes(t) && !no(t)) throw new Error("念头只能开或关"); return K.saveHomeChange(cid, "thoughts", raw => Object.assign({}, raw || {}, { enabled: yes(t) })).then(() => 1); }
+      if (what === "clock") { const mode = /现实|real/i.test(t) ? "real" : /TA|角色|auto|跟/i.test(t) ? "auto" : ""; if (!mode) throw new Error("活动时间只能「按TA的时间走」或「按现实时间走」"); return K.saveHomeChange(cid, "clockModes", mode).then(() => 1); }
+      throw new Error("TA的一天里没有「" + what + "」这一项");
+    }
+  };
+  const HEX = v => /^#[0-9a-f]{6}$/i.test(S(v).trim()) ? S(v).trim().toLowerCase() : null;
+  TARGETS.look = {
+    zh: "小人的颜色", read: () => [],
+    before: p => { const l = ((LS("x_companion", {}) || {}).looks || {})[S(p.id)] || {}; return ["skin", "eye", "hairColor", "hairColor2"].filter(k => l[k]).map(k => k + "=" + l[k]).join("，") || "（还是默认的）"; },
+    write: (id, patch, ctx) => {
+      if (!charBy(ctx, id)) throw new Error("找不到这个角色");
+      let o = null; try { o = JSON.parse(S(patch.text)); } catch (e) {}
+      if (!o || typeof o !== "object") throw new Error("颜色要写成 {\"hairColor\":\"#6b4a33\"} 这样");
+      const ch = {}; ["skin", "eye", "hairColor", "hairColor2"].forEach(k => { if (o[k] != null) { const v = HEX(o[k]); if (!v) throw new Error(k + " 要是 #六位色号"); ch[k] = v; } });
+      if (!Object.keys(ch).length) throw new Error("这张卡什么颜色都没改");
+      const cfg = LS("x_companion", {}) || {}, looks = Object.assign({}, cfg.looks || {});
+      looks[id] = Object.assign({}, looks[id] || {}, ch);
+      const next = Object.assign({}, cfg, { looks });
+      saveJSON("x_companion", next);
+      try { if (window.__companionChanged) window.__companionChanged(next); } catch (e) {}
+      return 1;
+    }
+  };
+  const GARDEN_WORLD_ZH = { garden: "微光庭院", train: "远行列车", pets: "绒绒小镇" };
+  const gardenKey = id => id === "legacy" ? "x_fairyGarden" : "x_fairyGarden:" + id;
+  const gardenSaves = () => (LS("x_fairyGardenSaves", []) || []).filter(x => x && x.id && String(x.id)[0] !== ":");
+  TARGETS.gardenpartner = {
+    zh: "小世界存档的同行者", read: () => [],
+    before: (p, ctx) => { const d = LS(gardenKey(S(p.id)), null); if (!d) return ""; const c = charBy(ctx, d.partnerId); return c ? c.name : "一个人"; },
+    write: (id, patch, ctx) => {
+      const sid = S(id); if (sid[0] === ":" || sid.indexOf("::") >= 0) throw new Error("这一档是从小房间开的，绑定了那个人，换人请另开一档");
+      if (!gardenSaves().some(x => x.id === sid) && sid !== "legacy") throw new Error("找不到这一档");
+      const d = LS(gardenKey(sid), null); if (!d) throw new Error("这一档还没开始玩，进去挑同行者就好");
+      const t = S(patch.text).trim(), solo = /^(一个人|没有|不要|无)$/.test(t);
+      const c = solo ? null : charBy(ctx, t); if (!solo && !c) throw new Error("没有叫「" + t + "」的角色");
+      saveJSON(gardenKey(sid), Object.assign({}, d, { partnerId: c ? c.id : "" }));
+      return 1;
+    }
+  };
+  function snapshotWorld(ctx, hot) {
+    const chars = (ctx.characters || []).filter(c => c && hot.has(c.id)), homes = LS("x_charDayHomes", {}) || {}, looks = (LS("x_companion", {}) || {}).looks || {};
+    const out = {};
+    if (chars.length) out.TA的一天 = chars.map(c => ({ 谁: c.name, id: c.id, 此刻的念头: ((homes.thoughts || {})[c.id] || {}).enabled === true ? "开" : "关",
+      活动时间: (homes.clockModes || {})[c.id] === "real" ? "按现实时间走" : "按TA的时间走",
+      小人颜色: ["skin", "eye", "hairColor", "hairColor2"].filter(k => (looks[c.id] || {})[k]).map(k => k + "=" + looks[c.id][k]).join("，") || "默认" }));
+    const saves = gardenSaves().slice(0, 12).map(x => { const d = LS(gardenKey(x.id), null) || {}; const p = charBy(ctx, d.partnerId);
+      return { 存档id: x.id, 名字: x.name || "（没起名）", 世界: GARDEN_WORLD_ZH[x.world] || x.world, 同行者: p ? p.name : (d.partnerId ? "（档案里没这个人了）" : "一个人"), 开始玩了: !!LS(gardenKey(x.id), null) }; });
+    if (saves.length) out.小世界存档 = saves;
+    return out;
+  }
+  const _snap3 = snapshotExtra, _doc3 = docLines;
+  snapshotExtra = (ctx, hot) => Object.assign(_snap3(ctx, hot), snapshotWorld(ctx, hot));
+  docLines = () => _doc3() + "· 小世界只放开这几样设置（游戏进度、背包、花、钱、种子这些一律不改，她要改就照攻略告诉她怎么在游戏里做）：\n"
+    + "  dayset TA的一天：id＝「角色id:thoughts」text 开／关＝此刻的念头；「角色id:clock」text＝按TA的时间走／按现实时间走。快照【TA的一天】是现在的样子。\n"
+    + "  look 小人的颜色（陪伴、庭院、TA的一天共用一份）：id＝角色id，text＝JSON，只认 skin（肤色）、eye（眼睛）、hairColor（发色）、hairColor2（挑染）四样，都是 #六位色号，她说颜色名你换成色号；发型、衣服款式让她去小世界的「改外貌」里挑。\n"
+    + "  gardenpartner 某一档换同行者：id＝快照【小世界存档】里的存档id，text＝角色名，或「一个人」。从小房间开的庭院房绑死那个人，不能换。\n"
+    + "  她问小世界怎么玩，照攻略「小世界」那条讲；快照里看得到她开了哪几档、各是哪个世界、跟谁。\n";
+
   const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;
   if (typeof module === "object" && module.exports) module.exports = api;

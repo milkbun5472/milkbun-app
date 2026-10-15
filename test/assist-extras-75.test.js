@@ -183,3 +183,24 @@ test("扔给秋秋的分条预设：秋秋这头照原样拆，关着的 off 只
   assert.equal(mods.length, 2);
   assert.equal(presets[0].mods.length, 1);
 });
+
+// 小世界（她 2026-10-16「小世界那些做了吧」）
+test("小世界：念头开关、活动时间走 durable 写口；小人颜色只认色号；存档换同行者，房间档不让换", async () => {
+  const saved = {}; const homes = [];
+  global.loadJSON = (k, d) => k in saved ? saved[k] : d; global.saveJSON = (k, v) => { saved[k] = v; return true; };
+  window.CharDayKit = { saveHomeChange: async (cid, sec, v) => { homes.push([cid, sec, typeof v === "function" ? v({}) : v]); return {}; } };
+  const ctx = { characters: [{ id: "c1", name: "陆衍" }] };
+  assert.equal(await X.TARGETS.dayset.write("c1:thoughts", { text: "开" }, ctx), 1);
+  assert.equal(await X.TARGETS.dayset.write("c1:clock", { text: "按现实时间走" }, ctx), 1);
+  assert.deepEqual(homes, [["c1", "thoughts", { enabled: true }], ["c1", "clockModes", "real"]]);
+  X.TARGETS.look.write("c1", { text: "{\"hairColor\":\"#6B4A33\"}" }, ctx);
+  assert.equal(saved.x_companion.looks.c1.hairColor, "#6b4a33");
+  assert.throws(() => X.TARGETS.look.write("c1", { text: "{\"hairColor\":\"棕色\"}" }, ctx), /色号/);
+  saved.x_fairyGardenSaves = [{ id: "g1", world: "garden", name: "一档" }];
+  saved["x_fairyGarden:g1"] = { id: "g1", partnerId: "" };
+  X.TARGETS.gardenpartner.write("g1", { text: "陆衍" }, ctx);
+  assert.equal(saved["x_fairyGarden:g1"].partnerId, "c1");
+  assert.throws(() => X.TARGETS.gardenpartner.write(":c1::room::1", { text: "陆衍" }, ctx), /小房间/);
+  assert.ok(/不改/.test(X.docLines()));
+  delete global.loadJSON; delete global.saveJSON;
+});

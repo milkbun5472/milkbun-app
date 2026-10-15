@@ -1591,9 +1591,15 @@
       send(m.q, A.lastPic());
     };
     const applyOne = p => {
-      if (p.done === "已应用") return;           // 记忆库会加两遍、改一小段会找不到原文
+      if (p.done === "已应用" || p.done === "应用中…") return;           // 记忆库会加两遍、改一小段会找不到原文
       try {
         const n = A.apply(p, ctx);
+        // 有的写口是要等落盘的（小世界那支 durable 写口）：等它回来再说成没成
+        if (n && typeof n.then === "function") {
+          A.markPatch(p.pid, "应用中…");
+          n.then(() => { A.markPatch(p.pid, "已应用"); toast && toast("改好了"); }, e => A.markPatch(p.pid, "没应用：" + ((e && e.message) || "没存上，再点一次")));
+          return;
+        }
         A.markPatch(p.pid, "已应用");
         toast && toast(p.target === "memory" ? "写进记忆库 " + n + " 条"
           : p.target === "theme" ? "装修上身了" : "改好了，下次生成生效");
