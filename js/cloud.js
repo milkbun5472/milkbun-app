@@ -493,12 +493,15 @@
       //   成功戳原来只有 autoPush 在写，这条手动路推完不留痕，pushState 只能拿旧账说话。
       //   同一层写在两处的老病：写库和写戳必须同进退。
       const ts = new Date().toISOString();
-      const { error } = await client.from("saves").upsert({
-        user_id: user.id,
-        data: saveData,
-        updated_at: ts,
-      });
-      if (error) throw error;
+      // 太大的存档服务器门口直接拒（nginx 上限 52MB），拒的那一下不带跨域头，浏览器只报一句「Failed to fetch」——
+      //   开梯子换网都没用（群友 2026-10-15）。先量一下，超了就说清是多大、该怎么办；没超但还是连不上，也把大小带上便于判断。
+      let mb = 0; try { mb = new Blob([JSON.stringify(saveData)]).size / 1048576; } catch (e) {}
+      if (mb > 50) throw new Error("存档有 " + mb.toFixed(1) + " MB，超过云端一次能收的 50 MB，传不上去。先去 设置 → 数据 → 本地空间 看谁占地方、清掉一些（大图、超长聊天可以先归档），或者导出一份 json 存好");
+      let res;
+      try { res = await client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts }); }
+      catch (e) { throw new Error((e && e.message || "连不上云端") + "（这次要传 " + mb.toFixed(1) + " MB）"); }
+      const error = res && res.error;
+      if (error) { if (/fetch|load failed|network/i.test(error.message || "")) error.message = (error.message || "") + "（这次要传 " + mb.toFixed(1) + " MB）"; throw error; }
       this.markSynced(ts);
     },
 
