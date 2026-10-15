@@ -25820,6 +25820,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGen(g => ({ ...g, coupleQA: false }));
     }
   };
+  // 问答小本也能接着聊（群友 2026-10-15：「能不能和情书一样也出一个回复的功能，这样我回了他们可以评价一下」）：
+  //   两份都打开以后，这一页底下能留言，TA看着【两份答案＋前面聊的】回——这时候才是回话，写答案那一步照旧看不到她的。
+  //   形状跟情书底下那串一样（replies:[{authorId,content,ts}]）。
+  const replyToQA = async (char, entryId, myText) => {
+    const c = String(myText || "").trim(), e = (coupleQA || []).find(x => x.id === entryId);
+    if (!c || !e || !char) return false;
+    const mine = { authorId: "user", content: c, ts: Date.now() };
+    const putReplies = add => setCoupleQA(p => { const n = p.map(x => x.id !== entryId ? x : { ...x, replies: [...(x.replies || []), ...add] }); saveJSON("x_coupleQA", n); return n; });
+    putReplies([mine]);
+    if (!active) { toast("请先到设置配置 API"); return true; }
+    setGen(g => ({ ...g, coupleQA: true }));
+    try {
+      const me = profile.name || "她";
+      const thread = [...(e.replies || []), mine].map(r => (r.authorId === "user" ? me : char.name) + "：" + r.content).join("\n");
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你们是恋人。你俩的「情侣问答小本」里，这道题两个人都写完、已经一起打开了。\n【题目】" + e.question
+          + "\n【" + me + "写的】" + (e.myAnswer || "（没写）") + "\n【你写的】" + (e.charAnswer || "（没写）")
+          + "\n现在你们在这一页底下留言聊这题：\n" + thread + "\n\n以「" + char.name + "」的身份回她最新这句，可以说说看了她那份的感受、两份哪儿像哪儿不像。1-3 条短消息（气泡），贴人设，别复述题目。",
+        schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
+        maxTokens: 9400
+      });
+      const bubbles = Array.isArray(d.bubbles) ? d.bubbles.filter(Boolean) : (d.bubbles ? [String(d.bubbles)] : []);
+      const at = Date.now();
+      putReplies(bubbles.map((b, i) => ({ authorId: char.id, content: String(b).trim(), ts: at + i })));
+      return true;
+    } catch (err) { toast("失败：" + err.message); return true; }
+    finally { setGen(g => ({ ...g, coupleQA: false })); }
+  };
   // 迟到亲笔补投扫雷器（2026-08-28）：真身票超时落了引擎兜底的条目带着 ccJobId 票根，
   // 开机后来这儿对一遍云端结果——亲笔稿到了就原地换页（via engine→cc），她不用做任何事。
   useEffect(() => {
@@ -30045,6 +30074,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,
+    onReplyQA: replyToQA,
     qaGen: gen.coupleQA,
     coupleQATitle: coupleQATitle,
     onSaveQATitle: saveQATitle,
