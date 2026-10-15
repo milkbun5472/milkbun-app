@@ -1146,7 +1146,7 @@
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
         ...(x.target === "rel" ? { both: x.both === true || x.both === "true" } : {}),
-        ...(/^(memedit|closet|cal|wish|anniv)$/.test(x.target) ? { drop: x.drop === true || x.drop === "true", date: clip(x.date, 12), occasion: clip(x.occasion, 20), view: clip(x.view, 60) } : {}),
+        ...(/^(memedit|closet|cal|wish|anniv|presetmod)$/.test(x.target) ? { drop: x.drop === true || x.drop === "true", date: clip(x.date, 12), occasion: clip(x.occasion, 20), view: clip(x.view, 60) } : {}),
         ...(x.target === "wish" ? { type: clip(x.type, 10), done: x.done === true || x.done === "true" } : {}),
         ...(x.target === "anniv" ? { yearly: !(x.yearly === false || x.yearly === "false") } : {}),
         ...(x.target === "sched" ? { time: clip(x.time, 5) } : {}),
@@ -1398,6 +1398,9 @@
     if (patch && patch.target === "roomset") return String(patch.id).split(":")[2] + "：" + String(patch.text || "");
     if (patch && /^(gsetting|osetting|global)$/.test(patch.target)) { const A = window.AssistExtras || {}; const k = String(patch.id).split(":").pop();
       const d = (patch.target === "global" ? A.GLOBALS : patch.target === "gsetting" ? A.GROUP_SETTINGS : A.OFFLINE_SETTINGS || []).find(x => x.key === k); return (d ? d.zh : k) + "：" + String(patch.text || ""); }
+    if (patch && patch.target === "preset") { try { const a = JSON.parse(String(patch.text || "")); const L = Array.isArray(a) ? a : (a.mods || []);
+      return "预设「" + (patch.name || "秋秋搭的预设") + "」\n" + L.map((m, i) => (i + 1) + ". " + (m.use ? "（现成的）" + m.use : (m.name || "") + (m.hint ? "——" + m.hint : "") + "\n   " + String(m.text || "").slice(0, 400))).join("\n"); } catch (e) { return String(patch.text || ""); } }
+    if (patch && patch.target === "presetmod") return /:\+/.test(String(patch.id)) ? "勾进来：" + String(patch.id).split(":+")[1] : (patch.name ? patch.name + "：" : "") + String(patch.text || "");
     if (patch && patch.target === "sched") return [patch.time, patch.name, String(patch.text || "").trim() ? "@ " + patch.text : ""].filter(x => String(x || "").trim()).join(" ");
     if (patch && patch.target === "wish") return patch.done ? "（标成做到了）" : [patch.type ? "【" + patch.type + "】" : "", patch.name, patch.text].filter(x => String(x || "").trim()).join(" ");
     if (patch && patch.target === "anniv") return [patch.date, patch.name, patch.yearly === false ? "（只这一次）" : "（每年）"].filter(Boolean).join(" ");

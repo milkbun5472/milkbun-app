@@ -555,6 +555,67 @@
   const okWithoutText1 = okWithoutText;
   okWithoutText = x => okWithoutText1(x) || (/^(sched|wish|anniv)$/.test(x.target) && S(x.id).trim() && (S(x.name).trim() || S(x.time).trim() || x.drop === true || x.drop === "true" || x.done === true || x.done === "true"));
 
+  // ════ 文风台（她 2026-10-16「文风台秋秋能搞吗，比如给它文件」）════
+  //   preset：新建一份预设——text 是模块清单 JSON：[{"name","hint","text"} 新写的一条 | {"use":"内置模块id"} 勾一条现成的]，name＝预设名
+  //   presetmod：改已有预设里的一条——id＝「预设id:模块id」改那一条（name/text）、加 drop 从这份预设里拿掉；
+  //              「预设id:new」往这份里加一条新写的；「预设id:+模块id」把一条现成的勾进来
+  //   新写的模块落在「秋秋写的」那一格，跟自己写的一样能改能删、能被别的预设勾。
+  const SP = () => (typeof window !== "undefined" && window.StylePresets) || null;
+  const parseMods = t => { try { const a = JSON.parse(S(t)); return Array.isArray(a) ? a : (a && Array.isArray(a.mods) ? a.mods : null); } catch (e) { return null; } };
+  const newMod = (m, i) => ({ id: "um_qq_" + Date.now().toString(36) + "_" + i, cat: "qiuqiu", catZh: "秋秋写的", catHint: "秋秋帮你写的模块", name: S(m.name).trim().slice(0, 24), hint: S(m.hint).trim().slice(0, 40) || "秋秋写的", text: S(m.text).trim() });
+  TARGETS.preset = {
+    zh: "文风台预设", read: () => [],
+    write: (id, patch, ctx) => {
+      const P = SP(); if (!P) throw new Error("这台设备没有文风台");
+      const mods = parseMods(patch.text); if (!mods || !mods.length) throw new Error("模块清单读不出来");
+      const fresh = [], ids = [];
+      mods.forEach((m, i) => {
+        if (m && m.use) { if (!P.moduleById(S(m.use))) throw new Error("没有「" + m.use + "」这个模块"); ids.push(S(m.use)); return; }
+        const nm = newMod(m || {}, i); if (!nm.name || !nm.text) throw new Error("第 " + (i + 1) + " 条缺名字或内容");
+        fresh.push(nm); ids.push(nm.id);
+      });
+      if (fresh.length) P.importBundle({ modules: fresh });
+      const name = S(patch.name).trim() || "秋秋搭的预设";
+      P.upsert({ id: "sp_qq_" + Date.now().toString(36), name: name.slice(0, 24), mods: ids, free: "", freePos: "after", ts: Date.now() });
+      return 1;
+    }
+  };
+  TARGETS.presetmod = {
+    zh: "文风台预设里的一条", read: () => [],
+    before: (p) => { const P = SP(); if (!P) return ""; const [pid, mid] = S(p.id).split(":"); const m = mid && mid !== "new" && mid[0] !== "+" ? P.moduleById(mid) : null; return m ? m.name + "：" + clip(m.text, 300) : ""; },
+    write: (id, patch, ctx) => {
+      const P = SP(); if (!P) throw new Error("这台设备没有文风台");
+      const [pid, mid] = S(id).split(":"); const pr = P.byId(pid); if (!pr) throw new Error("文风台里找不到这份预设");
+      const mods = Array.isArray(pr.mods) ? pr.mods.slice() : [];
+      if (mid === "new") {
+        const nm = newMod({ name: patch.name, hint: patch.occasion, text: patch.text }, 0); if (!nm.name || !nm.text) throw new Error("新的这一条要有名字和内容");
+        P.importBundle({ modules: [nm] }); P.upsert(Object.assign({}, pr, { mods: mods.concat([nm.id]), ts: Date.now() })); return 1;
+      }
+      if (mid && mid[0] === "+") { const u = mid.slice(1); if (!P.moduleById(u)) throw new Error("没有「" + u + "」这个模块"); if (mods.indexOf(u) < 0) P.upsert(Object.assign({}, pr, { mods: mods.concat([u]), ts: Date.now() })); return 1; }
+      if (mods.indexOf(mid) < 0) throw new Error("这份预设里没有这一条");
+      if (patch.drop) { P.upsert(Object.assign({}, pr, { mods: mods.filter(x => x !== mid), ts: Date.now() })); return 1; }
+      const cur = P.moduleById(mid) || {};
+      P.saveModuleEdit(mid, { name: S(patch.name).trim() || cur.name, hint: cur.hint, text: S(patch.text).trim() });
+      return 1;
+    }
+  };
+  function snapshotStyle() {
+    const P = SP(); if (!P) return {};
+    const presets = (P.list() || []).slice(0, 12).map(p => ({ 预设id: p.id, 名字: p.name, 模块: (p.mods || []).map(id => { const m = P.moduleById(id); return m ? { id, 名字: m.name, 管什么: m.hint } : { id, 名字: "（找不到了）" }; }), 手写段: p.free ? clip(p.free, 120) : undefined }));
+    const lib = (P.allCats() || []).map(c => ({ 分类: c.zh, 模块: (c.mods || []).map(m => m.id + "「" + m.name + "」" + (m.hint ? "：" + m.hint : "")) }));
+    return { 文风台预设: presets.length ? presets : "（还没有预设）", 文风台模块库: lib };
+  }
+  const _snap2 = snapshotExtra, _doc2 = docLines;
+  snapshotExtra = (ctx, hot) => Object.assign(_snap2(ctx, hot), snapshotStyle());
+  docLines = () => _doc2() + "· preset 文风台的一份新预设（她发文风文件、酒馆预设，或者说想要什么样的笔法时）：把内容拆成一条一条的模块，每条只管一件事（镜头／排版／节拍／去八股／对话……），"
+    + "name＝预设名，text＝模块清单 JSON 数组，每项 {\"name\":\"短名\",\"hint\":\"一句管什么\",\"text\":\"给模型的那段要求\"}；快照【文风台模块库】里已有意思一样的就别重写，写 {\"use\":\"模块id\"} 勾现成的。"
+    + "顺序就是喂进去的顺序，越靠后越有分量，最容易被违反的那条放最后。只拆笔法，讲人设、剧情、事实的内容不进预设。\n"
+    + "· presetmod 改快照【文风台预设】里某一份的一条：id＝「预设id:模块id」，name/text 写改完的（改的是这条模块本身，别的预设勾了它也跟着变）；\"drop\":true＝只从这份预设里拿掉；"
+    + "「预设id:new」加一条新写的（name、text，occasion 写一句管什么）；「预设id:+模块id」把一条现成的勾进来。她问「这份为什么写成这样」，照快照里每条管什么指给她看。\n"
+    + "  原来那个 style 卡（见面的自定义文风，整篇一段）照旧在；她说文风台、预设、模块、测试台时用 preset／presetmod。\n";
+  const _ok2 = okWithoutText;
+  okWithoutText = x => _ok2(x) || (x.target === "presetmod" && S(x.id).trim() && (x.drop === true || x.drop === "true" || /:\+/.test(S(x.id))));
+
   const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;
   if (typeof module === "object" && module.exports) module.exports = api;

@@ -141,3 +141,35 @@ test("秋秋说明里写着世界书怎么起作用、生图去哪查、音乐�
   const as = R("js/assistant.js");
   assert.ok(/stampsOf/.test(as) && /"cat", "stamps", "priority"/.test(as));
 });
+
+// 文风台（她 2026-10-16「文风台秋秋能搞吗，比如给它文件」）
+test("preset 新建一份：新写的落进模块库、现成的直接勾；presetmod 改／加／勾／拿掉", () => {
+  let mods = [], presets = [], edits = {};
+  const builtin = { cam_hands: { id: "cam_hands", name: "近景在手上", text: "..." } };
+  window.StylePresets = {
+    moduleById: id => builtin[id] || mods.find(m => m.id === id) || null,
+    importBundle: d => { mods = mods.concat(d.modules || []); },
+    upsert: p => { presets = presets.some(x => x.id === p.id) ? presets.map(x => x.id === p.id ? p : x) : presets.concat([p]); },
+    byId: id => presets.find(p => p.id === id) || null,
+    saveModuleEdit: (id, p) => { edits[id] = p; },
+    list: () => presets, allCats: () => []
+  };
+  X.TARGETS.preset.write("new", { name: "冷笔", text: JSON.stringify([{ name: "不贴情绪标签", hint: "写征兆", text: "别写情绪名" }, { use: "cam_hands" }]) }, {});
+  assert.equal(presets.length, 1);
+  assert.equal(presets[0].name, "冷笔");
+  assert.equal(presets[0].mods.length, 2);
+  assert.equal(presets[0].mods[1], "cam_hands");
+  assert.equal(mods[0].catZh, "秋秋写的");
+  const pid = presets[0].id, mid = presets[0].mods[0];
+  X.TARGETS.presetmod.write(pid + ":" + mid, { text: "改短了" }, {});
+  assert.equal(edits[mid].text, "改短了");
+  X.TARGETS.presetmod.write(pid + ":new", { name: "不写收尾句", text: "最后一句别总结" }, {});
+  assert.equal(presets[0].mods.length, 3);
+  X.TARGETS.presetmod.write(pid + ":cam_hands", { drop: true }, {});
+  assert.ok(presets[0].mods.indexOf("cam_hands") < 0);
+  X.TARGETS.presetmod.write(pid + ":+cam_hands", {}, {});
+  assert.ok(presets[0].mods.indexOf("cam_hands") >= 0);
+  assert.throws(() => X.TARGETS.preset.write("new", { text: "[{\"use\":\"nope\"}]" }, {}), /没有/);
+  assert.ok(X.okWithoutText({ target: "presetmod", id: pid + ":+cam_hands" }));
+  assert.ok(/preset 文风台/.test(X.docLines()));
+});
