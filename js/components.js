@@ -16918,7 +16918,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         spk ? h(Avatar, { character: spk, size: 28, radius: 14 }) : null,
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-          (m.senderName || (spk && spk.name) || "") + (m.photoKind === "part" ? " · " + PHOTO_PART_ZH : m.photoKind === "view" ? " · " + PHOTO_VIEW_ZH : m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : " · 自拍")),
+          (m.senderName || (spk && spk.name) || "") + (m.photoKind === "part" ? " · " + PHOTO_PART_ZH : m.photoKind === "view" ? " · " + PHOTO_VIEW_ZH : m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : m.photoKind === "me" ? " · 给你拍的" : m.photoKind === "drawback" ? " · 接着画的" : " · 自拍")),
         timeEl,
         // 她 2026-10-02：「线下的图不能编辑重roll」——重拍＝照原描述再画；改描述＝存下就照新描述重画。话一个字不动。
         (editable && onReroll && !m.pending) ? h("button", { onClick: () => onReroll(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重拍这张" }, h(IRefresh, { size: 15, color: t.fog })) : null,
