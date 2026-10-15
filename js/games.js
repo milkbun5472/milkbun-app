@@ -5200,7 +5200,7 @@
     const best = useRef((function () { try { return Number(loadJSON(bestKey, 0)) || 0; } catch (e) { return 0; } })());
     const lastTalk = useRef(0), touch = useRef(null), repeat = useRef(null);
     // 说话节奏（她 2026-10-15：「怕来来回回就是一句话换着说法说」）：
-    //   同一类事只在第一次和升级时叫 TA；叫了也可以不说；给 TA 的是「上次开口到现在变了什么」；越打越安静
+    //   同一类事只在第一次和升级时叫 TA；叫了也可以不说；给 TA 的是「上次开口到现在变了什么」
     const seen = useRef({}), snap = useRef(null), talkN = useRef(0), lastLen = useRef(0);
     const fresh = function (k) { if (seen.current[k]) return false; seen.current[k] = 1; return true; };
     const danger = function (k, g) { const hgt = g ? T.stackHeight(g.board) : 0; if (hgt < 12) seen.current[k] = 0; return hgt >= 16 && fresh(k); };
@@ -5226,7 +5226,7 @@
     const say = function (why, force, userLine) {
       if (!api || !char) return;
       const now = Date.now();
-      const gap = Math.min(45000, 12000 + talkN.current * 3000 + lastLen.current * 120);
+      const gap = Math.min(30000, 12000 + lastLen.current * 120);
       if (!force && (talking || now - lastTalk.current < gap)) return;
       lastTalk.current = now; talkN.current++; setTalking(true);
       const me = meRef.current, ta = taRef.current, delta = sinceLast(), must = !!userLine;

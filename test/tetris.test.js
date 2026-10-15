@@ -36,7 +36,7 @@ test("合作接力：同一块板子一人一块轮着放；轮到 TA 时你的�
 });
 
 // 她 2026-10-15：「怕来来回回就是一句话换着说法说」
-test("俄罗斯方块说话节奏：同类事只叫一次、可以不说、给上次到现在的变化、越打越安静", () => {
+test("俄罗斯方块说话节奏：同类事只叫一次、可以不说、给上次到现在的变化", () => {
   const g = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "games.js"), "utf8");
   const G = g.slice(g.indexOf("function TetrisGame("), g.indexOf("function TetrisGame(") + 20000);
   assert.match(G, /const fresh = function \(k\)/);
