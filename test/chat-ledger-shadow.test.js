@@ -269,3 +269,22 @@ test("超长正文发货前裁到云端约束上限，整批不再被毒行连�
   assert.ok(uploaded.find(r => r.content.includes("长")).content.endsWith("…"), "裁尾留省略号标记");
   assert.equal(manager.status().outbox.length, 0);
 });
+
+test("队里历史遗留的空正文行整批进隔离区，不再让每批陪跑", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  m.set(Ledger.OUTBOX_KEY, JSON.stringify([
+    { message_key: "e1", content: "", speaker_type: "lisa" },
+    { message_key: "e2", content: "  ", speaker_type: "lisa" },
+    { message_key: "g1", content: "好行", speaker_type: "lisa" }
+  ]));
+  let uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000,
+    upload: async rows => { rows.forEach(r => { if (!r.content.trim()) throw new Error("violates check constraint"); }); uploaded.push(...rows); }
+  });
+  await manager.flush();
+  assert.deepEqual(uploaded.map(r => r.message_key), ["g1"], "好行照送");
+  assert.deepEqual(manager.status().quarantine.map(r => r.message_key).sort(), ["e1", "e2"], "空行全进隔离区");
+  assert.equal(manager.status().outbox.length, 0);
+});

@@ -444,7 +444,18 @@
           diagnostic({ last_delete_error: String(error && error.message || error), pending_deletes: deletes.length });
         }
       }
-      const outbox = parse(storage, OUTBOX_KEY, []);
+      let outbox = parse(storage, OUTBOX_KEY, []);
+      // 旧版本时代混进队里的空正文行：云端约束要求至少 1 字，裁长刀管不了太短。
+      // 它们按现行规则本就不该入账，直接整批进隔离区，不再让每批 50 条陪跑。
+      const empties = outbox.filter(r => !text(r && r.content));
+      if (empties.length) {
+        const held = parse(storage, QUARANTINE_KEY, []);
+        empties.forEach(r => { if (!held.some(h => h.message_key === r.message_key)) held.push(r); });
+        write(storage, QUARANTINE_KEY, held);
+        outbox = outbox.filter(r => text(r && r.content));
+        write(storage, OUTBOX_KEY, outbox);
+        diagnostic({ quarantined: held.length, pending: outbox.length });
+      }
       if (!outbox.length) {
         // 从有到空只记一次，别让 60 秒心跳反复写存档
         if (Number(parse(storage, DIAG_KEY, {}).pending || 0) !== 0) diagnostic({ pending: 0 });
