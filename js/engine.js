@@ -590,7 +590,29 @@ function callDiag(model, promptChars, maxTokens, t0) {
     + "｜等了 " + secs + " 秒"
     + (secs < 8 ? "＝上游直接打回来了（拦截／格式／配额），不是超时" : "＝等到一半才断，像超时或冷启动") + "〕";
 }
+// 正文里漏出来的英文思考（她 2026-10-16 转群友：新站子「容易掉思维链」——**Refining the Draft** 那种小标题 + 「I'm now…」一段段，
+//   被当成回话拆成一串气泡）。有的中转把模型的思考摘要直接拼在正文前面、不放进 reasoning 字段，也不带 <think> 标记。
+//   只在【开头就是这种英文自述、后面又真有正文（{ 开头的 JSON 或中文）】时才切：切掉前面那段，后面原样不动；
+//   认不准（后面找不到正文）就一个字不动。
+const LEAK_HEAD_RE = /^\s*(\*\*[A-Z][^*\n]{2,80}\*\*|(I'm|I've|I'll|I am|I need|I will|My |Okay|OK,|Let me|The user|Alright|Now,? I)\b)/;
+function stripLeakedThoughts(t) {
+  const s = String(t == null ? "" : t);
+  if (!LEAK_HEAD_RE.test(s)) return s;
+  const lines = s.split("\n");
+  let at = -1, pos = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i], trimmed = L.trim();
+    const cjk = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+    if (/^(```(json)?\s*$|\{|\[\s*\{)/.test(trimmed) || (trimmed.length >= 2 && cjk / trimmed.length > 0.3)) { at = pos; break; }
+    pos += L.length + 1;
+  }
+  if (at <= 0) return s;
+  const head = s.slice(0, at);
+  if ((head.match(/[\u4e00-\u9fff]/g) || []).length > head.length * 0.05 || head.trim().length < 40) return s;
+  return s.slice(at).trim();
+}
 function assertNotUpstreamError(t, model, diag) {
+  t = stripLeakedThoughts(t);
   const hit = upstreamErrorInContent(t);
   if (!hit) return t;
   throw new Error("线路报错（不是模型写的正文）：" + hit.replace(/\s+/g, " ").slice(0, 300)
