@@ -1167,6 +1167,20 @@
       ? { name: (String(d.file.name || "秋秋给你的文件.txt").replace(/[\\/:*?"<>|\n]/g, "").trim().slice(0, 60) || "秋秋给你的文件.txt"), text: String(d.file.text).slice(0, 400000) } : null);
     let reply = scrubCode(String(d.reply || "").trim());
     // 它说了有卡、一张都没留下：照实告诉她，别让她对着「快点应用」找半天
+    // 她扔来一份分条写好的预设 json（她 2026-10-16「扔给秋秋也能拆」）：不靠模型抄——几万字的预设模型抄一遍必走样，
+    //   照文风台导入同一个拆法（StylePresets.fromPromptList）原样拆好，直接摆一张文风台预设卡；模型自己出了预设卡就不另加
+    try {
+      if (isFile && window.StylePresets && window.StylePresets.fromPromptList && !patches.some(x => x.target === "preset")) {
+        const tv = window.StylePresets.fromPromptList(JSON.parse(String(pic.text || "")), String(pic.name || "").replace(/\.json$/i, ""));
+        if (tv) {
+          const on = {}; tv.presets[0].mods.forEach(id => { on[id] = 1; });
+          patches.push({ pid: "p" + Date.now() + "_tv", target: "preset", id: "new", field: "", find: "", append: false, whole: false,
+            title: "文风台预设（照文件原样拆）", name: tv.presets[0].name,
+            text: JSON.stringify(tv.modules.map(m => Object.assign({ name: m.name, hint: "", text: m.text }, on[m.id] ? {} : { off: true }))),
+            why: "一共 " + tv.modules.length + " 条，原来开着的 " + tv.presets[0].mods.length + " 条照顺序勾进预设，关着的只进模块库" });
+        }
+      }
+    } catch (e) {}
     if (rawPatches.length && !patches.length) reply = (reply ? reply + "\n\n" : "") + "（这一轮的 " + rawPatches.length + " 张改动稿格式不对，没能做成卡片。再叫它一次就好。）";
     // 嘴上说有卡、实际一张改动稿都没写：也照实说，别让她对着「点应用」找
     else if (!rawPatches.length && /改动卡|改动稿|卡片|卡在下面|点.{0,3}应用/.test(reply)) reply += "\n\n（这一轮它说了有改动卡，但其实一张都没写出来。再跟它说一次「把卡给我」就好。）";
@@ -1399,7 +1413,7 @@
     if (patch && /^(gsetting|osetting|global)$/.test(patch.target)) { const A = window.AssistExtras || {}; const k = String(patch.id).split(":").pop();
       const d = (patch.target === "global" ? A.GLOBALS : patch.target === "gsetting" ? A.GROUP_SETTINGS : A.OFFLINE_SETTINGS || []).find(x => x.key === k); return (d ? d.zh : k) + "：" + String(patch.text || ""); }
     if (patch && patch.target === "preset") { try { const a = JSON.parse(String(patch.text || "")); const L = Array.isArray(a) ? a : (a.mods || []);
-      return "预设「" + (patch.name || "秋秋搭的预设") + "」\n" + L.map((m, i) => (i + 1) + ". " + (m.use ? "（现成的）" + m.use : (m.name || "") + (m.hint ? "——" + m.hint : "") + "\n   " + String(m.text || "").slice(0, 400))).join("\n"); } catch (e) { return String(patch.text || ""); } }
+      return "预设「" + (patch.name || "秋秋搭的预设") + "」\n" + L.map((m, i) => (i + 1) + ". " + (m.off ? "（只进模块库、不勾）" : "") + (m.use ? "（现成的）" + m.use : (m.name || "") + (m.hint ? "——" + m.hint : "") + "\n   " + String(m.text || "").slice(0, 400))).join("\n"); } catch (e) { return String(patch.text || ""); } }
     if (patch && patch.target === "presetmod") return /:\+/.test(String(patch.id)) ? "勾进来：" + String(patch.id).split(":+")[1] : (patch.name ? patch.name + "：" : "") + String(patch.text || "");
     if (patch && patch.target === "sched") return [patch.time, patch.name, String(patch.text || "").trim() ? "@ " + patch.text : ""].filter(x => String(x || "").trim()).join(" ");
     if (patch && patch.target === "wish") return patch.done ? "（标成做到了）" : [patch.type ? "【" + patch.type + "】" : "", patch.name, patch.text].filter(x => String(x || "").trim()).join(" ");

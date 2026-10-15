@@ -173,3 +173,13 @@ test("preset 新建一份：新写的落进模块库、现成的直接勾；pres
   assert.ok(X.okWithoutText({ target: "presetmod", id: pid + ":+cam_hands" }));
   assert.ok(/preset 文风台/.test(X.docLines()));
 });
+
+test("扔给秋秋的分条预设：秋秋这头照原样拆，关着的 off 只进模块库", () => {
+  const as = R("js/assistant.js");
+  assert.ok(/window\.StylePresets\.fromPromptList\(JSON\.parse\(String\(pic\.text/.test(as));
+  let mods = [], presets = [];
+  window.StylePresets = { moduleById: () => null, importBundle: d => { mods = mods.concat(d.modules); }, upsert: p => { presets.push(p); } };
+  X.TARGETS.preset.write("new", { name: "x", text: JSON.stringify([{ name: "a", text: "1" }, { name: "b", text: "2", off: true }]) }, {});
+  assert.equal(mods.length, 2);
+  assert.equal(presets[0].mods.length, 1);
+});

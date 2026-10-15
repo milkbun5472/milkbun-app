@@ -572,7 +572,7 @@
       mods.forEach((m, i) => {
         if (m && m.use) { if (!P.moduleById(S(m.use))) throw new Error("没有「" + m.use + "」这个模块"); ids.push(S(m.use)); return; }
         const nm = newMod(m || {}, i); if (!nm.name || !nm.text) throw new Error("第 " + (i + 1) + " 条缺名字或内容");
-        fresh.push(nm); ids.push(nm.id);
+        fresh.push(nm); if (!(m && (m.off === true || m.off === "true"))) ids.push(nm.id);
       });
       if (fresh.length) P.importBundle({ modules: fresh });
       const name = S(patch.name).trim() || "秋秋搭的预设";
@@ -607,7 +607,7 @@
   }
   const _snap2 = snapshotExtra, _doc2 = docLines;
   snapshotExtra = (ctx, hot) => Object.assign(_snap2(ctx, hot), snapshotStyle());
-  docLines = () => _doc2() + "· preset 文风台的一份新预设（她发文风文件、酒馆预设，或者说想要什么样的笔法时）：把内容拆成一条一条的模块，每条只管一件事（镜头／排版／节拍／去八股／对话……），"
+  docLines = () => _doc2() + "· preset 文风台的一份新预设（她发文风文件、别处的预设 json，或者说想要什么样的笔法时）：把内容拆成一条一条的模块，每条只管一件事（镜头／排版／节拍／去八股／对话……），"
     + "name＝预设名，text＝模块清单 JSON 数组，每项 {\"name\":\"短名\",\"hint\":\"一句管什么\",\"text\":\"给模型的那段要求\"}；快照【文风台模块库】里已有意思一样的就别重写，写 {\"use\":\"模块id\"} 勾现成的。"
     + "顺序就是喂进去的顺序，越靠后越有分量，最容易被违反的那条放最后。只拆笔法，讲人设、剧情、事实的内容不进预设。\n"
     + "· presetmod 改快照【文风台预设】里某一份的一条：id＝「预设id:模块id」，name/text 写改完的（改的是这条模块本身，别的预设勾了它也跟着变）；\"drop\":true＝只从这份预设里拿掉；"

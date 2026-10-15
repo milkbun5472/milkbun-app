@@ -294,7 +294,7 @@ test("选不出文件时还有两条路：粘贴、和把已经变成一坨的�
 });
 
 test("是 json 但不是模块包，要报错，不许再倒进手写框", () => {
-  assert.ok(lab.indexOf("认不出是酒馆预设（没有 modules／presets／prompts）") > 0);   // 2026-10-16：酒馆预设先认出来拆成模块，其余 json 照旧报错
+  assert.ok(lab.indexOf("认不出是分条的预设（没有 modules／presets／prompts）") > 0);   // 2026-10-16：分条的预设先认出来拆成模块，其余 json 照旧报错
   // takeText 的分支：认出包 → bundle；是 json 但没有那两个键 → 抛；其余 → free
   const fn = lab.slice(lab.indexOf("const takeText"), lab.indexOf("const peek"));
   assert.ok(fn.indexOf('return "bundle"') > 0 && fn.indexOf('return "free"') > 0);

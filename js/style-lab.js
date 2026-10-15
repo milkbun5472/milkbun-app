@@ -76,14 +76,14 @@
         props.toast && props.toast("导入了 " + r.modules + " 个模块" + (r.presets ? " 和 " + r.presets + " 条预设" : "") + "，在下面模块库里勾");
         return "bundle";
       }
-      const tv = d && SP.fromTavern ? SP.fromTavern(d, fallbackName) : null;
+      const tv = d && SP.fromPromptList ? SP.fromPromptList(d, fallbackName) : null;
       if (tv) {
         SP.importBundle(tv); const next = SP.list(); setPresets(next); setCurId(tv.presets[0].id);
         setOpenCat(o => Object.assign({}, o, { [tv.modules[0].cat]: true }));
-        props.toast && props.toast("认出是酒馆预设：拆成 " + tv.modules.length + " 个模块，开着的 " + tv.presets[0].mods.length + " 条已经勾进新预设「" + tv.presets[0].name + "」");
+        props.toast && props.toast("认出是分条的预设：拆成 " + tv.modules.length + " 个模块，开着的 " + tv.presets[0].mods.length + " 条已经勾进新预设「" + tv.presets[0].name + "」");
         return "bundle";
       }
-      if (d) throw new Error("这是个 json，但里面既不是模块包，也认不出是酒馆预设（没有 modules／presets／prompts）");
+      if (d) throw new Error("这是个 json，但里面既不是模块包，也认不出是分条的预设（没有 modules／presets／prompts）");
       addPreset({ name: String(fallbackName || "").trim() || "导入的预设", free: txt.trim() });
       props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
       return "free";
