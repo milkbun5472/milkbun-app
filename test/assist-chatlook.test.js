@@ -31,9 +31,9 @@ test("气泡透明度秋秋也能调；提示词里告诉它新挂点和尺寸�
 test("能发图给秋秋：两处输入栏共用一颗，图只跟着这一句发给模型、记录里只留缩略图", () => {
   assert.match(asst, /function AssistAttach\(\{ pic, setPic, small, toast \}\)/);
   assert.equal((asst.match(/h\(AssistAttach, \{ pic: pic, setPic: setPic/g) || []).length, 2, "整页和小悬浮屏都要有");
-  assert.match(asst, /imageDataUrls: img \? \[img\] : undefined/);
+  assert.match(asst, /imageDataUrls: img \? \(Array\.isArray\(img\) \? img : \[img\]\) : undefined/);   // 2026-10-16：一次能发好几张
   assert.match(asst, /pic: pic && !isFile \? pic\.thumb : undefined/);
-  assert.match(asst, /A\.ask\(act, ctx, before, q, isFile \? pic : \(pic \? pic\.full : null\), ac && ac\.signal\)/);
+  assert.match(asst, /A\.ask\(act, ctx, before, q, isFile \? pic : \(pic \? \(pic\.pics && pic\.pics\.length > 1 \? pic\.pics\.map\(x => x\.full\) : pic\.full\) : null\), ac && ac\.signal\)/);
   assert.match(asst, /if \(\(!q && !pic\) \|\| A\.isBusy\(\)\) return;/, "只发图不写字也要发得出去");
 });
 
