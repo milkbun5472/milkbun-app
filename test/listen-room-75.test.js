@@ -32,7 +32,7 @@ test("一起听里说话也更新状态卡：心情/动作/心声跟 say 同一�
   assert.match(app, /onListenState: \(charId, st\) => \{[\s\S]{0,400}setRoomThought\([\s\S]{0,200}writeGroupLiveState\(c, st,/);
 });
 test("选人底下那格：开着就不落单聊，房里进来的照旧落房；播放页能翻「刚才说的」", () => {
-  assert.match(app, /if \(!inRoom && listen\.talkStay\) return;/);
+  assert.match(app, /if \(!inRoom && listen\.talkStay\) \{[\s\S]{0,200}pChat\(charId, p => \{[\s\S]{0,300}last\.kind === "listenlog" && last\.stay[\s\S]{0,600}kind: "listenlog", stay: true[\s\S]{0,200}return;/);
   assert.match(app, /onSetTalkStay: on => saveListen\(p => \(\{ \.\.\.p, talkStay: !!on \}\)\)/);
   assert.match(rd("screens.js"), /"说的话只留在一起听里"/);
   assert.match(rd("listen-talk.js"), /"刚才说的"/);

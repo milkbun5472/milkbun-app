@@ -31334,7 +31334,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToChat: (charId, rows) => {
       const lr0 = listenRoom, inRoom = lr0 && String(lr0.charId) === String(charId) && listenRoomOf(lr0.charId, lr0.roomId);
       // 选人底下那格开着：只留在一起听自己的记录里（x_listenTalk），不落单聊；房里进来的照旧落房
-      if (!inRoom && listen.talkStay) return;
+      //   单聊里只留一张「一起听」小条（她 2026-10-15「加吧」）：这一段听歌还没被别的消息隔开，就续在同一张上；
+      //   小条交给TA的是 listenLogText（几首歌＋最后几句原话），TA回到单聊不至于断片
+      if (!inRoom && listen.talkStay) {
+        pChat(charId, p => {
+          const last = p[p.length - 1], add = rows.map(r => ({ who: r.role === "user" ? "user" : "char", text: r.content }));
+          const songs0 = rows.map(r => r.song).filter(Boolean);
+          if (last && last.kind === "listenlog" && last.stay) {
+            const songs = [...new Set([...(last.songs || []), ...songs0])].slice(-8);
+            return [...p.slice(0, -1), { ...last, songs, lines: [...(last.lines || []), ...add].slice(-8), content: "一起听了" + songs.map(x => "《" + x + "》").join(""), ts: last.ts }];
+          }
+          const songs = [...new Set(songs0)];
+          return [...p, { role: "user", kind: "listenlog", stay: true, songs, lines: add.slice(-8), content: "一起听了" + songs.map(x => "《" + x + "》").join(""), ts: Date.now(), read: true }];
+        });
+        return;
+      }
       pChat((function () {
       const lr = listenRoom;
       return lr && String(lr.charId) === String(charId) && listenRoomOf(lr.charId, lr.roomId) ? window.ChatRooms.chatKey(lr.charId, lr.roomId) : charId;

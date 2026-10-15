@@ -7965,7 +7965,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "说的话只留在一起听里"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
-          listenRoomName ? "现在是从「" + listenRoomName + "」进来的，说的话落在那间房里" : "打开后边听边说不进单聊，在播放页底下「刚才说的」里翻；TA 在一起听里照样记得")),
+          listenRoomName ? "现在是从「" + listenRoomName + "」进来的，说的话落在那间房里" : "打开后边听边说不进单聊，单聊里只留一张「一起听」小条；全部的话在播放页底下「刚才说的」里翻")),
       h(Toggle, { on: !!data.talkStay, onChange: () => onSetTalkStay(!data.talkStay) })) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
     // 头像那一条粘在顶上：她往下滑到输入框说话时，两只头像和气泡还看得见（她 2026-09-29）
