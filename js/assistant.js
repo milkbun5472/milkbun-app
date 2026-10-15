@@ -1086,8 +1086,8 @@
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
     const img = isFile ? null : pic;
     const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
-    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了一张图）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
-      .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? [img] : undefined }]);
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
+      .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : Array.isArray(img) && img.length > 1 ? "（她发来 " + img.length + " 张图，看看说说）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? (Array.isArray(img) ? img : [img]) : undefined }]);
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
@@ -1570,10 +1570,10 @@
       A.setAbort(ac); A.setLastPic(pic || null);
       const before = A.loadChat();
       const isFile = pic && pic.kind === "file";
-      put(before.concat([{ role: "me", text: q, pic: pic && !isFile ? pic.thumb : undefined,
+      put(before.concat([{ role: "me", text: q, pic: pic && !isFile ? pic.thumb : undefined, pics: pic && !isFile && pic.pics && pic.pics.length > 1 ? pic.pics.map(x => x.thumb) : undefined,
         file: isFile ? { name: pic.name, size: pic.size, chars: pic.chars, cut: pic.cut, max: pic.max, text: pic.text } : undefined, ts: Date.now() }]));
       try {
-        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? pic.full : null), ac && ac.signal);
+        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? (pic.pics && pic.pics.length > 1 ? pic.pics.map(x => x.full) : pic.full) : null), ac && ac.signal);
         put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, outFile: r.file || undefined, ts: Date.now() }]));
       } catch (e) {
         // 她自己叉掉的：不算「没答上来」，留一颗重新生成（已经发出去的那一枪收不回来，回来的结果直接丢掉）
@@ -1657,7 +1657,9 @@
     return h(React.Fragment, null, C.msgs.map((m, i) => m.role === "me"
       ? h("div", { "data-wk": "qqmsg", "data-me": "1", key: i, style: { display: "flex", justifyContent: "flex-end", alignItems: "flex-start", gap: 7, marginBottom: sm ? 9 : 12 } },
           h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
-            m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
+            m.pics && m.pics.length > 1
+              ? h("div", { style: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 4, maxWidth: sm ? 160 : 220 } }, m.pics.map((u, k) => h("img", { key: k, src: u, alt: "", style: { width: sm ? 50 : 70, height: sm ? 50 : 70, borderRadius: 8, border: "1px solid " + t.line, objectFit: "cover", display: "block" } })))
+              : m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
             m.file && typeof FileCard === "function" ? h(FileCard, { m: m.file }) : null,
             m.text ? h("div", { "data-wk": "qqbubble", "data-me": "1", style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null,
             // 她这侧也给一颗（群里 2026-10-09：「退出去截断了想把我的指令再发一遍，得自己重打」）
@@ -1805,27 +1807,42 @@
   // 发图给秋秋（她 2026-09-30）：整页和小悬浮屏两处输入栏共用这一颗（one-public-mechanism）。
   //   pic＝{ full, thumb }：full 768px 给模型看，thumb 240px 留在聊天记录里给她看。
   // 附件：📷 一张图，📎 一份文件（CSS、文本、PDF、Word——读法跟聊天里发文件是同一个 pickTextFile）
+  // 一次能挑好几张（她 2026-10-16「给秋秋发图能不能一次多几张」）：最多 6 张，跟聊天里发照片同一个上限。
+  //   pic＝{ full, thumb, pics:[{full,thumb}] }：full/thumb 是第一张（老的那几处照旧读得到），pics 是全部。
+  const ASSIST_PICS_MAX = 6;
   function AssistAttach({ pic, setPic, small, toast }) {
     const t = useTheme(), ref = useRef(null);
+    const pics = pic && pic.kind !== "file" ? (pic.pics || [{ full: pic.full, thumb: pic.thumb }]) : [];
+    const setPics = arr => setPic(arr.length ? { full: arr[0].full, thumb: arr[0].thumb, pics: arr } : null);
     const pick = async e => {
-      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-      try { setPic({ full: await resizeImageFile(f, 768, .82), thumb: await resizeImageFile(f, 240, .75) }); }
-      catch (err) { toast && toast("这张图读不出来，换一张试试"); }
+      const fs = Array.from((e.target.files) || []); e.target.value = ""; if (!fs.length) return;
+      const room = ASSIST_PICS_MAX - pics.length;
+      if (fs.length > room) toast && toast("一次最多 " + ASSIST_PICS_MAX + " 张，多的没放进来");
+      const got = [];
+      for (const f of fs.slice(0, Math.max(0, room))) {
+        try { got.push({ full: await resizeImageFile(f, 768, .82), thumb: await resizeImageFile(f, 240, .75) }); }
+        catch (err) { toast && toast("有一张图读不出来，跳过了"); }
+      }
+      if (got.length) setPics(pics.concat(got));
     };
     const pickFile = () => { if (typeof pickTextFile === "function") pickTextFile(m => setPic(Object.assign({ kind: "file" }, m)), { max: 60000 }); };
     const sz = small ? 32 : 38;
     const round = { flexShrink: 0, width: sz, height: sz, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.sub, fontSize: small ? 14 : 16, display: "flex", alignItems: "center", justifyContent: "center" };
-    const x = label => h("button", { onClick: () => setPic(null), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×");
+    const x = (label, onClick) => h("button", { onClick: onClick || (() => setPic(null)), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×");
     return h(React.Fragment, null,
-      pic && pic.kind === "file" ? h("div", { "data-wk": "qqattach", "data-part": "file", style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub, overflow: "visible" } },
+      pic && pic.kind === "file" ? h("div", { "data-wk": "qqattach", "data-part": "file", style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub } },
           h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📎 " + pic.name), x("拿掉这个文件"))
-      : pic ? h("div", { "data-wk": "qqattach", "data-part": "pic", style: { position: "relative", flexShrink: 0 } },
-          h("img", { src: pic.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }), x("拿掉这张图"))
+      : pics.length ? h("div", { className: "flex items-center", style: { gap: 8, flexShrink: 0, overflowX: "auto", maxWidth: small ? 140 : 200, paddingTop: 6, paddingRight: 6 } },
+          pics.map((p, k) => h("div", { key: k, "data-wk": "qqattach", "data-part": "pic", style: { position: "relative", flexShrink: 0 } },
+            h("img", { src: p.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }),
+            x("拿掉这张图", () => setPics(pics.filter((_, i) => i !== k))))),
+          pics.length < ASSIST_PICS_MAX ? h("button", { "data-wk": "qqattachbtn", "data-part": "pic", onClick: () => ref.current && ref.current.click(), "aria-label": "再加一张图", className: "active:opacity-60", style: round }, "＋") : null)
       : h(React.Fragment, null,
-          h("button", { "data-wk": "qqattachbtn", "data-part": "pic", onClick: () => ref.current && ref.current.click(), "aria-label": "发一张图", className: "active:opacity-60", style: round }, "📷"),
+          h("button", { "data-wk": "qqattachbtn", "data-part": "pic", onClick: () => ref.current && ref.current.click(), "aria-label": "发图", className: "active:opacity-60", style: round }, "📷"),
           h("button", { "data-wk": "qqattachbtn", "data-part": "file", onClick: pickFile, "aria-label": "发一个文件", className: "active:opacity-60", style: round }, "📎")),
-      h("input", { ref: ref, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }));
+      h("input", { ref: ref, type: "file", accept: "image/*", multiple: true, onChange: pick, style: { display: "none" } }));
   }
+
 
 
   function AssistantApp(props) {
