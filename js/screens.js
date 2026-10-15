@@ -9509,7 +9509,7 @@ function ImageApiConfig({ toast }) {
         h("option", { value: "chat" }, "聊天接口 /chat/completions"),
         h("option", { value: "gemini" }, "Gemini 原生 /v1beta/…:generateContent"),
         h("option", { value: "minimax" }, "MiniMax 原生 /v1/image_generation（image-01）"),
-        h("option", { value: "nai" }, "NAI 原生 /ai/generate-image（站长说「nai 的格式」选这个，能锁脸）"))),
+        h("option", { value: "nai" }, "NAI 原生 /ai/generate-image（中转说是「nai 的格式」选这个，能锁脸）"))),
       // 这个站不锁脸（她 2026-10-05）：有的站不收带图的请求——打开就只发文字，一次请求
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
         h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
