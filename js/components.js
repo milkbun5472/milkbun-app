@@ -3941,7 +3941,7 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
   const today = new Date();
@@ -3963,6 +3963,12 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const [evTitle, setEvTitle] = useState("");
   const [genOpen, setGenOpen] = useState(false);
   const [myOpen, setMyOpen] = useState(false), [myAsk, setMyAsk] = useState("");
+  // 每张面具一本日程（她 2026-10-14「点我的头像可以选不同面具的日程，每个单独选能看到的角色，角色跟着面具走」）：
+  //   主面具＝owner "mine"（原来的那一本，一条不动）；副面具＝"mine:面具id"。点「我」的头像换面具。
+  const [myMask, setMyMask] = useState(""), [maskPick, setMaskPick] = useState(false);
+  const maskList = Array.isArray(myMasks) && myMasks.length ? myMasks : [{ key: "", name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }];
+  const curMask = maskList.find(m => m.key === myMask) || maskList[0];
+  const evOwner = view === "mine" ? (myMask ? "mine:" + myMask : "mine") : view;
   const [genPrompt, setGenPrompt] = useState("");
   const [pSet, setPSet] = useState(false);
   const [visPick, setVisPick] = useState(false);
@@ -3974,7 +3980,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // 「世界」并进「我的」：它原本只有全天事件、只往顶部那条塞东西，不值得占一个视角。
   // 数据仍然两个桶——世界事件是【所有角色都知道】的，我的日历要看可见名单，喂进提示词的
   // 也是两句不同的话。合并的只是这块屏。世界那条前面挂个 🌐 区分。
-  const store = view === "mine" ? (cal.mine || {}) : ((cal.chars || {})[view] || {});
+  const store = view === "mine" ? (myMask ? {} : (cal.mine || {})) : ((cal.chars || {})[view] || {});
   const worldStore = cal.world || {};
   const pmap = view === "mine" ? periodMap(per) : {};
   const shift = n => setYm(p => { const dt = new Date(p.y, p.m + n, 1); return { y: dt.getFullYear(), m: dt.getMonth() }; });
@@ -4002,7 +4008,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     });
     if (view === "mine") (worldStore[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: "🌐 " + e.title, note: e.note, id: e.id, kind: "world" }));
     (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: e.title, note: e.note, id: e.id, kind: "cal" }));
-    calEventsOnDay(calEvents, view, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
+    calEventsOnDay(calEvents, evOwner, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
     return out;
   };
   // 异地：TA 的行程是按 TA 当地时刻排的，而这张表的刻度和「此刻」红线是【你的】时间。
@@ -4040,7 +4046,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           charFrom: tzShift ? s.time : "", charTo: tzShift ? (s.end || "") : "" });
       });
     }
-    calEventsOnDay(calEvents, view, dk).filter(e => !e._allDay).forEach(e => {
+    calEventsOnDay(calEvents, evOwner, dk).filter(e => !e._allDay).forEach(e => {
       const st = calMinOf(e._from), en0 = calMinOf(e._to);
       if (st == null) return;
       out.push({ key: e.id, from: st, to: (en0 == null || en0 <= st) ? Math.min(1440, st + 60) : en0,
@@ -4193,15 +4199,15 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       h("div", { style: { flex: 1, display: "flex", height: gridH + 90 } }, dayList.map(dayColumn))));
   // ---- 人物条 ----
   const personRow = h("div", { "data-wk": "calpeople", className: "shrink-0 flex gap-3 px-4 pb-2 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
-    [{ id: "mine", name: "我", c: null }]
+    [{ id: "mine", name: maskList.length > 1 ? curMask.name + " ▾" : "我", c: null }]
       .concat(chars.map(c => ({ id: c.id, name: c.remark || c.name, c })))
-      .map(v => h("button", { "data-wk": "calperson", "data-on": view === v.id ? "1" : "0", key: v.id, onClick: () => setView(v.id), className: "shrink-0 flex flex-col items-center gap-1 active:opacity-60", style: { width: 54 } },
+      .map(v => h("button", { "data-wk": "calperson", "data-on": view === v.id ? "1" : "0", key: v.id, onClick: () => { if (v.id === "mine" && view === "mine" && maskList.length > 1) setMaskPick(true); else setView(v.id); }, className: "shrink-0 flex flex-col items-center gap-1 active:opacity-60", style: { width: 54 } },
         h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 999,
           border: view === v.id ? "2px solid " + t.ink : "2px solid transparent", background: t.bg2, overflow: "hidden" } },
           // ⚠️她 2026-09-05：「我的头像没带进来」。profile 一直在这个组件的参数里，
           //   只是这一处从来没用过它——角色们都有脸，只有她自己是个「我」字。
           v.c ? h(Avatar, { character: v.c, size: 38, radius: 999 })
-              : h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 38, radius: 999 })),
+              : h(Avatar, { character: { name: curMask.name || "我", avatarImage: curMask.avatarImage, color: curMask.color }, size: 38, radius: 999 })),
         h("span", { "data-wk": "calpersonname", style: { fontFamily: F_BODY, fontSize: 10.5, color: view === v.id ? t.ink : t.fog, maxWidth: 54, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.name))));
 
   const visSet = per.visibleTo || [];
@@ -4244,7 +4250,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     // FAB
     h("div", { style: { position: "absolute", right: 18, bottom: 22, zIndex: 30 } },
       fab && h("div", { "data-wk": "calfabmenu", style: { position: "absolute", right: 0, bottom: 62, width: 190, background: t.bg2, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
-        h("button", { "data-wk": "calfabitem", "data-part": "new", onClick: () => { setFab(false); setForm({ owner: view, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
+        h("button", { "data-wk": "calfabitem", "data-part": "new", onClick: () => { setFab(false); setForm({ owner: evOwner, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
         isCharView && h("button", { "data-wk": "calfabitem", "data-part": "genweek", onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
         // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
         // 「删除」两个字底下藏着多少东西，得让她在按之前就看见。
@@ -4271,7 +4277,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           "🌐　AI 生成本月世界大事")),
       h("button", { "data-wk": "calfab", onClick: () => setFab(v => !v), className: "active:opacity-70 flex items-center justify-center", style: { width: 52, height: 52, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 26, boxShadow: "0 8px 22px rgba(0,0,0,0.22)" } }, fab ? "×" : "＋")),
 
-    form && h(CalEventForm, { initial: form, owner: view, ownerName: view === "mine" ? "我" : view === "world" ? "世界" : (curChar ? (curChar.remark || curChar.name) : ""), 
+    form && h(CalEventForm, { initial: form, owner: evOwner, ownerName: view === "mine" ? (maskList.length > 1 ? "我 · " + curMask.name : "我") : view === "world" ? "世界" : (curChar ? (curChar.remark || curChar.name) : ""), 
       onClose: () => setForm(null),
       onSave: ev => { onSaveTimed && onSaveTimed(ev); setForm(null); },
       onDelete: id => { onDelTimed && onDelTimed(id); setForm(null); } }),
@@ -4348,11 +4354,20 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, background: t.bg2, borderRadius: 10, padding: "8px 11px" } },
             "存好以后 TA 就照这个过：聊天里问 TA 在干嘛按这个答，「TA的一天」里的小人也照新写的事和地方换房间。地方写清楚认得最准。")));
     })(),
+    maskPick && h(Sheet, { onClose: () => setMaskPick(false) },
+      h("div", { "data-wk": "calmaskpick", className: "px-1 pb-2" },
+        h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "看哪张面具的日程"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "每张面具一本日程。认这张面具的角色，只看得到这一本。"),
+        maskList.map(m => h("button", { key: m.key || "main", "data-on": m.key === myMask ? "1" : "0", onClick: () => { setMyMask(m.key); setMaskPick(false); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+          h(Avatar, { character: { name: m.name, avatarImage: m.avatarImage, color: m.color }, size: 34, radius: 999 }),
+          h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, m.name + (m.key ? "" : "（主面具）")),
+          m.key === myMask ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "正在看") : null)))),
     visPick && h(Sheet, { onClose: () => setVisPick(false), tall: true },
       h("div", { "data-wk": "calvis", className: "px-1 pb-2" },
         h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到我的日历和经期"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "选中的角色才知道你的生日、私人日历与经期"),
-        chars.map(c => h("button", { "data-wk": "calvisrow", "data-on": visSet.includes(c.id) ? "1" : "0", key: c.id, onClick: () => toggleVis(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+        maskList.length > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "这里只列认「" + curMask.name + "」这张面具的角色：他们看到的是这张面具的日程。换面具点「我」的头像。") : null,
+        chars.filter(c => maskList.length < 2 || !maskKeyOf || maskKeyOf(c.id) === myMask).map(c => h("button", { "data-wk": "calvisrow", "data-on": visSet.includes(c.id) ? "1" : "0", key: c.id, onClick: () => toggleVis(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h(Avatar, { character: c, size: 34, radius: 10 }),
           h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: visSet.includes(c.id) ? t.tint : t.fog } }, visSet.includes(c.id) ? "可见" : "不可见"))))),
@@ -4360,10 +4375,10 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     // AI 生成本月（沿用旧的全天事件那一层）
     myOpen && h(PageSheet, { onClose: () => setMyOpen(false) },
       h("div", { "data-wk": "calgen", "data-part": "myweek", className: "px-1 pb-2" },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "AI 帮我排这几天"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "排今天到这周日。你已经写好的日程不动，只往空档里排；排出来的跟手填的一样，点开能改能删。"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "AI 帮我排这几天" + (maskList.length > 1 ? " · " + curMask.name : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "照这张面具的人设排今天到这周日。你已经写好的日程不动，只往空档里排；排出来的跟手填的一样，点开能改能删。"),
         h("textarea", { "data-wk": "calinput", "data-part": "myweekprompt", value: myAsk, onChange: e => setMyAsk(e.target.value), rows: 4, placeholder: "这几天要做什么、几点有空、想几点睡……（可留空）", className: "w-full outline-none", style: { padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink, resize: "none" } }),
-        h("button", { "data-wk": "calbtn", "data-part": "genmyweek", onClick: () => { onGenMyWeek(myAsk); setMyOpen(false); setMyAsk(""); }, disabled: myWeekBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { marginTop: 12, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "排吧"))),
+        h("button", { "data-wk": "calbtn", "data-part": "genmyweek", onClick: () => { onGenMyWeek(myAsk, myMask); setMyOpen(false); setMyAsk(""); }, disabled: myWeekBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { marginTop: 12, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "排吧"))),
     genOpen && h(PageSheet, { onClose: () => setGenOpen(false) },
       h("div", { "data-wk": "calgen", className: "px-1 pb-2" },
         h(Eyebrow, { style: { marginBottom: 8 } }, "AI 生成 " + (ym.m + 1) + " 月 · " + (view === "mine" ? "世界大事" : (curChar ? (curChar.remark || curChar.name) : ""))),
