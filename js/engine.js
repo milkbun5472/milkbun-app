@@ -4911,6 +4911,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。
   function photoShotLine(kind, seed) {
+    // TA 帮她拍（pov）那几格写的是她在做什么（「她正好回头看过来」「她在后面回头看」）——是动作不是机位。
+    //   画面描述已经写了她在干嘛（坐着、咬着汤匙、看着镜头笑），再掷一格动作，模型常照那一格画，描述反被盖掉
+    //   （她 2026-10-15 截图：写的是法餐厅咬汤匙，出来的是河边回头）。描述里有动作就不掷，只说镜头是谁的眼睛。
+    if (opts.pov && /[着在]|坐|站|躺|靠|趴|蹲|吃|喝|咬|拿|捧|举|抱|牵|笑|哭|看|低头|抬头|回头|转身|走/.test(String(sceneDesc || "")))
+      return "【这一张的机位】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作，也不沿用参考图里的姿势。";
     const list = opts.pov ? povSlotsFor(opts.pov.tier) : kind === "self" || kind === "duo" ? PHOTO_SHOTS : PHOTO_SHOTS_OTHER;
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
     let idx = n % list.length;
