@@ -64,7 +64,7 @@ test("约到点了：盖一层、中间弹出赴约卡，点卡出发；弹过�
   const c = read("components.js");
   assert.match(c, /function DateArrivePop\(\{ m, character, onGo, onLater \}\)/);
   assert.match(a, /const \[dateArrive, setDateArrive\] = useState\(null\);/);
-  assert.match(a, /x\.kind === "datereceipt" && x\.state === "pending" && !x\.popped && x\.when && x\.when\.date/);
+  assert.match(a, /x\.kind === "datereceipt" && x\.state === "pending"/); assert.match(a, /!x\.popped && x\.when && \(x\.when\.date \|\| x\.when\.text\)/);
   assert.match(a, /\{ \.\.\.x, popped: true \}/);
   assert.match(a, /dateArrive && h\(DateArrivePop, \{/);
 });

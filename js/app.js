@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.659";
+const APP_VERSION = "v75.666";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1645,6 +1645,15 @@ function App() {
   const [themePeek, setThemePeek] = useState(null);   // { page, zh } 或 null
   const [configPage, setConfigPage] = useState("");   // 设置页要落在哪一栏（回程条用）
   const [loaded, setLoaded] = useState(false);
+  // 周期账单一打开就补（她 2026-10-15）：开机读完存档补一次，切回前台（可能隔了一夜）再补一次
+  useEffect(() => {
+    if (!loaded) return;
+    const run = () => { try { const n = window.ledgerCatchUp ? window.ledgerCatchUp() : 0; if (n) toast("自动记上了 " + n + " 笔周期账单"); } catch (e) {} };
+    run();
+    const vis = () => { if (document.visibilityState === "visible") run(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => document.removeEventListener("visibilitychange", vis);
+  }, [loaded]);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
   const lastToastAtRef = useRef(0);
   // MCP 列工具失败：原来只往控制台记一句，手机上看不见，TA就悄悄不带工具聊（她 2026-10-09）。
@@ -6812,7 +6821,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         } catch (e) { return ""; }
       };
       if (canSeeMine) {
-        const mn = [evTitles(cal.mine && cal.mine[tK]), timedTitles("mine")].filter(Boolean).join("、");
+        const mn = [evTitles(cal.mine && cal.mine[tK]), timedTitles(myCalOwnerFor(char.id))].filter(Boolean).join("、");
         if (mn) lines.push("今天 " + uName + " 的日历上有：" + mn + "（Ta 让你能看到，可自然关心/问起，别生硬报）。");
       }
       const cn = [evTitles(cal.chars && cal.chars[char.id] && cal.chars[char.id][tK]), timedTitles(char.id)].filter(Boolean).join("、");
@@ -10826,7 +10835,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const tK = day.getFullYear() + "-" + (day.getMonth() + 1) + "-" + day.getDate();
         const when = (d === 0 ? "今天" : d < 0 ? (-d) + "天前" : d + "天后") + "（" + (day.getMonth() + 1) + "月" + day.getDate() + "日）";
         const evs = ((cal.mine || {})[tK] || []).map(e => e && e.title ? cut(e.title, 30) + (e.note ? "（" + cut(e.note, 30) + "）" : "") : "")
-          .concat((typeof calEventsOnDay === "function" ? (() => { try { return calEventsOnDay(calEventsRef.current, "mine", schedDayKey(day)); } catch (e) { return []; } })() : [])
+          .concat((typeof calEventsOnDay === "function" ? (() => { try { return calEventsOnDay(calEventsRef.current, myCalOwnerFor(viewerId), schedDayKey(day)); } catch (e) { return []; } })() : [])
             .map(e => e && e.title ? (e._allDay ? "" : (e._from || "") + " ") + cut(e.title, 30) + (e.location ? " @" + cut(e.location, 16) : "") : ""))
           .filter(x => x && !maskTrace(x));
         if (evs.length) ls.push("· " + when + "：" + evs.join("、"));
@@ -10898,6 +10907,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (String(id || "").indexOf("g:") === 0) return groupMaskKey(String(id).slice(2));   // 群的钟：照群挑的那张面具
     const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m;
   };
+  // 这个角色看到的是哪一本「我的日程」：跟着TA认的那张面具（主面具＝"mine"）
+  const myCalOwnerFor = charId => { const k = maskKeyOf(charId); return k ? "mine:" + k : "mine"; };
   // 离开小手机时停住（群友 2026-10-11）：走的那一刻把每只开了 pauseAway 的钟定在当下（base＝那一刻、记 awayAt），
   //   回来时把 at 挪到现在——走开的那段一秒都不算。关掉网页也算走：下次打开时照 awayAt 接上。
   //   只在走、回两下各写一次 x_prefs，不开计时器、不另起存储键。
@@ -16548,19 +16559,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 给我自己排这几天（她 2026-10-14 转群友「日程可以让 ai 也帮我排一下吗，我自己想不出来」，她：「为啥不直接搞个角色一样的 ai 帮排」）：
   //   跟角色那档一样排「今天到本周日」；我已经写了的日程原样给它看，只往空档里排，不动我写的。
   //   落成我自己的普通日程（备注「AI 排的」），想改想删跟手填的一样点开改。
-  const genMyWeek = async promptText => {
+  // 日历里「我」那一档能换的面具：主面具（key ""）在最前
+  const myMaskList = () => [{ key: "", name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color, persona: profile && profile.persona }]
+    .concat((masksRef.current || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ key: m.id, name: m.name || "面具", avatarImage: m.avatarImage, color: m.color, persona: m.persona })));
+  const genMyWeek = async (promptText, mk) => {
+    mk = mk || "";
+    const mask = myMaskList().find(m => m.key === mk) || myMaskList()[0], owner = mk ? "mine:" + mk : "mine";
     if (!active) { toast("请先到设置配置 API"); return; }
     const pad = n => String(n).padStart(2, "0"), key = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     const t0 = new Date(), dow = (t0.getDay() + 6) % 7;
     const days = Array.from({ length: 7 - dow }, (_, i) => { const d = new Date(t0); d.setDate(t0.getDate() + i); return key(d); });
-    const mine = (calEventsRef.current || []).filter(e => e && (e.owner || "mine") === "mine" && e.startDate <= days[days.length - 1] && (e.endDate || e.startDate) >= days[0]);
+    const mine = (calEventsRef.current || []).filter(e => e && (e.owner || "mine") === owner && e.startDate <= days[days.length - 1] && (e.endDate || e.startDate) >= days[0]);
+    let myPlace = "";
+    try { const on = mk ? (characters || []).find(c => c && maskKeyOf(c.id) === mk) : null; const r = mk ? (on ? myRealm(on.id) : null) : myRealm(null); myPlace = r ? (r.kind === "real" ? (r.geo && r.geo.label) || "" : r.label || "") : ""; } catch (e) {}
     setGen(g => ({ ...g, myweek: true }));
     try {
-      const d = await runProbe(active, { char: { id: "__me", name: userName(profile), persona: "" }, chars: characters, rels, profile, timeAware: true }, {
-        instruction: "替「" + userName(profile) + "」（用这个 App 的人自己，不是任何角色）排她 " + days[0] + " 到 " + days[days.length - 1] + " 这几天的日程。"
+      const d = await runProbe(active, { char: { id: "__me", name: mask.name, persona: String(mask.persona || "") }, chars: characters, rels, profile, timeAware: true }, {
+        // 跟角色排行程一个道理（她 2026-10-14「可以参考面具人设排，跟角色一样」）：照她面具里写的人来排——做什么的、在哪、什么作息
+        instruction: (mask.persona ? "【她是这样一个人（她的面具设定）】\n" + String(mask.persona).slice(0, 1500) + "\n" : "")
+          + (myPlace ? "【她在】" + myPlace + "\n" : "")
+          + "照上面这个人来排：她的职业、学业、身份、所在的世界和城市、生活习惯决定她每天做什么、在哪做——像给一个角色排行程那样，排的是【这个人】会过的日子，不是一份通用模板。设定里没写到的才按普通人过日子补。\n"
+          + "替「" + mask.name + "」（用这个 App 的人自己，不是任何角色）排她 " + days[0] + " 到 " + days[days.length - 1] + " 这几天的日程。"
           + "现在是 " + key(t0) + " " + pad(t0.getHours()) + ":" + pad(t0.getMinutes()) + "，今天已经过去的钟点不要排。"
           + (mine.length ? "她已经写好的日程（原样保留，不许挪、不许重复排，只往空档里排）：" + mine.map(e => e.startDate + " " + (e.startTime || "全天") + (e.endTime ? "-" + e.endTime : "") + " " + e.title).join("；") + "。" : "")
-          + (promptText && promptText.trim() ? "她自己说的要求：" + promptText.trim() + "。" : "她没说具体要求：按普通人过日子排，吃饭、休息、该做的事都留出来，别排太满。")
+          + (promptText && promptText.trim() ? "她自己说的要求：" + promptText.trim() + "。" : "她没说具体要求：照她的设定排，吃饭、休息都留出来，别排太满。")
           + "每天 3-6 条，时间不重叠。每条：date(YYYY-MM-DD，必须是上面这几天) / start(HH:MM) / end(HH:MM) / title(简短) / place(可空)。",
         schemaHint: "{\"items\":[{\"date\":\"2026-01-01\",\"start\":\"09:00\",\"end\":\"10:00\",\"title\":\"事项\",\"place\":\"\"}]}",
         maxTokens: 9500
@@ -16568,7 +16590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const hm = v => /^\d{1,2}:\d{2}$/.test(String(v || "").trim()) ? String(v).trim().padStart(5, "0") : "";
       const items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && String(x.title || "").trim() && days.indexOf(String(x.date || "").trim()) >= 0);
       if (!items.length) { toast("没有排出来，换个说法再试一次"); return; }
-      items.forEach(x => saveCalTimedEvent({ owner: "mine", startDate: String(x.date).trim(), startTime: hm(x.start), endTime: hm(x.end),
+      items.forEach(x => saveCalTimedEvent({ owner: owner, startDate: String(x.date).trim(), startTime: hm(x.start), endTime: hm(x.end),
         title: String(x.title).trim().slice(0, 40), location: String(x.place || "").trim().slice(0, 30), note: "AI 排的" }));
       toast("排好了 " + items.length + " 条");
     } catch (e) { toast("排失败：" + e.message); } finally { setGen(g => ({ ...g, myweek: false })); }
@@ -31202,6 +31224,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
     onGenMyWeek: genMyWeek,
+    myMasks: myMaskList(),
+    maskKeyOf: maskKeyOf,
     myWeekBusy: !!gen.myweek,
     onSavePeriod: savePeriodSettings,
     onRecordPeriod: recordPeriodStart,

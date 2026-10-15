@@ -57,6 +57,6 @@ test("这一轮那张卡说得清：第几天、几号起、离下次还有几�
 
 test("日历上那一排人里，「我」也有脸了", () => {
   // profile 一直在参数里，只是这一处从来没用过它
-  assert.match(comp, /: h\(Avatar, \{ character: \{ name: \(profile && profile\.name\) \|\| "我", avatarImage: profile && profile\.avatarImage, color: profile && profile\.color \}, size: 38, radius: 999 \}\)\)/);
+  assert.match(comp, /: h\(Avatar, \{ character: \{ name: curMask\.name \|\| "我", avatarImage: curMask\.avatarImage/); assert.match(comp, /name: \(profile && profile\.name\) \|\| "我", avatarImage: profile && profile\.avatarImage/);
   assert.doesNotMatch(comp, /h\("span", \{ style: \{ fontFamily: F_DISPLAY, fontSize: 15, color: t\.sub \} \}, "我"\)/, "还画着那个「我」字");
 });
