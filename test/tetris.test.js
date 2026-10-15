@@ -43,6 +43,6 @@ test("俄罗斯方块说话节奏：同类事只叫一次、可以不说、给�
   assert.match(G, /if \(hgt < 12\) seen\.current\[k\] = 0;/, "降下去再堆上来才算第二次");
   assert.match(G, /【你上次开口到现在】/);
   assert.match(G, /没什么想说的就不说，say 留空/);
-  assert.match(G, /talkN\.current \* 3000/);
+  assert.ok(G.indexOf("talkN.current * 3000") < 0, "她不要越打越安静");
   assert.match(G, /seen\.current = \{\}; snap\.current = null;/, "新开一局要清");
 });
