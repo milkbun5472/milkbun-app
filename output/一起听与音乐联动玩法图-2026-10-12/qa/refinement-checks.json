@@ -1,9 +1,0 @@
-{
-  "shots": [
-    "bubble-stage",
-    "chat-carve-words",
-    "restored-time"
-  ],
-  "errors": [],
-  "scope": "Focused native screenshot reframing; one local prepared conversation; no external requests"
-}
