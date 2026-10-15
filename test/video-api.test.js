@@ -86,3 +86,11 @@ test('导入原任务只接受已完成任务和真实视频内容',async()=>{
 });
 
 test('复制下载链接留在编辑页，复用公共复制，不再导航原生壳',()=>{assert.match(src,/await copyText\(record.downloadUrl\)/);assert.doesNotMatch(src,/href: record.downloadUrl/);assert.match(src,/aria-label": "原视频下载链接"/);});
+
+test("视频设置页底下能自己搭 MiniMax 中转：同一个 RelayHelp，按国际/国内站出代码，放行 GET 查询", () => {
+  const fs = require("fs"), path = require("path");
+  const v = fs.readFileSync(path.join(__dirname, "../js/video-api.js"), "utf8");
+  const s = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  assert.match(v, /h\(RelayHelp, \{[^}]*hosts: MINIMAX_API_SITES/);
+  assert.match(s, /"Access-Control-Allow-Methods": "GET, POST, OPTIONS"/);
+});

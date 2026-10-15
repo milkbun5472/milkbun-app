@@ -8792,16 +8792,17 @@ function NeteaseApiHelp({ toast }) {
 }
 // Fish 官方接口不让网页直接调（她 2026-10-12 两台手机都报 Failed to fetch），要自己搭一个转发。
 //   写在 Fish 那一格底下，点开才有；代码一键复制，不用她从截图里抄。
-const FISH_RELAY_CODE = `export default {
+// 一段转发代码，换个上游就能给别家用（Fish、MiniMax 视频……官方接口不让网页直接调的都走这个）。
+const relayCodeFor = host => `export default {
   async fetch(req) {
     const cors = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "authorization, content-type, model",
     };
     if (req.method.toLowerCase() === "options") return new Response(null, { headers: cors });
     const url = new URL(req.url);
-    const r = await fetch("https://api.fish.audio" + url.pathname + url.search, {
+    const r = await fetch("${host}" + url.pathname + url.search, {
       method: req.method, headers: req.headers, body: req.body,
     });
     const h = new Headers(r.headers);
@@ -8809,21 +8810,29 @@ const FISH_RELAY_CODE = `export default {
     return new Response(r.body, { status: r.status, headers: h });
   },
 };`;
-function FishRelayHelp({ toast }) {
+const FISH_RELAY_CODE = relayCodeFor("https://api.fish.audio");
+// hosts：[[名字, 上游地址], ...]——多于一个就先让她挑站点，复制出来的代码跟着换。
+function RelayHelp({ toast, hosts, what }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState(0);
+  const list = hosts && hosts.length ? hosts : [["", "https://api.fish.audio"]];
+  const code = relayCodeFor(list[Math.min(pick, list.length - 1)][1]);
   const p = { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 };
   return h("div", { "data-wk": "fishrelay", style: { margin: "-2px 0 12px" } },
     h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, padding: "4px 0" } }, open ? "收起 ▴" : "没有中转？自己搭一个（免费，几分钟）▾"),
     open ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg } },
       h("div", { style: p }, "用 Cloudflare 的免费 Worker 搭，密钥只经过你自己的号："),
+      list.length > 1 ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, margin: "4px 0 6px" } }, list.map(([n], k) => h("button", { key: k, type: "button", onClick: () => setPick(k), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid " + (k === pick ? t.accent : t.line), color: k === pick ? t.accent : t.sub } }, n))) : null,
+      list.length > 1 ? h("div", { style: Object.assign({}, p, { fontSize: 11, color: t.fog }) }, "先挑你的密钥是哪个站申请的，下面的代码会跟着换。") : null,
       h("div", { style: p }, "① 登录 Cloudflare → Workers & Pages → Create → Create Worker，随便起名，点 Deploy。"),
       h("div", { style: p }, "② 点 Edit code，把原来的代码全删掉，换成下面这段，再点 Deploy。"),
-      h("pre", { style: { margin: "8px 0", padding: 10, borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontSize: 10.5, lineHeight: 1.5, color: t.ink, overflowX: "auto", whiteSpace: "pre" } }, FISH_RELAY_CODE),
-      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(FISH_RELAY_CODE); toast && toast(ok ? "代码复制好了，去 Cloudflare 粘上" : "复制不了，长按上面那段自己选"); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8, background: t.ink, color: t.bg2 } }, "复制这段代码"),
-      h("div", { style: Object.assign({}, p, { marginTop: 8 }) }, "③ 复制这个 Worker 的地址（https://名字.账号.workers.dev），填进上面「接口地址」，点试听。"),
+      h("pre", { style: { margin: "8px 0", padding: 10, borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontSize: 10.5, lineHeight: 1.5, color: t.ink, overflowX: "auto", whiteSpace: "pre" } }, code),
+      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(code); toast && toast(ok ? "代码复制好了，去 Cloudflare 粘上" : "复制不了，长按上面那段自己选"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "4px 0" } }, "复制代码"),
+      h("div", { style: Object.assign({}, p, { marginTop: 8 }) }, "③ 复制这个 Worker 的地址（https://名字.账号.workers.dev），填进上面「接口地址」，" + (what || "点试听") + "。"),
       h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11 }) }, "workers.dev 在国内有时连不稳：连不上就开着梯子用，或者在 Cloudflare 里给它绑一个自己的域名。")) : null);
 }
+function FishRelayHelp({ toast }) { return h(RelayHelp, { toast }); }
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
   // 语音模型那一格（Fish、ElevenLabs 共用）：能自己打字，点一下也能挑现成的。
   //   ⚠️写在组件里面，别挪成顶层函数：公共版打包会把上面真声耳朵／电台嗓子那几格整段拿掉，
