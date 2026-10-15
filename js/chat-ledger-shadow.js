@@ -9,7 +9,9 @@
 
   const OUTBOX_KEY = "chat_ledger_outbox_v1"; // 无 x_ 前缀：不混进整份 saves
   const DELETE_OUTBOX_KEY = "chat_ledger_delete_outbox_v1";
+  const QUARANTINE_KEY = "chat_ledger_quarantine_v1"; // 连败多次的毒行挪到这里，队伍继续走；行不删，等人工审
   const DIAG_KEY = "chat_ledger_shadow_diag_v1";
+  const POISON_LIMIT = 5; // 同一行单独上传连败这么多次才隔离
   const LIVE_CURSOR_KEY = "chat_ledger_live_cursor_v1";
   const CONTINUITY_KEY = "yanqiu_cross_surface_continuity_v1";
   const THREAD_TYPES = new Set(["private", "offline", "group", "group_offline"]);
@@ -370,10 +372,29 @@
     let chain = Promise.resolve();
 
     const diagnostic = patch => {
-      const old = parse(storage, DIAG_KEY, {});
-      write(storage, DIAG_KEY, { ...old, ...patch, updated_at: new Date(clock()).toISOString() });
+      // 诊断永远不许反过来弄死主流程：配额满时 setItem 会抛，吞掉。
+      try {
+        const old = parse(storage, DIAG_KEY, {});
+        write(storage, DIAG_KEY, { ...old, ...patch, updated_at: new Date(clock()).toISOString() });
+      } catch (_) {}
+    };
+    const dropSent = keys => {
+      const sent = new Set(keys);
+      const current = parse(storage, OUTBOX_KEY, []);
+      const remaining = current.filter(r => !sent.has(r.message_key));
+      write(storage, OUTBOX_KEY, remaining);
+      return remaining.length;
+    };
+    const quarantineRow = row => {
+      // 行不删：挪进隔离区等人工审（scripts/cc-ledger-replay.mjs 同源可读），队伍继续走。
+      const held = parse(storage, QUARANTINE_KEY, []);
+      if (!held.some(r => r.message_key === row.message_key)) held.push(row);
+      write(storage, QUARANTINE_KEY, held);
+      dropSent([row.message_key]);
+      diagnostic({ quarantined: held.length });
     };
     const internalFlush = async () => {
+      let deleteError = null;
       const deletes = parse(storage, DELETE_OUTBOX_KEY, []);
       if (deletes.length) {
         const batchKeys = deletes.slice(0, 50);
@@ -382,24 +403,38 @@
           const done = new Set(batchKeys), currentDeletes = parse(storage, DELETE_OUTBOX_KEY, []);
           write(storage, DELETE_OUTBOX_KEY, currentDeletes.filter(k => !done.has(k)));
         } catch (error) {
-          diagnostic({ last_error: String(error && error.message || error), pending_deletes: deletes.length });
-          return { sent: 0, pending: parse(storage, OUTBOX_KEY, []).length, pendingDeletes: deletes.length, error };
+          // 软删失败只记账，不许堵住后面的上传——10-05 起六天断流就是这里一票否决出来的形状。
+          deleteError = error;
+          diagnostic({ last_delete_error: String(error && error.message || error), pending_deletes: deletes.length });
         }
       }
       const outbox = parse(storage, OUTBOX_KEY, []);
-      if (!outbox.length) return { sent: 0, pending: 0, pendingDeletes: parse(storage, DELETE_OUTBOX_KEY, []).length };
+      if (!outbox.length) return { sent: 0, pending: 0, pendingDeletes: parse(storage, DELETE_OUTBOX_KEY, []).length, error: deleteError || undefined };
       const batch = outbox.slice(0, 50);
       try {
         await uploader(batch);
-        const sent = new Set(batch.map(r => r.message_key));
-        const current = parse(storage, OUTBOX_KEY, []);
-        const remaining = current.filter(r => !sent.has(r.message_key));
-        write(storage, OUTBOX_KEY, remaining);
+        const remaining = dropSent(batch.map(r => r.message_key));
         diagnostic({ last_success_at: new Date(clock()).toISOString(), last_error: null, pending: remaining.length });
-        return { sent: batch.length, pending: remaining.length };
+        return { sent: batch.length, pending: remaining.length, error: deleteError || undefined };
       } catch (error) {
         diagnostic({ last_error: String(error && error.message || error), pending: outbox.length });
-        return { sent: 0, pending: outbox.length, error };
+        // 整批失败时试队头单行：能过＝队里有毒行但不是它，至少每轮前进一行；
+        // 单行也连败 POISON_LIMIT 次＝它就是毒行，隔离后下一轮换新队头。
+        if (batch.length > 1) {
+          const head = batch[0];
+          try {
+            await uploader([head]);
+            const remaining = dropSent([head.message_key]);
+            diagnostic({ last_success_at: new Date(clock()).toISOString(), pending: remaining.length });
+            return { sent: 1, pending: remaining.length, error };
+          } catch (headError) {
+            const diag = parse(storage, DIAG_KEY, {});
+            const fails = (diag.head_fails && diag.head_fails.key === head.message_key ? diag.head_fails.count : 0) + 1;
+            if (fails >= POISON_LIMIT) { quarantineRow(head); diagnostic({ head_fails: null }); }
+            else diagnostic({ head_fails: { key: head.message_key, count: fails } });
+          }
+        }
+        return { sent: 0, pending: parse(storage, OUTBOX_KEY, []).length, error };
       }
     };
     const enqueue = (context, messages) => {
@@ -411,9 +446,16 @@
         let newCount = 0;
         rows.forEach(r => { if (!byKey.has(r.message_key)) { byKey.set(r.message_key, r); newCount++; } });
         const merged = Array.from(byKey.values());
-        write(storage, OUTBOX_KEY, merged);
+        let saved = true;
+        try { write(storage, OUTBOX_KEY, merged); }
+        catch (_) { saved = false; } // 配额满：先去投递腾地方，别让这一炸把 flush 一起带走
         diagnostic({ total_queued: Number(parse(storage, DIAG_KEY, {}).total_queued || 0) + newCount, pending: merged.length });
         const result = await internalFlush();
+        if (!saved) {
+          // 投递若成功会腾出空间，补写一次；再失败就老实记一笔丢行数，不装没事。
+          try { write(storage, OUTBOX_KEY, Array.from(new Map([...parse(storage, OUTBOX_KEY, []), ...rows].map(r => [r.message_key, r])).values())); saved = true; }
+          catch (_) { diagnostic({ rows_dropped: Number(parse(storage, DIAG_KEY, {}).rows_dropped || 0) + newCount }); }
+        }
         return { queued: rows.length, ...result };
       });
       return chain;
@@ -432,15 +474,15 @@
       return chain;
     };
     const flush = () => { chain = chain.catch(() => {}).then(internalFlush); return chain; };
-    const status = () => ({ outbox: parse(storage, OUTBOX_KEY, []), deleteOutbox: parse(storage, DELETE_OUTBOX_KEY, []), diagnostic: parse(storage, DIAG_KEY, {}) });
-    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); storage.removeItem(CONTINUITY_KEY); };
+    const status = () => ({ outbox: parse(storage, OUTBOX_KEY, []), deleteOutbox: parse(storage, DELETE_OUTBOX_KEY, []), quarantine: parse(storage, QUARANTINE_KEY, []), diagnostic: parse(storage, DIAG_KEY, {}) });
+    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(QUARANTINE_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); storage.removeItem(CONTINUITY_KEY); };
     return { enqueue, invalidate, flush, status, clearLocal };
   }
 
   // 第 4 步：只观察 CC/Stack-chan 入站，不保存正文、更不写进真实聊天。
   const manager = root.localStorage ? createManager() : null;
   return {
-    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
+    OUTBOX_KEY, DELETE_OUTBOX_KEY, QUARANTINE_KEY, DIAG_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
     rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, modelHistory, restoreAppRows, createManager,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),

@@ -1,0 +1,178 @@
+{
+  "title": "拍照新玩法 · 6张首批",
+  "size": [
+    1200,
+    1600
+  ],
+  "count": 6,
+  "records": [
+    {
+      "id": 1,
+      "name": "照相馆单张与题材",
+      "file": "01-照相馆单张与题材.png",
+      "title": "挑好衣服，换个世界合照。",
+      "sub": "平行世界、杂志封面、电影海报，题材还能自己写。\n拍之前挑画风，拍完也能重画；原图会留着。",
+      "style": "studio",
+      "native": [
+        {
+          "file": "studio-single-entry-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        },
+        {
+          "file": "studio-single-result-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "照相馆四宫格",
+      "file": "02-照相馆四宫格.png",
+      "title": "一张四宫格，四个小表情。",
+      "sub": "拍成大头贴，也能先挑你喜欢的画风。\n每一格都能单独放大；想更清楚，就把那格再拍成单张。",
+      "style": "studio",
+      "native": [
+        {
+          "file": "studio-grid-result-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        },
+        {
+          "file": "studio-grid-cell-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "照相馆拍立得",
+      "file": "03-照相馆拍立得.png",
+      "title": "咔嚓一下，等照片慢慢显影。",
+      "sub": "白边相纸，底下还有TA写的一行字。\n两小时后才显出来；等不及就长按甩一甩。",
+      "style": "studio",
+      "native": [
+        {
+          "file": "polaroid-wait-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        },
+        {
+          "file": "polaroid-developed-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "照片日记",
+      "file": "04-照片日记.png",
+      "title": "把他这一天，冲成三格胶片。",
+      "sub": "照着那天的日记和日程，从早到晚选三个时刻。\n那天记下的换装也会带进去；三格都能点开看。",
+      "style": "diary",
+      "native": [
+        {
+          "file": "photo-diary-before-full.png",
+          "originalSize": [
+            1170,
+            2760
+          ],
+          "displayWidth": 454,
+          "scope": "complete native viewport"
+        },
+        {
+          "file": "photo-diary-after-full.png",
+          "originalSize": [
+            1170,
+            3849
+          ],
+          "displayWidth": 325.8612626656274,
+          "scope": "complete native viewport"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "照片涂画与TA接笔",
+      "file": "05-照片涂画与TA接笔.png",
+      "title": "在他的照片上，回他一笔。",
+      "sub": "画画、圈出来问他，画完连照片一起发回聊天。\n他也能在你画过的那张上接几笔，再发回来。",
+      "style": "doodle",
+      "native": [
+        {
+          "file": "doodle-circle-full.png",
+          "originalSize": [
+            1170,
+            2760
+          ],
+          "displayWidth": 454,
+          "scope": "complete native viewport"
+        },
+        {
+          "file": "doodle-return-chat-full.png",
+          "originalSize": [
+            1170,
+            3150
+          ],
+          "displayWidth": 398.1714285714286,
+          "scope": "complete native viewport"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "照片打分与抠成表情",
+      "file": "06-照片打分与抠成表情.png",
+      "title": "贴个分数，抠成他的表情。",
+      "sub": "表情、文字、分数都能自己贴。描一圈就能抠成透明贴纸，\n起个名字、印一句字，放进他的表情包，你们都能发。",
+      "style": "doodle",
+      "native": [
+        {
+          "file": "doodle-stamp-full.png",
+          "originalSize": [
+            1170,
+            2760
+          ],
+          "displayWidth": 396.7826086956522,
+          "scope": "complete native viewport"
+        },
+        {
+          "file": "doodle-cut-full.png",
+          "originalSize": [
+            1170,
+            2760
+          ],
+          "displayWidth": 396.7826086956522,
+          "scope": "complete native viewport"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "phase": 1,
+  "shots": [
+    {
+      "name": "home-widget-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "picker-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    }
+  ],
+  "actions": [],
+  "errors": [],
+  "missing": [
+    "/art/train-carriage/journey.mjs"
+  ],
+  "error": "page.waitForFunction: Timeout 25000ms exceeded."
+}

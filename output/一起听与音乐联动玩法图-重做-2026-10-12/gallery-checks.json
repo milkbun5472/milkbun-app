@@ -1,0 +1,23 @@
+{
+  "checks": [
+    {
+      "width": 1200,
+      "pages": 7,
+      "decode": true,
+      "noHorizontalOverflow": true,
+      "navigation": true,
+      "zoomOriginal": true,
+      "downloadFilesExist": true
+    },
+    {
+      "width": 390,
+      "pages": 7,
+      "decode": true,
+      "noHorizontalOverflow": true,
+      "navigation": true,
+      "zoomOriginal": true,
+      "downloadFilesExist": true
+    }
+  ],
+  "errors": []
+}

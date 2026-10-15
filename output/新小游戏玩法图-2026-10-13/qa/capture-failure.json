@@ -1,0 +1,21 @@
+{
+  "shots": [
+    {
+      "name": "new-games-shelf-full",
+      "viewport": {
+        "width": 390,
+        "height": 1400
+      }
+    },
+    {
+      "name": "liar-setup-full",
+      "viewport": {
+        "width": 390,
+        "height": 1104
+      }
+    }
+  ],
+  "actions": [],
+  "errors": [],
+  "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('#games-demo').locator('[data-wk=gameopenbtn][data-part=go]')\u001b[22m\n"
+}

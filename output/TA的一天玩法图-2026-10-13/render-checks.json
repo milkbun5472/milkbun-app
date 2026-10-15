@@ -1,0 +1,2454 @@
+{
+  "checks": [
+    {
+      "id": 1,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "01 / 12",
+          "left": 1028.28125,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 112,
+          "clientWidth": 112
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "他在过日子，你能走进去。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "按TA当地的日程，他会去工作、吃饭、散步，再回家。\n选人时就能看此刻、刚才和下一段；点日程还能预览。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "先看看他在哪、忙了多久。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "先看看他在哪、忙了多久。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "到了工坊，就做那一段安排。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "到了工坊，就做那一段安排。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "24个场景 · 晨昏随时间变化 · 日程按阶段推进 · 小人真的走过去\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "24个场景 · 晨昏随时间变化 · 日程按阶段推进 · 小人真的走过去",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/picker-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/work-scene-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "02 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "给你留的位置，真的能坐。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "他在家时，你的小人也能在；点空地走过去，坐到身边。\n牵手、靠肩、拥抱、亲亲，可以你来，也可以让TA先靠近。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "看见他此刻没说出口的念头。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "看见他此刻没说出口的念头。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "TA先靠近，坐在一起搂搂肩。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "TA先靠近，坐在一起搂搂肩。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "坐着、躺着、站着都能相处 · 自动小互动可开关 · 手动选择优先\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "坐着、躺着、站着都能相处 · 自动小互动可开关 · 手动选择优先",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/home-thought-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/pair-cuddle-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "03 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "一起过日子，谁也不用闲着。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "选自己的活动，也能分配TA做家务，扫地、洗碗、收拾小家。\n添好兴趣家具，就能弹琴、弹吉他、画画、举哑铃或拉伸。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "摆好的吉他，走过去就能弹。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "摆好的吉他，走过去就能弹。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "这次谁来做，自己选。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "这次谁来做，自己选。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "两个人各有活动 · 动作习惯参考人设 · 家具和通道真的影响行动\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "两个人各有活动 · 动作习惯参考人设 · 家具和通道真的影响行动",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/hobby-guitar-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/chores-controls-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "04 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "不等日程，今天也能一起出门。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "24个地点，想自己去看看，或邀请TA一起，都可以。\n小街并肩散步，小店坐着喝一杯；逛完再回到TA的安排。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "选地方，也选这趟和谁去。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "选地方，也选这趟和谁去。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "从菜单走出来，真的并肩走。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "从菜单走出来，真的并肩走。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "自己逛／邀请TA · 依地点选互动 · 自动跟随与手动走动都可以\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "自己逛／邀请TA · 依地点选互动 · 自动跟随与手动走动都可以",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/outings-picker-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/outing-walk-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "05 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "今晚吃什么，跟他一起定。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "32道两人份料理，按菜名、食材找，也能收藏常做的。\n自己搭一到三道，或告诉TA想吃什么，让他按你们的人设选。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "翻菜谱，挑今晚想做的。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "翻菜谱，挑今晚想做的。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "你说想法，TA来提几桌菜单。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "你说想法，TA来提几桌菜单。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "菜单、备料单和分工一起留住 · 补齐缺料 · 辣度、咸淡、甜度可调\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "菜单、备料单和分工一起留住 · 补齐缺料 · 辣度、咸淡、甜度可调",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/kitchen-book-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/kitchen-menu-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "06 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "这顿饭，要你们亲手做。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "拖食材上砧板，手指划着切；下锅后调火、搅拌、翻面。\nTA和你分着做，想换手就换；也能交给两个人自动做。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "放大砧板，真的划开食材。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "放大砧板，真的划开食材。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "下到锅里，再继续拌、炒、翻。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "下到锅里，再继续拌、炒、翻。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "七类做法 · 切菜、揉面、拌料、翻锅、摆盘 · 做到哪儿可以接着来\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "七类做法 · 切菜、揉面、拌料、翻锅、摆盘 · 做到哪儿可以接着来",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/kitchen-board-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/kitchen-pan-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "07 / 12",
+          "left": 1025.0625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 115,
+          "clientWidth": 115
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "做好的这一份，给你们两个人。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "端上桌一起吃，尝一口，也能夹给TA；一桌可放一到三道。\n留一份便当给他带走，还能把喜欢的口味记成你们的菜谱。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "从锅边来到同一张餐桌。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "从锅边来到同一张餐桌。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "给他带走，也把这份做法留下。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "给他带走，也把这份做法留下。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "两人份餐盒 · 自己起名字 · 标记TA爱吃的版本 · 重进还在\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "两人份餐盒 · 自己起名字 · 标记TA爱吃的版本 · 重进还在",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/kitchen-meal-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/kitchen-bento-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "08 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "他尝过的那一口，还能接着聊。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "递食材、扶锅、一起揉面、擦掉面粉，也能让TA尝味道。\n聊聊这锅，会带上实际做过的事和口味；厨房有自己的聊天页。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "做到这一步，让他尝一口。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "做到这一步，让他尝一口。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "接着聊刚才那口的咸淡。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "接着聊刚才那口的咸淡。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "边做边搭把手 · 给TA尝一口 · 料理和吃饭的细节能带进聊天\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "边做边搭把手 · 给TA尝一口 · 料理和吃饭的细节能带进聊天",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/kitchen-taste-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/kitchen-chat-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "09 / 12",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "住在一起，小家照你喜欢的搭。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "挑家具、拖着挪、转个方向，或先收起来；墙地也能换。\n每件家具、每个部件可以分别配色，空间不够还能扩建。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "在真实的小家里试着摆。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "在真实的小家里试着摆。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "同款家具，也能搭成你的颜色。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "同款家具，也能搭成你的颜色。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "三档户型 · 单件与部件配色 · 材质、墙地纹样 · 按角色分别留住\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "三档户型 · 单件与部件配色 · 材质、墙地纹样 · 按角色分别留住",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/decor-scene-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/decor-piece-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "10 / 12",
+          "left": 1028.28125,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 112,
+          "clientWidth": 112
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "你和他，各有自己的样子。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "给你的小人选头发、衣服和身形，也能取用庭院的样貌。\nTA的外观和陪伴同步；两个人的动作、亲近习惯都能分别调。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "边看小人，边搭自己喜欢的样子。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "边看小人，边搭自己喜欢的样子。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "同样一起坐着，也有各自的节奏。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "同样一起坐着，也有各自的节奏。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "样貌可预览 · TA与我的动作习惯 · 手选的设置会记住\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "样貌可预览 · TA与我的动作习惯 · 手选的设置会记住",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/wardrobe-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/motion-styles-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "11 / 12",
+          "left": 1032.65625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 107,
+          "clientWidth": 107
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "他的一天，和你们的这一刻。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "小相册自动存各段日程，没看到的能补拍；一次配每张的念头。\n想留下你们一起的样子，就拍同框照、写一句，再导出。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "今天去过的地方，串成小相册。",
+          "left": 92.953125,
+          "right": 531.03125,
+          "top": 335,
+          "bottom": 1466.984375,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 436,
+          "clientWidth": 436
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 102.953125,
+          "right": 521.03125,
+          "top": 345,
+          "bottom": 1416.984375,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 418,
+          "clientWidth": 418
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "今天去过的地方，串成小相册。",
+          "left": 102.953125,
+          "right": 521.03125,
+          "top": 1416.984375,
+          "bottom": 1458.984375,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 418,
+          "clientWidth": 418
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "这一张，留住此刻的两个人。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "这一张，留住此刻的两个人。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "小相册留最近七天 · 同框照取景预览 · 日期、地点和当时的活动\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "小相册留最近七天 · 同框照取景预览 · 日期、地点和当时的活动",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/daily-album-full.png",
+          "natural": [
+            1170,
+            3000
+          ],
+          "display": [
+            418.078125,
+            1071.984375
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/sameframe-saved-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · TA的一天",
+          "left": 67,
+          "right": 272.09375,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 205,
+          "clientWidth": 205
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "12 / 12",
+          "left": 1028.28125,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 112,
+          "clientWidth": 112
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "想他时，先看一眼他在干嘛。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 216.796875,
+          "scrollHeight": 93,
+          "clientHeight": 93,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "主屏放一个「TA在干嘛」：看他此刻在哪、多久、接下来做什么。\n点进去边看边聊，这里发的话也会回到你们的主聊天。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "不用翻日程，主屏就看得到。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "不用翻日程，主屏就看得到。",
+          "left": 85,
+          "right": 539,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "在这个画面里聊，主聊天也接得上。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1442.6875,
+          "scrollHeight": 1106,
+          "clientHeight": 1106,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1392.6875,
+          "scrollHeight": 1048,
+          "clientHeight": 1048,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "在这个画面里聊，主聊天也接得上。",
+          "left": 659,
+          "right": 1113,
+          "top": 1392.6875,
+          "bottom": 1434.6875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "小组件可轮换或固定一人 · 已存念头也能显示 · 直接点进TA的一天\n真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "小组件可轮换或固定一人 · 已存念头也能显示 · 直接点进TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、日程与对话为演示数据 · 入口：小世界 → TA的一天",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/home-widget-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/main-chat-sync-full.png",
+          "natural": [
+            1170,
+            2700
+          ],
+          "display": [
+            454,
+            1047.6875
+          ],
+          "fit": "fill"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "violations": []
+}

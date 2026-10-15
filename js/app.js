@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.713";
+const APP_VERSION = "v75.714";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4066,7 +4066,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!y) throw new Error("还没找到唯一的言秋身份");
       if (!user) throw new Error("请先登录云端账号");
       let live = null; try { live = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY) || "null"); } catch (e) {}
-      toast("CC 回流：已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀"));
+      const shadow = window.ChatLedgerShadow.status();
+      const diag = shadow.diagnostic || {};
+      const outLine = "；外送：待发 " + shadow.outbox.length + " 条" + (shadow.quarantine && shadow.quarantine.length ? " · 隔离 " + shadow.quarantine.length : "") + (diag.last_error ? " · 上次失败：" + String(diag.last_error).slice(0, 60) : diag.last_success_at ? " · 上次送达 " + String(diag.last_success_at).slice(5, 16).replace("T", " ") : "");
+      toast("CC 回流：已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀") + outLine);
     } catch (e) { toast("CC 回流影子尚未就绪：" + String((e && e.message) || e)); }
   };
   const enableMemoryTableAuthority = async () => {

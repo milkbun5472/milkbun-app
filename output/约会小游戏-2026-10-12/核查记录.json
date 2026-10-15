@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-12",
+  "feature": "各怀心思的约会",
+  "tests": {
+    "total": 8582,
+    "passed": 8582,
+    "failed": 0
+  },
+  "browser": {
+    "widths": [
+      320,
+      390,
+      430
+    ],
+    "dark": true,
+    "tested": [
+      "真实架子入口和选人",
+      "无效回复与同一步重试",
+      "合照滑杆与重拍",
+      "抓钩滑杆和双人配合",
+      "退出续局",
+      "保存失败与仅重试保存",
+      "封好TA猜测后翻牌",
+      "整页刷新从IDB续局",
+      "未写主聊天回忆关系"
+    ]
+  },
+  "boundary": "浏览器使用隔离假角色和预置模型回复；未调用用户真实模型、私人存档或账号。",
+  "release": {
+    "version": "v75.501",
+    "commit": "27ff3661b",
+    "mainPushed": true,
+    "publicAppAndIndexMatch": true,
+    "publicScripts": [
+      {
+        "file": "js/date-game-core.js",
+        "sha256": "9e883d9b660042c87483b0ac06e51087d2c97928b3888df03e0b04ce0b7332c0"
+      },
+      {
+        "file": "js/date-game.js",
+        "sha256": "4aa19912d44d1ec6257ab7a61c66c31b53c201141f5f0f879af9c910b3ea5cba"
+      }
+    ]
+  }
+}

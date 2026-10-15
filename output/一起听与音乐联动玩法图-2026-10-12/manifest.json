@@ -1,0 +1,227 @@
+{
+  "title": "秋秋机 · 一起听 × 音乐联动",
+  "size": [
+    1200,
+    1600
+  ],
+  "records": [
+    {
+      "name": "小红书封面",
+      "title": "这一首，\n想和 TA 一起听。",
+      "sub": "歌在放，你们也在说。\n从他的歌单，到你们的唱片，再回到聊天里。",
+      "features": "一起听 × 查手机音乐 × 情侣唱片 × 主聊天",
+      "id": 1,
+      "file": "01-小红书封面.png",
+      "native": [
+        "bubble-stage",
+        "talk-input"
+      ]
+    },
+    {
+      "name": "挑个人一起听",
+      "title": "这首歌，\n找一个人一起听。",
+      "sub": "打开播放页的封套，选“自己听”，或者挑一位 char。\n两只头像挂在封面上，唱的是同一首，话也在这一页说。",
+      "features": "选听歌对象 · 双人头像 · 播放页输入",
+      "id": 2,
+      "file": "02-挑个人一起听.png",
+      "native": [
+        "partner-picker-detail",
+        "partner-selected"
+      ]
+    },
+    {
+      "name": "聊天里的邀请",
+      "title": "TA 发来邀请，\n这一首，想给你听。",
+      "sub": "TA 能在聊天里发“一起听邀请”，带上歌名和邀请语。\n点“和 TA 一起听”，会选好对象、找这首歌，再打开播放器。",
+      "features": "主聊天邀请 → 接受 → 一起听",
+      "id": 3,
+      "file": "03-聊天里的邀请.png",
+      "native": [
+        "chat-invite",
+        "invite-selected"
+      ]
+    },
+    {
+      "name": "边听边说",
+      "title": "歌不用停，\n想说的就说一句。",
+      "sub": "播放页直接输入，TA 会在头像旁接话。\n几句回复会一个接一个冒出来；你的气泡等 TA 接上才开始淡。",
+      "features": "输入一句 · 头像冒泡 · 逐句接话",
+      "id": 4,
+      "file": "04-边听边说.png",
+      "native": [
+        "bubble-stage",
+        "talk-input"
+      ]
+    },
+    {
+      "name": "聊到正在唱的那一句",
+      "title": "聊这首歌，\n也知道唱到哪儿了。",
+      "sub": "有可用歌词时，TA 会拿到当前进度和刚唱过的几句。\n点“词”能看滚动歌词，当前那一句会亮起来。",
+      "features": "播放进度 · 歌词窗口 · 当前句高亮",
+      "id": 5,
+      "file": "05-聊到正在唱的那一句.png",
+      "native": [
+        "lyric-window"
+      ]
+    },
+    {
+      "name": "让TA自己开口",
+      "title": "听到这里，\nTA 也想说一句。",
+      "sub": "把“TA 不开口”切成“TA 会开口”，让 TA 有反应时自己说。\n也可能安静听；开关和设置里的自动生成共用。",
+      "features": "主动开口可开关 · 一首最多触发一次 · 有间隔",
+      "id": 6,
+      "file": "06-让TA自己开口.png",
+      "native": [
+        "auto-bubble",
+        "auto-toggle"
+      ]
+    },
+    {
+      "name": "原话回到主聊天",
+      "title": "耳机里说过的，\n聊天里也留着。",
+      "sub": "你和 TA 在一起听里说的每一句，都会直接落进该 char 的主聊天。\n回去能看到双方原话，接着刚才那几句聊。",
+      "features": "一起听 → 主聊天 · 双方原话同步",
+      "id": 7,
+      "file": "07-原话回到主聊天.png",
+      "native": [
+        "chat-synced"
+      ]
+    },
+    {
+      "name": "聊天里点歌切歌",
+      "title": "你说想换歌，\nTA 真给你换一首。",
+      "sub": "一起听时，可以让 TA 点歌、切上一首或下一首。\n歌库没有的歌，也能经可用音乐源搜索后播放。",
+      "features": "主聊天点歌 → 搜到曲目 → 全局播放器换歌",
+      "id": 8,
+      "file": "08-聊天里点歌切歌.png",
+      "native": [
+        "chat-switch",
+        "switched-progress"
+      ]
+    },
+    {
+      "name": "生成TA自己的歌单",
+      "title": "他私下循环的，\n也想翻来听听。",
+      "sub": "在“我的”里选一个角色，让 TA 按人设和自己的口味推歌。\n搜到的曲目会组成归 TA 名下的歌单，每首留着他的听歌备注。",
+      "features": "按人设推歌 · 搜到可播放曲目 · TA 的私人偏爱",
+      "id": 9,
+      "file": "09-生成TA自己的歌单.png",
+      "native": [
+        "playlist-char-picker-detail",
+        "playlist-top"
+      ]
+    },
+    {
+      "name": "查手机是同一张歌单",
+      "title": "在一起听生成，\n去 TA 手机里也能翻。",
+      "sub": "查手机里的“音乐”，读的就是一起听中归 TA 名下的歌单。\n继续生成会追加新歌、跳过重复；两处看到的是同一张。",
+      "features": "一起听 × 查手机音乐 · 同一张歌单 · 继续添歌",
+      "id": 10,
+      "file": "10-查手机是同一张歌单.png",
+      "native": [
+        "playlist-created-card",
+        "playlist-appended-card",
+        "phone-music-top"
+      ]
+    },
+    {
+      "name": "把他的偏爱拿回去聊",
+      "title": "为什么听这首，\n可以直接问 TA。",
+      "sub": "点开手机里的曲目，能“放这首”，也能“跟 TA 提这首”。\n歌名、歌手和他的听歌备注会带到主聊天，等你们接着聊。",
+      "features": "查手机展开 → 放这首 / 提这首 → 主聊天",
+      "id": 11,
+      "file": "11-把他的偏爱拿回去聊.png",
+      "native": [
+        "phone-song-detail",
+        "phone-peek-card"
+      ]
+    },
+    {
+      "name": "看TA在手机里点歌",
+      "title": "这次你在旁边，\n看 TA 自己挑歌。",
+      "sub": "从查手机的“看 TA 玩”进入，看他打开音乐、点开曲目。\n他点的是这张歌单里的歌，播放状态也会跟着改变。",
+      "features": "看 TA 玩 × 音乐 · 原界面操作 · 当前曲目改变",
+      "id": 12,
+      "file": "12-看TA在手机里点歌.png",
+      "native": [
+        "watch-entry",
+        "watch-active-row",
+        "watch-bar"
+      ]
+    },
+    {
+      "name": "在聊天里刻一首歌",
+      "title": "这首先别忘，\n刻到我们的唱片里。",
+      "sub": "在主聊天里让 TA 刻歌，也可以由 TA 自己提出。\n搜索并存成功后，歌和那句 B 面刻字会进情侣空间的“我们的唱片”。",
+      "features": "主聊天刻歌 → 情侣空间 · 歌与 B 面刻字",
+      "id": 13,
+      "file": "13-在聊天里刻一首歌.png",
+      "native": [
+        "chat-carve-words",
+        "disc-note"
+      ]
+    },
+    {
+      "name": "让TA挑共同的唱片",
+      "title": "他自己爱听的，\n和想放给你听的。",
+      "sub": "“让 TA 再刻几首”，让他为你们的共同唱片挑歌。\n每首 B 面写为什么给你听；这张唱片会慢慢添新歌。",
+      "features": "私人歌单 / 共同唱片 · 各自选歌 · B 面说给你",
+      "id": 14,
+      "file": "14-让TA挑共同的唱片.png",
+      "native": [
+        "disc-deck",
+        "disc-ta-row"
+      ]
+    },
+    {
+      "name": "自己刻歌和改B面",
+      "title": "你也能选一首，\n把自己的话刻上去。",
+      "sub": "输入歌名或歌手，写一句 B 面的话，再点“刻进唱片”。\n已有歌的 B 面也能点开改字，写好以后再“刻上”。",
+      "features": "手动刻歌 · B 面留言 · 点开改字",
+      "id": 15,
+      "file": "15-自己刻歌和改B面.png",
+      "native": [
+        "disc-manual-form",
+        "disc-manual-result",
+        "disc-edit-form"
+      ]
+    },
+    {
+      "name": "收进自己的歌单",
+      "title": "听到喜欢的，\n就给它留个位置。",
+      "sub": "在“发现”搜歌，曲目能播放，也能收进自己的曲库。\n播放页点加号，挑已有歌单，或者新建一张来收着。",
+      "features": "搜歌 · 曲库收藏 · 加入 / 新建歌单",
+      "id": 16,
+      "file": "16-收进自己的歌单.png",
+      "native": [
+        "search-result-detail",
+        "add-playlist-picker",
+        "personal-playlist-card"
+      ]
+    },
+    {
+      "name": "队列和悬浮播放器",
+      "title": "回去聊天，\n音乐还在这里放。",
+      "sub": "展开当前队列，按这张列表选歌、上一首或下一首。\n也能切列表循环、单曲循环或随机；离开播放页，悬浮播放器继续控制。",
+      "features": "当前队列 · 三种播放模式 · 悬浮控制",
+      "id": 17,
+      "file": "17-队列和悬浮播放器.png",
+      "native": [
+        "player-queue",
+        "mini-player"
+      ]
+    },
+    {
+      "name": "进出空间接着听",
+      "title": "进来，换他的歌。\n出去，还你那一首。",
+      "sub": "进 TA 手机或情侣空间，会接着上次那首的下一首放。\n离开时，原来的曲目、队列、进度和暂停状态会还回来。",
+      "features": "查手机 / 情侣空间 · 记住针位 · 返回原曲",
+      "id": 18,
+      "file": "18-进出空间接着听.png",
+      "native": [
+        "disc-playing-deck",
+        "restored-time"
+      ]
+    }
+  ]
+}

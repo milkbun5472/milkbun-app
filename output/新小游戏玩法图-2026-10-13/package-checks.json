@@ -1,0 +1,27 @@
+{
+  "records": [
+    {
+      "file": "01-骗子骰.png",
+      "sha256": "5dd9f28bac6d31543f28db261f5fb70be9c3c58f4d38a694094ed86954d0c353",
+      "bytes": 1510661
+    },
+    {
+      "file": "02-故事接龙.png",
+      "sha256": "55fa29e5d72fdb405da949180a4203e4fbb8fc271d33a8939d7293c2d4eb9381",
+      "bytes": 1750507
+    },
+    {
+      "file": "03-秘密约会商量与抓玩偶.png",
+      "sha256": "e41541ff2016cc2c89513cef3469bc0fa518f9fc994da524501cd261b9308602",
+      "bytes": 1590606
+    },
+    {
+      "file": "04-秘密约会配动作与翻牌.png",
+      "sha256": "bf510bc2e706e9e4d5deec10b1c8e4c7c286918e6b7b6924d060335389994689",
+      "bytes": 1664686
+    }
+  ],
+  "zip": "新小游戏玩法图-4张.zip",
+  "zipBytes": 6516121,
+  "crc": true
+}

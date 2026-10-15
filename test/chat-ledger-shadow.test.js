@@ -147,3 +147,65 @@ test("CC turn 留在 App 聊天副本但不重复进入模型历史", () => {
   assert.equal(visible.length, 3);
   assert.deepEqual(model.map(x => x.id), ["ledger:emotion", "app"]);
 });
+
+// —— 10-05 断流案的三道回归（锚点钉在 createManager 的行为上）——
+
+test("软删一直失败不许堵住上传：删队留着，账照送", async () => {
+  const s = storage(); let uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000,
+    upload: async rows => { uploaded.push(...rows); },
+    remove: async () => { throw new Error("delete rpc down"); }
+  });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  await manager.enqueue(context, [{ role: "assistant", content: "旧泡", ts: 10, turnId: "t1" }]);
+  await manager.invalidate(context, [{ role: "assistant", content: "旧泡", ts: 10, turnId: "t1" }]);
+  await manager.enqueue(context, [{ role: "user", content: "新话", ts: 20 }]);
+  assert.ok(uploaded.some(r => r.content === "新话"), "软删挂了，新消息也必须照送");
+  assert.equal(manager.status().deleteOutbox.length, 1, "删队保留等重试");
+  assert.ok(manager.status().diagnostic.last_delete_error);
+});
+
+test("毒行连败五次被隔离，队伍继续走且行不丢", async () => {
+  const s = storage(); let uploaded = [];
+  const upload = async rows => {
+    if (rows.some(r => r.content === "毒")) throw new Error("poison row");
+    uploaded.push(...rows);
+  };
+  const manager = Ledger.createManager({ storage: s, now: () => 1000, upload });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  await manager.enqueue(context, [
+    { role: "user", content: "毒", ts: 10 },
+    { role: "user", content: "好行", ts: 11 }
+  ]);
+  for (let i = 0; i < 5; i++) await manager.flush();
+  assert.equal(manager.status().quarantine.length, 1, "毒行进隔离区");
+  assert.equal(manager.status().quarantine[0].content, "毒", "隔离的是毒行本身，不删");
+  await manager.flush();
+  assert.ok(uploaded.some(r => r.content === "好行"), "毒行让开后队伍继续送");
+  assert.equal(manager.status().outbox.length, 0);
+});
+
+test("配额满时诊断与入队都不许炸链：flush 照跑，腾出空间后补写", async () => {
+  const m = new Map(); let full = false;
+  const s = {
+    getItem: k => m.has(k) ? m.get(k) : null,
+    // 贴近真实配额：满了之后只拒绝会让这把键变大的写入，改小照常（覆盖写不占新空间）
+    setItem: (k, v) => {
+      const old = m.get(k) || "";
+      if (full && String(v).length > old.length) throw new Error("The quota has been exceeded.");
+      m.set(k, String(v));
+    },
+    removeItem: k => m.delete(k)
+  };
+  let online = false, uploaded = [];
+  const manager = Ledger.createManager({ storage: s, now: () => 1000, upload: async rows => { if (!online) throw new Error("offline"); uploaded.push(...rows); full = false; } });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  await manager.enqueue(context, [{ role: "user", content: "先囤着的旧账", ts: 10 }]);
+  full = true; online = true;
+  const r = await manager.enqueue(context, [{ role: "user", content: "挤不进去的新话", ts: 20 }]);
+  assert.equal(r.queued, 1, "enqueue 不许因 setItem 抛错而整链失败");
+  assert.ok(uploaded.some(x => x.content === "先囤着的旧账"), "配额满也要先把旧账送出去腾地方");
+  assert.equal(manager.status().outbox.length, 1, "腾出空间后新话补写进队");
+  assert.equal(manager.status().outbox[0].content, "挤不进去的新话");
+});
