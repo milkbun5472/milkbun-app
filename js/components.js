@@ -1805,7 +1805,7 @@ function packCoverOf(pk) {
   const list = (pk && pk.emotes) || [];
   return (pk && pk.cover && list.find(e => e && e.id === pk.cover)) || list[0] || null;
 }
-function StickerPanel({ packs, emotes, onPick, onManage }) {
+function StickerPanel({ packs, emotes, onPick, onManage, caption, onCaption }) {
   const t = useTheme();
   const list = Array.isArray(packs) ? packs.filter(p => p && (p.emotes || []).length) : [];
   // 最近用过的那几张（她按下去的那一刻记一笔，只存 id）。
@@ -1830,18 +1830,21 @@ function StickerPanel({ packs, emotes, onPick, onManage }) {
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog } },
         cur ? cur.name : "表情包"),
-      onManage ? h("button", { onClick: onManage, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›") : null),
+      h("div", { className: "flex items-center", style: { gap: 14 } },
+        // 字开关（她 2026-10-16「能不能选开」）：默认关，开了每张图上印它的描述
+        onCaption ? h("button", { onClick: () => onCaption(!caption), "aria-pressed": !!caption, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: caption ? t.tint : t.fog } }, caption ? "显示字 ✓" : "显示字") : null,
+        onManage ? h("button", { onClick: onManage, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "管理表情库 ›") : null)),
     !shown.length
       ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
       : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "40vh", overflowY: "auto" } },
           shown.map(em => h("button", { key: (cur && cur.recent ? "r_" : "") + em.id, onClick: () => pick(em), className: "active:opacity-70",
-            style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
+            style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2, position: "relative" } },
             h("div", { style: { width: "100%", aspectRatio: "1" } },
               h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", alt: em.keyword || "",
                 style: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
                 onError: e => { e.target.style.display = "none"; } })),
-            // 每张底下写它的描述（群友 2026-10-16「表情包这里能显示描述」）：就是 TA 认这张的那个词，一行放不下就省略
-            em.keyword ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.3, color: t.sub, padding: "3px 4px 4px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderTop: "1px solid " + t.line } }, em.keyword) : null))),
+            // 描述印在图上（她 2026-10-16：「白底太大、字看不清，跟生成的表情包一样直接字印在上面」）：底边一行，白字描黑边
+            caption && em.keyword ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 2, padding: "0 3px", fontFamily: F_BODY, fontSize: 11, fontWeight: 700, lineHeight: 1.25, color: "#fff", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: "0 0 2px #000, 0 0 2px #000, 0 1px 3px rgba(0,0,0,.8)", pointerEvents: "none" } }, em.keyword) : null))),
     // 底下那一排：每一套一格，摆它自己的封面（第一张）。多了横着滑。
     tabs.length > 1 ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line, overflowX: "auto" } },
       tabs.map(pk => {
@@ -9801,6 +9804,8 @@ function ChatThread({
   emotes,
   emotePacks,
   onManageEmotes,
+  emoteCaption,
+  onEmoteCaption,
   archCount,
   onLoadOlder,
   toast
@@ -11087,6 +11092,7 @@ function ChatThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setStickerOpen(false); onManageEmotes && onManageEmotes(); },
+      caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => {
         sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword });
         // 书房直通（她 2026-09-25「表情包你能看到吗→你快去修」）：表情包走 sendRich 不过 onSend，
@@ -17461,6 +17467,8 @@ function GroupThread({
   emotes,
   emotePacks,
   onManageEmotes,
+  emoteCaption,
+  onEmoteCaption,
   archCount,
   onLoadOlder,
   toast
@@ -18246,6 +18254,7 @@ function GroupThread({
     h(StickerPanel, {
       packs: emotePacks, emotes: emotes,
       onManage: () => { setSheet(null); onManageEmotes && onManageEmotes(); },
+      caption: !!emoteCaption, onCaption: onEmoteCaption,
       onPick: em => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setSheet(null); }
     })
   ), rpView != null && messages[rpView] && messages[rpView].kind === "redpacket" && h(RedPacketOpenSheet, {
