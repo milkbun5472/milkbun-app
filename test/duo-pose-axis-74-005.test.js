@@ -30,7 +30,10 @@ test("点名了姿势就照点名的来，轴让路", () => {
   assert.match(seg, /「场景\/正在做什么」那一句已经写明了两个人怎么站/, "合照姿势那格没让路");
   assert.ok(!/"[^"\n]*别又回到/.test(seg), "那句会跟她要的贴脸对着干");
   assert.match(eng, /「场景\/正在做什么」那一句已经点名了机位或姿势的，照那一句来/, "机位那格没让路");
-  assert.ok(eng.indexOf('parts.push("场景/正在做什么：') < eng.indexOf("parts.push(photoShotLine(kind"), "场景那句得排在两格前面，「上面那一句」才说得通");
+  // v75.670 起机位那句不再往后排队，而是【插到场景那句的后面】——「上面那一句」照样说得通。
+  //   守的是这件事本身：找到场景那句，紧跟着插进去；没有场景那句才退回去往后排。
+  assert.match(eng, /const _si = parts\.findIndex\(x => typeof x === "string" && x\.indexOf\("场景\/正在做什么："\) === 0\);/, "机位那句不再认场景那句的位置");
+  assert.match(eng, /if \(_si >= 0\) parts\.splice\(_si \+ 1, 0, _shot\); else parts\.push\(_shot\);/, "机位那句没插在场景那句后面");
 });
 
 test("合照那段不再自带一张以贴脸打头的姿势菜单", () => {

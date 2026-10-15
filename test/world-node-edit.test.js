@@ -56,7 +56,7 @@ test("改一块地方：名字地形都改，别的块「挨着谁」跟着改�
   assert.deepEqual(saved[0].regions[0].nodes, [{ name: "酒馆" }], "块里的地点跟着它，不用动");
   assert.equal(runR(W2(), "w", "东区", { name: "港口" }).r, false);
   assert.equal(runR(W2(), "w", "东区", { name: "" }).r, false);
-  assert.match(map, /"改这一块"/);
+  assert.match(map, /"改这一块的名字"/);   // v75.666 改了按钮上的字，还是这一颗
   assert.match(map, /onEditRegion: o\.onEditRegion \?/);
   assert.match(app, /onEditRegion: editWorldRegion,/);
 });
