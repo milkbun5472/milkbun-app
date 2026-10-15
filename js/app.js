@@ -16554,13 +16554,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const t0 = new Date(), dow = (t0.getDay() + 6) % 7;
     const days = Array.from({ length: 7 - dow }, (_, i) => { const d = new Date(t0); d.setDate(t0.getDate() + i); return key(d); });
     const mine = (calEventsRef.current || []).filter(e => e && (e.owner || "mine") === "mine" && e.startDate <= days[days.length - 1] && (e.endDate || e.startDate) >= days[0]);
+    let myPlace = "";
+    try { const r = myRealm(null); myPlace = r ? (r.kind === "real" ? (r.geo && r.geo.label) || "" : r.label || "") : ""; } catch (e) {}
     setGen(g => ({ ...g, myweek: true }));
     try {
-      const d = await runProbe(active, { char: { id: "__me", name: userName(profile), persona: "" }, chars: characters, rels, profile, timeAware: true }, {
-        instruction: "替「" + userName(profile) + "」（用这个 App 的人自己，不是任何角色）排她 " + days[0] + " 到 " + days[days.length - 1] + " 这几天的日程。"
+      const d = await runProbe(active, { char: { id: "__me", name: userName(profile), persona: String((profile && profile.persona) || "") }, chars: characters, rels, profile, timeAware: true }, {
+        // 跟角色排行程一个道理（她 2026-10-14「可以参考面具人设排，跟角色一样」）：照她面具里写的人来排——做什么的、在哪、什么作息
+        instruction: (profile && profile.persona ? "【她是这样一个人（她的面具设定）】\n" + String(profile.persona).slice(0, 1500) + "\n" : "")
+          + (myPlace ? "【她在】" + myPlace + "\n" : "")
+          + "照上面这个人来排：她的职业、学业、身份、所在的世界和城市、生活习惯决定她每天做什么、在哪做——像给一个角色排行程那样，排的是【这个人】会过的日子，不是一份通用模板。设定里没写到的才按普通人过日子补。\n"
+          + "替「" + userName(profile) + "」（用这个 App 的人自己，不是任何角色）排她 " + days[0] + " 到 " + days[days.length - 1] + " 这几天的日程。"
           + "现在是 " + key(t0) + " " + pad(t0.getHours()) + ":" + pad(t0.getMinutes()) + "，今天已经过去的钟点不要排。"
           + (mine.length ? "她已经写好的日程（原样保留，不许挪、不许重复排，只往空档里排）：" + mine.map(e => e.startDate + " " + (e.startTime || "全天") + (e.endTime ? "-" + e.endTime : "") + " " + e.title).join("；") + "。" : "")
-          + (promptText && promptText.trim() ? "她自己说的要求：" + promptText.trim() + "。" : "她没说具体要求：按普通人过日子排，吃饭、休息、该做的事都留出来，别排太满。")
+          + (promptText && promptText.trim() ? "她自己说的要求：" + promptText.trim() + "。" : "她没说具体要求：照她的设定排，吃饭、休息都留出来，别排太满。")
           + "每天 3-6 条，时间不重叠。每条：date(YYYY-MM-DD，必须是上面这几天) / start(HH:MM) / end(HH:MM) / title(简短) / place(可空)。",
         schemaHint: "{\"items\":[{\"date\":\"2026-01-01\",\"start\":\"09:00\",\"end\":\"10:00\",\"title\":\"事项\",\"place\":\"\"}]}",
         maxTokens: 9500

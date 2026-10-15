@@ -13,3 +13,8 @@ test("我的日历：AI 帮我排这几天，只往空档里排、落成普通�
   assert.ok(/view === "mine" && onGenMyWeek/.test(c));
   assert.ok(/AI 帮我排这几天/.test(R("js/assistant-manual.js")));
 });
+
+test("照面具人设排：persona 和她在哪都喂进去", () => {
+  const app = R("js/app.js"), seg = app.slice(app.indexOf("const genMyWeek = async"), app.indexOf("const genMyWeek = async") + 3500);
+  assert.ok(/profile\.persona/.test(seg) && /myRealm\(null\)/.test(seg));
+});
