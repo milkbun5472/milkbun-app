@@ -483,7 +483,8 @@
     // 请TA们发：每人一条，各走自己那一整份料。
     // ⚠️拍好一条就落一条，不等最慢那个（群友 2026-10-07：「刷新会卡着刷不出来」——原来 Promise.all 要等五个人全回来，
     //   一个人的线路卡住，整批都看不见；再加一层 3 分钟的兜底，过了就当这个人这回没拍）
-    const genChars = async ids => {
+    // forceCp：情侣号页上那颗「让TA往这个号发一条」（她 2026-10-15）——这一回不掷那三分之一，直接发在情侣号上
+    const genChars = async (ids, forceCp) => {
       const pick = ids.map(charOf).filter(Boolean).slice(0, PICK_MAX);
       if (!pick.length) return;
       const sk = skin;
@@ -502,7 +503,7 @@
         const newAcc = !(acc.bio || acc.niche);
         // 有情侣号的那位，三回里大约有一回这条发在情侣号上
         const cpHere = (dbRef.current.cps || {})[c.id];
-        if (cpHere && togetherIds.indexOf(c.id) >= 0 && Math.random() < 0.33) toCp[c.id] = cpHere;
+        if (cpHere && togetherIds.indexOf(c.id) >= 0 && (forceCp || Math.random() < 0.33)) toCp[c.id] = cpHere;
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
         // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
         let extra = "";
@@ -957,6 +958,10 @@
               !a ? "开一个" : cpId === id ? "切回大号" : "切过去"));
         })) : null,
         onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
+        // 平时TA发视频只有三回里一回落在情侣号上；想看就点这颗，专门发一条到这儿（一次调用）
+        onCp ? h("button", { "data-wk": "shuacppost", disabled: !!busy, onClick: () => genChars([cpId], true), className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 8, minHeight: 38, borderRadius: 10, border: "1px solid " + P.accent, color: P.accent, background: "transparent", fontFamily: F_BODY, fontSize: 12.5 } },
+          busy === "chars" ? "在拍…" : "让 " + (charOf(cpId) || {}).name + " 往这个号发一条") : null,
         onAlt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是小号「" + altName + "」：发的视频不会叫认识你的人来看，评 TA 的视频 TA 也不知道是你。") : null,
         // 首页样子：跟论坛「首页排版」同一个位置、同一个道理——两套视频，各刷各的
         h("div", { "data-wk": "shuaskinrow", className: "flex items-center justify-between", style: { marginTop: 14, padding: "10px 12px", borderRadius: 12, background: P.field, border: "1px solid " + P.line } },
