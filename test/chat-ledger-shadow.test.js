@@ -229,3 +229,21 @@ test("半截坏 JSON 队列：原文搬进 IDB 留档、清键腾地方，flush 
     if (prevSave === undefined) delete globalThis.saveJSON; else globalThis.saveJSON = prevSave;
   }
 });
+
+test("上传悬死有超时：挂死变成可见失败，下一轮 flush 不再排队等死人", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  let hang = true, uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000, callTimeout: 30,
+    upload: async rows => { if (hang) return new Promise(() => {}); uploaded.push(...rows); }
+  });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  const r1 = await manager.enqueue(context, [{ role: "user", content: "被挂死的话", ts: 10 }]);
+  assert.ok(r1.error && /timeout/.test(String(r1.error.message)), "悬死请求按超时失败返回");
+  assert.ok(/timeout/.test(String(manager.status().diagnostic.last_error || "")), "死因写进诊断");
+  hang = false;
+  await manager.flush();
+  assert.equal(uploaded.length, 1, "网络恢复后同一条照常送达");
+  assert.equal(manager.status().outbox.length, 0);
+});

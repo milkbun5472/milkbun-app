@@ -370,6 +370,13 @@
       return root.Cloud.chatMessagesSoftDelete(keys);
     });
     let chain = Promise.resolve();
+    // 10-05 断流案真凶：上传请求悬死不返回，整条 chain 永远排在死人后面——
+    // 没成功、没报错、没诊断，六天全冻结。网络层必须有超时，让挂死变成可见的失败。
+    const CALL_TIMEOUT = Number(options.callTimeout || 20000);
+    const withTimeout = (run, label) => Promise.race([
+      run(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(label + " timeout " + CALL_TIMEOUT + "ms")), CALL_TIMEOUT))
+    ]);
 
     const diagnostic = patch => {
       // 诊断永远不许反过来弄死主流程：配额满时 setItem 会抛，吞掉。
@@ -419,7 +426,7 @@
       if (deletes.length) {
         const batchKeys = deletes.slice(0, 50);
         try {
-          await deleter(batchKeys);
+          await withTimeout(() => deleter(batchKeys), "chat ledger delete");
           const done = new Set(batchKeys), currentDeletes = parse(storage, DELETE_OUTBOX_KEY, []);
           write(storage, DELETE_OUTBOX_KEY, currentDeletes.filter(k => !done.has(k)));
         } catch (error) {
@@ -436,7 +443,7 @@
       }
       const batch = outbox.slice(0, 50);
       try {
-        await uploader(batch);
+        await withTimeout(() => uploader(batch), "chat ledger upload");
         const remaining = dropSent(batch.map(r => r.message_key));
         diagnostic({ last_success_at: new Date(clock()).toISOString(), last_error: null, pending: remaining.length });
         return { sent: batch.length, pending: remaining.length, error: deleteError || undefined };
@@ -447,7 +454,7 @@
         if (batch.length > 1) {
           const head = batch[0];
           try {
-            await uploader([head]);
+            await withTimeout(() => uploader([head]), "chat ledger upload(head)");
             const remaining = dropSent([head.message_key]);
             diagnostic({ last_success_at: new Date(clock()).toISOString(), pending: remaining.length });
             return { sent: 1, pending: remaining.length, error };
