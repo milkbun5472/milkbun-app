@@ -36,6 +36,8 @@
       desc: "每人五颗骰子扣着，轮流叫「桌上至少有几个几」，觉得上家在吹就开。1 点万能，每人三条命，撑到最后的赢。", rule: "2~6 人 · 每人 5 颗骰子 · 3 条命" },
     { key: "date", emoji: "✉️", zh: "各怀心思的约会", en: "Secret Date", min: 2, max: 2,
       desc: "你和 TA 各抽一张秘密任务，有的看你们去了哪、做了什么，有的看你们聊了什么。每局的去处从一大堆地方里抽，路上还会撞上小意外；每到一站 TA 都会接话、替你挑东西。收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
+    { key: "tetris", emoji: "🧱", zh: "俄罗斯方块", en: "Tetris", min: 2, max: 2,
+      desc: "你玩，TA 坐旁边看着说话；或者一人一块板子对战，消多行往对面塞垃圾行。TA 那块由本地棋手照你挑的水平下。", rule: "你和一个角色" },
     { key: "story", emoji: "📖", zh: "故事接龙", en: "Story Chain", min: 2, max: 8,
       desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" }
   ];
@@ -258,7 +260,8 @@
     uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" },
     liar:      { paper: "#e9dccb", ink: "#4b3527", hot: "#a8442f", band: "#4b3527", bandInk: "#e9dccb" },
     date:      { paper: "#f3e2d8", ink: "#654137", hot: "#b86651", band: "#654137", bandInk: "#f3e2d8" },
-    story:     { paper: "#eee8dc", ink: "#3e4250", hot: "#5d6fa3", band: "#3e4250", bandInk: "#eee8dc" }
+    story:     { paper: "#eee8dc", ink: "#3e4250", hot: "#5d6fa3", band: "#3e4250", bandInk: "#eee8dc" },
+    tetris:    { paper: "#26252c", ink: "#ece8e0", hot: "#e8b53c", band: "#17161b", bandInk: "#ece8e0" }
   };
   function GameLid(props) {
     const k = props.k, c = LID[k] || LID.spy;
@@ -368,6 +371,14 @@
         h("path", { key: "b", d: "M19 35l17 13 18-13M67 23l17 13 18-13M48 25c9-9 19-8 27-5M73 61c-8 8-19 8-26 5", fill: "none", stroke: c.hot, strokeWidth: 2, strokeLinecap: "round" }),
         h("circle", { key: "c", cx: 36, cy: 53, r: 3, fill: c.hot }), h("circle", { key: "d", cx: 84, cy: 42, r: 3, fill: c.hot })
       ],
+      // 一摞落好的方块，顶上还悬着一块 T
+      tetris: [
+        h("rect", { key: "a", x: 30, y: 58, width: 60, height: 10, fill: "#4fb3c8" }),
+        h("rect", { key: "b", x: 30, y: 48, width: 20, height: 10, fill: "#5ea86a" }), h("rect", { key: "c", x: 60, y: 48, width: 30, height: 10, fill: "#e08a3c" }),
+        h("rect", { key: "d", x: 40, y: 38, width: 10, height: 10, fill: "#5ea86a" }), h("rect", { key: "e", x: 70, y: 38, width: 20, height: 10, fill: "#e8b53c" }),
+        h("path", { key: "f", d: "M48 14h30v10h-10v10h-10v-10h-10z", fill: "#9a6ab8" }),
+        h("path", { key: "g", d: "M63 36v6", stroke: c.ink, strokeWidth: 1.5, strokeDasharray: "2 3", opacity: .5 })
+      ],
       story: [
         h("path", { key: "a", d: "M60 24c-10-5-24-6-36-3v46c12-3 26-2 36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
         h("path", { key: "b", d: "M60 24c10-5 24-6 36-3v46c-12-3-26-2-36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
@@ -452,6 +463,7 @@
       if (session.game.key === "draw") return h(DrawGuessGame, engineProps);
       if (session.game.key === "liar") return h(LiarDiceGame, engineProps);
       if (session.game.key === "story") return h(StoryChainGame, engineProps);
+      if (session.game.key === "tetris" && window.TetrisCore) return h(TetrisGame, Object.assign({}, engineProps, { t: t }));
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
     // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
@@ -598,7 +610,9 @@
     const [dateTheme, setDateTheme] = useState("plain"); // 各怀心思的约会：这一局是哪种约会（她 2026-10-14）
     const [gmkCasual, setGmkCasual] = useState({});
     const [gmkBrain, setGmkBrain] = useState("local");
-    const [q25Host, setQ25Host] = useState("system");   // 25 问谁出题：system 系统 / me 我 / ta TA / turns 轮流
+    const [q25Host, setQ25Host] = useState("system");
+    const [tetrisMode, setTetrisMode] = useState("watch");   // 俄罗斯方块：watch 你玩TA看 / versus 对战
+    const [tetrisSkill, setTetrisSkill] = useState("normal"); // 对战时 TA 那块下得多好   // 25 问谁出题：system 系统 / me 我 / ta TA / turns 轮流
     const [drawBrain, setDrawBrain] = useState("once");  // 你画我猜 TA 怎么画：once 一口气画好 / step 一段一段想（每段一次调用）  // 五子棋谁来想棋：local 本地棋手 / model TA 自己下（每步一次调用）   // 五子棋观战：谁「随手」下（没记的＝认真）
     const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
@@ -609,7 +623,7 @@
       const c = lastCfg; if (!c) return;
       const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
       setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
-      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.dateTheme) setDateTheme(c.dateTheme); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.drawBrain) setDrawBrain(c.drawBrain); if (c.q25Host) setQ25Host(c.q25Host);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.dateTheme) setDateTheme(c.dateTheme); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.drawBrain) setDrawBrain(c.drawBrain); if (c.q25Host) setQ25Host(c.q25Host); if (c.tetrisMode) setTetrisMode(c.tetrisMode); if (c.tetrisSkill) setTetrisSkill(c.tetrisSkill);
       if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
       setStake(c.stake || "");
     };
@@ -704,6 +718,12 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "两种模式的其他规则完全一样；目前只有 +2 是否能叠加不同。")) : null,
 
         // 五子棋观战：两个人各自认真还是随手下——不分的话两边一样强，看着没意思
+        game.key === "tetris" ? h("div", { "data-wk": "tetrismode", style: { marginBottom: 20 } },
+          h(Segmented, { t: t, value: tetrisMode, onChange: setTetrisMode, options: [{ key: "watch", zh: "你玩 TA 看" }, { key: "versus", zh: "对战" }] }),
+          tetrisMode === "versus" ? h("div", { style: { marginTop: 10 } }, h(Segmented, { t: t, value: tetrisSkill, onChange: setTetrisSkill, options: [{ key: "rookie", zh: "TA 新手" }, { key: "normal", zh: "普通" }, { key: "pro", zh: "高手" }] })) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, tetrisMode === "versus"
+            ? "一人一块板子，消两行以上往对面塞垃圾行，先堆到顶的输。TA 那块由本地棋手下（不花钱），只有说话才调用；模式选「放水」TA 会下得慢一点、多看走眼。"
+            : "你自己玩，TA 坐旁边，一次消好几行、快堆到顶、破纪录的时候才开口。")) : null,
         game.key === "q25" ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
           h(Segmented, { t: t, value: q25Host, onChange: setQ25Host, options: [{ key: "system", zh: "系统出题" }, { key: "me", zh: "我出题" }, { key: "ta", zh: "TA 出题" }, { key: "turns", zh: "轮流" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
@@ -816,7 +836,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -2828,7 +2848,8 @@
     draw: ["#d0533f", "#3f6fb0"],
     liar: ["#a8442f", "#4b3527"],
     date: ["#b86651", "#537c71"],
-    story: ["#5d6fa3", "#3e4250"]
+    story: ["#5d6fa3", "#3e4250"],
+    tetris: ["#4fb3c8", "#26252c"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -5126,6 +5147,174 @@
               placeholder: r.host === "ta" ? "问一个是非题，或者写下你猜的" : "跟 " + cName + " 说句话", style: { flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } })),
           h("div", { className: "flex gap-2", style: { marginTop: 7 } },
             r.host === "ta" ? [btn("问", function () { meAsk(false); }, true, "q"), btn("我猜", function () { meAsk(true); }, false, "g"), btn("闲聊", chat, false, "c")] : [btn("说", chat, false, "c")]))));
+  }
+
+  // ============================================================
+  // 俄罗斯方块（她 2026-10-15）：「你玩 TA 看」和「对战」。方块由本地跑（js/tetris-core.js），
+  //   TA 那块板子也是本地棋手按人设水平下；模型只管 TA 在关键时刻说的话，你随时能跟 TA 说句话。
+  // ============================================================
+  const TET_SKILL = { rookie: { v: 0.55, ms: 380, zh: "新手" }, normal: { v: 0.8, ms: 230, zh: "普通" }, pro: { v: 0.97, ms: 130, zh: "高手" } };
+  const TET_BEST = "x_tetrisBest";
+  function TetBoard(props) {
+    const ref = useRef(null), T = window.TetrisCore, g = props.g, cell = props.cell;
+    useEffect(function () {
+      const cv = ref.current; if (!cv || !g) return;
+      const x = cv.getContext("2d"), W = T.W, H = T.H;
+      x.fillStyle = props.bg || "#1d1c22"; x.fillRect(0, 0, W * cell, H * cell);
+      x.strokeStyle = "rgba(255,255,255,.05)"; x.lineWidth = 1;
+      for (let i = 1; i < W; i++) { x.beginPath(); x.moveTo(i * cell + .5, 0); x.lineTo(i * cell + .5, H * cell); x.stroke(); }
+      const box = function (cx, cy, col, alpha) { if (cy < 0) return; x.globalAlpha = alpha == null ? 1 : alpha; x.fillStyle = col; x.fillRect(cx * cell + 1, cy * cell + 1, cell - 2, cell - 2);
+        x.fillStyle = "rgba(255,255,255,.18)"; x.fillRect(cx * cell + 1, cy * cell + 1, cell - 2, Math.max(2, cell * .18)); x.globalAlpha = 1; };
+      g.board.forEach(function (row, y) { row.forEach(function (k, cx) { if (k) box(cx, y, T.COLORS[k]); }); });
+      if (g.cur && !g.over) {
+        const gy = T.ghostY(g); T.cells(Object.assign({}, g.cur, { y: gy })).forEach(function (c) { box(c[0], c[1], T.COLORS[g.cur.k], .22); });
+        T.cells(g.cur).forEach(function (c) { box(c[0], c[1], T.COLORS[g.cur.k]); });
+      }
+      if (g.over) { x.fillStyle = "rgba(0,0,0,.55)"; x.fillRect(0, 0, W * cell, H * cell); }
+    });
+    return h("canvas", { ref: ref, width: window.TetrisCore.W * cell, height: window.TetrisCore.H * cell, "data-wk": "tetboard", "data-part": props.part || "me",
+      style: { display: "block", borderRadius: 6, touchAction: "none", boxShadow: "0 0 0 2px rgba(0,0,0,.25)" },
+      onTouchStart: props.onTouchStart, onTouchEnd: props.onTouchEnd });
+  }
+  function TetNext(props) {
+    const T = window.TetrisCore, c = props.cell || 9;
+    return h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, (props.kinds || []).map(function (k, i) {
+      const sh = T.SHAPES[k][0];
+      return h("svg", { key: i, width: c * 4, height: c * 2.2, viewBox: "0 0 " + (c * 4) + " " + (c * 2.2) }, sh.map(function (q, j) {
+        return h("rect", { key: j, x: q[0] * c, y: (q[1] - (k === "I" ? 1 : 0)) * c + 1, width: c - 1.5, height: c - 1.5, rx: 1.5, fill: T.COLORS[k] });
+      }));
+    }));
+  }
+  function TetrisGame(props) {
+    const T = window.TetrisCore, t = props.t || {}, api = props.active, cfg = props.config || {};
+    const versus = cfg.tetrisMode === "versus", easy = cfg.mode === "easy";
+    const sk = TET_SKILL[cfg.tetrisSkill] || TET_SKILL.normal;
+    const skill = easy ? sk.v * 0.75 : sk.v, aiMs = easy ? Math.round(sk.ms * 1.5) : sk.ms;
+    const char = (props.characters || []).find(function (c) { return c.id === (cfg.charIds || [])[0]; }) || null;
+    const pf = props.profile || {}, uName = pf.name || "你", cName = char ? (char.remark || char.name) : "TA";
+    const meRef = useRef(null), taRef = useRef(null), aiTarget = useRef(null), clock = useRef({ me: 0, ai: 0, last: 0 });
+    const [, setTick] = useState(0), [status, setStatus] = useState("ready"), [lines, setLines] = useState([]), [talking, setTalking] = useState(false), [draft, setDraft] = useState("");
+    const best = useRef((function () { try { return Number(loadJSON(TET_BEST, 0)) || 0; } catch (e) { return 0; } })());
+    const lastTalk = useRef(0), touch = useRef(null), repeat = useRef(null);
+    const push = function (l) { setLines(function (ls) { return ls.concat([Object.assign({ at: Date.now() }, l)]).slice(-40); }); };
+    const vw = typeof window !== "undefined" ? Math.min(window.innerWidth || 390, 520) : 390;
+    const cell = versus ? Math.floor((vw - 44) * 0.6 / 10) : Math.min(24, Math.floor((vw - 110) / 10));
+    const taCell = Math.max(8, Math.floor((vw - 44) * 0.33 / 10));
+    // ---- TA 说话：只在关键时刻（一次消多行、快到顶、被塞垃圾、结束）和你跟 TA 说话时 ----
+    const say = function (why, force, userLine) {
+      if (!api || !char) return;
+      const now = Date.now();
+      if (!force && (talking || now - lastTalk.current < 12000)) return;
+      lastTalk.current = now; setTalking(true);
+      const me = meRef.current, ta = taRef.current;
+      const sit = "你：" + (me ? me.score + " 分、消了 " + me.lines + " 行、堆了 " + T.stackHeight(me.board) + " 层" : "") + (versus && ta ? "；" + cName + "：" + ta.score + " 分、消了 " + ta.lines + " 行、堆了 " + T.stackHeight(ta.board) + " 层" : "");
+      const said = lines.slice(-6).map(function (l) { return "· " + (l.me ? uName : cName) + "：" + l.text; }).join("\n");
+      const recent = (cfg.injectChat && props.recentChatFor) ? String(props.recentChatFor(char.id) || "").slice(-400) : "";
+      const sys = AC + VOICE_RULE + "【场面】" + (versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样随口说一句，照你们平时的关系和你自己的性子。"
+        + "\n【你是】" + cName + "\n【人设】" + String(char.persona || "（没写）").slice(0, 1400) + (recent ? "\n【你们最近聊的】" + recent : "")
+        + "\n\n【现在】" + sit + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
+        + "\n\n只输出 JSON：{\"say\":\"一句话\"}";
+      callRetry(api, sys, [{ role: "user", content: userLine ? "她说：" + userLine : "说话。" }], { maxTokens: 8000, tag: "俄罗斯方块" }).then(function (raw) {
+        const p = extractJSON(raw) || {}; const v = String(p.say || "").trim();
+        if (v) push({ id: char.id, name: cName, text: v.slice(0, 160) });
+      }).catch(function () {}).finally(function () { setTalking(false); });
+    };
+    const afterLock = function (who, res) {
+      const me = meRef.current, ta = taRef.current;
+      if (!res || !res.locked) return;
+      if (versus && res.cleared >= 2) { const other = who === "me" ? ta : me; if (other) other.pendingGarbage += T.garbageFor(res.cleared); }
+      if (res.cleared === 4) say((who === "me" ? uName : cName) + " 刚刚一口气消了四行！", true);
+      else if (res.cleared >= 2 && who === "me") say(uName + " 刚消了 " + res.cleared + " 行。");
+      else if (versus && res.cleared >= 2) say("你（" + cName + "）刚消了 " + res.cleared + " 行，往她那边塞了垃圾行。");
+      const g = who === "me" ? me : ta;
+      if (g && !g.over && T.stackHeight(g.board) >= 16) say((who === "me" ? uName : "你（" + cName + "）") + "的板子快堆到顶了。");
+    };
+    const finish = function () {
+      const me = meRef.current, ta = taRef.current;
+      setStatus("done");
+      if (me && me.score > best.current) { best.current = me.score; try { saveJSON(TET_BEST, me.score); } catch (e) {} }
+      const meWin = versus ? !!(ta && ta.over && !me.over) : null;
+      say(versus ? (meWin ? uName + " 赢了这局对战" : "你（" + cName + "）赢了这局对战") + "。" : "这局结束了，" + uName + " 拿了 " + (me ? me.score : 0) + " 分" + (me && me.score >= best.current ? "，是新纪录" : "") + "。", true);
+    };
+    // ---- 主循环：50ms 一跳；你那块按等级往下掉，TA 那块按水平一步一步挪 ----
+    useEffect(function () {
+      if (status !== "play") return;
+      clock.current.last = Date.now();
+      const id = setInterval(function () {
+        const now = Date.now(), dt = now - clock.current.last; clock.current.last = now;
+        const me = meRef.current, ta = taRef.current; if (!me) return;
+        clock.current.me += dt;
+        if (clock.current.me >= T.gravityMs(me.level)) { clock.current.me = 0; afterLock("me", T.step(me)); }
+        if (versus && ta && !ta.over) {
+          clock.current.ai += dt;
+          if (clock.current.ai >= aiMs) {
+            clock.current.ai = 0;
+            if (!aiTarget.current || aiTarget.current.n !== ta.n) { const b = T.bestPlacement(ta, skill); aiTarget.current = b ? Object.assign({ n: ta.n }, b) : null; }
+            if (T.stepToward(ta, aiTarget.current) === "drop") { aiTarget.current = null; afterLock("ta", T.hardDrop(ta)); }
+          }
+        }
+        if (me.over || (versus && ta && ta.over)) { clearInterval(id); finish(); }
+        setTick(function (n) { return n + 1; });
+      }, 50);
+      return function () { clearInterval(id); };
+    }, [status]);
+    const start = function () {
+      const seed = Date.now();
+      meRef.current = T.newGame(seed); taRef.current = versus ? T.newGame(seed) : null; aiTarget.current = null;
+      clock.current = { me: 0, ai: 0, last: Date.now() };
+      setStatus("play");
+      if (!lines.length) say(versus ? "对战刚开始。" : uName + " 刚开了一局。", true);
+    };
+    const act = function (k) {
+      const me = meRef.current; if (!me || status !== "play" || me.over) return;
+      if (k === "l") T.move(me, -1); else if (k === "r") T.move(me, 1); else if (k === "rot") T.rotate(me, 1);
+      else if (k === "down") { afterLock("me", T.step(me)); me.score += 1; } else if (k === "drop") afterLock("me", T.hardDrop(me));
+      setTick(function (n) { return n + 1; });
+    };
+    const hold = function (k) { act(k); clearInterval(repeat.current); repeat.current = setInterval(function () { act(k); }, k === "down" ? 60 : 110); };
+    const release = function () { clearInterval(repeat.current); };
+    useEffect(function () { return function () { clearInterval(repeat.current); }; }, []);
+    // 板子上滑：左右滑挪、往下快滑直接落、轻点转
+    const onTS = function (e) { const p = e.touches[0]; touch.current = { x: p.clientX, y: p.clientY, at: Date.now() }; };
+    const onTE = function (e) {
+      const s0 = touch.current; if (!s0) return; const p = e.changedTouches[0], dx = p.clientX - s0.x, dy = p.clientY - s0.y;
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) act("rot");
+      else if (dy > 60 && Math.abs(dy) > Math.abs(dx)) act("drop");
+      else if (Math.abs(dx) > Math.abs(dy)) { const n = Math.max(1, Math.round(Math.abs(dx) / cell)); for (let i = 0; i < n; i++) act(dx > 0 ? "r" : "l"); }
+    };
+    const me = meRef.current, ta = taRef.current;
+    const pad = function (k, label) { return h("button", { key: k, "data-wk": "tetpad", "data-part": k, onPointerDown: function (e) { e.preventDefault(); hold(k); }, onPointerUp: release, onPointerLeave: release, onPointerCancel: release,
+      className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 18, touchAction: "none", userSelect: "none" } }, label); };
+    const sendChat = function () { const v = draft.trim(); if (!v) return; setDraft(""); push({ me: true, text: v }); say("她刚跟你说了句话，接一句。", true, v); };
+    return h("div", { "data-wk": "gameplay", "data-part": "tetris", className: "h-full flex flex-col", style: gameTable("tetris", t) },
+      h(Head, { zh: "俄罗斯方块", en: versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack }),
+      h("div", { className: "flex-1 overflow-y-auto px-4 pb-2", style: { paddingTop: 10 } },
+        h("div", { style: { display: "flex", gap: 10, justifyContent: "center", alignItems: "flex-start" } },
+          h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 4 } }, uName + " · " + (me ? me.score : 0) + " 分 · " + (me ? me.lines : 0) + " 行" + (me && me.pendingGarbage ? " · 要顶上来 " + me.pendingGarbage + " 行" : "")),
+            me ? h(TetBoard, { g: me, cell: cell, onTouchStart: onTS, onTouchEnd: onTE }) : h("div", { style: { width: cell * 10, height: cell * 20, borderRadius: 6, background: "#1d1c22" } })),
+          h("div", { style: { display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "下一个"),
+            h(TetNext, { kinds: me ? T.next(me, versus ? 2 : 3) : [], cell: versus ? 7 : 10 }),
+            !versus ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "最高 " + best.current, h("br"), "等级 " + (me ? me.level : 1)) : null,
+            versus ? h("div", { style: { marginTop: 6 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginBottom: 4 } }, cName + " · " + (ta ? ta.score : 0)),
+              ta ? h(TetBoard, { g: ta, cell: taCell, part: "ta" }) : h("div", { style: { width: taCell * 10, height: taCell * 20, borderRadius: 6, background: "#1d1c22" } })) : null)),
+        h("div", { style: { marginTop: 10 } },
+          h(GameTalkLog, { t: t, lines: lines, busy: talking, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: 110, empty: cName + " 在旁边" }))),
+      h("div", { "data-wk": "tetbar", className: "shrink-0 px-4 pt-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line, background: t.bg } },
+        status === "play" ? h("div", { className: "flex gap-2", style: { padding: "4px 0 6px" } }, pad("l", "←"), pad("rot", "↻"), pad("r", "→"), pad("down", "↓"), pad("drop", "⤓"))
+          : h("button", { "data-wk": "tetstart", onClick: start, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 14, border: "none" } },
+              status === "done" ? (versus ? (ta && ta.over && me && !me.over ? "你赢了 · 再来一局" : cName + " 赢了 · 再来一局") : "这局 " + (me ? me.score : 0) + " 分 · 再来一局") : "开始"),
+        h("div", { className: "flex gap-2", style: { paddingBottom: 4 } },
+          h("input", { "data-wk": "gameinput", "data-part": "tetchat", value: draft, onChange: function (e) { setDraft(e.target.value.slice(0, 60)); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: "跟 " + cName + " 说句话",
+            style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
+          h("button", { onClick: sendChat, style: { padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "说")),
+        status === "done" && char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
+          const meWin = versus ? !!(ta && ta.over && me && !me.over) : null;
+          return { key: "tetris", zh: "俄罗斯方块", ids: [char.id], wins: versus && !meWin ? [char.id] : [], meWin: meWin,
+            text: versus ? "和" + cName + "对战俄罗斯方块，" + (meWin ? uName + "赢了" : cName + "赢了") + "（" + uName + " " + (me ? me.score : 0) + " 分，" + cName + " " + (ta ? ta.score : 0) + " 分）" : uName + "玩俄罗斯方块拿了 " + (me ? me.score : 0) + " 分，" + cName + "在旁边看" };
+        } }) : null));
   }
 
   function GomokuGame(props) {
