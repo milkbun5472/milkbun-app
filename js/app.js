@@ -29023,6 +29023,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     meName: userName(profile),
     onChatNpc: id => openChatById(id),
     onDeleteNpc: (id, wipeChat) => deleteNpc(id, wipeChat),
+    // 配角转正（她 2026-10-15）：同一个 id 原地摘掉 npc / ownerId 两个字段——这两个就是配角和正式角色的全部区别。
+    //   聊天、记忆、关系、头像都挂在 id 上，一样都不搬；从此进人格档案馆，有心情好感、日程、后台这些正式角色的待遇。
+    onPromoteNpc: id => {
+      const c0 = characters.find(c => c && c.id === id && c.npc);
+      if (!c0) return;
+      pC(p => p.map(c => { if (c.id !== id || !c.npc) return c; const n = { ...c, promotedFrom: c.ownerId || "" }; delete n.npc; delete n.ownerId; return n; }));
+      toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
+    },
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，

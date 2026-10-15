@@ -7936,6 +7936,7 @@ function Messages({
   onSaveNpcBrief,
   onChatNpc,
   onDeleteNpc,
+  onPromoteNpc,
   onSetNpcMem,
   groups,
   chats,
@@ -8348,7 +8349,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -8655,7 +8656,8 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onDelete, onSetMem, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onClose }) {
+  const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
   //   「在谁身边」可以不挂。落成走 app 那头的 addNpcLinked，跟关系页、秋秋同一处。
@@ -8735,6 +8737,17 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
           }))) : null,
       onChat ? h("button", { onClick: () => onChat(cur.id), className: "w-full active:opacity-70",
         style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "发消息") : null,
+      // 转正（她 2026-10-15）：同一个 TA，只是从配角变成正式角色；先问一句再动
+      onPromote ? (promoArm === cur.id
+        ? h("div", { "data-wk": "npcpromote", style: { marginTop: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6 } }, "把「" + (cur.name || "这个配角") + "」转成正式角色？聊天、记忆、关系、头像都留着；之后在人格档案馆里，有心情好感、日程、朋友圈这些，也会自己找你说话（看你给 TA 开不开）。转了就不再挂在谁身边。"),
+            h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+              h("button", { "data-wk": "npcpromotego", onClick: () => { setPromoArm(null); setOpenId(null); onPromote(cur.id); }, className: "flex-1 active:opacity-70",
+                style: { padding: "10px 0", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5, border: "none" } }, "转正"),
+              h("button", { onClick: () => setPromoArm(null), className: "flex-1 active:opacity-70",
+                style: { padding: "10px 0", borderRadius: 10, background: "transparent", color: t.fog, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.line } }, "算了")))
+        : h("button", { "data-wk": "npcpromotebtn", onClick: () => setPromoArm(cur.id), className: "w-full active:opacity-70",
+            style: { marginTop: 12, padding: "11px 0", borderRadius: 12, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 13.5, border: "1px solid " + t.line } }, "转成正式角色")) : null,
       onDelete ? (delArm === cur.id
         ? h("div", { "data-wk": "npcdel", style: { marginTop: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6 } }, "删掉「" + (cur.name || "这个配角") + "」？会从通讯录、关系网和所有群里一起拿掉。跟 TA 的私聊要不要一起清？"),
