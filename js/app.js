@@ -6812,7 +6812,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         } catch (e) { return ""; }
       };
       if (canSeeMine) {
-        const mn = [maskKeyOf(char.id) ? "" : evTitles(cal.mine && cal.mine[tK]), timedTitles(myCalOwnerFor(char.id))].filter(Boolean).join("、");
+        const mn = [evTitles(cal.mine && cal.mine[tK]), timedTitles(myCalOwnerFor(char.id))].filter(Boolean).join("、");
         if (mn) lines.push("今天 " + uName + " 的日历上有：" + mn + "（Ta 让你能看到，可自然关心/问起，别生硬报）。");
       }
       const cn = [evTitles(cal.chars && cal.chars[char.id] && cal.chars[char.id][tK]), timedTitles(char.id)].filter(Boolean).join("、");
@@ -10825,7 +10825,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);
         const tK = day.getFullYear() + "-" + (day.getMonth() + 1) + "-" + day.getDate();
         const when = (d === 0 ? "今天" : d < 0 ? (-d) + "天前" : d + "天后") + "（" + (day.getMonth() + 1) + "月" + day.getDate() + "日）";
-        const evs = (maskKeyOf(viewerId) ? [] : ((cal.mine || {})[tK] || [])).map(e => e && e.title ? cut(e.title, 30) + (e.note ? "（" + cut(e.note, 30) + "）" : "") : "")
+        const evs = ((cal.mine || {})[tK] || []).map(e => e && e.title ? cut(e.title, 30) + (e.note ? "（" + cut(e.note, 30) + "）" : "") : "")
           .concat((typeof calEventsOnDay === "function" ? (() => { try { return calEventsOnDay(calEventsRef.current, myCalOwnerFor(viewerId), schedDayKey(day)); } catch (e) { return []; } })() : [])
             .map(e => e && e.title ? (e._allDay ? "" : (e._from || "") + " ") + cut(e.title, 30) + (e.location ? " @" + cut(e.location, 16) : "") : ""))
           .filter(x => x && !maskTrace(x));
@@ -16562,7 +16562,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const days = Array.from({ length: 7 - dow }, (_, i) => { const d = new Date(t0); d.setDate(t0.getDate() + i); return key(d); });
     const mine = (calEventsRef.current || []).filter(e => e && (e.owner || "mine") === owner && e.startDate <= days[days.length - 1] && (e.endDate || e.startDate) >= days[0]);
     let myPlace = "";
-    try { const r = mk ? null : myRealm(null); myPlace = r ? (r.kind === "real" ? (r.geo && r.geo.label) || "" : r.label || "") : ""; } catch (e) {}
+    try { const on = mk ? (characters || []).find(c => c && maskKeyOf(c.id) === mk) : null; const r = mk ? (on ? myRealm(on.id) : null) : myRealm(null); myPlace = r ? (r.kind === "real" ? (r.geo && r.geo.label) || "" : r.label || "") : ""; } catch (e) {}
     setGen(g => ({ ...g, myweek: true }));
     try {
       const d = await runProbe(active, { char: { id: "__me", name: mask.name, persona: String(mask.persona || "") }, chars: characters, rels, profile, timeAware: true }, {

@@ -3980,7 +3980,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // 「世界」并进「我的」：它原本只有全天事件、只往顶部那条塞东西，不值得占一个视角。
   // 数据仍然两个桶——世界事件是【所有角色都知道】的，我的日历要看可见名单，喂进提示词的
   // 也是两句不同的话。合并的只是这块屏。世界那条前面挂个 🌐 区分。
-  const store = view === "mine" ? (myMask ? {} : (cal.mine || {})) : ((cal.chars || {})[view] || {});
+  const store = view === "mine" ? (cal.mine || {}) : ((cal.chars || {})[view] || {});
   const worldStore = cal.world || {};
   const pmap = view === "mine" ? periodMap(per) : {};
   const shift = n => setYm(p => { const dt = new Date(p.y, p.m + n, 1); return { y: dt.getFullYear(), m: dt.getMonth() }; });
