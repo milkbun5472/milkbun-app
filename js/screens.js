@@ -2900,7 +2900,10 @@ function Forum({
   const [fromPost, setFromPost] = useState(null);
   const enterSub = go => { setFromPost(open || null); setOpen(null); go(); };
   const leaveSub = go => { go(); if (fromPost) { setOpen(fromPost); setFromPost(null); } };
-  const goProfile = id => enterSub(() => setProfileId(id));
+  // 点进一个人的主页：档案馆里已经没有这个人（删掉了、或者帖子是配角／旧号用角色身份留的）就当网友主页开，
+  //   不再开一张白页（群友 2026-10-16：「为什么点一个人的论坛主页点不进去」）
+  const goProfile = (id, a) => charOf(id) ? enterSub(() => setProfileId(id))
+    : a && !a.anon ? enterSub(() => setNpcProfile({ id: a.authorId || id, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })) : null;
   const goAltProfile = a => { if (!isAlt(a) || !a.authorId) return; enterSub(() => setAltProfile({ authorId: a.authorId, name: a.authorName || "小号", handle: a.authorHandle || a.authorName || "side" })); };
   const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; enterSub(() => setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })); };
   const toggleNpcFollow = id => setNpcFollows(prev => {
@@ -3070,7 +3073,7 @@ function Forum({
             // 深度仍然只有两层：回楼中楼落在同一层里，用「回复 @某某」标出对象。
             //   （贴吧/微博就是这么做的；真做三层嵌套在手机上没法读，老数据也要迁。）
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
-              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
+              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId, r);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
@@ -3162,7 +3165,7 @@ function Forum({
   // ---- 角色/我 主页 ----
   function profileView(isMe) {
     const c = isMe ? null : charOf(profileId);
-    if (!isMe && !c) return null;
+    if (!isMe && !c) return h("div", { className: "flex-1 flex items-center justify-center px-8", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.8, textAlign: "center" } }, "这个人已经不在人格档案馆里了，主页打不开。");
     // 她现在挂着小号：这一页就是小号的主页（名字、头像、帖子都是小号那份）
     const onAlt = isMe && forumMe && forumMe.using === "alt";
     const altNm = ((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼";
