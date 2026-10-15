@@ -490,6 +490,8 @@
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
         ["listenstay", "一起听选人底下「说的话只留在一起听里」那一格"],
         ["listenlog", "一起听播放页底下「刚才说的」"],
+        ["shuacmtsheet", "刷刷竖着刷里从底下升起来的评论层"],
+        ["shuacmtsheethead", "评论层顶上那条（把手、标题、✕）"],
         ["roomlisten", "一起听房里那条横幅上的「进去一起听」"],
         ["messagesource", "游戏对话上方的世界来源（data-world区分世界；旧记录显示来源未记录）"],
         ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],

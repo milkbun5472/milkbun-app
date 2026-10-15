@@ -226,13 +226,22 @@
   }
 
   // ── 评论区（整页）──────────────────────────────────────
-  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P }) {
+  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P, sheet }) {
     const [text, setText] = useState("");
     const [replyTo, setReplyTo] = useState(null);   // { id 那条评论, name 回的是谁 }
     const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : ""); setReplyTo(null); return; } onSend(x); };
     const rb = (id, name, sub) => onReply ? h("button", { "data-wk": "shuareplybtn", onClick: () => setReplyTo({ id, name, sub }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginLeft: 8 } }, "回复") : null;
-    return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg } },
-      h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
+    // sheet：竖着刷里从底下升起来的那一层（她 2026-10-15：「切到新窗口看评论不像抖音那样方便」）——
+    //   顶上一根把手＋标题＋✕，把手那一截往下一拉就收；内容和整页那版是同一份。
+    const dragY = useRef(0);
+    const sheetHead = sheet ? h("div", { "data-wk": "shuacmtsheethead", className: "shrink-0", style: { position: "relative", padding: "8px 0 10px", textAlign: "center", touchAction: "none" },
+        onTouchStart: e => { dragY.current = e.touches[0].clientY; },
+        onTouchEnd: e => { const dy = (e.changedTouches[0] || {}).clientY - dragY.current; if (dy > 50) onBack(); } },
+      h("div", { "aria-hidden": "true", style: { width: 36, height: 4, borderRadius: 2, background: P.line, margin: "0 auto 8px" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.ink, fontWeight: 600 } }, arr(v.comments).length + " 条评论"),
+      h("button", { onClick: onBack, "aria-label": "收起评论", className: "active:opacity-60", style: { position: "absolute", right: 6, top: 4, width: 44, height: 44, color: P.dim, fontSize: 16 } }, "✕")) : null;
+    return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg, ...(sheet ? { borderRadius: "14px 14px 0 0" } : {}) } },
+      sheet ? sheetHead : h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 12 } },
         arr(v.comments).length ? arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
           h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
@@ -427,6 +436,8 @@
     const [tab, setTab] = useState("home");          // home | live | msg | me
     const [feed, setFeed] = useState("rec");          // follow | rec
     const [page, setPage] = useState(() => { const p0 = pendingPage; pendingPage = null; return p0; });
+    // 竖着刷里点评论：不换页，从底下升一层（哪条视频的评论）
+    const [sheet, setSheet] = useState(null);
     // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
     const [busy, setBusy] = useState(null);
@@ -836,7 +847,7 @@
       onScroll: e => { posRef.current[posKey] = Math.round(e.currentTarget.scrollTop / (paneH || 1)); }, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
       vids.length ? vids.map(v => h(VideoPane, { key: v.id, v, height: paneH, charOf,
         onLike: () => like(v), onFave: () => fave(v),
-        onComments: () => setPage({ kind: "comments", id: v.id, back: page }),
+        onComments: () => setSheet(v.id),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
@@ -1018,8 +1029,14 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: tab === k ? (skin === "b" ? P.accent : P.ink) : P.dim, fontWeight: tab === k ? 700 : 400 } }, label),
       k === "me" && unread ? h("span", { style: { position: "absolute", top: 8, right: "22%", minWidth: 16, height: 16, borderRadius: 99, background: P.accent, color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center", padding: "0 4px" } }, unread > 99 ? "99+" : unread) : null);
     const barBg = skin === "b" ? B.card : BLACK;
-    return h("div", { "data-wk": "shuapage", className: "h-full flex flex-col", style: { background: barBg } },
+    const sheetV = sheet && !page ? arr(db.videos).find(x => x.id === sheet) : null;
+    return h("div", { "data-wk": "shuapage", className: "h-full flex flex-col", style: { background: barBg, position: "relative" } },
       body,
+      // 评论层：上面三成露着视频，点那块就收；评论区占下面七成
+      sheetV ? h("div", { "data-wk": "shuacmtsheet", style: { position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column" } },
+        h("div", { onClick: () => setSheet(null), "aria-label": "收起评论", style: { flex: "0 0 30%", background: "rgba(0,0,0,.25)" } }),
+        h("div", { style: { flex: "1 1 auto", minHeight: 0, boxShadow: "0 -6px 20px rgba(0,0,0,.35)", borderRadius: "14px 14px 0 0", overflow: "hidden" } },
+          h(CommentsPage, { v: sheetV, t, P, sheet: true, busy: busy === "reply", onSend: x => comment(sheetV.id, x), onReply: (cid, x, to) => reply(sheetV, cid, x, to), onBack: () => setSheet(null) }))) : null,
       h("div", { "data-wk": "shuatabbar", className: "shrink-0 flex items-center", style: { background: barBg, borderTop: "1px solid " + P.line, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)" } },
         tabBtn("home", "首页"), tabBtn("live", "直播"),
         h("button", { "data-wk": "shuapostfab", onClick: () => setPage({ kind: "post" }), "aria-label": "发一条", className: "active:opacity-70 flex items-center justify-center", style: { flex: 1, minHeight: 48 } },
