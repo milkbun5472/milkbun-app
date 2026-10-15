@@ -4783,7 +4783,7 @@ const cpSkin = (t, kind) => {
   }[kind] || [];
   return { background: t.bg, backgroundImage: layers.join(",") };
 };
-function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, books, onSaveBook, onSaveCustom, onSaveCustomBooks, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
+function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, books, onSaveBook, onSaveCustom, onSaveCustomBooks, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onReply, onSaveTitle, gen, onBack }) {
   const t = useTheme();
   const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
   const answered = new Set(all.map(e => e.qid));
@@ -4826,6 +4826,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
   // 原来草稿只跟页码走——停在「最后一页」(9999) 时TA又出了一道新题，新题排到最后，
   // 同一个页码底下换成了B，框里她给A写的字还留着，一按就交进了B。
   const [revealDraft, setRevealDraft] = useState({ id: "", text: "" });
+  const [qaReply, setQaReply] = useState({ id: "", text: "" });
   // 「翻到最后一页」(9999) 一落地就换成真页码：不然TA新出一题，停着的这页会自己跳到新题上
   useEffect(() => { if (mine.length && pageIdx > mine.length - 1) setPageIdx(mine.length - 1); }, [pageIdx, mine.length]);
   const swipeRef = useRef({ x: 0, y: 0 });
@@ -4894,6 +4895,14 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
                     style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: "#fdfaf1", background: "#3a3226", borderRadius: 999, padding: "8px 20px" } },
                     gen ? "写着…" : "让 " + partner.name + " 也写一份"))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#3a3226", whiteSpace: "pre-wrap" } }, gen ? "…" : (e.charAnswer || "…"))),
+          // 两份都打开了才能在底下聊（封着的时候聊就成了偷看）
+          (!e.sealed && e.charAnswer && onReply) ? h("div", { "data-wk": "qareplies", style: { marginTop: 12, borderTop: "1px dashed #e6dcc4", paddingTop: 10 } },
+            (e.replies || []).map((r, ri) => h("div", { key: ri, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: r.authorId === "user" ? "#6a5f4b" : "#3a3226", marginBottom: 5, whiteSpace: "pre-wrap" } },
+              h("span", { style: { fontSize: 10.5, color: r.authorId === "user" ? "#8a7a5c" : "#a05a6a", marginRight: 6 } }, r.authorId === "user" ? "我" : partner.name), r.content)),
+            gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a3987e", marginBottom: 5 } }, partner.name + " 在写…") : null,
+            h("div", { className: "flex gap-2", style: { marginTop: 4 } },
+              h("input", { value: qaReply.id === e.id ? qaReply.text : "", onChange: ev => setQaReply({ id: e.id, text: ev.target.value }), placeholder: (e.replies || []).length ? "接着说…" : "看完两份，说两句…", className: "flex-1 min-w-0 outline-none", style: { padding: "7px 10px", borderRadius: 6, border: "1px solid #e6dcc4", background: "#fffdf6", color: "#3a3226", fontFamily: F_BODY, fontSize: 13 } }),
+              h("button", { onClick: () => { const tx = qaReply.id === e.id ? qaReply.text.trim() : ""; if (!tx) return; onReply(e.id, tx); setQaReply({ id: "", text: "" }); }, disabled: gen || !(qaReply.id === e.id && qaReply.text.trim()), className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { background: "#3a3226", color: "#fdfaf1", fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8 } }, "发"))) : null,
           h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid #e6dcc4", paddingTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a3987e" } }, timeAgo(e.answeredAt)),
             h("div", { className: "flex items-center gap-3" },
@@ -6727,7 +6736,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6818,7 +6827,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
