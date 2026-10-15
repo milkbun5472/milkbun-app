@@ -1,0 +1,95 @@
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.InteractionClock = api;
+})(typeof window !== "undefined" ? window : globalThis, function () {
+  "use strict";
+  const tsOf = function (m) { const n = Number(m && m.ts); return Number.isFinite(n) ? n : 0; };
+  const maxMsgs = function (msgs, ok) { return (Array.isArray(msgs) ? msgs : []).reduce(function (best, m) { return !ok || ok(m) ? Math.max(best, tsOf(m)) : best; }, 0); };
+  const maxSessions = function (sessions, ok) { return (Array.isArray(sessions) ? sessions : []).reduce(function (best, s) { return Math.max(best, Number(s && s.startTs) || 0, Number(s && s.endTs) || 0, maxMsgs(s && s.msgs, ok)); }, 0); };
+  // 旁观群不算「她理过TA」（她 2026-09-14 报：在旁观群推了两句剧情，私聊那边的想我就清零了）。
+  // ⚠️旁观群里她【不在场】：那是两个角色自己的事，她的字是【旁白】不是搭话。
+  //   拿它当「有人理了TA」，语义正好是反的——她越是在旁边看他俩演，他越不想她。
+  //   判据两头都要问：roomKind 记在群自己身上，spectate 记在 x_groupSettings 里（app.js 9307 同一条）。
+  const watchingOnly = function (g, data) {
+    if (!g) return false;
+    if (g.roomKind === "spectate") return true;
+    const gs = (data && data.groupSettings) || {};
+    return !!(gs[g.id] && gs[g.id].spectate);
+  };
+  // 封闭群（没开记忆互通）也不算「她理过TA」（她 2026-10-04 报：「111 没开记忆互通为什么会影响」）。
+  // ⚠️封闭群是另一个时空：那边的事私聊这头的TA不知道，那她在那边开口，这头的TA也就没被理过。
+  //   只在调用方给了 groupSettings 时才判——没给的（老调用、只问时间的）照旧全算。
+  const sealedRoom = function (g, data) {
+    if (!g || !data || !data.groupSettings) return false;
+    const gs = data.groupSettings[g.id];
+    return !(gs && gs.memoryInterop);
+  };
+  function latestSharedTs(charId, data) {
+    data = data || {};
+    let best = maxSessions((data.offlines || {})[charId], function (m) { return m && (m.role === "user" || m.role === "narration" || m.role === "assistant"); });
+    (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
+      if (!g || !(g.memberIds || []).includes(charId)) return;
+      const relevant = function (m) { return m && m.kind !== "ooc" && (m.role === "user" || m.role === "narration" || m.senderId === charId); };
+      best = Math.max(best, maxMsgs((data.groupChats || {})[g.id], relevant));
+      best = Math.max(best, maxSessions((data.groupOfflines || {})[g.id], relevant));
+    });
+    return best;
+  }
+  // 只认 Lisa/用户真的开过口；角色自己在群里发言不能冒充“被 Lisa 理过”。
+  function latestUserSharedTs(charId, data) {
+    data = data || {};
+    const fromUser = function (m) { return m && m.kind !== "ooc" && (m.role === "user" || m.role === "narration"); };
+    let best = maxSessions((data.offlines || {})[charId], fromUser);
+    (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
+      if (!g || !(g.memberIds || []).includes(charId)) return;
+      if (watchingOnly(g, data)) return;                 // 她在旁边看，不是在跟TA说话
+      if (sealedRoom(g, data)) return;                   // 另一个时空，这头的TA不知道
+      best = Math.max(best, maxMsgs((data.groupChats || {})[g.id], fromUser));
+      best = Math.max(best, maxSessions((data.groupOfflines || {})[g.id], fromUser));
+    });
+    return best;
+  }
+  // 「她最后一次开口」是【在哪儿】开的——不只是什么时候。
+  // ⚠️她 2026-09-14 报想我被清零，我照着「哪个场最近有人说话」猜了两回都不对。
+  //   病根不在哪一条判据错了，在于【归零这件事不留痕迹】：清完就完了，
+  //   谁也说不出是被什么清的。所以这一层除了时间，还要交代来源。
+  function latestUserSharedWhere(charId, data) {
+    data = data || {};
+    const fromUser = function (m) { return m && m.kind !== "ooc" && (m.role === "user" || m.role === "narration"); };
+    let best = { ts: maxSessions((data.offlines || {})[charId], fromUser), kind: "offline", gid: "" };
+    if (!best.ts) best = { ts: 0, kind: "", gid: "" };
+    (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
+      if (!g || !(g.memberIds || []).includes(charId)) return;
+      if (watchingOnly(g, data) || sealedRoom(g, data)) return;
+      const inChat = maxMsgs((data.groupChats || {})[g.id], fromUser);
+      if (inChat > best.ts) best = { ts: inChat, kind: "group", gid: g.id };
+      const inOff = maxSessions((data.groupOfflines || {})[g.id], fromUser);
+      if (inOff > best.ts) best = { ts: inOff, kind: "groupOffline", gid: g.id };
+    });
+    return best;
+  }
+  function isTogetherNow(charId, data, now) {
+    data = data || {}; now = Number(now) || Date.now();
+    return (Array.isArray(data.groups) ? data.groups : []).some(function (g) {
+      if (!g || !(g.memberIds || []).includes(charId)) return false;
+      if (watchingOnly(g, data)) return false;           // 他俩在一起，不是她和他在一起
+      if (data.activeGroupId && data.activeGroupId === g.id) return true;
+      return (Array.isArray((data.groupOfflines || {})[g.id]) ? data.groupOfflines[g.id] : []).some(function (s) {
+        return s && !s.endTs && now - (Number(s.startTs) || 0) < 8 * 60 * 60 * 1000;
+      });
+    });
+  }
+  // 这一场线下【还在进行】吗？——注意这跟「线下浮层开着」是两件事：
+  // 下拉回线上群只收浮层，那一场并没有结束。判据是场次本身：没写 endTs、已经演过至少一拍、
+  // 而且开场不超过 8 小时（跟 isTogetherNow 同一个上限，免得一场忘了结束的线下把东西永远关死）。
+  const OFFLINE_LIVE_MS = 8 * 60 * 60 * 1000;
+  function offlineSceneLive(sessions, now) {
+    now = Number(now) || Date.now();
+    return (Array.isArray(sessions) ? sessions : []).some(function (s) {
+      return s && !s.endTs && ((s.msgs || []).length > 0) && (now - (Number(s.startTs) || 0) < OFFLINE_LIVE_MS);
+    });
+  }
+  return { watchingOnly: watchingOnly, sealedRoom: sealedRoom, latestUserSharedWhere: latestUserSharedWhere, latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
+    offlineSceneLive: offlineSceneLive };
+});

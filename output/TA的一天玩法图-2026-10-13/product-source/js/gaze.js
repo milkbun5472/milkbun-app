@@ -1,0 +1,714 @@
+// ============================================================
+// Ta 眼里(gaze)—— 角色对用户与关系的长期印象卡
+// 十块:关于我 5 + 关于我们 5;角色亲笔、锚具体事例、慢演进。
+// 更新走聊天协议按需字段 impression(单聊+群聊),无独立调用、无定时器;
+// 冷启动由状态卡页的一次性建卡完成。只读;言秋(engineerEyes)排除。
+// 注入 buildBundle 常驻影响态度;「假装没注意的事」框架为回避形状,防话题磁吸。
+// 数据存 x_gaze(跟随 x_ 前缀云同步),每次修订自动留旧版快照。
+// ============================================================
+(function () {
+  const useState = React.useState;
+  const ME = [["person", "她是个什么样的人"], ["soft", "她的软肋和雷区"], ["like", "我吃她哪一套·头疼哪一套"], ["recent", "最近的她"], ["unread", "我还没看懂的部分"]];
+  const US = [["what", "我们现在算什么"], ["how", "我们的相处方式"], ["marks", "走到这里的几个节点"], ["elephant", "我假装没注意的事"], ["want", "我担心的·我想要的"]];
+  const KEYS = {}; ME.forEach(([k, n]) => KEYS["me." + k] = n); US.forEach(([k, n]) => KEYS["us." + k] = n);
+  // ── 发给模型时换一套说法（v64.56）────────────────────────────────────
+  // 她 2026-09-06 试下来：**只有两个角色能过**，别的都被 Gemini 拦在输入那一关。
+  // 有角色能过 ⇒ 光有这十道题不够；换个角色又不过 ⇒ 光有人设也不够
+  //（主聊天天天带着同一份人设、同一个模型在跑，一次没拦过）。
+  // 所以是【人设 × 问法】撞在一起：她那份人设里有「姐姐」「年龄差」「调情」「撒娇」，
+  // 而这十块里三个问的是「她的软肋和雷区」「我吃她哪一套」「我假装没注意的事」——
+  // 合起来读就是「分析这个真人的弱点、什么招对她管用、她有什么把柄」。
+  // 那正是内容策略最容易盯上的形状。人设是她的，改不得；能动的只有我这半边。
+  // ⚠️只换【发给模型的措辞】，界面上那十个名字一个字不动——那是她的东西。
+  // ⚠️意思一点没变，换掉的是「像在给一个真人做弱点分析」那股味道。
+  // ⚠️这就成了「一层写在两处」：以后加一块，两张表都得加。
+  //   所以下面那条断言把它钉死：两张表的 key 必须完全一致，少一个当场红。
+  const ASK = Object.assign({}, KEYS, {
+    "me.soft": "什么事会让她一下子不好受",
+    "me.like": "她哪些地方最打动我、哪些地方让我头疼",
+    "us.elephant": "有件事我一直没提"
+  });
+  // ⚠️真正的坑不是「漏了一块」——ASK 是从 KEYS 复制出来再覆盖的，永远不会缺 key
+  //（我第一版还专门为此加了一道闸，写完才发现它根本不可能触发，测试当场抓到）。
+  //   真会出事的是【覆盖那一行的 key 打错字】：写成 "me.softt" 的话，
+  //   ASK 里多一条没人用的垃圾，而 me.soft 悄悄退回老说法——提示词就这么变回去了，
+  //   界面上一点看不出来。所以闸要对着这一种：ASK 里不许有 KEYS 没有的 key。
+  Object.keys(ASK).forEach(k => { if (!KEYS[k]) throw new Error("发给模型那套说法里，这个 key 打错了：" + k); });
+  const load = () => { try { return JSON.parse(localStorage.getItem("x_gaze") || "{}"); } catch (e) { return {}; } };
+  // 落本机之后顺手把【改动的那个人】那一行推上 grown 表（见 js/grown-sync.js）。
+  // ⚠️推失败绝不影响本机这一份——它只是多一道保险，不是主路。
+  const persist = (d, touched) => {
+    try { localStorage.setItem("x_gaze", JSON.stringify(d)); } catch (e) {}
+    try {
+      if (touched && d[touched] && window.Cloud && window.Cloud.grownUpsert)
+        window.Cloud.grownUpsert("gaze", { [touched]: d[touched] }).catch(() => {});
+    } catch (e) {}
+  };
+  const boxOf = (d, charId) => d[charId] || { blocks: {}, hist: [], seeded: false };
+  // 应用一次修订(协议字段或建卡):校验块名、留旧版快照、盖新内容
+  // 占位说明被原样抄回来（v62.35）。schemaHint 里每一栏写的是【那一块是什么】，
+  // 而模型有时候会把说明本身当成内容填回来——那是一句废话，不该占着这一块。
+  // 「规则降概率，代码才保证」：提示词里已经说了别照抄，这儿再兜一道。
+  const PLACEHOLDER = {};
+  Object.keys(KEYS).forEach(k => { PLACEHOLDER[KEYS[k].replace(/[·、，。]/g, "")] = 1; });
+  // v64.56：发给模型的是 ASK 那一套说法，所以TA抄回来的也会是那一套——两套都得挡
+  Object.keys(ASK).forEach(k => { PLACEHOLDER[ASK[k].replace(/[·、，。]/g, "")] = 1; });
+  // ⚠️占位说明就是【块名本身】——schemaHint 里那十栏写的正是 KEYS 里那十个名字。
+  //   所以这张表只能从 KEYS 派生，不许另抄一份：另抄一份就是「一层写在两处」，
+  //   哪天改了块名，这儿会悄悄失效（变异测试当场证明另抄那四条一条都没用上）。
+  function apply(charId, side, block, text) {
+    const k = side + "." + block;
+    if (!KEYS[k]) return false;
+    const t = String(text || "").trim().slice(0, 400);
+    if (!t) return false;
+    if (PLACEHOLDER[t.replace(/[·、，。\s]/g, "")]) return false;   // 把说明抄回来了，不算写
+    const d = load(); const box = boxOf(d, charId);
+    if ((box.locks || {})[k]) return false;                         // 她锁住的这一块：谁都不改（复看、整份重写也一样）
+    const old = box.blocks[k];
+    if (old && old.text === t) return false;
+    if (old && old.text) box.hist = [{ k, old: old.text, ts: old.ts || Date.now() }, ...(box.hist || [])].slice(0, 120);
+    box.blocks[k] = { text: t, ts: Date.now() };
+    d[charId] = box; persist(d, charId);
+    // TA改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
+    // 别去比时间戳：同一毫秒内改写会让 ts 和 seen 相等，红点就永远亮不起来（测试逮到的）。
+    try {
+      const sd = loadSeen(); const mine = sd[charId];
+      if (mine && mine[k] != null) { delete mine[k]; sd[charId] = mine; persistSeen(sd); }
+    } catch (e) {}
+    return true;
+  }
+  // 她自己动手的三样（群里 2026-10-09 许愿：「有一版非常喜欢，但已经改过一次了」）：
+  //   锁住一块（往后自动改写、复看、整份重写都碰不到它）；把某一版旧的换回来当现在这版；删掉某一版。
+  //   旧版用 ts＋原文认（hist 里没有 id）。
+  const isLocked = (charId, k) => !!(boxOf(load(), charId).locks || {})[k];
+  function setLock(charId, k, on) {
+    if (!KEYS[k]) return false;
+    const d = load(); const box = boxOf(d, charId);
+    box.locks = Object.assign({}, box.locks); if (on) box.locks[k] = 1; else delete box.locks[k];
+    d[charId] = box; persist(d, charId); return true;
+  }
+  const histAt = (box, k, ts, text) => (box.hist || []).findIndex(x => x.k === k && (Number(x.ts) || 0) === (Number(ts) || 0) && x.old === text);
+  function useVersion(charId, k, ts, text) {
+    const d = load(); const box = boxOf(d, charId), i = histAt(box, k, ts, text);
+    if (i < 0) return false;
+    const cur = box.blocks[k];
+    box.hist = box.hist.slice(); box.hist.splice(i, 1);
+    if (cur && cur.text) box.hist = [{ k, old: cur.text, ts: cur.ts || Date.now() }, ...box.hist].slice(0, 120);
+    box.blocks[k] = { text, ts: Number(ts) || Date.now() };
+    d[charId] = box; persist(d, charId); return true;
+  }
+  // now＝删现在这版：最近的那版旧的顶上来；一版旧的都没有，这一块就空着
+  function delVersion(charId, k, ts, text, now) {
+    const d = load(); const box = boxOf(d, charId);
+    if (now) {
+      const i = (box.hist || []).findIndex(x => x.k === k);
+      if (i >= 0) { const x = box.hist[i]; box.hist = box.hist.slice(); box.hist.splice(i, 1); box.blocks[k] = { text: x.old, ts: Number(x.ts) || Date.now() }; }
+      else delete box.blocks[k];
+    } else {
+      const i = histAt(box, k, ts, text);
+      if (i < 0) return false;
+      box.hist = box.hist.slice(); box.hist.splice(i, 1);
+    }
+    d[charId] = box; persist(d, charId); return true;
+  }
+  // 重 roll 掉的那一轮顺手改过的块，跟着撤回（群里 2026-10-09：「重 roll 就会立刻重新叠加了之前的那版」）。
+  //   那一轮的 turnId 是 "t_"+时间，和回复里的 impression 落地在同一段同步代码里，前后差几毫秒——
+  //   所以认「那一刻前 3 秒内写的」。撤回＝把这块的上一版放回来；没有上一版就清空。
+  function rollbackTurns(charId, turnIds) {
+    const at = (turnIds || []).map(t => { const m = /^t_(\d+)/.exec(String(t || "")); return m ? +m[1] : 0; }).filter(Boolean);
+    if (!at.length) return 0;
+    const d = load(); const box = boxOf(d, charId);
+    let n = 0;
+    Object.keys(box.blocks || {}).forEach(k => {
+      const b = box.blocks[k], ts = Number(b && b.ts) || 0;
+      if ((box.locks || {})[k] || !at.some(t => ts <= t && ts > t - 3000)) return;
+      const i = (box.hist || []).findIndex(x => x.k === k);
+      if (i >= 0) { const x = box.hist[i]; box.hist = box.hist.slice(); box.hist.splice(i, 1); box.blocks[k] = { text: x.old, ts: Number(x.ts) || 0 }; }
+      else delete box.blocks[k];
+      n++;
+    });
+    if (n) { d[charId] = box; persist(d, charId); }
+    return n;
+  }
+  // 协议里塞回的 impression 字段(单聊/群聊共用解析)
+  // 模型偶尔把块名写成中文名(「她是个什么样的人」)、或把 side 一起塞进 block(「me.person」)。
+  // 以前这两种都直接 KEYS 查不到 → 静悄悄返回 false,看上去就是「TA从来不写」。
+  // 认得出来就别丢:这一层本来就写得少,丢一次就是丢一次(她 2026-08-27:8.16 到现在一次没改过)。
+  const NAME2KEY = {}; Object.keys(KEYS).forEach(k => { NAME2KEY[KEYS[k]] = k; });
+  Object.keys(ASK).forEach(k => { NAME2KEY[ASK[k]] = k; });   // v64.56：TA看到的是 ASK 那套名字
+  function normKey(side, block) {
+    const b = String(block || "").trim(), sd = String(side || "").trim();
+    if (KEYS[sd + "." + b]) return sd + "." + b;
+    if (KEYS[b]) return b;                       // block 里已经带了 side
+    if (NAME2KEY[b]) return NAME2KEY[b];         // 写的是中文块名
+    const bare = b.replace(/^.*\./, "");
+    if (KEYS[sd + "." + bare]) return sd + "." + bare;
+    for (const k of Object.keys(KEYS)) if (k.slice(k.indexOf(".") + 1) === bare) return k;
+    return "";
+  }
+  function applyParsed(charId, imp) {
+    if (!imp || typeof imp !== "object") return false;
+    const k = normKey(imp.side, imp.block);
+    if (!k) return false;
+    const old = boxOf(load(), charId).blocks[k];
+    if (typeof imp.text === "string" && old && old.text === imp.text.trim().slice(0, 400)) return markChecked(charId, k);
+    return apply(charId, k.slice(0, k.indexOf(".")), k.slice(k.indexOf(".") + 1), imp.text);
+  }
+  // 只记录模型明确交回的复看结果；省略字段不写存档，也不算漏答。
+  function markChecked(charId, k) {
+    if (!KEYS[k]) return false;
+    const d = load(); const box = boxOf(d, charId);
+    box.checks = box.checks || {};
+    box.checks[k] = Date.now();
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  // ⚠️这张卡最容易长歪的方向：把【她自己写下的设定】复述一遍，当成「我看出来的」。
+  //   她 2026-09-04 报：新角色十块里只有第一块有字，而那一块就是她人设的润色版。
+  //   病根有两半——一半是下面 seedSpec 那份示例【自己示范了「填一块、其余全 null」】
+  //   （prompt-no-content-samples.md：示例会被逐字照抄，连填法也会）；
+  //   另一半是没人拦着TA复述人设：新角色手上除了她的设定本来就没别的材料。
+  // ⚠️两条路（建卡那一次 + 每轮那一路）都要这一句，所以只写一份——各写一份迟早只改一处。
+  const NOT_PROFILE = uName => "⚠️【绝不许复述她的设定】" + uName
+    + " 自己写下的自我介绍/人设，是她【给】你的，不是你看出来的——把它换个说法写进这张卡，等于一个字都没写。"
+    + "这张卡只收【你从相处里真的注意到的】：每一句都得能落回某一次具体的对话、某件真发生过的事。"
+    + "落不回去的那一块就是空的——**填 null 比编一句漂亮话强**。";
+  const checkedAt = (charId, k) => Number((boxOf(load(), charId).checks || {})[k]) || 0;
+
+  // 常驻注入文本(空卡=零注入)
+  // opts.cap：只给【内容那几行】封顶，末尾那段守则一个字都不许砍。
+  // ⚠️v66.30 群聊那一处是把【整段】slice 到 400 字的——于是砍掉的正好是最后那句
+  //   「自然渗进语气…绝不当台词复述或逐条印证」和「『假装没注意的事』…绝不主动把话题引向它」。
+  //   剩下发出去的，就是一张写着她软肋、雷区、把柄和「我假装没注意的事」的清单，
+  //   没有任何一句话拦着别把它说出口——谁读了都想当场翻出来讲
+  //   （她 2026-09-11：「还是喜欢『算账』『有本事』『找借口』之类的八股」）。
+  //   封顶砍内容可以，砍守则不行：守则是这张卡唯一的刹车。
+  function text(charId, uName, opts) {
+    const box = boxOf(load(), charId);
+    let rows = Object.entries(KEYS).map(([k, name]) => box.blocks[k] && box.blocks[k].text ? "·" + name + ":" + box.blocks[k].text : null).filter(Boolean);
+    if (!rows.length) return "";
+    const cap = Number(opts && opts.cap) || 0;
+    if (cap > 0) {
+      // 按【整行】收，不腰斩某一块：半句「她的软肋和雷区:她最怕别人」比不发还糟
+      let used = 0;
+      const keep = [];
+      for (const r of rows) { if (used && used + r.length > cap) break; keep.push(r); used += r.length + 1; }
+      rows = keep.length ? keep : [rows[0]];
+    }
+    return "【你眼里的 " + uName + " 与你们(你私下沉淀的长期认知)】\n" + rows.join("\n") +
+      "\n这些是你自己心里的东西:自然渗进语气、分寸和相处方式,绝不当台词复述或逐条印证。尤其「假装没注意的事」——它存在的方式就是你【绕着它走】,绝不主动把话题引向它,只在被真正踩到时才露出一点反应。";
+  }
+  // 四条聊天写回路径共用同一份标准；空卡和已有卡都不等待轮数。
+  function updateRule(uName) {
+    return "每轮结合当前对话和已有印象，看看对 " + uName + " 或你们是否多了一点具体认识。"
+      + "新的细节、对旧判断的小补充或修正都可以写，不需要重大事件或关系变化。"
+      + "空块可写相处中已经形成的认识；已有块保留仍成立的内容，再融入本轮有依据的新认识。"
+      + "没有新增或修正就省略 impression，保留原文，不必提交看过的回执，也不必换词刷新日期。"
+      + "一轮每位角色至多更新一块，第一人称亲笔、text≤80字，锚在真实相处上，不为填字段编事或随情绪翻转。"
+      + NOT_PROFILE(uName);
+  }
+  function spec(uName, charId, opts) {
+    const side = (arr, sd) => arr.map(([k]) => k + "(" + ASK[sd + "." + k] + (k === "elephant" ? ",至多两件" : "") + ")").join("/");
+    return 'impression: {"side":"me|us","block":"块名","text":"补充或修正后的整块正文"}。'
+      + "side=me 的块名:" + side(ME, "me") + ";side=us:" + side(US, "us") + "。"
+      + updateRule(uName) + (opts && opts.tail ? "" : nudge(uName, charId));
+  }
+  // 尾部轻提醒始终可用，不点名、不催交；调用方继续负责房间和角色权限。
+  function nudge(uName, charId) {
+    return "\n【Ta 眼里】本轮多认识了 " + uName + " 一点就通过 impression 记下；没有新认识可省略，正常继续聊天。";
+  }
+  // ⚠️「聊天不再依据次数、天数或省略字段自动复看」那句注释是**当初放弃时留的**，
+  //   不是设计。她 2026-09-11：「**这本来就是要自动的，我们就是修不好很多次而已**」。
+  //   v66.88 把自动那条接回来了，闸就是下面这个 reviewDue。
+  const REVIEW_MAX = 3;
+  // 她定的那一句：「**不要那么久周期，有料就写没有就不写，但是不准永远不写**」。
+  // 拆成三条线：
+  //   有料线   —— 上次复看之后又聊了这么多条，那就是真有东西可看了
+  //   兜底线   —— 隔了这么久，只要有一点点料也看一次（「不准永远不写」就是这一条）
+  //   一点没有 —— 真的什么都没发生，别打扰（「没有就不写」）
+  const REVIEW_FRESH = 60;          // ≈三十个来回
+  const REVIEW_FLOOR_DAYS = 6;      // 原来是 14 天，她说太久
+  const REVIEW_FLOOR_MIN = 8;       // 兜底也得有一点点料，不然等于按天数硬刷
+  const REVIEW_GAP_MS = 20 * 3600000;   // 自动那条一天最多一次
+  // ⚠️失败满三次之后【不许永远停】：那正是她这些天遇到的「怎么都不更新」。
+  //   退到几天一次，别停死——线路修好了它自己会回来。
+  const REVIEW_RETRY_DAYS = 5;
+  // fresh = 上次复看之后这个角色又说了几条（调用点数好传进来：只有它拿得到聊天记录）
+  function reviewDue(charId, fresh, now) {
+    const box = boxOf(load(), charId);
+    if (!Object.keys(box.blocks || {}).length) return false;   // 还没建卡，轮不到复看
+    const t = Number(now) || Date.now();
+    const n = Number(fresh) || 0;
+    const last = Math.max(Number(box.reviewAt) || 0, Number(box.reviewOkAt) || 0) || newestTs(box);
+    if (t - last < REVIEW_GAP_MS) return false;                // 连点冷却
+    // 失败攒够了就退到几天一次（不是停死）
+    if ((Number(box.reviewN) || 0) >= REVIEW_MAX) return t - last >= REVIEW_RETRY_DAYS * 86400000 && n >= REVIEW_FLOOR_MIN;
+    if (n >= REVIEW_FRESH) return true;                        // 有料
+    return n >= REVIEW_FLOOR_MIN && t - last >= REVIEW_FLOOR_DAYS * 86400000;   // 兜底
+  }
+  const newestTs = box => Object.keys(box.blocks || {}).reduce((a, k) => Math.max(a, Number(box.blocks[k].ts) || 0), 0);
+  // 先记标记再打调用（照「先记游标再刷」）：抖一下不该把这轮机会静悄悄烧掉，所以记的是次数不是布尔。
+  // ⚠️manual=她自己按下面那颗「让TA再看一遍这十块」：**不占自动预算**（v64.35）。
+  //   原来手动和自动共用 reviewN，于是她手动重试几次就把自动那三次额度按光了——
+  //   她 2026-09-06 那张截图上写着「自动复看过 4 次」，而上限是 3，多出来的那一次
+  //   就是她自己按的。预算防的是「代码偷偷花钱」，不是防她自己要。
+  //   （reviewAt 照记：那是防连点的冷却，两条路都该有。）
+  function markReview(charId, manual) {
+    const d = load(); const box = boxOf(d, charId);
+    if (!manual) box.reviewN = (Number(box.reviewN) || 0) + 1;
+    box.reviewAt = Date.now(); box.reviewErr = ""; box.reviewErrRaw = "";
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  // 败因要说人话（她 2026-09-05 截图：界面上原样印着「没解析出卡」——
+  // 那是 `throw new Error()` 里的话，是给我看的，不是给她看的）。
+  // ⚠️所以【存进去之前就翻好】：存原文的话，这一句在界面上会一直是机器话。
+  //   认不出来的一律说「这一次没成」，绝不把异常原文摆到她眼前。
+  function plainWhy(msg) {
+    const m = String(msg || "");
+    if (!m) return "这一次没成";
+    // ⚠️engine 那份诊断（callDiag）自己就下了结论，得【先认它】：
+    //   它的原话是「…＝上游直接打回来了（拦截／格式／配额），**不是超时**」——
+    //   里头带着「超时」两个字。先跑下面那条 /超时/ 的话，
+    //   一句明说「不是超时」的诊断会被判成超时（我第一版就是这么写反的，测试当场逮到）。
+    // 上游把【提示词本身】拦了（内容政策），不是模型不会答、也不是线路坏了。
+    // 她 2026-09-06 遇到的就是这一种：Gemini 回的原话是
+    // 「The prompt could not be submitted. The prompt contains sensitive words…」。
+    // ⚠️这句得排在「线路报错」前面：它更具体，说的是【为什么】被拦，
+    //   而「线路报错」只说了「没跑起来」——换条线路是对的做法，但不知道换的理由。
+    // 缩过一次还是被拦（v64.47）：这一句最要紧——它排除了「聊天内容踩线」这个最大嫌疑，
+    // 所以得排在下面那句更笼统的前面，不然会被它先答掉。
+    // 三级都缩过还是被拦（v64.55）：这一句排除了聊天内容【和】长期记忆，
+    // 剩下的只有人设或这张卡自己的正文——它比下面那句笼统的信息量大得多，得排在前面。
+    // v64.57：第四级连「这张卡现在写的正文」都不摆回去了。都到这一步还被拦，
+    // 那就只剩人设本身——这一句得排在前面，它比下面几句都具体。
+    if (/连世界书和这张卡自己的正文都没再发/.test(m)) return "世界书、卡的正文都不发了还是被拦，只剩人设本身";
+    if (/连这张卡自己的正文都没再摆回去/.test(m)) return "连这张卡的正文都不发了还是被拦，只剩人设本身";
+    if (/都试过了，还是被拦/.test(m)) return "聊天记录和长期记忆都去掉了还是被拦，剩下人设或这张卡本身";
+    if (/去掉聊天记录再试一次【还是被拦】/.test(m)) return "去掉聊天记录也还是被拦，不是聊天内容的事";
+    if (/not be submitted|prohibited use|sensitive words|was blocked|safety|内容政策/i.test(m)) return "这条线路把提示词拦了（内容政策）";
+    if (/线路报错/.test(m)) return "这条线路此刻没跑起来";
+    if (/上游直接打回来/.test(m)) return "上游把这次请求打回来了";
+    if (/等到一半才断/.test(m)) return "等太久，超时了";
+    if (/解析|JSON|parse/i.test(m)) return "模型没按格式答";
+    if (/超时|timeout|abort/i.test(m)) return "等太久，超时了";
+    if (/401|403|unauthor|密钥|api key|apikey/i.test(m)) return "这条线路没配好";
+    if (/429|rate.?limit|限流|too many/i.test(m)) return "被限流了";
+    if (/fetch|network|网络|连接|ECONN|ENOTFOUND/i.test(m)) return "网没连上";
+    if (/余额|quota|insufficient|billing/i.test(m)) return "额度不够了";
+    // engine 抛的那句「模型返回为空（停止原因：…）〔…等了 N 秒＝上游直接打回来了…〕」
+    // 原来一条都匹配不到，全落进兜底那句「这一次没成」——她 2026-09-06 看到的就是它。
+    if (/返回为空|没有返回正文/.test(m)) return "模型一个字都没吐出来";
+    // 已经是人话的那几句（「一块也没写出来」「一块都没改」）原样留着
+    if (/[一二三四五六七八九十百]|块|写|改|答/.test(m) && !/[A-Za-z]{4}/.test(m)) return m;
+    return "这一次没成";
+  }
+  // ⚠️人话那一句是给她看的，可【原文不能扔】（v64.35）。
+  //   她 2026-09-06 报「还是不行」，界面上只有一句「这一次没成」——
+  //   那正是 plainWhy 认不出来时的兜底，于是她和我都不知道到底是什么坏了。
+  //   而 engine 那边其实已经把话说得很清楚了（callDiag：哪个模型、提示词多大、
+  //   输出上限多少、等了几秒、是上游直接打回来还是超时）——全被这一句吞掉了。
+  //   所以原文另存一份，界面上收在「为什么」后面，点开才看。
+  // route＝这一枪用的是哪条线路（调用点算好传进来）。
+  // ⚠️不写清是哪条，她只能挨条去试——她 2026-09-11 就是这么「修了很多次」的：
+  //   建卡和复看走【后台任务模型】，她一直在修聊天那条。
+  function markReviewFail(charId, why, route) {
+    const d = load(); const box = boxOf(d, charId);
+    const rt = String(route || "").trim();
+    box.reviewErr = ((rt ? rt + "：" : "") + plainWhy(why)).slice(0, 80);
+    box.reviewErrRaw = (rt ? "【这一枪走的是 " + rt + "】\n" : "") + String(why || "").slice(0, 400);
+    box.reviewOkAt = 0;
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  // 「复看了一遍，TA觉得没什么要改的」——这是个【正常结局，不是失败】（v64.35）。
+  // 提示词里白纸黑字写着「没变就是没变，不必为了交差改字」，模型照做了，
+  // 代码这一道却把它记成一次失败：三次之后「试满了，往后不再自动试」，
+  // 而界面上写的是「都没成」。她看到的于是是「坏了」，其实是「TA真没什么要改的」。
+  function markReviewNoChange(charId) {
+    const d = load(); const box = boxOf(d, charId);
+    box.reviewOkAt = Date.now(); box.reviewErr = ""; box.reviewErrRaw = "";
+    box.reviewN = 0;                     // 不是失败，预算还回去
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  const reviewState = charId => {
+    const box = boxOf(load(), charId);
+    return { tries: Number(box.reviewN) || 0, max: REVIEW_MAX, last: Number(box.reviewAt) || 0,
+      err: box.reviewErr || "", raw: box.reviewErrRaw || "", okAt: Number(box.reviewOkAt) || 0, mute: Number(box.mute) || 0 };
+  };
+  // 复看这一次问的不是「你对她怎么看」（那是建卡），是「这十块里哪几块已经不对了」。
+  // 把现行十块原样给TA看，让TA逐块比对；没变的填 null。
+  function reviewSpec(uName, charId) {
+    const box = boxOf(load(), charId);
+    const rows = Object.keys(KEYS).map(k => "· " + ASK[k] + "(" + k + ")：" + ((box.blocks[k] || {}).text || "（还空着）")).join("\n");
+    const days = Math.floor((Date.now() - newestTs(box)) / 86400000);
+    return "下面是你之前写下的、你眼里的 " + uName + " 和你们关系——十块，最近一次改动已经是 " + days + " 天前。\n\n" + rows
+      + "\n\n这段时间你们又相处了这么久。逐块过一遍：**哪几块已经跟你现在心里的不一样了？**"
+      + "\n· 变了的那几块 → 写成整块重写后的新内容(≤80字,第一人称亲笔,在旧的基础上小幅演进,锚在这段时间真发生过的事上,别整块翻转)。"
+      + "\n· 还是那样的 → 填 null。**没变就是没变，不必为了交差改字**。"
+      + "\n· 空着的那几块 → 如果这段时间你心里已经有了，就写下来。"
+      + NOT_PROFILE(uName)
+      + "\n只输出 JSON:{\"me\":{\"person\":null,\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}——把真变了的那几块换成新内容，其余保持 null。"
+      // ⚠️这一段是 v64.40 补的。这一问最可能的正确答案就是【什么都没变】，
+      //   而「什么都没变」用一句话说出来比填一份全 null 的 JSON 自然得多——
+      //   于是TA很可能直接答「这十块我看了一遍，暂时没什么要改的」，一个大括号都没有，
+      //   extractJSON 当然解析不出来，界面上就成了「没解析出卡」。
+      //   （她 2026-09-06 连报三轮不行，原话正是这一句。）
+      //   所以必须把【没变也要输出 JSON】这件事单独说死，不能只说「只输出 JSON」。
+      + "\n⚠️就算十块一块都没变，也【必须】把上面那份 JSON 原样输出（十个值全是 null）——不许改成一句话回答「没什么要改的」。"
+      + "\n⚠️JSON 之外不要写任何字：不写开场白、不写解释、不写注释（连 // 也不行）、末尾不留多余逗号。";
+  }
+  // 落地：复看写进来的和平时那个字段走同一个 apply（原文一样的会被 apply 挡掉，不算改）
+  function review(charId, data) {
+    let n = 0;
+    ["me", "us"].forEach(side => { const g = data && data[side]; if (g) Object.keys(g).forEach(b => {
+      const k = side + "." + b;
+      if (!KEYS[k]) return;
+      const old = boxOf(load(), charId).blocks[k];
+      if (g[b] === null || (typeof g[b] === "string" && old && old.text === g[b].trim().slice(0, 400))) markChecked(charId, k);
+      else if (typeof g[b] === "string" && apply(charId, side, b, g[b])) n++;
+    }); });
+    const d = load(); const box = boxOf(d, charId);
+    // 真写出来了 → 次数清零，下一次冻住时还能再来一回；一块都没写 → 留着次数，三次就停手
+    if (n) { box.reviewN = 0; box.reviewErr = ""; }
+    d[charId] = box; persist(d, charId);
+    return n;
+  }
+  // 专门复看必须逐块交回结果；空对象、聊天 JSON、缺项或错类型都不是“没变化”。
+  function acceptReview(charId, data) {
+    const valid = data && !Array.isArray(data) && Object.keys(KEYS).every(k => {
+      const [side, block] = k.split("."), group = data[side];
+      if (!group || Array.isArray(group) || !Object.prototype.hasOwnProperty.call(group, block)) return false;
+      const value = group[block];
+      return value === null || (typeof value === "string" && value.trim() && !PLACEHOLDER[value.replace(/[·、，。\s]/g, "")]);
+    });
+    if (!valid) throw new Error("复看结果不完整：需要十块各自的正文或 null，这次未记为看过");
+    const n = review(charId, data);
+    if (!n) markReviewNoChange(charId);
+    return n;
+  }
+
+  // 一次性建卡的生成指令(app 侧拼上下文调用后把 JSON 喂回 seed)
+  function seedSpec(uName) {
+    return "以角色本人的第一人称,把你对 " + uName + " 和你们关系的长期认知写成印象卡 JSON。每块≤80字,亲笔口吻、锚在真实发生过的事上;不了解、没想过的块填 null,绝不编造。"
+      // 她 2026-10-02 转群友：导入一张写好「早就在一起、对她很黏」的卡，刚聊两句就建卡，
+      //   卡上只剩「她话少、一个嗯一个好吧」——读起来像刚认识，每轮又垫在底下，人就一直冷着。
+      + "人设里写明的你们之间的关系和过往(已经是什么关系、在一起多久、怎么走到这一步)也是真实发生过的事,照着写;只是别编人设和聊天里都没有的具体事。"
+      + "禁止分析报告腔(「综合来看」「是一个…的人」),要像你私下写给自己的碎句。"
+      + NOT_PROFILE(uName)
+      // ⚠️下面这份【每一栏写的是那一块的说明，不是样例内容】，也【没有示范谁填谁不填】。
+      //   上一版示范的是「person 有字、其余九块全 null」，模型连这个填法一起照抄了：
+      //   她 2026-09-04 报的「都是第一个填」就是这么来的（prompt-no-content-samples.md）。
+      + "十块都要过一遍,自己心里真有的就写、真没有的填 null——填几块由你,别照着下面这份的样子来,它只是在说明每一栏是什么。"
+      // ⚠️v64.56：这份 schemaHint 原来把十个名字【又抄了一遍】（第四份），现在从 ASK 长出来。
+      //   每一栏写的仍然是【那一块是什么】的说明，不是样例内容（prompt-no-content-samples.md）。
+      + "只输出 JSON:" + JSON.stringify({
+        me: ME.reduce((o, [k]) => (o[k] = ASK["me." + k], o), {}),
+        us: US.reduce((o, [k]) => (o[k] = ASK["us." + k], o), {})
+      });
+  }
+  function seed(charId, data) {
+    let n = 0;
+    ["me", "us"].forEach(side => { const g = data && data[side]; if (g) Object.keys(g).forEach(b => { if (g[b] && apply(charId, side, b, g[b])) n++; }); });
+    const d = load(); const box = boxOf(d, charId);
+    // ⚠️只有【真写出来了】才算建过卡。原来不管 n 是多少都盖 seeded=true,
+    //   模型返回一份全是 null 的卡时,卡还是空的、路却永久封死了——又一条静悄悄的死锁。
+    if (n) box.seeded = true;
+    d[charId] = box; persist(d, charId);
+    return n;
+  }
+  const hasAny = charId => Object.keys(boxOf(load(), charId).blocks).length > 0;
+  // ---- 自动建卡一次(v59.80)----
+  // 首次建卡是独立的初始化路径，不依赖聊天漏答计数。
+  // 聊够了仍为空时沿用专门建卡；尝试次数和冷却由下方统一控制。
+  // ⚠️先记标记再打调用(照周刷那条「先记游标再刷」)：中途失败也不该下一轮又整份重来。
+  //
+  // v59.80 那一版把它记成一个【布尔】,于是「试过了」和「成了」是同一件事:
+  //   网络抖一下、JSON 没解析出来、或者模型回了一份全 null——
+  //   **这个角色一辈子仅有的那一次机会就静悄悄烧掉了**,而失败那一路 auto 是不弹 toast 的,
+  //   她那边看到的只有「这个角色死活不填」(她 2026-09-02 报的另一半)。
+  // 改成【记次数 + 记败因】:最多三次,成了就不再试,没成隔十分钟可以再来。
+  //   三次是【一辈子】的上限,不是每天三次——最坏情况一个角色多花两次调用,到此为止。
+  // 老存档里只有 autoSeed 时间戳没有次数 → 算作已经试过一次,还剩两次。
+  const AUTOSEED_MAX = 3;
+  const AUTOSEED_GAP = 10 * 60000;
+  const autoSeedTries = box => Number(box.autoSeedN != null ? box.autoSeedN : (box.autoSeed ? 1 : 0)) || 0;
+  const autoSeedDue = charId => {
+    const box = boxOf(load(), charId);
+    if (box.seeded || Object.keys(box.blocks).length) return false;
+    if (autoSeedTries(box) >= AUTOSEED_MAX) return false;
+    return Date.now() - (Number(box.autoSeed) || 0) >= AUTOSEED_GAP;
+  };
+  function markAutoSeed(charId) {
+    const d = load(); const box = boxOf(d, charId);
+    box.autoSeedN = autoSeedTries(box) + 1;
+    box.autoSeed = Date.now();
+    box.autoSeedErr = ""; box.autoSeedErrRaw = "";
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  // 败因留下来:不留的话「试过三次都没成」和「还没到十条」在界面上长得一模一样。
+  function markAutoSeedFail(charId, why, route) {
+    const d = load(); const box = boxOf(d, charId);
+    box.autoSeedErr = ((String(route || "").trim() ? String(route).trim() + "：" : "") + plainWhy(why)).slice(0, 80);
+    box.autoSeedErrRaw = (String(route || "").trim() ? "【这一枪走的是 " + String(route).trim() + "】\n" : "") + String(why || "").slice(0, 400);   // 同上：人话给她看，原文留着查
+    d[charId] = box; persist(d, charId);
+    return true;
+  }
+  const autoSeedState = charId => {
+    const box = boxOf(load(), charId);
+    return { tries: autoSeedTries(box), max: AUTOSEED_MAX, last: Number(box.autoSeed) || 0,
+      err: box.autoSeedErr || "", raw: box.autoSeedErrRaw || "", refuse: Number(box.refuse) || 0 };
+  };
+
+
+  // ---- 红点(她 2026-08-27 要的)----
+  // 这张卡是角色自己慢慢改的,不改则已、一改就是TA对她的看法变了——那正是她想被叫住的时刻。
+  // 存一份「她上次看这一块是什么时候」,块的 ts 比它新就是没看过。
+  // 住大仓库 x_gazeSeen（她 2026-10-04：「以后做东西不准放小仓库！全给我搬过去」；2026-10-10：「为什么不直接移到 indexstorage」）。
+  //   原来住小仓库 lisa_gaze_seen_v1：满了就静悄悄写不进去，红点看完也灭不掉。
+  //   x_ 会跟云同步：手机上看过，别的设备上也算看过——这正是她要的样子。
+  //   老的那份第一次读到时并进来，然后从小仓库删掉。
+  const SEEN_KEY = "x_gazeSeen", OLD_SEEN_KEY = "lisa_gaze_seen_v1";
+  let seenMem = null;
+  const loadSeen = () => {
+    if (seenMem) return seenMem;
+    let d = null;
+    try { d = typeof loadJSON === "function" ? loadJSON(SEEN_KEY, null) : null; } catch (e) {}
+    let old = null;
+    try { old = JSON.parse(localStorage.getItem(OLD_SEEN_KEY) || "null"); } catch (e) {}
+    seenMem = d && typeof d === "object" ? d : {};
+    if (old && typeof old === "object") {
+      Object.keys(old).forEach(cid => { seenMem[cid] = Object.assign({}, old[cid] || {}, seenMem[cid] || {}); });
+      try { if (typeof saveJSON === "function") saveJSON(SEEN_KEY, seenMem); localStorage.removeItem(OLD_SEEN_KEY); } catch (e) {}
+    }
+    return seenMem;
+  };
+  const persistSeen = d => { seenMem = d; try { if (typeof saveJSON === "function") saveJSON(SEEN_KEY, d); } catch (e) {} };
+  function unseenKeys(charId) {
+    const box = boxOf(load(), charId), seen = (loadSeen() || {})[charId] || {};
+    return Object.keys(KEYS).filter(k => {
+      const b = box.blocks[k];
+      return b && b.text && (Number(b.ts) || 0) > (Number(seen[k]) || 0);
+    });
+  }
+  const unseenCount = charId => unseenKeys(charId).length;
+  function markSeen(charId, k) {
+    const box = boxOf(load(), charId), b = box.blocks[k];
+    if (!b) return;
+    const d = loadSeen(); const mine = d[charId] || {};
+    mine[k] = Number(b.ts) || Date.now();
+    d[charId] = mine; persistSeen(d);
+    // 状态卡顶上「Ta 眼里」那颗红点在信纸外面，自己不知道这边看过了——喊它一声（她 2026-10-10：点光了还有）
+    try { window.dispatchEvent(new CustomEvent("gaze-seen", { detail: { charId } })); } catch (e) {}
+  }
+  // 全部改写记录:合并当前块和旧版快照,按时间倒序——「收纳」那一档就是这张表
+  function revisions(charId) {
+    const box = boxOf(load(), charId), out = [];
+    Object.keys(KEYS).forEach(k => { const b = box.blocks[k]; if (b && b.text) out.push({ k, text: b.text, ts: Number(b.ts) || 0, now: true }); });
+    (box.hist || []).forEach(x => { if (KEYS[x.k]) out.push({ k: x.k, text: x.old, ts: Number(x.ts) || 0, now: false }); });
+    return out.sort((a, b) => b.ts - a.ts);
+  }
+
+  // ---- 信纸页面(嵌在状态卡里,参考 2026-08-17 Lisa 给的拍立得信纸样张) ----
+  // ⚠️原来这儿有一张 EN 表（WHO SHE IS / SOFT SPOTS / MILESTONES …），
+  //   专门用来在中文标题上面再压一行英文小字。按 no-english-titles，
+  //   那行删掉之后这一页照样说得明白——它就是装饰，所以整张表一起删。
+  const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
+  const tape = extra => h("div", { style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
+  function GazePage({ charId, charName, uName, ta, onSeed, seedBusy, onReview, reviewBusy }) {
+    const [side, setSide] = useState("me");
+    const [openK, setOpenK] = useState(null); // 展开成信纸的块 key
+    const [allOpen, setAllOpen] = useState(false); // 「历次改写」总表
+    const [seenTick, setSeenTick] = useState(0);   // 标记已读后要重画红点
+    const [whyOpen, setWhyOpen] = useState(false); // 复看败因的原文，点开才看
+    const [redoArm, setRedoArm] = useState(false); // 整份重写要点两下（PWA 会吞掉 confirm）
+    const box = boxOf(load(), charId);
+    const say = s => characterText({ gender: ta }, s);
+    const unseen = new Set(unseenKeys(charId));
+    void seenTick;
+    // 展开一块信纸＝她看过这一块了，红点就该灭
+    const openBlock = k => { setOpenK(k); markSeen(charId, k); setSeenTick(x => x + 1); };
+    const dot = extra => h("span", { style: Object.assign({ display: "inline-block", width: 7, height: 7, borderRadius: 999, background: "#c2705a", boxShadow: "0 0 0 2px rgba(255,253,248,.9)" }, extra || {}) });
+    const defs = side === "me" ? ME : US;
+    // Sheet 容器带 transform,fixed 会锚到 Sheet 而非屏幕 → 信纸必须 portal 到 body 才能居中
+    const locked = !!(openK && (box.locks || {})[openK]);
+    const vBtn = on => ({ minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, border: "1px solid " + (on ? GOLD : "rgba(172,138,91,.45)"), background: on ? GOLD : "transparent", color: on ? "#fff" : GOLD });
+    const full = openK && ReactDOM.createPortal(
+      h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { "data-wk": "gazeletter", onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "74vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, backgroundImage: "repeating-linear-gradient(transparent, transparent 29px, rgba(120,100,70,.07) 29px, rgba(120,100,70,.07) 30px), linear-gradient(" + PAPER + "," + PAPER + " 60%, #f7efdf)", borderRadius: 4, padding: "34px 26px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
+          tape(),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
+          box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
+          // 锁住／删掉这版（群里 2026-10-09：「重 roll 也会覆盖，想把重 roll 的删除」）——删了，上一版顶回来
+          box.blocks[openK] && h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
+            h("button", { "data-wk": "gazelock", "data-on": locked ? "1" : "0", onClick: () => { setLock(charId, openK, !locked); setSeenTick(x => x + 1); },
+              style: vBtn(locked) }, locked ? "已锁住 · 点开锁" : "锁住这块"),
+            h("button", { "data-wk": "gazedelver", "data-part": "now", onClick: () => { delVersion(charId, openK, 0, "", true); setSeenTick(x => x + 1); }, style: vBtn(false) },
+              (box.hist || []).some(x => x.k === openK) ? "删掉这版 · 换回上一版" : "删掉这版")),
+          locked ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: GOLD, marginTop: 6, textAlign: "right" } }, say("锁着的时候，他往后再想、整份重写都不会改这一块")) : null,
+          (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 20, borderTop: "1px dashed rgba(120,100,70,.25)", paddingTop: 12 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } },
+              say("他从前是这么想的") + " · 改过 " + box.hist.filter(x => x.k === openK).length + " 次"),
+            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN")),
+              h("div", { className: "flex", style: { gap: 8, marginTop: 4 } },
+                h("button", { "data-wk": "gazeusever", onClick: () => { useVersion(charId, openK, x.ts, x.old); setSeenTick(n => n + 1); }, style: vBtn(false) }, "用这版"),
+                h("button", { "data-wk": "gazedelver", "data-part": "old", onClick: () => { delVersion(charId, openK, x.ts, x.old, false); setSeenTick(n => n + 1); }, style: vBtn(false) }, "删掉"))))) : null)),
+      document.body);
+    // 「收纳」那一档(她 2026-08-27):以前每一块的旧版只埋在自己那张信纸最底下,
+    // 想回看「TA从前都怎么写我的」得一块一块点开。这里把十块的现行版和全部旧版
+    // 按时间倒序摊在一起,一次看完这张卡是怎么长成现在这样的。
+    const revs = revisions(charId);
+    const allSheet = allOpen && ReactDOM.createPortal(
+      h("div", { onClick: () => setAllOpen(false), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { "data-wk": "gazehistory", onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "78vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, borderRadius: 4, padding: "34px 24px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
+          tape(),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 4, letterSpacing: 2 } }, say("他从前都怎么写的")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginBottom: 16 } }, "共 " + revs.length + " 版 · 最新的在最上面"),
+          revs.length ? revs.map((x, i) => h("div", { key: i, style: { marginBottom: 16, paddingBottom: 14, borderBottom: i === revs.length - 1 ? "none" : "1px dashed rgba(120,100,70,.2)" } },
+            h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
+              x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
+              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9, color: "rgba(172,138,91,.7)" } }, x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : "")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, x.text)))
+            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "rgba(92,82,68,.5)", lineHeight: 2 } }, say("他还没写过什么。")))),
+      document.body);
+    return h("div", { "data-wk": "gazepage", "data-side": side, style: { margin: "-4px -6px 0", padding: "18px 14px 26px", borderRadius: 18, background: "linear-gradient(168deg, #f8f2e6, #f6ecdf 46%, #f2e2d6 78%, " + BLUSH + "40)" } },
+      h("div", { style: { textAlign: "right", padding: "2px 6px 14px" } },
+        h("div", { "data-wk": "gazetitle", style: { fontFamily: F_DISPLAY, fontSize: 30, letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们")),
+        // 原来这儿挂着一行 "SHE, THROUGH HER EYES" 的英文眉标——
+        // 上面那行「关于我」已经把话说完了，它只是装饰（no-english-titles）。
+      // ── 两栏＝挂在页头的两条布书签（v62.66）──────────────────────
+      // 审美审计 2026-09-04：这两个 tab 是填色药丸，只靠色差区分——
+      // 换个 app 照样成立（tabs-not-plain-pills）。
+      // 这一页现实里是【TA手写的一册手记】，手记分栏靠的是夹在里面的书签：
+      // 选中那条垂得长、上了色、底下收一个尖口；没选中的短一截、淡着。
+      // 形状照的是解梦馆那份（规则文件把布书签列为合规范例）。
+      // ⚠️选中态同时变【长度、颜色、尖口】三样，不只靠色差（无障碍那一条）。
+      h("div", { style: { display: "flex", gap: 10, marginBottom: 18, alignItems: "flex-start" } },
+        [["me", "关于我"], ["us", "关于我们"]].map(([k, label]) => {
+          const on = side === k;
+          return h("button", { key: k, "data-wk": "gazetab", "data-on": on ? "1" : "0", onClick: () => setSide(k), "aria-pressed": on ? "true" : "false",
+            className: "active:opacity-80",
+            style: {
+              position: "relative", flex: 1, minHeight: 40,
+              padding: on ? "9px 0 17px" : "7px 0 13px",
+              fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3,
+              color: on ? "#fff" : GOLD,
+              background: on ? GOLD : "rgba(172,138,91,.16)",
+              border: "none", borderRadius: "0 0 2px 2px",
+              // 书签底下那个尖口：布带剪成燕尾
+              clipPath: "polygon(0 0,100% 0,100% 100%,50% " + (on ? "72%" : "78%") + ",0 100%)",
+              WebkitClipPath: "polygon(0 0,100% 0,100% 100%,50% " + (on ? "72%" : "78%") + ",0 100%)",
+              boxShadow: on ? "0 3px 8px -4px rgba(172,138,91,.7)" : "none"
+            }
+          },
+            label,
+            [...unseen].some(x => x.indexOf(k + ".") === 0) ? dot({ position: "absolute", top: 6, right: 12 }) : null);
+        })),
+      // 仅展示明确复看的结果或错误；省略不展示为漏答。
+      hasAny(charId) ? (function () {
+        var rv = reviewState(charId), lines = [];
+        // ⚠️「复看过、TA觉得没什么要改的」是【答案】，不是失败（v64.35）。
+        //   原来这一句不分青红皂白写「都没成」，她看到的于是是「坏了」。
+        // ⚠️v64.54：这一行原来的条件是 `else if (rv.tries)`——**次数为 0 就整行不画**。
+        //   而 v64.39 刚把「她手动按的那一次不占自动预算」改对（reviewN 不再加一），
+        //   两件事凑在一起：从没自动复看过的角色（tries=0），她手动一按、失败了，
+        //   败因老老实实存进去了，**卡上却什么都不显示**——
+        //   她 2026-09-06 报的「又试了俩还是没更新但是也没有说为什么没成」就是这个。
+        //   ⚠️判据：**有没有话要说，看的是「有没有败因」，不是「自动试过几次」。**
+        //   次数只决定那句话怎么措辞（是「自动试了 N 次」还是「上一次」）。
+        // ⚠️「试满了，往后不再自动试」是句假话（她 2026-09-16 指着这行问「这个试满了又是啥」，
+        //   查下来才发现）。复看这一档【不是停死】，reviewDue 那一行白纸黑字写着：
+        //     if (reviewN >= REVIEW_MAX) return t - last >= REVIEW_RETRY_DAYS * 86400000 && n >= REVIEW_FLOOR_MIN;
+        //   ——满了是**退到五天一次、而且还得攒够新消息**，旁边注释自己都写着「不是停死」。
+        //   界面上把「降频」说成「放弃」，她看到会以为坏了、得手动救，其实过几天它自己还会再来。
+        //   ⚠️隔壁建卡那两句里的同一措辞【是真的】（autoSeedDue 满了直接 return false，
+        //   三次是一辈子的上限），所以那两句一个字都不改——四处措辞一样不等于四处说的是同一件事。
+        //   天数和条数都从常量里现取，别在文案里再手抄一份数（抄了下次改常量就对不上）。
+        var reviewCap = "；试满了，往后改成隔 " + REVIEW_RETRY_DAYS + " 天、且又攒够 "
+          + REVIEW_FLOOR_MIN + " 条新消息才自动试一次。想现在就要，点下面那个按钮";
+        if (rv.okAt) lines.push("替" + say("他") + "复看过一遍，" + say("他") + "觉得没什么要改的");
+        else if (rv.err) lines.push((rv.tries ? "替" + say("他") + "自动复看过 " + rv.tries + " 次，都没成（" : "上一次复看没成（") + rv.err + "）"
+          + (rv.tries >= rv.max ? reviewCap : ""));
+        else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次"
+          + (rv.tries >= rv.max ? reviewCap : ""));
+        if (!lines.length) return null;
+        return h("div", { "data-wk": "gazestatus", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
+          lines.map(function (x, i) { return h("div", { key: i }, x); }),
+          // 真败因收在这儿：那句人话是给她看的，可原文不能扔——
+          // engine 已经把话说得很清楚了（哪个模型、提示词多大、输出上限多少、
+          // 等了几秒、是上游打回来还是超时），点开才看，平时不占地方。
+          rv.raw ? h("div", null,
+            h("button", { onClick: function () { setWhyOpen(!whyOpen); },
+              style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
+              whyOpen ? "收起原话" : "到底哪儿没成"),
+            whyOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
+      })() : null,
+      !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
+        // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替TA自动写过但失败了」
+        // 还是「TA连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
+        (function () {
+          var st = autoSeedState(charId), lines = [];
+          // 同上（v64.54）：有败因就得说，别拿「自动试过几次」当门槛——
+          // 她手动按的那一次不加次数，可它一样会失败，一样得留下话。
+          if (st.err) lines.push((st.tries ? "替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" : "上一次没写成（") + st.err + "）"
+            + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
+          else if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + plainWhy("没写出内容") + "）"
+            + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
+          if (!lines.length) return null;
+          return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, marginBottom: 14 } },
+            lines.map(function (x, i) { return h("div", { key: i }, x); }),
+            st.raw ? h("div", null,
+              h("button", { onClick: function () { setWhyOpen(!whyOpen); },
+                style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
+                whyOpen ? "收起原话" : "到底哪儿没成"),
+              whyOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, st.raw) : null) : null);
+        })(),
+        onSeed ? h("button", { "data-wk": "gazebtn", "data-kind": "seed", onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? say("他在想…") : say("让他写写看")) : null) : null,
+      defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
+        return h("div", { key: fk, "data-wk": "gazecard", "data-k": fk, "data-empty": b ? "0" : "1", onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
+          tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
+          unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
+          (box.locks || {})[fk] ? h("span", { "data-wk": "gazelockmark", style: { position: "absolute", top: 7, right: 22, fontFamily: F_BODY, fontSize: 9, color: GOLD } }, "已锁") : null,
+          h("div", { "data-wk": "gazecardname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
+          h("div", { "data-wk": "gazecardtext", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
+          (function () {
+            // 这一块【上次什么时候被碰过】。她 2026-09-04：「有些角色的 Ta 眼里确实一直
+            // 不显示上次什么时候想过，没改」——病根是这一行原来【只在复看过又没改时】才出现，
+            // 而「复看没改」要模型主动填 impressionChecked，本来就少；写过一次之后
+            // 从没被复看的块（绝大多数），这里一个字都没有，看着就像这一块没有时间。
+            // 时间本来就在 b.ts 里，只是没画出来。现在两种情况都说：
+            //   复看过没改 → 「N 天前又想了一遍 · 没改」（TA真又想了一遍，不是被忘了）
+            //   只写过     → 「N 天前写的」
+            if (!b || !b.text) return null;
+            var ck = (box.checks || {})[fk] || 0;
+            var checked = ck > (b.ts || 0);
+            var when = checked ? ck : (Number(b.ts) || 0);
+            if (!when) return null;
+            var dd = Math.floor((Date.now() - when) / 86400000);
+            var ago = dd >= 1 ? dd + " 天前" : "今天";
+            return h("div", { "data-wk": "gazecardtime", style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 1, color: "rgba(172,138,91,.55)", marginTop: 5 } },
+              ago + (checked ? "又想了一遍 · 没改" : "写的"));
+          })(),
+          b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
+      // 手动复看始终可用，不等待聊天轮数或日期。
+      hasAny(charId) && onReview ? h("button", { "data-wk": "gazebtn", "data-kind": "review", onClick: onReview, disabled: reviewBusy,
+        style: { display: "block", width: "100%", marginTop: 20, padding: "10px 0", borderRadius: 999, border: "none", background: GOLD, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, boxShadow: "0 4px 14px rgba(172,138,91,.35)" } },
+        reviewBusy ? say("他在重看这十块…") : say("让他再看一遍这十块")) : null,
+      // 「再看一遍」问的是哪几块变了、只许小幅演进，所以一次只动一两块（她 2026-10-03：「每次只改一条」）。
+      //   卡要是一开始就建歪了（导入的老夫老妻卡，建成了「像刚认识」），得能整份推倒重来。
+      //   走的就是建卡那一枪；旧的每一版都进了 hist，「他从前都怎么写的」里翻得回来。
+      hasAny(charId) && onSeed ? h("button", { "data-wk": "gazebtn", "data-kind": "redo", onClick: () => { if (redoArm) { setRedoArm(false); onSeed(); } else setRedoArm(true); }, disabled: seedBusy,
+        style: { display: "block", width: "100%", marginTop: 12, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
+        seedBusy ? say("他在重写…") : redoArm ? "再点一下确认 · 旧的会留在从前那几版里" : say("整份重写")) : null,
+      revs.length ? h("button", { "data-wk": "gazebtn", "data-kind": "history", onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
+        say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
+      full, allSheet);
+  }
+  window.Gaze = { ME, US, KEYS, ASK, apply, isLocked, setLock, useVersion, delVersion, rollbackTurns, applyParsed, normKey, text, spec, nudge, updateRule, seedSpec, seed, hasAny, unseenKeys, unseenCount, markSeen, revisions, markChecked, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, reviewDue, REVIEW_FRESH, REVIEW_FLOOR_DAYS, REVIEW_FLOOR_MIN, REVIEW_RETRY_DAYS, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, acceptReview, plainWhy };
+  window.GazePage = GazePage;
+})();

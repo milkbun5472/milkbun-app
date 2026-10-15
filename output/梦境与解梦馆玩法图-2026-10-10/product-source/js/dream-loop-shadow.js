@@ -1,0 +1,196 @@
+// ============================================================
+// 内在生活系统 D · 步骤 1：梦回路队列运行时（SHADOW/QUEUE ONLY）
+// 只入队不生成不展示：REM 窗到点 → 采材料（引用+hash）→ 1B 阈值判定 → 入队或记无梦。
+// 存储独立 IDB lisa_dreams_v1（不进 saves）；梦≠记忆：本模块永不触碰 memories。
+// 账号归属：getSessionUser 血泪模板——取不到沿用旧 owner 绝不清仓。
+// 对 A/B/C/E 四线只读（C 的 sleepState 由 app.js 胶水层把 tick 返回值递进来）。
+// ============================================================
+(function () {
+  "use strict";
+  const DB_NAME = "lisa_dreams_v1", DB_VERSION = 1, DIAG_CAP = 400;
+  let dbPromise = null;
+  const core = () => window.DreamLoopCore;
+
+  function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((res, rej) => {
+      const q = indexedDB.open(DB_NAME, DB_VERSION);
+      q.onupgradeneeded = () => {
+        const db = q.result;
+        if (!db.objectStoreNames.contains("dreams")) db.createObjectStore("dreams", { keyPath: "key" });
+        if (!db.objectStoreNames.contains("diag")) db.createObjectStore("diag", { keyPath: "_id", autoIncrement: true });
+        if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "k" });
+      };
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    });
+    return dbPromise;
+  }
+  const rq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const done = tx => new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
+
+  async function ensureOwner() {
+    try {
+      const u = window.Cloud && window.Cloud.getSessionUser ? await window.Cloud.getSessionUser() : null;
+      if (!(u && u.id)) return; // unknown＝沿用现状，绝不清仓
+      const db = await openDB(), tx = db.transaction(["dreams", "diag", "meta"], "readwrite");
+      const cur = await rq(tx.objectStore("meta").get("owner"));
+      if (cur && cur.v && cur.v !== u.id) { tx.objectStore("dreams").clear(); tx.objectStore("diag").clear(); }
+      tx.objectStore("meta").put({ k: "owner", v: u.id });
+      await done(tx);
+    } catch (e) {}
+  }
+
+  async function addDiag(row) {
+    try {
+      const C = core();
+      const clean = { t: Date.now(), c: C ? C.hash(row.charId) : "?", kind: String(row.kind || ""), reason: row.reason || null, night: row.night || null, intensityBucket: typeof row.intensity === "number" ? Math.round(row.intensity * 10) / 10 : null };
+      const db = await openDB(), tx = db.transaction("diag", "readwrite"), s = tx.objectStore("diag");
+      s.add(clean);
+      const n = await rq(s.count());
+      if (n > DIAG_CAP) (await rq(s.getAllKeys())).slice(0, n - DIAG_CAP).forEach(k => s.delete(k));
+      await done(tx);
+    } catch (e) {}
+  }
+
+  // 材料采集（全部 best-effort 只读；正文只就地哈希不出函数）
+  async function gatherSources(char, windowRange) {
+    const src = { chatItems: [], emotionCurrent: null, relationActiveAxes: [], afterglowLevel: 0, calendarEvents: [] };
+    try {
+      const msgs = (typeof loadJSON === "function" ? loadJSON("x_chat:" + char.id, []) : []) || [];
+      src.chatItems = msgs.map((m, i) => m && ({ m, i }))
+        .filter(x => x && x.m && !x.m.recalled && Number(x.m.ts || 0) >= windowRange.startTs && Number(x.m.ts || 0) < windowRange.endTs)
+        .map(x => ({ id: x.m.id || x.m.turnId || (String(x.m.ts || 0) + ":" + x.i), content: x.m.content }));
+    } catch (e) {}
+    try {
+      const u = window.Cloud && window.Cloud.getSessionUser ? await window.Cloud.getSessionUser() : null;
+      const ownerId = u && u.id ? u.id : "local-device";
+      const st = window.InnerLifeAShadow ? await window.InnerLifeAShadow.get(ownerId, char.id) : null;
+      if (st && st.emotion && st.emotion.current) src.emotionCurrent = st.emotion.current;
+      if (st && st.relationAxes && st.relationAxes.axes) src.relationActiveAxes = Object.entries(st.relationAxes.axes).filter(([, a]) => a && a.active).map(([k]) => k);
+    } catch (e) {}
+    return src;
+  }
+
+  // 胶水入口：app.js 的 C 线 tick 后调用（sleepState=tick 返回值，只读）
+  // opts.asOf：补错过的那一夜时，按那一夜醒来那一刻判 REM 窗（dream-loop-core 的 missedNight）
+  async function observe(char, sleepState, opts) {
+    try {
+      const C = core();
+      if (!C || !char || !char.id || !sleepState) return null;
+      const at = opts && Number.isFinite(Number(opts.asOf)) ? Number(opts.asOf) : Date.now();
+      if (!C.remDue(sleepState, at)) return null;
+      const deviceOffsetMinutes = -new Date().getTimezoneOffset();
+      const shift = typeof schedTzShiftMin === "function" ? (schedTzShiftMin(char) || 0) : 0;
+      const roleOffsetMinutes = deviceOffsetMinutes + shift;
+      const night = C.nightKeyOf(sleepState.sleepStartTs, roleOffsetMinutes);
+      const windowRange = C.nightWindow(night, roleOffsetMinutes, sleepState.sleepStartTs);
+      if (!windowRange) return null;
+      const key = C.dreamKey(char.id, night);
+      await ensureOwner();
+      const db = await openDB();
+      const existed = await rq(db.transaction("dreams", "readonly").objectStore("dreams").get(key));
+      if (existed) return null; // 一夜一梦幂等（含已记录的无梦夜）
+      const material = C.buildMaterial(await gatherSources(char, windowRange));
+      // 碎掉的梦会回来（v63.09）：有一场没做完的，这晚就是它回来的夜——不看情绪够不够
+      const all = C.recurDue ? await rq(db.transaction("dreams", "readonly").objectStore("dreams").getAll()) : [];
+      const back = C.recurDue ? C.recurDue(all, char.id, night) : null;
+      const verdict = back ? { dream: true, reason: "recur" } : C.shouldDream(material, {});
+      const row = { key, charId: char.id, nightKey: night, status: verdict.dream ? "queued" : "no_dream",
+        materialRefs: material.refs, peaks: material.peaks, relationActiveAxes: material.relationActiveAxes,
+        intensity: material.intensity, reason: verdict.reason, source: "dream", createdAt: Date.now() };
+      if (back) { row.recurOf = back.key; row.motifs = back.motifs || []; row.tone = back.tone || ""; }
+      const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(row);
+      if (back) tx.objectStore("dreams").put({ ...back, recurred: key });   // 一场梦只回来一次
+      await done(tx);
+      addDiag({ charId: char.id, kind: verdict.dream ? "enqueued" : "skipped_no_dream", reason: verdict.reason, night, intensity: material.intensity });
+      return row.status;
+    } catch (e) { return null; }
+  }
+
+  async function report(n) {
+    try {
+      await ensureOwner();
+      const db = await openDB();
+      const all = (await rq(db.transaction("diag", "readonly").objectStore("diag").getAll())).slice(-(n || 200));
+      const agg = { observations: all.length, enqueued: 0, noDream: {}, nights: new Set() };
+      all.forEach(r => {
+        if (r.kind === "enqueued") agg.enqueued++;
+        if (r.kind === "skipped_no_dream") agg.noDream[r.reason || "?"] = (agg.noDream[r.reason || "?"] || 0) + 1;
+        if (r.night) agg.nights.add(r.night);
+      });
+      const queued = (await rq(db.transaction("dreams", "readonly").objectStore("dreams").getAll())).filter(d => d.status === "queued").length;
+      return { observations: agg.observations, enqueued: agg.enqueued, noDream: agg.noDream, nightsSeen: agg.nights.size, queuedNow: queued };
+    } catch (e) { return { error: "dream_report_failed" }; }
+  }
+  async function clearAll() { try { const db = await openDB(), tx = db.transaction(["dreams", "diag", "meta"], "readwrite"); ["dreams", "diag", "meta"].forEach(s => tx.objectStore(s).clear()); await done(tx); } catch (e) {} }
+
+  // ---- 步骤 2：给解梦馆的读写口（懒生成由 UI 触发，这里只存取）----
+  async function listDreams(limit) {
+    try {
+      await ensureOwner();
+      const db = await openDB();
+      const all = await rq(db.transaction("dreams", "readonly").objectStore("dreams").getAll());
+      return all.sort((a, b) => String(b.nightKey).localeCompare(String(a.nightKey)) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, limit || 60);
+    } catch (e) { return []; }
+  }
+  async function saveGenerated(key, gen) {
+    try {
+      const db = await openDB();
+      const row = await rq(db.transaction("dreams", "readonly").objectStore("dreams").get(key));
+      if (!row || row.status !== "queued") return null;
+      const next = { ...row, status: "generated",
+        narrative: String(gen.narrative || "").slice(0, 2000), motifs: (Array.isArray(gen.motifs) ? gen.motifs : []).slice(0, 4).map(x => String(x).slice(0, 12)),
+        tone: String(gen.tone || "").slice(0, 8), wakeLine: String(gen.wakeLine || "").slice(0, 120), generatedAt: Date.now() };
+      const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(next); await done(tx);
+      addDiag({ charId: row.charId, kind: "generated", night: row.nightKey, intensity: row.intensity });
+      return next;
+    } catch (e) { return null; }
+  }
+
+  // ---- 步骤 2.5：入梦材料的文字版（v62.99 合龙）----
+  // 材料包只存引用+hash（铁律），真要喂模型时再从 x_chat 里按引用把那几句捞出来。
+  // 原来这段捞法写在解梦馆的 generate 里；梦境 app 也要用同一份，所以挪到这儿【只写一处】。
+  function excerptsFor(row, limit) {
+    try {
+      const msgs = loadJSON("x_chat:" + row.charId, []) || [];
+      const refs = new Map((row.materialRefs || []).filter(r => r.kind === "chat").map(r => [String(r.refId), r]));
+      const out = [], cap = limit || 12, C = core();
+      msgs.forEach((m, i) => {
+        const mid = m.id || m.turnId || (String(m.ts || 0) + ":" + i);
+        const ref = refs.get(String(mid));
+        if (ref && m.content && C && C.refMatches(ref, m.content) && out.length < cap) out.push(String(m.content).slice(0, 80));
+      });
+      return out;
+    } catch (e) { return []; }
+  }
+  // ---- 合龙（v62.99）：她从梦境 app 闯进过这场梦，把结果记回来 ----
+  // outcome: fulfilled（抵达梦核）| broken（梦碎）| left（主动醒来）。
+  // 只记一行，不改 status（懒生成那条路照旧）；解梦馆据此显示「你进去过」。
+  async function markEntered(key, info) {
+    try {
+      const db = await openDB();
+      const row = await rq(db.transaction("dreams", "readonly").objectStore("dreams").get(key));
+      if (!row) return null;
+      const next = { ...row, entered: { sessionId: String(info && info.sessionId || ""), outcome: String(info && info.outcome || ""), ts: Date.now() } };
+      const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(next); await done(tx);
+      addDiag({ charId: row.charId, kind: "entered", night: row.nightKey, outcome: next.entered.outcome });
+      return next;
+    } catch (e) { return null; }
+  }
+
+  // 删一场（群友 2026-10-05：「解梦馆删掉的 char 的梦不能删除吗」）；删角色时整个人的一起清（forChar）
+  async function removeDream(key) {
+    try { const db = await openDB(), tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").delete(key); await done(tx); return true; } catch (e) { return false; }
+  }
+  async function removeCharDreams(charId) {
+    try {
+      const db = await openDB();
+      const all = await rq(db.transaction("dreams", "readonly").objectStore("dreams").getAll());
+      const tx = db.transaction("dreams", "readwrite");
+      all.filter(d => d && d.charId === charId).forEach(d => tx.objectStore("dreams").delete(d.key));
+      await done(tx); return true;
+    } catch (e) { return false; }
+  }
+  window.DreamLoop = { observe, report, clearAll, listDreams, saveGenerated, excerptsFor, markEntered, removeDream, removeCharDreams };
+})();

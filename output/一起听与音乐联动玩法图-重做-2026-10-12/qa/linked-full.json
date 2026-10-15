@@ -1,0 +1,15 @@
+{
+  "chatViewport": {
+    "width": 390,
+    "height": 1100
+  },
+  "songSwitch": "夜车过站",
+  "private": {
+    "generated": 16,
+    "displaySongs": 6,
+    "currentId": "sg_1791853651410_910005",
+    "phoneSongs": 6
+  },
+  "carvedSong": "回声留在窗边",
+  "errors": []
+}
