@@ -195,11 +195,30 @@
   //   settings.recurring: [{ id, name, type, amount, currency, category, catIcon, account, day(1–28), startMk, lastMk }]
   //   打开记账时补记：从 lastMk 的下个月（没有就 startMk）一直补到这个月，只补日子已经到了的。
   //   每笔的 id 是 "r" + 规则 id + 月份，补记重复跑也不会记两次。
+  // 每周／每两周（群友 2026-10-15「想要一周一周进帐」）：every＝"week"/"2week"，wd＝周几（1 周一…7 周日），
+  //   起点 startDate、记到 lastDate；每笔 id＝"r"+规则id+那天日期，补记重跑也不会记两次。不填 every＝原来的每月。
+  const recurStep = r => r.every === "2week" ? 14 : r.every === "week" ? 7 : 0;
+  const addDays = (k, n) => { const x = new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10) + n); return ymd(x); };
+  function recurWeekStart(wd, now) { const t = new Date(now.getFullYear(), now.getMonth(), now.getDate()), cur = (t.getDay() + 6) % 7 + 1; return ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() + ((wd - cur + 7) % 7))); }
   function runRecurring(d, now) {
     now = now || new Date();
     const today = ymd(now), thisMk = today.slice(0, 7);
     let added = 0;
     (d.settings.recurring || []).forEach(r => {
+      const step = recurStep(r);
+      if (step) {
+        let k = r.lastDate ? addDays(r.lastDate, step) : (r.startDate || today);
+        for (let guard = 0; guard < 400 && k <= today; guard++, k = addDays(k, step)) {
+          const id = "r" + r.id + k.replace(/-/g, "");
+          if (!d.txns.some(x => x.id === id)) {
+            d.txns = [{ id, ts: new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10), 9).getTime(), date: k, type: r.type === "income" ? "income" : "expense", amount: Number(r.amount) || 0,
+              currency: r.currency, account: r.account || "", category: r.category, catEmoji: "", catIcon: r.catIcon || "", note: r.name || "", recur: r.id, comments: [] }].concat(d.txns);
+            added++;
+          }
+          r.lastDate = k;
+        }
+        return;
+      }
       const D = Math.min(28, Math.max(1, parseInt(r.day, 10) || 1));
       let mk = r.lastMk ? shiftMonth(r.lastMk, 1) : (r.startMk || thisMk);
       for (let guard = 0; guard < 36 && mk <= thisMk; guard++, mk = shiftMonth(mk, 1)) {
@@ -219,6 +238,12 @@
   // 下一次什么时候记（给列表和提醒用）
   function recurNext(r, now) {
     now = now || new Date();
+    const step = recurStep(r);
+    if (step) {
+      const date = r.lastDate ? addDays(r.lastDate, step) : (r.startDate || ymd(now));
+      const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return { date, days: Math.round((new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)) - t0) / 86400000) };
+    }
     const D = Math.min(28, Math.max(1, parseInt(r.day, 10) || 1)), today = ymd(now);
     let mk = r.lastMk ? shiftMonth(r.lastMk, 1) : (r.startMk || today.slice(0, 7));
     const date = mk + "-" + pad(D);
@@ -2428,7 +2453,7 @@
                 h("span", { style: { width: 28, display: "flex", justifyContent: "center" } }, h(CategoryGlyph, { name: r.category, icon: r.catIcon, size: 26 })),
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, r.name || r.category),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "每月 " + r.day + " 号 · " + r.category + (r.account ? " · " + acctName(s, r.account) : "") + " · 下次 " + fmtDay(nx.date))),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, recurWhen(r) + " · " + r.category + (r.account ? " · " + acctName(s, r.account) : "") + " · 下次 " + fmtDay(nx.date))),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: r.type === "income" ? INC : t.ink } }, (r.type === "income" ? "+" : "") + fmtAmt(r.amount, c)),
                 h("span", { style: { color: t.fog } }, "›")); }),
             h("button", { onClick: () => setRecurEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "ldgsettingssheetbtn", "data-part": "4" }, "＋ 添加周期账单")) : null,
@@ -2503,6 +2528,8 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
       confirm ? h(ConfirmDialog, { title: confirm.title, body: confirm.body, confirmLabel: "删掉", danger: true, onConfirm: confirm.onConfirm, onCancel: () => setConfirm(null) }) : null);
   }
 
+  const WD = ["", "周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+  function recurWhen(r) { return r.every === "week" ? "每" + WD[r.wd || 1] : r.every === "2week" ? "每两周" + WD[r.wd || 1].slice(1) : "每月 " + r.day + " 号"; }
   // 添加 / 改一条周期账单：整页（施工规则/no-half-sheet.md）
   function RecurEditor(props) {
     const t = glassInk(useTheme(), props.sk);
@@ -2514,19 +2541,28 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
     const [cat, setCat] = useState(r0.category || "");
     const [acct, setAcct] = useState(r0.account || "");
     const [day, setDay] = useState(r0.day ? String(r0.day) : String(Math.min(28, new Date().getDate())));
+    const [every, setEvery] = useState(r0.every === "week" || r0.every === "2week" ? r0.every : "month");
+    const [wd, setWd] = useState(r0.wd || ((new Date().getDay() + 6) % 7 + 1));
     const [confirmDel, setConfirmDel] = useState(false);
     const cats = (s.cats && s.cats[type]) || [];
     const accts = (s.accounts || []).filter(a => a.currency === code);
     const D = parseInt(day, 10), amt = Math.round((parseFloat(String(amount).replace(/[^\d.]/g, "")) || 0) * 100) / 100;
-    const ok = amt > 0 && cat && cats.some(c => c.name === cat) && D >= 1 && D <= 28;
+    const ok = amt > 0 && cat && cats.some(c => c.name === cat) && (every !== "month" || (D >= 1 && D <= 28));
     const save = () => {
       if (!ok) return;
       const c = cats.find(x => x.name === cat) || {};
       const now = new Date(), thisMk = thisMonthKey();
       // 新建：第一笔落在今天或以后——日子这个月已经过了就从下个月开始，不替她倒补
-      const startMk = r0.startMk || (now.getDate() > D ? shiftMonth(thisMk, 1) : thisMk);
-      props.onSave({ id: r0.id || Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), name: name.trim().slice(0, 20), type, amount: amt, currency: code, category: cat, catIcon: c.icon || "",
-        account: accts.some(a => a.id === acct) ? acct : "", day: D, startMk, lastMk: r0.lastMk || "" });
+      const base = { id: r0.id || Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), name: name.trim().slice(0, 20), type, amount: amt, currency: code, category: cat, catIcon: c.icon || "",
+        account: accts.some(a => a.id === acct) ? acct : "" };
+      if (every !== "month") {
+        // 周期或周几改了就从今天起重新数（不倒补）；没改照旧接着记
+        const same = r0.every === every && r0.wd === wd && r0.startDate;
+        props.onSave(Object.assign(base, { every, wd, startDate: same ? r0.startDate : recurWeekStart(wd, now), lastDate: same ? (r0.lastDate || "") : "" }));
+        return;
+      }
+      const startMk = r0.startMk && !r0.every ? r0.startMk : (now.getDate() > D ? shiftMonth(thisMk, 1) : thisMk);
+      props.onSave(Object.assign(base, { day: D, startMk, lastMk: !r0.every ? (r0.lastMk || "") : "" }));
     };
     const g = props.sk && props.sk.id === "glass";
     const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
@@ -2542,11 +2578,13 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 20px" } },
           label("叫什么（会写进备注）"), input(name, setName, "比如 房租"),
           label("支出还是收入"), wrap([pill(type === "expense", "支出", () => { setType("expense"); setCat(""); }), pill(type === "income", "收入", () => { setType("income"); setCat(""); })]),
-          label("每月多少"), input(amount, setAmount, "比如 1800", "decimal"),
+          label("多久一次"), wrap([pill(every === "month", "每月", () => setEvery("month")), pill(every === "week", "每周", () => setEvery("week")), pill(every === "2week", "每两周", () => setEvery("2week"))]),
+          label(every === "month" ? "每月多少" : every === "week" ? "每周多少" : "每两周多少"), input(amount, setAmount, "比如 1800", "decimal"),
           props.curs.length > 1 ? h(Fragment, null, label("币种"), wrap(props.curs.map(c => pill(code === c.code, c.label, () => setCode(c.code), null, c.code)))) : null,
           label("分类"), wrap(cats.map(c => pill(cat === c.name, c.name, () => setCat(c.name), null, c.name))),
           accts.length ? h(Fragment, null, label("从哪个账户（可不选）"), wrap([pill(!acct, "不记账户", () => setAcct(""), null, "none")].concat(accts.map(a => pill(acct === a.id, a.name, () => setAcct(a.id), acctType(a.type).tint, a.id))))) : null,
-          label("每月几号（1–28）"), input(day, setDay, "1", "numeric"),
+          every === "month" ? h(Fragment, null, label("每月几号（1–28）"), input(day, setDay, "1", "numeric"))
+            : h(Fragment, null, label("每周几"), wrap([1, 2, 3, 4, 5, 6, 7].map(n => pill(wd === n, WD[n], () => setWd(n), null, "wd" + n)))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "到了那天打开记账会自动记上；那天没打开，下次打开时补上。删掉这条以后不再记，已经记上的不会动。")),
         h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("button", { onClick: save, disabled: !ok, className: "w-full active:opacity-85", style: { minHeight: 48, background: ok ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgrecureditorbtn", "data-part": "3" }, "保存"))),
