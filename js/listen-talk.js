@@ -34,6 +34,19 @@
     if (m) { try { const d = JSON.parse(m[0]); const arr = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []); return arr.map(function (x) { return String(x || "").trim(); }).filter(Boolean); } catch (e) {} }
     return s && !/^[\[{]/.test(s) ? [s] : [];
   }
+  // 状态卡那几格（她 2026-10-15：「在一起听里面打字状态卡不会变」）：跟说的话同一份 JSON 里带回来，
+  //   交给 app 那头按单聊/房间各自写进状态卡。没写的格子就是没变。
+  function parseState(raw) {
+    const m = String(raw || "").match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+      const d = JSON.parse(m[0]), out = {};
+      const mood = d.mood && typeof d.mood === "object" ? d.mood.label : d.mood;
+      if (mood) out.mood = String(mood).trim();
+      ["thought", "action"].forEach(function (k) { if (typeof d[k] === "string" && d[k].trim() && d[k].trim() !== "null") out[k] = d[k].trim(); });
+      return Object.keys(out).length ? out : null;
+    } catch (e) { return null; }
+  }
 
   // mode：reply＝她说了一句；auto＝歌放着，TA想说就说（可以不说）
   async function askListen(p, char, song, lyric, mode, text) {
@@ -49,10 +62,12 @@
       + (mode === "auto"
         ? "歌正放着，没人问你。这一段你真有反应才说一两句，没什么想说的就给空数组——安静一起听本来就是常态。\n"
         : "")
-      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"]}";
+      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"],\"mood\":\"此刻中文心情词\",\"action\":\"此刻在做什么，一句\",\"thought\":\"一句没说出口的念头，没有就填 null\"}";
     const msg = mode === "auto" ? "（歌放着）" : text;
     const raw = await callAI(p.active, sys, [{ role: "user", content: msg }], { maxTokens: 65000 });
-    return parseSay(raw);
+    const say = parseSay(raw), st = parseState(raw);
+    if (st && p.onState) try { p.onState(char.id, st); } catch (e) {}
+    return say;
   }
 
   function lyricWindow(lines, active, cur) {
@@ -166,6 +181,6 @@
     return { stage: stage, bar: bar };
   }
 
-  window.ListenTalk = { KEY, listenLogText, askListen, lyricWindow, parseSay, useTalk: ListenTalk };
+  window.ListenTalk = { KEY, listenLogText, askListen, lyricWindow, parseSay, parseState, useTalk: ListenTalk };
   window.listenLogText = listenLogText;
 })();

@@ -31322,6 +31322,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return { listenRoomName: room.name || "一起听", talkKey: key,
         ctxFor: c => String(c.id) === String(lr.charId) ? roomContextFor(c, key, room, { chat: true }) : ctxFor(c) };
     })(),
+    // 状态卡：跟单聊／房间同一套写法——房里写这间房的状态，别处写TA本人那张
+    onListenState: (charId, st) => {
+      const lr = listenRoom, c = (characters || []).find(x => String(x.id) === String(charId));
+      if (!c) return;
+      if (lr && String(lr.charId) === String(charId) && listenRoomOf(lr.charId, lr.roomId))
+        setRoomThought(window.ChatRooms.chatKey(lr.charId, lr.roomId), st.thought, { mood: st.mood, state: { action: st.action } });
+      else writeGroupLiveState(c, st, "listen_" + Date.now(), undefined);
+    },
     onToChat: (charId, rows) => pChat((function () {
       const lr = listenRoom;
       return lr && String(lr.charId) === String(charId) && listenRoomOf(lr.charId, lr.roomId) ? window.ChatRooms.chatKey(lr.charId, lr.roomId) : charId;
