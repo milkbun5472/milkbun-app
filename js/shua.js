@@ -132,20 +132,21 @@
   //   照论坛「回我那层楼」那一套：一枪写 2~5 条接在她这句后面——被她回的那个人【必回】，
   //   作者看情况，再来几个路人，可以互相搭话、唱反调；不是每条都冲着她。
   //   原来只有作者一个人、还写着「不想回就留空」，于是常常一句没有；路人的视频更是谁都不理她。
-  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":"","is_target":false,"is_author":false}]}';
+  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":""}]}';
+  // 路人那几条（2026-10-15 第二版：她嫌「ooc、不够活人」）——
+  //   ① 认识她的人（作者是角色、被她回的是角色）不在这一枪里写：他们各自走自己那份完整的人设和记忆（见 crowd），
+  //      这里只写路过的网友，免得一个只看过两行简介的模型去演她男朋友。
+  //   ② 活人感：刷评论区的人不复述视频、不写作文；有人只发一串哈哈、有人只抓一个词、有人答非所问。
   function crowdSystem(v, o) {
     return AC() + CB()
       + "【场景】「" + APP_NAME + "」上一条视频（@" + v.author + "）拍的是：" + S(v.scene).slice(0, 160) + (v.caption ? "；文案：" + S(v.caption).slice(0, 80) : "") + "。"
       + "\n" + o.authorLine
-      + (o.briefs.length ? "\n\n" + o.briefs.join("\n\n") : "")
       + "\n\n【这一串评论的现场】\n" + o.transcript
-      + "\n\n现在「" + o.me + "」" + (o.stranger ? "（一个在场谁都不认识的账号，没人知道背后是谁）" : "") + "刚说了：「" + o.text + "」。"
-      + "\n写接在后面的 2~5 条回复 items（name 网名、text 说的话、to 回的是这串里谁——照抄名字，冲着「" + o.me + "」就写她的名字）："
-      + (o.target ? "\n① **必须恰有一条是「" + o.target + "」回她的**（is_target 设 true）——人家在自己评论底下被回了，总要接一句；怎么接照这个人来，冷淡、怼回去、敷衍也算接。" : "\n① 没有人被她点名，就让路过的人来接。")
-      + (o.authorFree ? "\n② 作者「" + v.author + "」看情况：对这句真有话说才回一条（is_author 设 true），没话说就不出现。" : "")
-      + "\n③ 其余是刷到这条的路人网友：语气各异，搭话、起哄、不同意、跑题都行，可以回她也可以回楼里别人，别一个调子，也别人人都夸。"
-      + "\n⚠️「" + o.me + "」是真人本人，你绝对不许以她的名义写任何一句。"
-      + (o.knownNames.length ? "\n能用的名字里，这几个是有固定身份的人，只能照上面给的样子说话：" + o.knownNames.join("、") + "；其他人就是普通网友，网名你起。" : "");
+      + "\n\n写 " + o.n + " 条刷到这里的路人网友接在后面的回复 items（name 网名、text、to 回的是这串里谁——照抄名字）。"
+      + (o.must ? "\n第一条必须是「" + o.must + "」回「" + o.me + "」的（name 照抄「" + o.must + "」）——人家在自己那句底下被回了，总要接一句，冷淡、怼回去也算；后面的才是别的路人。" : "")
+      + "\n他们是素不相识的陌生网友，只看得见这条视频和这串评论，不知道谁跟谁什么关系，" + (o.known.length ? "也不认识「" + o.known.join("」「") + "」，只会把他们当普通账号看。" : "")
+      + "\n像真在刷评论区的人：短，一句话甚至几个字；不复述视频内容、不总结、不写作文；有人只发「哈哈哈哈」或一个表情，有人只抓住一个词起哄，有人唱反调，有人答非所问。口气、长短、标点各不一样。"
+      + "\n⚠️不许以「" + o.me + "」" + (o.known.length ? "或「" + o.known.join("」「") + "」" : "") + "的名义写任何一句。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
   function mineSystem(v, uName, chars, briefs, co, cp, same) {
@@ -590,34 +591,48 @@
     };
     // 她评论 / 回楼：都走 crowd（上面那一串）。回复一条一条冒出来，隔一两秒一条，像真有人陆续在回（节奏同论坛）
     const crowd = async (vid, cmId, myText, targetCm) => {
-      const v = dbRef.current.videos.find(x => x.id === vid); if (!v || !props.ask) return;
+      const v = dbRef.current.videos.find(x => x.id === vid); if (!v) return;
       const cm = arr(v.comments).find(x => x.id === cmId); if (!cm) return;
       const authorC = v.by === "char" ? charOf(v.charId) : (v.cp ? charOf(v.cp) : null);
-      const tgtC = targetCm && targetCm.charId ? charOf(targetCm.charId) : (targetCm && targetCm.isAuthor ? authorC : null);
-      const stranger = !!onAlt || (authorC && !knows(authorC)) || (tgtC && !knows(tgtC));
-      const target = targetCm && targetCm.by !== "me" ? targetCm.name : "";
-      const people = [authorC, tgtC].filter((c, k, a) => c && a.indexOf(c) === k);
-      const briefs = people.map(c => (props.briefFor ? props.briefFor(c) : c.name) + "\n（" + c.name + " 在这个平台上的号叫「" + (c === authorC && v.by === "char" ? v.author : S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name) + "」）");
-      const lines = [cm.name + "：" + cm.text].concat(arr(cm.replies).map(r => r.name + "：" + r.text));
-      const authorLine = v.by === "me" ? "这条是「" + myName + "」自己发的。" : authorC ? "发这条的是 " + authorC.name + "（号「" + v.author + "」）。" : "发这条的是博主「" + v.author + "」，一个普通网友。";
+      const tgtC = targetCm && targetCm.charId ? charOf(targetCm.charId) : null;
+      // 谁一定接：她回的是角色 → 那个角色；她在角色的视频（或你俩的情侣号）底下评论 → 作者本人
+      const resp = tgtC || (!targetCm || targetCm.isAuthor ? authorC : null);
+      const respName = resp ? (resp === authorC ? v.author : S(((dbRef.current.accounts || {})[resp.id] || {}).handle) || resp.name) : "";
+      const stranger = !!onAlt || (resp && !knows(resp));
+      const lines = () => { const c2 = arr((dbRef.current.videos.find(x => x.id === vid) || {}).comments).find(x => x.id === cmId) || cm; return [c2.name + "：" + c2.text].concat(arr(c2.replies).map(r => r.name + (r.to ? " 回复 @" + r.to : "") + "：" + r.text)).join("\n"); };
+      const put = r => patchV(vid, xv => Object.assign({}, xv, { comments: arr(xv.comments).map(c2 => c2.id === cmId ? Object.assign({}, c2, { replies: arr(c2.replies).concat([r]) }) : c2) }));
+      const authorLine = v.cp ? "这条发在一个情侣号「" + v.author + "」上。" : v.by === "me" ? "这条是「" + myName + "」自己发的。" : "发这条的是「" + v.author + "」。";
       setBusy("reply");
       try {
-        const d = await props.ask(crowdSystem(v, { me: myName, text: myText, stranger, target, authorFree: v.by !== "me" && target !== v.author, authorLine, briefs, transcript: lines.join("\n"), knownNames: people.map(c => c.name).concat(people.length ? [v.author] : []) }), CROWD_SHAPE, (tgtC || authorC || {}).id);
-        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) !== myName).slice(0, 6);
-        let wait = 0;
-        items.forEach((x, k) => {
-          const byChar = x.is_target && tgtC ? tgtC : x.is_author && authorC ? authorC : people.find(c => c.name === S(x.name)) || null;
-          const name = x.is_target && target ? target : x.is_author ? v.author : byChar ? (byChar === authorC && v.by === "char" ? v.author : S(((dbRef.current.accounts || {})[byChar.id] || {}).handle) || byChar.name) : S(x.name).slice(0, 20);
-          const to = S(x.to) && S(x.to) !== name ? S(x.to).slice(0, 20) : "";
-          const r = { id: uid("rp"), name, text: S(x.text).slice(0, 300), by: byChar ? "char" : "npc", ...(byChar ? { charId: byChar.id } : {}), ...(to ? { to } : {}), ts: Date.now() + k };
-          wait += k ? 900 + Math.random() * 2200 : 600;
-          setTimeout(() => {
-            patchV(vid, xv => Object.assign({}, xv, { comments: arr(xv.comments).map(c2 => c2.id === cmId ? Object.assign({}, c2, { replies: arr(c2.replies).concat([r]) }) : c2) }));
-            if (to === myName || x.is_target) note(name + " 回复了你：" + r.text, vid);
-          }, wait);
-        });
-        if (!items.length) toast("这回没人接话");
-        setTimeout(() => setBusy(b => b === "reply" ? null : b), wait + 200);
+        // ① 认识她的那个人：走TA自己那份完整上下文（人设、记忆、你俩的关系），当着评论区所有人打字回
+        if (resp && props.probeAs) {
+          const acct = v.cp && resp === authorC ? "这条视频发在你和 " + uName + " 共用的情侣号「" + v.author + "」上，你也是这个号的主人；你现在用这个号回。"
+            : resp === authorC ? "这是你自己号「" + v.author + "」上发的视频。" : "你用自己的号「" + respName + "」评论过这条视频。";
+          const who = stranger ? "刚才一个你不认识的账号「" + myName + "」在底下说话了——你不知道那是谁，当陌生网友对待。"
+            : "刚才 " + uName + " 用她的号「" + myName + "」在底下说话了——是她本人，你认得出。";
+          const d = await props.probeAs(resp, "【这一轮发生在「" + APP_NAME + "」的评论区】视频拍的是：" + S(v.scene).slice(0, 160) + (v.caption ? "；文案：" + S(v.caption).slice(0, 80) : "") + "。\n" + acct
+            + "\n这一串评论现在是这样：\n" + lines() + "\n\n" + who + "她说：「" + myText + "」。\n你回她一句——评论区是公开的，别的网友都看得见，照你这个人、你俩现在的关系、当着外人会怎么说来回。"
+            + "这是打字，不是当面：没有动作、没有旁白，就是你打出去的那一句（短，像真在评论区回）。", '{"reply":""}');
+          const t0 = S(d && d.reply).slice(0, 300);
+          if (t0) { put({ id: uid("rp"), name: respName, text: t0, by: "char", charId: resp.id, ...(resp === authorC ? { isAuthor: true } : {}), to: myName, ts: Date.now() }); note(respName + " 回复了你：" + t0, vid); }
+        }
+        // ② 路人：看着这串（含TA刚回的那句）陆续凑进来，一两秒一条
+        if (props.ask) {
+          const known = [respName, authorC && v.author].filter((x, k, a) => x && a.indexOf(x) === k);
+          // 她回的是一个路人：那个路人必接（论坛「层主必回」同一条）
+          const must = !resp && targetCm && targetCm.by === "npc" ? S(targetCm.name) : "";
+          const d = await props.ask(crowdSystem(v, { me: myName, n: resp ? "1~3" : must ? "2~4" : "2~4", must, authorLine, transcript: lines(), known }), CROWD_SHAPE, (resp || authorC || {}).id);
+          const bad = new Set([myName].concat(known));
+          const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && !bad.has(S(x.name))).slice(0, 4);
+          let wait = 0;
+          items.forEach((x, k) => {
+            const to = S(x.to) && S(x.to) !== S(x.name) ? S(x.to).slice(0, 20) : "";
+            const r = { id: uid("rp"), name: S(x.name).slice(0, 20), text: S(x.text).slice(0, 200), by: "npc", ...(to ? { to } : {}), ts: Date.now() + k };
+            wait += 800 + Math.random() * 2200;
+            setTimeout(() => { put(r); if (to === myName) note(r.name + " 回复了你：" + r.text, vid); }, wait);
+          });
+          setTimeout(() => setBusy(b => b === "reply" ? null : b), wait + 200);
+        } else setBusy(null);
       } catch (e) { toast("回复没刷出来：" + ((e && e.message) || "")); setBusy(null); }
     };
     // 她评论：落一条自己的，然后那一串陆续接上来（作者的视频作者必回；她自己的视频是路人和认识的人来接）
@@ -625,7 +640,7 @@
       const v0 = dbRef.current.videos.find(x => x.id === id); if (!v0) return;
       const mine = { id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ts: Date.now() };
       patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([mine]) }));
-      crowd(id, mine.id, text, v0.by !== "me" ? { name: v0.author, isAuthor: true, by: v0.by, charId: v0.by === "char" ? v0.charId : null } : null);
+      crowd(id, mine.id, text, { name: v0.author, isAuthor: true, by: v0.by });
     };
     // 她小号发的那条：几个人里随缘有一两个刷到。评了她看得见；认出来了只记在TA心里，她不会被告知
     const spotAlt = async (v, alt) => {

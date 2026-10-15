@@ -46,7 +46,7 @@ test("点进评论再回来还在原地，不回第一条", () => {
 test("小号：TA只当陌生人；小号发的不叫熟人；作品各列各的", () => {
   assert.match(S, /const onAlt = !!\(altName && db\.me && db\.me\.using === "alt"\);/);
   // 2026-10-15 评论那一串换成 crowdSystem：小号/不认识的面具评论时，在场的人只看到一个谁都不认识的账号
-  assert.match(S, /（一个在场谁都不认识的账号，没人知道背后是谁）/);
+  assert.match(S, /刚才一个你不认识的账号「" \+ myName \+ "」在底下说话了——你不知道那是谁/);
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}   \/\/ 小号发的/);
   assert.match(S, /ofSkin\.filter\(v => v\.by === "me" && !v\.cp && !!v\.alt === onAlt[ &)]/);
 });
@@ -205,7 +205,7 @@ test("消息记着是哪条视频，点进去就是那条", () => {
   const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
   assert.match(src, /const note = \(text, vid\) =>/);
   // 评论回复那一串（crowd）里记的是 vid（2026-10-15 换写法），一起数
-  assert.equal((src.match(/note\([^;]*, (?:v\.id|vid)\)/g) || []).length, 3, "每处提醒都带上视频");
+  assert.equal((src.match(/note\([^;]*, (?:v\.id|vid)\)/g) || []).length, 4, "每处提醒都带上视频");
   assert.match(src, /const openNote = n =>/);
   assert.match(src, /setPage\(vidSkin\(v\) === "b" \? \{ kind: "bdetail", id: v\.id \} : \{ kind: "one", id: v\.id \}\)/);
 });
