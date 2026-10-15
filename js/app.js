@@ -10070,12 +10070,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     else if (r.groupId) { const g = groups.find(x => x.id === r.groupId); if (g) setOfflineGroup(g); }
   };
   // 一起听：记住从哪儿进来的 → 退出/悬浮球点回时回到原处（如聊天时打开悬浮切歌，切完回聊天）
+  // 从哪间一起听房进来的（{charId, roomId}）。bind 不给＝维持原样（悬浮小唱片点回来还在那间房里）；
+  //   给 null＝从主屏、邀请卡这些「不在房里」的入口进来，说的话照旧落单聊。
+  const [listenRoom, setListenRoom] = useState(null);
   const listenReturnRef = useRef("home");
   // 线下浮层是 z-20，会盖住听歌屏：从线下点音乐浮窗只 setScreen("listen") 的话，屏切了但被浮层盖着，
   // 看上去就是「点了没反应」（她 2026-08-28 报）。和 onOpenSched 跳日历是同一个坑：得先收浮层。
   // 收了还要能回去——退出听歌时按原样把那层放回来，别把她扔回聊天列表。
   const listenReturnOfflineRef = useRef(null);
-  const goListen = () => {
+  const goListen = bind => {
+    if (bind !== undefined) setListenRoom(bind);
     setScreen(s => { if (s !== "listen") listenReturnRef.current = s; return "listen"; });
     if (offlineChar || offlineGroup) {
       listenReturnOfflineRef.current = offlineChar ? { kind: "char", v: offlineChar } : { kind: "group", v: offlineGroup };
@@ -16148,6 +16152,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!window.ChatRooms || !roomId || roomId === "main") return null;
     const room = window.ChatRooms.get(charId, roomId);
     return room && !room.main && room.garden ? room : null;
+  };
+  // 这间房是不是一起听房（from:"listen"；主房永远不是）
+  const listenRoomOf = (charId, roomId) => {
+    if (!window.ChatRooms || !roomId || roomId === "main") return null;
+    const room = window.ChatRooms.get(charId, roomId);
+    return room && !room.main && room.from === "listen" ? room : null;
   };
   const blockBundleFor = (char, chatKey) => {
     const rooms = window.ChatRooms;
@@ -26698,7 +26708,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { const s = await neteaseSearchOne(tt, { cacheBust: false }); if (s) playSong(resultToSong(neteaseTrackInfo(s))); } catch (e) {}
       }
     }
-    goListen();
+    goListen(null);
   };
   // ⚠️这儿原来有一段【换一首歌就自动替TA说一句】（autoComment）——整段撤掉了
   //   （她 2026-09-06：「一起听这一句不会在偷偷调用吧，能不能不要了」）。
@@ -28995,6 +29005,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
+    onEnterListen: listenRoomOf(activeChar.id, activeRoomId) ? () => { setListenPartner(activeChar.id); goListen({ charId: activeChar.id, roomId: activeRoomId }); } : null,
     onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(["train","pets"].includes(world) ? world : "garden"); setGardenOpen(activeRoomId); } : null,
     // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
     // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
@@ -29305,7 +29316,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     userGeo: realGeo(),
     couples: couples,
     coupleSweet: coupleSweet,
-    onOpenApp: k => k === "listen" ? goListen() : setScreen(k),
+    onOpenApp: k => k === "listen" ? goListen(null) : setScreen(k),
     schedules: schedules,
     onOpenDay: id => { setGardenEntryWorld("day"); setGardenDayCharId(String(id || "")); setScreen("fairyGarden"); },
     onOpenChar: c => {
@@ -31301,9 +31312,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
   else if (screen === "listen") body = h(ListenTogether, {
-    // 边听边说（listen-talk.js）：上下文走 ctxFor；说的每一句原样落进单聊（via:"listen"）
-    profile: profile, active: active, ctxFor: ctxFor, toast: toast,
-    onToChat: (charId, rows) => pChat(charId, p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
+    // 边听边说（listen-talk.js）：上下文走 ctxFor；说的每一句原样落进单聊（via:"listen"）。
+    //   从一起听房进来、陪听的还是那一位：落进那间房、TA读那间房（listenBound），房被删了就照旧落单聊
+    profile: profile, active: active, toast: toast,
+    ...(function () {
+      const lr = listenRoom, room = lr && String(listen.partnerId) === String(lr.charId) ? listenRoomOf(lr.charId, lr.roomId) : null;
+      if (!room) return { ctxFor: ctxFor, listenRoomName: "", talkKey: "" };
+      const key = window.ChatRooms.chatKey(lr.charId, lr.roomId);
+      return { listenRoomName: room.name || "一起听", talkKey: key,
+        ctxFor: c => String(c.id) === String(lr.charId) ? roomContextFor(c, key, room, { chat: true }) : ctxFor(c) };
+    })(),
+    onToChat: (charId, rows) => pChat((function () {
+      const lr = listenRoom;
+      return lr && String(lr.charId) === String(charId) && listenRoomOf(lr.charId, lr.roomId) ? window.ChatRooms.chatKey(lr.charId, lr.roomId) : charId;
+    })(), p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
     listen: listen,
     characters: liveFaces,
     onBack: exitListen,

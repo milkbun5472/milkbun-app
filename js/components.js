@@ -9680,6 +9680,15 @@ function RoomWorldBanner({ onEnter }) {
       style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }
     }, label + " ›")));
 }
+// 一起听房里那条横幅：点进去听，边听边说落进这间房（跟庭院那条同一个位置、同一个样子）
+function RoomListenBanner({ onEnter }) {
+  const t = useTheme();
+  return h("div", { className: "shrink-0 w-full flex items-center",
+    style: { padding: "0 16px", gap: 8, background: "rgba(160,122,92,.12)", borderBottom: "1px solid " + t.line } },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, marginRight: "auto" } }, "这间房是一起听的"),
+    h("button", { onClick: onEnter, className: "active:opacity-70", "data-wk": "roomlisten",
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" } }, "进去一起听 ›"));
+}
 // 断掉这一轮的叉（设置 → API 里「生成中可以手动断掉」开着才有）。单聊、群聊、线下、群线下共用这一颗。
 function GenStopX({ onStop }) {
   const t = useTheme();
@@ -9759,6 +9768,7 @@ function ChatThread({
   room,
   onOpenRooms,
   onEnterGarden,
+  onEnterListen,
   roomFics,        // 这间房放过哪几本同人文（最近的在前）
   roomFicId,       // 现在在聊的是哪一本
   onPickRoomFic,   // 换书
@@ -10254,6 +10264,7 @@ function ChatThread({
   //   （「我都没法调能不能有记忆进来出去」）。现在进门看到的是聊天记录——
   //   庭院里说过的话本来就同步在这儿——想进去玩再按这一条。
   onEnterGarden && h(RoomWorldBanner, { onEnter: onEnterGarden }),
+  onEnterListen && h(RoomListenBanner, { onEnter: onEnterListen }),
   // ── 这间房在学哪一门（她 2026-09-23）──────────────────────────────
   // 「从哪儿开房就要有横幅导回哪儿」：点课名＝直接进那门课；最右边「换课」＝挑亮哪一门、
   // 把 TA 别的课收进来、或者拿回主聊天。跟上面「在写」那一条同一个形状。
@@ -19482,6 +19493,8 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       ? { label: "小号房间", note: "你换了个号去找TA", tint: "#5f7d8c" }
     : r.garden
       ? { label: "微光庭院", note: "一间房一个庭院存档", tint: "#6b8753" }
+    : r.from === "listen"
+      ? { label: "一起听", note: "边听边说的话落在这儿", tint: "#a07a5c" }
     : r.scenario
       ? { label: "长篇如果", note: "另一段年龄、处境或关系", tint: "#9b6d78" }
     : r.preset === "focused"
@@ -19519,7 +19532,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // 不写设定＝普通隔离房，写了设定＝长篇如果。旧 alternate 房仍由 normalize 兼容。
   // ⚠️庭院房和上面三种是同一种东西（她 2026-09-16）：一间房＝一个庭院存档。
   //   默认架空、什么都不带；想让 TA 在庭院里记得你们，就拨上面那几排开关。
-  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"], ["altme", "小号房间", "换一张面具去找TA；TA认不认得出你，你来定"]];
+  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"], ["listen", "一起听", "从这间房进去听歌，边听边说的话落在这儿，不进主聊天"], ["altme", "小号房间", "换一张面具去找TA；TA认不认得出你，你来定"]];
   // ⚠️她 2026-09-18：「从游戏新开档怎么跳回主聊天了，能不能调到设置房间那屏幕上」。
   //   带着预设来的那一次，她要的是【把这间房设好】这一件事，不是房间总览——
   //   房间列表、主聊天那几行、另外三个预设，一个都不该在这一屏上出现。
@@ -19751,7 +19764,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { style: { flexShrink: 0, width: 74, height: 84, marginBottom: 8, borderRadius: "36px 36px 5px 5px", border: "1px dashed " + t.line, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "再开一间"),
         h("div", { className: "flex flex-wrap justify-center", style: { gap: 3, padding: "0 4px" } },
-          [["everyday", "日常"], ["focused", "专注"], ["alternate", "如果"], ["isolated", "隔离"], ["garden", "庭院"]].map(([preset, label]) =>
+          [["everyday", "日常"], ["focused", "专注"], ["alternate", "如果"], ["isolated", "隔离"], ["garden", "庭院"], ["listen", "听歌"]].map(([preset, label]) =>
             h("button", { key: preset, onClick: () => add(preset), className: "active:opacity-60", style: { padding: "2px 4px", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "＋" + label))))));
   const content = h("div", null,
     !embedded && h("div", { style: { marginBottom: 8 } },

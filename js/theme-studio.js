@@ -488,6 +488,7 @@
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
         ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
+        ["roomlisten", "一起听房里那条横幅上的「进去一起听」"],
         ["messagesource", "游戏对话上方的世界来源（data-world区分世界；旧记录显示来源未记录）"],
         ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],
         ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
