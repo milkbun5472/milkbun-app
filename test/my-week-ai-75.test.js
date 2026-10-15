@@ -6,7 +6,7 @@ test("我的日历：AI 帮我排这几天，只往空档里排、落成普通�
   const app = R("js/app.js"), i = app.indexOf("const genMyWeek = async");
   assert.ok(i > 0);
   const seg = app.slice(i, i + 3000);
-  assert.ok(/saveCalTimedEvent\(\{ owner: "mine"/.test(seg));
+  assert.ok(/saveCalTimedEvent\(\{ owner: owner/.test(seg));
   assert.ok(/days\.indexOf\(String\(x\.date/.test(seg));
   assert.ok(/onGenMyWeek: genMyWeek/.test(app));
   const c = R("js/components.js");
@@ -16,7 +16,7 @@ test("我的日历：AI 帮我排这几天，只往空档里排、落成普通�
 
 test("照面具人设排：persona 和她在哪都喂进去", () => {
   const app = R("js/app.js"), seg = app.slice(app.indexOf("const genMyWeek = async"), app.indexOf("const genMyWeek = async") + 3500);
-  assert.ok(/profile\.persona/.test(seg) && /myRealm\(null\)/.test(seg));
+  assert.ok(/mask\.persona/.test(seg) && /myRealm\(null\)/.test(seg));
 });
 
 test("每张面具一本日程：副面具记在 mine:面具id，角色跟着自己认的面具看", () => {
