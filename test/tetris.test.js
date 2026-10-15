@@ -27,3 +27,10 @@ test("游戏接上了：开局页两种玩法、路由、TA 只在关键时刻�
   assert.match(g, /now - lastTalk\.current < 12000/);
   assert.match(g, /T\.garbageFor\(res\.cleared\)/);
 });
+
+test("合作接力：同一块板子一人一块轮着放；轮到 TA 时你的键不动", () => {
+  assert.match(g, /\{ key: "coop", zh: "合作接力" \}/);
+  assert.match(g, /me\.owner = me\.owner === "ta" \? "me" : "ta"/);
+  assert.match(g, /if \(coop && me\.owner === "ta"\) return;/);
+  assert.match(g, /TET_BEST_COOP = "x_tetrisBestCoop"/);
+});
