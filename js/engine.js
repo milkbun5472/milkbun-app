@@ -4911,11 +4911,6 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。
   function photoShotLine(kind, seed) {
-    // TA 帮她拍（pov）那几格写的是她在做什么（「她正好回头看过来」「她在后面回头看」）——是动作不是机位。
-    //   画面描述已经写了她在干嘛（坐着、咬着汤匙、看着镜头笑），再掷一格动作，模型常照那一格画，描述反被盖掉
-    //   （她 2026-10-15 截图：写的是法餐厅咬汤匙，出来的是河边回头）。描述里有动作就不掷，只说镜头是谁的眼睛。
-    if (opts.pov && /[着在]|坐|站|躺|靠|趴|蹲|吃|喝|咬|拿|捧|举|抱|牵|笑|哭|看|低头|抬头|回头|转身|走/.test(String(sceneDesc || "")))
-      return "【这一张的机位】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作，也不沿用参考图里的姿势。";
     const list = opts.pov ? povSlotsFor(opts.pov.tier) : kind === "self" || kind === "duo" ? PHOTO_SHOTS : PHOTO_SHOTS_OTHER;
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
     let idx = n % list.length;
@@ -5165,7 +5160,17 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
   }
-  else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
+  // TA 帮她拍：不掷机位（她 2026-10-15：「不是说不给具体机位吗，应该像照相馆那样」）——
+  //   掷到「她回头看过来」那一格，描述里写的咬汤匙就被盖掉了。跟照片日记同一个做法：怎么拍他自己定，池子只递几种当灵感。
+  else if (opts.pov) {
+    const pool = povSlotsFor(opts.pov.tier).slice();
+    for (let k = pool.length - 1; k > 0; k--) { const q = Math.floor(Math.random() * (k + 1)); [pool[k], pool[q]] = [pool[q], pool[k]]; }
+    const _pl = "【这一张怎么拍·他自己定】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作；"
+      + "远近和角度照这一刻来定，像他举着手机真会怎么拍下这一下的她。参考图只决定她是谁，姿势、角度、离镜头多远都不要照搬参考图。"
+      + "描述里没写她在做什么时，可以从这几种里挑，用不用都行：" + pool.slice(0, 4).join("／") + "。";
+    const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
+    if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
+  }
   else {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
     //   原来压在一长串外貌、画质、参考图说明的最后，出图模型读不到，照样回到它最熟的那个角度。
