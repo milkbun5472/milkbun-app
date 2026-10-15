@@ -192,6 +192,28 @@
     return { modules: mN, presets: pN };
   }
 
+  // 一条一条写好的那种预设 json（群友 2026-10-16 截图：导进来报「没有 modules／presets」）：
+  //   { prompts:[{identifier,name,content,enabled,marker}], prompt_order:[{order:[{identifier,enabled}]}] } → 一条 prompt 一个模块、整份一条预设。
+  //   marker（聊天记录、人设这些占位）和空内容的跳过；开关照原样：关着的进模块库，但不勾进这份预设。
+  function fromPromptList(d, fallbackName) {
+    const ps = d && Array.isArray(d.prompts) ? d.prompts : Array.isArray(d) ? d : null;
+    if (!ps) return null;
+    const byIdt = {}; ps.forEach(x => { if (x && x.identifier) byIdt[x.identifier] = x; });
+    const po = Array.isArray(d.prompt_order) ? d.prompt_order : [];
+    const ord = (po.find(x => x && String(x.character_id) === "100001") || po[po.length - 1] || {}).order;
+    const seq = Array.isArray(ord) && ord.length ? ord.map(o => ({ p: byIdt[o.identifier], on: o.enabled !== false })).filter(x => x.p) : ps.map(p => ({ p, on: p.enabled !== false }));
+    const tag = Date.now().toString(36), cat = "pl_" + tag, catZh = "导入的预设 · " + (String(fallbackName || "").trim() || "预设").slice(0, 16);
+    const modules = [], on = [];
+    seq.forEach((x, i) => {
+      const c = x.p; if (!c || c.marker) return;
+      const text = String(c.content || c.text || "").trim(); if (!text) return;
+      const id = "um_pl_" + tag + "_" + i;
+      modules.push({ id, cat, catZh, catHint: "从导入的预设里拆出来的，每条原样", name: String(c.name || c.identifier || ("第" + (i + 1) + "条")).trim().slice(0, 30), hint: "导入的", text });
+      if (x.on) on.push(id);
+    });
+    if (!modules.length) return null;
+    return { modules, presets: [{ id: "sp_pl_" + tag, name: (String(fallbackName || "").trim() || "导入的预设").slice(0, 24), mods: on }] };
+  }
   // preset: { id, name, mods:[moduleId...]（数组顺序就是喂进去的顺序）, free:"手写/导入的整段", freePos:"before"|"after", ts }
   function list() { const a = loadJ(KEY, []); return Array.isArray(a) ? a : []; }
   function save(next) { saveJ(KEY, next || []); return next || []; }
@@ -400,7 +422,7 @@
     CATS: CATS, MODULES: MODULES, TEST_SCENES: TEST_SCENES,
     allCats: allCats, moduleById: moduleById, userModules: userModules,
     canEditModule: canEditModule, saveModuleEdit: saveModuleEdit, resetModule: resetModule, addUserModule: addUserModule,
-    removeUserModule: removeUserModule, importBundle: importBundle,
+    removeUserModule: removeUserModule, importBundle: importBundle, fromPromptList: fromPromptList,
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
     loadRuns: loadRuns, pushRun: pushRun, clearRuns: clearRuns, runTest: runTest,

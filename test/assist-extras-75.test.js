@@ -141,3 +141,66 @@ test("秋秋说明里写着世界书怎么起作用、生图去哪查、音乐�
   const as = R("js/assistant.js");
   assert.ok(/stampsOf/.test(as) && /"cat", "stamps", "priority"/.test(as));
 });
+
+// 文风台（她 2026-10-16「文风台秋秋能搞吗，比如给它文件」）
+test("preset 新建一份：新写的落进模块库、现成的直接勾；presetmod 改／加／勾／拿掉", () => {
+  let mods = [], presets = [], edits = {};
+  const builtin = { cam_hands: { id: "cam_hands", name: "近景在手上", text: "..." } };
+  window.StylePresets = {
+    moduleById: id => builtin[id] || mods.find(m => m.id === id) || null,
+    importBundle: d => { mods = mods.concat(d.modules || []); },
+    upsert: p => { presets = presets.some(x => x.id === p.id) ? presets.map(x => x.id === p.id ? p : x) : presets.concat([p]); },
+    byId: id => presets.find(p => p.id === id) || null,
+    saveModuleEdit: (id, p) => { edits[id] = p; },
+    list: () => presets, allCats: () => []
+  };
+  X.TARGETS.preset.write("new", { name: "冷笔", text: JSON.stringify([{ name: "不贴情绪标签", hint: "写征兆", text: "别写情绪名" }, { use: "cam_hands" }]) }, {});
+  assert.equal(presets.length, 1);
+  assert.equal(presets[0].name, "冷笔");
+  assert.equal(presets[0].mods.length, 2);
+  assert.equal(presets[0].mods[1], "cam_hands");
+  assert.equal(mods[0].catZh, "秋秋写的");
+  const pid = presets[0].id, mid = presets[0].mods[0];
+  X.TARGETS.presetmod.write(pid + ":" + mid, { text: "改短了" }, {});
+  assert.equal(edits[mid].text, "改短了");
+  X.TARGETS.presetmod.write(pid + ":new", { name: "不写收尾句", text: "最后一句别总结" }, {});
+  assert.equal(presets[0].mods.length, 3);
+  X.TARGETS.presetmod.write(pid + ":cam_hands", { drop: true }, {});
+  assert.ok(presets[0].mods.indexOf("cam_hands") < 0);
+  X.TARGETS.presetmod.write(pid + ":+cam_hands", {}, {});
+  assert.ok(presets[0].mods.indexOf("cam_hands") >= 0);
+  assert.throws(() => X.TARGETS.preset.write("new", { text: "[{\"use\":\"nope\"}]" }, {}), /没有/);
+  assert.ok(X.okWithoutText({ target: "presetmod", id: pid + ":+cam_hands" }));
+  assert.ok(/preset 文风台/.test(X.docLines()));
+});
+
+test("扔给秋秋的分条预设：秋秋这头照原样拆，关着的 off 只进模块库", () => {
+  const as = R("js/assistant.js");
+  assert.ok(/window\.StylePresets\.fromPromptList\(JSON\.parse\(String\(pic\.text/.test(as));
+  let mods = [], presets = [];
+  window.StylePresets = { moduleById: () => null, importBundle: d => { mods = mods.concat(d.modules); }, upsert: p => { presets.push(p); } };
+  X.TARGETS.preset.write("new", { name: "x", text: JSON.stringify([{ name: "a", text: "1" }, { name: "b", text: "2", off: true }]) }, {});
+  assert.equal(mods.length, 2);
+  assert.equal(presets[0].mods.length, 1);
+});
+
+// 小世界（她 2026-10-16「小世界那些做了吧」）
+test("小世界：念头开关、活动时间走 durable 写口；小人颜色只认色号；存档换同行者，房间档不让换", async () => {
+  const saved = {}; const homes = [];
+  global.loadJSON = (k, d) => k in saved ? saved[k] : d; global.saveJSON = (k, v) => { saved[k] = v; return true; };
+  window.CharDayKit = { saveHomeChange: async (cid, sec, v) => { homes.push([cid, sec, typeof v === "function" ? v({}) : v]); return {}; } };
+  const ctx = { characters: [{ id: "c1", name: "陆衍" }] };
+  assert.equal(await X.TARGETS.dayset.write("c1:thoughts", { text: "开" }, ctx), 1);
+  assert.equal(await X.TARGETS.dayset.write("c1:clock", { text: "按现实时间走" }, ctx), 1);
+  assert.deepEqual(homes, [["c1", "thoughts", { enabled: true }], ["c1", "clockModes", "real"]]);
+  X.TARGETS.look.write("c1", { text: "{\"hairColor\":\"#6B4A33\"}" }, ctx);
+  assert.equal(saved.x_companion.looks.c1.hairColor, "#6b4a33");
+  assert.throws(() => X.TARGETS.look.write("c1", { text: "{\"hairColor\":\"棕色\"}" }, ctx), /色号/);
+  saved.x_fairyGardenSaves = [{ id: "g1", world: "garden", name: "一档" }];
+  saved["x_fairyGarden:g1"] = { id: "g1", partnerId: "" };
+  X.TARGETS.gardenpartner.write("g1", { text: "陆衍" }, ctx);
+  assert.equal(saved["x_fairyGarden:g1"].partnerId, "c1");
+  assert.throws(() => X.TARGETS.gardenpartner.write(":c1::room::1", { text: "陆衍" }, ctx), /小房间/);
+  assert.ok(/不改/.test(X.docLines()));
+  delete global.loadJSON; delete global.saveJSON;
+});

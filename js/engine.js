@@ -590,7 +590,29 @@ function callDiag(model, promptChars, maxTokens, t0) {
     + "｜等了 " + secs + " 秒"
     + (secs < 8 ? "＝上游直接打回来了（拦截／格式／配额），不是超时" : "＝等到一半才断，像超时或冷启动") + "〕";
 }
+// 正文里漏出来的英文思考（她 2026-10-16 转群友：新站子「容易掉思维链」——**Refining the Draft** 那种小标题 + 「I'm now…」一段段，
+//   被当成回话拆成一串气泡）。有的中转把模型的思考摘要直接拼在正文前面、不放进 reasoning 字段，也不带 <think> 标记。
+//   只在【开头就是这种英文自述、后面又真有正文（{ 开头的 JSON 或中文）】时才切：切掉前面那段，后面原样不动；
+//   认不准（后面找不到正文）就一个字不动。
+const LEAK_HEAD_RE = /^\s*(\*\*[A-Z][^*\n]{2,80}\*\*|(I'm|I've|I'll|I am|I need|I will|My |Okay|OK,|Let me|The user|Alright|Now,? I)\b)/;
+function stripLeakedThoughts(t) {
+  const s = String(t == null ? "" : t);
+  if (!LEAK_HEAD_RE.test(s)) return s;
+  const lines = s.split("\n");
+  let at = -1, pos = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i], trimmed = L.trim();
+    const cjk = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+    if (/^(```(json)?\s*$|\{|\[\s*\{)/.test(trimmed) || (trimmed.length >= 2 && cjk / trimmed.length > 0.3)) { at = pos; break; }
+    pos += L.length + 1;
+  }
+  if (at <= 0) return s;
+  const head = s.slice(0, at);
+  if ((head.match(/[\u4e00-\u9fff]/g) || []).length > head.length * 0.05 || head.trim().length < 40) return s;
+  return s.slice(at).trim();
+}
 function assertNotUpstreamError(t, model, diag) {
+  t = stripLeakedThoughts(t);
   const hit = upstreamErrorInContent(t);
   if (!hit) return t;
   throw new Error("线路报错（不是模型写的正文）：" + hit.replace(/\s+/g, " ").slice(0, 300)
@@ -1403,6 +1425,16 @@ function jsonEscapeHtmlQuotes(t) {
   return String(t)
     .replace(/<style\b[^]*?<\/style\s*>/gi, fix)
     .replace(/<[A-Za-z!\/][^<>]*>/g, fix);
+}
+// 要的是带某个键的那个对象（她 2026-10-16 出戏截图：思考型模型先写了一大段英文分析、里面带括号，然后才是 {"reply":…}，
+//   extractJSON 抓到了前面那段里的括号，reply 就整段原样摆出来）：先照常抓，抓到的没有这个键，就从 {"键" 那里重抓
+function extractJSONKey(raw, key) {
+  const d = extractJSON(raw);
+  if (d && typeof d === "object" && !Array.isArray(d) && key in d) return d;
+  const t = String(raw || ""), m = t.match(new RegExp("\\{\\s*\"" + key + "\"\\s*:"));
+  if (!m) return d;
+  const d2 = extractJSON(t.slice(m.index));
+  return d2 && typeof d2 === "object" && key in d2 ? d2 : d;
 }
 function extractJSON(raw) {
   if (!raw) return null;
@@ -5455,7 +5487,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   if (!/gpt-image|dall-?e/i.test(String(a.model || "")) && typeof prompt === "string")
     prompt = prompt.replace(/【手脚必须解剖正确】[^【]*/, "【手】双手自然，手指数目正确。").replace(/【数一数手】[^【]*/, "");
   let naiNegative = "";
-  if (isNaiImageModel(a.model) && typeof prompt === "string") {
+  if ((isNaiImageModel(a.model) || a.apiFormat === "nai") && typeof prompt === "string") {
     const nt = await naiTagsFor(prompt);
     prompt = nt.prompt; naiNegative = nt.negative;
     if (opts && opts.minimalPrompt) opts = Object.assign({}, opts, { minimalPrompt: nt.prompt });
@@ -5730,12 +5762,56 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const msg = (br && br.status_msg) || txt.slice(0, 300) || ("HTTP " + r0.status);
       return new Response(JSON.stringify({ error: { message: "MiniMax：" + msg + (br && br.status_code ? "（" + br.status_code + "）" : "") } }), { status: r0.ok ? 400 : r0.status, headers: { "Content-Type": "application/json" } });
     };
+    // NAI 原生（她 2026-10-15 转来站长给的两份请求）：POST /ai/generate-image，NovelAI 自己那套 body。
+    //   锁脸走 director_reference_images（原图 base64，强度 0.6／次强度 0.4，描述 character）——
+    //   vibe 那种 reference_image_multiple 要先另付点数编码、管的是画风不管脸，不用。
+    //   回包官方是一个 zip（里面一张 png）；中转有的改回 JSON 或直接回图，三种都认，翻成 { data:[{b64_json}] }。
+    const naiFetch = async () => {
+      const toB64 = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(b); });
+      const wh = /^(\d+)x(\d+)$/.exec(String(size || "")), w0 = wh ? +wh[1] : 832, h0 = wh ? +wh[2] : 1216;
+      const [width, height] = w0 === h0 ? [1024, 1024] : w0 < h0 ? [832, 1216] : [1216, 832];
+      const seed = Math.floor(Math.random() * 4294967000);
+      const neg = naiNegative || "lowres, bad anatomy, bad hands, text, watermark, worst quality, low quality, blurry";
+      const parameters = { params_version: 3, width, height, scale: 7, sampler: "k_euler_ancestral", steps: 28, n_samples: 1,
+        ucPreset: 2, qualityToggle: true, noise_schedule: "karras", cfg_rescale: 0, seed, extra_noise_seed: seed - 1,
+        legacy: false, legacy_v3_extend: false, add_original_image: true, dynamic_thresholding: false, use_coords: false,
+        negative_prompt: neg, characterPrompts: [],
+        v4_prompt: { caption: { base_caption: promptText, char_captions: [] }, use_coords: false, use_order: true },
+        v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] } } };
+      if (useRef && refBlobs.length) {
+        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(b));
+        Object.assign(parameters, { normalize_reference_strength_multiple: false, director_reference_images: imgs,
+          director_reference_descriptions: imgs.map(() => ({ caption: { base_caption: "character", char_captions: [] }, legacy_uc: false })),
+          director_reference_information_extracted: imgs.map(() => 1),
+          director_reference_strength_values: imgs.map(() => 0.6),
+          director_reference_secondary_strength_values: imgs.map(() => 0.4) });
+      }
+      const model = /nai-diffusion/i.test(String(a.model || "")) ? a.model : "nai-diffusion-4-5-full";
+      const raw0 = String(a.baseUrl || "").trim().replace(/\/+$/, "");
+      const url = /\/ai\/generate-image/i.test(raw0) ? raw0 : raw0.replace(/\/v1$/i, "") + "/ai/generate-image";
+      const r0 = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ input: promptText, model, action: "generate", parameters }), signal: ctrl.signal });
+      const buf = await r0.arrayBuffer(), u8 = new Uint8Array(buf);
+      const json = b64 => new Response(JSON.stringify({ data: [{ b64_json: b64 }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      const bytesToB64 = bs => { let s = ""; for (let i = 0; i < bs.length; i += 32768) s += String.fromCharCode.apply(null, bs.subarray(i, i + 32768)); return btoa(s); };
+      if (r0.ok && u8[0] === 0x50 && u8[1] === 0x4b) {   // PK：官方的 zip
+        const z = await openZip(buf), name = z.names.find(n => /\.(png|jpe?g|webp)$/i.test(n)) || z.names[0];
+        const img = name && await z.read(name);
+        if (img && img.length) return json(bytesToB64(img));
+      }
+      if (r0.ok && ((u8[0] === 0x89 && u8[1] === 0x50) || (u8[0] === 0xff && u8[1] === 0xd8))) return json(bytesToB64(u8));
+      const txt = new TextDecoder().decode(u8);
+      if (r0.ok) return new Response(txt, { status: 200, headers: { "Content-Type": "application/json" } });   // 中转回 JSON：交给 parseOut
+      return new Response(JSON.stringify({ error: { message: "NAI 原生（" + url + "）：" + (txt.slice(0, 300) || ("HTTP " + r0.status)) } }), { status: r0.status, headers: { "Content-Type": "application/json" } });
+    };
     const isMinimax = a.apiFormat === "minimax" || (a.apiFormat === "auto" && (/^image-0\d/i.test(String(a.model || "")) || /minimax/i.test(String(a.baseUrl || ""))));
+    // 原生格式（MiniMax／NAI）各走各的门，不掉回出图接口或聊天接口
+    const isNative = isMinimax || a.apiFormat === "nai";
     try {
       // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
       //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
       const chatFirst = a.apiFormat === "chat" || a.apiFormat === "gemini" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
-      if (isMinimax) r = await minimaxFetch();
+      if (a.apiFormat === "nai") r = await naiFetch();
+      else if (isMinimax) r = await minimaxFetch();
       else if (a.apiFormat === "gemini") r = await geminiFetch();
       else if (chatFirst) {
         r = await chatFetch();
@@ -5785,13 +5861,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
-      if (!isMinimax && !chatFirst && a.apiFormat !== "images" && !r.ok) {
+      // 带参考照走出图接口、站上没有 /images/edits（群友 2026-10-16：上传一张脸测试回 {"detail":"Not Found"}）：
+      //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
+      if (!isNative && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
+        throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就问站长带参考图走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
+      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok) {
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
         if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();
       }
     } catch (err) {
-      if (!isMinimax && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
+      if (!isNative && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
         try { r = await chatFetch(); } catch (e2) { throw err; }
       } else {
       // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」
@@ -9365,7 +9445,7 @@ async function oocAsk(p, ctx, question) {
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n(C) 不是长期规矩，而是【只管接下来几轮】的安排（让角色下一轮去做某件事、这几轮先别提某件事、接下来怎么接某段剧情）——这种别填 directive，改填 soon：text 写成一句对角色说的祈使句，turns 是管几轮（用户说「下一轮」就是 1；没说清就按这件事大概要几轮做完来估；用户说了数字就照它；最多 10，更长的就是长期规矩、走 B）。同样要先判断会不会崩人设，崩的话照 B 的办法拒绝。reply 里答应了就必须填上，别让角色下一轮又不知道。\n若只是 A 类提问，directive 和 soon 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"soon\":{\"text\":\"只管接下来几轮的那句安排\",\"turns\":1}或 null,\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
-  const parsed = extractJSON(raw);
+  const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") {
     return oocResult(parsed, existing);
   }
@@ -9384,7 +9464,7 @@ async function oocAskGroup(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
-  const parsed = extractJSON(raw);
+  const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
