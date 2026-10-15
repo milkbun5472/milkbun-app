@@ -6,9 +6,9 @@ test("被回的角色照平时跟她说话的样子回，不因为网友看着�
   assert.match(src, /TA平时怎么跟她说话，在评论区还是那个样子/);
   assert.ok(!/当着网友的面打字回：短/.test(src));
 });
-test("条数随机：有时只接一句，有时一串", () => {
-  const m = src.match(/const crowdN = (\[[^\]]+\])/); assert.ok(m);
-  const opts = JSON.parse(m[1]); assert.ok(opts.includes(0) && Math.max(...opts) >= 5);
+test("条数随机而且要多：最少三个路人，热闹时十来个", () => {
+  const m = src.match(/const CROWD_N = (\[[^\]]+\])/); assert.ok(m);
+  const opts = JSON.parse(m[1]); assert.ok(Math.min(...opts) >= 3 && Math.max(...opts) >= 10);
   assert.match(src, /n: String\(nTotal\)/);
   assert.match(src, /写接在后面的正好 " \+ o\.n \+ " 条/);
 });

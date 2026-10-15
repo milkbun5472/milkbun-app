@@ -612,9 +612,10 @@
       const put = r => patchV(vid, xv => Object.assign({}, xv, { comments: arr(xv.comments).map(c2 => c2.id === cmId ? Object.assign({}, c2, { replies: arr(c2.replies).concat([r]) }) : c2) }));
       setBusy("reply");
       try {
-        // 条数不固定（她 2026-10-15：「路人和整体回复数太固定了」）：有时只有被回的那个人接一句、没人凑热闹，
-        //   有时一下冒出五六个；多数是一两个路人。
-        const crowdN = [0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 6][Math.floor(Math.random() * 12)];
+        // 条数不固定、而且要多（她 2026-10-15：「路人和整体回复数太固定了」「不不不我嫌少了评论」）：
+        //   每回随机，少的时候三四个路人，热闹起来十来个。
+        const CROWD_N = [3, 4, 4, 5, 5, 6, 6, 7, 8, 9, 10, 12];
+        const crowdN = CROWD_N[Math.floor(Math.random() * CROWD_N.length)];
         const nTotal = (must ? 1 : 0) + (must ? crowdN : Math.max(1, crowdN));
         const d = await props.ask(crowdSystem(v, { me: myName, text: myText, n: String(nTotal), must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
         const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, nTotal + 1);
