@@ -375,7 +375,25 @@
       // 诊断永远不许反过来弄死主流程：配额满时 setItem 会抛，吞掉。
       try {
         const old = parse(storage, DIAG_KEY, {});
-        write(storage, DIAG_KEY, { ...old, ...patch, updated_at: new Date(clock()).toISOString() });
+        const merged = { ...old, ...patch, updated_at: new Date(clock()).toISOString() };
+        write(storage, DIAG_KEY, merged);
+        // 镜像一份进 x_ 存档（IDB，随 saves 上云）：外送卡死时 CC 那头才看得见死因，
+        // 不再依赖只存本机的 DIAG——10-15 这病就是瞎在这儿，连按钮都被 false&& 关了。
+        if (typeof root.saveJSON === "function") root.saveJSON("x_ledgerDiag", merged);
+      } catch (_) {}
+    };
+    // 坏 JSON 自救：配额写炸可能留下解析不了的半截队列——不声不响当空队列，是
+    // 「表一动不动、又没有任何报错」的完美伪装。原文搬进 IDB 留档（不丢一字），
+    // 再清掉这把键把 localStorage 的地方腾出来。
+    const salvageIfCorrupt = key => {
+      let raw = null;
+      try { raw = storage.getItem(key); } catch (_) { return; }
+      if (!raw) return;
+      try { JSON.parse(raw); return; } catch (_) {}
+      try {
+        if (typeof root.saveJSON === "function") root.saveJSON("x_ledgerCorrupt_" + key, { saved_at: new Date(clock()).toISOString(), raw });
+        storage.removeItem(key);
+        diagnostic({ corrupt_salvaged: key, corrupt_bytes: raw.length });
       } catch (_) {}
     };
     const dropSent = keys => {
@@ -394,6 +412,8 @@
       diagnostic({ quarantined: held.length });
     };
     const internalFlush = async () => {
+      salvageIfCorrupt(OUTBOX_KEY);
+      salvageIfCorrupt(DELETE_OUTBOX_KEY);
       let deleteError = null;
       const deletes = parse(storage, DELETE_OUTBOX_KEY, []);
       if (deletes.length) {
@@ -409,7 +429,11 @@
         }
       }
       const outbox = parse(storage, OUTBOX_KEY, []);
-      if (!outbox.length) return { sent: 0, pending: 0, pendingDeletes: parse(storage, DELETE_OUTBOX_KEY, []).length, error: deleteError || undefined };
+      if (!outbox.length) {
+        // 从有到空只记一次，别让 60 秒心跳反复写存档
+        if (Number(parse(storage, DIAG_KEY, {}).pending || 0) !== 0) diagnostic({ pending: 0 });
+        return { sent: 0, pending: 0, pendingDeletes: parse(storage, DELETE_OUTBOX_KEY, []).length, error: deleteError || undefined };
+      }
       const batch = outbox.slice(0, 50);
       try {
         await uploader(batch);

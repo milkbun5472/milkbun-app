@@ -209,3 +209,23 @@ test("配额满时诊断与入队都不许炸链：flush 照跑，腾出空间�
   assert.equal(manager.status().outbox.length, 1, "腾出空间后新话补写进队");
   assert.equal(manager.status().outbox[0].content, "挤不进去的新话");
 });
+
+test("半截坏 JSON 队列：原文搬进 IDB 留档、清键腾地方，flush 不再装瞎", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  m.set(Ledger.OUTBOX_KEY, '[{"message_key":"k1","content":"半截'); // 配额写炸留下的残骸
+  const saved = {};
+  const prevSave = globalThis.saveJSON;
+  globalThis.saveJSON = (k, v) => { saved[k] = v; };
+  try {
+    const manager = Ledger.createManager({ storage: s, now: () => 1000, upload: async () => {} });
+    await manager.flush();
+    assert.ok(saved["x_ledgerCorrupt_" + Ledger.OUTBOX_KEY], "残骸原文进 IDB 留档");
+    assert.ok(String(saved["x_ledgerCorrupt_" + Ledger.OUTBOX_KEY].raw).includes("半截"));
+    assert.equal(m.has(Ledger.OUTBOX_KEY), false, "坏键清掉腾地方");
+    assert.ok(saved["x_ledgerDiag"], "诊断镜像进 x_ 存档让云端可见");
+    assert.equal(saved["x_ledgerDiag"].corrupt_salvaged, Ledger.OUTBOX_KEY);
+  } finally {
+    if (prevSave === undefined) delete globalThis.saveJSON; else globalThis.saveJSON = prevSave;
+  }
+});
