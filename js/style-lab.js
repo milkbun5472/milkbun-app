@@ -76,7 +76,14 @@
         props.toast && props.toast("导入了 " + r.modules + " 个模块" + (r.presets ? " 和 " + r.presets + " 条预设" : "") + "，在下面模块库里勾");
         return "bundle";
       }
-      if (d) throw new Error("这是个 json，但里面没有 modules／presets，不是模块包");
+      const tv = d && SP.fromPromptList ? SP.fromPromptList(d, fallbackName) : null;
+      if (tv) {
+        SP.importBundle(tv); const next = SP.list(); setPresets(next); setCurId(tv.presets[0].id);
+        setOpenCat(o => Object.assign({}, o, { [tv.modules[0].cat]: true }));
+        props.toast && props.toast("认出是分条的预设：拆成 " + tv.modules.length + " 个模块，开着的 " + tv.presets[0].mods.length + " 条已经勾进新预设「" + tv.presets[0].name + "」");
+        return "bundle";
+      }
+      if (d) throw new Error("这是个 json，但里面既不是模块包，也认不出是分条的预设（没有 modules／presets／prompts）");
       addPreset({ name: String(fallbackName || "").trim() || "导入的预设", free: txt.trim() });
       props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
       return "free";
@@ -163,7 +170,7 @@
          ["⇧ 导入文件", () => fileRef.current && fileRef.current.click()],
          ["粘贴模块包", pasteBundle],
          ["搬旧文风", importOldStyle]].map(pair => h("button", { "data-wk": "sltool", key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
-        h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain,application/json,*/*", style: { display: "none" }, onChange: importFile })),
+        h("input", { key: "__f", ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile })),
 
       // 空台：台上一个空版位（虚线的），底下三步。原来是一整段灰字糊在那儿——
       // 这是她点开这一页看见的第一屏，得让人一眼知道该先按哪个。

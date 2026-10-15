@@ -16,6 +16,6 @@ test("MiniMax 原生出图：/v1/image_generation、参考照走 subject_referen
   assert.ok(/mRoot \+ "\/v1\/image_generation"/.test(eng));
   assert.ok(/body\.subject_reference = \[\{ type: "character", image_file: await toDataUrl\(refBlobs\[0\]\) \}\]/.test(eng));
   assert.ok(/if \(isMinimax\) r = await minimaxFetch\(\);/.test(eng));
-  assert.ok(/if \(!isMinimax && !chatFirst && a\.apiFormat !== "images" && !r\.ok\)/.test(eng), "一张图一次请求");
+  assert.ok(/if \(!isNative && !chatFirst && a\.apiFormat !== "images" && !r\.ok\)/.test(eng), "一张图一次请求（isNative 里含 MiniMax）");
   assert.ok(/value: "minimax" \}, "MiniMax 原生/.test(scr));
 });

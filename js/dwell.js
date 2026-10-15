@@ -624,11 +624,15 @@
             }))),
         (function () {
           const K = window.MapKit;
-          if (mapKind === "real" && K && K.MapWidget && char) return h(K.MapWidget, { characters: [char], status: props.mapStatus, userGeo: props.userGeo, worlds: props.worlds, onOpen: props.onOpenMap });
+          // 钉过的约会地点只画在「手绘」那张上（她 2026-10-16 转群友：「TA 钉了城东老缎庄，地图上没有耶」）：
+          //   切在现实／架空时，图底下列一行告诉她钉过哪些、去哪张看
+          const pinsNote = dates.length && mapKind !== "draw" ? h("button", { onClick: function () { pickMapKind("draw"); }, className: "active:opacity-70", style: { display: "block", width: "100%", textAlign: "left", fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.7, marginTop: 6 }, "data-wk": "dwellpage", "data-part": "r15" },
+            "你们钉过的地方：" + dates.map(function (x) { return "「" + x.name + "」"; }).join("") + "——在「手绘」那张上，点这里切过去 ›") : null;
+          if (mapKind === "real" && K && K.MapWidget && char) return h(React.Fragment, null, h(K.MapWidget, { characters: [char], status: props.mapStatus, userGeo: props.userGeo, worlds: props.worlds, onOpen: props.onOpenMap }), pinsNote);
           if (mapKind === "story" && K && K.WorldMapEmbed && char) {
             const r = K.charRealm ? K.charRealm(char, props.worlds || []) : null;
-            if (r && r.kind === "world") return h("div", { style: { height: 440, display: "flex", flexDirection: "column", border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg2 }, "data-wk": "dwellpage", "data-part": "r13" },
-              h(K.WorldMapEmbed, { world: r.world, characters: [char], status: props.mapStatus, me: props.profile, ops: props.worldOps }));
+            if (r && r.kind === "world") return h(React.Fragment, null, h("div", { style: { height: 440, display: "flex", flexDirection: "column", border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg2 }, "data-wk": "dwellpage", "data-part": "r13" },
+              h(K.WorldMapEmbed, { world: r.world, characters: [char], status: props.mapStatus, me: props.profile, ops: props.worldOps })), pinsNote);
             return h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8, textAlign: "center" }, "data-wk": "dwellpage", "data-part": "r14" },
               characterText(char, "他还没住进哪个架空世界。去「好友地图 · 架空」开一个世界、把他钉进去，这里就能看那张图。"));
           }

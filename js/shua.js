@@ -102,14 +102,6 @@
       + "caption 文案（" + CAPTION_FACT + "）、tags 话题（0~4 个，不带井号）、likes 点赞数（数字）、comments 评论（2~5 条，name 网友网名，text）。"
       + (skin === "b" ? B_EXTRA : V_FACT);
   }
-  const REPLY_SHAPE = '{"reply":""}';
-  // alt：她用小号评的。TA只看得见一个陌生账号，不知道是她（跟论坛小号同一条：小号一个字都不漏）
-  function replyInstruction(v, uName, text, alt) {
-    return "你在「" + APP_NAME + "」上发的那条视频——拍的是：" + v.scene + "；文案：" + v.caption + "。"
-      + (alt ? "\n底下一个你不认识的账号「" + alt + "」评论了你：「" + text + "」。评论区别人都看得见。"
-        : "\n底下" + uName + "用她自己的号评论了你：「" + text + "」。评论区别人都看得见。")
-      + "\n你回不回、怎么回（当着所有人的面），照你这个人来；不想回就把 reply 留空。";
-  }
   // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
   const SPOT_SHAPE = '{"spots":[{"name":"","comment":"","recognized":false,"why":""}]}';
   function spotSystem(v, alt, uName, chars, briefs) {
@@ -136,11 +128,25 @@
       // 同款挑战（她 2026-10-08）：短视频平台上一天里总有一两个是大家照着拍的模板——只说有这么一类，拍什么不写
       + "其中一两个是大家照着同一个模板拍同款的挑战（about 里说清模板是怎么拍的）。";
   }
-  // 楼中楼：她回了TA在某条视频底下的那句
-  function threadInstruction(v, mine, uName, text, alt) {
-    return "你在「" + APP_NAME + "」一条视频（@" + v.author + "，拍的是：" + S(v.scene).slice(0, 80) + "）底下评论过：「" + mine + "」。"
-      + (alt ? "\n一个你不认识的账号「" + alt + "」在你这条评论底下回复了你：「" + text + "」。" : "\n" + uName + "用她自己的号在你这条评论底下回复了你：「" + text + "」。")
-      + "楼里别人都看得见。回不回、怎么回照你这个人来；不想回就把 reply 留空。";
+  // ── 她评论之后的那一串（她 2026-10-15：「发评论之后作者回复有点少，论坛很活，复刻一下」）──
+  //   照论坛「回我那层楼」那一套：一枪写 2~5 条接在她这句后面——被她回的那个人【必回】，
+  //   作者看情况，再来几个路人，可以互相搭话、唱反调；不是每条都冲着她。
+  //   原来只有作者一个人、还写着「不想回就留空」，于是常常一句没有；路人的视频更是谁都不理她。
+  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":""}]}';
+  // 她评论之后那一串——一枪写完（她 2026-10-15：「论坛都不用两次调用」）。
+  //   第一版 ooc 的病根不在一枪，在【没告诉模型谁是谁】：情侣号是他俩共用的、评论的「Lisa」就是他女朋友本人，
+  //   都没写，于是他把自己的号当外人、把她当路人怼。现在把这几条身份钉死在最前面，再写路人。
+  //   活人感：路人短、不复述视频、口气各异，有人只发哈哈，有人答非所问。
+  function crowdSystem(v, o) {
+    return AC() + CB()
+      + "【场景】「" + APP_NAME + "」上一条视频（@" + v.author + "）拍的是：" + S(v.scene).slice(0, 160) + (v.caption ? "；文案：" + S(v.caption).slice(0, 80) : "") + "。"
+      + "\n【谁是谁——写之前先看清】" + o.ids.join("")
+      + (o.brief ? "\n\n" + o.brief : "")
+      + "\n\n【这一串评论的现场】\n" + o.transcript
+      + "\n\n「" + o.me + "」刚说了：「" + o.text + "」。写接在后面的 " + o.n + " 条回复 items（name、text、to 回的是这串里谁——照抄名字）："
+      + (o.must ? "\n① 第一条必须是「" + o.must + "」回她的（name 照抄「" + o.must + "」）" + (o.mustChar ? "——就是上面那个人本人，照TA的人设、记忆和跟她的关系，当着网友的面打字回：短，像真在评论区回一句，没有动作和旁白" : "——人家被回了总要接一句，冷淡、怼回去也算") + "。" : "")
+      + "\n" + (o.must ? "② 其余" : "") + "是刷到这里的陌生网友：不认识这串里任何人，不知道谁跟谁什么关系。像真在刷评论区——短，一句甚至几个字；不复述视频、不总结、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问；口气、长短、标点各不一样。可以回她，也可以回楼里别人。"
+      + "\n⚠️「" + o.me + "」是真人本人，绝对不许以她的名义写任何一句。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
   function mineSystem(v, uName, chars, briefs, co, cp, same) {
@@ -220,21 +226,24 @@
   }
 
   // ── 评论区（整页）──────────────────────────────────────
-  function CommentsPage({ v, busy, onSend, onBack, t, P }) {
+  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P }) {
     const [text, setText] = useState("");
-    const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); onSend(x); };
+    const [replyTo, setReplyTo] = useState(null);   // { id 那条评论, name 回的是谁 }
+    const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : ""); setReplyTo(null); return; } onSend(x); };
+    const rb = (id, name, sub) => onReply ? h("button", { "data-wk": "shuareplybtn", onClick: () => setReplyTo({ id, name, sub }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginLeft: 8 } }, "回复") : null;
     return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 12 } },
         arr(v.comments).length ? arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
           h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
-          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
+          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text, c.by !== "me" ? rb(c.id, c.name, false) : null),
           arr(c.replies).length ? h("div", { style: { marginTop: 6, paddingLeft: 10, borderLeft: "2px solid " + P.line } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: P.ink, padding: "2px 0" } },
-            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, r.name + "："), r.text))) : null)) :
+            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, r.name + (r.to ? " 回复 @" + r.to : "") + "："), r.text, r.by !== "me" ? rb(c.id, r.name, true) : null))) : null)) :
           h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "40px 0" } }, "还没有评论"),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, padding: "8px 0" } }, "……") : null),
       h("div", { "data-wk": "shuacompose", className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + P.line } },
-        h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
+        replyTo ? h("button", { onClick: () => setReplyTo(null), "aria-label": "取消回复", className: "shrink-0 active:opacity-60", style: { width: 28, height: 42, color: P.dim, fontSize: 15 } }, "✕") : null,
+        h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: replyTo ? "回复 @" + replyTo.name + "（点这里左边的 ✕ 取消）" : "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
           style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5 } }),
         h("button", { "data-wk": "shuasend", onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
   }
@@ -483,7 +492,8 @@
     // 请TA们发：每人一条，各走自己那一整份料。
     // ⚠️拍好一条就落一条，不等最慢那个（群友 2026-10-07：「刷新会卡着刷不出来」——原来 Promise.all 要等五个人全回来，
     //   一个人的线路卡住，整批都看不见；再加一层 3 分钟的兜底，过了就当这个人这回没拍）
-    const genChars = async ids => {
+    // forceCp：情侣号页上那颗「让TA往这个号发一条」（她 2026-10-15）——这一回不掷那三分之一，直接发在情侣号上
+    const genChars = async (ids, forceCp) => {
       const pick = ids.map(charOf).filter(Boolean).slice(0, PICK_MAX);
       if (!pick.length) return;
       const sk = skin;
@@ -502,7 +512,7 @@
         const newAcc = !(acc.bio || acc.niche);
         // 有情侣号的那位，三回里大约有一回这条发在情侣号上
         const cpHere = (dbRef.current.cps || {})[c.id];
-        if (cpHere && togetherIds.indexOf(c.id) >= 0 && Math.random() < 0.33) toCp[c.id] = cpHere;
+        if (cpHere && togetherIds.indexOf(c.id) >= 0 && (forceCp || Math.random() < 0.33)) toCp[c.id] = cpHere;
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
         // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
         let extra = "";
@@ -579,23 +589,52 @@
       } catch (e) { toast("没刷出来：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(null); }
     };
-    // 她评论：TA的视频，TA当着大家的面回不回
-    const comment = async (id, text) => {
-      const v0 = dbRef.current.videos.find(x => x.id === id);
-      const c0 = v0 && v0.by === "char" ? charOf(v0.charId) : null;
-      // 不认识这张面具的人：照「陌生账号」那条来（跟小号同一个说法）
-      const asAlt = onAlt ? altName : (c0 && !knows(c0) ? myName : "");
-      patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([{ id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ts: Date.now() }]) }));
-      const v = dbRef.current.videos.find(x => x.id === id);
-      const c = v && v.by === "char" ? charOf(v.charId) : null;
-      if (!c) return;
+    // 她评论 / 回楼：都走 crowd（上面那一串）。回复一条一条冒出来，隔一两秒一条，像真有人陆续在回（节奏同论坛）
+    const crowd = async (vid, cmId, myText, targetCm) => {
+      const v = dbRef.current.videos.find(x => x.id === vid); if (!v || !props.ask) return;
+      const cm = arr(v.comments).find(x => x.id === cmId); if (!cm) return;
+      const authorC = v.by === "char" ? charOf(v.charId) : (v.cp ? charOf(v.cp) : null);
+      const tgtC = targetCm && targetCm.charId ? charOf(targetCm.charId) : null;
+      // 谁一定接：她回的是角色 → 那个角色；在角色的视频 / 你俩的情侣号底下评论 → 作者本人；回的是路人 → 那个路人
+      const resp = tgtC || (!targetCm || targetCm.isAuthor ? authorC : null);
+      const handleOf = c => c === authorC && (v.by === "char" || v.cp) ? v.author : S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name;
+      const must = resp ? handleOf(resp) : targetCm && targetCm.by === "npc" ? S(targetCm.name) : "";
+      const stranger = !!onAlt || (resp && !knows(resp));
+      const ids = [];
+      if (v.cp) ids.push("\n· 「" + v.author + "」是 " + uName + " 和 " + (authorC || {}).name + " 两个人共用的情侣号；以这个号名说话的就是 " + (authorC || {}).name + " 本人。");
+      else if (v.by === "char" && authorC) ids.push("\n· 「" + v.author + "」是 " + authorC.name + " 自己的号，视频是TA发的。");
+      else if (v.by === "me") ids.push("\n· 这条视频是「" + myName + "」自己发的。");
+      else ids.push("\n· 「" + v.author + "」是一个普通博主，跟谁都不认识。");
+      if (resp && resp !== authorC) ids.push("\n· 「" + handleOf(resp) + "」是 " + resp.name + " 自己的号。");
+      ids.push(stranger ? "\n· 「" + myName + "」是个谁都不认识的账号，没人知道背后是谁" + (resp ? "，" + resp.name + " 也不知道" : "") + "。"
+        : "\n· 「" + myName + "」就是 " + uName + " 本人" + (resp ? "，" + resp.name + " 认得出是她" : "") + "。");
+      const lines = [cm.name + "：" + cm.text].concat(arr(cm.replies).map(r => r.name + (r.to ? " 回复 @" + r.to : "") + "：" + r.text));
+      const put = r => patchV(vid, xv => Object.assign({}, xv, { comments: arr(xv.comments).map(c2 => c2.id === cmId ? Object.assign({}, c2, { replies: arr(c2.replies).concat([r]) }) : c2) }));
       setBusy("reply");
       try {
-        const d = await props.probeAs(c, replyInstruction(v, uName, text, asAlt), REPLY_SHAPE);
-        const r = S(d && d.reply).slice(0, 300);
-        if (r) { patchV(id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: v.author, text: r, by: "char", isAuthor: true, ts: Date.now() }]) })); note(v.author + " 回复了你：" + r, v.id); }
-      } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
-      finally { setBusy(null); }
+        const d = await props.ask(crowdSystem(v, { me: myName, text: myText, n: must ? "2~4" : "2~4", must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
+        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, 5);
+        let wait = 0;
+        items.forEach((x, k) => {
+          const isResp = resp && (k === 0 || S(x.name) === must);
+          const name = isResp ? must : S(x.name).slice(0, 20);
+          // 路人顶着认识的人的名字说话：丢掉
+          if (!isResp && resp && name === must) return;
+          const to = S(x.to) && S(x.to) !== name ? S(x.to).slice(0, 20) : "";
+          const r = { id: uid("rp"), name, text: S(x.text).slice(0, 300), by: isResp ? "char" : "npc", ...(isResp ? { charId: resp.id } : {}), ...(isResp && resp === authorC ? { isAuthor: true } : {}), ...(to ? { to } : {}), ts: Date.now() + k };
+          wait += k ? 900 + Math.random() * 2200 : 500;
+          setTimeout(() => { put(r); if (to === myName || (k === 0 && must)) note(name + " 回复了你：" + r.text, vid); }, wait);
+        });
+        if (!items.length) toast("这回没人接话");
+        setTimeout(() => setBusy(b => b === "reply" ? null : b), wait + 200);
+      } catch (e) { toast("回复没刷出来：" + ((e && e.message) || "")); setBusy(null); }
+    };
+    // 她评论：落一条自己的，然后那一串陆续接上来（作者的视频作者必回；她自己的视频是路人和认识的人来接）
+    const comment = (id, text) => {
+      const v0 = dbRef.current.videos.find(x => x.id === id); if (!v0) return;
+      const mine = { id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ts: Date.now() };
+      patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([mine]) }));
+      crowd(id, mine.id, text, { name: v0.author, isAuthor: true, by: v0.by });
     };
     // 她小号发的那条：几个人里随缘有一两个刷到。评了她看得见；认出来了只记在TA心里，她不会被告知
     const spotAlt = async (v, alt) => {
@@ -685,23 +724,13 @@
     };
     // 她自己发的弹幕：飘在画面上；TA下次在横着看那套发视频时会看到（不知道是谁）
     const dm = (v, text) => { patchV(v.id, x => Object.assign({}, x, { myDms: arr(x.myDms).concat([{ text: text.slice(0, 30), ts: Date.now() }]).slice(-20) })); toast("弹幕发出去了"); };
-    // 楼中楼：她回了某一条评论；那条要是TA写的，TA来接
-    const reply = async (v, cid, text) => {
-      const tgt0 = arr(v.comments).find(x => x.id === cid);
-      const who0 = tgt0 && (tgt0.charId ? charOf(tgt0.charId) : (tgt0.isAuthor && v.charId ? charOf(v.charId) : null));
-      const asAlt = onAlt ? altName : (who0 && !knows(who0) ? myName : "");
+    // 楼中楼：她回了某一条评论（或那条底下的某个人）——被回的那个必接，旁人看情况
+    const reply = (v, cid, text, toName) => {
       const target = arr(v.comments).find(x => x.id === cid); if (!target) return;
-      const add = r => patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([r]) }) : cm) }));
-      add({ id: uid("rp"), name: myName, text, by: "me", ts: Date.now() });
-      const who = target.charId ? charOf(target.charId) : (target.isAuthor && v.charId ? charOf(v.charId) : null);
-      if (!who) return;
-      setBusy("reply");
-      try {
-        const d = await props.probeAs(who, threadInstruction(v, target.text, uName, text, asAlt), REPLY_SHAPE);
-        const r = S(d && d.reply).slice(0, 300);
-        if (r) { add({ id: uid("rp"), name: target.name, text: r, by: "char", ts: Date.now() }); note(target.name + " 在楼里回了你：" + r, v.id); }
-      } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
-      finally { setBusy(null); }
+      patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([{ id: uid("rp"), name: myName, text, by: "me", ...(toName ? { to: toName } : {}), ts: Date.now() }]) }) : cm) }));
+      const sub = toName ? arr(target.replies).slice().reverse().find(r => r.name === toName && r.by !== "me") : null;
+      const who = sub || (target.by !== "me" ? target : arr(target.replies).slice().reverse().find(r => r.by !== "me")) || null;
+      crowd(v.id, cid, text, who);
     };
     const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() }));
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
@@ -728,7 +757,7 @@
     // 全屏的那几页
     if (page && page.kind === "comments") {
       const v = db.videos.find(x => x.id === page.id);
-      if (v) return h(CommentsPage, { v, t, P, busy: busy === "reply", onSend: x => comment(v.id, x), onBack: () => setPage(page.back || null) });
+      if (v) return h(CommentsPage, { v, t, P, busy: busy === "reply", onSend: x => comment(v.id, x), onReply: (cid, x, to) => reply(v, cid, x, to), onBack: () => setPage(page.back || null) });
     }
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
@@ -947,8 +976,8 @@
           return h("div", { "data-wk": "shuacprow", key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
             h(Avatar, { character: c, size: 26 }),
             a ? h("input", { key: "cp_" + id, defaultValue: a.handle, onBlur: e => { const v = e.target.value.trim().slice(0, 20); if (v) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { handle: v }) }) })); },
-              className: "flex-1 outline-none", style: { minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })
-              : h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
+              className: "flex-1 outline-none", style: { minWidth: 0, width: 0, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })   // ⚠️minWidth/width 0：输入框天生有个默认宽度，不压到 0 它会把右边「切回大号」挤出屏幕、整页横着滑（群友 2026-10-15）
+              : h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
             h("button", { onClick: () => {
                 const me2 = Object.assign({}, dbRef.current.me);
                 if (!a) { save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign(me2, { using: "cp:" + id }) })); return; }
@@ -957,6 +986,10 @@
               !a ? "开一个" : cpId === id ? "切回大号" : "切过去"));
         })) : null,
         onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
+        // 平时TA发视频只有三回里一回落在情侣号上；想看就点这颗，专门发一条到这儿（一次调用）
+        onCp ? h("button", { "data-wk": "shuacppost", disabled: !!busy, onClick: () => genChars([cpId], true), className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 8, minHeight: 38, borderRadius: 10, border: "1px solid " + P.accent, color: P.accent, background: "transparent", fontFamily: F_BODY, fontSize: 12.5 } },
+          busy === "chars" ? "在拍…" : "让 " + (charOf(cpId) || {}).name + " 往这个号发一条") : null,
         onAlt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是小号「" + altName + "」：发的视频不会叫认识你的人来看，评 TA 的视频 TA 也不知道是你。") : null,
         // 首页样子：跟论坛「首页排版」同一个位置、同一个道理——两套视频，各刷各的
         h("div", { "data-wk": "shuaskinrow", className: "flex items-center justify-between", style: { marginTop: 14, padding: "10px 12px", borderRadius: 12, background: P.field, border: "1px solid " + P.line } },
@@ -1028,5 +1061,5 @@
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;
-  window.ShuaKit = { tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
 })();

@@ -42,3 +42,10 @@ test("挑了衣服，海报的 shot 和生图那句都不许另换装（她 2026
   assert.match(app, /shot 里只写站位、动作和镜头，不许写穿什么/);
   assert.match(app, /\(picked \? "两个人身上穿的一律照上面挑好的那身/);
 });
+
+test("周刊封面：截在标点上、长句断两行、网页不再叠一层头条（她 2026-10-14）", () => {
+  const wk = R("js/weekly.js");
+  assert.match(app, /coverLines: hl\.slice\(0, 3\)\.map\(\(l, i\) => \(\{ kicker: i \? "" : "本期看点", line: cut\(l, 18\) \}\)\)/);
+  assert.match(src, /const parts = wide && A\(g\.line\)\.length >= 8 \? titleLines\(\{\}, g\.line\) : \[g\.line\]/);
+  assert.doesNotMatch(wk, /rgba\(0,0,0,\.66\)\)", color: "#fffaf3" \} \},\s*h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 8, letterSpacing: "\.08em", opacity: \.8/);
+});

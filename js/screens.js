@@ -192,7 +192,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
         className: "w-full active:opacity-70",
         style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13.5 }
       }, fileBusy ? "正在读文件…" : "从文件导入"),
-      h("input", { ref: fileRef, type: "file", accept: ".docx,.txt,.md,.markdown,.json,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importFile }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
       h("textarea", { value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
@@ -2279,7 +2279,7 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
   return h("div", { "data-wk": "loreedit", className: "absolute inset-0 z-50 h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: isNew ? "新建设定" : "编辑设定", sub: "给谁看、什么时候翻出来、去哪几处", bg: "transparent", onBack: onClose,
       right: isNew ? h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, importing ? "读取中" : "导入") : onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null }),
-    h("input", { ref: importRef, type: "file", accept: ".docx,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importDocument }),
+    h("input", { ref: importRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
     importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, importError),
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
@@ -2621,7 +2621,7 @@ function Forum({
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
-  onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
+  onRefreshPMs, onSendPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onDeletePost, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
@@ -2681,6 +2681,7 @@ function Forum({
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
   const [npcProfile, setNpcProfile] = useState(null); // 普通网友公开足迹（不含匿名）
   const [altProfile, setAltProfile] = useState(null); // 角色小号公开足迹；页面不暴露背后真身
+  const [altEdit, setAltEdit] = useState(null), [altBusy, setAltBusy] = useState(false); // 换个网名：null＝收着，字符串＝正在改的草稿
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
@@ -2866,6 +2867,7 @@ function Forum({
   const maskCur = (forumMasks || []).find(m => m.id === (forumMaskNow || "")) || null;
   const meChar = { name: (forumMaskNow && maskCur ? maskCur.name : ((forumMe && forumMe.handle) || profile.name || "我")), avatarImage: (maskCur && maskCur.avatarImage) || profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
+  useEffect(() => { setAltEdit(null); }, [altProfile && altProfile.authorId]);
   useEffect(() => { if (altProfile && altProfile.authorId && onEnsureCharMeta) { const c = charOf(altProfile.authorId); if (c) onEnsureCharMeta(c); } }, [altProfile && altProfile.authorId]);
   useEffect(() => {
     const markSeen = () => { try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} };
@@ -2898,7 +2900,10 @@ function Forum({
   const [fromPost, setFromPost] = useState(null);
   const enterSub = go => { setFromPost(open || null); setOpen(null); go(); };
   const leaveSub = go => { go(); if (fromPost) { setOpen(fromPost); setFromPost(null); } };
-  const goProfile = id => enterSub(() => setProfileId(id));
+  // 点进一个人的主页：档案馆里已经没有这个人（删掉了、或者帖子是配角／旧号用角色身份留的）就当网友主页开，
+  //   不再开一张白页（群友 2026-10-16：「为什么点一个人的论坛主页点不进去」）
+  const goProfile = (id, a) => charOf(id) ? enterSub(() => setProfileId(id))
+    : a && !a.anon ? enterSub(() => setNpcProfile({ id: a.authorId || id, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })) : null;
   const goAltProfile = a => { if (!isAlt(a) || !a.authorId) return; enterSub(() => setAltProfile({ authorId: a.authorId, name: a.authorName || "小号", handle: a.authorHandle || a.authorName || "side" })); };
   const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; enterSub(() => setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })); };
   const toggleNpcFollow = id => setNpcFollows(prev => {
@@ -3068,7 +3073,7 @@ function Forum({
             // 深度仍然只有两层：回楼中楼落在同一层里，用「回复 @某某」标出对象。
             //   （贴吧/微博就是这么做的；真做三层嵌套在手机上没法读，老数据也要迁。）
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
-              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
+              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId, r);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
@@ -3160,7 +3165,7 @@ function Forum({
   // ---- 角色/我 主页 ----
   function profileView(isMe) {
     const c = isMe ? null : charOf(profileId);
-    if (!isMe && !c) return null;
+    if (!isMe && !c) return h("div", { className: "flex-1 flex items-center justify-center px-8", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.8, textAlign: "center" } }, "这个人已经不在人格档案馆里了，主页打不开。");
     // 她现在挂着小号：这一页就是小号的主页（名字、头像、帖子都是小号那份）
     const onAlt = isMe && forumMe && forumMe.using === "alt";
     const altNm = ((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼";
@@ -3242,6 +3247,17 @@ function Forum({
             h("div",{className:"flex items-center gap-2",style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},h("span",null,displayName),accountBadge(identity)),
             h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},"@"+displayHandle)),
           h("button",{onClick:()=>toggleNpcFollow(key),className:"px-3.5 py-1.5 active:opacity-70",style:{borderRadius:999,background:following?t.ink:"transparent",border:`1px solid ${t.line}`,fontFamily:F_BODY,fontSize:12,color:following?t.bg2:t.ink}},following?"已关注":"关注")),
+        // 换个网名（她 2026-10-14）：自己填，或者让它照 TA 的性子再起一个；改了以后这个号以前的帖和楼一起改署名
+        onRenameCharAlt&&owner?(altEdit==null
+          ?h("button",{"data-wk":"forumaltrename",onClick:()=>setAltEdit({name:displayName,handle:displayHandle}),className:"active:opacity-60",style:{marginTop:8,fontFamily:F_BODY,fontSize:12,color:t.sub,border:`1px solid ${t.line}`,borderRadius:999,padding:"4px 12px",minHeight:32}},"换个网名")
+          :h("div",{"data-wk":"forumaltedit",style:{marginTop:10,padding:"10px",borderRadius:12,background:t.bg2,border:`1px solid ${t.line}`}},
+            h("input",{value:altEdit.name,onChange:e=>setAltEdit({...altEdit,name:e.target.value.slice(0,16)}),placeholder:"新的小号网名",style:{width:"100%",boxSizing:"border-box",fontFamily:F_BODY,fontSize:14,padding:"8px 11px",borderRadius:10,border:`1px solid ${t.line}`,background:t.bg,color:t.ink,outline:"none"}}),
+            h("div",{className:"flex items-center",style:{marginTop:6,gap:4}},h("span",{style:{fontFamily:F_BODY,fontSize:13,color:t.fog}},"@"),h("input",{"data-wk":"forumalthandle",value:altEdit.handle||"",onChange:e=>setAltEdit({...altEdit,handle:e.target.value.replace(/[^A-Za-z0-9_]/g,"").slice(0,20)}),placeholder:"账号 id（字母、数字、下划线）",style:{flex:1,minWidth:0,boxSizing:"border-box",fontFamily:F_BODY,fontSize:13,padding:"7px 10px",borderRadius:10,border:`1px solid ${t.line}`,background:t.bg,color:t.ink,outline:"none"}})),
+            h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog,marginTop:6,lineHeight:1.5}},"网名和 @id 都不能跟别人的小号重名；改了以后，这个号以前发的帖和楼也一起换。"),
+            h("div",{className:"flex gap-2",style:{marginTop:8}},
+              h("button",{"data-wk":"forumaltregen",disabled:altBusy||!onRegenCharAlt,onClick:async()=>{setAltBusy(true);const n=await onRegenCharAlt(owner.id);setAltBusy(false);if(n)setAltEdit({name:n.name,handle:n.handle||altEdit.handle});},className:"flex-1 active:opacity-70 disabled:opacity-40",style:{minHeight:38,borderRadius:10,fontFamily:F_BODY,fontSize:12.5,color:t.ink,background:"transparent",border:`1px solid ${t.line}`}},altBusy?"在想…":"让它起一个"),
+              h("button",{onClick:()=>setAltEdit(null),className:"active:opacity-70",style:{minHeight:38,padding:"0 14px",borderRadius:10,fontFamily:F_BODY,fontSize:12.5,color:t.fog,background:"transparent"}},"取消"),
+              h("button",{"data-wk":"forumaltsave",disabled:altBusy||!String(altEdit.name||"").trim(),onClick:()=>{if(onRenameCharAlt(owner.id,altEdit.name,altEdit.handle)){setAltProfile(p=>p?{...p,name:String(altEdit.name).trim(),handle:String(altEdit.handle||p.handle).replace(/^@/,"")}:p);setAltEdit(null);}},className:"active:opacity-70 disabled:opacity-40",style:{minHeight:38,padding:"0 16px",borderRadius:10,fontFamily:F_BODY,fontSize:12.5,fontWeight:700,color:t.bg2,background:t.ink}},"存")))):null,
         h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:10}},meta.altBio||"这个账号习惯把大号不方便说的话留在这里。"),
         h("div",{className:"flex items-center flex-wrap gap-x-4 gap-y-1 mt-3",style:{minWidth:0}},
           h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog,whiteSpace:"nowrap"}},forumAge(meta.altJoinTs)),
@@ -3374,9 +3390,18 @@ function Forum({
     const sending = gen && gen.forumPM === th.id;
     const send = () => { if (pmText.trim()) { onSendPM(th.id, pmText.trim()); setPmText(""); } };
     return h("div", { className: "flex-1 flex flex-col min-h-0" },
+      // 加微信（群友 2026-10-15 许愿）：只给网友那种（角色本来就在你通讯录里）；加上了就变成去单聊
+      !th.charId && (onAskWechat || th.wechatId) ? h("div", { className: "shrink-0 px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, th.wechatId ? "已经加了微信，在 通讯录 → 配角 里" : "聊得来可以问TA要微信，加不加TA自己定"),
+        th.wechatId
+          ? (onOpenWechat ? h("button", { "data-wk": "pmwechat", onClick: () => onOpenWechat(th.wechatId), className: "ml-auto active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent, padding: "6px 2px" } }, "去微信聊") : null)
+          : h("button", { "data-wk": "pmwechat", disabled: sending, onClick: () => onAskWechat(th.id), className: "ml-auto active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent, padding: "6px 2px" } }, "加个微信")) : null,
       h("div", { className: "flex-1 overflow-y-auto px-5 py-4 space-y-2.5" },
-        th.messages.map((m, i) => h("div", { key: i, className: "flex " + (m.from === "me" ? "justify-end" : "justify-start") },
-          h("div", { style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, m.text))),
+        th.messages.map((m, i) => h(Fragment, { key: i },
+          // 时间：跟上一条隔了五分钟以上（或第一条）才插一行，跟聊天里一样
+          m.ts && (i === 0 || !th.messages[i - 1].ts || m.ts - th.messages[i - 1].ts > 300000) ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0" } }, new Date(m.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })) : null,
+          h("div", { className: "flex " + (m.from === "me" ? "justify-end" : "justify-start") },
+          h("div", { style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, m.text)))),
         sending && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
       h("div", { className: "shrink-0 px-4 py-3 flex gap-2", style: { borderTop: `1px solid ${t.line}` } },
         h("input", { value: pmText, onChange: e => setPmText(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "回 " + th.npcName + "…", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
@@ -4761,7 +4786,7 @@ const cpSkin = (t, kind) => {
   }[kind] || [];
   return { background: t.bg, backgroundImage: layers.join(",") };
 };
-function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, books, onSaveBook, onSaveCustom, onSaveCustomBooks, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
+function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, books, onSaveBook, onSaveCustom, onSaveCustomBooks, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onReply, onEditReply, onSaveTitle, gen, onBack }) {
   const t = useTheme();
   const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
   const answered = new Set(all.map(e => e.qid));
@@ -4804,6 +4829,8 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
   // 原来草稿只跟页码走——停在「最后一页」(9999) 时TA又出了一道新题，新题排到最后，
   // 同一个页码底下换成了B，框里她给A写的字还留着，一按就交进了B。
   const [revealDraft, setRevealDraft] = useState({ id: "", text: "" });
+  const [qaReply, setQaReply] = useState({ id: "", text: "" });
+  const [qaEdit, setQaEdit] = useState({ id: "", i: -1, text: "" });
   // 「翻到最后一页」(9999) 一落地就换成真页码：不然TA新出一题，停着的这页会自己跳到新题上
   useEffect(() => { if (mine.length && pageIdx > mine.length - 1) setPageIdx(mine.length - 1); }, [pageIdx, mine.length]);
   const swipeRef = useRef({ x: 0, y: 0 });
@@ -4872,6 +4899,21 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
                     style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: "#fdfaf1", background: "#3a3226", borderRadius: 999, padding: "8px 20px" } },
                     gen ? "写着…" : "让 " + partner.name + " 也写一份"))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#3a3226", whiteSpace: "pre-wrap" } }, gen ? "…" : (e.charAnswer || "…"))),
+          // 两份都打开了才能在底下聊（封着的时候聊就成了偷看）
+          (!e.sealed && e.charAnswer && onReply) ? h("div", { "data-wk": "qareplies", style: { marginTop: 12, borderTop: "1px dashed #e6dcc4", paddingTop: 10 } },
+            (e.replies || []).map((r, ri) => (qaEdit.id === e.id && qaEdit.i === ri)
+              // 我那条点一下就能改；清空了保存＝删掉这条
+              ? h("div", { key: ri, className: "flex gap-2", style: { marginBottom: 6 } },
+                  h("input", { autoFocus: true, value: qaEdit.text, onChange: ev => setQaEdit({ ...qaEdit, text: ev.target.value }), className: "flex-1 min-w-0 outline-none", style: { padding: "5px 9px", borderRadius: 6, border: "1px solid #d8cdaf", background: "#fffdf6", color: "#3a3226", fontFamily: F_BODY, fontSize: 12.5 } }),
+                  h("button", { onClick: () => { onEditReply && onEditReply(e.id, ri, qaEdit.text); setQaEdit({ id: "", i: -1, text: "" }); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#3a3226" } }, qaEdit.text.trim() ? "保存" : "删掉"),
+                  h("button", { onClick: () => setQaEdit({ id: "", i: -1, text: "" }), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#a3987e" } }, "取消"))
+              : h("div", { key: ri, onClick: r.authorId === "user" && onEditReply ? () => setQaEdit({ id: e.id, i: ri, text: r.content }) : undefined, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: r.authorId === "user" ? "#6a5f4b" : "#3a3226", marginBottom: 5, whiteSpace: "pre-wrap", cursor: r.authorId === "user" ? "pointer" : "default" } },
+              h("span", { style: { fontSize: 10.5, color: r.authorId === "user" ? "#8a7a5c" : "#a05a6a", marginRight: 6 } }, r.authorId === "user" ? "我" : partner.name), r.content)),
+            (e.replies || []).some(r => r.authorId === "user") ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#b5aa90", marginBottom: 4 } }, "点自己那条可以改") : null,
+            gen ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a3987e", marginBottom: 5 } }, partner.name + " 在写…") : null,
+            h("div", { className: "flex gap-2", style: { marginTop: 4 } },
+              h("input", { value: qaReply.id === e.id ? qaReply.text : "", onChange: ev => setQaReply({ id: e.id, text: ev.target.value }), placeholder: (e.replies || []).length ? "接着说…" : "看完两份，说两句…", className: "flex-1 min-w-0 outline-none", style: { padding: "7px 10px", borderRadius: 6, border: "1px solid #e6dcc4", background: "#fffdf6", color: "#3a3226", fontFamily: F_BODY, fontSize: 13 } }),
+              h("button", { onClick: () => { const tx = qaReply.id === e.id ? qaReply.text.trim() : ""; if (!tx) return; onReply(e.id, tx); setQaReply({ id: "", text: "" }); }, disabled: gen || !(qaReply.id === e.id && qaReply.text.trim()), className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { background: "#3a3226", color: "#fdfaf1", fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8 } }, "发"))) : null,
           h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid #e6dcc4", paddingTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a3987e" } }, timeAgo(e.answeredAt)),
             h("div", { className: "flex items-center gap-3" },
@@ -5774,9 +5816,15 @@ function AlbumPhoto({ photo, full, cover }) {
   if (!src) return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: full ? 40 : 20, opacity: 0.3 } }, "🖼");
   return h("img", { src, loading: "lazy", "data-desc": desc, style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
 }
-function CoupleAlbum({ partner, photos, onBack, onDelete }) {
+function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
   const t = useTheme();
   const [zoom, setZoom] = useState(null);
+  // 自己传一张挂上墙（群友 2026-10-14：「许愿一个可以自己传图片的地方」——自己画的、约的图也想挂）。
+  //   传上去就是一张墙上的照片，不叫TA点评、不花模型钱；删法跟别的照片一样。
+  const [up, setUp] = useState(null);
+  const [upDesc, setUpDesc] = useState("");
+  const [upBusy, setUpBusy] = useState(false);
+  const upRef = useRef(null);
   const list = (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const groups = [];
   list.forEach(p => {
@@ -5787,10 +5835,12 @@ function CoupleAlbum({ partner, photos, onBack, onDelete }) {
   });
   const isTwelfth = new Date().getDate() === 12;
   return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "album") },
-    h(Head, { zh: "我们的合照", sub: partner.remark || partner.name, bg: "transparent", onBack: onBack }),
+    h(Head, { zh: "我们的合照", sub: partner.remark || partner.name, bg: "transparent", onBack: onBack,
+      right: onUpload ? h("button", { onClick: () => upRef.current && upRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, padding: "6px 4px" } }, "传一张") : null }),
+    onUpload ? h("input", { ref: upRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) { setUp({ file: f, url: URL.createObjectURL(f) }); setUpDesc(""); } } }) : null,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
       list.length === 0
-        ? h(Empty, { text: "还没有你俩的合照", sub: "在和 " + partner.name + " 的聊天里，让 TA 拍张『我俩的合照』——就会挂到这面墙上。（需先在设置配好图像 API、你和 TA 都传了参考照）" })
+        ? h(Empty, { text: "还没有你俩的合照", sub: "在和 " + partner.name + " 的聊天里，让 TA 拍张『我俩的合照』——就会挂到这面墙上。（需先在设置配好图像 API、你和 TA 都传了参考照）" + (onUpload ? "\n自己画的、约的图，点右上「传一张」也能挂上来。" : "") })
         : h(Fragment, null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: isTwelfth ? t.accent : t.fog, textAlign: "center", padding: "8px 0 16px", lineHeight: 1.7, whiteSpace: "pre-line" } },
               "你和 " + partner.name + " 的合照 · 共 " + list.length + " 张\n" + (isTwelfth ? "今天十二号——来翻翻我们。" : "每月十二号，来这儿翻翻。")),
@@ -5808,7 +5858,18 @@ function CoupleAlbum({ partner, photos, onBack, onDelete }) {
         onClick: e => { e.stopPropagation(); onDelete(zoom); setZoom(null); },
         className: "active:opacity-60",
         style: { marginTop: 18, padding: "7px 18px", borderRadius: 999, border: "1px solid rgba(255,255,255,.28)", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.72)" }
-      }, "删掉这张") : null) : null));
+      }, "删掉这张") : null) : null,
+    up ? h("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: t.bg, display: "flex", flexDirection: "column" } },
+      h(Head, { zh: "挂一张上墙", bg: "transparent", onBack: () => { URL.revokeObjectURL(up.url); setUp(null); } }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        h("img", { src: up.url, alt: "", style: { width: "100%", maxHeight: "52vh", objectFit: "contain", borderRadius: 12, background: t.bg2 } }),
+        h("input", { value: upDesc, onChange: e => setUpDesc(e.target.value), maxLength: 60, placeholder: "写一句（可不写）", className: "w-full outline-none", style: { marginTop: 14, padding: "11px 13px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14 } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "只挂在合照墙上，TA 不会收到也不会点评；想删的时候点开大图删。"),
+        h("button", { disabled: upBusy, onClick: async () => {
+          setUpBusy(true);
+          try { await onUpload(up.file, upDesc); URL.revokeObjectURL(up.url); setUp(null); } catch (e) { toast("没挂上：" + ((e && e.message) || "重试")); }
+          setUpBusy(false);
+        }, className: "w-full active:opacity-70 disabled:opacity-50", style: { marginTop: 18, padding: "13px 0", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } }, upBusy ? "挂上去……" : "挂上墙"))) : null));
 }
 const COUPLE_ARCHIVE_FIELDS = [
   ["nicknames", "彼此称呼", "你怎么叫 TA，TA 又怎么叫你"],
@@ -6686,7 +6747,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6777,7 +6838,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onEditReply: onEditQAReply, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
@@ -6848,7 +6909,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   }
   // 情侣空间子模块：合照墙
   if (partner && cp[view] && cp[view].status === "together" && sub === "album") {
-    return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null });
+    return h(CoupleAlbum, { partner, photos: duoPhotosFor ? duoPhotosFor(partner.id) : [], onBack: () => setSub(null), onDelete: onDeletePhoto ? p => onDeletePhoto(partner.id, p) : null, onUpload: onUploadPhoto ? (file, desc) => onUploadPhoto(partner.id, file, desc) : null });
   }
   // 情侣空间子模块：情书
   if (partner && cp[view] && cp[view].status === "together" && sub === "letters") {
@@ -7659,7 +7720,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -7787,7 +7848,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
   let lyricActive = -1;
   if (Array.isArray(lyricLines)) for (let i = 0; i < lyricLines.length; i++) { if (lyricLines[i].t != null && lyricLines[i].t <= cur) lyricActive = i; }
   // 边听边说（她 2026-09-29）：两只头像挂在封面上方、谁说话谁冒气泡；底下一行小输入。逻辑全在 listen-talk.js
-  const talk = window.ListenTalk ? window.ListenTalk.useTalk({ partner, profile, song: now, player, lyricLines, lyricActive, active, ctxFor, toast, onToChat, t }) : null;
+  const talk = window.ListenTalk ? window.ListenTalk.useTalk({ partner, profile, song: now, player, lyricLines, lyricActive, active, ctxFor, toast, onToChat, onState: onListenState, roomName: listenRoomName, talkKey, t }) : null;
   useEffect(() => {
     if (!showLyric || lyricActive < 0 || !lyricBoxRef.current) return;
     const el = lyricBoxRef.current.querySelector('[data-lyric-active="1"]');
@@ -7897,7 +7958,21 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
     //   而她按次计费。放歌这个动作本身不该花钱。
     //   TA还是知道你俩在听什么（那一层是白送的，不花钱）：她问起来接得住，
     //   只是不会自己开口了。
-    pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null);
+    pickWho ? h("div", { style: { borderTop: "1px dashed " + t.line, margin: "0 14px" } }, whoRow) : null,
+    // 说的话落不落单聊（群友 2026-10-15 许愿，她：「在选人下面搞个开关」）。存在 x_listen 那一份里，不另开键。
+    //   一起听房里进来的不看这一格：那时候本来就落在房里。
+    partner && onSetTalkStay ? h("div", { className: "flex items-center", "data-wk": "listenstay", style: { gap: 10, borderTop: "1px dashed " + t.line, margin: "0 14px", padding: "10px 0 12px" } },
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "说的话只留在一起听里"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+          listenRoomName ? "现在是从「" + listenRoomName + "」进来的，说的话落在那间房里" : "打开后边听边说不进单聊，全部的话在播放页底下「刚才说的」里翻")),
+      h(Toggle, { on: !!data.talkStay, onChange: () => onSetTalkStay(!data.talkStay) })) : null,
+    partner && onSetTalkNote && data.talkStay && !listenRoomName ? h("div", { className: "flex items-center", "data-wk": "listenstay", style: { gap: 10, margin: "0 14px", padding: "0 0 12px" } },
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "单聊里留一张小条"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+          data.talkNote === false ? "关着：单聊里什么都不留，回到单聊TA不知道你们刚一起听过" : "开着：单聊里一张「一起听」小条，写听了哪几首和最后几句，TA回到单聊接得上")),
+      h(Toggle, { on: data.talkNote !== false, onChange: () => onSetTalkNote(data.talkNote === false) })) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
     // 头像那一条粘在顶上：她往下滑到输入框说话时，两只头像和气泡还看得见（她 2026-09-29）
     talk ? h("div", { className: "w-full", style: { position: "sticky", top: 0, zIndex: 5 } }, talk.stage) : null,
@@ -8760,16 +8835,17 @@ function NeteaseApiHelp({ toast }) {
 }
 // Fish 官方接口不让网页直接调（她 2026-10-12 两台手机都报 Failed to fetch），要自己搭一个转发。
 //   写在 Fish 那一格底下，点开才有；代码一键复制，不用她从截图里抄。
-const FISH_RELAY_CODE = `export default {
+// 一段转发代码，换个上游就能给别家用（Fish、MiniMax 视频……官方接口不让网页直接调的都走这个）。
+const relayCodeFor = host => `export default {
   async fetch(req) {
     const cors = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "authorization, content-type, model",
     };
     if (req.method.toLowerCase() === "options") return new Response(null, { headers: cors });
     const url = new URL(req.url);
-    const r = await fetch("https://api.fish.audio" + url.pathname + url.search, {
+    const r = await fetch("${host}" + url.pathname + url.search, {
       method: req.method, headers: req.headers, body: req.body,
     });
     const h = new Headers(r.headers);
@@ -8777,21 +8853,29 @@ const FISH_RELAY_CODE = `export default {
     return new Response(r.body, { status: r.status, headers: h });
   },
 };`;
-function FishRelayHelp({ toast }) {
+const FISH_RELAY_CODE = relayCodeFor("https://api.fish.audio");
+// hosts：[[名字, 上游地址], ...]——多于一个就先让她挑站点，复制出来的代码跟着换。
+function RelayHelp({ toast, hosts, what }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState(0);
+  const list = hosts && hosts.length ? hosts : [["", "https://api.fish.audio"]];
+  const code = relayCodeFor(list[Math.min(pick, list.length - 1)][1]);
   const p = { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 };
   return h("div", { "data-wk": "fishrelay", style: { margin: "-2px 0 12px" } },
     h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, padding: "4px 0" } }, open ? "收起 ▴" : "没有中转？自己搭一个（免费，几分钟）▾"),
     open ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg } },
       h("div", { style: p }, "用 Cloudflare 的免费 Worker 搭，密钥只经过你自己的号："),
+      list.length > 1 ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, margin: "4px 0 6px" } }, list.map(([n], k) => h("button", { key: k, type: "button", onClick: () => setPick(k), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid " + (k === pick ? t.accent : t.line), color: k === pick ? t.accent : t.sub } }, n))) : null,
+      list.length > 1 ? h("div", { style: Object.assign({}, p, { fontSize: 11, color: t.fog }) }, "先挑你的密钥是哪个站申请的，下面的代码会跟着换。") : null,
       h("div", { style: p }, "① 登录 Cloudflare → Workers & Pages → Create → Create Worker，随便起名，点 Deploy。"),
       h("div", { style: p }, "② 点 Edit code，把原来的代码全删掉，换成下面这段，再点 Deploy。"),
-      h("pre", { style: { margin: "8px 0", padding: 10, borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontSize: 10.5, lineHeight: 1.5, color: t.ink, overflowX: "auto", whiteSpace: "pre" } }, FISH_RELAY_CODE),
-      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(FISH_RELAY_CODE); toast && toast(ok ? "代码复制好了，去 Cloudflare 粘上" : "复制不了，长按上面那段自己选"); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8, background: t.ink, color: t.bg2 } }, "复制这段代码"),
-      h("div", { style: Object.assign({}, p, { marginTop: 8 }) }, "③ 复制这个 Worker 的地址（https://名字.账号.workers.dev），填进上面「接口地址」，点试听。"),
+      h("pre", { style: { margin: "8px 0", padding: 10, borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontSize: 10.5, lineHeight: 1.5, color: t.ink, overflowX: "auto", whiteSpace: "pre" } }, code),
+      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(code); toast && toast(ok ? "代码复制好了，去 Cloudflare 粘上" : "复制不了，长按上面那段自己选"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "4px 0" } }, "复制代码"),
+      h("div", { style: Object.assign({}, p, { marginTop: 8 }) }, "③ 复制这个 Worker 的地址（https://名字.账号.workers.dev），填进上面「接口地址」，" + (what || "点试听") + "。"),
       h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11 }) }, "workers.dev 在国内有时连不稳：连不上就开着梯子用，或者在 Cloudflare 里给它绑一个自己的域名。")) : null);
 }
+function FishRelayHelp({ toast }) { return h(RelayHelp, { toast }); }
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
   // 语音模型那一格（Fish、ElevenLabs 共用）：能自己打字，点一下也能挑现成的。
   //   ⚠️写在组件里面，别挪成顶层函数：公共版打包会把上面真声耳朵／电台嗓子那几格整段拿掉，
@@ -9424,7 +9508,8 @@ function ImageApiConfig({ toast }) {
         h("option", { value: "images" }, "出图接口 /images（gpt-image 等）"),
         h("option", { value: "chat" }, "聊天接口 /chat/completions"),
         h("option", { value: "gemini" }, "Gemini 原生 /v1beta/…:generateContent"),
-        h("option", { value: "minimax" }, "MiniMax 原生 /v1/image_generation（image-01）"))),
+        h("option", { value: "minimax" }, "MiniMax 原生 /v1/image_generation（image-01）"),
+        h("option", { value: "nai" }, "NAI 原生 /ai/generate-image（站长说「nai 的格式」选这个，能锁脸）"))),
       // 这个站不锁脸（她 2026-10-05）：有的站不收带图的请求——打开就只发文字，一次请求
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
         h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
@@ -10710,7 +10795,7 @@ function SenseConfig({
   })), typeof VClockMasks === "function" ? h(VClockMasks, { masks, primaryId: maskPrimary,
     clocks: { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) },
     // 旧的那一只（vclock）并进 vclocks.main 以后就不再单放
-    onChange: c => { const np = { ...p, vclocks: c }; delete np.vclock; save(np); } }) : null, h("div", {
+    onChange: c => { const old = { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) }; const np = { ...p, vclocks: typeof vclockKeepHist === "function" ? vclockKeepHist(old, c) : c }; delete np.vclock; save(np); } }) : null, h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
@@ -10902,7 +10987,7 @@ function BubbleSkinConfig({ toast }) {
     h("div", { className: "flex gap-2", style: { marginTop: 8 } },
       h("button", { onClick: exportSkin, className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导出这套气泡"),
       h("button", { onClick: () => skinFile.current && skinFile.current.click(), className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导入气泡")),
-    h("input", { ref: skinFile, type: "file", accept: "application/json,.json", className: "hidden", onChange: importSkin }),
+    h("input", { ref: skinFile, type: "file", accept: ANY_FILE, className: "hidden", onChange: importSkin }),
     typeof window !== "undefined" && window.ThemePackPasteBox
       ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: applySkinText, open: "挑不开文件？把气泡的 JSON 贴进来" }))
       : null));
@@ -11824,7 +11909,7 @@ function DataConfig({
           h("br"), "3）几段得是同一次导出的：段头第三格那串字母要一样。"))
       : null,
     h(HomeLayoutProbe, { toast: toast }),
-    h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
+    h("input", { ref: ref, type: "file", accept: ANY_FILE, className: "hidden", onChange: e => {
       const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
     } }));
   if (part === "danger") content = h("div", { style: { paddingTop: 8 } },
@@ -13509,7 +13594,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
       sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: ".16em", marginBottom: 16 } }, sub) : null,
       (entry.paras || []).some(p => p.secret) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 16 } }, "点一下墨块，那句话会化开") : null,
       (entry.paras || []).map((p, i) => {
-        if (p.pasted) return h("div", { key: i, style: { position: "relative", margin: "8px 2px 24px", padding: "13px 14px", background: "rgba(" + iRGB + ",.045)", border: "1px solid rgba(" + iRGB + ",.10)", borderRadius: 3, transform: "rotate(-.6deg)", boxShadow: "0 2px 10px rgba(0,0,0,.06)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.sub, whiteSpace: "pre-wrap" } },
+        if (p.pasted) return h("div", { key: i, style: { position: "relative", margin: "8px 2px 24px", padding: "13px 14px", background: "rgba(" + iRGB + ",.045)", border: "1px solid rgba(" + iRGB + ",.10)", borderRadius: 3, transform: "rotate(-.6deg)", boxShadow: "0 2px 10px rgba(0,0,0,.06)", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.sub, whiteSpace: "pre-wrap", textAlign: "center" } },
           h("span", { "aria-hidden": "true", style: { position: "absolute", top: -8, left: "42%", width: 46, height: 15, background: "rgba(" + iRGB + ",.07)", border: "1px solid rgba(" + iRGB + ",.06)", transform: "rotate(-3deg)" } }),
           p.text);
         const body = { fontFamily: F_BODY, fontSize: 16.5, lineHeight: 2.05, color: t.ink, marginBottom: 20 };
@@ -14753,13 +14838,13 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           h("div", { "data-wk": "emoswitchrow", "data-part": "global", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "谁都能用"),
-              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开了就不看下面的专属绑定")),
+              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开了所有角色都能用，不看下面贴的名字")),
             h("button", { "data-wk": "emoswitch", "data-part": "global", "data-on": pack.global ? "1" : "0", onClick: () => onUpdatePack(pack.id, { global: !pack.global }), "aria-label": "谁都能用", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.global ? t.ink : t.line, position: "relative", transition: "background .2s" } },
               h("span", { style: { position: "absolute", top: 3, left: pack.global ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
           h("div", { "data-wk": "emoswitchrow", "data-part": "mine", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我自己也能发"),
-              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "关掉后角色照旧能用，只是我的选择器里不出现")),
+              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开着我在哪个聊天都能发；上面和下面只管角色")),
             h("button", { "data-wk": "emoswitch", "data-part": "mine", "data-on": pack.mine !== false ? "1" : "0", onClick: () => onUpdatePack(pack.id, { mine: pack.mine === false }), "aria-label": "我自己也能发", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.mine !== false ? t.ink : t.line, position: "relative", transition: "background .2s" } },
               h("span", { style: { position: "absolute", top: 3, left: pack.mine !== false ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
           // ── 这版只给谁用：一张张姓名贴，贴上去的才作数 ──
@@ -14801,7 +14886,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           note("往这版上贴新的"),
           h("div", { "data-wk": "emohelp", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "14px 16px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
-            h(FilePick, { accept: "text/plain,text/markdown,.txt,.text,.md", onChange: readFile, label: "从文件里读表情包清单" },
+            h(FilePick, { accept: ANY_FILE, onChange: readFile, label: "从文件里读表情包清单" },
               h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
             h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
@@ -15462,7 +15547,7 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
 //   【多几身】，不是【换几身】，所以这一枪只要新的那几身。
 // ⚠️已经挂着的那几身要点名列出来「别再写一遍」：不列的话它会把老的重写一遍，
 //   撞名全被 closetMerge 挡掉，一枪白打。
-function closetMoreSpec(char, known, room, material, elsewhere) {
+function closetMoreSpec(char, known, room, material, elsewhere, keywords) {
   const nm = char.name;
   const have = closetGroups(known);
   const list = have.map(g => "· 〔" + (g.occasion || "没写场合") + "〕" + g.sets.map(x => x.name).join("、")).join("\n");
@@ -15471,6 +15556,10 @@ function closetMoreSpec(char, known, room, material, elsewhere) {
     maxTokens: 65000,
     schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}",
     instruction: "给「" + nm + "」的衣柜再添几身衣服，**只写新添的那几身**。"
+      // 她点名要的就照着配（她 2026-10-14：「比如我要生成女仆装给他们可以吗，理论上算 ooc，正常他们也不会买来穿」）——
+      //   关键词说了算，不拿「像不像他会买的」去改她要的东西；不像他会自己置办的，就在 note 里写清这身是怎么进他柜子的。
+      + (keywords ? "\n\n【她给的关键词】" + keywords + "\n这一次添的就照这几个词来，她要什么款式就是什么款式。"
+          + characterText(char, "要是这身不像他自己会去买的，照样添，只在 note 里写清它是怎么进他柜子的（谁送的、活动发的、被起哄换上的、她给他挑的……），这样他穿上时也有个说法。") : "")
       + (list ? "\n\n【柜子里已经挂着这些】\n" + list
           + "\n新添的要和上面这些真的是两回事——不是同一件换个颜色，也不是同一句话换个说法。" : "")
       + characterText(char, "\n\n【添在哪个场合由这个人决定】可以补进上面已经有的场合——同一种场合下他反复挑中的那几身，")
@@ -15530,7 +15619,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -15613,11 +15702,12 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack
+          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
+  const [closetKw, setClosetKw] = useState(""), [hangOpen, setHangOpen] = useState(false), [hang, setHang] = useState({ occ: "", name: "", note: "" });
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -15754,7 +15844,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     //   一身都不会多出来。所以「想多几身」在界面上原本是【没有路】的，
     //   不是她没找到。这个按钮走的是另一条：closetMoreSpec 只要新的，closetMerge 只添不换。
     const moreBtn = onGenClosetMore ? h("button", { "data-wk": "carrymorebtn",
-      onClick: () => onGenClosetMore(char),
+      onClick: () => onGenClosetMore(char, closetKw),
       disabled: !!busyKey || !!closetBusy,
       className: "w-full active:opacity-70 disabled:opacity-40",
       style: {
@@ -15763,9 +15853,25 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         background: carryTint("outfit", .10),
         boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(60,48,30,.14)"
       }
-    }, closetBusy ? "正在添…" : (total ? "再添几身 ＋" : "添几身进来 ＋")) : null;
+    }, closetBusy ? "正在添…" : closetKw.trim() ? "照这几个词添几身 ＋" : (total ? "再添几身 ＋" : "添几身进来 ＋")) : null;
+    // 给 TA 添衣服的两种办法，跟「我的衣柜」一个样（她 2026-10-14 转群友「能给 char 生成特定衣服，和 user 差不多」）：
+    //   填几个词再添——照词配，配出来的都留着；或者自己写一身直接挂上去（不经过模型，挂上也留着）。
+    const inSt = { width: "100%", boxSizing: "border-box", fontFamily: F_BODY, fontSize: 13, padding: "9px 12px", borderRadius: 10, border: "1px solid " + carryTint("outfit", .25), background: t.bg2, color: t.ink, outline: "none", marginBottom: 7 };
+    const addBox = h("div", { "data-wk": "carryclosetadd", style: { marginTop: total ? 4 : 18 } },
+      onGenClosetMore ? h("input", { "data-wk": "carryclosetkw", value: closetKw, onChange: e => setClosetKw(e.target.value.slice(0, 80)), placeholder: "想要什么样的？给几个词（可空）：比如 黑色风衣、约会、毛衣", style: inSt }) : null,
+      moreBtn,
+      onClosetHang ? (hangOpen
+        ? h("div", { "data-wk": "carryclosethang", style: { marginTop: 10, padding: "11px 11px 4px", borderRadius: 12, background: carryTint("outfit", .07) } },
+            h("input", { value: hang.occ, onChange: e => setHang({ ...hang, occ: e.target.value.slice(0, 8) }), placeholder: "什么场合（留空算「日常」）", style: inSt }),
+            h("input", { value: hang.name, onChange: e => setHang({ ...hang, name: e.target.value.slice(0, 40) }), placeholder: "这身叫什么", style: inSt }),
+            h("textarea", { value: hang.note, onChange: e => setHang({ ...hang, note: e.target.value.slice(0, 140) }), rows: 2, placeholder: "是什么衣服——版型、颜色、料子、鞋（可空）", style: { ...inSt, resize: "none" } }),
+            h("div", { className: "flex gap-2", style: { marginBottom: 7 } },
+              h("button", { onClick: () => { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"),
+              h("button", { "data-wk": "carryclosethangsave", disabled: !hang.name.trim(), onClick: () => { if (onClosetHang(char.id, hang.occ, hang.name, hang.note)) { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); } },
+                className: "flex-1 active:opacity-70 disabled:opacity-40", style: { minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: t.ink } }, "挂进去")))
+        : h("button", { "data-wk": "carryclosethangopen", onClick: () => setHangOpen(true), className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: carryTint("outfit", .95), background: "transparent", border: "1px dashed " + carryTint("outfit", .35), borderRadius: 12 } }, "自己挂一身 ＋")) : null);
     content = !total
-      ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的", moreBtn)
+      ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的", addBox)
       : h("div", { "data-wk": "carrycloset", style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
             h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
@@ -15780,7 +15886,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
               h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
               h("span", { "data-wk": "carryoccasioncount", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, g.sets.length + " 套")) : null,
             bay(g.sets.map((it, si) => hanger(it, g, gi, si))))),
-          moreBtn);
+          addBox);
   } else if (sec.stuff) {
     // 包内／口袋／珍藏：把包倒在内衬上。每件东西一张小牌，牌上不画那个东西
     // （画不完也画不像），只留一条它的【材质色】——铜的、纸的、布的、瓷的。
@@ -16022,7 +16128,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -16112,7 +16218,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear,
+    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

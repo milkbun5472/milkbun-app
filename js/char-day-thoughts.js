@@ -81,15 +81,16 @@
       catch{if(mounted.current)setSaveError('没有保存成功，开关保持原样，可以再试。');}
       finally{if(mounted.current)setSaving(false);}
     };
-    const refresh=async(manual=false)=>{
+    // once＝只想这一次（她 2026-10-16「手动生成想法就会把自动开了」）：不开自动开关，也不要求它开着；生成、存档照常
+    const refresh=async(manual=false,once=false)=>{
       const o=current.current,f=o.frame,id=f?.charId,gate='charDayThought|'+id;
-      if(!o.enabled||!o.allowed||!f||inflight.has(id)||!root.AutoGate)return;
+      if((!o.enabled&&!once)||!o.allowed||!f||inflight.has(id)||!root.AutoGate)return;
       if(!manual&&(o.cache?.period===f.period||!root.AutoGate.due(gate,f.period,{minIntervalMs:INTERVAL,maxTries:1})))return;
       const identity=o.context(o.char),revision=identity.revision,version=epoch.current,thoughts=recent(o.preferences||{cache:o.cache},f.scope);
       if(identity.scope!==f.scope)return;
       inflight.add(id);root.AutoGate.claim(gate,f.period);
       setStatus({key:f.key,busy:true});
-      const valid=()=>mounted.current&&epoch.current===version&&current.current.enabled&&current.current.frame?.key===f.key&&current.current.context(current.current.char).revision===revision&&current.current.context(current.current.char).scope===f.scope;
+      const valid=()=>mounted.current&&epoch.current===version&&(once||current.current.enabled)&&current.current.frame?.key===f.key&&current.current.context(current.current.char).revision===revision&&current.current.context(current.current.char).scope===f.scope;
       try{
         const held=pending.current,canSave=held?.key===f.key&&held.revision===revision&&held.version===version;
         const value=canSave?{thought:held.text}:await root.AutoGate.tagged('此刻的念头',()=>o.generate(o.char,f,identity,thoughts),'此刻的念头·'+(o.char.remark||o.char.name));
@@ -97,7 +98,7 @@
         if(!valid())return;
         pending.current={key:f.key,text,revision,version};
         const next=await o.save(id,raw=>{
-          if(!valid()||raw?.enabled!==true)return raw;
+          if(!valid()||(!once&&raw?.enabled!==true))return raw;
           return addFragment(raw,f,text,Date.now());
         });
         if(valid()){pending.current=null;o.saved(next);setStatus({key:f.key});}
@@ -107,7 +108,7 @@
     useEffect(()=>{refresh(false);},[options.enabled,options.allowed,options.frame?.period,options.tick]);
     const cache=options.cache?.key===options.frame?.key&&options.cache?.scope===options.frame?.scope?options.cache:null;
     const held=pending.current,unsaved=held&&held.key===options.frame?.key&&held.version===epoch.current&&options.context(options.char).revision===held.revision?held.text:'';
-    return {cache,unsaved,saving,saveError,setEnabled,refresh:()=>refresh(true),busy:status.key===options.frame?.key&&status.busy,error:status.key===options.frame?.key?status.error:''};
+    return {cache,unsaved,saving,saveError,setEnabled,refresh:()=>refresh(true,!options.enabled),once:()=>refresh(true,true),busy:status.key===options.frame?.key&&status.busy,error:status.key===options.frame?.key?status.error:''};
   }
   root.CharDayThoughts={INTERVAL,HISTORY_LIMIT,recent,addFragment,snapshot,chatWindow,instruction,albumInstruction,textOf,useThoughts};
 })(globalThis);

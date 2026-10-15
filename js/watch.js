@@ -356,7 +356,7 @@
                     : online.short ? "b23.tv 短链认不出来：在浏览器里打开它，复制地址栏里那条长链接再贴"
                     : online.source === "youtube" ? "YouTube：进度 TA 会自己跟上"
                     : "B 站：B 站不告诉我们放到哪，放的时候在下面那块表上也按一下播放 / 暂停，TA 靠它跟进度")),
-          row("字幕（强烈建议）", mode === "file" ? "srt / vtt / ass。不选的话会先试着读视频里自带的字幕" : "srt / vtt / ass。网上的片子只能靠这一格给 TA 台词", sub, setSub, sRef, ".srt,.vtt,.ass,.ssa,.txt"),
+          row("字幕（强烈建议）", mode === "file" ? "srt / vtt / ass。不选的话会先试着读视频里自带的字幕" : "srt / vtt / ass。网上的片子只能靠这一格给 TA 台词", sub, setSub, sRef, ANY_FILE),
           h("div", { style: { padding: "12px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, marginBottom: 6 } }, "片名"),
             h("input", { value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 }, "data-wk": "watchimportpageinput", "data-part": "叫它什么" }))),

@@ -13,7 +13,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /function RefreshPage\(/);
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
-  assert.match(S, /const genChars = async ids =>/);
+  assert.match(S, /const genChars = async \(ids, forceCp\) =>/);   // 2026-10-15 多了 forceCp：情侣号那颗「让TA往这个号发一条」
   assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
@@ -45,7 +45,8 @@ test("点进评论再回来还在原地，不回第一条", () => {
 
 test("小号：TA只当陌生人；小号发的不叫熟人；作品各列各的", () => {
   assert.match(S, /const onAlt = !!\(altName && db\.me && db\.me\.using === "alt"\);/);
-  assert.match(S, /底下一个你不认识的账号「" \+ alt \+ "」评论了你/);
+  // 2026-10-15 评论那一串换成 crowdSystem：小号/不认识的面具评论时，在场的人只看到一个谁都不认识的账号
+  assert.match(S, /是个谁都不认识的账号，没人知道背后是谁/);
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}   \/\/ 小号发的/);
   assert.match(S, /ofSkin\.filter\(v => v\.by === "me" && !v\.cp && !!v\.alt === onAlt[ &)]/);
 });
@@ -116,7 +117,9 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
   assert.match(S, /props\.charPay\(c\.id, Math\.floor\(amt \* \(1 - CHARGE_CUT\)\), "片刻收到充电/);
   assert.match(S, /const CHARGE_CUT = 0\.25;/, "充电作者到手 75%");
   assert.match(S, /const heard = mineB\.slice\(0, 3\)\.flatMap/);
-  assert.match(S, /function threadInstruction\(/);
+  // 2026-10-15 楼中楼和评论一起换成论坛那套「一串人接话」：被回的那个必接、作者看情况、路人来起哄
+  assert.match(S, /function crowdSystem\(v, o\)/);
+  assert.match(S, /const reply = \(v, cid, text, toName\) =>/);
   assert.match(S, /onSame: v\.by !== "me" \? \(\) => setPage\(\{ kind: "post", same: v \}\) : null/);
   assert.match(S, /const genNpc = async city =>/);
   // 刷新页的「刷几条路人的」在同城那一格刷的是这座城（v75.043），别处还是推荐
@@ -201,7 +204,8 @@ test("同城那排限宽能横滑；在同城打开刷新页，刷路人刷的�
 test("消息记着是哪条视频，点进去就是那条", () => {
   const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
   assert.match(src, /const note = \(text, vid\) =>/);
-  assert.equal((src.match(/note\([^;]*, v\.id\)/g) || []).length, 4, "四处提醒都带上视频");
+  // 评论回复那一串（crowd）里记的是 vid（2026-10-15 换写法），一起数
+  assert.equal((src.match(/note\([^;]*, (?:v\.id|vid)\)/g) || []).length, 3, "每处提醒都带上视频");
   assert.match(src, /const openNote = n =>/);
   assert.match(src, /setPage\(vidSkin\(v\) === "b" \? \{ kind: "bdetail", id: v\.id \} : \{ kind: "one", id: v\.id \}\)/);
 });

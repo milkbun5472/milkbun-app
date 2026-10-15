@@ -73,7 +73,8 @@ test("那条链里「怎么保证不 OOC」的几道锁都还在", () => {
   assert.match(eng, /photoOutfit（手动锁死）＞ 此刻真穿着 ＞ 衣柜里真有的 ＞ 人设/);
   // 合照缺一张参考照就降级——杜绝一张真一张编
   assert.match(app, /合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编/);
-  assert.match(app, /if \(photoKind === "duo" && !\(char\.refPhoto && profile && profile\.refPhoto\)\) photoKind = "other";/);
+  // v75.685 起「我」取的是这个角色认的那张面具（meOf），两张真脸这道闸没变
+  assert.match(app, /if \(photoKind === "duo" && !\(char\.refPhoto && \(meOf\(charId\) \|\| \{\}\)\.refPhoto\)\) photoKind = "other";/);
 });
 
 test("四张都接进了记忆库那一层（v68.40）", () => {

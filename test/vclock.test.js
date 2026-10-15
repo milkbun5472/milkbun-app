@@ -10,7 +10,7 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const engine = R("engine.js"), app = R("app.js"), screens = R("screens.js"), comps = R("components.js");
 const grab = name => { const i = engine.indexOf("function " + name + "("); assert.ok(i >= 0, name); return engine.slice(i, engine.indexOf("\n}\n", i) + 3); };
 const win = {};
-const E = new Function("window", ["vclockState", "vclockUse", "vclockCfg", "vclockMap", "vclockNow", "vclockYear", "vclockLabel", "fmtClock", "fmtStampAI"].map(grab).join("")
+const E = new Function("window", ["vclockState", "vclockUse", "vclockCfg", "vclockSeg", "vclockMap", "vclockNow", "vclockYear", "vclockLabel", "fmtClock", "fmtStampAI"].map(grab).join("")
   + "\nreturn { vclockUse, vclockCfg, vclockMap, vclockNow, vclockYear, vclockLabel, fmtStampAI };")(win);
 
 test("一张面具一只钟：TA 认哪张面具就走哪只；没开就是现实", () => {
@@ -60,7 +60,7 @@ test("设置页按面具挑钟，悬浮球拨的是这个人认的那张面具�
   assert.match(screens, /h\(VClockMasks, \{ masks, primaryId: maskPrimary,/);
   assert.match(app, /window\.__vclock = Object\.assign\(/);
   assert.match(app, /const _clocks = \{ \.\.\.\(prefs\.vclock \? \{ main: prefs\.vclock \} : \{\}\), \.\.\.\(prefs\.vclocks \|\| \{\}\) \};/);
-  assert.match(app, /onVClock: v => \{ const k = \(screen === "thread" && activeChar && maskKeyOf\(activeChar\.id\)\) \|\| "main";/);
+  assert.match(app, /onVClock: v => \{ const k = \(screen === "thread" && activeChar && clockKeyOf\(activeChar\.id\)\) \|\| "main";/);   // 2026-10-16：他自己一只钟开着时拨他那只，没开照旧面具
 });
 
 // 她 2026-10-11：「查手机看看能不能也跟着虚拟时间」
