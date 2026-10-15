@@ -31330,10 +31330,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setRoomThought(window.ChatRooms.chatKey(lr.charId, lr.roomId), st.thought, { mood: st.mood, state: { action: st.action } });
       else writeGroupLiveState(c, st, "listen_" + Date.now(), undefined);
     },
-    onToChat: (charId, rows) => pChat((function () {
+    onSetTalkStay: on => saveListen(p => ({ ...p, talkStay: !!on })),
+    onToChat: (charId, rows) => {
+      const lr0 = listenRoom, inRoom = lr0 && String(lr0.charId) === String(charId) && listenRoomOf(lr0.charId, lr0.roomId);
+      // 选人底下那格开着：只留在一起听自己的记录里（x_listenTalk），不落单聊；房里进来的照旧落房
+      if (!inRoom && listen.talkStay) return;
+      pChat((function () {
       const lr = listenRoom;
       return lr && String(lr.charId) === String(charId) && listenRoomOf(lr.charId, lr.roomId) ? window.ChatRooms.chatKey(lr.charId, lr.roomId) : charId;
-    })(), p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
+    })(), p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]);
+    },
     listen: listen,
     characters: liveFaces,
     onBack: exitListen,
