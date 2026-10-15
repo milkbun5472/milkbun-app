@@ -4277,7 +4277,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           "🌐　AI 生成本月世界大事")),
       h("button", { "data-wk": "calfab", onClick: () => setFab(v => !v), className: "active:opacity-70 flex items-center justify-center", style: { width: 52, height: 52, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 26, boxShadow: "0 8px 22px rgba(0,0,0,0.22)" } }, fab ? "×" : "＋")),
 
-    form && h(CalEventForm, { initial: form, owner: evOwner, ownerName: view === "mine" ? (maskList.length > 1 ? "我 · " + curMask.name : "我") : view === "world" ? "世界" : (curChar ? (curChar.remark || curChar.name) : ""), 
+    form && h(CalEventForm, { initial: form, owner: evOwner, ownerName: view === "mine" ? (maskList.length > 1 ? "我 · " + curMask.name : "我") : view === "world" ? "世界" : (curChar ? (curChar.remark || curChar.name) : ""),
       onClose: () => setForm(null),
       onSave: ev => { onSaveTimed && onSaveTimed(ev); setForm(null); },
       onDelete: id => { onDelTimed && onDelTimed(id); setForm(null); } }),
