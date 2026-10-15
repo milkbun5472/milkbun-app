@@ -247,3 +247,25 @@ test("上传悬死有超时：挂死变成可见失败，下一轮 flush 不再�
   assert.equal(uploaded.length, 1, "网络恢复后同一条照常送达");
   assert.equal(manager.status().outbox.length, 0);
 });
+
+test("超长正文发货前裁到云端约束上限，整批不再被毒行连坐", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  let uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000,
+    upload: async rows => {
+      rows.forEach(r => { const n = r.content.length; if (n < 1 || n > 16000) throw new Error("violates check constraint"); });
+      uploaded.push(...rows);
+    }
+  });
+  const context = { charId: "y", threadType: "offline", threadId: "y" };
+  await manager.enqueue(context, [
+    { role: "narration", content: "长".repeat(20000), ts: 10 },
+    { role: "user", content: "正常短句", ts: 11 }
+  ]);
+  assert.equal(uploaded.length, 2, "超长行裁完随批送达，不再连坐");
+  assert.equal(uploaded.find(r => r.content.includes("长")).content.length, 16000);
+  assert.ok(uploaded.find(r => r.content.includes("长")).content.endsWith("…"), "裁尾留省略号标记");
+  assert.equal(manager.status().outbox.length, 0);
+});

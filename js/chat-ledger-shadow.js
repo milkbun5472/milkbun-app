@@ -12,6 +12,15 @@
   const QUARANTINE_KEY = "chat_ledger_quarantine_v1"; // 连败多次的毒行挪到这里，队伍继续走；行不删，等人工审
   const DIAG_KEY = "chat_ledger_shadow_diag_v1";
   const POISON_LIMIT = 5; // 同一行单独上传连败这么多次才隔离
+  // 云端 chat_messages 对 content 有 1..16000 字的校验约束；超长行（线下大段叙事泡）
+  // 会让整批 upsert 吃闭门羹——10-05 断流的毒行就是它。账本是副本，正文主档仍在
+  // App 聊天里，所以发货前裁到上限并以省略号标记，不算丢话。
+  const MAX_CONTENT = 16000;
+  const fitContent = row => {
+    const c = text(row && row.content);
+    if (c.length <= MAX_CONTENT) return row;
+    return { ...row, content: c.slice(0, MAX_CONTENT - 1) + "…" };
+  };
   const LIVE_CURSOR_KEY = "chat_ledger_live_cursor_v1";
   const CONTINUITY_KEY = "yanqiu_cross_surface_continuity_v1";
   const THREAD_TYPES = new Set(["private", "offline", "group", "group_offline"]);
@@ -443,7 +452,7 @@
       }
       const batch = outbox.slice(0, 50);
       try {
-        await withTimeout(() => uploader(batch), "chat ledger upload");
+        await withTimeout(() => uploader(batch.map(fitContent)), "chat ledger upload");
         const remaining = dropSent(batch.map(r => r.message_key));
         diagnostic({ last_success_at: new Date(clock()).toISOString(), last_error: null, pending: remaining.length });
         return { sent: batch.length, pending: remaining.length, error: deleteError || undefined };
@@ -454,7 +463,7 @@
         if (batch.length > 1) {
           const head = batch[0];
           try {
-            await withTimeout(() => uploader([head]), "chat ledger upload(head)");
+            await withTimeout(() => uploader([fitContent(head)]), "chat ledger upload(head)");
             const remaining = dropSent([head.message_key]);
             diagnostic({ last_success_at: new Date(clock()).toISOString(), pending: remaining.length });
             return { sent: 1, pending: remaining.length, error };
