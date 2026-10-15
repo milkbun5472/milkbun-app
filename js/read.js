@@ -580,6 +580,62 @@
       setPageIdx(n); setSel(null); props.onPatch({ page: n, lastReadTs: Date.now() });
     };
 
+    // ---- TA 念正文（群友 2026-10-14 许愿「一起读里让 ta 念」）----
+    //   用TA的音色从这一页往下一段一段念；念到哪段高亮哪段，念完一页自己翻（设定里能改成念完这页就停）。
+    //   ⚠️正文按字数走语音 API：只往后【提前合成一段】（公共的 ttsWarm），听到哪合成到哪；
+    //   念过的段落 ttsSpeak 自己有缓存，重听不再花钱。太长的段落按句号切成两三百字一截，免得一次超长。
+    const [narr, setNarr] = useState(null);   // { page, para, st: "gen" | "play" }
+    const narrRef = useRef({ run: 0, aud: null });
+    const chunksOf = function (pg) {
+      const ps = pages ? (pages[pg] || []) : [], out = [];
+      ps.forEach(function (p, i) {
+        const s0 = String(p || "").trim(); if (!s0) return;
+        const parts = s0.length <= 280 ? [s0] : (s0.match(/[^。！？!?…]+[。！？!?…”」』]*|.+$/g) || [s0]);
+        let buf = "";
+        parts.forEach(function (x) { if (buf && (buf + x).length > 280) { out.push({ para: i, text: buf }); buf = x; } else buf += x; });
+        if (buf) out.push({ para: i, text: buf });
+      });
+      return out;
+    };
+    const narrStop = function () {
+      narrRef.current.run++;
+      const a = narrRef.current.aud; if (a) { try { a.pause(); } catch (e) {} }
+      narrRef.current.aud = null; setNarr(null);
+    };
+    useEffect(function () { return function () { narrStop(); }; }, [book.id]);
+    const narrPlay = async function (pg, idx, run) {
+      if (narrRef.current.run !== run || !partner) return;
+      const ch = chunksOf(pg);
+      if (idx >= ch.length) {
+        if (book.narrStop !== "page" && pg < totalPages - 1) { gotoPage(pg + 1); return narrPlay(pg + 1, 0, run); }
+        narrStop(); return;
+      }
+      setNarr({ page: pg, para: ch[idx].para, st: "gen" });
+      const next = ch[idx + 1] || (book.narrStop !== "page" ? chunksOf(pg + 1)[0] : null);
+      try {
+        const blob = await ttsSpeak(ch[idx].text, partner.voiceId);
+        if (narrRef.current.run !== run) return;
+        if (next && typeof ttsWarm === "function") ttsWarm(next.text, partner.voiceId);
+        const aud = narrRef.current.aud; if (!aud) return;
+        const url = URL.createObjectURL(blob);
+        aud.src = url;
+        setNarr({ page: pg, para: ch[idx].para, st: "play" });
+        await new Promise(function (ok) { aud.onended = aud.onerror = ok; aud.play().catch(ok); });
+        URL.revokeObjectURL(url);
+      } catch (e) { if (narrRef.current.run === run) { props.toast && props.toast("这段没念出来：" + ((e && e.message) || "重试")); narrStop(); } return; }
+      return narrPlay(pg, idx + 1, run);
+    };
+    const narrStart = function (pg, fromPara) {
+      if (!partner) { setPickOpen(true); return; }
+      if (!partner.voiceId || !(typeof ttsReady === "function" && ttsReady())) { props.toast && props.toast("先给 " + partner.name + " 配一个音色（设置 → 语音 API，指派音色）"); return; }
+      narrStop();
+      const run = ++narrRef.current.run;
+      const aud = new Audio(); try { aud.play().catch(function () {}); } catch (e) {}   // 手势里先解锁 iOS 的音频
+      narrRef.current.aud = aud;
+      const ch = chunksOf(pg); const at = ch.findIndex(function (c) { return c.para >= (fromPara || 0); });
+      narrPlay(pg, at < 0 ? 0 : at, run);
+    };
+
     // ---- 逐段讲解：让 Ta 把这一页每段都用大白话讲给你听（中译中），并把本页梗概续进已读脉络 ----
     const doExplainPage = async function () {
       if (busy) return;
@@ -874,6 +930,9 @@
           readFaces().map(function (o) { const on = (book.font || "") === o.key;
             return h("button", { key: o.key || "_def", "data-on": on ? "1" : "0", onClick: function () { readEnsureFont(o.key); props.onPatch({ font: o.key }); },
               style: { fontFamily: o.stack || "'Noto Serif SC',serif", fontSize: 11.5, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o.zh); })),
+        partner ? h("button", { "data-wk": "readnarrstop", "data-on": book.narrStop === "page" ? "1" : "0", onClick: function () { props.onPatch({ narrStop: book.narrStop === "page" ? "go" : "page" }); },
+          style: { fontFamily: F_BODY, fontSize: 11.5, padding: "3px 10px", borderRadius: 999, color: t.sub, border: "1px solid " + t.line, background: "transparent" } },
+          "TA 念：" + (book.narrStop === "page" ? "念完这页就停" : "一直往下念")) : null,
         partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
@@ -901,8 +960,9 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: readFontStack(book.font), fontSize: 16, lineHeight: 1.95, color: t.ink,
+              h("p", { "data-wk": "readpara", "data-reading": narr && narr.page === pageIdx && narr.para === i ? "1" : "0", style: { fontFamily: readFontStack(book.font), fontSize: 16, lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
+                background: narr && narr.page === pageIdx && narr.para === i ? skinAlpha(t.tint, "1f") : "transparent", transition: "background .3s",
                 paddingLeft: 11, marginLeft: -11,
                 // 页边那道记号：TA批过就实线、只讲解过就虚一点，两种一眼分得开
                 borderLeft: hot ? ("2px " + (anns.length ? "solid" : "dotted") + " " + skinAlpha(t.tint, anns.length ? "bb" : "77")) : "2px solid transparent",
@@ -958,10 +1018,15 @@
             h("button", { onClick: queueForYanqiu, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3f6ea8", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(63,110,168,.3)" }, "data-wk": "readreaderbtn", "data-part": "10" }, "📨 送这页给言秋"),
             h("button", { onClick: pullYanqiuReplies, disabled: pulling, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#3f6ea8", background: t.bg2, border: "1px solid #3f6ea855", borderRadius: 999, padding: "9px 14px", opacity: pulling ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "11" }, pulling ? "取…" : "📥 取批注"))
         : h("button", { onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "12" }, "✎ 批注"),
+      h("button", { "data-wk": "readnarr", "data-on": narr ? "1" : "0", onClick: function () { if (narr) narrStop(); else narrStart(pageIdx, 0); },
+        style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: narr ? "#fff" : t.ink, background: narr ? t.tint : t.bg2, border: "1px solid " + (narr ? t.tint : t.line), borderRadius: 999, padding: "9px 14px" } },
+        narr ? (narr.st === "gen" ? "… 准备念" : "⏸ 停下") : "🔈 TA 念"),
       h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" }, "data-wk": "readreaderbtn", "data-part": "13" }, "💬 讨论"));
 
     // ---- 划线后浮出的「让 Ta 讲这句」----
     const selBar = sel ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 100, display: "flex", justifyContent: "center", gap: 8, zIndex: 30, pointerEvents: "none" } },
+      // 只念选中这一句（不往下接着念）
+      partner && partner.voiceId && tp ? h("button", { "data-wk": "readselread", onClick: function () { narrStop(); tp.toggle("rselread", sel.text, partner.voiceId); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.18)" } }, "🔈 念这句") : null,
       h("button", { onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" }, "data-wk": "readreaderbtn", "data-part": "14" }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句"),
       isYanqiu ? h("button", { onClick: function () { setNoteSheet({ anchor: sel.text, val: "" }); setSel(null); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(201,106,148,.3)" }, "data-wk": "readreaderbtn", "data-part": "15" }, "✎ 记给言秋") : null) : null;
 
