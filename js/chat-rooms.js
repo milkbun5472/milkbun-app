@@ -159,6 +159,10 @@
     //   第一批：她开小号（换一张面具去找TA）。TA认不认得出由 alt.knows 定，见 ALT_KNOWS。
     //   默认全关、不出门：小号里聊的事不改你们主线；想让TA带着过去起疑，就把「你们一起经历过的事」开开。
     altme: { label: "小号房间", note: "你换一个号去找TA；TA认不认得出你，你来定", cognition: { ...bools(GROUPS.cognition, false), worldbook: true }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen", alt: { who: "me", knows: "no" } },
+    // 一起听房（她 2026-10-15：「开个一起听的房间，从那里进去之后在一起听说的话落进房间而不是单聊」）。
+    //   跟一起学同一个形状：from:"listen" 记着它是哪儿来的，房里那条横幅导回播放页；
+    //   从这间房进去听，边听边说落进这间房、TA读的也是这间房。出不出门照常由下面这几格定。
+    listen: { label: "一起听", note: "从这间房进去一起听歌，边听边说的话落在这儿，不进主聊天", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask", from: "listen" },
     garden: { label: "微光庭院", note: "一间房＝一个庭院存档；默认是架空的，想接主线就拨上面的开关", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen", garden: true }
   };
 
@@ -283,7 +287,7 @@
       garden: !!src.garden,
       // 这间房是从哪儿开出来的（她 2026-09-23：「从哪儿开房就要有横幅导回哪儿」）。
       // 庭院房自己有 garden 那一格；从一起学开的记 "study"，房里那条「在学」横幅就一直在。
-      from: ["study", "train", "pets"].includes(src.from) ? src.from : "",
+      from: ["study", "train", "pets", "listen"].includes(src.from) ? src.from : "",
       // 那条横幅上此刻亮着哪一门课（她点「换课」挑的）；空＝最近上过的那门
       studyPick: String(src.studyPick || "").slice(0, 80),
       syncOnce: !!src.syncOnce,

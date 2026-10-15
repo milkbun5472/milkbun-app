@@ -2,6 +2,7 @@
 // 一起听·边听边说（她 2026-09-29：「有人说一起听想做成这样」——网易云那种两只头像挂在唱片上、
 //   谁说话谁冒气泡）。上下文走 companionHead（整份 buildBundle）。
 //   ⚠️说的每一句都【原样落进单聊】（她 2026-09-29：「为啥不直接做气泡也落在单聊而不是小条」）——
+//   从一起听房进来时落进那间房（talkKey＝房的 chatKey，她 2026-10-15）。
 //   回到单聊往上一翻就是那几句，不再是一条「一起听了几首」的小条。listenLogText 只留着认旧存档里的小条。
 // ⚠️自己开口按次花钱：一首歌最多一句、两句之间至少隔 AUTO_GAP_S 秒；总闸在
 //   设置 → 自动生成 →「一起听时开口」，页面上那颗是同一格（window.__setAutoFromPage）。
@@ -37,7 +38,7 @@
   // mode：reply＝她说了一句；auto＝歌放着，TA想说就说（可以不说）
   async function askListen(p, char, song, lyric, mode, text) {
     const uName = (p.profile && p.profile.name) || "对方";
-    const past = talkOf(char.id).slice();
+    const past = talkOf(p.talkKey || char.id).slice();
     if (mode === "reply" && past.length && past[past.length - 1].role === "user") past.pop();
     const talk = past.slice(-FEED).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + String(m.content || "") + (m.song ? "（在放《" + m.song + "》时）" : ""); }).join("\n");
     const sys = companionHead(p.ctxFor, char)
@@ -65,21 +66,23 @@
   // props：partner, profile, song, player{t,dur,playing}, lyricLines, lyricActive, active, ctxFor, toast, t(主题)
   function ListenTalk(props) {
     const partner = props.partner, song = props.song, t = props.t;
-    const [rows, setRows] = useState(() => partner ? talkOf(partner.id) : []);
+    // 这一份记录挂在谁名下：一起听房里进来的挂在那间房（talkKey＝房的 chatKey），别处挂在这个人身上
+    const tk = props.talkKey || (partner && partner.id);
+    const [rows, setRows] = useState(() => tk ? talkOf(tk) : []);
     const [txt, setTxt] = useState("");
     const [busy, setBusy] = useState(false);
     const [, setTick] = useState(0);
     const busyRef = useRef(false), lastAutoRef = useRef(0), spokeForRef = useRef({});
     const autoOn = () => !!(window.__autoRefreshOn && window.__autoRefreshOn("listen"));
     const [auto, setAuto] = useState(autoOn);
-    useEffect(() => { setRows(partner ? talkOf(partner.id) : []); }, [partner && partner.id]);
+    useEffect(() => { setRows(tk ? talkOf(tk) : []); }, [tk]);
     // 气泡按时间淡掉：有气泡挂着时每秒刷一下
     useEffect(() => { const iv = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(iv); }, []);
 
     // 同一句两处落：这一页的气泡（x_listenTalk）＋单聊里真的一条消息
     const add = list => {
       if (!partner) return;
-      push(partner.id, list); setRows(talkOf(partner.id));
+      push(tk, list); setRows(talkOf(tk));
       if (props.onToChat) props.onToChat(partner.id, list);
     };
     const ask = async (mode, text) => {
@@ -149,7 +152,7 @@
       side === "l" && busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null);
     const stage = h("div", { style: { position: "relative", paddingTop: 8, height: 96 } },
       h("div", { className: "flex items-center justify-center" }, head(partner, false), wave, head(null, true)),
-      h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "同一首歌，同一刻"),
+      h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, props.roomName ? "在「" + props.roomName + "」里听 · 说的话落在这间房" : "同一首歌，同一刻"),
       col(theirs, "l"), col(mine, "r"));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
       h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },

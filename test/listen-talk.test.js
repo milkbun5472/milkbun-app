@@ -21,7 +21,8 @@ test("自己开口：一首最多一句、有间隔、受设置里同一格管",
 test("播放页接上头像气泡和输入；说的每句原样落进单聊，旧 listenlog 小条三处照认", () => {
   assert.match(scr, /window\.ListenTalk\.useTalk\(/);
   assert.match(scr, /talk \? talk\.bar : null/);
-  assert.match(app, /onToChat: \(charId, rows\) => pChat\(charId/);
+  // 一起听房（2026-10-15）：从房里进来时落进那间房的 chatKey，别处照旧落单聊（charId）
+  assert.match(app, /onToChat: \(charId, rows\) => pChat\(\(function \(\) \{[\s\S]{0,260}chatKey\(lr\.charId, lr\.roomId\) : charId;/);
   assert.match(src, /if \(props\.onToChat\) props\.onToChat\(partner\.id, list\);/);
   assert.match(app, /m\.kind === "listenlog"\) \{/);
   assert.match(app, /\(m\.kind === "listenlog"\) \? \(typeof listenLogText/);

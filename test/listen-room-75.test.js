@@ -1,0 +1,25 @@
+// 一起听房（她 2026-10-15）：从这间房进去听，边听边说落进这间房、TA读这间房；别的入口照旧落单聊
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("fs");
+const rd = f => fs.readFileSync(__dirname + "/../js/" + f, "utf8");
+const app = rd("app.js"), lt = rd("listen-talk.js"), rooms = rd("chat-rooms.js"), comp = rd("components.js");
+test("房间有「一起听」这个样子，from 记成 listen", () => {
+  assert.match(rooms, /listen: \{ label: "一起听"[^\n]*from: "listen" \}/);
+  assert.match(rooms, /from: \["study", "train", "pets", "listen"\]\.includes\(src\.from\)/);
+  assert.match(comp, /\["listen", "一起听", /);
+  assert.match(comp, /onEnterListen && h\(RoomListenBanner/);
+});
+test("从房里进去：落进房的 chatKey，TA 读房的上下文；主屏和邀请卡进来解绑", () => {
+  assert.match(app, /onEnterListen: listenRoomOf\(activeChar\.id, activeRoomId\) \? \(\) => \{ setListenPartner\(activeChar\.id\); goListen\(\{ charId: activeChar\.id, roomId: activeRoomId \}\); \}/);
+  const body = app.slice(app.indexOf('else if (screen === "listen") body = h(ListenTogether'), app.indexOf("listen: listen,", app.indexOf('else if (screen === "listen") body')));
+  assert.match(body, /roomContextFor\(c, key, room, \{ chat: true \}\)/);
+  assert.match(body, /window\.ChatRooms\.chatKey\(lr\.charId, lr\.roomId\) : charId/);
+  assert.match(app, /onOpenApp: k => k === "listen" \? goListen\(null\)/);
+  assert.match(app, /if \(bind !== undefined\) setListenRoom\(bind\);/);
+});
+test("边听边说那份记录按房分开", () => {
+  assert.match(lt, /const tk = props\.talkKey \|\| \(partner && partner\.id\);/);
+  assert.match(lt, /push\(tk, list\); setRows\(talkOf\(tk\)\);/);
+  assert.match(lt, /talkOf\(p\.talkKey \|\| char\.id\)/);
+});
