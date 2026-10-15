@@ -13,7 +13,7 @@ const scr = fs.readFileSync("js/screens.js", "utf8");
 // enterSub / leaveSub 那一对，从源码里抠出来真跑，别在测试里另写一遍
 const pair = (() => {
   const i = scr.indexOf("  const enterSub = go =>");
-  const j = scr.indexOf("  const goProfile = id =>");
+  const j = scr.indexOf("  const goProfile = ");
   assert.ok(i > 0 && j > i, "抠不出 enterSub / leaveSub");
   return scr.slice(i, j);
 })();
