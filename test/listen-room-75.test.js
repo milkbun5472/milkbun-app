@@ -37,3 +37,7 @@ test("选人底下那格：开着就不落单聊，房里进来的照旧落房�
   assert.match(rd("screens.js"), /"说的话只留在一起听里"/);
   assert.match(rd("listen-talk.js"), /"刚才说的"/);
 });
+test("小条也能关：talkNote 关掉单聊一个字都不落", () => {
+  assert.match(app, /if \(listen\.talkNote === false\) return;/);
+  assert.match(rd("screens.js"), /"单聊里留一张小条"/);
+});

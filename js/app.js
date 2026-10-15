@@ -31331,12 +31331,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else writeGroupLiveState(c, st, "listen_" + Date.now(), undefined);
     },
     onSetTalkStay: on => saveListen(p => ({ ...p, talkStay: !!on })),
+    onSetTalkNote: on => saveListen(p => ({ ...p, talkNote: !!on })),
     onToChat: (charId, rows) => {
       const lr0 = listenRoom, inRoom = lr0 && String(lr0.charId) === String(charId) && listenRoomOf(lr0.charId, lr0.roomId);
       // 选人底下那格开着：只留在一起听自己的记录里（x_listenTalk），不落单聊；房里进来的照旧落房
       //   单聊里只留一张「一起听」小条（她 2026-10-15「加吧」）：这一段听歌还没被别的消息隔开，就续在同一张上；
       //   小条交给TA的是 listenLogText（几首歌＋最后几句原话），TA回到单聊不至于断片
+      //   小条也能不要（她 2026-10-15「这个小纸条也是可以选的」）：talkNote 关掉就单聊里一个字都不落
       if (!inRoom && listen.talkStay) {
+        if (listen.talkNote === false) return;
         pChat(charId, p => {
           const last = p[p.length - 1], add = rows.map(r => ({ who: r.role === "user" ? "user" : "char", text: r.content }));
           const songs0 = rows.map(r => r.song).filter(Boolean);

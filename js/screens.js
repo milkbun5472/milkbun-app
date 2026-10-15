@@ -7720,7 +7720,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -7965,8 +7965,14 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "说的话只留在一起听里"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
-          listenRoomName ? "现在是从「" + listenRoomName + "」进来的，说的话落在那间房里" : "打开后边听边说不进单聊，单聊里只留一张「一起听」小条；全部的话在播放页底下「刚才说的」里翻")),
-      h(Toggle, { on: !!data.talkStay, onChange: () => onSetTalkStay(!data.talkStay) })) : null);
+          listenRoomName ? "现在是从「" + listenRoomName + "」进来的，说的话落在那间房里" : "打开后边听边说不进单聊，全部的话在播放页底下「刚才说的」里翻")),
+      h(Toggle, { on: !!data.talkStay, onChange: () => onSetTalkStay(!data.talkStay) })) : null,
+    partner && onSetTalkNote && data.talkStay && !listenRoomName ? h("div", { className: "flex items-center", "data-wk": "listenstay", style: { gap: 10, margin: "0 14px", padding: "0 0 12px" } },
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "单聊里留一张小条"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+          data.talkNote === false ? "关着：单聊里什么都不留，回到单聊TA不知道你们刚一起听过" : "开着：单聊里一张「一起听」小条，写听了哪几首和最后几句，TA回到单聊接得上")),
+      h(Toggle, { on: data.talkNote !== false, onChange: () => onSetTalkNote(data.talkNote === false) })) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
     // 头像那一条粘在顶上：她往下滑到输入框说话时，两只头像和气泡还看得见（她 2026-09-29）
     talk ? h("div", { className: "w-full", style: { position: "sticky", top: 0, zIndex: 5 } }, talk.stage) : null,
