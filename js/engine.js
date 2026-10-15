@@ -5487,7 +5487,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   if (!/gpt-image|dall-?e/i.test(String(a.model || "")) && typeof prompt === "string")
     prompt = prompt.replace(/【手脚必须解剖正确】[^【]*/, "【手】双手自然，手指数目正确。").replace(/【数一数手】[^【]*/, "");
   let naiNegative = "";
-  if (isNaiImageModel(a.model) && typeof prompt === "string") {
+  if ((isNaiImageModel(a.model) || a.apiFormat === "nai") && typeof prompt === "string") {
     const nt = await naiTagsFor(prompt);
     prompt = nt.prompt; naiNegative = nt.negative;
     if (opts && opts.minimalPrompt) opts = Object.assign({}, opts, { minimalPrompt: nt.prompt });
@@ -5762,12 +5762,56 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const msg = (br && br.status_msg) || txt.slice(0, 300) || ("HTTP " + r0.status);
       return new Response(JSON.stringify({ error: { message: "MiniMax：" + msg + (br && br.status_code ? "（" + br.status_code + "）" : "") } }), { status: r0.ok ? 400 : r0.status, headers: { "Content-Type": "application/json" } });
     };
+    // NAI 原生（她 2026-10-15 转来站长给的两份请求）：POST /ai/generate-image，NovelAI 自己那套 body。
+    //   锁脸走 director_reference_images（原图 base64，强度 0.6／次强度 0.4，描述 character）——
+    //   vibe 那种 reference_image_multiple 要先另付点数编码、管的是画风不管脸，不用。
+    //   回包官方是一个 zip（里面一张 png）；中转有的改回 JSON 或直接回图，三种都认，翻成 { data:[{b64_json}] }。
+    const naiFetch = async () => {
+      const toB64 = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(b); });
+      const wh = /^(\d+)x(\d+)$/.exec(String(size || "")), w0 = wh ? +wh[1] : 832, h0 = wh ? +wh[2] : 1216;
+      const [width, height] = w0 === h0 ? [1024, 1024] : w0 < h0 ? [832, 1216] : [1216, 832];
+      const seed = Math.floor(Math.random() * 4294967000);
+      const neg = naiNegative || "lowres, bad anatomy, bad hands, text, watermark, worst quality, low quality, blurry";
+      const parameters = { params_version: 3, width, height, scale: 7, sampler: "k_euler_ancestral", steps: 28, n_samples: 1,
+        ucPreset: 2, qualityToggle: true, noise_schedule: "karras", cfg_rescale: 0, seed, extra_noise_seed: seed - 1,
+        legacy: false, legacy_v3_extend: false, add_original_image: true, dynamic_thresholding: false, use_coords: false,
+        negative_prompt: neg, characterPrompts: [],
+        v4_prompt: { caption: { base_caption: promptText, char_captions: [] }, use_coords: false, use_order: true },
+        v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] } } };
+      if (useRef && refBlobs.length) {
+        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(b));
+        Object.assign(parameters, { normalize_reference_strength_multiple: false, director_reference_images: imgs,
+          director_reference_descriptions: imgs.map(() => ({ caption: { base_caption: "character", char_captions: [] }, legacy_uc: false })),
+          director_reference_information_extracted: imgs.map(() => 1),
+          director_reference_strength_values: imgs.map(() => 0.6),
+          director_reference_secondary_strength_values: imgs.map(() => 0.4) });
+      }
+      const model = /nai-diffusion/i.test(String(a.model || "")) ? a.model : "nai-diffusion-4-5-full";
+      const raw0 = String(a.baseUrl || "").trim().replace(/\/+$/, "");
+      const url = /\/ai\/generate-image/i.test(raw0) ? raw0 : raw0.replace(/\/v1$/i, "") + "/ai/generate-image";
+      const r0 = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ input: promptText, model, action: "generate", parameters }), signal: ctrl.signal });
+      const buf = await r0.arrayBuffer(), u8 = new Uint8Array(buf);
+      const json = b64 => new Response(JSON.stringify({ data: [{ b64_json: b64 }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      const bytesToB64 = bs => { let s = ""; for (let i = 0; i < bs.length; i += 32768) s += String.fromCharCode.apply(null, bs.subarray(i, i + 32768)); return btoa(s); };
+      if (r0.ok && u8[0] === 0x50 && u8[1] === 0x4b) {   // PK：官方的 zip
+        const z = await openZip(buf), name = z.names.find(n => /\.(png|jpe?g|webp)$/i.test(n)) || z.names[0];
+        const img = name && await z.read(name);
+        if (img && img.length) return json(bytesToB64(img));
+      }
+      if (r0.ok && ((u8[0] === 0x89 && u8[1] === 0x50) || (u8[0] === 0xff && u8[1] === 0xd8))) return json(bytesToB64(u8));
+      const txt = new TextDecoder().decode(u8);
+      if (r0.ok) return new Response(txt, { status: 200, headers: { "Content-Type": "application/json" } });   // 中转回 JSON：交给 parseOut
+      return new Response(JSON.stringify({ error: { message: "NAI 原生（" + url + "）：" + (txt.slice(0, 300) || ("HTTP " + r0.status)) } }), { status: r0.status, headers: { "Content-Type": "application/json" } });
+    };
     const isMinimax = a.apiFormat === "minimax" || (a.apiFormat === "auto" && (/^image-0\d/i.test(String(a.model || "")) || /minimax/i.test(String(a.baseUrl || ""))));
+    // 原生格式（MiniMax／NAI）各走各的门，不掉回出图接口或聊天接口
+    const isNative = isMinimax || a.apiFormat === "nai";
     try {
       // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
       //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
       const chatFirst = a.apiFormat === "chat" || a.apiFormat === "gemini" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
-      if (isMinimax) r = await minimaxFetch();
+      if (a.apiFormat === "nai") r = await naiFetch();
+      else if (isMinimax) r = await minimaxFetch();
       else if (a.apiFormat === "gemini") r = await geminiFetch();
       else if (chatFirst) {
         r = await chatFetch();
@@ -5819,15 +5863,15 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       }
       // 带参考照走出图接口、站上没有 /images/edits（群友 2026-10-16：上传一张脸测试回 {"detail":"Not Found"}）：
       //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
-      if (!isMinimax && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
+      if (!isNative && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
         throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就问站长带参考图走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
-      if (!isMinimax && !chatFirst && a.apiFormat !== "images" && !r.ok) {
+      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok) {
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
         if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();
       }
     } catch (err) {
-      if (!isMinimax && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
+      if (!isNative && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
         try { r = await chatFetch(); } catch (e2) { throw err; }
       } else {
       // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」
