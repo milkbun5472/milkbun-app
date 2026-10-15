@@ -143,8 +143,8 @@
       + "\n【谁是谁——写之前先看清】" + o.ids.join("")
       + (o.brief ? "\n\n" + o.brief : "")
       + "\n\n【这一串评论的现场】\n" + o.transcript
-      + "\n\n「" + o.me + "」刚说了：「" + o.text + "」。写接在后面的 " + o.n + " 条回复 items（name、text、to 回的是这串里谁——照抄名字）："
-      + (o.must ? "\n① 第一条必须是「" + o.must + "」回她的（name 照抄「" + o.must + "」）" + (o.mustChar ? "——就是上面那个人本人，照TA的人设、记忆和跟她的关系，当着网友的面打字回：短，像真在评论区回一句，没有动作和旁白" : "——人家被回了总要接一句，冷淡、怼回去也算") + "。" : "")
+      + "\n\n「" + o.me + "」刚说了：「" + o.text + "」。写接在后面的正好 " + o.n + " 条回复 items（name、text、to 回的是这串里谁——照抄名字）："
+      + (o.must ? "\n① 第一条必须是「" + o.must + "」回她的（name 照抄「" + o.must + "」）" + (o.mustChar ? "——就是上面那个人本人。TA平时怎么跟她说话，在评论区还是那个样子：网友看着不会让TA换一副腔调，该撩就撩、该贫就贫、该护着就护着，照TA的人设和你俩的关系来。是打字，没有动作和旁白；长短照TA想回的" : "——人家被回了总要接一句，冷淡、怼回去也算") + "。" : "")
       + "\n" + (o.must ? "② 其余" : "") + "是刷到这里的陌生网友：不认识这串里任何人，不知道谁跟谁什么关系。像真在刷评论区——短，一句甚至几个字；不复述视频、不总结、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问；口气、长短、标点各不一样。可以回她，也可以回楼里别人。"
       + "\n⚠️「" + o.me + "」是真人本人，绝对不许以她的名义写任何一句。";
   }
@@ -612,8 +612,12 @@
       const put = r => patchV(vid, xv => Object.assign({}, xv, { comments: arr(xv.comments).map(c2 => c2.id === cmId ? Object.assign({}, c2, { replies: arr(c2.replies).concat([r]) }) : c2) }));
       setBusy("reply");
       try {
-        const d = await props.ask(crowdSystem(v, { me: myName, text: myText, n: must ? "2~4" : "2~4", must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
-        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, 5);
+        // 条数不固定（她 2026-10-15：「路人和整体回复数太固定了」）：有时只有被回的那个人接一句、没人凑热闹，
+        //   有时一下冒出五六个；多数是一两个路人。
+        const crowdN = [0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 6][Math.floor(Math.random() * 12)];
+        const nTotal = (must ? 1 : 0) + (must ? crowdN : Math.max(1, crowdN));
+        const d = await props.ask(crowdSystem(v, { me: myName, text: myText, n: String(nTotal), must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
+        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, nTotal + 1);
         let wait = 0;
         items.forEach((x, k) => {
           const isResp = resp && (k === 0 || S(x.name) === must);
