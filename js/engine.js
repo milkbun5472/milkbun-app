@@ -10155,12 +10155,12 @@ function fmtStamp(ts, id) {
 //   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群传 "g:"+群id，照群挑的那张面具。
 function vclockState() { try { return typeof window !== "undefined" ? window.__vclock || null : null; } catch (e) { return null; } }
 function vclockUse(id) { const W = vclockState(); if (W) W.active = id == null ? null : String(id); }
-function vclockCfg(id) {
+function vclockCfg(id, ts) {
   const W = vclockState(); if (!W) return null;
   if (W.on !== undefined && !W.clocks) return W.on && isFinite(Number(W.base)) ? W : null;   // 旧的单只钟
   const who = id !== undefined ? id : W.active;
   let key = "";
-  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who)) || "") : ""; } catch (e) { key = ""; }
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : ""; } catch (e) { key = ""; }
   const c = (W.clocks || {})[key || "main"];
   return c && c.on && isFinite(Number(c.base)) ? c : null;
 }
@@ -10186,7 +10186,7 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   return out;
 }
 function vclockMap(ts, id) {
-  const c0 = vclockCfg(id); if (!c0) return Number(ts);
+  const c0 = vclockCfg(id, ts); if (!c0) return Number(ts);
   const c = vclockSeg(c0, ts);
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算

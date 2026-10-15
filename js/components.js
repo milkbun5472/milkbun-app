@@ -19873,6 +19873,7 @@ function ChatSettings({
   // TA那一行里【你】叫什么（她 2026-09-12：「哦是因为TA卡里写的她，给她也做个开关吧」）
   const [userPerson, setUserPerson] = useState(settings.userPerson === "ta" ? "ta" : "you");
   const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
+  const [ownClock, setOwnClock] = useState(() => { const sp = settings.ownClockSpans; return Array.isArray(sp) && sp.length > 0 && sp[sp.length - 1].until == null; });
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
   const [wipeMemToo, setWipeMemToo] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -20253,6 +20254,7 @@ function ChatSettings({
       actPerson,
       userPerson,
       timeAwareMode,
+      ownClock,
       maskId
     })
   }, /*#__PURE__*/React.createElement(ICheck, {
@@ -20342,7 +20344,16 @@ function ChatSettings({
       [["inherit", "跟随全局"], ["on", "开启"], ["off", "关闭"]].map(([v, label]) => h("button", {
         key: v, onClick: () => setTimeAwareMode(v),
         style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (timeAwareMode === v ? t.ink : t.line), background: timeAwareMode === v ? t.ink : "transparent", color: timeAwareMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 }
-      }, label)))),
+      }, label))),
+    // TA 自己一只钟（她 2026-10-16）：不换面具也能单独暂停、拨这一个人的时间
+    h("div", { "data-wk": "ownclock", className: "flex items-center justify-between", style: { marginTop: 14, gap: 10 } },
+      h("div", { style: { flex: 1 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, cNm + " 自己一只钟"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 3 } },
+          ownClock ? "开着：" + cNm + " 不跟面具的钟走。在 TA 的聊天里点悬浮球，拨的就是这只钟（暂停、拨时间、调快慢）。关掉就回到面具的钟，这段时间里的消息时间不会挪。"
+            : "想单独暂停或拨 " + cNm + " 一个人的时间过剧情时打开：从面具钟此刻的时间接着走，面具、日历、朋友圈这些都不动。")),
+      h("button", { onClick: () => setOwnClock(v => !v), "aria-pressed": ownClock, className: "active:opacity-70",
+        style: { flexShrink: 0, padding: "7px 14px", borderRadius: 999, border: "1px solid " + (ownClock ? t.ink : t.line), background: ownClock ? t.ink : "transparent", color: ownClock ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12 } }, ownClock ? "开" : "关"))),
   show("route", { title: "API 线路 · 只管这个人", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "API 线路"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, cNm + " 用哪条线路说话/写字——单聊·通话·线下·OOC·日记·朋友圈·情书·交换日记·时光胶囊·心上(发呆/盘一盘盘点/毕业蜕变)，全走这条。给特别的人配本人的模型（如接 fable）。群聊多人同台、以及后台体力活（记忆抽取/行程钱包/旁人纸条）仍走全局，不受影响。"),
