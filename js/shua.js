@@ -484,6 +484,7 @@
     const [page, setPage] = useState(() => { const p0 = pendingPage; pendingPage = null; return p0; });
     // 竖着刷里点评论：不换页，从底下升一层（哪条视频的评论）
     const [sheet, setSheet] = useState(null);
+    const [cpEdit, setCpEdit] = useState("");   // 情侣号卡片里正在「自己改」的是哪一张
     useEffect(() => { setSheet(null); }, [page]);   // 换页（分享、进主页…）就把评论层收掉
     // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
@@ -583,7 +584,7 @@
           const heard = mineB.slice(0, 3).flatMap(x => arr(x.myDms).map(d => d.text)).slice(0, 6);
           if (heard.length) extra += "\n你最近几条视频画面上，有人发过这几条弹幕：" + heard.map(x => "「" + x + "」").join("") + "（不知道是谁发的）。";
         }
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上" + (toCp[c.id].bio ? "（主页简介：" + toCp[c.id].bio + "）" : "") + "——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
@@ -976,6 +977,49 @@
     const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { "data-wk": "shuafeedtab", "data-on": feed === f[0] ? "1" : "0", key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: feed === f[0] ? ink : dim, fontWeight: feed === f[0] ? 700 : 400, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.5)" : "none" } }, f[1]),
       h("span", { style: { width: 18, height: 2.5, borderRadius: 2, marginTop: 4, background: feed === f[0] ? bar : "transparent" } })));
+    // 让 TA 给情侣号起名、写简介：走TA自己那份完整上下文（人设、记忆、你俩的梗），一次调用
+    const nameCp = async id => {
+      const c = charOf(id); if (!c || !props.probeAs) return;
+      const a = (dbRef.current.cps || {})[id];
+      setBusy("cpname:" + id);
+      try {
+        const d = await props.probeAs(c, "【这一轮发生在「" + APP_NAME + "」】" + (a ? "你和 " + uName + " 共用的情侣号现在叫「" + a.handle + "」" + (a.bio ? "，主页简介是「" + a.bio + "」" : "，还没写简介") + "。她请你来重新起名、写简介——想留着原来的名字也行。" : "你和 " + uName + " 要开一个两个人共用的情侣号，她请你来起名、写主页简介。")
+          + "\n照你这个人、你俩现在的关系、你们之间的梗来起：handle 是号名（16 个字以内），bio 是主页简介（一两句，60 个字以内，粉丝点进来看到的那句）。", '{"handle":"","bio":""}');
+        const handle = S(d && d.handle).slice(0, 20), bio = S(d && d.bio).slice(0, 80);
+        if (!handle && !bio) { toast("TA 想了想，没起出来"); return; }
+        const base = a || { followers: 0, ts: Date.now() };
+        save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, base, handle ? { handle } : {}, bio ? { bio } : {}, { namedBy: c.id }) }),
+          me: a ? dbRef.current.me : Object.assign({}, dbRef.current.me, { using: "cp:" + id }) }));
+        toast(c.name + " 起好了：「" + (handle || base.handle) + "」");
+      } catch (e) { toast("没起出来：" + ((e && e.message) || "")); }
+      finally { setBusy(b => b === "cpname:" + id ? null : b); }
+    };
+    const setCp = (id, patch) => save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, (dbRef.current.cps || {})[id], patch) }) }));
+    const cpCard = id => {
+      const c = charOf(id); if (!c) return null;
+      const a = cps[id], on = cpId === id, naming = busy === "cpname:" + id, editing = cpEdit === id;
+      const meAv = { name: uName, avatarImage: profile && profile.avatarImage };
+      const btn = (label, fn, primary, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 34, padding: "0 12px", borderRadius: 999, background: primary ? P.accent : "transparent", border: primary ? "none" : "1px solid " + P.line, color: primary ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12 } }, label);
+      const inp = (key, val, ph, onSave, max) => h("input", { key, defaultValue: val, placeholder: ph, onBlur: e => onSave(e.target.value.trim().slice(0, max)),
+        className: "w-full outline-none", style: { marginTop: 6, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } });
+      return h("div", { "data-wk": "shuacprow", "data-on": on ? "1" : "0", key: id, style: { marginTop: 8, padding: "12px 14px", borderRadius: 16, border: (a ? "1px solid " : "1px dashed ") + (on ? P.accent : P.line), background: on ? "linear-gradient(120deg,rgba(254,44,85,.16),rgba(122,60,255,.12))" : P.field } },
+        h("div", { className: "flex items-center", style: { gap: 12 } },
+          h("div", { style: { position: "relative", width: 58, height: 40, flexShrink: 0 } },
+            h("div", { style: { position: "absolute", left: 0, top: 0, borderRadius: 99, border: "2px solid " + P.bg } }, h(Avatar, { character: meAv, size: 36 })),
+            h("div", { style: { position: "absolute", left: 20, top: 0, borderRadius: 99, border: "2px solid " + P.bg } }, h(Avatar, { character: c, size: 36 }))),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { "data-wk": "shuacpname", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: P.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a ? a.handle : "和 " + (c.remark || c.name) + " 的情侣号"),
+            h("div", { "data-wk": "shuacpbio", style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim, marginTop: 2, lineHeight: 1.45 } },
+              a ? (a.bio || "还没有简介") + " · " + fmtN(a.followers || 0) + " 粉丝" + (on ? " · 正在用" : "") : "还没开"))),
+        editing && a ? h("div", { style: { marginTop: 6 } },
+          inp("cpn_" + id, a.handle, "号名", v => v && setCp(id, { handle: v }), 20),
+          inp("cpb_" + id, a.bio || "", "主页简介（一两句）", v => setCp(id, { bio: v }), 80)) : null,
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
+          a ? btn(on ? "切回大号" : "切过去", () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { using: on ? "main" : "cp:" + id }) })), true)
+            : btn("开一个", () => save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign({}, dbRef.current.me, { using: "cp:" + id }) })), true),
+          props.probeAs ? btn(naming ? "TA 在想…" : a ? "让 TA 重新起" : "让 TA 起名开号", () => nameCp(id), false, naming) : null,
+          a ? btn(editing ? "改好了" : "自己改", () => setCpEdit(editing ? "" : id), false) : null));
+    };
     let body;
     if (tab === "home" && skin === "v") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { position: "relative", background: BLACK } },
       // 顶上那两个字：关注 / 推荐，浮在画面上
@@ -1079,22 +1123,11 @@
           maskList.map(m => { const on = maskUse === m.id;
             return h("button", { key: m.id || "main", "data-wk": "shuamask", "data-on": on ? "1" : "0", onClick: () => { save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { mask: m.id }) })); toast("现在用「" + m.name + "」发；只有跟这张面具聊的人认得出是你"); },
               className: "active:opacity-70", style: { minHeight: 30, padding: "0 11px", borderRadius: 10, border: "1px solid " + (on ? P.accent : P.line), background: on ? P.accent : "transparent", color: on ? "#fff" : P.dim, fontFamily: F_BODY, fontSize: 12 } }, m.name); })) : null,
-        // 情侣号：在一起的那几位各一行。没开过就「开一个」，开过就「切过去」；正用着时一颗「切回大号」
-        togetherIds.length ? h("div", { style: { marginTop: 12 } }, togetherIds.map(id => {
-          const c = charOf(id); if (!c) return null;
-          const a = cps[id];
-          return h("div", { "data-wk": "shuacprow", key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
-            h(Avatar, { character: c, size: 26 }),
-            a ? h("input", { key: "cp_" + id, defaultValue: a.handle, onBlur: e => { const v = e.target.value.trim().slice(0, 20); if (v) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { handle: v }) }) })); },
-              className: "flex-1 outline-none", style: { minWidth: 0, width: 0, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })   // ⚠️minWidth/width 0：输入框天生有个默认宽度，不压到 0 它会把右边「切回大号」挤出屏幕、整页横着滑（群友 2026-10-15）
-              : h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
-            h("button", { onClick: () => {
-                const me2 = Object.assign({}, dbRef.current.me);
-                if (!a) { save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign(me2, { using: "cp:" + id }) })); return; }
-                save(Object.assign({}, dbRef.current, { me: Object.assign(me2, { using: cpId === id ? "main" : "cp:" + id }) }));
-              }, className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12 } },
-              !a ? "开一个" : cpId === id ? "切回大号" : "切过去"));
-        })) : null,
+        // 情侣号（她 2026-10-15：「列表看起来不好看换个ui，让他可以选情侣号名字和主页简介」）：
+        //   在一起的那几位各一张卡——两只头像叠在一起、号名、简介、粉丝；能切过去，能自己改，也能「让 TA 起」。
+        togetherIds.length ? h("div", { style: { marginTop: 16 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginBottom: 8 } }, "情侣号"),
+          togetherIds.map(id => cpCard(id))) : null,
         onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
         // 平时TA发视频只有三回里一回落在情侣号上；想看就点这颗，专门发一条到这儿（一次调用）
         onCp ? h("button", { "data-wk": "shuacppost", disabled: !!busy, onClick: () => genChars([cpId], true), className: "w-full active:opacity-70 disabled:opacity-40",
