@@ -719,9 +719,11 @@
 
         // 五子棋观战：两个人各自认真还是随手下——不分的话两边一样强，看着没意思
         game.key === "tetris" ? h("div", { "data-wk": "tetrismode", style: { marginBottom: 20 } },
-          h(Segmented, { t: t, value: tetrisMode, onChange: setTetrisMode, options: [{ key: "watch", zh: "你玩 TA 看" }, { key: "versus", zh: "对战" }] }),
-          tetrisMode === "versus" ? h("div", { style: { marginTop: 10 } }, h(Segmented, { t: t, value: tetrisSkill, onChange: setTetrisSkill, options: [{ key: "rookie", zh: "TA 新手" }, { key: "normal", zh: "普通" }, { key: "pro", zh: "高手" }] })) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, tetrisMode === "versus"
+          h(Segmented, { t: t, value: tetrisMode, onChange: setTetrisMode, options: [{ key: "watch", zh: "你玩 TA 看" }, { key: "versus", zh: "对战" }, { key: "coop", zh: "合作接力" }] }),
+          tetrisMode !== "watch" ? h("div", { style: { marginTop: 10 } }, h(Segmented, { t: t, value: tetrisSkill, onChange: setTetrisSkill, options: [{ key: "rookie", zh: "TA 新手" }, { key: "normal", zh: "普通" }, { key: "pro", zh: "高手" }] })) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, tetrisMode === "coop"
+            ? "同一块板子，你放一块、TA 放一块轮着来，一起冲分。TA 那块由本地棋手照挑的水平放（不花钱），轮到 TA 时偶尔会先说说打算。"
+            : tetrisMode === "versus"
             ? "一人一块板子，消两行以上往对面塞垃圾行，先堆到顶的输。TA 那块由本地棋手下（不花钱），只有说话才调用；模式选「放水」TA 会下得慢一点、多看走眼。"
             : "你自己玩，TA 坐旁边，一次消好几行、快堆到顶、破纪录的时候才开口。")) : null,
         game.key === "q25" ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
@@ -5154,7 +5156,7 @@
   //   TA 那块板子也是本地棋手按人设水平下；模型只管 TA 在关键时刻说的话，你随时能跟 TA 说句话。
   // ============================================================
   const TET_SKILL = { rookie: { v: 0.55, ms: 380, zh: "新手" }, normal: { v: 0.8, ms: 230, zh: "普通" }, pro: { v: 0.97, ms: 130, zh: "高手" } };
-  const TET_BEST = "x_tetrisBest";
+  const TET_BEST = "x_tetrisBest", TET_BEST_COOP = "x_tetrisBestCoop";
   function TetBoard(props) {
     const ref = useRef(null), T = window.TetrisCore, g = props.g, cell = props.cell;
     useEffect(function () {
@@ -5187,15 +5189,35 @@
   }
   function TetrisGame(props) {
     const T = window.TetrisCore, t = props.t || {}, api = props.active, cfg = props.config || {};
-    const versus = cfg.tetrisMode === "versus", easy = cfg.mode === "easy";
+    const versus = cfg.tetrisMode === "versus", coop = cfg.tetrisMode === "coop", easy = cfg.mode === "easy";
     const sk = TET_SKILL[cfg.tetrisSkill] || TET_SKILL.normal;
     const skill = easy ? sk.v * 0.75 : sk.v, aiMs = easy ? Math.round(sk.ms * 1.5) : sk.ms;
     const char = (props.characters || []).find(function (c) { return c.id === (cfg.charIds || [])[0]; }) || null;
     const pf = props.profile || {}, uName = pf.name || "你", cName = char ? (char.remark || char.name) : "TA";
     const meRef = useRef(null), taRef = useRef(null), aiTarget = useRef(null), clock = useRef({ me: 0, ai: 0, last: 0 });
     const [, setTick] = useState(0), [status, setStatus] = useState("ready"), [lines, setLines] = useState([]), [talking, setTalking] = useState(false), [draft, setDraft] = useState("");
-    const best = useRef((function () { try { return Number(loadJSON(TET_BEST, 0)) || 0; } catch (e) { return 0; } })());
+    const bestKey = coop ? TET_BEST_COOP : TET_BEST;
+    const best = useRef((function () { try { return Number(loadJSON(bestKey, 0)) || 0; } catch (e) { return 0; } })());
     const lastTalk = useRef(0), touch = useRef(null), repeat = useRef(null);
+    // 说话节奏（她 2026-10-15：「怕来来回回就是一句话换着说法说」）：
+    //   同一类事只在第一次和升级时叫 TA；叫了也可以不说；给 TA 的是「上次开口到现在变了什么」
+    const seen = useRef({}), snap = useRef(null), talkN = useRef(0), lastLen = useRef(0);
+    const fresh = function (k) { if (seen.current[k]) return false; seen.current[k] = 1; return true; };
+    const danger = function (k, g) { const hgt = g ? T.stackHeight(g.board) : 0; if (hgt < 12) seen.current[k] = 0; return hgt >= 16 && fresh(k); };
+    const sinceLast = function () {
+      const me = meRef.current, ta = taRef.current, o = snap.current; if (!o || !me) return "";
+      const bits = [];
+      if (me.score > o.me) bits.push((coop ? "你们一起" : uName) + "涨了 " + (me.score - o.me) + " 分");
+      if (me.lines > o.ml) bits.push((coop ? "一起" : uName) + "又消了 " + (me.lines - o.ml) + " 行");
+      if (versus && ta) {
+        if (ta.score > o.ta) bits.push(cName + "涨了 " + (ta.score - o.ta) + " 分");
+        const lead = me.score > ta.score ? "me" : me.score < ta.score ? "ta" : "", was = o.me > o.ta ? "me" : o.me < o.ta ? "ta" : "";
+        if (lead && lead !== was) bits.push((lead === "me" ? uName : cName) + "反超了");
+      }
+      if (me.combo > 0) bits.push("连着消了 " + (me.combo + 1) + " 块");
+      bits.push("隔了 " + Math.round((Date.now() - o.at) / 1000) + " 秒");
+      return bits.join("，");
+    };
     const push = function (l) { setLines(function (ls) { return ls.concat([Object.assign({ at: Date.now() }, l)]).slice(-40); }); };
     const vw = typeof window !== "undefined" ? Math.min(window.innerWidth || 390, 520) : 390;
     const cell = versus ? Math.floor((vw - 44) * 0.6 / 10) : Math.min(24, Math.floor((vw - 110) / 10));
@@ -5204,37 +5226,48 @@
     const say = function (why, force, userLine) {
       if (!api || !char) return;
       const now = Date.now();
-      if (!force && (talking || now - lastTalk.current < 12000)) return;
-      lastTalk.current = now; setTalking(true);
-      const me = meRef.current, ta = taRef.current;
+      const gap = Math.min(30000, 12000 + lastLen.current * 120);
+      if (!force && (talking || now - lastTalk.current < gap)) return;
+      lastTalk.current = now; talkN.current++; setTalking(true);
+      const me = meRef.current, ta = taRef.current, delta = sinceLast(), must = !!userLine;
+      snap.current = { me: me ? me.score : 0, ml: me ? me.lines : 0, ta: ta ? ta.score : 0, at: now };
       const sit = "你：" + (me ? me.score + " 分、消了 " + me.lines + " 行、堆了 " + T.stackHeight(me.board) + " 层" : "") + (versus && ta ? "；" + cName + "：" + ta.score + " 分、消了 " + ta.lines + " 行、堆了 " + T.stackHeight(ta.board) + " 层" : "");
       const said = lines.slice(-6).map(function (l) { return "· " + (l.me ? uName : cName) + "：" + l.text; }).join("\n");
       const recent = (cfg.injectChat && props.recentChatFor) ? String(props.recentChatFor(char.id) || "").slice(-400) : "";
-      const sys = AC + VOICE_RULE + "【场面】" + (versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样随口说一句，照你们平时的关系和你自己的性子。"
+      const sys = AC + VOICE_RULE + "【场面】" + (coop ? cName + " 跟 " + uName + " 合作玩俄罗斯方块：同一块板子，一人放一块轮着来，一起冲分（你那块是你自己挑的落点）" : versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样，照你们平时的关系和你自己的性子；不一定要点评这盘，问她、逗她、说你自己、扯到别处都行。"
         + "\n【你是】" + cName + "\n【人设】" + String(char.persona || "（没写）").slice(0, 1400) + (recent ? "\n【你们最近聊的】" + recent : "")
-        + "\n\n【现在】" + sit + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
+        + "\n\n【现在】" + sit + (delta ? "\n【你上次开口到现在】" + delta : "") + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
+        + (must ? "" : "\n这会儿没什么想说的就不说，say 留空。")
         + "\n\n只输出 JSON：{\"say\":\"一句话\"}";
       callRetry(api, sys, [{ role: "user", content: userLine ? "她说：" + userLine : "说话。" }], { maxTokens: 8000, tag: "俄罗斯方块" }).then(function (raw) {
         const p = extractJSON(raw) || {}; const v = String(p.say || "").trim();
-        if (v) push({ id: char.id, name: cName, text: v.slice(0, 160) });
+        lastLen.current = v.length; if (v) push({ id: char.id, name: cName, text: v.slice(0, 160) });
       }).catch(function () {}).finally(function () { setTalking(false); });
     };
     const afterLock = function (who, res) {
       const me = meRef.current, ta = taRef.current;
       if (!res || !res.locked) return;
+      // 合作接力：落一块换一个人；轮到 TA 时偶尔先说一句打算（给你留坑、这块怎么放）
+      if (coop && me) {
+        me.owner = me.owner === "ta" ? "me" : "ta"; aiTarget.current = null;
+        if (res.cleared === 4 || (res.cleared && fresh("coopFirst"))) say((who === "me" ? uName : "你（" + cName + "）") + "这一块消了 " + res.cleared + " 行。", res.cleared === 4);
+        else if (me.owner === "ta" && Math.random() < 0.12) say("轮到你（" + cName + "）放一块「" + me.cur.k + "」形的，说说你打算怎么放、或者给她留了什么位置。");
+        if (!me.over && danger("coopTop", me)) say("你们这块板子快堆到顶了。", true);
+        return;
+      }
       if (versus && res.cleared >= 2) { const other = who === "me" ? ta : me; if (other) other.pendingGarbage += T.garbageFor(res.cleared); }
       if (res.cleared === 4) say((who === "me" ? uName : cName) + " 刚刚一口气消了四行！", true);
-      else if (res.cleared >= 2 && who === "me") say(uName + " 刚消了 " + res.cleared + " 行。");
-      else if (versus && res.cleared >= 2) say("你（" + cName + "）刚消了 " + res.cleared + " 行，往她那边塞了垃圾行。");
+      else if (res.cleared >= 2 && who === "me" && fresh("me" + res.cleared)) say(uName + " 这局第一次一下消了 " + res.cleared + " 行。");
+      else if (versus && res.cleared >= 2 && fresh("ta" + res.cleared)) say("你（" + cName + "）刚消了 " + res.cleared + " 行，往她那边塞了垃圾行。");
       const g = who === "me" ? me : ta;
-      if (g && !g.over && T.stackHeight(g.board) >= 16) say((who === "me" ? uName : "你（" + cName + "）") + "的板子快堆到顶了。");
+      if (g && !g.over && danger(who + "Top", g)) say((who === "me" ? uName : "你（" + cName + "）") + "的板子快堆到顶了。", true);
     };
     const finish = function () {
       const me = meRef.current, ta = taRef.current;
       setStatus("done");
-      if (me && me.score > best.current) { best.current = me.score; try { saveJSON(TET_BEST, me.score); } catch (e) {} }
+      if (me && me.score > best.current) { best.current = me.score; try { saveJSON(bestKey, me.score); } catch (e) {} }
       const meWin = versus ? !!(ta && ta.over && !me.over) : null;
-      say(versus ? (meWin ? uName + " 赢了这局对战" : "你（" + cName + "）赢了这局对战") + "。" : "这局结束了，" + uName + " 拿了 " + (me ? me.score : 0) + " 分" + (me && me.score >= best.current ? "，是新纪录" : "") + "。", true);
+      say(coop ? "你们合作的这局结束了，一起拿了 " + (me ? me.score : 0) + " 分" + (me && me.score >= best.current ? "，是你俩的新纪录" : "") + "。" : versus ? (meWin ? uName + " 赢了这局对战" : "你（" + cName + "）赢了这局对战") + "。" : "这局结束了，" + uName + " 拿了 " + (me ? me.score : 0) + " 分" + (me && me.score >= best.current ? "，是新纪录" : "") + "。", true);
     };
     // ---- 主循环：50ms 一跳；你那块按等级往下掉，TA 那块按水平一步一步挪 ----
     useEffect(function () {
@@ -5243,8 +5276,18 @@
       const id = setInterval(function () {
         const now = Date.now(), dt = now - clock.current.last; clock.current.last = now;
         const me = meRef.current, ta = taRef.current; if (!me) return;
-        clock.current.me += dt;
-        if (clock.current.me >= T.gravityMs(me.level)) { clock.current.me = 0; afterLock("me", T.step(me)); }
+        if (coop && me.owner === "ta") {
+          // TA 的那一块：本地棋手一步一步挪过去再落（跟对战里 TA 那块同一个下法）
+          clock.current.ai += dt;
+          if (clock.current.ai >= aiMs) {
+            clock.current.ai = 0;
+            if (!aiTarget.current || aiTarget.current.n !== me.n) { const b = T.bestPlacement(me, skill); aiTarget.current = b ? Object.assign({ n: me.n }, b) : null; }
+            if (T.stepToward(me, aiTarget.current) === "drop") { aiTarget.current = null; afterLock("ta", T.hardDrop(me)); }
+          }
+        } else {
+          clock.current.me += dt;
+          if (clock.current.me >= T.gravityMs(me.level)) { clock.current.me = 0; afterLock("me", T.step(me)); }
+        }
         if (versus && ta && !ta.over) {
           clock.current.ai += dt;
           if (clock.current.ai >= aiMs) {
@@ -5261,12 +5304,15 @@
     const start = function () {
       const seed = Date.now();
       meRef.current = T.newGame(seed); taRef.current = versus ? T.newGame(seed) : null; aiTarget.current = null;
+      if (coop) meRef.current.owner = "me";
+      seen.current = {}; snap.current = null; talkN.current = 0; lastLen.current = 0;
       clock.current = { me: 0, ai: 0, last: Date.now() };
       setStatus("play");
-      if (!lines.length) say(versus ? "对战刚开始。" : uName + " 刚开了一局。", true);
+      if (!lines.length) say(coop ? "合作接力刚开始，她先放第一块。" : versus ? "对战刚开始。" : uName + " 刚开了一局。", true);
     };
     const act = function (k) {
       const me = meRef.current; if (!me || status !== "play" || me.over) return;
+      if (coop && me.owner === "ta") return;   // 轮到 TA 放的时候你的手是空着的
       if (k === "l") T.move(me, -1); else if (k === "r") T.move(me, 1); else if (k === "rot") T.rotate(me, 1);
       else if (k === "down") { afterLock("me", T.step(me)); me.score += 1; } else if (k === "drop") afterLock("me", T.hardDrop(me));
       setTick(function (n) { return n + 1; });
@@ -5287,11 +5333,11 @@
       className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 18, touchAction: "none", userSelect: "none" } }, label); };
     const sendChat = function () { const v = draft.trim(); if (!v) return; setDraft(""); push({ me: true, text: v }); say("她刚跟你说了句话，接一句。", true, v); };
     return h("div", { "data-wk": "gameplay", "data-part": "tetris", className: "h-full flex flex-col", style: gameTable("tetris", t) },
-      h(Head, { zh: "俄罗斯方块", en: versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack }),
+      h(Head, { zh: "俄罗斯方块", en: coop ? "合作接力 · 和 " + cName + "（" + sk.zh + "）" : versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-4 pb-2", style: { paddingTop: 10 } },
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", alignItems: "flex-start" } },
           h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 4 } }, uName + " · " + (me ? me.score : 0) + " 分 · " + (me ? me.lines : 0) + " 行" + (me && me.pendingGarbage ? " · 要顶上来 " + me.pendingGarbage + " 行" : "")),
+            h("div", { "data-wk": "tetturn", style: { fontFamily: F_BODY, fontSize: 11, color: coop && me && me.owner === "ta" ? t.tint : t.sub, marginBottom: 4 } }, (coop ? (me && status === "play" ? (me.owner === "ta" ? "轮到 " + cName + " 放" : "轮到你放") + " · " : "你俩 · ") : uName + " · ") + (me ? me.score : 0) + " 分 · " + (me ? me.lines : 0) + " 行" + (me && me.pendingGarbage ? " · 要顶上来 " + me.pendingGarbage + " 行" : "")),
             me ? h(TetBoard, { g: me, cell: cell, onTouchStart: onTS, onTouchEnd: onTE }) : h("div", { style: { width: cell * 10, height: cell * 20, borderRadius: 6, background: "#1d1c22" } })),
           h("div", { style: { display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "下一个"),
@@ -5303,9 +5349,9 @@
         h("div", { style: { marginTop: 10 } },
           h(GameTalkLog, { t: t, lines: lines, busy: talking, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: 110, empty: cName + " 在旁边" }))),
       h("div", { "data-wk": "tetbar", className: "shrink-0 px-4 pt-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line, background: t.bg } },
-        status === "play" ? h("div", { className: "flex gap-2", style: { padding: "4px 0 6px" } }, pad("l", "←"), pad("rot", "↻"), pad("r", "→"), pad("down", "↓"), pad("drop", "⤓"))
+        status === "play" ? h("div", { className: "flex gap-2", style: { padding: "4px 0 6px", opacity: coop && me && me.owner === "ta" ? .4 : 1 } }, pad("l", "←"), pad("rot", "↻"), pad("r", "→"), pad("down", "↓"), pad("drop", "⤓"))
           : h("button", { "data-wk": "tetstart", onClick: start, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 14, border: "none" } },
-              status === "done" ? (versus ? (ta && ta.over && me && !me.over ? "你赢了 · 再来一局" : cName + " 赢了 · 再来一局") : "这局 " + (me ? me.score : 0) + " 分 · 再来一局") : "开始"),
+              status === "done" ? (coop ? "你俩 " + (me ? me.score : 0) + " 分 · 再来一局" : versus ? (ta && ta.over && me && !me.over ? "你赢了 · 再来一局" : cName + " 赢了 · 再来一局") : "这局 " + (me ? me.score : 0) + " 分 · 再来一局") : "开始"),
         h("div", { className: "flex gap-2", style: { paddingBottom: 4 } },
           h("input", { "data-wk": "gameinput", "data-part": "tetchat", value: draft, onChange: function (e) { setDraft(e.target.value.slice(0, 60)); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: "跟 " + cName + " 说句话",
             style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
@@ -5313,7 +5359,7 @@
         status === "done" && char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
           const meWin = versus ? !!(ta && ta.over && me && !me.over) : null;
           return { key: "tetris", zh: "俄罗斯方块", ids: [char.id], wins: versus && !meWin ? [char.id] : [], meWin: meWin,
-            text: versus ? "和" + cName + "对战俄罗斯方块，" + (meWin ? uName + "赢了" : cName + "赢了") + "（" + uName + " " + (me ? me.score : 0) + " 分，" + cName + " " + (ta ? ta.score : 0) + " 分）" : uName + "玩俄罗斯方块拿了 " + (me ? me.score : 0) + " 分，" + cName + "在旁边看" };
+            text: coop ? "和" + cName + "合作接力玩俄罗斯方块，一人一块轮着放，一起拿了 " + (me ? me.score : 0) + " 分" : versus ? "和" + cName + "对战俄罗斯方块，" + (meWin ? uName + "赢了" : cName + "赢了") + "（" + uName + " " + (me ? me.score : 0) + " 分，" + cName + " " + (ta ? ta.score : 0) + " 分）" : uName + "玩俄罗斯方块拿了 " + (me ? me.score : 0) + " 分，" + cName + "在旁边看" };
         } }) : null));
   }
 
