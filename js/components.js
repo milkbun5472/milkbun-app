@@ -1839,7 +1839,9 @@ function StickerPanel({ packs, emotes, onPick, onManage }) {
             h("div", { style: { width: "100%", aspectRatio: "1" } },
               h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", alt: em.keyword || "",
                 style: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-                onError: e => { e.target.style.display = "none"; } }))))),
+                onError: e => { e.target.style.display = "none"; } })),
+            // 每张底下写它的描述（群友 2026-10-16「表情包这里能显示描述」）：就是 TA 认这张的那个词，一行放不下就省略
+            em.keyword ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.3, color: t.sub, padding: "3px 4px 4px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", borderTop: "1px solid " + t.line } }, em.keyword) : null))),
     // 底下那一排：每一套一格，摆它自己的封面（第一张）。多了横着滑。
     tabs.length > 1 ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line, overflowX: "auto" } },
       tabs.map(pk => {
