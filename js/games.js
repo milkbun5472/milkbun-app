@@ -5199,6 +5199,25 @@
     const bestKey = coop ? TET_BEST_COOP : TET_BEST;
     const best = useRef((function () { try { return Number(loadJSON(bestKey, 0)) || 0; } catch (e) { return 0; } })());
     const lastTalk = useRef(0), touch = useRef(null), repeat = useRef(null);
+    // 说话节奏（她 2026-10-15：「怕来来回回就是一句话换着说法说」）：
+    //   同一类事只在第一次和升级时叫 TA；叫了也可以不说；给 TA 的是「上次开口到现在变了什么」；越打越安静
+    const seen = useRef({}), snap = useRef(null), talkN = useRef(0), lastLen = useRef(0);
+    const fresh = function (k) { if (seen.current[k]) return false; seen.current[k] = 1; return true; };
+    const danger = function (k, g) { const hgt = g ? T.stackHeight(g.board) : 0; if (hgt < 12) seen.current[k] = 0; return hgt >= 16 && fresh(k); };
+    const sinceLast = function () {
+      const me = meRef.current, ta = taRef.current, o = snap.current; if (!o || !me) return "";
+      const bits = [];
+      if (me.score > o.me) bits.push((coop ? "你们一起" : uName) + "涨了 " + (me.score - o.me) + " 分");
+      if (me.lines > o.ml) bits.push((coop ? "一起" : uName) + "又消了 " + (me.lines - o.ml) + " 行");
+      if (versus && ta) {
+        if (ta.score > o.ta) bits.push(cName + "涨了 " + (ta.score - o.ta) + " 分");
+        const lead = me.score > ta.score ? "me" : me.score < ta.score ? "ta" : "", was = o.me > o.ta ? "me" : o.me < o.ta ? "ta" : "";
+        if (lead && lead !== was) bits.push((lead === "me" ? uName : cName) + "反超了");
+      }
+      if (me.combo > 0) bits.push("连着消了 " + (me.combo + 1) + " 块");
+      bits.push("隔了 " + Math.round((Date.now() - o.at) / 1000) + " 秒");
+      return bits.join("，");
+    };
     const push = function (l) { setLines(function (ls) { return ls.concat([Object.assign({ at: Date.now() }, l)]).slice(-40); }); };
     const vw = typeof window !== "undefined" ? Math.min(window.innerWidth || 390, 520) : 390;
     const cell = versus ? Math.floor((vw - 44) * 0.6 / 10) : Math.min(24, Math.floor((vw - 110) / 10));
@@ -5207,19 +5226,22 @@
     const say = function (why, force, userLine) {
       if (!api || !char) return;
       const now = Date.now();
-      if (!force && (talking || now - lastTalk.current < 12000)) return;
-      lastTalk.current = now; setTalking(true);
-      const me = meRef.current, ta = taRef.current;
+      const gap = Math.min(45000, 12000 + talkN.current * 3000 + lastLen.current * 120);
+      if (!force && (talking || now - lastTalk.current < gap)) return;
+      lastTalk.current = now; talkN.current++; setTalking(true);
+      const me = meRef.current, ta = taRef.current, delta = sinceLast(), must = !!userLine;
+      snap.current = { me: me ? me.score : 0, ml: me ? me.lines : 0, ta: ta ? ta.score : 0, at: now };
       const sit = "你：" + (me ? me.score + " 分、消了 " + me.lines + " 行、堆了 " + T.stackHeight(me.board) + " 层" : "") + (versus && ta ? "；" + cName + "：" + ta.score + " 分、消了 " + ta.lines + " 行、堆了 " + T.stackHeight(ta.board) + " 层" : "");
       const said = lines.slice(-6).map(function (l) { return "· " + (l.me ? uName : cName) + "：" + l.text; }).join("\n");
       const recent = (cfg.injectChat && props.recentChatFor) ? String(props.recentChatFor(char.id) || "").slice(-400) : "";
-      const sys = AC + VOICE_RULE + "【场面】" + (coop ? cName + " 跟 " + uName + " 合作玩俄罗斯方块：同一块板子，一人放一块轮着来，一起冲分（你那块是你自己挑的落点）" : versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样随口说一句，照你们平时的关系和你自己的性子。"
+      const sys = AC + VOICE_RULE + "【场面】" + (coop ? cName + " 跟 " + uName + " 合作玩俄罗斯方块：同一块板子，一人放一块轮着来，一起冲分（你那块是你自己挑的落点）" : versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样，照你们平时的关系和你自己的性子；不一定要点评这盘，问她、逗她、说你自己、扯到别处都行。"
         + "\n【你是】" + cName + "\n【人设】" + String(char.persona || "（没写）").slice(0, 1400) + (recent ? "\n【你们最近聊的】" + recent : "")
-        + "\n\n【现在】" + sit + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
+        + "\n\n【现在】" + sit + (delta ? "\n【你上次开口到现在】" + delta : "") + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
+        + (must ? "" : "\n这会儿没什么想说的就不说，say 留空。")
         + "\n\n只输出 JSON：{\"say\":\"一句话\"}";
       callRetry(api, sys, [{ role: "user", content: userLine ? "她说：" + userLine : "说话。" }], { maxTokens: 8000, tag: "俄罗斯方块" }).then(function (raw) {
         const p = extractJSON(raw) || {}; const v = String(p.say || "").trim();
-        if (v) push({ id: char.id, name: cName, text: v.slice(0, 160) });
+        lastLen.current = v.length; if (v) push({ id: char.id, name: cName, text: v.slice(0, 160) });
       }).catch(function () {}).finally(function () { setTalking(false); });
     };
     const afterLock = function (who, res) {
@@ -5228,17 +5250,17 @@
       // 合作接力：落一块换一个人；轮到 TA 时偶尔先说一句打算（给你留坑、这块怎么放）
       if (coop && me) {
         me.owner = me.owner === "ta" ? "me" : "ta"; aiTarget.current = null;
-        if (res.cleared) say((who === "me" ? uName : "你（" + cName + "）") + "这一块消了 " + res.cleared + " 行，你们一起的分数现在 " + me.score + "。", res.cleared >= 3);
-        else if (me.owner === "ta" && Math.random() < 0.22) say("轮到你（" + cName + "）放一块「" + me.cur.k + "」形的，说说你打算怎么放、或者给她留了什么位置。");
-        if (!me.over && T.stackHeight(me.board) >= 16) say("你们这块板子快堆到顶了。");
+        if (res.cleared === 4 || (res.cleared && fresh("coopFirst"))) say((who === "me" ? uName : "你（" + cName + "）") + "这一块消了 " + res.cleared + " 行。", res.cleared === 4);
+        else if (me.owner === "ta" && Math.random() < 0.12) say("轮到你（" + cName + "）放一块「" + me.cur.k + "」形的，说说你打算怎么放、或者给她留了什么位置。");
+        if (!me.over && danger("coopTop", me)) say("你们这块板子快堆到顶了。", true);
         return;
       }
       if (versus && res.cleared >= 2) { const other = who === "me" ? ta : me; if (other) other.pendingGarbage += T.garbageFor(res.cleared); }
       if (res.cleared === 4) say((who === "me" ? uName : cName) + " 刚刚一口气消了四行！", true);
-      else if (res.cleared >= 2 && who === "me") say(uName + " 刚消了 " + res.cleared + " 行。");
-      else if (versus && res.cleared >= 2) say("你（" + cName + "）刚消了 " + res.cleared + " 行，往她那边塞了垃圾行。");
+      else if (res.cleared >= 2 && who === "me" && fresh("me" + res.cleared)) say(uName + " 这局第一次一下消了 " + res.cleared + " 行。");
+      else if (versus && res.cleared >= 2 && fresh("ta" + res.cleared)) say("你（" + cName + "）刚消了 " + res.cleared + " 行，往她那边塞了垃圾行。");
       const g = who === "me" ? me : ta;
-      if (g && !g.over && T.stackHeight(g.board) >= 16) say((who === "me" ? uName : "你（" + cName + "）") + "的板子快堆到顶了。");
+      if (g && !g.over && danger(who + "Top", g)) say((who === "me" ? uName : "你（" + cName + "）") + "的板子快堆到顶了。", true);
     };
     const finish = function () {
       const me = meRef.current, ta = taRef.current;
@@ -5283,6 +5305,7 @@
       const seed = Date.now();
       meRef.current = T.newGame(seed); taRef.current = versus ? T.newGame(seed) : null; aiTarget.current = null;
       if (coop) meRef.current.owner = "me";
+      seen.current = {}; snap.current = null; talkN.current = 0; lastLen.current = 0;
       clock.current = { me: 0, ai: 0, last: Date.now() };
       setStatus("play");
       if (!lines.length) say(coop ? "合作接力刚开始，她先放第一块。" : versus ? "对战刚开始。" : uName + " 刚开了一局。", true);

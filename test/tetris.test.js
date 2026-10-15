@@ -24,7 +24,7 @@ test("本地棋手：高手比新手活得久、消得多", () => {
 test("游戏接上了：开局页两种玩法、路由、TA 只在关键时刻说话", () => {
   assert.match(g, /\{ key: "watch", zh: "你玩 TA 看" \}, \{ key: "versus", zh: "对战" \}/);
   assert.match(g, /session\.game\.key === "tetris" && window\.TetrisCore\) return h\(TetrisGame/);
-  assert.match(g, /now - lastTalk\.current < 12000/);
+  assert.match(g, /now - lastTalk\.current < gap/);
   assert.match(g, /T\.garbageFor\(res\.cleared\)/);
 });
 
@@ -33,4 +33,16 @@ test("合作接力：同一块板子一人一块轮着放；轮到 TA 时你的�
   assert.match(g, /me\.owner = me\.owner === "ta" \? "me" : "ta"/);
   assert.match(g, /if \(coop && me\.owner === "ta"\) return;/);
   assert.match(g, /TET_BEST_COOP = "x_tetrisBestCoop"/);
+});
+
+// 她 2026-10-15：「怕来来回回就是一句话换着说法说」
+test("俄罗斯方块说话节奏：同类事只叫一次、可以不说、给上次到现在的变化、越打越安静", () => {
+  const g = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "games.js"), "utf8");
+  const G = g.slice(g.indexOf("function TetrisGame("), g.indexOf("function TetrisGame(") + 20000);
+  assert.match(G, /const fresh = function \(k\)/);
+  assert.match(G, /if \(hgt < 12\) seen\.current\[k\] = 0;/, "降下去再堆上来才算第二次");
+  assert.match(G, /【你上次开口到现在】/);
+  assert.match(G, /没什么想说的就不说，say 留空/);
+  assert.match(G, /talkN\.current \* 3000/);
+  assert.match(G, /seen\.current = \{\}; snap\.current = null;/, "新开一局要清");
 });
