@@ -23,7 +23,7 @@ test("播放页接上头像气泡和输入；说的每句原样落进单聊，�
   assert.match(scr, /talk \? talk\.bar : null/);
   // 一起听房（2026-10-15）：从房里进来时落进那间房的 chatKey，别处照旧落单聊（charId）
   //   选人底下「只留在一起听里」开着时不落（2026-10-15），见 listen-room-75
-  assert.match(app, /onToChat: \(charId, rows\) => \{[\s\S]{0,500}pChat\(\(function \(\) \{[\s\S]{0,260}chatKey\(lr\.charId, lr\.roomId\) : charId;/);
+  assert.match(app, /onToChat: \(charId, rows\) => \{[\s\S]{0,2000}pChat\(\(function \(\) \{[\s\S]{0,260}chatKey\(lr\.charId, lr\.roomId\) : charId;/);
   assert.match(src, /if \(props\.onToChat\) props\.onToChat\(partner\.id, list\);/);
   assert.match(app, /m\.kind === "listenlog"\) \{/);
   assert.match(app, /\(m\.kind === "listenlog"\) \? \(typeof listenLogText/);
