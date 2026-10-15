@@ -5864,7 +5864,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       // 带参考照走出图接口、站上没有 /images/edits（群友 2026-10-16：上传一张脸测试回 {"detail":"Not Found"}）：
       //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
       if (!isNative && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
-        throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就问站长带参考图走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
+        throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就去问你用的那家，带参考图要走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
       if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok) {
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
