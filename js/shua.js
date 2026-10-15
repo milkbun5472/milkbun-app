@@ -191,14 +191,31 @@
   function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
     const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
     const [more, setMore] = useState(false);   // 「⋯」：扔掉、画出来收在这儿，右边那排才不会顶到状态栏
+    // 双击画面点赞、冒一颗心（只点亮，不会因为双击把赞取消掉；跟抖音一样）
+    const tapRef = useRef(0);
+    const [heart, setHeart] = useState(null);
+    const onTap = e => {
+      if (e.target && e.target.closest && e.target.closest("button,a,input,textarea,label")) return;   // 点在右边那排、展开字上不算
+      const now = Date.now();
+      if (now - tapRef.current < 300) {
+        tapRef.current = 0;
+        const r = e.currentTarget.getBoundingClientRect();
+        setHeart({ x: e.clientX - r.left, y: e.clientY - r.top, k: now });
+        if (!v.liked) onLike();
+        setTimeout(() => setHeart(hh => hh && hh.k === now ? null : hh), 800);
+      } else tapRef.current = now;
+    };
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
     const railBtn = (icon, n, on, fn, key) => h("button", { "data-wk": "shuarailbtn", "data-on": on ? "1" : "0", key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, minHeight: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
       icon(on ? RED : INK),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, color: INK, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, n));
-    return h("div", { "data-wk": "shuavcard", style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
+    return h("div", { "data-wk": "shuavcard", onClick: onTap, style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
       src ? h("img", { src: src, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null,
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.28) 0,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 52%,rgba(0,0,0,.66) 100%)" } }),
+      heart ? h("div", { key: heart.k, "data-wk": "shuaheart", "aria-hidden": "true", style: { position: "absolute", left: heart.x - 40, top: heart.y - 40, zIndex: 6, pointerEvents: "none", animation: "shuaHeartPop .8s ease-out forwards" } },
+        h("style", null, "@keyframes shuaHeartPop{0%{transform:scale(.4) rotate(-12deg);opacity:0}20%{transform:scale(1.15) rotate(-12deg);opacity:1}60%{transform:scale(1) rotate(-12deg);opacity:1}100%{transform:scale(1.3) translateY(-40px) rotate(-12deg);opacity:0}}"),
+        h(IHeart, { size: 80, color: RED, filled: true })) : null,
       // 没画出来的时候，画面那几句摆在正中，当它就是这一段视频（她 2026-10-07：「做居中而不是居左上」）
       !src ? h("div", { "data-wk": "shuascene", className: "flex items-center justify-center", style: { position: "absolute", left: 30, right: 66, top: 110, bottom: 200, pointerEvents: "none" } },
         h("div", { onClick: () => setOpen(o => !o), style: { pointerEvents: "auto", maxHeight: "100%", overflowY: open ? "auto" : "hidden", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } },
@@ -226,8 +243,16 @@
   }
 
   // ── 评论区（整页）──────────────────────────────────────
-  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P, sheet }) {
+  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P, sheet, emotePacks, onMore, more, onPerson }) {
     const [text, setText] = useState("");
+    const [emoOpen, setEmoOpen] = useState(false);
+    // 发一张表情：直接发出去（回着谁就回谁），字面写成「[表情：关键词]」好让接话的人知道发了什么
+    const sendEmo = em => { if (!em || !em.url || busy) return; const x = "[表情：" + (em.keyword || "表情") + "]"; setEmoOpen(false);
+      if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : "", em.url); setReplyTo(null); return; } onSend(x, em.url); };
+    const emoImg = u => u ? h("img", { src: typeof resolveImg === "function" ? resolveImg(u) : u, alt: "", style: { display: "block", width: 72, height: 72, objectFit: "contain", marginTop: 4, borderRadius: 8 } }) : null;
+    const nameOf = (x, label) => x.by === "char" && x.charId && onPerson
+      ? h("button", { "data-wk": "shuacmtperson", onClick: () => onPerson(x.charId), className: "active:opacity-60", style: { color: "inherit", font: "inherit", padding: 0 } }, label) : label;
+    const moreBtn = onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!more, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: P.accent, minHeight: 36, padding: "0 10px" } }, more ? "有人路过…" : "刷点评论") : null;
     const [replyTo, setReplyTo] = useState(null);   // { id 那条评论, name 回的是谁 }
     const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : ""); setReplyTo(null); return; } onSend(x); };
     const rb = (id, name, sub) => onReply ? h("button", { "data-wk": "shuareplybtn", onClick: () => setReplyTo({ id, name, sub }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginLeft: 8 } }, "回复") : null;
@@ -239,19 +264,24 @@
         onTouchEnd: e => { const dy = (e.changedTouches[0] || {}).clientY - dragY.current; if (dy > 50) onBack(); } },
       h("div", { "aria-hidden": "true", style: { width: 36, height: 4, borderRadius: 2, background: P.line, margin: "0 auto 8px" } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.ink, fontWeight: 600 } }, arr(v.comments).length + " 条评论"),
+      moreBtn ? h("div", { style: { position: "absolute", left: 6, top: 8 } }, moreBtn) : null,
       h("button", { onClick: onBack, "aria-label": "收起评论", className: "active:opacity-60", style: { position: "absolute", right: 6, top: 4, width: 44, height: 44, color: P.dim, fontSize: 16 } }, "✕")) : null;
     return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg, ...(sheet ? { borderRadius: "14px 14px 0 0" } : {}) } },
       sheet ? sheetHead : h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
+      !sheet && moreBtn ? h("div", { className: "shrink-0 flex justify-end px-3" }, moreBtn) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 12 } },
         arr(v.comments).length ? arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
-          h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
-          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text, c.by !== "me" ? rb(c.id, c.name, false) : null),
+          h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, nameOf(c, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : ""))),
+          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.emo ? null : c.text, c.emo ? emoImg(c.emo) : null, c.by !== "me" ? rb(c.id, c.name, false) : null),
           arr(c.replies).length ? h("div", { style: { marginTop: 6, paddingLeft: 10, borderLeft: "2px solid " + P.line } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: P.ink, padding: "2px 0" } },
-            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, r.name + (r.to ? " 回复 @" + r.to : "") + "："), r.text, r.by !== "me" ? rb(c.id, r.name, true) : null))) : null)) :
+            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, nameOf(r, r.name) , (r.to ? " 回复 @" + r.to : "") + "："), r.emo ? emoImg(r.emo) : r.text, r.by !== "me" ? rb(c.id, r.name, true) : null))) : null)) :
           h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "40px 0" } }, "还没有评论"),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, padding: "8px 0" } }, "……") : null),
+      emoOpen && typeof StickerPanel === "function" ? h("div", { "data-wk": "shuaemopanel", className: "shrink-0", style: { maxHeight: 260, overflowY: "auto", borderTop: "1px solid " + P.line, background: "#fff" } },
+        h(StickerPanel, { packs: emotePacks, onPick: sendEmo })) : null,
       h("div", { "data-wk": "shuacompose", className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + P.line } },
         replyTo ? h("button", { onClick: () => setReplyTo(null), "aria-label": "取消回复", className: "shrink-0 active:opacity-60", style: { width: 28, height: 42, color: P.dim, fontSize: 15 } }, "✕") : null,
+        arr(emotePacks).length && typeof StickerPanel === "function" ? h("button", { "data-wk": "shuaemobtn", "data-on": emoOpen ? "1" : "0", onClick: () => setEmoOpen(o => !o), "aria-label": "表情", className: "shrink-0 active:opacity-60", style: { width: 36, height: 42, fontSize: 20, color: emoOpen ? P.accent : P.dim } }, "☺") : null,
         h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: replyTo ? "回复 @" + replyTo.name + "（点这里左边的 ✕ 取消）" : "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
           style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5 } }),
         h("button", { "data-wk": "shuasend", onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
@@ -286,6 +316,14 @@
   function PostPage({ busy, onPost, onLive, onBack, P, skin, characters, onAlt, same }) {
     const [scene, setScene] = useState(""), [caption, setCaption] = useState(same ? "拍了 @" + same.author + " 的同款 " : ""), [who, setWho] = useState("self"), [title, setTitle] = useState("");
     const [withId, setWithId] = useState("");   // 和谁一起出镜（合拍，第 4 条）
+    // 拿一张照片当画面（她 2026-10-15：「自己发视频可以上传照片写描述假装是视频」）：照片铺成画面，描述就是这段视频拍了什么
+    const [pic, setPic] = useState(""), [picBusy, setPicBusy] = useState(false);
+    const pickPic = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      setPicBusy(true);
+      try { const d = await resizeImageFile(f, 1280, 0.86); setPic(typeof imgToVault === "function" ? await imgToVault(d) : d); }
+      catch (err) { } finally { setPicBusy(false); }
+    };
     const field = (val, set, ph, rows) => h("textarea", { "data-wk": "shuafield", value: val, onChange: e => set(e.target.value), rows: rows, placeholder: ph, className: "w-full outline-none resize-none",
       style: { borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, marginTop: 8 } });
     const chip = (k, label) => h("button", { "data-wk": "shuachip", "data-on": who === k ? "1" : "0", key: k, onClick: () => setWho(k), className: "active:opacity-60", style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (who === k ? P.ink : P.line), background: who === k ? P.ink : "transparent", color: who === k ? P.bg : P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, label);
@@ -300,7 +338,14 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, "开直播"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 3 } }, "你开播，你的人混在观众里看着")),
         skin === "b" ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 22 } }, "标题") : null,
         skin === "b" ? field(title, setTitle, "这条视频叫什么", 1) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: skin === "b" ? 16 : 22 } }, "视频里拍了什么"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: skin === "b" ? 16 : 22 } }, "画面（可选）：放一张照片当这段视频"),
+        h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+          pic ? h("img", { src: typeof resolveImg === "function" ? resolveImg(pic) : pic, alt: "", style: { width: 64, height: 86, objectFit: "cover", borderRadius: 10, border: "1px solid " + P.line } }) : null,
+          h("label", { "data-wk": "shuapostpic", className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px dashed " + P.line, color: P.ink, fontFamily: F_BODY, fontSize: 12.5, display: "inline-flex", alignItems: "center", cursor: "pointer" } },
+            picBusy ? "放进来…" : pic ? "换一张" : "选一张照片",
+            h("input", { type: "file", accept: "image/*", onChange: pickPic, style: { display: "none" } })),
+          pic ? h("button", { onClick: () => setPic(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "不用了") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 16 } }, pic ? "这段视频拍了什么（照着照片写，大家看到的是照片＋这段）" : "视频里拍了什么"),
         field(scene, setScene, "镜头里看得见什么，怎么走的", 3),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 16 } }, "文案"),
         field(caption, setCaption, "配一句话，可以带 #话题", 2),
@@ -311,7 +356,7 @@
         !onAlt && (characters || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 10 } }, characters.map(c => h("button", { "data-wk": "shuawithpick", "data-on": withId === c.id ? "1" : "0", key: c.id, onClick: () => setWithId(w => w === c.id ? "" : c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 52, opacity: withId === c.id ? 1 : .5 } },
           h("div", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (withId === c.id ? P.accent : "transparent") } }, h(Avatar, { character: c, size: 40 })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: P.ink, marginTop: 3, maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))) : null,
-        h("button", { "data-wk": "shuapostbtn", disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null }),
+        h("button", { "data-wk": "shuapostbtn", disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null, img: pic || "" }),
           className: "w-full active:opacity-80", style: { marginTop: 24, minHeight: 48, borderRadius: 14, background: (!scene.trim() || busy) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } }, busy ? "发着…" : "发布")));
   }
 
@@ -346,7 +391,7 @@
         h("input", { "data-wk": "shuachargeinput", value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
         h("button", { "data-wk": "shuachargebtn", disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
   }
-  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
+  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply, onMore, moreBusy }) {
     const [text, setText] = useState("");
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
     const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
@@ -395,7 +440,8 @@
           onCoin ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 2, textAlign: "right" } }, "今天还剩 " + coinsLeft + " 枚硬币") : null,
           charging && onCharge ? h(ChargePanel, { onCharge: n => { setCharging(false); onCharge(n); } }) : null),
         h("div", { "data-wk": "shuabcmts", style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
+          h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length,
+            onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!moreBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: B.accent, minHeight: 32, padding: "0 4px" } }, moreBusy ? "有人路过…" : "刷点评论") : null),
           arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
             h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
             h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
@@ -646,10 +692,42 @@
         setTimeout(() => setBusy(b => b === "reply" ? null : b), wait + 200);
       } catch (e) { toast("回复没刷出来：" + ((e && e.message) || "")); setBusy(null); }
     };
+    // 刷点评论（她 2026-10-15：「跟论坛一样可以不用自己评论直接生成路人评论」）：一枪写一批路过的网友，
+    //   有的另起一条，有的回底下已有的那几条；一两秒冒一条。认识的人不在这一枪里（他们各走自己那份）。
+    const moreComments = async vid => {
+      const v = dbRef.current.videos.find(x => x.id === vid); if (!v || !props.ask) return;
+      const n = [4, 5, 6, 6, 7, 8, 9, 10][Math.floor(Math.random() * 8)];
+      const have = arr(v.comments).slice(-14).map(c => c.name + "：" + c.text + arr(c.replies).slice(-3).map(r => "\n  " + r.name + (r.to ? " 回复 @" + r.to : "") + "：" + r.text).join("")).join("\n");
+      const authorC = v.by === "char" ? charOf(v.charId) : (v.cp ? charOf(v.cp) : null);
+      const known = [v.by !== "npc" ? v.author : "", myName].filter(Boolean);
+      const sys = AC() + CB() + "【场景】「" + APP_NAME + "」上一条视频（@" + v.author + "）拍的是：" + S(v.scene).slice(0, 200) + (v.caption ? "；文案：" + S(v.caption).slice(0, 80) : "") + "。"
+        + (have ? "\n\n【底下已有的评论】\n" + have : "\n\n底下还没有评论。")
+        + "\n\n写正好 " + n + " 条刚刷到这条的陌生网友的评论 items（name 网名、text、to：要是在回底下某一条就照抄那条的网名，另起一条就空着）。"
+        + "\n他们素不相识，只看得见这条视频和这些评论，不认识「" + known.join("」「") + "」，只当普通账号。像真在刷评论区：短，一句甚至几个字；不复述视频、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问，有人在楼里接别人的话；口气、长短、标点各不一样。"
+        + "\n⚠️不许以「" + known.join("」「") + "」的名义写任何一句。";
+      setBusy("more:" + vid);
+      try {
+        const d = await props.ask(sys, CROWD_SHAPE, authorC ? authorC.id : null);
+        const bad = new Set(known);
+        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && !bad.has(S(x.name))).slice(0, n + 2);
+        if (!items.length) { toast("这回没人路过"); setBusy(null); return; }
+        let wait = 0;
+        items.forEach((x, k) => {
+          wait += k ? 700 + Math.random() * 1800 : 300;
+          setTimeout(() => patchV(vid, xv => {
+            const name = S(x.name).slice(0, 20), text = S(x.text).slice(0, 200), to = S(x.to);
+            const host = to && to !== name ? arr(xv.comments).find(c => c.name === to) || arr(xv.comments).find(c => arr(c.replies).some(r => r.name === to)) : null;
+            if (host) return Object.assign({}, xv, { comments: arr(xv.comments).map(c => c.id === host.id ? Object.assign({}, c, { replies: arr(c.replies).concat([{ id: uid("rp"), name, text, by: "npc", ...(to !== host.name ? { to } : {}), ts: Date.now() }]) }) : c) });
+            return Object.assign({}, xv, { comments: arr(xv.comments).concat([{ id: uid("cm"), name, text, by: "npc", ts: Date.now() }]) });
+          }), wait);
+        });
+        setTimeout(() => setBusy(b => b === "more:" + vid ? null : b), wait + 200);
+      } catch (e) { toast("没刷出评论：" + ((e && e.message) || "")); setBusy(null); }
+    };
     // 她评论：落一条自己的，然后那一串陆续接上来（作者的视频作者必回；她自己的视频是路人和认识的人来接）
-    const comment = (id, text) => {
+    const comment = (id, text, emo) => {
       const v0 = dbRef.current.videos.find(x => x.id === id); if (!v0) return;
-      const mine = { id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ts: Date.now() };
+      const mine = { id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ...(emo ? { emo } : {}), ts: Date.now() };
       patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([mine]) }));
       crowd(id, mine.id, text, { name: v0.author, isAuthor: true, by: v0.by });
     };
@@ -672,7 +750,7 @@
 
     // 她发一条：认识她的人刷到了
     const postMine = async d => {
-      const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin });
+      const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin, ...(d.img ? { img: d.img, photo: true } : {}) });
       const co = d.withId ? charOf(d.withId) : null;
       if (co) { v.withCharId = co.id; v.withName = S(((dbRef.current.accounts || {})[co.id] || {}).handle) || co.name; }
       if (onAlt) v.alt = true;
@@ -742,9 +820,9 @@
     // 她自己发的弹幕：飘在画面上；TA下次在横着看那套发视频时会看到（不知道是谁）
     const dm = (v, text) => { patchV(v.id, x => Object.assign({}, x, { myDms: arr(x.myDms).concat([{ text: text.slice(0, 30), ts: Date.now() }]).slice(-20) })); toast("弹幕发出去了"); };
     // 楼中楼：她回了某一条评论（或那条底下的某个人）——被回的那个必接，旁人看情况
-    const reply = (v, cid, text, toName) => {
+    const reply = (v, cid, text, toName, emo) => {
       const target = arr(v.comments).find(x => x.id === cid); if (!target) return;
-      patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([{ id: uid("rp"), name: myName, text, by: "me", ...(toName ? { to: toName } : {}), ts: Date.now() }]) }) : cm) }));
+      patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([{ id: uid("rp"), name: myName, text, by: "me", ...(toName ? { to: toName } : {}), ...(emo ? { emo } : {}), ts: Date.now() }]) }) : cm) }));
       const sub = toName ? arr(target.replies).slice().reverse().find(r => r.name === toName && r.by !== "me") : null;
       const who = sub || (target.by !== "me" ? target : arr(target.replies).slice().reverse().find(r => r.by !== "me")) || null;
       crowd(v.id, cid, text, who);
@@ -779,17 +857,22 @@
       return sheetV ? h("div", { "data-wk": "shuacmtsheet", style: { position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column" } },
         h("div", { onClick: () => setSheet(null), "aria-label": "收起评论", style: { flex: "0 0 30%", background: "rgba(0,0,0,.25)" } }),
         h("div", { style: { flex: "1 1 auto", minHeight: 0, boxShadow: "0 -6px 20px rgba(0,0,0,.35)", borderRadius: "14px 14px 0 0", overflow: "hidden" } },
-          h(CommentsPage, { v: sheetV, t, P, sheet: true, busy: busy === "reply", onSend: x => comment(sheetV.id, x), onReply: (cid, x, to) => reply(sheetV, cid, x, to), onBack: () => setSheet(null) }))) : null;
+          h(CommentsPage, cmtProps(sheetV, { sheet: true, onBack: () => setSheet(null) })))) : null;
     };
+    // 评论区（整页和底下那一层）共用的那几样：发、回、带表情、点名字进主页、刷点评论
+    const cmtProps = (v, extra) => Object.assign({ v, t, P, busy: busy === "reply" || busy === "more:" + v.id,
+      onSend: (x, emo) => comment(v.id, x, emo), onReply: (cid, x, to, emo) => reply(v, cid, x, to, emo),
+      emotePacks: props.emotePacks || [], onMore: props.ask ? () => moreComments(v.id) : null, more: busy === "more:" + v.id,
+      onPerson: id => charOf(id) ? setPage({ kind: "acct", charId: id, back: page }) : null }, extra);
     const withSheet = node => h("div", { className: "h-full", style: { position: "relative" } }, node, sheetLayer());
     if (page && page.kind === "comments") {
       const v = db.videos.find(x => x.id === page.id);
-      if (v) return h(CommentsPage, { v, t, P, busy: busy === "reply", onSend: x => comment(v.id, x), onReply: (cid, x, to) => reply(v, cid, x, to), onBack: () => setPage(page.back || null) });
+      if (v) return h(CommentsPage, cmtProps(v, { onBack: () => setPage(page.back || null) }));
     }
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
       if (v) return h(BDetail, { v, charOf, seriesOn: !!(v.series && v.charId && ((dbRef.current.me || {}).series || {})[v.charId + "|" + v.series]),
-        onFollowSeries: v.series && v.charId && v.by === "char" ? () => { const k = v.charId + "|" + v.series, me = dbRef.current.me || {}, sr = Object.assign({}, me.series); if (sr[k]) delete sr[k]; else sr[k] = true; save(Object.assign({}, dbRef.current, { me: Object.assign({}, me, { series: sr }) })); toast(sr[k] ? "追更了，出新一期会在消息里提醒你" : "不追了"); } : null, busy: busy === "reply", onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
+        onFollowSeries: v.series && v.charId && v.by === "char" ? () => { const k = v.charId + "|" + v.series, me = dbRef.current.me || {}, sr = Object.assign({}, me.series); if (sr[k]) delete sr[k]; else sr[k] = true; save(Object.assign({}, dbRef.current, { me: Object.assign({}, me, { series: sr }) })); toast(sr[k] ? "追更了，出新一期会在消息里提醒你" : "不追了"); } : null, busy: busy === "reply" || busy === "more:" + v.id, onMore: props.ask ? () => moreComments(v.id) : null, moreBusy: busy === "more:" + v.id, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,

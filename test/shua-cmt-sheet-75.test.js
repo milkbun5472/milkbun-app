@@ -5,7 +5,7 @@ const src = require("fs").readFileSync(__dirname + "/../js/shua.js", "utf8");
 test("竖着刷点评论开 sheet，评论层画在页面上面、点露出来的视频收起", () => {
   assert.match(src, /onComments: \(\) => setSheet\(v\.id\)/);
   assert.match(src, /"data-wk": "shuacmtsheet"/);
-  assert.match(src, /h\(CommentsPage, \{ v: sheetV, t, P, sheet: true,/);
+  assert.match(src, /h\(CommentsPage, cmtProps\(sheetV, \{ sheet: true,/);
   assert.match(src, /onClick: \(\) => setSheet\(null\), "aria-label": "收起评论"/);
   assert.match(src, /if \(dy > 50\) onBack\(\);/);
 });

@@ -119,7 +119,7 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
   assert.match(S, /const heard = mineB\.slice\(0, 3\)\.flatMap/);
   // 2026-10-15 楼中楼和评论一起换成论坛那套「一串人接话」：被回的那个必接、作者看情况、路人来起哄
   assert.match(S, /function crowdSystem\(v, o\)/);
-  assert.match(S, /const reply = \(v, cid, text, toName\) =>/);
+  assert.match(S, /const reply = \(v, cid, text, toName, emo\) =>/);   // 2026-10-15 回复也能带表情
   assert.match(S, /onSame: v\.by !== "me" \? \(\) => setPage\(\{ kind: "post", same: v \}\) : null/);
   assert.match(S, /const genNpc = async city =>/);
   // 刷新页的「刷几条路人的」在同城那一格刷的是这座城（v75.043），别处还是推荐

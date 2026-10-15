@@ -30537,6 +30537,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return out.slice(0, 8);
     };
     body = window.ShuaApp ? h(window.ShuaApp, {
+      // 评论里发表情：全局的、我自己能用的那几套（专属给某个人的不摆，评论区是公开的）
+      emotePacks: emotePacksForChar("__nobody__"),   // 只剩全局的、没指定给谁的那几套
       // 按面具发（她 2026-10-09，跟论坛同一套）：主面具＋别的面具；谁认得出看 TA 跟她用的是哪张
       masks: () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage }))),
       maskKeyOf: id => maskKeyOf(id),
