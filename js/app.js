@@ -10915,6 +10915,38 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (String(id || "").indexOf("g:") === 0) return groupMaskKey(String(id).slice(2));   // 群的钟：照群挑的那张面具
     const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m;
   };
+  // 「TA 自己一只钟」（她 2026-10-16：「有时候想单独暂停某个角色的时间过剧情」）：开着的那几段，这个人的时间走 "c:角色id" 那只钟，
+  //   不跟面具。ownClockSpans＝[{from, until}]：哪段现实时间里是他自己的钟——旧消息照它当时那只钟算，关掉以后也不挪。
+  //   ts 不给＝问现在。群（g:）不管这个。
+  const clockKeyOf = (id, ts) => {
+    const sid = String(id || "");
+    if (sid && sid.indexOf("g:") !== 0) {
+      const sp = (settingsFor(sid) || {}).ownClockSpans;
+      if (Array.isArray(sp) && sp.length) {
+        const t = ts == null ? Date.now() : Number(ts);
+        if (sp.some(x => x && t >= Number(x.from) && (x.until == null || t < Number(x.until)))) return "c:" + sid;
+      }
+    }
+    return maskKeyOf(id);
+  };
+  // 开关一拨：开＝新起一段，他那只钟从面具钟此刻的样子接着走（不跳）；关＝把这一段收口。钟本身留着，旧消息还要照它算。
+  const ownClockSpansNext = (id, on) => {
+    const sp = Array.isArray((settingsFor(id) || {}).ownClockSpans) ? settingsFor(id).ownClockSpans.slice(-50) : [];
+    const open = sp.length && sp[sp.length - 1].until == null;
+    if (on === undefined || !!on === !!open) return sp;
+    const now = Date.now();
+    if (!on) return sp.slice(0, -1).concat([{ ...sp[sp.length - 1], until: now }]);
+    try {
+      const cur = { ...((prefsRef.current || {}).vclocks || {}) }, mk = maskKeyOf(id) || "main", src = cur[mk];
+      const base = typeof vclockMap === "function" ? vclockMap(now, id) : now;
+      const seeded = { on: true, base, at: now, speed: src && src.on && isFinite(Number(src.speed)) ? Number(src.speed) : 1, ...(src && src.era ? { era: src.era } : {}) };
+      const old = cur["c:" + id];
+      cur["c:" + id] = old && old.hist ? { ...seeded, hist: old.hist } : seeded;
+      const all = typeof vclockKeepHist === "function" ? vclockKeepHist((prefsRef.current || {}).vclocks || {}, cur, now) : cur;
+      const p = { ...prefsRef.current, vclocks: all }; prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p);
+    } catch (e) {}
+    return sp.concat([{ from: now, until: null }]);
+  };
   // 这个角色看到的是哪一本「我的日程」：跟着TA认的那张面具（主面具＝"mine"）
   const myCalOwnerFor = charId => { const k = maskKeyOf(charId); return k ? "mine:" + k : "mine"; };
   // 离开小手机时停住（群友 2026-10-11）：走的那一刻把每只开了 pauseAway 的钟定在当下（base＝那一刻、记 awayAt），
@@ -10949,7 +10981,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   每次画都对一遍，改完下一轮就生效；active（这一轮在替谁拼）留着不动。旧的那一只（prefs.vclock）当主面具的。
   try {
     const _clocks = { ...(prefs.vclock ? { main: prefs.vclock } : {}), ...(prefs.vclocks || {}) };
-    window.__vclock = Object.assign(window.__vclock && window.__vclock.clocks ? window.__vclock : { active: null }, { clocks: _clocks, maskOf: maskKeyOf });
+    window.__vclock = Object.assign(window.__vclock && window.__vclock.clocks ? window.__vclock : { active: null }, { clocks: _clocks, maskOf: clockKeyOf });
   } catch (e) {}
   // 论坛按面具发（她 2026-10-09）：大号跟着「现在用哪张面具」走。帖子、楼、楼中楼都记着是哪张面具（mask，主面具不记）。
   //   认不认得出是她：只有跟她用【同一张面具】聊的那几个角色认得出；别的角色当陌生网友（跟小号同一套）。
@@ -31936,6 +31968,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 停手几秒自己回：0＝关，最多 10 分钟
             autoReplySec: Math.max(0, Math.min(600, Number(s.autoReplySec) || 0)),
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
+            ownClockSpans: ownClockSpansNext(activeChar.id, s.ownClock),
             // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
             maskId: String(s.maskId || "").trim().slice(0, 40)
           }
@@ -32007,9 +32040,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           set: v => { const p = { ...prefs, timeAware: v === "on" }; setPrefs(p); saveJSON("x_prefs", p); toast("全局时间感知：" + (v === "on" ? "开" : "关")); } },
     // 虚拟时间开着时，悬浮球里直接拨（她 2026-10-11）
     // 在单聊里拨的是 TA 认的那张面具的钟，别处拨主面具的（跟 engine.js vclockCfg 同一个键）
-    vclock: (() => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
+    vclock: (() => { const k = (screen === "thread" && activeChar && clockKeyOf(activeChar.id)) || "main";
       const c = ({ ...(prefs.vclock ? { main: prefs.vclock } : {}), ...(prefs.vclocks || {}) })[k]; return c && c.on ? c : null; })(),
-    onVClock: v => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
+    onVClock: v => { const k = (screen === "thread" && activeChar && clockKeyOf(activeChar.id)) || "main";
       const cur = prefsRef.current; const old = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}) };
       const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
