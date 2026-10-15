@@ -2621,7 +2621,7 @@ function Forum({
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
-  onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
+  onRefreshPMs, onSendPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onDeletePost, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
@@ -3387,9 +3387,18 @@ function Forum({
     const sending = gen && gen.forumPM === th.id;
     const send = () => { if (pmText.trim()) { onSendPM(th.id, pmText.trim()); setPmText(""); } };
     return h("div", { className: "flex-1 flex flex-col min-h-0" },
+      // 加微信（群友 2026-10-15 许愿）：只给网友那种（角色本来就在你通讯录里）；加上了就变成去单聊
+      !th.charId && (onAskWechat || th.wechatId) ? h("div", { className: "shrink-0 px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, th.wechatId ? "已经加了微信，在 通讯录 → 配角 里" : "聊得来可以问TA要微信，加不加TA自己定"),
+        th.wechatId
+          ? (onOpenWechat ? h("button", { "data-wk": "pmwechat", onClick: () => onOpenWechat(th.wechatId), className: "ml-auto active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent, padding: "6px 2px" } }, "去微信聊") : null)
+          : h("button", { "data-wk": "pmwechat", disabled: sending, onClick: () => onAskWechat(th.id), className: "ml-auto active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent, padding: "6px 2px" } }, "加个微信")) : null,
       h("div", { className: "flex-1 overflow-y-auto px-5 py-4 space-y-2.5" },
-        th.messages.map((m, i) => h("div", { key: i, className: "flex " + (m.from === "me" ? "justify-end" : "justify-start") },
-          h("div", { style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, m.text))),
+        th.messages.map((m, i) => h(Fragment, { key: i },
+          // 时间：跟上一条隔了五分钟以上（或第一条）才插一行，跟聊天里一样
+          m.ts && (i === 0 || !th.messages[i - 1].ts || m.ts - th.messages[i - 1].ts > 300000) ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0" } }, new Date(m.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })) : null,
+          h("div", { className: "flex " + (m.from === "me" ? "justify-end" : "justify-start") },
+          h("div", { style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, m.text)))),
         sending && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
       h("div", { className: "shrink-0 px-4 py-3 flex gap-2", style: { borderTop: `1px solid ${t.line}` } },
         h("input", { value: pmText, onChange: e => setPmText(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "回 " + th.npcName + "…", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),

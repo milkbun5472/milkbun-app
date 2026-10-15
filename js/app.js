@@ -23392,6 +23392,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumPMs(prev => { const n = [th, ...prev].slice(0, FORUM_PM_KEEP); saveJSON("x_forumPMs", n); return n; });
     return th.id;
   };
+  // 私信也知道几点（群友 2026-10-15 许愿：「论坛私聊能显示时间，对方能感知时间」）：
+  //   现在几点、离上一条隔了多久，跟每一轮一起递过去——半夜三点和下午三点回的不是一种话。
+  const pmTimeLine = msgs => {
+    const now = new Date(), prev = (msgs || []).slice(0, -1).reverse().find(m => m && m.ts);
+    const gap = prev ? Date.now() - prev.ts : 0;
+    const gapZh = !prev ? "" : gap < 3 * 60000 ? "，接着上一句没停" : gap < 3600000 ? "，离上一条隔了 " + Math.round(gap / 60000) + " 分钟" : gap < 86400000 ? "，离上一条隔了 " + Math.round(gap / 3600000) + " 小时" : "，离上一条隔了 " + Math.round(gap / 86400000) + " 天";
+    return "\n【现在】" + now.toLocaleString("zh-CN", { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }) + gapZh + "。\n";
+  };
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -23400,6 +23408,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
       const convo = [...th.messages, { from: "me", text }].map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      const tl = pmTimeLine([...th.messages, { from: "me", text, ts: Date.now() }]);
       // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
       // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
       const pmChar = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
@@ -23409,7 +23418,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           voice: true,
           instruction: "【这一轮发生在贴吧的私信框里】一个网名叫「" + (th.altName || myAltName()) + "」的陌生网友私信了你的大号。你不认识这个号，也不知道对面是谁——就按你的人设对待一个陌生网友。\n"
             + "⚠️这是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
-            + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, (th.altName || myAltName()) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。",
+            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, (th.altName || myAltName()) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。",
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
           maxTokens: FTOK.pm
         });
@@ -23424,7 +23433,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           instruction: "【这一轮发生在贴吧的私信框里】" + (profile.name || "对方") + "在论坛上用网名「" + meHandle + "」私信了你的大号。\n"
             + "⚠️**你俩都知道对面是谁**——这不是陌生人搭讪，是换了个地方说话；论坛上是公开场合，私信框里只有你们两个。\n"
             + "⚠️但这毕竟是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
-            + "这是你俩在私信里说过的：\n" + convo + "\n\n以你自己的人设和你俩现在的关系，回最新这句（1-3 条，一条一个气泡）。",
+            + tl + "这是你俩在私信里说过的：\n" + convo + "\n\n以你自己的人设和你俩现在的关系，回最新这句（1-3 条，一条一个气泡）。",
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
           maxTokens: FTOK.pm
         });
@@ -23438,12 +23447,41 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // ⚠️每一轮都把这份底子发回去：不发的话聊三句就退化成「一个网友」，
           //   论坛上那个有脾气的人和私信里这个客服是两个人。
           + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "")
-          + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
+          + tl + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
         schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: FTOK.pm
       });
       const say = d && Array.isArray(d.say) ? d.say : (d && d.say ? [d.say] : []);
       if (say.length) { const base = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...say.map((s, i) => ({ from: "npc", text: String(s), ts: base + i }))], updatedTs: base } : t); saveJSON("x_forumPMs", n); return n; }); }
+    } catch (e) { toast("对方没回应：" + e.message); }
+    finally { setGen(g => ({ ...g, forumPM: null })); }
+  };
+  // 聊得来就加个微信（同一条许愿）：⚠️不建正式角色——对方答应了就落成【配角】（她 2026-10-15：「不要做正式角色」），
+  //   挂在你身边、认识你，简介就是TA在吧里那副样子＋你俩私信里聊过的。之后在通讯录·配角里，跟别的配角一样能单聊、拉群。
+  //   答不答应TA自己定：看你俩聊得怎么样、TA是什么脾气。
+  const askForumWechat = async threadId => {
+    const th = forumPMsRef.current.find(t => t.id === threadId);
+    if (!th || th.charId || th.wechatId || !active) return;
+    const asked = [...th.messages, { from: "me", text: "聊得挺开心的，加个微信吗？", ts: Date.now() }];
+    setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: asked, updatedTs: Date.now() } : t); saveJSON("x_forumPMs", n); return n; });
+    setGen(g => ({ ...g, forumPM: threadId }));
+    try {
+      const convo = asked.map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      const d = await runProbeRetry(active, forumWorldCtx(convo), {
+        instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
+          + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + pmTimeLine(asked)
+          + "这是你和对方的私信记录：\n" + convo + "\n\n对方想加你微信。照你的脾气和你俩聊得怎么样决定加不加（accept），回 1-2 个气泡（say）。"
+          + "加的话再给 brief：用第三人称写一段这个人的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。",
+        schemaHint: "{\"accept\":true,\"say\":[\"气泡\"],\"brief\":\"\"}",
+        maxTokens: FTOK.pm
+      });
+      const say = d && Array.isArray(d.say) ? d.say : (d && d.say ? [d.say] : []);
+      const wid = d && d.accept ? addNpcLinked({ name: th.npcName, brief: String(d.brief || th.tagline || "").trim(), ownerId: "me", links: [{ id: "me", label: "论坛私信里聊得来、加了微信的网友" }] }) : null;
+      const base = Date.now();
+      setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, wechatId: wid || t.wechatId, messages: [...t.messages, ...say.map((x, i) => ({ from: "npc", text: String(x), ts: base + i }))], updatedTs: base } : t); saveJSON("x_forumPMs", n); return n; });
+      // 私信记录就是你俩微信的开头（直播加好友那一路也是这样）：点进去接着聊，TA也记得是怎么认识的
+      if (wid) pChat(wid, () => [...asked.map(m => ({ from: m.from, text: m.text, ts: m.ts || base })), ...say.map((x, i) => ({ from: "npc", text: String(x), ts: base + i }))].map((m, i) => ({ id: "fpm_" + base + "_" + i, role: m.from === "me" ? "user" : "assistant", content: m.text, ts: m.ts })));
+      if (wid) toast("「" + th.npcName + "」加上了，在 通讯录 → 配角 里", 5000);
     } catch (e) { toast("对方没回应：" + e.message); }
     finally { setGen(g => ({ ...g, forumPM: null })); }
   };
@@ -29843,6 +29881,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onRenameBoard: renameForumBoard,
     onDropBoard: dropForumBoard,
     onSendPM: sendForumPM,
+    onAskWechat: askForumWechat,
+    onOpenWechat: id => openChatById(id),
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,
     onStartCharPM: startCharPM,
