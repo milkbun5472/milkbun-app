@@ -84,7 +84,7 @@ test("聊天发图不再必须有脸：多一种【画面里没有人】的", ()
   assert.match(app, /\["self", "other", "duo", (?:"me", )?"view", "part", "none"\]\.includes/);
   // 执行时 view 绕开「有脸」那道闸，人像那几种照旧要
   // v72.23：这个条件挪进了 _canDraw（画不出像素就落成只有描述的那一张），判据一字未改
-  assert.match(app, /&& \(photoKind === "view" \|\| photoKind === "part" \|\| \(photoKind === "me" \? canShootMe\(\) : \(char\.appearance \|\| char\.refPhoto\)\)\);/);
+  assert.match(app, /&& \(photoKind === "view" \|\| photoKind === "part" \|\| \(photoKind === "me" \? canShootMe\(charId\) : \(char\.appearance \|\| char\.refPhoto\)\)\);/);
 });
 
 // 提示词那条路她试了两版都没治住：他在气泡里自己说「刚出炉的纯风景」，
@@ -183,11 +183,11 @@ test("view 走空景那条路，一张参考照都不喂", () => {
 test("群聊同一套，不许只做单聊那一半", () => {
   assert.match(app, /const gSelfieMembers = gPhotoOn \? members\.filter\(c => !photoCooldownState\(gchat, c\.id\)\.cooling\) : \[\];/);
   assert.match(app, /const gFaceMembers = gSelfieMembers\.filter\(c => c\.appearance \|\| c\.refPhoto\);/);
-  assert.match(app, /const gDuoMembers = \(profile && profile\.refPhoto\) \? gFaceMembers\.filter/,
+  assert.match(app, /const gDuoMembers = \(meOfGroup\(groupId\) \|\| \{\}\)\.refPhoto \? gFaceMembers\.filter/,
     "合照名单要从【有脸的】里挑，不是从全员里挑");
   assert.match(app, /\["self", "other", "duo", "group", (?:"me", )?"view", "part", "none"\]\.includes/);
   // v72.23：这个条件挪进了 _gCanDraw（画不出像素就落成只有描述的那一张），判据一字未改
-  assert.match(app, /&& \(gPhotoKind === "view" \|\| gPhotoKind === "part" \|\| \(gPhotoKind === "me" \? canShootMe\(\) : \(spk\.appearance \|\| spk\.refPhoto\)\)\);/);
+  assert.match(app, /&& \(gPhotoKind === "view" \|\| gPhotoKind === "part" \|\| \(gPhotoKind === "me" \? canShootMe\("g:" \+ groupId\) : \(spk\.appearance \|\| spk\.refPhoto\)\)\);/);
   assert.match(app, /const gIsView = gPhotoKind === "view", gIsPart = gPhotoKind === "part";/);
   assert.match(app, /const prompt = gIsView \? buildScenePrompt\(spk, gPhotoScene, \{ forText: false \}\)/);
 });

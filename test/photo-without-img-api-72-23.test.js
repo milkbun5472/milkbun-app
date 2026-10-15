@@ -21,7 +21,8 @@ test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
   // 可「没外貌就不许发自拍」那道闸当时把拍人那几档一起锁了，而没有像素时根本没脸可串。
   assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/,
     "没接图像通道时还卡着「有没有脸可锁」");
-  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && profile && profile\.refPhoto\) : true;/,
+  // v75.685：「我」改从这个角色认的那张面具取（meOf）
+  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && \(meOf\(char\.id\) \|\| \{\}\)\.refPhoto\) : true;/,
     "合照那一档同理");
   // ⚠️顺序：canSelfieImg 必须排在这两个前面，写反了就是 TDZ 白屏
   const i = app.indexOf("const canSelfieImg ="), f = app.indexOf("const canFace ="), d = app.indexOf("const canDuo =");
@@ -33,7 +34,8 @@ test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
   // 可「没外貌就不许发自拍」那道闸当时把拍人那几档一起锁了，而没有像素时根本没脸可串。
   assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/,
     "没接图像通道时还卡着「有没有脸可锁」");
-  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && profile && profile\.refPhoto\) : true;/,
+  // v75.685：「我」改从这个角色认的那张面具取（meOf）
+  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && \(meOf\(char\.id\) \|\| \{\}\)\.refPhoto\) : true;/,
     "合照那一档同理");
   // ⚠️顺序：canSelfieImg 必须排在这两个前面，写反了就是 TDZ 白屏
   const i = app.indexOf("const canSelfieImg ="), f = app.indexOf("const canFace ="), d = app.indexOf("const canDuo =");
@@ -48,7 +50,7 @@ test("画不出像素就落成只有描述的那一张，而不是什么都不�
   assert.match(app, /const _gCanDraw = gPhotoScene && gPhotoKind/, "群聊那条判断没了");
   assert.match(app, /kind: "photo", descOnly: true, noDrawWhy: photoNoDrawWhy\(spk(?:, gPhotoKind)?\), desc: gPhotoScene/, "群聊没落成同一张卡");
   // ⚠️「没外貌也没参考照就不画人」那条老规矩不许被顺手撤掉
-  assert.match(app, /photoKind === "view" \|\| photoKind === "part" \|\| \(photoKind === "me" \? canShootMe\(\) : \(char\.appearance \|\| char\.refPhoto\)\)/, "没脸可锁还硬画的老毛病回来了");
+  assert.match(app, /photoKind === "view" \|\| photoKind === "part" \|\| \(photoKind === "me" \? canShootMe\(charId\) : \(char\.appearance \|\| char\.refPhoto\)\)/, "没脸可锁还硬画的老毛病回来了");
 });
 
 test("他得记得自己真发过，别下一轮说「我还没拍」", () => {

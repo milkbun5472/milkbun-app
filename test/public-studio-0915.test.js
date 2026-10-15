@@ -13,7 +13,9 @@ test('实际照相馆调用带两边选中单品描述、不带未选衣柜且�
  setStudio:n=>record=n,saveJSON:()=>{},closetTextFor:()=>{throw Error('选定后不应读整柜')},
  // v69.01：出图时的「我」收成了公共的 photoMe（带固定服装锁和我的衣柜）。
  // 这儿故意让它返回一个哨兵衣柜——照相馆必须把它清掉，否则会跟她刚挑的那身打架。
- photoMe:n=>({name:(c.profile&&c.profile.name)||n,appearance:c.profile&&c.profile.appearance,
+ // v75.685：「我」改成照这个角色认的那张面具取；这儿只有一张脸，meOf 原样给 profile
+ meOf:()=>c.profile,
+ photoMe:(n,who)=>({name:(c.profile&&c.profile.name)||n,appearance:c.profile&&c.profile.appearance,
    refPhoto:c.profile&&c.profile.refPhoto,outfit:(c.profile&&c.profile.photoOutfit)||'',closet:'哨兵·整柜不该进来'})};
  vm.createContext(c);vm.runInContext(app.slice(start,end)+'\nthis.shoot=studioShoot;',c);
  const result=await c.shoot({id:'fictional',name:'测试角色',refPhoto:'fixture-char'},{scene:'测试场景',theirs:'外套、鞋',mine:'衬衣'});
