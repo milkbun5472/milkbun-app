@@ -86,6 +86,7 @@
     const [rows, setRows] = useState(() => tk ? talkOf(tk) : []);
     const [txt, setTxt] = useState("");
     const [busy, setBusy] = useState(false);
+    const [showLog, setShowLog] = useState(false);
     const [, setTick] = useState(0);
     const busyRef = useRef(false), lastAutoRef = useRef(0), spokeForRef = useRef({});
     const autoOn = () => !!(window.__autoRefreshOn && window.__autoRefreshOn("listen"));
@@ -178,7 +179,16 @@
       h("button", { onClick: flip, "aria-pressed": String(auto), className: "active:opacity-70",
         style: { height: 38, padding: "0 10px", borderRadius: 999, border: "1px dashed " + (auto ? (t.accent || t.ink) : t.line), color: auto ? (t.accent || t.ink) : t.fog, fontFamily: F_BODY, fontSize: 11.5, whiteSpace: "nowrap" } },
         auto ? "TA 会开口" : "TA 不开口"));
-    return { stage: stage, bar: bar };
+    // 刚才说的：气泡九秒就淡，不进单聊时（或者想往回看）在这儿翻这份记录
+    const who = r => r.role === "user" ? ((props.profile && props.profile.name) || "我") : (partner.remark || partner.name);
+    const log = rows.length ? h("div", { className: "w-full", style: { maxWidth: 340, marginTop: 8 } },
+      h("button", { onClick: () => setShowLog(v => !v), "data-wk": "listenlog", className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "6px 0", minHeight: 32 } },
+        (showLog ? "收起" : "刚才说的") + "（" + rows.length + "）"),
+      showLog ? h("div", { style: { maxHeight: 240, overflowY: "auto", padding: "8px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+        rows.map((r, i) => h("div", { key: (r.ts || 0) + "_" + i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, marginBottom: 4 } },
+          h("span", { style: { color: t.fog } }, who(r) + "："), r.content,
+          r.song ? h("span", { style: { color: t.fog, fontSize: 10.5 } }, "  《" + r.song + "》") : null))) : null) : null;
+    return { stage: stage, bar: h(React.Fragment, null, bar, log) };
   }
 
   window.ListenTalk = { KEY, listenLogText, askListen, lyricWindow, parseSay, parseState, useTalk: ListenTalk };

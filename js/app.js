@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.705";
+const APP_VERSION = "v75.707";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -31330,10 +31330,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setRoomThought(window.ChatRooms.chatKey(lr.charId, lr.roomId), st.thought, { mood: st.mood, state: { action: st.action } });
       else writeGroupLiveState(c, st, "listen_" + Date.now(), undefined);
     },
-    onToChat: (charId, rows) => pChat((function () {
+    onSetTalkStay: on => saveListen(p => ({ ...p, talkStay: !!on })),
+    onToChat: (charId, rows) => {
+      const lr0 = listenRoom, inRoom = lr0 && String(lr0.charId) === String(charId) && listenRoomOf(lr0.charId, lr0.roomId);
+      // 选人底下那格开着：只留在一起听自己的记录里（x_listenTalk），不落单聊；房里进来的照旧落房
+      //   单聊里只留一张「一起听」小条（她 2026-10-15「加吧」）：这一段听歌还没被别的消息隔开，就续在同一张上；
+      //   小条交给TA的是 listenLogText（几首歌＋最后几句原话），TA回到单聊不至于断片
+      if (!inRoom && listen.talkStay) {
+        pChat(charId, p => {
+          const last = p[p.length - 1], add = rows.map(r => ({ who: r.role === "user" ? "user" : "char", text: r.content }));
+          const songs0 = rows.map(r => r.song).filter(Boolean);
+          if (last && last.kind === "listenlog" && last.stay) {
+            const songs = [...new Set([...(last.songs || []), ...songs0])].slice(-8);
+            return [...p.slice(0, -1), { ...last, songs, lines: [...(last.lines || []), ...add].slice(-8), content: "一起听了" + songs.map(x => "《" + x + "》").join(""), ts: last.ts }];
+          }
+          const songs = [...new Set(songs0)];
+          return [...p, { role: "user", kind: "listenlog", stay: true, songs, lines: add.slice(-8), content: "一起听了" + songs.map(x => "《" + x + "》").join(""), ts: Date.now(), read: true }];
+        });
+        return;
+      }
+      pChat((function () {
       const lr = listenRoom;
       return lr && String(lr.charId) === String(charId) && listenRoomOf(lr.charId, lr.roomId) ? window.ChatRooms.chatKey(lr.charId, lr.roomId) : charId;
-    })(), p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
+    })(), p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]);
+    },
     listen: listen,
     characters: liveFaces,
     onBack: exitListen,
