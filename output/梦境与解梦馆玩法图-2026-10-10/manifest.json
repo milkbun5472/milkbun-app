@@ -1,0 +1,229 @@
+{
+  "title": "秋秋机 · 梦境 × 解梦馆",
+  "size": [
+    1200,
+    1600
+  ],
+  "records": [
+    {
+      "name": "小红书封面",
+      "title": "我的梦，给 TA 解。\nTA 的梦，换我闯。",
+      "sub": "秋秋机 · 梦境 × 解梦馆\n从醒来的一点残渣，到走进 TA 心里的那一场。",
+      "features": "记梦与解梦 · 选择式闯梦 · 醒后联动",
+      "id": 1,
+      "file": "01-小红书封面.png",
+      "native": [
+        "dream-scene",
+        "dream-options",
+        "journal-reading-one"
+      ]
+    },
+    {
+      "name": "选人和编织",
+      "title": "进谁的梦，\n也让谁来客串。",
+      "sub": "选一个做梦人，最多再带 2 个客串角色。\n递 0—3 个关键词；最近聊天也可选择带入，贴近当下。",
+      "features": "做梦人 · 0—2 位客串 · 关键词与近况",
+      "id": 2,
+      "file": "02-选人和编织.png",
+      "native": [
+        "setup-people",
+        "setup-keywords",
+        "dream-setup-chat"
+      ]
+    },
+    {
+      "name": "每幕选路",
+      "title": "每一条选择，\n都把梦往别处带。",
+      "sub": "读这一幕，再从 3 个回应里选一个。\n两条顺着梦往下走，一条碰到 TA 抗拒的东西；界面不会标答案。",
+      "features": "读幕文 · 亲自回应 · 记录你的选择",
+      "id": 3,
+      "file": "03-每幕选路.png",
+      "native": [
+        "dream-scene",
+        "dream-options",
+        "dream-chosen"
+      ]
+    },
+    {
+      "name": "越熟越懂",
+      "title": "像不像 TA，\n熟悉的人会认出来。",
+      "sub": "从 TA 的夜梦进入时，好感、印象与共同记忆会影响熟悉程度。\n越懂 TA，抗拒那条路越会在措辞里露出一点不对劲。",
+      "features": "还生 · 熟了些 · 很懂 TA",
+      "id": 4,
+      "file": "04-越熟越懂.png",
+      "native": [
+        "familiar-familiar0",
+        "familiar-familiar1",
+        "familiar-play"
+      ]
+    },
+    {
+      "name": "梦先挣扎",
+      "title": "碰到了逆鳞，\n还有一次回应。",
+      "sub": "梦先变质一幕，TA 的潜意识在护着那个东西。\n再选一次：一条回应能让 TA 直面，另外两条会让梦碎。",
+      "features": "触碰抗拒 · 一幕挣扎 · 一次安抚机会",
+      "id": 5,
+      "file": "05-梦先挣扎.png",
+      "native": [
+        "dream-struggle-scene",
+        "dream-struggle-options"
+      ]
+    },
+    {
+      "name": "抵达梦核",
+      "title": "一直往深处走，\n终于看见梦围着谁。",
+      "sub": "顺着梦走到足够深，再做最后一步回应。\n抵达时会收束这一场，也会点明这场梦真正围着的那件事。",
+      "features": "抵达 · 梦核 · 可带走的小物件",
+      "id": 6,
+      "file": "06-抵达梦核.png",
+      "native": [
+        "dream-arrive"
+      ]
+    },
+    {
+      "name": "直面那件事",
+      "title": "你没有退开，\nTA 也没有逃。",
+      "sub": "挣扎那一幕回应对了，会走向“直面”。\n它会说清 TA 一直绕开的是什么，也可能落下一件梦里的东西。",
+      "features": "第四种结局：直面 · 看见 TA 绕开的事",
+      "id": 7,
+      "file": "07-直面那件事.png",
+      "native": [
+        "dream-face"
+      ]
+    },
+    {
+      "name": "梦碎之后",
+      "title": "这条路没走通，\n也能知道为什么。",
+      "sub": "梦承受不住时，你会被惊醒、逐出梦境。\n结局会留下触碰的那一步，以及它为何在 TA 的梦里走不通。",
+      "features": "梦碎 · 选择回显 · 为什么走不通",
+      "id": 8,
+      "file": "08-梦碎之后.png",
+      "native": [
+        "dream-broken"
+      ]
+    },
+    {
+      "name": "回档醒来与续梦",
+      "title": "想重选，回一幕。\n想歇歇，就醒来。",
+      "sub": "已选过的回应能点“从这里重选”，之后的进展会被抹去。\n可以主动醒来，也能同时保留多场梦，回来继续或重进。",
+      "features": "从这里重选 · 主动醒来 · 多场梦分别保留",
+      "id": 9,
+      "file": "09-回档醒来与续梦.png",
+      "native": [
+        "dream-chosen",
+        "dream-wake",
+        "dream-saves"
+      ]
+    },
+    {
+      "name": "把东西带出梦",
+      "title": "醒来，手里\n还攥着一件东西。",
+      "sub": "抵达或直面的结局里，可以点“带出梦去”。\n它会进入购物里的“我的物品”，按从谁的梦里来分开收着。",
+      "features": "带出梦去 → 我的物品 · 来源留在你这里",
+      "id": 10,
+      "file": "10-把东西带出梦.png",
+      "native": [
+        "keepsake-before",
+        "keepsake-after"
+      ]
+    },
+    {
+      "name": "物品和聊天联动",
+      "title": "你知道它的来处，\nTA 只觉得眼熟。",
+      "sub": "物品会影响一对一相处；TA 见了眼熟，说不上在哪里见过。\n14 天没提起会变浅，30 天回到梦里；聊天提到名字能续留。",
+      "features": "物品 × 聊天 · 眼熟的秘密 · 会慢慢淡掉",
+      "id": 11,
+      "file": "11-物品和聊天联动.png",
+      "native": [
+        "inventory-group",
+        "chat-keepsake-crop"
+      ]
+    },
+    {
+      "name": "趁醒来把梦收下",
+      "title": "只记得一点，\n也可以先记下来。",
+      "sub": "完整的梦、只有残渣，或者没梦，都能记。\n支持语音听写时，点“懒得打字”说完再收下，醒来少打几个字。",
+      "features": "文字 / 语音 · 完整的梦 / 残渣 / 没梦",
+      "id": 12,
+      "file": "12-趁醒来把梦收下.png",
+      "native": [
+        "journal-voice-text",
+        "journal-fragment",
+        "journal-none"
+      ]
+    },
+    {
+      "name": "同一个梦不同解法",
+      "title": "还是这个梦，\n换个人，换种说法。",
+      "sub": "点“找 TA 解”，挑一个人来听。\n解读会参考 TA 的人设和你们的相处；同一个梦能留多个人的解法。",
+      "features": "选解梦人 · 多份解读并存 · 各有各的口吻",
+      "id": 13,
+      "file": "13-同一个梦不同解法.png",
+      "native": [
+        "journal-reading-two"
+      ]
+    },
+    {
+      "name": "攒一册梦签",
+      "title": "每次解完，\nTA 再给你留一句。",
+      "sub": "梦签是 TA 写在这次解读末尾的那句话。\n在“梦签”页一起收着，能看到是谁、为哪场梦、哪天写的。",
+      "features": "解梦后的那一句 · 梦签册 · 人与日期",
+      "id": 14,
+      "file": "14-攒一册梦签.png",
+      "native": [
+        "journal-signs-list"
+      ]
+    },
+    {
+      "name": "反复梦见什么",
+      "title": "这扇门，\n怎么又梦见了。",
+      "sub": "“反复梦见”会把多条梦里重复出现的词整理出来。\n看出现次数和记梦天数；与这次有关的重复内容，也能成为解读参考。",
+      "features": "出现至少 2 次 · 次数整理 · 记梦率",
+      "id": 15,
+      "file": "15-反复梦见什么.png",
+      "native": [
+        "journal-motifs",
+        "journal-fragment"
+      ]
+    },
+    {
+      "name": "TA昨晚的梦",
+      "title": "TA 的白天，\n揉成 TA 的夜晚。",
+      "sub": "“TA 们的梦”取材于昨天的对话、情绪和关系状态。\n未醒的梦点一下才生成；平静或没有材料的夜，也可能只留无梦。",
+      "features": "TA 的夜梦 · 点开成形 · 推门进入同一场梦",
+      "id": 16,
+      "file": "16-TA昨晚的梦.png",
+      "native": [
+        "their-dream",
+        "their-queued",
+        "their-generated",
+        "their-nodream"
+      ]
+    },
+    {
+      "name": "碎掉的夜梦会回来",
+      "title": "那场碎掉的梦，\nTA 又做了一次。",
+      "sub": "从 TA 的夜梦进去、半路碎掉的，隔 2—7 晚会回来一次。\n沿碎之前的进度接着走，接下来重新给选项，路会跟着近况变化。",
+      "features": "仅 TA 夜梦 · 2—7 晚 · 每场只回来一次",
+      "id": 17,
+      "file": "17-碎掉的夜梦会回来.png",
+      "native": [
+        "dream-recur-banner",
+        "dream-recur-scene",
+        "dream-recur-options"
+      ]
+    },
+    {
+      "name": "醒后聊天的余味",
+      "title": "你走到哪里，\nTA 醒来就留多少。",
+      "sub": "读过或进入 TA 的夜梦后，今天的聊天会带一点余味。\n抵达 / 直面能自然提一句；半路碎了，只剩说不连贯的画面。",
+      "features": "解梦馆 × 梦境 × 聊天 · 梦的余味",
+      "id": 18,
+      "file": "18-醒后聊天的余味.png",
+      "native": [
+        "chat-echo-tell-crop",
+        "chat-echo-vague-crop"
+      ]
+    }
+  ]
+}

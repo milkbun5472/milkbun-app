@@ -1,0 +1,3438 @@
+{
+  "checks": [
+    {
+      "id": 1,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/bubble-stage.png",
+          "size": [
+            1170,
+            579
+          ]
+        },
+        {
+          "src": "../raw/talk-input.png",
+          "size": [
+            1020,
+            117
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "01 / 小红书封面",
+          "left": 91,
+          "right": 236.21875,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 145,
+          "clientWidth": 145
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "这一首，\n想和 TA 一起听。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "歌在放，你们也在说。\n从他的歌单，到你们的唱片，再回到聊天里。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "同一首歌，同一刻。",
+          "left": 116.48246002197266,
+          "right": 1053.5175552368164,
+          "top": 568.532470703125,
+          "bottom": 1091.826904296875,
+          "scrollHeight": 508,
+          "clientHeight": 508,
+          "scrollWidth": 928,
+          "clientWidth": 928
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "同一首歌，同一刻。",
+          "left": 136.90872192382812,
+          "right": 1039.3932189941406,
+          "top": 1029.04248046875,
+          "bottom": 1082.63232421875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 902,
+          "clientWidth": 902
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "想说的话，直接说给 TA。",
+          "left": 169.0868377685547,
+          "right": 820.9131317138672,
+          "top": 1130.4688720703125,
+          "bottom": 1274.8748779296875,
+          "scrollHeight": 133,
+          "clientHeight": 133,
+          "scrollWidth": 648,
+          "clientWidth": 648
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "想说的话，直接说给 TA。",
+          "left": 183.21112060546875,
+          "right": 805.7229614257812,
+          "top": 1215.999755859375,
+          "bottom": 1265.6802978515625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 622,
+          "clientWidth": 622
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked ",
+          "text": "一起戴上耳机，\n也听听 TA 的偏爱。",
+          "left": 840,
+          "right": 1110,
+          "top": 1160,
+          "bottom": 1340,
+          "scrollHeight": 180,
+          "clientHeight": 180,
+          "scrollWidth": 270,
+          "clientWidth": 270
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "一起听 × 查手机音乐 × 情侣唱片 × 主聊天",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/partner-picker-detail.png",
+          "size": [
+            1026,
+            471
+          ]
+        },
+        {
+          "src": "../raw/partner-selected.png",
+          "size": [
+            1026,
+            225
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "02 / 挑个人一起听",
+          "left": 91,
+          "right": 259.421875,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 168,
+          "clientWidth": 168
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "这首歌，\n找一个人一起听。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "打开播放页的封套，选“自己听”，或者挑一位 char。\n两只头像挂在封面上，唱的是同一首，话也在这一页说。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 打开封套，挑和谁听。",
+          "left": 117.12830352783203,
+          "right": 1047.871711730957,
+          "top": 549.3673706054688,
+          "bottom": 1036.398193359375,
+          "scrollHeight": 474,
+          "clientHeight": 474,
+          "scrollWidth": 923,
+          "clientWidth": 923
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 打开封套，挑和谁听。",
+          "left": 136.32884216308594,
+          "right": 1033.7628021240234,
+          "top": 975.2722778320312,
+          "bottom": 1027.2279052734375,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 897,
+          "clientWidth": 897
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 选过以后：和沈屿一起听。",
+          "left": 158.52662658691406,
+          "right": 1021.4734039306641,
+          "top": 1124.755859375,
+          "bottom": 1381.697265625,
+          "scrollHeight": 244,
+          "clientHeight": 244,
+          "scrollWidth": 858,
+          "clientWidth": 858
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 选过以后：和沈屿一起听。",
+          "left": 172.6355438232422,
+          "right": 1005.0743255615234,
+          "top": 1321.3653564453125,
+          "bottom": 1372.52685546875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 832,
+          "clientWidth": 832
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked small",
+          "text": "换个对象，也能开始新一段一起听。",
+          "left": 145,
+          "right": 1085,
+          "top": 1410,
+          "bottom": 1475,
+          "scrollHeight": 65,
+          "clientHeight": 65,
+          "scrollWidth": 940,
+          "clientWidth": 940
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "选听歌对象 · 双人头像 · 播放页输入",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/chat-invite.png",
+          "size": [
+            1170,
+            873
+          ]
+        },
+        {
+          "src": "../raw/invite-selected.png",
+          "size": [
+            1026,
+            225
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "03 / 聊天里的邀请",
+          "left": 91,
+          "right": 259.421875,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 168,
+          "clientWidth": 168
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "TA 发来邀请，\n这一首，想给你听。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "TA 能在聊天里发“一起听邀请”，带上歌名和邀请语。\n点“和 TA 一起听”，会选好对象、找这首歌，再打开播放器。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 歌名、邀请语和接受按钮，在聊天里。",
+          "left": 121.43187713623047,
+          "right": 990.1618576049805,
+          "top": 540.507568359375,
+          "bottom": 1235.476806640625,
+          "scrollHeight": 684,
+          "clientHeight": 684,
+          "scrollWidth": 860,
+          "clientWidth": 860
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 歌名、邀请语和接受按钮，在聊天里。",
+          "left": 142.09100341796875,
+          "right": 976.0684204101562,
+          "top": 1176.603759765625,
+          "bottom": 1226.3306884765625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 834,
+          "clientWidth": 834
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 点过以后，听歌对象已经选好了。",
+          "left": 163.91445922851562,
+          "right": 864.3981018066406,
+          "top": 1246.3494873046875,
+          "bottom": 1464.6348876953125,
+          "scrollHeight": 209,
+          "clientHeight": 209,
+          "scrollWidth": 696,
+          "clientWidth": 696
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 点过以后，听歌对象已经选好了。",
+          "left": 178.0079345703125,
+          "right": 848.7130126953125,
+          "top": 1407.4716796875,
+          "bottom": 1455.48876953125,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 670,
+          "clientWidth": 670
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "主聊天邀请 → 接受 → 一起听",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/bubble-stage.png",
+          "size": [
+            1170,
+            579
+          ]
+        },
+        {
+          "src": "../raw/talk-input.png",
+          "size": [
+            1020,
+            117
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "04 / 边听边说",
+          "left": 91,
+          "right": 220.171875,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 129,
+          "clientWidth": 129
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "歌不用停，\n想说的就说一句。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "播放页直接输入，TA 会在头像旁接话。\n几句回复会一个接一个冒出来；你的气泡等 TA 接上才开始淡。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 你在右边，TA 在左边接上。",
+          "left": 116.91717529296875,
+          "right": 1053.0828857421875,
+          "top": 549.338134765625,
+          "bottom": 1071.021240234375,
+          "scrollHeight": 508,
+          "clientHeight": 508,
+          "scrollWidth": 928,
+          "clientWidth": 928
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 你在右边，TA 在左边接上。",
+          "left": 136.54034423828125,
+          "right": 1038.973876953125,
+          "top": 1009.8341674804688,
+          "bottom": 1061.850830078125,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 902,
+          "clientWidth": 902
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 不用离开播放器，也能继续说。",
+          "left": 154.005126953125,
+          "right": 1095.994873046875,
+          "top": 1144.2642822265625,
+          "bottom": 1324.3450927734375,
+          "scrollHeight": 167,
+          "clientHeight": 167,
+          "scrollWidth": 938,
+          "clientWidth": 938
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 不用离开播放器，也能继续说。",
+          "left": 168.11402893066406,
+          "right": 1080.546890258789,
+          "top": 1263.035888671875,
+          "bottom": 1315.1746826171875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 912,
+          "clientWidth": 912
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked small",
+          "text": "听歌时说过的话，会原样留到主聊天。",
+          "left": 145,
+          "right": 1095,
+          "top": 1390,
+          "bottom": 1470,
+          "scrollHeight": 80,
+          "clientHeight": 80,
+          "scrollWidth": 950,
+          "clientWidth": 950
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "输入一句 · 头像冒泡 · 逐句接话",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/lyric-window.png",
+          "size": [
+            1026,
+            804
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "05 / 聊到正在唱的那一句",
+          "left": 91,
+          "right": 318.28125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 227,
+          "clientWidth": 227
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "聊这首歌，\n也知道唱到哪儿了。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "有可用歌词时，TA 会拿到当前进度和刚唱过的几句。\n点“词”能看滚动歌词，当前那一句会亮起来。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "原歌词界面：此刻唱到的那句。",
+          "left": 145.84857177734375,
+          "right": 974.1514282226562,
+          "top": 540.0166015625,
+          "bottom": 1234.6083984375,
+          "scrollHeight": 683,
+          "clientHeight": 683,
+          "scrollWidth": 818,
+          "clientWidth": 818
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "原歌词界面：此刻唱到的那句。",
+          "left": 159.9574737548828,
+          "right": 952.3993072509766,
+          "top": 1174.7652587890625,
+          "bottom": 1225.4381103515625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 792,
+          "clientWidth": 792
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked ",
+          "text": "按正在听的这一段接话，\n也可以安静一起听。\n本地或外链歌可能没有歌词。",
+          "left": 145,
+          "right": 1095,
+          "top": 1320,
+          "bottom": 1470,
+          "scrollHeight": 150,
+          "clientHeight": 150,
+          "scrollWidth": 950,
+          "clientWidth": 950
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "播放进度 · 歌词窗口 · 当前句高亮",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/auto-bubble.png",
+          "size": [
+            1170,
+            717
+          ]
+        },
+        {
+          "src": "../raw/auto-toggle.png",
+          "size": [
+            1020,
+            117
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "06 / 让TA自己开口",
+          "left": 91,
+          "right": 266,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 175,
+          "clientWidth": 175
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "听到这里，\nTA 也想说一句。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "把“TA 不开口”切成“TA 会开口”，让 TA 有反应时自己说。\n也可能安静听；开关和设置里的自动生成共用。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 不用先问，TA 也能冒出一句。",
+          "left": 117.20929718017578,
+          "right": 798.6032180786133,
+          "top": 550.8889770507812,
+          "bottom": 1020.0953979492188,
+          "scrollHeight": 459,
+          "clientHeight": 459,
+          "scrollWidth": 674,
+          "clientWidth": 674
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 不用先问，TA 也能冒出一句。",
+          "left": 136.229248046875,
+          "right": 784.4943237304688,
+          "top": 962.0137329101562,
+          "bottom": 1010.9249877929688,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 648,
+          "clientWidth": 648
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 自己开口，随时可以开或关。",
+          "left": 154.005126953125,
+          "right": 1095.994873046875,
+          "top": 1034.2642822265625,
+          "bottom": 1214.3450927734375,
+          "scrollHeight": 167,
+          "clientHeight": 167,
+          "scrollWidth": 938,
+          "clientWidth": 938
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 自己开口，随时可以开或关。",
+          "left": 168.11402893066406,
+          "right": 1080.546890258789,
+          "top": 1153.035888671875,
+          "bottom": 1205.1746826171875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 912,
+          "clientWidth": 912
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked small",
+          "text": "一首歌最多触发一次，两次至少隔 90 秒。\n开启后会按次调用模型，安静时可以关回去。",
+          "left": 145,
+          "right": 1100,
+          "top": 1320,
+          "bottom": 1470,
+          "scrollHeight": 150,
+          "clientHeight": 150,
+          "scrollWidth": 955,
+          "clientWidth": 955
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "主动开口可开关 · 一首最多触发一次 · 有间隔",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/chat-synced.png",
+          "size": [
+            1170,
+            729
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "07 / 原话回到主聊天",
+          "left": 91,
+          "right": 278.078125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 187,
+          "clientWidth": 187
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "耳机里说过的，\n聊天里也留着。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "你和 TA 在一起听里说的每一句，都会直接落进该 char 的主聊天。\n回去能看到双方原话，接着刚才那几句聊。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "同样的原话，回到主聊天也看得见。",
+          "left": 121.13536071777344,
+          "right": 1078.8646087646484,
+          "top": 544.2207641601562,
+          "bottom": 1194.248046875,
+          "scrollHeight": 636,
+          "clientHeight": 636,
+          "scrollWidth": 948,
+          "clientWidth": 948
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "同样的原话，回到主聊天也看得见。",
+          "left": 142.32363891601562,
+          "right": 1064.7557678222656,
+          "top": 1132.816650390625,
+          "bottom": 1185.07763671875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 922,
+          "clientWidth": 922
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked ",
+          "text": "不用再转述“我们刚才聊了什么”。\n话已经在你们的聊天里。",
+          "left": 145,
+          "right": 1095,
+          "top": 1280,
+          "bottom": 1430,
+          "scrollHeight": 150,
+          "clientHeight": 150,
+          "scrollWidth": 950,
+          "clientWidth": 950
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "一起听 → 主聊天 · 双方原话同步",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/chat-switch.png",
+          "size": [
+            1170,
+            621
+          ]
+        },
+        {
+          "src": "../raw/switched-progress.png",
+          "size": [
+            1170,
+            675
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "08 / 聊天里点歌切歌",
+          "left": 91,
+          "right": 279.03125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 188,
+          "clientWidth": 188
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "你说想换歌，\nTA 真给你换一首。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "一起听时，可以让 TA 点歌、切上一首或下一首。\n歌库没有的歌，也能经可用音乐源搜索后播放。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 在聊天里，把选歌交给 TA。",
+          "left": 116.7834701538086,
+          "right": 1033.2165756225586,
+          "top": 544.4611206054688,
+          "bottom": 1087.663818359375,
+          "scrollHeight": 530,
+          "clientHeight": 530,
+          "scrollWidth": 908,
+          "clientWidth": 908
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 在聊天里，把选歌交给 TA。",
+          "left": 136.67254638671875,
+          "right": 1019.1076049804688,
+          "top": 1026.72119140625,
+          "bottom": 1078.4935302734375,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 882,
+          "clientWidth": 882
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 播放器里，已经换成这一首。",
+          "left": 163.1778106689453,
+          "right": 605.6190948486328,
+          "top": 1157.330810546875,
+          "bottom": 1463.653564453125,
+          "scrollHeight": 299,
+          "clientHeight": 299,
+          "scrollWidth": 437,
+          "clientWidth": 437
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 播放器里，已经换成这一首。",
+          "left": 177.28671264648438,
+          "right": 588.5538330078125,
+          "top": 1408.467529296875,
+          "bottom": 1454.483154296875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 411,
+          "clientWidth": 411
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "主聊天点歌 → 搜到曲目 → 全局播放器换歌",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/playlist-char-picker-detail.png",
+          "size": [
+            1026,
+            369
+          ]
+        },
+        {
+          "src": "../raw/playlist-top.png",
+          "size": [
+            1170,
+            543
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "09 / 生成TA自己的歌单",
+          "left": 91,
+          "right": 305.25,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 214,
+          "clientWidth": 214
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "他私下循环的，\n也想翻来听听。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "在“我的”里选一个角色，让 TA 按人设和自己的口味推歌。\n搜到的曲目会组成归 TA 名下的歌单，每首留着他的听歌备注。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 挑谁来生成，自己选。",
+          "left": 117.67301177978516,
+          "right": 1047.327003479004,
+          "top": 544.3640747070312,
+          "bottom": 942.2296752929688,
+          "scrollHeight": 385,
+          "clientHeight": 385,
+          "scrollWidth": 923,
+          "clientWidth": 923
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 挑谁来生成，自己选。",
+          "left": 135.7841339111328,
+          "right": 1033.2181549072266,
+          "top": 881.103759765625,
+          "bottom": 933.059326171875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 897,
+          "clientWidth": 897
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 找到曲目后，收进 TA 自己的歌单。",
+          "left": 157.45816040039062,
+          "right": 959.7605285644531,
+          "top": 1035.1458740234375,
+          "bottom": 1465.8385009765625,
+          "scrollHeight": 419,
+          "clientHeight": 419,
+          "scrollWidth": 795,
+          "clientWidth": 795
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 找到曲目后，收进 TA 自己的歌单。",
+          "left": 171.56707763671875,
+          "right": 941.2293090820312,
+          "top": 1406.273681640625,
+          "bottom": 1456.6680908203125,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 769,
+          "clientWidth": 769
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "按人设推歌 · 搜到可播放曲目 · TA 的私人偏爱",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/playlist-created-card.png",
+          "size": [
+            1026,
+            201
+          ]
+        },
+        {
+          "src": "../raw/playlist-appended-card.png",
+          "size": [
+            1026,
+            201
+          ]
+        },
+        {
+          "src": "../raw/phone-music-top.png",
+          "size": [
+            1170,
+            648
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "10 / 查手机是同一张歌单",
+          "left": 91,
+          "right": 314.6875,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 224,
+          "clientWidth": 224
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "在一起听生成，\n去 TA 手机里也能翻。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "查手机里的“音乐”，读的就是一起听中归 TA 名下的歌单。\n继续生成会追加新歌、跳过重复；两处看到的是同一张。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 一起听里生成的歌单。",
+          "left": 109.36026763916016,
+          "right": 570.6397171020508,
+          "top": 547.9957275390625,
+          "bottom": 700.6292724609375,
+          "scrollHeight": 147,
+          "clientHeight": 147,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 一起听里生成的歌单。",
+          "left": 124.22039031982422,
+          "right": 556.5616989135742,
+          "top": 646.7391357421875,
+          "bottom": 691.5074462890625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 432,
+          "clientWidth": 432
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 再生成，继续添歌。",
+          "left": 649.3602905273438,
+          "right": 1110.6397705078125,
+          "top": 557.9957275390625,
+          "bottom": 710.6292724609375,
+          "scrollHeight": 147,
+          "clientHeight": 147,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 再生成，继续添歌。",
+          "left": 663.4382934570312,
+          "right": 1095.7796630859375,
+          "top": 656.7391357421875,
+          "bottom": 701.5074462890625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 432,
+          "clientWidth": 432
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked ",
+          "text": "03 / 到 TA 手机里，曲目和听歌备注也在。",
+          "left": 133.00572204589844,
+          "right": 1086.9942474365234,
+          "top": 816.69091796875,
+          "bottom": 1397.94970703125,
+          "scrollHeight": 573,
+          "clientHeight": 573,
+          "scrollWidth": 948,
+          "clientWidth": 948
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "03 / 到 TA 手机里，曲目和听歌备注也在。",
+          "left": 150.66802978515625,
+          "right": 1072.9317626953125,
+          "top": 1341.41650390625,
+          "bottom": 1388.8521728515625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 922,
+          "clientWidth": 922
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "一起听 × 查手机音乐 · 同一张歌单 · 继续添歌",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/phone-song-detail.png",
+          "size": [
+            1050,
+            405
+          ]
+        },
+        {
+          "src": "../raw/phone-peek-card.png",
+          "size": [
+            1170,
+            276
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "11 / 把他的偏爱拿回去聊",
+          "left": 91,
+          "right": 311.109375,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 220,
+          "clientWidth": 220
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "为什么听这首，\n可以直接问 TA。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "点开手机里的曲目，能“放这首”，也能“跟 TA 提这首”。\n歌名、歌手和他的听歌备注会带到主聊天，等你们接着聊。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked ",
+          "text": "01 / 点开这首，备注和两个动作一起展开。",
+          "left": 117.49536895751953,
+          "right": 1062.5046463012695,
+          "top": 549.2734985351562,
+          "bottom": 976.4921264648438,
+          "scrollHeight": 414,
+          "clientHeight": 414,
+          "scrollWidth": 938,
+          "clientWidth": 938
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 点开这首，备注和两个动作一起展开。",
+          "left": 135.962890625,
+          "right": 1048.395751953125,
+          "top": 915.182861328125,
+          "bottom": 967.3217163085938,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 912,
+          "clientWidth": 912
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 把这首歌和他的那句话，带回聊天。",
+          "left": 158.38619995117188,
+          "right": 1061.6137390136719,
+          "top": 1104.512451171875,
+          "bottom": 1385.175048828125,
+          "scrollHeight": 268,
+          "clientHeight": 268,
+          "scrollWidth": 898,
+          "clientWidth": 898
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 把这首歌和他的那句话，带回聊天。",
+          "left": 172.49510192871094,
+          "right": 1044.930892944336,
+          "top": 1324.3546142578125,
+          "bottom": 1376.0047607421875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 872,
+          "clientWidth": 872
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked small",
+          "text": "歌单走公开内容的提起方式，TA 会按随口聊这首来接。",
+          "left": 145,
+          "right": 1095,
+          "top": 1410,
+          "bottom": 1485,
+          "scrollHeight": 75,
+          "clientHeight": 75,
+          "scrollWidth": 950,
+          "clientWidth": 950
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "查手机展开 → 放这首 / 提这首 → 主聊天",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/watch-entry.png",
+          "size": [
+            507,
+            141
+          ]
+        },
+        {
+          "src": "../raw/watch-active-row.png",
+          "size": [
+            1050,
+            405
+          ]
+        },
+        {
+          "src": "../raw/watch-bar.png",
+          "size": [
+            1170,
+            138
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "12 / 看TA在手机里点歌",
+          "left": 91,
+          "right": 301.65625,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 211,
+          "clientWidth": 211
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "这次你在旁边，\n看 TA 自己挑歌。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "从查手机的“看 TA 玩”进入，看他打开音乐、点开曲目。\n他点的是这张歌单里的歌，播放状态也会跟着改变。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 入口在 TA 的手机桌面。",
+          "left": 119.06055450439453,
+          "right": 479.73633575439453,
+          "top": 547.8140869140625,
+          "bottom": 708.1702880859375,
+          "scrollHeight": 154,
+          "clientHeight": 154,
+          "scrollWidth": 357,
+          "clientWidth": 357
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 入口在 TA 的手机桌面。",
+          "left": 134.3543243408203,
+          "right": 465.6273956298828,
+          "top": 653.9616088867188,
+          "bottom": 698.9998779296875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 331,
+          "clientWidth": 331
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked ",
+          "text": "02 / TA 点开这一首，也放这一首。",
+          "left": 152.5881805419922,
+          "right": 1057.411849975586,
+          "top": 784.5172729492188,
+          "bottom": 1195.810791015625,
+          "scrollHeight": 398,
+          "clientHeight": 398,
+          "scrollWidth": 898,
+          "clientWidth": 898
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / TA 点开这一首，也放这一首。",
+          "left": 166.69708251953125,
+          "right": 1039.1329345703125,
+          "top": 1134.9903564453125,
+          "bottom": 1186.6405029296875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 872,
+          "clientWidth": 872
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked ",
+          "text": "03 / 暂停、倍速，或敲一下。",
+          "left": 179.4188232421875,
+          "right": 819.0030517578125,
+          "top": 1337.217041015625,
+          "bottom": 1478.767333984375,
+          "scrollHeight": 134,
+          "clientHeight": 134,
+          "scrollWidth": 636,
+          "clientWidth": 636
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "03 / 暂停、倍速，或敲一下。",
+          "left": 194.1686248779297,
+          "right": 804.9250335693359,
+          "top": 1423.3203125,
+          "bottom": 1469.6455078125,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 610,
+          "clientWidth": 610
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "看 TA 玩 × 音乐 · 原界面操作 · 当前曲目改变",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/chat-carve-words.png",
+          "size": [
+            1170,
+            387
+          ]
+        },
+        {
+          "src": "../raw/disc-note.png",
+          "size": [
+            666,
+            123
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "13 / 在聊天里刻一首歌",
+          "left": 91,
+          "right": 295.078125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 204,
+          "clientWidth": 204
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "这首先别忘，\n刻到我们的唱片里。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "在主聊天里让 TA 刻歌，也可以由 TA 自己提出。\n搜索并存成功后，歌和那句 B 面刻字会进情侣空间的“我们的唱片”。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 聊天里开口，让 TA 给这首留一句。",
+          "left": 117.82132720947266,
+          "right": 1052.1786880493164,
+          "top": 549.3326416015625,
+          "bottom": 923.0111083984375,
+          "scrollHeight": 360,
+          "clientHeight": 360,
+          "scrollWidth": 928,
+          "clientWidth": 928
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 聊天里开口，让 TA 给这首留一句。",
+          "left": 135.6361846923828,
+          "right": 1038.069839477539,
+          "top": 861.8240966796875,
+          "bottom": 913.8407592773438,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 902,
+          "clientWidth": 902
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 刻好的那句话，留在唱片 B 面。",
+          "left": 153.6316680908203,
+          "right": 1081.3683013916016,
+          "top": 1114.358154296875,
+          "bottom": 1355.298095703125,
+          "scrollHeight": 228,
+          "clientHeight": 228,
+          "scrollWidth": 923,
+          "clientWidth": 923
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 刻好的那句话，留在唱片 B 面。",
+          "left": 167.74057006835938,
+          "right": 1065.1745300292969,
+          "top": 1294.172119140625,
+          "bottom": 1346.127685546875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 897,
+          "clientWidth": 897
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked small",
+          "text": "需要已建立情侣关系，并有可用音乐源。\n进去，就能找到你们刻的这首。",
+          "left": 145,
+          "right": 1095,
+          "top": 1395,
+          "bottom": 1490,
+          "scrollHeight": 95,
+          "clientHeight": 95,
+          "scrollWidth": 950,
+          "clientWidth": 950
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "主聊天刻歌 → 情侣空间 · 歌与 B 面刻字",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/disc-deck.png",
+          "size": [
+            1170,
+            1116
+          ]
+        },
+        {
+          "src": "../raw/disc-ta-row.png",
+          "size": [
+            1026,
+            324
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "14 / 让TA挑共同的唱片",
+          "left": 91,
+          "right": 301.65625,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 211,
+          "clientWidth": 211
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "他自己爱听的，\n和想放给你听的。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "“让 TA 再刻几首”，让他为你们的共同唱片挑歌。\n每首 B 面写为什么给你听；这张唱片会慢慢添新歌。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked ",
+          "text": "我们的唱片：可以落针，也可以让 TA 来刻。",
+          "left": 116.55919647216797,
+          "right": 678.440788269043,
+          "top": 546.6309204101562,
+          "bottom": 1120.0408935546875,
+          "scrollHeight": 565,
+          "clientHeight": 565,
+          "scrollWidth": 553,
+          "clientWidth": 553
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "我们的唱片：可以落针，也可以让 TA 来刻。",
+          "left": 136.87033081054688,
+          "right": 664.3318786621094,
+          "top": 1063.435302734375,
+          "bottom": 1110.87060546875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 527,
+          "clientWidth": 527
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked ",
+          "text": "这张放给你们俩。\n\nB 面写的，\n是为什么给你听。",
+          "left": 750,
+          "right": 1090,
+          "top": 650,
+          "bottom": 1000,
+          "scrollHeight": 350,
+          "clientHeight": 350,
+          "scrollWidth": 340,
+          "clientWidth": 340
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "TA 自己刻的歌，和留给你的那句话。",
+          "left": 158.49691772460938,
+          "right": 908.3312683105469,
+          "top": 1176.09765625,
+          "bottom": 1474.88671875,
+          "scrollHeight": 289,
+          "clientHeight": 289,
+          "scrollWidth": 745,
+          "clientWidth": 745
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "TA 自己刻的歌，和留给你的那句话。",
+          "left": 172.59039306640625,
+          "right": 891.8084716796875,
+          "top": 1417.2154541015625,
+          "bottom": 1465.7406005859375,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 719,
+          "clientWidth": 719
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "私人歌单 / 共同唱片 · 各自选歌 · B 面说给你",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/disc-manual-form.png",
+          "size": [
+            1026,
+            597
+          ]
+        },
+        {
+          "src": "../raw/disc-manual-result.png",
+          "size": [
+            1026,
+            267
+          ]
+        },
+        {
+          "src": "../raw/disc-edit-form.png",
+          "size": [
+            666,
+            99
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "15 / 自己刻歌和改B面",
+          "left": 91,
+          "right": 289.265625,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 198,
+          "clientWidth": 198
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "你也能选一首，\n把自己的话刻上去。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "输入歌名或歌手，写一句 B 面的话，再点“刻进唱片”。\n已有歌的 B 面也能点开改字，写好以后再“刻上”。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 歌与 B 面的话，一起刻进去。",
+          "left": 117.51605987548828,
+          "right": 862.4839553833008,
+          "top": 541.1385498046875,
+          "bottom": 1027.1427001953125,
+          "scrollHeight": 476,
+          "clientHeight": 476,
+          "scrollWidth": 738,
+          "clientWidth": 738
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 歌与 B 面的话，一起刻进去。",
+          "left": 136.00015258789062,
+          "right": 848.3904113769531,
+          "top": 969.5429077148438,
+          "bottom": 1017.99658203125,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 712,
+          "clientWidth": 712
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 新歌和你的话，已经留下。",
+          "left": 148.80894470214844,
+          "right": 820.9097747802734,
+          "top": 1056.499755859375,
+          "bottom": 1294.484619140625,
+          "scrollHeight": 229,
+          "clientHeight": 229,
+          "scrollWidth": 668,
+          "clientWidth": 668
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 新歌和你的话，已经留下。",
+          "left": 162.90243530273438,
+          "right": 805.0153503417969,
+          "top": 1237.620849609375,
+          "bottom": 1285.3385009765625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 642,
+          "clientWidth": 642
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "03 / 已有 B 面，也能重新刻一句。",
+          "left": 179.41641235351562,
+          "right": 692.9429016113281,
+          "top": 1337.7669677734375,
+          "bottom": 1478.2174072265625,
+          "scrollHeight": 134,
+          "clientHeight": 134,
+          "scrollWidth": 510,
+          "clientWidth": 510
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "03 / 已有 B 面，也能重新刻一句。",
+          "left": 194.16622924804688,
+          "right": 678.8649291992188,
+          "top": 1423.8702392578125,
+          "bottom": 1469.095458984375,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 484,
+          "clientWidth": 484
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "手动刻歌 · B 面留言 · 点开改字",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/search-result-detail.png",
+          "size": [
+            1170,
+            543
+          ]
+        },
+        {
+          "src": "../raw/add-playlist-picker.png",
+          "size": [
+            1170,
+            561
+          ]
+        },
+        {
+          "src": "../raw/personal-playlist-card.png",
+          "size": [
+            1026,
+            201
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "16 / 收进自己的歌单",
+          "left": 91,
+          "right": 275.453125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 184,
+          "clientWidth": 184
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "听到喜欢的，\n就给它留个位置。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "在“发现”搜歌，曲目能播放，也能收进自己的曲库。\n播放页点加号，挑已有歌单，或者新建一张来收着。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 搜到后，播放或收进歌库。",
+          "left": 118.18000793457031,
+          "right": 768.2106475830078,
+          "top": 546.6251831054688,
+          "bottom": 904.3591918945312,
+          "scrollHeight": 349,
+          "clientHeight": 349,
+          "scrollWidth": 644,
+          "clientWidth": 644
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 搜到后，播放或收进歌库。",
+          "left": 135.33108520507812,
+          "right": 754.1170959472656,
+          "top": 847.7396850585938,
+          "bottom": 895.2130737304688,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 618,
+          "clientWidth": 618
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 选歌单，也可以新建。",
+          "left": 153.33482360839844,
+          "right": 720.6495208740234,
+          "top": 937.0558471679688,
+          "bottom": 1263.9285888671875,
+          "scrollHeight": 319,
+          "clientHeight": 319,
+          "scrollWidth": 562,
+          "clientWidth": 562
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 选歌单，也可以新建。",
+          "left": 167.4282989501953,
+          "right": 703.8126373291016,
+          "top": 1208.1719970703125,
+          "bottom": 1254.782470703125,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 536,
+          "clientWidth": 536
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "03 / 新建的歌单和这首歌都留在“我的”。",
+          "left": 184.32887268066406,
+          "right": 683.2805328369141,
+          "top": 1307.831787109375,
+          "bottom": 1468.152587890625,
+          "scrollHeight": 154,
+          "clientHeight": 154,
+          "scrollWidth": 496,
+          "clientWidth": 496
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "03 / 新建的歌单和这首歌都留在“我的”。",
+          "left": 199.2532196044922,
+          "right": 669.2024993896484,
+          "top": 1413.934326171875,
+          "bottom": 1459.03076171875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 470,
+          "clientWidth": 470
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "搜歌 · 曲库收藏 · 加入 / 新建歌单",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/player-queue.png",
+          "size": [
+            1026,
+            1011
+          ]
+        },
+        {
+          "src": "../raw/mini-player.png",
+          "size": [
+            795,
+            156
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "17 / 队列和悬浮播放器",
+          "left": 91,
+          "right": 294.125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 203,
+          "clientWidth": 203
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "回去聊天，\n音乐还在这里放。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "展开当前队列，按这张列表选歌、上一首或下一首。\n也能切列表循环、单曲循环或随机；离开播放页，悬浮播放器继续控制。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "01 / 这一张队列，按顺序往下听。",
+          "left": 126.22885131835938,
+          "right": 727.0210876464844,
+          "top": 546.3992919921875,
+          "bottom": 1174.5850830078125,
+          "scrollHeight": 619,
+          "clientHeight": 619,
+          "scrollWidth": 591,
+          "clientWidth": 591
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 这一张队列，按顺序往下听。",
+          "left": 147.20352172851562,
+          "right": 712.9122619628906,
+          "top": 1117.5120849609375,
+          "bottom": 1165.4146728515625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 565,
+          "clientWidth": 565
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 主聊天里，也能暂停、下一首或回播放页。",
+          "left": 168.9176483154297,
+          "right": 795.3323211669922,
+          "top": 1286.1934814453125,
+          "bottom": 1474.8065185546875,
+          "scrollHeight": 179,
+          "clientHeight": 179,
+          "scrollWidth": 622,
+          "clientWidth": 622
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 主聊天里，也能暂停、下一首或回播放页。",
+          "left": 183.0265655517578,
+          "right": 779.7329864501953,
+          "top": 1417.354736328125,
+          "bottom": 1465.6361083984375,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 596,
+          "clientWidth": 596
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "当前队列 · 三种播放模式 · 悬浮控制",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "size": [
+        1200,
+        1600
+      ],
+      "images": [
+        {
+          "src": "../raw/disc-playing-deck.png",
+          "size": [
+            1170,
+            1116
+          ]
+        },
+        {
+          "src": "../raw/restored-time.png",
+          "size": [
+            960,
+            171
+          ]
+        }
+      ],
+      "bounds": [
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "brand checked",
+          "text": "秋秋机 · 一起听 × 音乐联动",
+          "left": 88,
+          "right": 545.84375,
+          "top": 66,
+          "bottom": 108,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 458,
+          "clientWidth": 458
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "edition checked",
+          "text": "18 / 进出空间接着听",
+          "left": 91,
+          "right": 275.453125,
+          "top": 118,
+          "bottom": 146,
+          "scrollHeight": 28,
+          "clientHeight": 28,
+          "scrollWidth": 184,
+          "clientWidth": 184
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "stamp checked",
+          "text": "一起\n听见",
+          "left": 996.3629760742188,
+          "right": 1129.6370849609375,
+          "top": 51.362972259521484,
+          "bottom": 184.63702011108398,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "crop": null,
+          "class": "checked",
+          "text": "进来，换他的歌。\n出去，还你那一首。",
+          "left": 82,
+          "right": 1132,
+          "top": 186,
+          "bottom": 400,
+          "scrollHeight": 214,
+          "clientHeight": 214,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "sub checked",
+          "text": "进 TA 手机或情侣空间，会接着上次那首的下一首放。\n离开时，原来的曲目、队列、进度和暂停状态会还回来。",
+          "left": 91,
+          "right": 1091,
+          "top": 412,
+          "bottom": 512,
+          "scrollHeight": 100,
+          "clientHeight": 100,
+          "scrollWidth": 1000,
+          "clientWidth": 1000
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked ",
+          "text": "01 / 在情侣空间，听你们这张唱片。",
+          "left": 116.5013427734375,
+          "right": 688.4986572265625,
+          "top": 546.5701904296875,
+          "bottom": 1129.6329345703125,
+          "scrollHeight": 574,
+          "clientHeight": 574,
+          "scrollWidth": 563,
+          "clientWidth": 563
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "01 / 在情侣空间，听你们这张唱片。",
+          "left": 136.92892456054688,
+          "right": 674.3897399902344,
+          "top": 1072.9051513671875,
+          "bottom": 1120.4625244140625,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 537,
+          "clientWidth": 537
+        },
+        {
+          "tag": "P",
+          "crop": null,
+          "class": "note checked ",
+          "text": "下一次再进来，\n从上次那首\n的下一首接着放。",
+          "left": 760,
+          "right": 1085,
+          "top": 680,
+          "bottom": 950,
+          "scrollHeight": 270,
+          "clientHeight": 270,
+          "scrollWidth": 325,
+          "clientWidth": 325
+        },
+        {
+          "tag": "FIGURE",
+          "crop": null,
+          "class": "native checked light",
+          "text": "02 / 出门后，原来的歌接着 1:12 放。",
+          "left": 163.69390869140625,
+          "right": 1066.3060302734375,
+          "top": 1214.510498046875,
+          "bottom": 1444.802001953125,
+          "scrollHeight": 217,
+          "clientHeight": 217,
+          "scrollWidth": 898,
+          "clientWidth": 898
+        },
+        {
+          "tag": "FIGCAPTION",
+          "crop": null,
+          "class": "checked",
+          "text": "02 / 出门后，原来的歌接着 1:12 放。",
+          "left": 177.80282592773438,
+          "right": 1050.2386169433594,
+          "top": 1383.9814453125,
+          "bottom": 1435.631591796875,
+          "scrollHeight": 41,
+          "clientHeight": 41,
+          "scrollWidth": 872,
+          "clientWidth": 872
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "features checked",
+          "text": "查手机 / 情侣空间 · 记住针位 · 返回原曲",
+          "left": 91,
+          "right": 1109,
+          "top": 1526,
+          "bottom": 1555,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        },
+        {
+          "tag": "DIV",
+          "crop": null,
+          "class": "demo checked",
+          "text": "真实功能界面 · 人物、曲目、歌词、歌单备注与回复均为虚构演示数据",
+          "left": 91,
+          "right": 1109,
+          "top": 1560,
+          "bottom": 1583,
+          "scrollHeight": 23,
+          "clientHeight": 23,
+          "scrollWidth": 1018,
+          "clientWidth": 1018
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "violations": []
+}

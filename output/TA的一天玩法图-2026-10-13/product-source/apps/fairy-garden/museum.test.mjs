@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {MAPS,freshState,restoreState,perform,findPath,exitFor,exitToward,sowSeed,keepNotes,fillVein,takeShard,craftThing,pinNote,floorHeight} from './world.mjs';
+import {museumCollection,museumCaption} from './museum.mjs';
+test('museum displays only real collected items, does not mutate inventories, and respects unopened fermentation',()=>{
+ let s=sowSeed(freshState(),'today','记住这个下午');s={...s,day:4};s=keepNotes(s,[{id:s.seeds[0].id,reply:'今天的窗边很暖。'}]);s=pinNote(s,s.notes[0].id);s=fillVein(s,[{kind:'echo',text:'脚步声',whole:true},{kind:'sense',text:'雨声',whole:true}]);s=takeShard(s,1);s=craftThing(s,s.shards[0].id,'ferment');s=takeShard(s,1);const before=JSON.stringify(s),view=museumCollection(s);assert.equal(view.flowers.length,1);assert.equal(view.fragments.length,1);assert.equal(view.alchemy.length,0);assert.equal(JSON.stringify(s),before);assert.match(museumCaption(s,'flowers'),/今天的窗边很暖/);assert.match(museumCaption(s,'alchemy'),/还空着/);s={...s,day:s.things[0].openDay};assert.equal(museumCollection(s).alchemy.length,1);assert.equal(museumCaption(s,'unknown'),'');assert.equal(museumCollection(freshState()).flowers.length,0);
+});
+test('museum connects to village and every gallery display is reachable; saves and inventory survive',()=>{
+ let s=freshState();const e=exitFor('garden','door','museum');assert.ok(findPath(s.position,e.target,'garden'));s=perform({...s,position:e.target,herbs:17},'door','museum');assert.equal(s.map,'museum');assert.equal(s.herbs,17);assert.deepEqual(restoreState(s),s);for(const site of Object.values(MAPS.museum.sites))assert.ok(findPath(s.position,site.target,'museum'));assert.equal(exitToward('dormitory','museum').to,'hall');s=perform({...s,position:MAPS.museum.stations.travel},'travel');assert.deepEqual(s.position,MAPS.garden.museum.door);assert.equal(floorHeight('garden',s.position),MAPS.garden.museum.step.height);
+});

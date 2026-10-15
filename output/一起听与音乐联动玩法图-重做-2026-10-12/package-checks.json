@@ -1,0 +1,42 @@
+{
+  "records": [
+    {
+      "file": "01-小红书封面.png",
+      "sha256": "c236b5e775f4fa5a040090e9b878c44aa184e65b35d444e9bfaf4bac1d5da0e9",
+      "bytes": 1797798
+    },
+    {
+      "file": "02-完整播放器与边听边聊.png",
+      "sha256": "c80a0db1ab0c9a94f3ee11c10f6f452a8e7e3ccdd3f7703591cebfcc18adf54b",
+      "bytes": 1508726
+    },
+    {
+      "file": "03-邀请点歌与主聊天同步.png",
+      "sha256": "978264ef8e123a23312acb1a11ddd53cec582c8a99afdbfff5f9f34452808129",
+      "bytes": 1444653
+    },
+    {
+      "file": "04-TA歌单与查手机音乐.png",
+      "sha256": "3890467c8ab2e1ea330bed0ef6b1a88f52bdfefd01c115840bff1e682d38d365",
+      "bytes": 1239804
+    },
+    {
+      "file": "05-情侣唱片与B面刻字.png",
+      "sha256": "1a98a393683f299288f2dc338e8818bd9848c0b32ab26634a85cff96e9d9d6ab",
+      "bytes": 1462289
+    },
+    {
+      "file": "06-搜歌歌单与播放小功能.png",
+      "sha256": "d5a41d15adf57deb446b30a8e39eb34b72b76074328233e9719a57df12581fd8",
+      "bytes": 1301451
+    },
+    {
+      "file": "07-生成TA歌单.png",
+      "sha256": "f5664c81af04b5979a581b04b4c4c97001ae04c8722b6f7c2b9d584e2f5fba08",
+      "bytes": 1211554
+    }
+  ],
+  "zip": "一起听与音乐联动-重做7张.zip",
+  "zipBytes": 9957284,
+  "crc": true
+}

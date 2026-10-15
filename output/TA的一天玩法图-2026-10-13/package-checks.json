@@ -1,0 +1,67 @@
+{
+  "records": [
+    {
+      "file": "01-跟着TA过一天.png",
+      "sha256": "16c5a792cfe1a50bad8f8ed9c98df599b5737df0a16e7f21114fd834f455e973",
+      "bytes": 1439378
+    },
+    {
+      "file": "02-走进小家陪他.png",
+      "sha256": "899d8cbb9e07a9596a4ea5c1158da00e7365a99371f752c324eac296953ca5f5",
+      "bytes": 1616095
+    },
+    {
+      "file": "03-家务和兴趣角.png",
+      "sha256": "b21957a5abe2c921b3f8855243fc9dd6765d973edc40e5bd0d421cf6a0b5de62",
+      "bytes": 1519458
+    },
+    {
+      "file": "04-一起出门逛逛.png",
+      "sha256": "11b3052d5005e9321cadbea5897295199336c8dadcfd54e5cc41ca900f5662b6",
+      "bytes": 1413286
+    },
+    {
+      "file": "05-选菜与TA想菜单.png",
+      "sha256": "2f3d68fb4d617ef2de820eadcde46cf42d8d5b5240013f891dec12103df6ed70",
+      "bytes": 1412297
+    },
+    {
+      "file": "06-动手切菜与炒锅.png",
+      "sha256": "2c44f2cb2dcc102f14d85db7ecfb771fc4abb6c0fd217d22515ceb4366b4f73b",
+      "bytes": 1193676
+    },
+    {
+      "file": "07-一起吃和装便当.png",
+      "sha256": "084393965a1d115d577898073f9a80027f0151b90fbd6e49b4e15beaee6c2f81",
+      "bytes": 1523427
+    },
+    {
+      "file": "08-在厨房搭把手和聊天.png",
+      "sha256": "bb92a499009e1f3031da367ea6b1a7fa2897712bc4a9999234260492a5c9199a",
+      "bytes": 1505719
+    },
+    {
+      "file": "09-自己布置小家.png",
+      "sha256": "70b56d2be8d1d5e90e9aed6ef328e80f4c884529165bdff65c670f00ca12f3f8",
+      "bytes": 1378666
+    },
+    {
+      "file": "10-样貌与相处习惯.png",
+      "sha256": "0fb2d6af3787c2c9d3a7ce5e9c3042d4dff11af0583a18ad640105cce0cd3461",
+      "bytes": 1447313
+    },
+    {
+      "file": "11-今天的小相册和同框照.png",
+      "sha256": "e67b71ef7254a0981ca6b8593108340047e70274e1302e50a5bcf16ab8836586",
+      "bytes": 1680854
+    },
+    {
+      "file": "12-主屏小组件和聊天.png",
+      "sha256": "2b6f430d37d2759fc428266c216ce99cbb32c5314611c4c7608ba1fb189799e3",
+      "bytes": 1737568
+    }
+  ],
+  "zip": "TA的一天玩法图-12张.zip",
+  "zipBytes": 17865495,
+  "crc": true
+}

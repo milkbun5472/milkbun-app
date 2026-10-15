@@ -1,0 +1,23 @@
+{
+  "viewport": [
+    390,
+    1100
+  ],
+  "partner": {
+    "x": 25,
+    "y": 808.5,
+    "width": 337,
+    "height": 72
+  },
+  "nav": {
+    "x": 0,
+    "y": 1042.25,
+    "width": 97.5,
+    "height": 57.75
+  },
+  "facts": {
+    "mainRows": 3,
+    "modelCalls": 1
+  },
+  "errors": []
+}

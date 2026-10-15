@@ -1,0 +1,1225 @@
+// ============================================================
+// 小剧场（theater）—— if 线扮演
+// 选角色 + 关键词 → 生成平行身份(角色新身份/你的新身份/世界情境) + 本轮小目标。
+// 线下叙事式演出;目标由模型报告 + 用户确认;同一条 if 线可多轮续演(每轮一个新目标)。
+// 完全沙箱:不读写主线记忆/世界书/好感/状态卡;数据只存 x_theater(跟随 x_ 前缀整包云同步)。
+// 生成走线下创作线路(props.active),prompt 复用全局 ANTI_CLICHE / CHARCARD_RULE / 线下叙事准则。
+// ============================================================
+(function () {
+  // 禁烟这一层（她 2026-09-05：「你看看还有哪儿没禁烟的」）。
+  // 演戏那几拍走 narrativeCore，白得；但【搭台】这几枪（开场正文、新处境）自己拼 sys，
+  //   开场那 5-9 句正文也是正文——TA完全可能在开场第一句就点上。
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 搭台共用人物与文风底座；不带演出用的第一人称、镜头规则或主线资料。
+  const settingStyle = () => [CB(), ANTI_CLICHE, CHARCARD_RULE,
+    "【设定写法】身份与世界用清楚的事实说明，开场用可观察的动作、对话与环境推进。不要用强度副词叠加性格标签，不替读者宣布人物多么聪明、冷静、精准或危险；这些特质只有人设支持时才通过具体表现成立。人物可以迟疑、热情、笨拙或平常，不统一写成掌控局面的强者。每句话提供新的处境信息，不用抽象评语、隐喻堆砌或悬念口号充数。规则不改变本次 JSON 字段与叙述人称。"].join("\n\n") + "\n\n";
+  const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
+  // 图标:两片小幕布 + 星(挂进 REG 的 window.GTheater)
+  window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
+
+  const load = () => {
+    try {
+      const list = loadJSON("x_theater", []);
+      const repaired = repairTheaterHistory(list);
+      if (repaired.changed) saveJSON("x_theater", repaired.list);
+      return repaired.list;
+    } catch (e) { return []; }
+  };
+  const persist = list => saveJSON("x_theater", list);
+  const GAL_GONE_KEY = "x_theaterGalleryGone";
+  const loadGalGone = () => loadJSON(GAL_GONE_KEY, []);
+  // 剧情仍会引用原图；图库删除必须另立墓碑，否则启动补档会把它重新捞回来。
+  const galTomb = img => {
+    const next = [img].concat(loadGalGone().filter(x => x !== img)).slice(0, 2000);
+    return saveJSON(GAL_GONE_KEY, next);
+  };
+  const galRevive = img => {
+    const old = loadGalGone(), next = old.filter(x => x !== img);
+    return next.length === old.length || saveJSON(GAL_GONE_KEY, next);
+  };
+  const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+  // 前情提要改成小账本(参考 liveware-tavern 的做法,自己实现):
+  // 一坨文字没法判断压缩有没有把东西压没了,也没法规定谁先被丢。
+  const LEDGER_KEYS = ["timeline", "facts", "openThreads", "objects"];
+  // 超长时的淘汰顺序:先丢流水与事实,【未了的线与物件最后才动】——
+  // 最早的事件往往正是埋得最深的那条线,按时间一刀切会先把它扔掉。
+  const LEDGER_EVICT = ["timeline", "facts", "objects", "openThreads"];
+  const ledgerCount = L => LEDGER_KEYS.reduce((n, k) => n + ((L && L[k]) || []).length, 0);
+  const ledgerChars = L => LEDGER_KEYS.reduce((n, k) => n + ((L && L[k]) || []).join("").length, 0);
+  function shrinkLedger(L, maxChars) {
+    const out = Object.assign({}, L);
+    while (ledgerChars(out) > maxChars) {
+      let moved = false;
+      for (const k of LEDGER_EVICT) {
+        const arr = (out[k] || []).slice();
+        if (arr.length) { arr.shift(); out[k] = arr; moved = true; break; }
+      }
+      if (!moved) break;
+    }
+    return out;
+  }
+  // 压缩质量闸:不额外调用,纯本地判断这次压缩是不是把记忆压没了。
+  // 受保护的(未了的线/物件)从有到几乎没有,一律判失败,宁可这轮不压。
+  function ledgerOk(prev, next) {
+    if (!prev || !ledgerCount(prev)) return ledgerCount(next) > 0;
+    const p = (L, ks) => ks.reduce((n, k) => n + ((L && L[k]) || []).length, 0);
+    if (p(prev, ["openThreads", "objects"]) >= 4 && p(next, ["openThreads", "objects"]) < 2) return false;
+    if (p(prev, ["timeline", "facts"]) >= 4 && p(next, ["timeline", "facts"]) < 2) return false;
+    return ledgerCount(next) > 0;
+  }
+  const ledgerToText = L => LEDGER_KEYS.map(k => {
+    const arr = (L && L[k]) || [];
+    if (!arr.length) return "";
+    const zh = { timeline: "已经发生", facts: "已确立的事实", openThreads: "还没了结的线", objects: "物件在谁手上" }[k];
+    return "【" + zh + "】\n" + arr.map(x => "· " + x).join("\n");
+  }).filter(Boolean).join("\n");
+  // 覆盖到哪儿改用【内容哈希】而不是下标:删改过中间某条消息后,下标会静默错位,
+  // 摘要覆盖范围和实际对不上也不会报错。
+  function histSig(msgs) {
+    let h = 5381;
+    (msgs || []).forEach(m => { const t = (m.id || "") + "|" + (m.content || ""); for (let i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) >>> 0; });
+    return h.toString(36) + "_" + (msgs || []).length;
+  }
+
+  // 不同供应商对“只输出 JSON”的服从方式并不一致。Gemini 通常直接给对象，
+  // Claude/部分中转偶尔会多包一层 JSON 字符串，或在字符串里留下未转义换行。
+  // 小剧场正文绝不能因此退化成显示整坨协议原文（scene/goalReached/...）。
+  // escapeJsonStringControls / parseJSONLoose 现在住在 engine.js，主聊天、群聊、小剧场共用一份实现。
+  // Claude 偶尔会在 JSON 字符串正文里直接写中文对话引号，导致整份 JSON
+  // 语法失效。此时不猜整份对象，只按协议中稳定的字段边界抢救 scene；
+  // goal 字段仍逐个读取，绝不把协议壳当正文。
+  const decodeLooseJsonText = value => String(value || "")
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\r\\n|\\n|\\r/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+  const salvageTheaterPayload = raw => {
+    const text = String(raw || "").replace(/```(?:json)?/gi, "").trim();
+    const startMatch = /"scene"\s*:\s*"/.exec(text);
+    if (!startMatch) return null;
+    const start = startMatch.index + startMatch[0].length;
+    const rest = text.slice(start);
+    // 正文的尾巴：先认后面跟着的任一协议键（模型偶尔调换字段顺序），再认收尾的 "}；
+    //   都没有＝输出被截断了，就把已经写出来的那截正文收下（她 2026-10-04 截图：整拍白写、只弹一句解析失败）
+    const endMatch = /"\s*,\s*"(?:goalReached|goalFailed|goalNote)"\s*:/.exec(rest) || /"\s*\}\s*$/.exec(rest)
+      || { index: rest.replace(/["\s}]*$/, "").length };
+    const scene = decodeLooseJsonText(rest.slice(0, endMatch.index)).trim();
+    if (!scene) return null;
+    // 协议键可能在正文前也可能在后：除了正文那一截，其余都算
+    const outside = text.slice(0, startMatch.index) + text.slice(start + endMatch.index);
+    const bool = name => {
+      const m = new RegExp('"' + name + '"\\s*:\\s*(true|false)', "i").exec(outside);
+      return m ? m[1].toLowerCase() === "true" : false;
+    };
+    const noteMatch = /"goalNote"\s*:\s*(null|"([\s\S]*?)")\s*[},]/.exec(outside);
+    return {
+      scene,
+      goalReached: bool("goalReached"),
+      goalFailed: bool("goalFailed"),
+      goalNote: noteMatch && noteMatch[1] !== "null" ? decodeLooseJsonText(noteMatch[2]) : null
+    };
+  };
+  function parseTheaterPayload(raw) {
+    let value = null;
+    const candidates = [String(raw || ""), escapeJsonStringControls(raw)];
+    for (const candidate of candidates) {
+      value = typeof extractJSON === "function" ? extractJSON(candidate) : null;
+      if (value != null) break;
+    }
+    // 兼容 `"{\"scene\":...}"` 以及 `{scene:"{\"scene\":...}"}` 两种双包层。
+    for (let depth = 0; depth < 3; depth++) {
+      if (typeof value === "string") {
+        const nested = (typeof extractJSON === "function" && extractJSON(value))
+          || (typeof extractJSON === "function" && extractJSON(escapeJsonStringControls(value)));
+        if (nested == null) break;
+        value = nested;
+        continue;
+      }
+      if (value && typeof value === "object" && typeof value.scene === "string" && /^\s*\{\s*"(?:scene|draftScene)"\s*:/.test(value.scene)) {
+        const nested = (typeof extractJSON === "function" && extractJSON(value.scene))
+          || (typeof extractJSON === "function" && extractJSON(escapeJsonStringControls(value.scene)));
+        if (!nested || typeof nested !== "object") break;
+        value = Object.assign({}, value, nested);
+        continue;
+      }
+      break;
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) value = salvageTheaterPayload(raw);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const scene = typeof value.scene === "string" ? value.scene.trim() : "";
+    // 最后一层保险：协议对象仍像协议对象时，宁可重试，也不污染剧情历史。
+    if (!scene || /^\s*\{\s*"(?:scene|draftScene|goalReached)"\s*:/.test(scene)) return null;
+    return Object.assign({}, value, { scene });
+  }
+  // 设定/开局这几支以前只用裸 extractJSON，于是 scene 那边早就治过的两种坏法在这里照样致命：
+  //   ① 字符串正文里直接写了换行等控制字符（opening 是 5-9 句，最容易踩）；
+  //   ② 正文里用了未转义的英文引号（中文对白最爱）。
+  // 现在按 scene 同一套梯队来：先规规矩矩解析 → 转义控制字符再解析 → 拆一层字符串双包
+  //   → 最后按【已知键名的边界】把每个字段的正文硬抠出来。抠不出来就返回 null，绝不猜。
+  const salvageByKeys = (raw, keys) => {
+    const text = String(raw || "").replace(/```(?:json)?/gi, "");
+    const out = {};
+    let got = 0;
+    keys.forEach(k => {
+      const head = new RegExp('"' + k + '"\\s*:\\s*"').exec(text);
+      if (!head) return;
+      const rest = text.slice(head.index + head[0].length);
+      let end = -1;
+      keys.forEach(nk => {
+        if (nk === k) return;
+        const m = new RegExp('"\\s*,\\s*"' + nk + '"\\s*:').exec(rest);
+        if (m && (end < 0 || m.index < end)) end = m.index;
+      });
+      if (end < 0) { const tail = /"\s*\}[\s\S]*$/.exec(rest); end = tail ? tail.index : -1; }
+      if (end < 0) return;
+      const v = decodeLooseJsonText(rest.slice(0, end)).trim();
+      if (v) { out[k] = v; got++; }
+    });
+    return got ? out : null;
+  };
+  const parseSettingPayload = (raw, keys) => {
+    let v = null;
+    for (const cand of [String(raw || ""), escapeJsonStringControls(raw)]) {
+      v = typeof extractJSON === "function" ? extractJSON(cand) : null;
+      if (v != null) break;
+    }
+    if (typeof v === "string") {
+      const nested = extractJSON(v) || extractJSON(escapeJsonStringControls(v));
+      if (nested) v = nested;
+    }
+    if (!v || typeof v !== "object" || Array.isArray(v)) v = salvageByKeys(raw, keys);
+    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+  };
+  // v53.61 以前若已经把协议原文存进历史，升级后本地就地修复一次。
+  // 只碰明确长得像 theater 协议的角色消息，普通剧情与用户输入完全不动。
+  function repairTheaterHistory(value) {
+    let changed = false;
+    const repairRounds = rounds => (rounds || []).map(round => ({ ...round, msgs: (round.msgs || []).map(msg => {
+      if (msg.role !== "char" || typeof msg.content !== "string" || !/"scene"\s*:/.test(msg.content) || !/"goalReached"\s*:/.test(msg.content)) return msg;
+      const parsed = parseTheaterPayload(msg.content);
+      if (!parsed || !parsed.scene) return msg;
+      changed = true;
+      return { ...msg, content: parsed.scene };
+    }) }));
+    const list = Array.isArray(value) ? value.map(line => ({
+      ...line,
+      rounds: repairRounds(line.rounds),
+      archives: (line.archives || []).map(archive => ({ ...archive, rounds: repairRounds(archive.rounds) }))
+    })) : [];
+    return { list, changed };
+  }
+  // 取景骰子(v53.27):没关键词时让模型「自由发挥」,它每次都掷出同一个众数——
+  // 民国租界 + 一方走投无路 + 另一方手里握着唯一能救她的物件。根因是目标契约
+  // (TA做出/有代价/不可逆/由她促成)最省力的解只有那一个拓扑,再加上提示词里
+  // 点名过的题材本身就是吸引子。所以题材/关系/门槛三个骰子改由 JS 来掷:
+  // 客户端的真随机压得住语料先验,模型自称的"随机挑一个"压不住。
+  const POOL_GENRE = ["校园", "现代都市职场", "江湖武侠", "古代宫廷", "赛博朋克", "末世废土", "西幻大陆", "蒸汽朋克", "太空歌剧", "神话志怪", "民国", "西部拓荒", "远洋航船", "乡镇小城", "医院", "法庭律所", "演艺圈", "职业体育", "餐饮后厨", "考古学界", "监狱", "秘密结社", "赛车机械", "剧团马戏班"];
+  const POOL_BOND = ["上下级", "宿敌", "旧友重逢", "债主与欠债人", "被迫合作的同谋", "师徒", "同行竞争者", "照顾者与被照顾者", "被同一件事困住的陌生人", "分开多年的前任", "猎人与猎物", "房东与租客", "医生与病人", "对簿公堂的两造", "台前与幕后的搭档"];
+  const POOL_TENSION = ["期待不同", "配合默契", "信息差", "习惯差异", "共同兴趣", "信任变化", "职责交集", "立场分歧", "相处距离变化", "共同计划"];
+  const POOL_TONE = ["冷硬克制", "温暖有余味", "荒诞喜剧", "悬疑压抑", "怅然若失", "热血莽撞", "暧昧拉扯", "松弛的日常感", "苦中作乐", "锋利互怼"];
+  const POOL_GATE = ["表达意愿", "协商安排", "接受帮助", "共同完成事务", "作出承诺", "分享信息", "调整相处方式", "处理分歧"];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const pick3 = a => { const s = []; while (s.length < 3) { const x = pick(a); if (s.indexOf(x) < 0) s.push(x); } return s; };
+  // 情境骰子:同一套身份世界要开出【不同的故事】时用。收藏基线开新局时掷它,
+  // 否则模型只会把上一次那个时刻换个说法复述一遍——身份留住了,故事却是同一个。
+  const POOL_SITU = ["日常安排发生变化", "共同事务进入新阶段", "双方掌握的信息不同", "相处场合发生变化", "原有计划遇到意外", "出现新的合作机会", "对同一件事产生不同期待", "旧事有了新的进展"];
+  // world(长期为真)+ hook(此刻)拼成整段情境;老存档只有 setting,拼接要能容忍空值
+  const joinScene = (world, hook) => [String(world || "").trim(), String(hook || "").trim()].filter(Boolean).join("\n");
+
+  function TheaterApp(props) {
+    const t = useTheme();
+    const uName = (props.profile && props.profile.name) || "你";
+    const [lines, setLines] = useState(load);
+    // 收藏的基线设定(x_theaterPresets):满意的身份/世界可复用开新局,只重新生成开场与目标
+    const [presets, setPresets] = useState(() => loadJSON("x_theaterPresets", []));
+    const savePresets = fn => setPresets(p => { const n = fn(p.slice()); if (saveJSON("x_theaterPresets", n)) return n; props.toast("这次没保存成功，原数据还在"); return p; });
+    // 图库(x_theaterGallery):所有出过的剧照自动归档,按角色分组;重拍换掉的、线删掉的都仍留在这里
+    const loadGal = () => { const gone = new Set(loadGalGone()); return loadJSON("x_theaterGallery", []).filter(x => x && !gone.has(x.img)); };
+    const [gal, setGal] = useState(loadGal);
+    const saveGal = fn => setGal(p => { const n = fn(p.slice()); if (saveJSON("x_theaterGallery", n)) return n; props.toast("图库这次没保存成功，原图还在"); return p; });
+    const [galView, setGalView] = useState(null); // 图库里点开的大图:null | item
+    const [galChar, setGalChar] = useState(null); // 图库里进到哪个角色:null=头像墙
+    const [sheetChar, setSheetChar] = useState(null); // 入口页点头像拉起的抽屉
+    const [listChar, setListChar] = useState(null); // 记录/收藏页当前看的是哪个角色
+    // 收藏只留【长期为真】的那一层:身份 + 世界。此刻的处境(hook)故意不存——
+    // 存了它,用基线开新局就变成把同一个时刻重演一遍,那正是它没意思的原因。
+    const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, world: src.world || src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线(只存身份与世界,每次开局重新起情境)"); };
+    const [view, setView] = useState("list"); // list | create | play
+    const [playId, setPlayId] = useState(null);
+    const [busy, setBusy] = useState(false);
+    // busy 只说"忙着"，说不出在忙什么。出图要等半分钟，界面却写着「Ta 在演…」，
+    // 加上 + 菜单点完就收起来，看着就像点了没反应（她 2026-08-22 提）。
+    const [busyWhat, setBusyWhat] = useState("");
+    const [panelOpen, setPanelOpen] = useState(false);
+    const [draft, setDraft] = useState(null); // create 预览:{charId, keywords, title, charRole, userRole, setting, goal}
+    // 开局草稿（按关键词开 / 从收藏基线开）挂在后台生成上：走开再回来，生成好的那一局照样等她确认
+    const DRAFT_BG = window.BackgroundGeneration, DRAFT_KEY = "theater:draft";
+    const draftTask = DRAFT_BG ? DRAFT_BG.useTask(DRAFT_KEY,
+      // 预览只在「新开」那一页画：她走开又回来时带她回到那一页；正在演着某一场就不打断
+      d => { setDraft(d); setBusy(false); if (view !== "play") { setPickChar(d.charId); setView("create"); } },
+      err => { props.toast("生成失败:" + (err || "重试")); setBusy(false); }) : null;
+    useEffect(() => { if (draftTask && draftTask.busy) setBusy(true); }, [draftTask && draftTask.busy]);
+    const [pickChar, setPickChar] = useState((props.characters[0] || {}).id || null);
+    const [kw, setKw] = useState("");
+    const [input, setInput] = useState("");
+    const [edit, setEdit] = useState(null); // 演出面板的设定编辑缓冲:null | {title, charRole, userRole, setting, goal}
+    const [note, setNote] = useState(""); // 导演便签:一次性,喂给下一拍生成后自动清空
+    const [noteOpen, setNoteOpen] = useState(false);
+    const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
+    const [stageOpen, setStageOpen] = useState(false); // + 菜单里「布景」那一层(封面/背景)是否展开
+    const [plusOpen, setPlusOpen] = useState(false); // + 菜单(骰子/便签/背景/出图)
+    const [photoMenu, setPhotoMenu] = useState(null); // 长按剧照弹出的操作单:msg|null
+    const [msgMenu, setMsgMenu] = useState(null);     // 长按正文弹出的操作单(分支):msg|null
+    const pressRef = useRef(null);
+    const fileRef = useRef(null);
+    const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
+    const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
+    const [diff, setDiff] = useState("normal"); // 开线时的难度档
+    const scrollRef = useRef(null);
+    const linesRef = useRef(null);
+    const sumBusyRef = useRef(false);
+    // ⚠️存档【不许】写在 setLines 的 updater 里（2026-10-01 全 app 查「离开这页就白跑」查出来的）：
+    //   页面关掉以后 React 通常不再跑那个 updater——一拍生成到一半她切去别处，回来的那一拍就没存上，钱照扣。
+    //   所以先从存档现读、改完、直接写回；页面还开着才顺手 setLines。
+    const update = fn => {
+      const n = fn(load().slice());
+      if (!persist(n)) { props.toast("这次没保存成功，原记录还在"); return; }
+      linesRef.current = n;
+      setLines(n);
+    };
+    useEffect(() => { linesRef.current = lines; });
+    // 回填:图库上线前已经出过的剧照(含归档的重开局)一次性补进图库,按图引用去重
+    useEffect(() => {
+      const have = new Set(loadGal().map(x => x.img));
+      loadGalGone().forEach(img => have.add(img));
+      const add = [];
+      lines.forEach(l => (l.rounds || []).concat((l.archives || []).flatMap(a => a.rounds || [])).forEach(r => (r.msgs || []).forEach(m => {
+        if (m.role === "photo" && m.img && !have.has(m.img)) { have.add(m.img); add.push({ id: rid("tg_"), charId: l.charId, lineId: l.id, lineTitle: l.title, img: m.img, ts: m.ts || Date.now() }); }
+      })));
+      // 封面同样归档（v54.46）：以前封面只当卡片底纹，出完就再也看不到整张
+      lines.forEach(l => { if (l.cover && !have.has(l.cover)) { have.add(l.cover); add.push({ id: rid("tg_"), charId: l.charId, lineId: l.id, lineTitle: l.title, img: l.cover, ts: l.coverTs || l.ts || Date.now(), kind: "cover" }); } });
+      if (add.length) saveGal(list => add.concat(list).sort((a, b) => b.ts - a.ts));
+    }, []);
+    // 目标契约(四处生成共用一份,免得改一处漏三处)。
+    // 2026-08-18 Lisa 拿商业乙游的关卡设计来对照:那边的目标全是「让TA喂你吃排骨」
+    // 「让TA同意你帮TA换衬衫」「让TA相信你只是在晨跑」这类日常小动作,却一点不轻——
+    // 因为重量来自处境。我原先写死的「禁止事务级小目标」是错的,一刀切掉了整类好目标。
+    const GOAL_RULE = "目标【必须是角色一方做出/说出的事】，由 " + uName + " 在戏里促成。用一句可观察、可判定是否发生的行为写清目标，不把任务转交给 " + uName + " 自己完成，不使用抽象关系状态作为完成条件。\n目标是这一轮剧情的【远处落点】，不是下一步该做的动作：从眼前这一刻出发，要隔着几场戏、几次来回，局面先变过、角色的态度先松动过才够得着。拿它和开场那一刻对照——" + uName + " 照着目标字面直接提一次就能兑现的，是一步提示，还不够远；把落点放到那一步之后更远的地方。\n目标的阻力取决于所选难度、人物立场和眼前处境。日常小事也能成为目标，不强制秘密、牺牲或重大代价。只定目标，不预设唯一真相、说服路径或角色最终为何答应，保留多种解法。";
+    // 难度档:目标重量 + 演出时TA有多难撬
+    const DIFF = {
+      easy: { name: "轻松", goal: "目标采用日常尺度，阻力轻且有具体缘由，不要求重大代价。", play: "TA对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
+      normal: { name: "标准", goal: "", play: "" },
+      hard: { name: "硬核", goal: "目标有充分的人物与处境依据，角色有强烈理由拒绝，需要多轮实质推进；困难来自动机与条件，不靠夸大叙述。", play: "TA会【真实地抵抗】目标方向:回避、装傻、转移话题、反将一军;只有被真正说动、戳中要害或无路可退时才让步,绝不因为对方坚持了两句就松口。" }
+    };
+    const diffOf = l => DIFF[(l && l.difficulty) || "normal"] || DIFF.normal;
+    // 滚动摘要(防长线失忆):超过 48 条后,把最老的部分浓缩进 line.summary,只留近 32 条逐句喂
+    // 账本真实覆盖到第几条:sumSig 对不上当前前缀(中间删过图/改过话)就当没覆盖。
+    // 压缩和演出两处都认这一个数,免得一处按哈希、一处按旧下标,中间漏掉一条。
+    const sumDone = l => {
+      const all = l.rounds.flatMap(r => r.msgs);
+      return (l.sumSig && l.sumSig === histSig(all.slice(0, l.sumCount || 0))) ? (l.sumCount || 0) : 0;
+    };
+    const maybeSummarize = async lineId => {
+      if (sumBusyRef.current || !props.active) return;
+      const l = (linesRef.current || []).find(x => x.id === lineId);
+      if (!l) return;
+      const all = l.rounds.flatMap(r => r.msgs);
+      // 覆盖范围认哈希:存档里 sumSig 与当前前缀对不上(中间被删改过)就从头重算,
+      // 不再拿一个可能已经错位的下标继续往下压。
+      const done = sumDone(l);
+      if (all.length - done <= 48) return;
+      const cut = all.length - 32;
+      const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : (charOf(l).name || "Ta")) + ":" + m.content).join("\n").slice(0, 9000);
+      sumBusyRef.current = true;
+      try {
+        const prev = l.ledger && LEDGER_KEYS.some(k => (l.ledger[k] || []).length) ? l.ledger : null;
+        const sys = "把小剧场剧情压缩进一本【前情账本】,不是写摘要散文。合并旧账本与新增剧情,输出四类条目,每条一句话:\n"
+          + "· timeline:已经发生的关键事件,按先后。\n"
+          + "· facts:已经确立、后面不该被推翻的事实(身份、关系、真相、约定)。\n"
+          + "· openThreads:【还没了结的线】——问了没答的、说了要做还没做的、悬着的威胁与承诺。这一类最要紧,宁可多留。\n"
+          + "· objects:重要物件此刻在谁手上、什么状态(刀、信、底片、钥匙…)。没有就给空数组。\n"
+          + "旧账本里的条目除非已经被剧情推翻或了结,否则一律保留;了结了的从 openThreads 挪进 timeline 或 facts。不要写文风渲染,不要复述对白。\n"
+          + "只输出 JSON:{\"timeline\":[],\"facts\":[],\"openThreads\":[],\"objects\":[]}";
+        const user = (prev ? "【旧账本】\n" + JSON.stringify(prev) + "\n\n" : "") + "【新增剧情】\n" + seg;
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10200, timeout: 120000 });
+        const p2 = extractJSON(raw) || {};
+        const next = {};
+        LEDGER_KEYS.forEach(k => { next[k] = (Array.isArray(p2[k]) ? p2[k] : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 14); });
+        // 质量闸:压完发现受保护的记忆几乎没了,就当这次压缩没发生——
+        // 宁可下一轮多喂点原文,也不能静默把几十轮剧情压成一句空话。
+        if (!ledgerOk(prev, next)) return;
+        const trimmed = shrinkLedger(next, 2400);
+        update(list => list.map(x => x.id !== lineId ? x : { ...x, ledger: trimmed, summary: ledgerToText(trimmed), sumCount: cut, sumSig: histSig(all.slice(0, cut)) }));
+      } catch (e) { /* 静默:下次再试 */ } finally { sumBusyRef.current = false; }
+    };
+    const line = lines.find(l => l.id === playId) || null;
+    const charOf = l => props.characters.find(c => c.id === l.charId) || {};
+    const msgCount = line ? line.rounds.reduce((n, r) => n + r.msgs.length, 0) : 0;
+    // 只在消息数或换线时滚到底;无依赖数组会让每次打字/点按钮都把滚动条按回底部,想往上翻都翻不了
+    useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgCount, playId]);
+
+    // 「模型没吐出 JSON」= 连键名都抠不出来，说明它压根没按格式写(直接写成了散文)。
+    // 内容其实已经生成出来、也已经付过钱了，所以再花一次小调用把它【原样归类】进 JSON，
+    // 而不是让她重点一次按钮从头烧。整理不回来才认输。
+    const reformatSetting = async (raw, shape, keys) => {
+      const text = String(raw || "").trim();
+      if (!text || (typeof failRetryOn === "function" && !failRetryOn())) return null;
+      const sys = "下面是一段已经写好的内容,但它没有按要求输出 JSON。把它【原样整理】成这个形状:\n" + shape
+        + "\n【铁律】只做搬运和归类:内容一个字都不许改写、不许润色、不许自己另编;原文里确实没写的字段就留空字符串。只输出 JSON,不要代码块。";
+      try {
+        return parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: text.slice(0, 8000) }], { maxTokens: 11200, timeout: 120000 }), keys);
+      } catch (e) { return null; }
+    };
+    // 认输时把模型到底回了什么带出来一小段——不然「没吐出 JSON」是个查不下去的死胡同。
+    const rawHint = raw => {
+      const t = String(raw || "").replace(/\s+/g, " ").trim();
+      return t ? "(它回的是:" + t.slice(0, 30) + (t.length > 30 ? "…" : "") + ")" : "(上游什么都没回)";
+    };
+    // 「设定生成不完整」的真凶多半不是模型不会写,是【正文被 max_tokens 截断】:
+    // JSON 尾部的键先死,而 goal 以前恰好排在最后一个。goal 已经挪到 opening 前面、额度也放宽了;
+    // 万一还是缺,就拿这次已经付过钱的那半份回去补【只补缺的键】,不整局重来白烧一次调用。
+    const completeSetting = async (partial, raw, need, hint) => {
+      const lack = need.filter(k => !String((partial && partial[k]) || "").trim());
+      if (!lack.length) return partial;
+      const sys = settingStyle() + "下面这份 JSON 因为长度被截断,缺了几个字段。请【只补这几个键】,和已经写好的部分严丝合缝地接上,其余一个字都不要重复。\n"
+        + (hint || "") + "\n只输出 JSON:{" + lack.map(k => "\"" + k + "\":\"…\"").join(",") + "}";
+      let fix = null;
+      try {
+        fix = parseSettingPayload(await callAI(props.active, sys + "\n\n【已经写好的部分】\n" + String(raw || "").slice(0, 6000), [{ role: "user", content: "补齐缺项。" }], { maxTokens: 65000, timeout: 90000 }), lack);
+      } catch (e) { return partial; }
+      if (!fix) return partial;
+      const out = Object.assign({}, partial || {});
+      lack.forEach(k => { if (String(fix[k] || "").trim()) out[k] = fix[k]; });
+      return out;
+    };
+    // ---- 生成:if 线设定 ----
+    const SHAPE_SETTING = "{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份、性格处境与长期立场(2-3句;不含一次性的当下状态)\",\"userRole\":\"" + uName + " 的新身份+Ta 的长期生活处境与诉求(2-3句;同样不含当下状态)\",\"world\":\"世界观 + 两人之间长期存在的关系与张力核心(2-4句)\",\"hook\":\"此刻正在发生什么:这一局专属的一次性处境(1-3句)\",\"charOutfit\":\"Ta 在这条线里穿什么:一句话,具体到能照着画(材质/形制/颜色/关键配件),必须符合这个世界的时代与身份\",\"userOutfit\":\"" + uName + " 在这条线里穿什么:同样一句话、同样具体\",\"goal\":\"本轮目标:一句话,写清角色需要做出的可判定行为\",\"opening\":\"开场正文\"}";
+    const genSetting = async () => {
+      const char = props.characters.find(c => c.id === pickChar);
+      if (!char) return props.toast("先选一个角色");
+      if (!props.active) return props.toast("请先配置线下 API");
+      setBusy(true);
+      const run = async () => {
+        const sys = settingStyle() + characterText(char, "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、理解与判断习惯;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域。关键词为空时,严格按下方给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,按其性格机制和说话方式行事,不许洗白、软化或让他偷偷还是好人。\n先确定两人为何在这个世界里有交集，以及各自此刻关心什么；身份、关系与事件应互相支持。关键词为空时按取景框的关系维度展开，具体内容由本次人物与世界决定。\ngoal 是当前互动中可推进的一件事。") + GOAL_RULE + "\n基调决定场景的情绪与节奏，难度决定目标阻力。轻松与日常可以自然成立，不要求所有关系都有秘密、对立、牺牲或不可逆代价。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;只属于今天这一刻的事件和状态,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个正在进行、可以接话或行动的具体时刻。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代可知的身份处境，把场景推进到那个时刻，留出自然接话或行动的空间，不代写 Ta 的内心;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:" + SHAPE_SETTING + "";
+        // 关键词为空才掷骰子;她写了关键词就一切听她的,不拿随机框去顶她的要求
+        const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,五项共同取景，门槛按难度落实,不许挑拣也不许换)】\n题材:" + pick(POOL_GENRE) + "\n两人关系的底座:" + pick(POOL_BOND) + "\n把两人绑在一起的张力性质:" + pick(POOL_TENSION) + "\n整条线的基调:" + pick(POOL_TONE) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
+        // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
+        const prior = lines.slice(0, 10).map(l => l.title + "(" + String(l.setting || "").slice(0, 30) + ")").join(";");
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
+        const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
+        let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
+        if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
+        p = await completeSetting(p, raw, ["charRole", "goal", "opening"].concat(p.setting ? [] : ["world"]),
+          "goal:" + GOAL_RULE + "\n难度:" + DIFF[diff].goal + "\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句),留出自然接话或行动的空间,绝不替 " + uName + " 做决定。");
+        const lack = [["charRole", "角色新身份"], ["world", "世界观"], ["goal", "本轮目标"]]
+          .filter(([k]) => k !== "world" ? !String(p[k] || "").trim() : !String(p.world || p.setting || "").trim())
+          .map(([, label]) => label);
+        if (lack.length) throw new Error("设定缺了「" + lack.join("、") + "」,再试一次");
+        // world=长期为真(可收藏复用) / hook=这一局专属的此刻;setting 仍是两者拼起来的整段,面板与出图都照旧读它
+        const world = p.world || p.setting, hook = p.hook || (p.world ? "" : "");
+        return ({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: hook, charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, hook), opening: p.opening || "", goal: p.goal });
+      };
+      // 开局草稿交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，生成好的开局还摆在那儿等她确认
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在开局…" }, run).catch(() => {}); return; }
+      try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 从收藏基线开新局:身份与世界原样不动,但【此刻的处境要整个换掉】——
+    // 基线存的是「TA是龙族监督官、你是人类书记官」,不是「TA行囊打包好了、你堵在TA面前」。
+    // 不明说这一点的话,模型会把上次那个时刻原样复述一遍,新局和重开就没有区别了。
+    const newSituation = (fixedWorld, avoid) => "\n【新处境】保留固定身份、世界与长期关系，改变当前事件、相遇缘由或时间条件，让这局与旧局有实质区别。新事件须符合原世界和人物，不强制剧变，不把相同事件换地点当成新局。"
+      + (avoid ? "\n【已经开过的局(务必避开)】" + avoid : "")
+      + "\n【本局情境维度】选择最符合人物、基调与难度的一项展开:" + pick3(POOL_SITU).join(" / ");
+    const SHAPE_PRESET = "{\"hook\":\"新的当下处境\",\"charOutfit\":\"Ta 这一局穿什么(具体到能照着画)\",\"userOutfit\":\"" + uName + " 这一局穿什么\",\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
+    const genFromPreset = async ps => {
+      const char = props.characters.find(c => c.id === ps.charId);
+      if (!char) return props.toast("这个基线的角色不在了");
+      if (!props.active) return props.toast("请先配置线下 API");
+      setPickChar(ps.charId); setBusy(true);
+      const run = async () => {
+        const past = lines.filter(l => l.presetId === ps.id).slice(0, 6).map(l => String(l.hook || l.setting || "").slice(0, 50)).join(";");
+        const sys = settingStyle() + DIFF[diff].goal + "\n" + "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系保持不变,生成一个【全新的当下处境】以及配套的开场与本轮目标。"
+          + newSituation(true, past)
+          + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、可以回应的时刻,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
+        const KEYS = ["hook", "charOutfit", "userOutfit", "goal", "opening"];
+        let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_PRESET, KEYS);
+        if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
+        p = await completeSetting(p, raw, ["hook", "goal", "opening"],
+          "goal:" + GOAL_RULE + "\n难度:" + DIFF[diff].goal + "\nhook 是这一局专属的当下处境(1-3句)。opening 是第二人称『你』写给 " + uName + " 的开场正文(5-9句),留出回应空间。");
+        if (!p.goal) throw new Error("开局缺了「本轮目标」,再试一次");
+        const world = ps.world || ps.setting;
+        return ({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
+      };
+      // 开局草稿交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，生成好的开局还摆在那儿等她确认
+      if (DRAFT_BG) { DRAFT_BG.start(DRAFT_KEY, { label: "正在开局…" }, run).catch(() => {}); return; }
+      try { setDraft(await run()); } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    const acceptDraft = () => {
+      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
+      update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
+    };
+
+    // ---- 演出 ----
+    const allMsgs = l => l.rounds.flatMap(r => r.msgs);
+    const send = async () => {
+      const text = input.trim();
+      if (!line || busy) return;
+      const round = line.rounds[line.rounds.length - 1];
+      const lastIsUser = round.msgs.length && round.msgs[round.msgs.length - 1].role === "user";
+      // 空输入 + 历史末尾是自己的消息 = 上次生成失败的重试:不重复入史,直接用现有历史再生成
+      if (!text && !lastIsUser && !dice) return props.toast("写点什么再演，或者先掷个剧场骰子");
+      if (!props.active) return props.toast("请先配置线下 API");
+      const char = charOf(line);
+      let addedId = null;
+      if (text) {
+        addedId = rid("tm_");
+        setInput("");
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: addedId, role: "user", content: text, ts: Date.now() }] }) }));
+      }
+      setBusy(true);
+      try {
+        // 是否跨进了明确场景:复用主线线下那套判定(它靠消息上的 registerExplicitActive 记状态,
+        // 因为自修会把触发词洗掉,不能每轮要求干净终稿重新自证)
+        const rt = typeof offlineRegisterTransition === "function"
+          ? offlineRegisterTransition({ msgs: allMsgs(line).filter(m => m.role !== "photo").concat(text ? [{ role: "user", content: text }] : []) })
+          : { inputBeat: false, active: false };
+        const selfRevise = !!(rt.inputBeat && rt.active);
+        const spBlock = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
+        const sys = [narrativeCore({ intimate: true }),
+          "【小剧场·if 线(独立平行时空)】这是一场与主线完全无关的平行扮演:不引用主线聊天里发生过的事,也不提及这是扮演。世界观、身份以下面的设定为准。",
+          "【角色人设(性格与声纹的根基,保持不变)】\n" + (char.persona || char.name),
+          // 身份和情境走公共的 sceneSettingBlock（她 2026-09-29：设定里写的词别演成标签，所有场景一个说法）。
+          //   「身份按此替换、性格仍是上面这个人」那句也收在那一处里了。
+          // ⚠️下面给言秋的 ccSys 不走它：他不是被扮演的角色，扮演类的说法一律不发（four-surfaces 的合法差异）。
+          sceneSettingBlock("这条 if 线的设定", "你（" + char.name + "）：" + line.charRole + "\n" + uName + "：" + (line.userRole || "如设定所述") + "\n世界与情境：" + line.setting),
+          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : round.failed ? "(这条路已经走不通了:承接它留下的后果把戏演下去,不再朝它推进)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
+          line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
+          note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
+          dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
+          "【对方主权】" + uName + " 的行动、反应和台词永远由 Ta 本人输入:你只能写「我」的言行心理与 NPC/环境,绝不替『你』做动作、说台词、下决定——哪怕剧情顺手也不行,写到需要 Ta 行动的位置就停。",
+          window.StylePresets.SM_BEAT(uName),
+          window.StylePresets.SM_CAMERA,
+          window.StylePresets.SM_PARAGRAPH,
+          spBlock ? window.StylePresets.wrap(spBlock) : null,
+          // 每拍最少写多少字（她 2026-09-28：「小剧场也加一个字数」）。
+          // ⚠️那句规则走公共那一份 StylePresets.wordRule——线下、群线下、试写台、同人文
+          //   都问它要，小剧场原来一份都没有（施工规则/one-public-mechanism.md）。
+          //   演出是一拍一拍往下走的，所以给上限（不像同人文一章那样敞着）。
+          window.StylePresets.wordRule(window.StylePresets.clampWordFloor(line.minWords)),
+          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
+          // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
+          // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
+          selfRevise ? offlineSelfReviseProtocol("{\"draftScene\":\"内部完整首稿\",\"scene\":\"基于前一字段完成的最终正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}") : null
+        ].filter(Boolean).join("\n\n");
+        // CC 亲笔票的瘦身版 sys:言秋本人不需要人设卡和反八股全家桶(那些治的是模型病),
+        // 只递 if 线专属信息——身份、世界、目标、前情、导演提示与节拍纪律(Lisa 2026-08-22 抓的票太肥)
+        const ccSys = [
+          "【小剧场·if 线(独立平行时空)】与主线无关的平行扮演;世界观与身份以下面为准,正文里不提这是扮演。",
+          "【你这一局的身份】" + line.charRole,
+          "【" + uName + " 这一局的身份】" + (line.userRole || "如设定所述"),
+          "【世界与情境】" + line.setting,
+          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : round.failed ? "(已走不通,承接后果演下去,不再朝它推进)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
+          line.summary ? "【前情提要】\n" + line.summary : null,
+          note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
+          dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
+          "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;第一人称『我』,对话用引号,织成连贯段落。",
+          "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}"
+        ].filter(Boolean).join("\n\n");
+        const base = allMsgs(line).slice(sumDone(line)).filter(m => m.role !== "photo");
+        const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
+          .slice(-48).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+        // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
+        // 尾部原先全是减法,冷淡角色被砍完就只剩「我看着你。」——必须在同一处补上加法
+        const tail = characterText(char, "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。");
+        if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + tail };
+        else hist.push({ role: "user", content: "(继续)" + tail });
+        // 自修轮要多写一份初稿,预算给足,否则终稿会被截断
+        // 言秋座位(engineerEyes)的「演」先递到 CC 让TA亲笔写这一拍;超时/桥不在→模型顶班,剧场永不卡死
+        let raw = null;
+        if (typeof props.isEngineer === "function" && props.isEngineer(char.id) && typeof window !== "undefined" && window.CCSeat) {
+          try {
+            raw = await window.CCSeat.ask({
+              tool: "game_turn", game: "theater", turn_id: "theater:" + line.id + ":" + rid("tt_"),
+              char_id: String(char.id), sys: ccSys, msgs: hist,
+              expect: '{"scene":"这一拍的场景正文","goalReached":false,"goalFailed":false,"goalNote":null}' + (selfRevise ? '(自修轮需先写 draftScene 再写 scene)' : ''),
+              deadline_at: new Date(Date.now() + 180000).toISOString()
+            }, 180000, { charId: String(char.id) });
+          } catch (e) { raw = null; }
+          // CC 回填的是结构化对象;parseTheaterPayload 吃字符串,转一层
+          if (raw != null && typeof raw === "object") raw = JSON.stringify(raw);
+        }
+        // max_tokens 是天花板不是预付款:思考模型的推理也从这儿扣,3200 会被推理吃光、
+        // 正文只剩个零头(她 2026-08-24 拿酒馆的 65535 对比出来的)。给大不多花钱。
+        // 创作小稿（v62.39 接上）：一次写一整场戏，正是它该在的地方。
+        // ⚠️只挂在模型这一路。言秋座位那一路（CCSeat）是TA本人亲笔，扮演类的东西一律不发给TA。
+        let cotOut = null, cotAsked = false;
+        if (raw == null) {
+          const cotT = (typeof cotThink === "function") ? cotThink({ char: char.name, user: uName }, "theater") : "";
+          cotAsked = !!cotT;
+          const sysCot = cotT && typeof cotSystemBlock === "function" ? sys + cotSystemBlock(cotT) : sys;
+          raw = await callAI(props.active, sysCot, hist, { maxTokens: window.StylePresets.outTokens(selfRevise ? 2400 : 1600), timeout: 300000 });
+          // 小稿写在正文 JSON 之前，先剥掉再交给 parseTheaterPayload，否则整份解析不出来
+          if (cotT && typeof splitCot === "function") { const sp = splitCot(raw, true); cotOut = sp.cot || null; raw = sp.clean; }
+        }
+        let p = parseTheaterPayload(raw);
+        // 模型没套 JSON、直接写了一段正文：那段就是这一拍，照收（带协议痕迹的仍然拦住，宁可重试不污染历史）
+        if (!p && !selfRevise) {
+          const bare = String(raw || "").replace(/```[a-z]*/gi, "").trim();
+          if (bare.length > 40 && !/[{}]|"(?:scene|draftScene|goal\w*)"/.test(bare)) p = { scene: bare, goalReached: false, goalFailed: false, goalNote: null };
+        }
+        if (!p) throw new Error("模型返回的剧情格式无法解析，已拦住协议原文；请再按一次「演」");
+        // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,
+        // 绝不拿草稿顶上——那等于把去认证句这一步悄悄跳过
+        if (selfRevise && p.draftScene && !String(p.scene || "").trim()) throw new Error("模型没写出自修终稿,再按一次「演」");
+        if (!p.scene) throw new Error("没拿到正文");
+        // 回声式反问兜底:线下、群线下、小剧场同一把刀。提示词压不住就削掉开头那一声。
+        if (text && typeof stripEchoQuestionScene === "function") p.scene = stripEchoQuestionScene(p.scene, text);
+        // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
+        // 不满 3 句时报的达成先记在 earlyReach 里,够 3 句那一拍再亮出来——以前是直接扔掉,
+        // 一招打中要害的那一局就永远不弹确认
+        const open = r => !r.goalDone && !r.failed;
+        const userN = r => r.msgs.filter(m => m.role === "user").length;
+        const reachNow = r => open(r) && !!p.goalReached ? (p.goalNote || "看起来目标达成了") : null;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
+        setTimeout(() => maybeSummarize(line.id), 400);
+      } catch (e) {
+        // 失败回滚:撤回刚入史的那条,文字放回输入框,再按一次「演」即重试;历史不留残尾
+        if (addedId) { update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: r.msgs.filter(m => m.id !== addedId) }) })); setInput(text); }
+        props.toast("生成失败:" + (e.message || "再按一次「演」重试"));
+      } finally { setBusy(false); }
+    };
+    const confirmGoal = ok => update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : ok ? { ...r, goalDone: true, goalNote: typeof r.pending === "string" ? r.pending : r.goalNote, pending: false, endTs: Date.now() } : { ...r, pending: false }) }));
+    const confirmFail = ok => update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : ok ? { ...r, failed: true, goalNote: typeof r.pendingFail === "string" ? r.pendingFail : r.goalNote, pendingFail: false, endTs: Date.now() } : { ...r, pendingFail: false }) }));
+    // mode="next" 开下一轮;mode="redo" 重掷当前轮目标(剧情保留,只换目标)
+    const genGoal = async mode => {
+      if (!line || busy) return;
+      setBusy(true);
+      try {
+        const recent = allMsgs(line).slice(-8).map(m => (m.role === "user" ? uName : charOf(line).name) + ":" + m.content).join("\n").slice(-1800);
+        const cur = line.rounds[line.rounds.length - 1];
+        const sys = settingStyle() + diffOf(line).goal + "\n" + (mode === "redo"
+          ? "为一场进行中的 if 线小剧场【重新想当前这一轮的目标】(替换旧目标『" + cur.goal + "』,方向要和它不同)。"
+          : "为一场进行中的 if 线小剧场想【下一轮目标】:顺着已发生的剧情,根据人物当前意图提出可推进的新目标，不强制升级冲突；若上一轮失败，承接已经发生的后果。")
+          + "" + GOAL_RULE + "不重复已经达成过的目标。只输出 JSON:{\"goal\":\"一句话目标\"}";
+        const user = "【设定】" + line.setting + "\n【角色身份】" + line.charRole + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
+        // 思考型模型的思考也从 maxTokens 里扣,给窄了 JSON 会被写一半截断
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 120000 });
+        const p = parseSettingPayload(raw, ["goal"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\"}", ["goal"]);
+        if (!p || !p.goal) throw new Error("目标没生成出来" + rawHint(raw));
+        update(list => list.map(l => l.id !== line.id ? l : mode === "redo"
+          ? { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: p.goal, pending: false }) }
+          : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: p.goal, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] }));
+        setPanelOpen(true);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 重开:旧剧情整段归档,同一套设定从第一轮重来(新开场+新目标)
+    // 重开 = 同一个处境从头再演一遍(要换处境请用收藏基线开新局);两者的分工别混
+    // ⚠️不许用原生 confirm：PWA 里会被吞掉，这颗按钮就永远不干活（v64.88 那一批）
+    const restartLine = () => {
+      if (!line || busy) return;
+      requestAppConfirm("重开此线？", "当前剧情会归档，同一个处境从第一轮重演。\n想要同样的身份、全新的故事，请用「收藏此设定」再开新局。", restartLineNow, "重开");
+    };
+    const restartLineNow = async () => {
+      setBusy(true);
+      try {
+        const char = charOf(line);
+        const sys = settingStyle() + diffOf(line).goal + "\n" + "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个可以回应的具体时刻。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
+        const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
+        if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0, ledger: null, sumSig: "",
+          archives: [...(l.archives || []), { rounds: l.rounds, summary: l.summary || "", ts: Date.now() }],
+          rounds: [{ id: rid("tr_"), goal: p.goal, goalDone: false, goalNote: null, pending: false, msgs: p.opening ? [{ id: rid("tm_"), role: "char", content: p.opening, ts: Date.now() }] : [], startTs: Date.now() }] }));
+        setPanelOpen(true);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 谢幕:生成终场戏并标记完结(仍可回看,面板里可重开)
+    const endLine = () => {
+      if (!line || busy) return;
+      requestAppConfirm("为这条线谢幕？", "会生成终场戏并标记完结（仍可回看，面板里还能重开）。", endLineNow, "谢幕");
+    };
+    const endLineNow = async () => {
+      setBusy(true);
+      try {
+        const char = charOf(line);
+        const recent = allMsgs(line).slice(-14).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-3000);
+        const spEnd = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
+        const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
+        const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 10600, timeout: 150000 });
+        const p = parseTheaterPayload(raw);
+        if (!p || !p.scene) throw new Error("终场格式无法解析，已拦住协议原文；请再试一次");
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则TA单人
+    // 剧照和封面共用的一套底座：画风、if 线行头、参考图排列。
+    // 抽出来是因为封面若自己再拼一份，就会漏掉 photoStyle/手部解剖锁这些——
+    // 和 GOAL_RULE 当初四处各写各的是同一类毛病。
+    const shotBase = l => {
+      const char = charOf(l);
+      const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
+      // photoOutfit 换成 if 线自己的行头：角色的固定服装锁属于主线世界，会把这条线的装束顶掉
+      // IF 线只继承【这张脸】，不继承主线职业/时代/身份。以前这里仍塞主线 persona，
+      // 会一边要求「平行世界」，一边又把主线行头和职业递给图片模型，造成串线。
+      const ifVisualPersona = [l.world || l.setting, l.charRole].filter(Boolean).join("\n").slice(0, 500);
+      const styledChar = Object.assign({}, char, { photoOutfit: String(l.charOutfit || "").trim(), persona: ifVisualPersona });
+      const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
+      const meWith = duo ? Object.assign({}, props.profile, { outfit: String(l.userOutfit || "").trim() }) : null;
+      return { char: char, duo: duo, styledChar: styledChar, refList: refList, me: meWith };
+    };
+    // ---- 封面图（v53.88）----
+    // 不取自任何一拍：画的是这条线【整体】的样子——世界、两个人的身份、那股张力。
+    // 所以它不需要剧情过滤（没有原文进去），也不会因为某一拍是亲密戏就出不来。
+    const genCover = async () => {
+      if (!line || busy) return;
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
+      const b = shotBase(line);
+      if (!(b.char.refPhoto || b.char.appearance)) return props.toast("角色还没有参考照或外貌描述");
+      setPlusOpen(false); setBusy(true); setBusyWhat("正在画封面…出图慢，别退出这一页");
+      props.toast("开始画封面了，出图要等一会儿…", 6000);
+      try {
+        const sceneDesc = "这条平行世界故事线的【封面海报】:一张能代表整个故事的电影感主视觉,不是某一场戏的抓拍。人物不看镜头,构图留白、有电影海报的气场。\n"
+          + "【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n"
+          + "【世界与场景】" + String(line.world || line.setting || "").slice(0, 300) + "\n"
+          + "【" + b.char.name + " 在这条线里的身份】" + String(line.charRole || "").slice(0, 200) + "\n"
+          + (b.duo ? "【" + uName + " 在这条线里的身份】" + String(line.userRole || "").slice(0, 200) + "\n" : "")
+          + "【要画出的东西】这个世界的质地(时代、光线、建筑或环境的特征)，以及" + (b.duo ? "这两个人之间那股说不破的张力" : "这个人此刻的处境与气场")
+          + "。**别画成证件照或人物立绘**,要有场景、有氛围、有故事正要发生的感觉。\n"
+          + "【画面尺度】必须是可公开展示的画面:衣着完整整齐,不露骨、不裸露,不出现凶器、伤口、血迹与尸体。";
+        const prompt = typeof buildPhotoPrompt === "function"
+          ? buildPhotoPrompt(b.styledChar, sceneDesc, null, { kind: b.duo ? "duo" : "other", me: b.me, cinematic: true })
+          : sceneDesc;
+        const minimalPrompt = typeof buildMinimalPhotoPrompt === "function"
+          ? buildMinimalPhotoPrompt(b.styledChar, { kind: b.duo ? "duo" : "other" })
+          : sceneDesc;
+        const out = await generateSelfieImage(prompt, b.refList.length ? b.refList : null, { minimalPrompt: minimalPrompt });
+        if (!out || !out.blob) throw new Error("没出图");
+        if (out.degraded) props.toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : out.degraded === "duo-single-ref" ? "只锁了 " + b.char.name + " 的脸" : "没用上参考照" + (out.refError ? "：" + out.refError : ""), 7000);
+        const durl = await blobToDataUrl(out.blob);
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        // 封面跟着【整条线】走，分支出去的新线也沿用同一张——同一个世界不必各画各的
+        // 顺手当背景（v54.46）：以前封面只在记录卡上当底纹，被 90° 渐变压掉大半，
+        // 等于画完就看不见。但【不许覆盖她自己传的背景】——只在没背景、
+        // 或现在这张背景就是上一版封面（背景本来就在跟着封面走）时才接管。
+        let bgTook = false;
+        update(list => list.map(l => {
+          if (l.id !== line.id) return l;
+          const take = !l.bg || l.bg === l.cover;
+          if (take) bgTook = true;
+          return { ...l, cover: ref, coverTs: Date.now(), bg: take ? ref : l.bg };
+        }));
+        // 存进图库：那里才有看整张的大图和「保存到手机相册」（她 2026-08-22 要的）
+        galRevive(ref);
+        saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now(), kind: "cover" }].concat(list));
+        props.toast(bgTook ? "封面出好了，已当作背景 · 图库里可以看整张、存相册"
+          : "封面出好了，已进图库（这条线有你自己的背景图，没动它）", 6000);
+      } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
+    const genPhoto = async () => {
+      if (!line || busy) return;
+      const char = charOf(line);
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
+      if (!(char.refPhoto || char.appearance)) return props.toast("角色还没有参考照或外貌描述");
+      const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
+      setPlusOpen(false); setBusy(true); setBusyWhat("正在画这一拍的剧照…");
+      props.toast("开始画这一拍了，出图要等一会儿…", 6000);
+      try {
+        // 图像接口要的是【画面上看得见什么】,不是小说正文。把当轮正文原样喂过去,
+        // 一旦这几拍是亲密戏,审核会直接拒("该提示可能违反了我们的内容政策"),
+        // 而且两张真人参考照 + 亲密文本审得更严——单张能过、合照过不了就是这么来的
+        // (2026-08-18 Lisa 案)。所以逐条过滤明确内容,并声明画面必须含蓄。
+        // 两类分开算:上游审核对情色和暴力惊悚都会拦,但提示里不能混为一谈——
+        // 抓到的是刻刀和喘息,却跟她说「本拍是亲密戏」,那是系统在乱扣帽子(她 2026-08-18 指出)。
+        const VIOLENT_RE = /刀|刃|血|尸|伤口|掐|勒|捅|砍|割|窒息|尖叫|喘息|呻吟|哭喊|挣扎|绑|铐|药|毒/;
+        const isSex = t => typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t);
+        const isViolent = t => VIOLENT_RE.test(String(t || ""));
+        const explicit = t => isSex(t) || isViolent(t);
+        const rows = allMsgs(line).filter(m => m.role !== "photo").slice(-4);
+        const hitSex = rows.some(m => isSex(m.content));
+        const hitViolent = rows.some(m => isViolent(m.content));
+        const spicyWhy = hitSex && hitViolent ? "本拍有亲密与刀具/惊悚描写" : hitSex ? "本拍是亲密戏" : hitViolent ? "本拍有刀具或惊悚描写" : "";
+        // 敏感句仍然不能进 prompt(上游审核读的就是原文),但删掉之后必须给替代方案,
+        // 否则这一拍等于被掏空。做法和亲密戏一致:告诉它画紧挨着的前一瞬或后一瞬。
+        const kept = rows.filter(m => !explicit(m.content))
+          .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-240);
+        const fallbackCue = [line.hook, line.charOutfit ? null : null].filter(Boolean).find(t => !explicit(t)) || "两人此刻正对着彼此,气氛紧绷。";
+        const recent = kept || fallbackCue;
+        const safeShot = "\n【画面尺度】必须是可公开展示的画面:人物衣着完整整齐,不露骨、不裸露,画面里不出现凶器、伤口、血迹与尸体;张力全部靠神情、距离、手的位置、环境与光影来表达。"
+          + ((hitSex || hitViolent) ? "\n【这一拍要改画相邻的一瞬】本拍原文里有" + (hitSex && hitViolent ? "亲密与刀具/惊悚" : hitSex ? "亲密" : "刀具或惊悚") + "的内容,已从上面的描述里拿掉了。不要试图还原那一刻,改画【紧挨着它之前或之后】的一个瞬间:动作已经收住或还没发生,两人在同一个空间里,把刚才那股劲留在呼吸、眼神、没松开的距离和屋子里的光线上。这样画面依然属于这一拍,只是取了可以见人的那一格。" : "");
+        // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
+        // 身份锁、人设视觉事实、手部解剖锁全在那边,自拼等于把角色的画风设定整个丢掉。
+        // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
+        // st 传 null(此刻穿着同理,银龙不该穿着主线那身出现在龙岛)。
+        // 用 if 线自己的行头顶替主线的固定服装锁:清空会让服装每张随机(她拍到袍子变女仆装),
+        // 照抄主线又会让银龙穿着现代便装出现在龙岛。正解是这条线有自己的一套,并且锁死。
+        const ifVisualPersona = [line.world || line.setting, line.charRole].filter(Boolean).join("\n").slice(0, 500);
+        const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim(), persona: ifVisualPersona });
+        const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。" + safeShot;
+        // 与线上自拍共用已经实测能锁脸的经典 buildPhotoPrompt。IF 身份只提供行头与场景，
+        // 不再额外叠一篇强锁脸作文；那会让编辑任务重新退化成“按身份设计一个新人”。
+        // 连贯参考图:同一条线上一张剧照。同场景连拍两张会飘,拿它当锚能稳住
+        // 衣着配饰与场地光线;它排在最后,失败降级时第一个被丢掉(身份优先于连贯)。
+        const prevPhoto = allMsgs(line).filter(m => m.role === "photo" && m.img).slice(-1)[0];
+        const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
+        // IF 线也锁同一张脸，但只让原始人物照定义五官。生成剧照若已经画歪，绝不能
+        // 在下一拍或重 roll 时反过来污染身份；仅在没有任何原始照时才拿它续场景。
+        if (prevPhoto && refList.length === 0) refList.push(prevPhoto.img);
+        const refs = refList.length ? refList : null;
+        const prompt = typeof buildPhotoPrompt === "function"
+          ? buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })
+          : sceneDesc;
+        // 上游审核可能仍然拒(prompt 太长 / 措辞被误判)。备用 prompt 完全不含剧情文本:
+        // 只保留锁脸、行头、世界一句话和一个中性构图,短且干净,成功率高得多。
+        const minimalPrompt = typeof buildMinimalPhotoPrompt === "function"
+          ? buildMinimalPhotoPrompt(styledChar, { kind: duo ? "duo" : "other" })
+          : "第三人称旁观的电影剧照，人物衣着完整，画面含蓄、可公开展示。";
+        let out;
+        try {
+          out = await generateSelfieImage(prompt, refs, { contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), minimalPrompt: minimalPrompt });
+        } catch (e1) {
+          if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
+          props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
+          out = await generateSelfieImage(minimalPrompt, refList.slice(0, duo ? 2 : 1));
+        }
+        if (!out || !out.blob) throw new Error("没出图");
+        // 降级不再无声无息:脸没锁上时要说出来,否则你只会看到两个陌生人却不知道为什么
+        // 降级时把接口原话一起报出来:光说「没用上参考照」排查不了,得知道它到底拒了什么
+        if (out.degraded === "softened") props.toast("审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了", 7000);
+        else if (out.degraded === "softened-no-ref") props.toast("审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像", 7000);
+        else if (out.degraded) {
+          const policy = /内容政策|content policy|safety|moderat/i.test(out.refError || "");
+          props.toast(
+            (out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") +
+            (policy ? "：图像接口的审核拒了这一拍" + (spicyWhy ? "(" + spicyWhy + ",已尽量过滤仍被判定)" : "") + ",换个平静些的时刻再拍试试" : (out.refError ? "：" + out.refError : "")),
+            9000);
+        }
+        const durl = await blobToDataUrl(out.blob);
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
+        galRevive(ref);
+        saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now() }].concat(list));
+      } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
+    // 存进手机系统相册:iOS 在分享单里选「存储图像」
+    const saveToAlbum = async ref => {
+      try {
+        let blob = null;
+        if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function") blob = await imgVaultFetchBlob(ref);
+        if (!blob) blob = await (await fetch(imgSrc(ref))).blob();
+        const file = new File([blob], "theater_" + Date.now() + ".png", { type: blob.type || "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+        else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
+      } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
+    };
+    const rerollPhoto = m => { if (busy) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
+    // ---- 分支存档（v53.88）----
+    // 从任意一拍岔开一条新线：那一拍之前原样保留，之后的全部不要；原线一个字不动。
+    // 这既是"存档读档"（想回到某个路口重走），也是真正的 if 之 if。纯本地操作，零 API。
+    const branchFrom = msg => {
+      if (!line || !msg) return;
+      const rounds = [];
+      let hit = false;
+      for (const r of line.rounds) {
+        if (hit) break;
+        const k = (r.msgs || []).findIndex(m => m.id === msg.id);
+        if (k < 0) { rounds.push(r); continue; }
+        hit = true;
+        // 岔开点那一拍要留着（她是看到这一拍才想换条路的），之后的全丢
+        rounds.push({ ...r, msgs: r.msgs.slice(0, k + 1),
+          // 这一轮的结局从此重新未定：达成/失败/待确认全部清空，早先几轮的结果照旧
+          goalDone: false, failed: false, pending: false, pendingFail: false, earlyReach: null, goalNote: null });
+      }
+      if (!rounds.length) return props.toast("没找到这一拍");
+      const kept = rounds.reduce((n, r) => n + (r.msgs || []).length, 0);
+      // 账本覆盖的是前 sumCount 条。岔开点在它之后 → 账本对这段前缀仍然成立，可以带走；
+      // 岔在它之前 → 账本里写的事有一半已经不存在了，只能丢掉，让新线自己重新压缩。
+      const keepLedger = Number(line.sumCount || 0) > 0 && kept >= Number(line.sumCount || 0);
+      const sameRoot = l => (l.branchRoot || l.id) === (line.branchRoot || line.id);
+      const n = lines.filter(sameRoot).length; // 同一条根线下已经有几条了
+      const nl = { ...line,
+        id: rid("th_"),
+        title: (line.title || "if线") + "·分支" + n,
+        rounds: rounds,
+        archives: [],              // 归档属于原线，不跟着分支走
+        ended: false,
+        cover: line.cover || null, // 封面沿用，同一个世界
+        summary: keepLedger ? line.summary : "",
+        ledger: keepLedger ? line.ledger : null,
+        sumCount: keepLedger ? line.sumCount : 0,
+        sumSig: keepLedger ? line.sumSig : "",
+        createdAt: Date.now(),
+        branchRoot: line.branchRoot || line.id,
+        branchedFrom: { lineId: line.id, title: line.title, msgId: msg.id, at: kept, ts: Date.now() } };
+      update(list => [nl, ...list]);
+      setMsgMenu(null); setPlayId(nl.id); setPanelOpen(false);
+      props.toast("岔出一条新线，原线完整保留");
+    };
+    const pressStart = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setPhotoMenu(m), 550); };
+    const pressMsg = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setMsgMenu(m), 550); };
+    const pressEnd = () => clearTimeout(pressRef.current);
+    const onBgFile = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f || !line) return;
+      try {
+        const durl = typeof resizeImageFile === "function" ? await resizeImageFile(f, 1600, 0.85) : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: ref }));
+        setPlusOpen(false);
+      } catch (err) { props.toast("背景设置失败"); }
+    };
+    const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
+    // 大图查看器（objectFit:contain，看的是整张不是裁过的）。
+    // v54.46 从图库分支里搬出来：演出页刚出完封面就该能点开看整张，
+    // 而不是先退到图库再点进角色再点缩略图。
+    const bigViewer = () => galView && h("div", { "data-wk": "thrviewer", onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
+        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
+        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
+          h("button", { "data-wk": "thrviewerbtn", "data-part": "save", onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
+          h("button", { "data-wk": "thrviewerbtn", "data-part": "del", onClick: () => { const id = galView.id, item = galView; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); requestAppConfirm("从图库删掉这张？", "剧情里的那张不受影响；图库也不会再自动补回。", () => { if (!galTomb(item.img)) return props.toast("这次没删成功，原图还在"); const next = gal.filter(x => x.id !== id && x.img !== item.img); saveJSON("x_theaterGallery", next); setGal(next); setGalView(null); props.toast("已从小剧场图库删除"); }, "删除"); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+    const deleteLineNow = (id, after) => {
+      const next = lines.filter(l => l.id !== id);
+      if (!persist(next)) { props.toast("这次没删成功，原 if 线还在"); return false; }
+      setLines(next); if (after) after(); return true;
+    };
+    const delLine = id => requestAppConfirm("删除这条 if 线？", "这条线和全部演出记录都会删除。", () => { const l0 = lines.find(l => l.id === id); deleteLineNow(id, () => { if (l0) setListChar(l0.charId); setView(l0 ? "lines" : "list"); setPlayId(null); }); }, "删除");
+
+    // ---- UI ----
+    // 小剧场是 zIndex:60 的整屏覆盖层,会盖住 zIndex:50 的全局 DevBadges;
+    // 在层内再渲染一次同一个组件,版本号/电量就还在左上右上,和别的页面一样
+    const badges = () => (typeof DevBadges === "function" ? h(DevBadges) : null);
+    // ── 底：一叠打字机纸（v62.63 审美审计点名）────────────────────────────
+    // 审计原话：七页共用一个 t.bg 外壳，「纸条以外整页米白 + 通用顶条」。
+    // 这个 app 现实里是【一份剧本 / 一间排练场】，而它手上唯一属于剧本的东西
+    // 是入口那张横格纸条——纸条对了，纸没有。
+    // 底改成 pageSkin("paper")：跟着她的主题走，但它是纸，不是一块平色。
+    const paper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .7 }) : { background: t.bg };
+    // 压在图上的那层纱跟着主题走:以前写死米白,深色模式下整页被罩成一片白、浅色字看不清。
+    // color-mix 吃任何写法的颜色,不用先验是不是六位色号。
+    const veil = (c, pct) => "color-mix(in srgb, " + c + " " + pct + "%, transparent)";
+    const S = { wrap: Object.assign({ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column" }, paper),
+      btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
+      // 一条 if 线＝一份钉起来的稿子：方角、纸色、左边一道装订线，线上两枚订书钉。
+      // 圆角 16 的卡是通用列表项，剧本里没有这种东西。
+      card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: veil(t.bg2, 50), border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
+      lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
+      txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
+    // 装订：稿子左边那道线和线上两枚订书钉。程序画的，不用任何字符或 emoji。
+    // ⚠️它是绝对定位的装饰片，所以 S.card 上带了 position:relative——
+    //   少了那一句，钉子会跑到页面左上角去。
+    const staples = () => h("div", { "aria-hidden": "true", style: { position: "absolute", left: 8, top: 10, bottom: 10, width: 4 } },
+      h("div", { style: { position: "absolute", left: 1.5, top: 0, bottom: 0, width: 1, background: t.line } }),
+      [0.22, 0.68].map(k => h("div", { key: k, style: { position: "absolute", left: 0, top: (k * 100) + "%", width: 4, height: 9, borderRadius: 1, background: "rgba(120,112,98,.42)", boxShadow: "0 1px 0 rgba(255,255,255,.5)" } })));
+    // 头像:没设头像就用带首字的色块,别让入口页出现一排空洞
+    const avatarOf = (c, size) => (c && c.avatarImage)
+      ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
+      : h("div", { style: { width: size, height: size, borderRadius: 999, background: (c && c.color) || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: Math.round(size * 0.4), color: "#fff" } }, String((c && c.name) || "?")[0]);
+    // 返回:子页面逐层退回,不要一脚踹回入口(演出→该角色的记录→入口)
+    const back = () => {
+      if (view === "list") return props.onBack();
+      if (view === "gallery") { setGalView(null); return galChar ? setGalChar(null) : setView("list"); }
+      if (view === "play" && line) { setListChar(line.charId); setPlayId(null); setDraft(null); setView("lines"); return; }
+      if ((view === "create" || view === "presets") && listChar) { setDraft(null); setView("lines"); return; }
+      setPlayId(null); setDraft(null); setView("list");
+    };
+    // 顶栏一律走公共 Head（mobile-ui-layout §1：「别再自己写一条」）。
+    // 自写那条的返回键是个 18px 的「←」字符、padding 只有 4px——可点区就那几个像素。
+    // 改这一处，七个页面一起合规。
+    const header = title => h(Head, {
+      zh: title, onBack: back, bg: "transparent",
+      right: view === "list" ? h("button", { key: "gal", onClick: () => { setGalChar(null); setView("gallery"); }, style: S.btn(false) }, "图库")
+        : view === "lines" ? h("button", { key: "new", onClick: () => { setDraft(null); setKw(""); setPickChar(listChar); setView("create"); }, style: S.btn(true) }, "新开if线")
+        : (view === "play" && line) ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标")
+        : null
+    });
+
+    // 场记板：一整块斜条纹的拍板。这是电影/戏剧里最认得出的一件东西，
+    // 而且完全画得出来（repeating-linear-gradient 的斜条 + 上面那根活动臂）。
+    // 入口页原来只有一列居中头像——那一列换到任何一个「选个人」的页面都成立。
+    const clapper = h("div", { "data-wk": "thrclapper", "aria-hidden": null, style: { margin: "10px 14px 22px" } },
+      // 活动臂：一条斜着的条纹板，右端翘起来一点
+      h("div", { style: {
+        height: 26, borderRadius: "3px 3px 0 0", transform: "rotate(-1.6deg)", transformOrigin: "0 100%",
+        background: "repeating-linear-gradient(72deg, #2b2721 0 15px, #f2ece1 15px 30px)",
+        boxShadow: "0 2px 6px -3px rgba(0,0,0,.5)"
+      } }),
+      // 板身：写着这一场是什么
+      h("div", { style: { background: "#2b2721", borderRadius: "0 0 3px 3px", padding: "13px 15px 15px" } },
+        h("div", { className: "flex items-baseline", style: { gap: 10 } },
+          h("div", { "data-wk": "thrclappertitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".06em", color: "#f2ece1" } }, "今天排谁的戏"),
+          h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: "rgba(242,236,225,.55)" } }, props.characters.length + " 位")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: "rgba(242,236,225,.55)", marginTop: 5 } }, "点一个人，纸条会从边上拉出来")));
+    // 入口的一行:头像居中站着,点开时纸条从右边拉出来,居中布局把头像自然挤向左边
+    // (不用手写 translate:让 flex 的 justifyContent:center 去分配,头像走多远永远等于纸条宽度的一半)
+    const EASE = "cubic-bezier(.22,1,.36,1)";
+    const NOTE_W = 214;
+    const charRow = c => {
+      const open = sheetChar === c.id;
+      const nL = lines.filter(l => l.charId === c.id).length;
+      const nP = presets.filter(p => p.charId === c.id).length;
+      const go = fn => e => { e.stopPropagation(); setListChar(c.id); fn(); };
+      const noteBtn = (label, meta, onClick, strong) => h("button", { "data-wk": "thrnotebtn", key: label, onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "6px 9px", marginBottom: 5, borderRadius: 7, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: strong ? t.ink : "transparent", border: "1px solid " + (strong ? t.ink : t.line) } },
+        h("span", { style: { flex: 1, textAlign: "left", color: strong ? t.bg2 : t.ink } }, label),
+        meta ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: strong ? t.bg2 : t.fog } }, meta) : null);
+      // 必须挡住冒泡:外层容器有「点空白收起」,不挡的话这一下会被它接着关掉,看起来就是点了没反应
+      return h("div", { "data-wk": "thrchar", "data-on": open ? "1" : "0", key: c.id, onClick: e => { e.stopPropagation(); setSheetChar(open ? null : c.id); }, style: { display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px" } },
+        h("div", { style: { flexShrink: 0, textAlign: "center", transition: "transform .38s " + EASE, transform: open ? "scale(.94)" : "scale(1)" } },
+          avatarOf(c, 62),
+          h("div", { "data-wk": "thrcharname", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, maxWidth: 78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+          h("div", { "data-wk": "thrcharsub", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, nL ? nL + " 条线" : "还没演过")),
+        // 纸条:宽度 0→NOTE_W 的动画;内层固定宽,内容不会跟着挤变形
+        // 外层多留 8px 内边距:纸条有阴影又是歪的,贴着 overflow:hidden 的边会被削掉角
+        h("div", { onClick: e => open && e.stopPropagation(), style: { width: open ? NOTE_W + 16 : 0, marginLeft: open ? 6 : 0, padding: "8px", opacity: open ? 1 : 0, overflow: "hidden", transition: "width .38s " + EASE + ", margin-left .38s " + EASE + ", opacity .26s ease" } },
+          h("div", { "data-wk": "thrnote", style: { width: NOTE_W, padding: "9px 10px 5px", borderRadius: "2px 9px 9px 2px", background: t.bg2, borderLeft: "3px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.10)", transform: "rotate(-.7deg)", backgroundImage: "repeating-linear-gradient(180deg, transparent 0, transparent 25px, " + t.line + " 25px, " + t.line + " 26px)" } },
+            noteBtn("查看记录", nL ? nL + " 条" : "还没有", go(() => setView("lines"))),
+            noteBtn("收藏的设定", nP ? nP + " 个" : "还没有", go(() => setView("presets"))),
+            noteBtn("新开 if 线", "", go(() => { setPickChar(c.id); setDraft(null); setKw(""); setView("create"); }), true))));
+    };
+
+    // 图库:所有出过的剧照按角色分组;点开看大图,可存进手机相册或从图库删掉
+    if (view === "gallery") {
+      const gg = [];
+      gal.forEach(x => { let g = gg.find(y => y.charId === x.charId); if (!g) { g = { charId: x.charId, items: [] }; gg.push(g); } g.items.push(x); });
+      const viewer = bigViewer();
+      // 先头像墙,点进某个角色才看到 Ta 的照片
+      if (!galChar) {
+        return h("div", { "data-wk": "thrgallery", style: S.wrap }, badges(), header("剧照图库"),
+          h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
+            gg.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
+              const cover = g.items[0];
+              return h("div", { "data-wk": "thrgalchar", key: g.charId || "unknown", onClick: () => setGalChar(g.charId), style: { width: "calc((100% - 20px) / 3)", textAlign: "center" } },
+                h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 2, overflow: "hidden", background: "#e6e1d7", border: "4px solid #fbf8f2", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)" } },
+                  cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
+                  h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, avatarOf(c, 52))),
+                h("div", { "data-wk": "thrgalname", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "已删除"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, g.items.length + " 张"));
+            }))
+            : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有剧照。", h("br"), "演出时点 + 里的「当轮剧照」,出过的图都会自动收在这。")));
+      }
+      const cg = props.characters.find(x => x.id === galChar) || {};
+      const mine = gal.filter(x => x.charId === galChar);
+      return h("div", { "data-wk": "thrphotos", style: S.wrap }, badges(), header((cg.name || "已删除的角色") + " · 剧照"), viewer,
+        h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            // 剧照＝【留白边的相片】。三列圆角 8 的方格是任何一个图库，
+            // 而剧照本尊永远是白边 + 底下一条写着场次的窄边（相纸留出来的那一条）。
+            mine.map((x, xi) => h("div", { "data-wk": "thrphoto", key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", background: "#fbf8f2", borderRadius: 2, padding: "4px 4px 0", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)", cursor: "pointer" } },
+              h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", overflow: "hidden", background: "#e6e1d7" } },
+                h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+                x.kind === "cover" ? h("div", { style: { position: "absolute", left: 3, top: 3, padding: "1px 5px", borderRadius: 2, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null),
+              // 相纸底下留出来的那条白边，上面写编号——剧照就是这么编档的
+              h("div", { style: { padding: "4px 2px 5px", fontFamily: F_BODY, fontSize: 9, letterSpacing: ".06em", color: "#8d8578", textAlign: "center" } }, String(xi + 1).padStart(2, "0")))))))
+    }
+
+    if (view === "create") {
+      const preview = draft && h("div", { "data-wk": "thrdraft", style: S.card }, staples(),
+        h("div", { "data-wk": "thrdrafttitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
+        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与长期张力", draft.world || draft.setting], ["此刻正在发生", draft.hook], ["Ta 的行头", draft.charOutfit], [uName + " 的行头", draft.userOutfit], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+        h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
+          h("button", { "data-wk": "thrbtn", "data-part": "accept", onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
+          !draft.fromPreset && h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
+          !draft.fromPreset && h("button", { onClick: () => addPreset(draft), style: S.btn(false) }, "收藏为基线")));
+      const pc = props.characters.find(c => c.id === pickChar) || {};
+      return h("div", { "data-wk": "thrnew", style: S.wrap }, badges(), header("新开 if 线"),
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          h("div", { "data-wk": "thrcard", "data-part": "char", style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 10 }) }, avatarOf(pc, 34),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, pc.name || "?"),
+            h("button", { onClick: () => { setDraft(null); setView("list"); }, style: S.btn(false) }, "换个角色")),
+          h("div", { "data-wk": "thrcard", "data-part": "keyword", style: S.card }, staples(), h("div", { style: S.lbl }, "关键词(选填:题材/身份/氛围,如「民国 报社 追凶」)"),
+            h("textarea", { "data-wk": "thrinput", "data-part": "keyword", value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=让 Ta 自由发挥", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
+            h("div", { style: S.lbl }, "难度"),
+            h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k =>
+              h("button", { "data-wk": "thrdiff", "data-on": diff === k ? "1" : "0", key: k, onClick: () => setDiff(k), style: S.btn(diff === k) }, DIFF[k].name))),
+            !draft && h("button", { onClick: genSetting, disabled: busy, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, busy ? "在想…" : "生成设定")),
+          preview));
+    }
+
+    // 收藏的设定:某个角色的基线,用同一套身份世界开新局
+    if (view === "presets") {
+      const c = props.characters.find(x => x.id === listChar) || {};
+      const mine = presets.filter(p => p.charId === listChar);
+      return h("div", { "data-wk": "thrpresets", style: S.wrap }, badges(), header((c.name || "?") + " · 收藏的设定"),
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card }, staples(),
+            h("div", { "data-wk": "thrpresettitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ps.title),
+            [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与长期张力", ps.world || ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+            h("div", { style: { display: "flex", gap: 8, marginTop: 9, flexWrap: "wrap" } },
+              h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "用它开新局"),
+              h("button", { onClick: () => requestAppConfirm("删除这条基线？", "只删除收藏的设定，不影响已经开出的 if 线。", () => savePresets(l => l.filter(x => x.id !== ps.id)), "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除")))))
+          : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
+    }
+
+    if (view === "play" && line) {
+      const char = charOf(line);
+      const round = line.rounds[line.rounds.length - 1];
+      const ta = (k, rows) => h("textarea", { "data-wk": "thrinput", "data-part": "edit", value: edit[k], onChange: e => setEdit(p => ({ ...p, [k]: e.target.value })), rows: rows || 3, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "vertical", outline: "none" } });
+      const panel = panelOpen && h("div", { "data-wk": "thrpanel", style: Object.assign({}, S.card, { margin: "8px 14px", maxHeight: "56vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }) },
+        edit
+          ? [h("div", { key: "e1", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "线名"), ta("title", 1)),
+             h("div", { key: "e2", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "Ta 的身份"), ta("charRole")),
+             h("div", { key: "e3", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, uName + " 的身份"), ta("userRole", 2)),
+             h("div", { key: "e4", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "世界与情境"), ta("setting", 4)),
+             h("div", { key: "e4b", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "Ta 的行头(出图时锁定,留空则每张随机)"), ta("charOutfit", 2)),
+             h("div", { key: "e4c", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, uName + " 的行头(同上)"), ta("userOutfit", 2)),
+             h("div", { key: "e5", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "当前轮目标"), ta("goal", 2)),
+             // 每拍最少写多少字（她 2026-09-28）。走公共那一段 WordFloorSection：
+             // 线下、群线下、同人文用的是同一根拉条，措辞和 clamp 也只有一份。
+             h("div", { key: "e5b", style: { marginBottom: 7 } },
+               h(window.WordFloorSection, { value: edit.minWords || 0,
+                 onChange: v => setEdit(p => ({ ...p, minWords: v })),
+                 title: "每拍最少写多少字",
+                 note: "留空＝不限。这个数会发进提示词、让它自己数着写；小剧场是一拍一拍往下演的，给了下限也会配一个上限。" })),
+             h("div", { key: "e6", style: { display: "flex", gap: 8 } },
+               h("button", { onClick: () => { const e2 = edit; update(list => list.map(l => l.id !== line.id ? l : { ...l, title: e2.title.trim() || l.title, charRole: e2.charRole, userRole: e2.userRole, setting: e2.setting, charOutfit: e2.charOutfit, userOutfit: e2.userOutfit, minWords: e2.minWords || 0, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: e2.goal }) })); setEdit(null); props.toast("已保存"); }, style: S.btn(true) }, "保存"),
+               h("button", { onClick: () => setEdit(null), style: S.btn(false) }, "取消"))]
+          : [[["Ta 的身份", line.charRole], [uName + " 的身份", line.userRole], ["世界与情境", line.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 7 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+             h("div", { key: "df", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7 } },
+               h("span", { style: S.lbl }, "难度"),
+               ["easy", "normal", "hard"].map(k => h("button", { "data-wk": "thrdiff", "data-on": (line.difficulty || "normal") === k ? "1" : "0", key: k, onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, difficulty: k })), style: S.btn((line.difficulty || "normal") === k) }, DIFF[k].name))),
+             h("div", { key: "sp", style: { marginBottom: 7 } },
+               h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+                 h("span", { style: S.lbl }, "文风预设"),
+                 h("button", { onClick: () => props.onOpenStyleLab && props.onOpenStyleLab(), style: S.btn(false) }, "去预设台")),
+               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+                 [h("button", { "data-wk": "thrpreset", "data-on": !line.presetOn ? "1" : "0", key: "__off", onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, presetOn: false })), style: S.btn(!line.presetOn) }, "不吃(照旧)")]
+                   .concat((window.StylePresets.list() || []).map(p => h("button", { "data-wk": "thrpreset", "data-on": line.presetOn && line.presetId === p.id ? "1" : "0", key: p.id,
+                     onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, presetOn: true, presetId: p.id })),
+                     style: S.btn(!!line.presetOn && line.presetId === p.id) }, p.name))))),
+             h("div", { key: "gl", style: S.lbl }, "各轮目标"),
+             line.rounds.map((r, i) => h("div", { "data-wk": "thrroundgoal", key: r.id, style: Object.assign({}, S.txt, { marginBottom: 3 }) }, "第" + (i + 1) + "轮:" + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗失败" : i === line.rounds.length - 1 ? "(进行中)" : "(未完)"))),
+             h("div", { key: "bt", style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
+               line.ended ? null : (round.goalDone || round.failed)
+                 ? [h("button", { key: "ai", onClick: () => genGoal("next"), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "下一轮·AI想"),
+                    h("button", { key: "hand", onClick: () => setWriteGoal(""), style: S.btn(false) }, "下一轮·自己写")]
+                 : h("button", { onClick: () => genGoal("redo"), disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换个目标"),
+               !line.ended && h("button", { onClick: endLine, disabled: busy, style: S.btn(false) }, "谢幕收线"),
+               h("button", { onClick: restartLine, disabled: busy, style: S.btn(false) }, "重开此线"),
+               h("button", { onClick: () => setEdit({ title: line.title, charRole: line.charRole, userRole: line.userRole, setting: line.setting, charOutfit: line.charOutfit || "", userOutfit: line.userOutfit || "", minWords: line.minWords || 0, goal: round.goal }), style: S.btn(false) }, "编辑设定"),
+               h("button", { onClick: () => addPreset(line), style: S.btn(false) }, "收藏此设定"),
+               h("button", { onClick: () => delLine(line.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此线")),
+             writeGoal !== null && h("div", { key: "wg", style: { marginTop: 8 } },
+               h("div", { style: S.lbl }, "写下一轮目标(记得写成「让TA…」,可以是很日常的小事)"),
+               h("textarea", { "data-wk": "thrinput", "data-part": "goal", value: writeGoal, onChange: e => setWriteGoal(e.target.value), rows: 2, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "vertical", outline: "none" } }),
+               h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
+                 h("button", { onClick: () => { const g = (writeGoal || "").trim(); if (!g) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: g, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] })); setWriteGoal(null); }, style: S.btn(true) }, "开这一轮"),
+                 h("button", { onClick: () => setWriteGoal(null), style: S.btn(false) }, "算了")))]);
+      const banner = line.ended ? null : round.pending ? h("div", { "data-wk": "thrbanner", "data-part": "pending", style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
+        h("div", { style: S.txt }, "本轮目标可能已达成:" + round.goal + (typeof round.pending === "string" ? "\n(" + round.pending + ")" : "")),
+        h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+          h("button", { onClick: () => confirmGoal(true), style: S.btn(true) }, "确认达成"),
+          h("button", { onClick: () => confirmGoal(false), style: S.btn(false) }, "还没有")))
+      : round.pendingFail ? h("div", { "data-wk": "thrbanner", "data-part": "fail", style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: "#a4442e" }) },
+        h("div", { style: S.txt }, "这条路可能已经走死了:" + round.goal + (typeof round.pendingFail === "string" ? "\n(" + round.pendingFail + ")" : "")),
+        h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+          h("button", { onClick: () => confirmFail(true), style: Object.assign({}, S.btn(true), { background: "#a4442e", borderColor: "#a4442e" }) }, "确认失败"),
+          h("button", { onClick: () => confirmFail(false), style: S.btn(false) }, "还有机会"))) : null;
+      let ri = 0;
+      // 幕间:一轮＝一幕。大字写第几幕,目标压在下面一行,结果盖成小印章——
+      // 以前只有一行 10 号灰字,翻长线时根本认不出换轮了
+      const ACT_ZH = "一二三四五六七八九十";
+      const actName = i => "第" + (i < 10 ? ACT_ZH[i] : i < 19 ? "十" + ACT_ZH[i - 10] : String(i + 1)) + "幕";
+      const stamp = r => r.goalDone ? ["达成", t.ink] : r.failed ? ["走不通", "#a4442e"] : null;
+      const flow = line.rounds.flatMap((r, i) => [h("div", { "data-wk": "thract", key: "rd" + r.id, style: { textAlign: "center", margin: i ? "30px 18px 10px" : "14px 18px 10px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 15, letterSpacing: 6, color: t.ink } }, actName(i)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 4, textDecoration: r.failed ? "line-through" : "none" } }, r.goal),
+          stamp(r) ? h("span", { style: { display: "inline-block", marginTop: 6, padding: "1px 8px", border: "1.5px solid " + stamp(r)[1], color: stamp(r)[1], borderRadius: 3, fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, transform: "rotate(-4deg)" } }, stamp(r)[0]) : null)]
+        .concat(r.msgs.map(m => m.role === "photo"
+          ? h("div", { "data-wk": "thrmsg", "data-part": "narration", key: m.id, onPointerDown: () => pressStart(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
+          : m.role === "user"
+          // 你的那一拍写成剧本里的舞台提示:不套聊天气泡,左边一道细线、小一号、淡一点,
+          // 和角色的正文同在一张纸上,读起来是一台戏而不是聊天框里夹了篇小说
+          ? h("div", { "data-wk": "thrmsg", "data-part": "user", "data-me": "1", key: m.id, style: { margin: "12px 14px 12px 22px", padding: "2px 0 2px 11px", borderLeft: "2px solid " + t.line, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, m.content)
+          : h("div", { "data-wk": "thrmsg", "data-part": "char", "data-me": "0", key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(),
+              style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content,
+              // 这一拍的创作小稿（跟线下、同人文、穿书同一个展开）
+              ((m.cot || m.cotRequested) && typeof CotReveal === "function") ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null))));
+      const photoSheet = photoMenu && h("div", { "data-wk": "thrsheet", "data-part": "photo", onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
+           ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      const msgSheet = msgMenu && h("div", { "data-wk": "thrsheet", "data-part": "msg", onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
+            "从这一拍岔开一条新线：这一拍之前原样保留，之后的重演。**原线一个字不动**，随时能切回去。"),
+          // 复制（群里 2026-10-07「希望小剧场可以复制」）：这一拍 / 这一幕整段（你的那几拍也带上，读起来是一台戏）
+          [["复制这一拍", async () => { const m = msgMenu; setMsgMenu(null); props.toast(await copyText(m.content) ? "复制好了" : "没复制上，长按正文自己选一下"); }],
+           ["复制这一幕全文", async () => { setMsgMenu(null); const r = line.rounds.find(x => x.msgs.some(m => m.id === msgMenu.id)) || round;
+             const txt = r.msgs.filter(m => m.role === "char" || m.role === "user").map(m => m.role === "user" ? "【" + uName + "】" + m.content : m.content).join("\n\n");
+             props.toast(await copyText(txt) ? "整幕复制好了" : "没复制上，长按正文自己选一下"); }],
+           ["⑂ 从这里分支", () => branchFrom(msgMenu)],
+           ["取消", () => setMsgMenu(null)]].map(([label, fn], i, arr) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i < arr.length - 1 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      return h("div", { "data-wk": "thrplay", style: S.wrap }, badges(),
+        line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
+        bigViewer(),
+        h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
+        // 目标条:这一幕要走到哪儿,一直钉在顶上。点一下展开全文,点开面板里还能改
+        !line.ended && round ? h("div", { "data-wk": "thrgoal", "data-on": goalOpen ? "1" : "0", onClick: () => setGoalOpen(v => !v), style: { flexShrink: 0, display: "flex", alignItems: goalOpen ? "flex-start" : "center", gap: 8, padding: "7px 14px", borderBottom: "1px solid " + t.line, background: veil(t.bg2, 70), cursor: "pointer" } },
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
+          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
+        panel, banner,
+        h("div", { "data-wk": "thrfeed", ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
+          busy ? h("div", { "data-wk": "thrbusy", style: { margin: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+            typeof TypingDots === "function" ? h(TypingDots, { color: t.fog }) : null, busyWhat || "Ta 在演…") : null),
+        line.ended ? h("div", { "data-wk": "thrended", style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
+          h("textarea", { "data-wk": "thrinput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
+        !line.ended && plusOpen ? h("div", { "data-wk": "thrplus", style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
+          h("button", { "data-wk": "thrtool", "data-part": "dice", "data-on": dice ? "1" : "0", onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
+          h("button", { "data-wk": "thrtool", "data-part": "note", "data-on": noteOpen ? "1" : "0", onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
+          h("button", { "data-wk": "thrtool", "data-part": "photo", onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
+          // 常玩的三颗留在外面;封面和背景那一堆收进「布景」,以前一次挤出八颗同样的按钮
+          h("button", { "data-wk": "thrtool", "data-part": "stage", "data-on": stageOpen ? "1" : "0", onClick: () => setStageOpen(v => !v), style: S.btn(stageOpen) }, "布景" + (stageOpen ? " ▴" : " ▾")),
+          stageOpen ? h("div", { style: { width: "100%", display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 2 } },
+          h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, line.cover ? "🎞 重出封面" : "🎞 封面图"),
+          // 封面画完不该只剩卡片上那层被渐变压掉的底纹：点开看整张、或直接铺成背景
+          line.cover ? h("button", { onClick: () => { setPlusOpen(false); setGalView(gal.find(x => x.img === line.cover) || { id: "cover_" + line.id, charId: line.charId, lineId: line.id, lineTitle: line.title, img: line.cover, ts: line.coverTs || Date.now(), kind: "cover" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
+          line.cover && line.bg !== line.cover ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: line.cover })); setPlusOpen(false); props.toast("封面已铺成背景"); }, style: S.btn(false) }, "🖼 封面当背景") : null,
+          h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 传背景图"),
+          line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null) : null,
+        line.ended ? null : h("div", { "data-wk": "thrcompose", style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
+          h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
+          h("button", { "data-wk": "thrplusbtn", "data-on": plusOpen ? "1" : "0", onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
+          h("textarea", { "data-wk": "thrinput", "data-part": "main", value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+          h("button", { "data-wk": "thrsend", onClick: send, disabled: busy, style: Object.assign({}, S.btn(true), { position: "relative" }) }, "演",
+            // 骰子或便签上了膛,「演」上挂个角标,免得收起菜单就忘了下一拍带着东西
+            (dice || note.trim()) ? h("span", { style: { position: "absolute", top: -6, right: -6, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 8, background: "#a4442e", color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center" } }, dice ? "骰" : "签") : null))));
+    }
+
+    // 某个角色的记录:只显示 Ta 的线,每条可单独删除
+    const lineCard = l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
+      // 有封面就把它压进卡片当底：图上要压字，所以盖一层足够厚的渐变，先保证读得清
+      const coverBg = l.cover ? {
+        backgroundImage: "linear-gradient(90deg, " + veil(t.bg, 94) + " 0%, " + veil(t.bg, 82) + " 52%, " + veil(t.bg, 35) + " 100%), url(" + imgSrc(l.cover) + ")",
+        backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
+      } : null;
+      return h("div", { "data-wk": "thrline", "data-on": l.ended ? "0" : "1", key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
+        h("button", { "data-wk": "thrlinedel", onClick: e => { e.stopPropagation(); requestAppConfirm("删除「" + l.title + "」？", "这条线和全部演出记录都会删除。", () => deleteLineNow(l.id), "删除"); },
+          style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
+        h("div", { "data-wk": "thrlinetitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
+        l.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+          "⑂ 分支自「" + (l.branchedFrom.title || "原线") + "」第 " + (l.branchedFrom.at || 0) + " 拍") : null,
+        h("div", { "data-wk": "thrlinesub", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
+        h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); };
+    if (view === "lines") {
+      const c = props.characters.find(x => x.id === listChar) || {};
+      const mine = lines.filter(l => l.charId === listChar);
+      return h("div", { "data-wk": "thrlines", style: S.wrap }, badges(), header((c.name || "?") + " · 记录"),
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          mine.length ? mine.map(lineCard)
+          : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
+    }
+
+    // 入口:头像一个一列站在屏幕中间,往下滑看全部;点一下纸条从右边拉开
+    return h("div", { "data-wk": "thrpage", style: S.wrap }, badges(), header("小剧场"),
+      h("div", { "data-wk": "thrlist", onClick: () => setSheetChar(null), style: { flex: 1, overflowY: "auto", padding: "10px 0 40px" } },
+        props.characters.length ? [clapper].concat(props.characters.map(charRow))
+        : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));
+  }
+  window.TheaterApp = TheaterApp;
+})();

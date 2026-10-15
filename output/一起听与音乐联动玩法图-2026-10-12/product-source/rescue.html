@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ARCHIVE 安全刷新</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;background:#f7f3ed;color:#2e2925;margin:0;min-height:100vh;display:grid;place-items:center}
+    main{width:min(84vw,420px);text-align:center}h1{font-size:22px}p{line-height:1.7;color:#756b63}button{border:0;border-radius:999px;padding:14px 24px;background:#24211f;color:#fff;font-size:16px}
+  </style>
+</head>
+<body><main><h1>正在安全刷新 ARCHIVE</h1><p id="status">只清理旧版程序缓存，不会删除聊天、图片、登录或本机资料。</p><button id="retry" hidden>再试一次</button></main>
+<script>
+(async function rescue(){
+  const status=document.getElementById("status"), retry=document.getElementById("retry");
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(r=>r.unregister()));
+    }
+    if ("caches" in window) {
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(k=>k.startsWith("archive-shell-")).map(k=>caches.delete(k)));
+    }
+    // iOS 主屏幕 Web App 还可能握着 HTTP 磁盘缓存；只删 Cache Storage 不够。
+    // 对【主屏幕实际启动的精确 URL】做 reload，并核验拿到的正文真是目标版本。
+    // 目标版本只写这一处。以前散在六个地方，其中两处还是转义过的正则（53\.26），
+    // 逐版 bump 的 sed 匹配不到字面量，于是它们悄悄停在旧版号上，救援页就永远校验失败。
+  const TARGET="75.420";
+    const indexRes=await fetch("./index.html",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
+    const indexText=await indexRes.text();
+    if (!indexRes.ok || indexText.indexOf("app.js?v="+TARGET)<0) throw new Error("首页仍不是 v"+TARGET);
+    const appRes=await fetch("./js/app.js?v="+TARGET,{cache:"reload",headers:{"Cache-Control":"no-cache"}});
+    const appText=await appRes.text();
+    if (!appRes.ok || appText.indexOf('APP_VERSION = "v'+TARGET+'"')<0) throw new Error("程序文件仍不是 v"+TARGET);
+    if ("serviceWorker" in navigator) {
+      const reg=await navigator.serviceWorker.register("./sw.js?v=8",{updateViaCache:"none"});
+      await reg.update();
+    }
+    status.textContent="已验证首页和程序均为 v"+TARGET+"，正在重新打开……";
+    setTimeout(()=>location.replace("./index.html?launch="+TARGET+"&fresh="+Date.now()),900);
+  } catch (error) {
+    status.textContent="刷新没有完成："+(error&&error.message?error.message:"未知错误")+"。请点下面再试。";
+    retry.hidden=false; retry.onclick=()=>location.reload();
+  }
+})();
+</script></body></html>

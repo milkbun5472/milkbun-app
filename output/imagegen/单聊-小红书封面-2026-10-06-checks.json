@@ -1,0 +1,14 @@
+{
+  "tool": "built-in image_gen",
+  "mode": "compositing existing single-chat campaign posters into new cover",
+  "size": [
+    1086,
+    1448
+  ],
+  "ratio": "3:4",
+  "output": "/Users/lisa/Desktop/Lisa-phone/output/imagegen/单聊-小红书封面-2026-10-06.png",
+  "prompt": "/Users/lisa/Desktop/Lisa-phone/output/imagegen/单聊-小红书封面-2026-10-06-prompt.txt",
+  "generatedSource": "/Users/lisa/.codex/generated_images/01a1092b-5040-75e3-ba64-d434acefa095/exec-e33ddf3a-0f18-44f3-bbfb-d2eac1ebbd81.png",
+  "sha256": "966fe46750f0923f6646f48068b4281aa1ca48852a806d7c6a8b2e9fcb07a156",
+  "visualCheck": "Title and all six feature labels legible; no real person; chat request, response and native-style receipts shown. Generative re-layout with demo dialogue, not byte-identical screenshot."
+}

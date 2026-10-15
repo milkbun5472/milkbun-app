@@ -1,0 +1,269 @@
+{
+  "shots": [
+    {
+      "name": "journal-home",
+      "type": "native-screen"
+    },
+    {
+      "name": "journal-compose",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-voice",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-voice-text",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-fragment",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-pick",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-reading-one",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-reading-two",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-signs",
+      "type": "native-screen"
+    },
+    {
+      "name": "journal-signs-list",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-motifs",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-none",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-setup",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-setup-people",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-setup-chat",
+      "type": "native-element"
+    },
+    {
+      "name": "setup-people",
+      "type": "native-region"
+    },
+    {
+      "name": "setup-keywords",
+      "type": "native-region"
+    },
+    {
+      "name": "dream-play",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-scene",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-options",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-next",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-chosen",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-arrive",
+      "type": "native-element"
+    },
+    {
+      "name": "keepsake-before",
+      "type": "native-element"
+    },
+    {
+      "name": "keepsake-after",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-rewind",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-wake",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-struggle",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-struggle-scene",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-struggle-options",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-face",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-broken",
+      "type": "native-element"
+    },
+    {
+      "name": "familiar-familiar0",
+      "type": "native-element"
+    },
+    {
+      "name": "familiar-familiar1",
+      "type": "native-element"
+    },
+    {
+      "name": "familiar-play",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-shelf",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-saves",
+      "type": "native-element"
+    },
+    {
+      "name": "inventory-group",
+      "type": "native-element"
+    },
+    {
+      "name": "inventory-detail",
+      "type": "native-screen"
+    },
+    {
+      "name": "chat-keepsake",
+      "type": "native-screen"
+    },
+    {
+      "name": "their-list",
+      "type": "native-screen"
+    },
+    {
+      "name": "their-dream",
+      "type": "native-element"
+    },
+    {
+      "name": "their-queued",
+      "type": "native-element"
+    },
+    {
+      "name": "their-generated",
+      "type": "native-element"
+    },
+    {
+      "name": "their-nodream",
+      "type": "native-element"
+    },
+    {
+      "name": "bridge-dream",
+      "type": "native-screen"
+    },
+    {
+      "name": "chat-echo-tell",
+      "type": "native-screen"
+    },
+    {
+      "name": "chat-echo-vague",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-recur",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-recur-banner",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-recur-scene",
+      "type": "native-element"
+    }
+  ],
+  "actions": [
+    "Native DictateButton starts local demonstration voice session",
+    "Native DictateButton appends prepared transcript to textarea",
+    "Native addEntry saves a dream fragment",
+    "Native interpretation uses character context and appends first reading",
+    "Same dream receives a second character interpretation without replacing the first",
+    "Original choice handler records selected action and weaves the next scene",
+    "Original final choice resolves dream core with keepsake",
+    "Native keepsake action writes inventory and taken marker",
+    "Native rewind returns to the preceding choice and retains taken keepsake",
+    "Native wake action stores left ending",
+    "Resistance creates one native struggle scene instead of immediate collapse",
+    "Native face response resolves fourth ending",
+    "Native shatter response resolves broken ending and explanation",
+    "Native queued dream generates once and persists through original DreamLoop.saveGenerated",
+    "Journal entry opens the same nightly dream through native onEnterDream"
+  ],
+  "errors": [],
+  "blocked": [],
+  "facts": {
+    "responses": 11,
+    "unconsumed": 0,
+    "toasts": [
+      "梦收进馆了",
+      "带出来了：纸月亮"
+    ],
+    "actions": [
+      "native dream keepsake enters original inventory shape",
+      "confirm: 回到第 2 幕重新选？",
+      "confirm: 主动醒来，离开这场梦？",
+      "native journal bridge: demo-loop-main"
+    ],
+    "inventory": [
+      {
+        "id": "iv_dream_1791693093367",
+        "name": "纸月亮",
+        "fromCharId": null,
+        "dreamCharId": "demo-shenyu",
+        "dreamNote": "旧书店灯下，他从最后一页折给你的那一枚。",
+        "source": "dream",
+        "addedTs": 1791693093367
+      }
+    ],
+    "echo": {
+      "demo-shenyu": {
+        "line": "他想留住的，是一个人愿意等他把话慢慢说完。那张椅子一直空着，是因为他怕你已经走了。",
+        "tone": "舍不得",
+        "ts": 1791693100351,
+        "mode": "tell"
+      },
+      "demo-linxia": {
+        "line": "梦到海边的书店，所有明信片都寄到了窗边",
+        "tone": "轻快",
+        "ts": 1791693099351
+      }
+    },
+    "echoPrompt": "【你昨晚做的那个梦】他想留住的，是一个人愿意等他把话慢慢说完。那张椅子一直空着，是因为他怕你已经走了。（醒来之后心里是舍不得的）\n这场梦你醒来还记得很清。今天找个自然的空当**主动**跟她提一句（用你自己的话说，别背上面那行），像是醒来还惦记着似的，一句就够；她接了再往下讲，不接就放下。",
+    "memories": [],
+    "realModelCalls": 0
+  },
+  "scope": "original UI and handlers; fictional seed data and prepared responses; voice transcription and chat replies are demonstration boundaries"
+}
