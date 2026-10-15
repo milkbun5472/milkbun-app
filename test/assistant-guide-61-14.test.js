@@ -553,7 +553,7 @@ test("改动稿的下场记在存档里，退出再进来按钮不会又冒出�
   assert.match(one, /A\.markPatch\(p\.pid, "没应用："/, "失败了也得记，否则她会一直重按");
   assert.doesNotMatch(src, /const \[done, setDone\] = useState\(\{\}\)/, "旧的那份内存 map 还在");
   // 代码这一道也拦：已应用的不许再应用一次
-  assert.match(src, /if \(p\.done === "已应用"\) return;/);
+  assert.match(src, /if \(p\.done === "已应用"( \|\| p\.done === "应用中…")?\) return;/);   // 2026-10-16：等落盘那种卡，应用中也不许再按
   A.api.saveChat([]);
 });
 
