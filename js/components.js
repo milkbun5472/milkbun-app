@@ -14788,16 +14788,26 @@ function draftMeasure(el) {
   } catch (e) { return el.scrollHeight; }
 }
 // keepKey（群友 2026-10-15：「聊天输入后可以保存在对话框，不会因为退出小窗就立刻消失」）：
-//   给了就把没发出去的那段留在本机，下次进这个对话还在；发出去就清掉。
-//   ⚠️故意不用 x_ 前缀：x_ 的每次写入都会排队云同步，打一个字推一次不值得，草稿只留这台设备。
-//   每个对话一把钥匙，单聊/群聊/线下各管各的。
-const draftKeyOf = k => "qq_draft:" + k;
+//   给了就把没发出去的那段留下，下次进这个对话还在；发出去就清掉。每个对话一把钥匙，单聊/群聊/线下各管各的。
+// ⚠️不放 localStorage（她 2026-10-15 实测：打字→左上角返回→再进来就没了）：小仓库快满的手机上
+//   setItem 会悄悄失败，草稿根本没存住。现在先记在内存里（这一趟进进出出一定在），
+//   再攒一下写进 x_drafts（大仓库 IDB），关了 app 再开也在。
+const DRAFTS = (() => { let m = null; return () => { if (!m) { m = {}; try { const v = loadJSON("x_drafts", {}); if (v && typeof v === "object") m = v; } catch (e) {} } return m; }; })();
+let draftSaveT = 0;
+const draftGet = k => (k && DRAFTS()[k]) || "";
+const draftPut = (k, v) => {
+  if (!k) return;
+  const m = DRAFTS();
+  if (v) m[k] = v; else delete m[k];
+  clearTimeout(draftSaveT);
+  draftSaveT = setTimeout(() => { try { saveJSON("x_drafts", m); } catch (e) {} }, 800);
+};
 function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey }) {
-  const [draft, setDraftRaw] = useState(() => { if (!keepKey) return ""; try { return localStorage.getItem(draftKeyOf(keepKey)) || ""; } catch (e) { return ""; } });
-  const setDraft = v => { setDraftRaw(v); if (keepKey) try { v ? localStorage.setItem(draftKeyOf(keepKey), v) : localStorage.removeItem(draftKeyOf(keepKey)); } catch (e) {} };
+  const [draft, setDraftRaw] = useState(() => draftGet(keepKey));
+  const setDraft = v => { setDraftRaw(v); draftPut(keepKey, v); };
   // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
   const lastKey = useRef(keepKey);
-  useEffect(() => { if (lastKey.current === keepKey) return; lastKey.current = keepKey; let v = ""; try { v = keepKey ? localStorage.getItem(draftKeyOf(keepKey)) || "" : ""; } catch (e) {} setDraftRaw(v); }, [keepKey]);
+  useEffect(() => { if (lastKey.current === keepKey) return; lastKey.current = keepKey; setDraftRaw(draftGet(keepKey)); }, [keepKey]);
   const ref = useRef(null);
   // ⚠️量高度不许动真框（群里 2026-10-09 报：「一直反反复复弹上去弹下来」「修改对话很难」）：
   //   原来每打一个字都先把真框设成 auto 缩回一行再量，iOS 看见输入框忽高忽低，
