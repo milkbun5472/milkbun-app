@@ -23,3 +23,11 @@ test("边听边说那份记录按房分开", () => {
   assert.match(lt, /push\(tk, list\); setRows\(talkOf\(tk\)\);/);
   assert.match(lt, /talkOf\(p\.talkKey \|\| char\.id\)/);
 });
+test("一起听里说话也更新状态卡：心情/动作/心声跟 say 同一份 JSON", () => {
+  const lt2 = rd("listen-talk.js");
+  const parseState = new Function(lt2.slice(lt2.indexOf("function parseState"), lt2.indexOf("// mode：reply")) + "\nreturn parseState;")();
+  assert.deepEqual(parseState('{"say":["嗯"],"mood":{"label":"安心"},"action":"靠在你肩上","thought":"null"}'), { mood: "安心", action: "靠在你肩上" });
+  assert.equal(parseState('{"say":["嗯"]}'), null);
+  assert.match(lt2, /if \(st && p\.onState\) try \{ p\.onState\(char\.id, st\); \}/);
+  assert.match(app, /onListenState: \(charId, st\) => \{[\s\S]{0,400}setRoomThought\([\s\S]{0,200}writeGroupLiveState\(c, st,/);
+});
