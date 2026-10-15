@@ -13,7 +13,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /function RefreshPage\(/);
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
-  assert.match(S, /const genChars = async ids =>/);
+  assert.match(S, /const genChars = async \(ids, forceCp\) =>/);   // 2026-10-15 多了 forceCp：情侣号那颗「让TA往这个号发一条」
   assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
