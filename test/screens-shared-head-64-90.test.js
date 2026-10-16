@@ -71,7 +71,7 @@ test("screens.js 里换掉的那些顶栏，逐页点名（少一处才红）", 
     ["const shopHead = (zh, right) => h(Head, {", "购物车/我的（购物）"],
     ['h(Head, { zh: (c.name || "") + " 的亲属卡"', "亲属卡"],
     ['h(Head, { zh: "我们的情书"', "我们的情书"],
-    ['h(Head, { zh: "情侣"', "情侣列表"],
+    ['h(Head, { zh: entries.some(e => window.spaceRelKey', "情侣列表"],   // v75.818 标题按关系：「我们的空间」或「情侣」
     ['h(Head, { zh: char ? (char.remark || char.name) : "日记"', "日记单篇"],
     ['h(Head, { zh: "日记", sub: characters.length > 1', "日记本"],
     ['h(Head, { zh: "写日记"', "写日记"],

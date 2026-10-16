@@ -2701,7 +2701,7 @@
       + "scene＝要画的画面（中文，80~160 字）：谁在哪儿、在做什么、几个人之间什么距离和姿态、光和天气、这一刻的情绪。只写画面里看得见的，不写心理活动，不写对白。画面里的人只用 CP 里的名字。\n"
       + "只输出 JSON：" + (kind === "fanart" ? "{\"name\":\"\",\"style\":\"\",\"say\":\"\",\"scene\":\"\"}" : kind === "book" ? "{\"scene\":\"\",\"tagline\":\"\",\"genre\":\"\",\"mood\":\"\"}" : "{\"scene\":\"\"}");
     const user = "《" + (fic.title || "") + "》\nCP：" + cpText + (tags ? "\n标签：" + tags : "") + (fic.groupWay ? "\n关系：" + fic.groupWay : "") + "\n\n" + ficArtText(fic, chapIdx);
-    const raw = await callAI(active, sys, [{ role: "user", content: user }], { maxTokens: 6000, timeout: 120000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: user }], { maxTokens: 8000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
     if (!String(d.scene || "").trim()) throw new Error("没想好画什么，再点一次");
     return d;

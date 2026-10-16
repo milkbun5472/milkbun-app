@@ -26,7 +26,8 @@ test("她自己的头像不再每一行重复一遍", () => {
 
 test("「恋爱中」那句去掉了，天数变成主角", () => {
   assert.ok(!/"与 " \+ e\.char\.name \+ " 恋爱中 · "/.test(us), "整页都是恋爱中，每行再写一遍是废字");
-  assert.match(us, /fontSize: 26, lineHeight: 1, color: "#d16a86" \} \}, String\(n\)\)/, "天数是主角");
+  // v75.818 起非恋人空间的天数换成那层关系自己的颜色，恋人照旧 #d16a86；守的是「天数是主角」：26 号字、一行
+  assert.match(us, /fontSize: 26, lineHeight: 1, color: [^\n]*"#d16a86" \} \}, String\(n\)\)/, "天数是主角");
   assert.match(us, /"天 · 从 " \+ dayFmt\(e\.st\.since\) \+ " 起"/);
 });
 
@@ -55,7 +56,8 @@ test("紧凑标题栏，不是那个占掉小半屏的大标题", () => {
   // ⚠️v61.27 起 Head 本身就是紧凑栏，所以这一页 v64.90 换了回去；
   //   要挡的一直是那个 30px 大标题＋「Us / Couple」眉标，不是 Head 这个组件。
   assert.ok(!/en: "Us \/ Couple"/.test(us), "那行英文眉标又回来了");
-  assert.match(us, /h\(Head, \{ zh: "情侣", sub: entries\.length \? entries\.length \+ " 段 · 最久的走了 " \+ maxDays \+ " 天" : ""/, "名册顶栏没走共用 Head");
+  // v75.818：有非恋人空间时标题叫「我们的空间」，全是恋人照旧叫「情侣」
+  assert.match(us, /h\(Head, \{ zh: [^\n]*"我们的空间" : "情侣", sub: entries\.length \? entries\.length \+ " 段 · 最久的走了 " \+ maxDays \+ " 天" : ""/, "名册顶栏没走共用 Head");
   assert.doesNotMatch(us, /paddingTop: safeTop\(10\)/, "又自己手写一条顶栏了");
   assert.match(us, /className: "flex-1 min-h-0 overflow-y-auto/);
 });
