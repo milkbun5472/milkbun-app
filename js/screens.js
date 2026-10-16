@@ -7398,29 +7398,15 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
               o.deco || null,
               o.dot ? h("span", { style: { position: "absolute", top: 9, right: 10, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
               o.kids);
-            // 书脊（她 2026-10-16「每个 ui 都弄好看点」）：一排立在书架上的书，一本一个颜色、高矮宽窄各不同，
-            //   书名竖着写在脊上，有新东西的那本顶上一颗红点；近况不挤在脊上，收到书架底下一行。
-            const spineOf = {};   // 书架底下那行近况要拿 o.say 过 STX（外语挂「译」），先按 key 记下
-            const spine = (k, o) => { const n = [...String(k)].reduce((a, ch) => a + ch.charCodeAt(0), 0); spineOf[k] = o;
-              return h("button", { key: k, "data-wk": "usspine", "data-kind": k, "data-new": o.dot ? "1" : "0", onClick: o.onClick || (() => openSub(k)), "aria-label": o.zh + "：" + (o.say || ""), className: "active:-translate-y-1 transition-transform",
-                style: { position: "relative", width: 33 + (n % 3) * 5, height: 116 + (n % 4) * 11, flexShrink: 0, borderRadius: "3px 3px 1px 1px", padding: 0,
-                  background: "linear-gradient(90deg, rgba(0,0,0,.14), rgba(255,255,255,.14) 22%, rgba(0,0,0,0) 45%, rgba(0,0,0,.10)), " + o.band,
-                  boxShadow: "inset 0 0 0 1px rgba(0,0,0,.06), 0 2px 4px rgba(60,40,30,.16)" } },
-                h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 10, height: 5, borderTop: "1px solid rgba(255,255,255,.45)", borderBottom: "1px solid rgba(255,255,255,.45)" } }),
-                h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 10, height: 1, background: "rgba(255,255,255,.4)" } }),
-                h("span", { style: { position: "absolute", left: 0, right: 0, top: 22, bottom: 16, display: "flex", justifyContent: "center", alignItems: "flex-start", overflow: "hidden" } },
-                  // 一个字一行摞起来，不靠 writing-mode——有的字体竖排时字会叠在一起
-                  h("span", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.1, color: "rgba(255,255,255,.95)" } }, [...String(o.zh)].map((ch, i) => h("span", { key: i }, ch)))),
-                o.dot ? h("span", { style: { position: "absolute", top: -4, right: -4, width: 9, height: 9, borderRadius: 999, background: "#e0524a", boxShadow: "0 0 0 2px " + PAPER } }) : null);
-            };
-            const shelf = list => { const items = list.flat().filter(Boolean), hot = items.filter(x => x.props["data-new"] === "1");
-              const note = (hot.length ? hot : items.slice(0, 1)).map(x => spineOf[x.key]).filter(o => o && o.say);
-              return h("div", null,
-                h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "flex-end", columnGap: 4, rowGap: 22, padding: "8px 6px 0",
-                  backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 158px, #c7ab84 158px 166px, rgba(90,60,30,.10) 166px 170px, transparent 170px 180px)" } },
-                  items.map(x => h("div", { key: x.key, style: { height: 158, display: "flex", alignItems: "flex-end" } }, x))),
-                note.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.sub, marginTop: 4, padding: "0 4px" } }, note.slice(0, 2).map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (hot.length ? "· 新：" : "· ") + x.zh + "：", STX(x.say)))) : null);
-            };
+            // 书脊：左边一条色带 + 一行字 + 右边一句近况。加一本就是多一行，不撑版面。
+            //   （试过一版书架上竖着的书——她 2026-10-16：「不要这个 原来那个列表好」。）
+            const spine = (k, o) => h("button", { key: k, "data-wk": "usspine", "data-kind": k, "data-new": o.dot ? "1" : "0", onClick: o.onClick || (() => openSub(k)), className: "w-full text-left active:opacity-70",
+              style: { display: "flex", alignItems: "center", gap: 11, padding: "13px 4px 13px 0", borderBottom: "1px solid " + PLINE, position: "relative" } },
+              h("span", { "aria-hidden": "true", style: { width: 3, height: 26, borderRadius: 3, background: o.band, flexShrink: 0 } }),
+              h("div", { style: { width: 58, flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: o.band } }, o.zh),
+              h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(o.say)),
+              o.dot ? h("span", { style: { width: 7, height: 7, borderRadius: 999, background: "#e0524a", flexShrink: 0 } }) : null);
+            const shelf = list => h("div", { style: { borderTop: "1px solid " + PLINE } }, list.flat());
             const mkSig = makeupSignalFor ? makeupSignalFor(bCid) : { on: false, why: "" };
             const mkCur = makeupOf ? makeupOf(bCid) : null;
             // 英文眉标 v62.12 清掉（no-english-titles）：ON THE WALL / KEPT 换任何 app 都成立，
