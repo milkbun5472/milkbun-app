@@ -5779,7 +5779,20 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         v4_prompt: { caption: { base_caption: promptText, char_captions: [] }, use_coords: false, use_order: true },
         v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] } } };
       if (useRef && refBlobs.length) {
-        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(b));
+        // 角色参考图 NovelAI 只收三种画布：1024x1536／1536x1024／1472x1472，别的尺寸上游直接 500。
+        //   按原图横竖挑一张最近的画布，等比缩进去、四周补黑边（官网前端也是这么垫的）。
+        const naiCanvas = async b0 => {
+          try {
+            const bm = await createImageBitmap(b0), r = bm.width / bm.height;
+            const [cw, ch] = r > 1.2 ? [1536, 1024] : r < 0.83 ? [1024, 1536] : [1472, 1472];
+            const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+            const g = cv.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, cw, ch);
+            const k = Math.min(cw / bm.width, ch / bm.height), dw = Math.round(bm.width * k), dh = Math.round(bm.height * k);
+            g.drawImage(bm, Math.round((cw - dw) / 2), Math.round((ch - dh) / 2), dw, dh);
+            return await new Promise(res => cv.toBlob(x => res(x || b0), "image/png"));
+          } catch (e) { return b0; }
+        };
+        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(await naiCanvas(b)));
         Object.assign(parameters, { normalize_reference_strength_multiple: false, director_reference_images: imgs,
           director_reference_descriptions: imgs.map(() => ({ caption: { base_caption: "character", char_captions: [] }, legacy_uc: false })),
           director_reference_information_extracted: imgs.map(() => 1),
