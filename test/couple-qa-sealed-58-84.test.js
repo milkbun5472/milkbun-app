@@ -19,7 +19,7 @@ const book = grab(scr, "function CoupleQABook({", "// 情侣空间·交换日记
 // 不是各答各的）」，而且把【用户的回答】直接递给了他。他不是在答题，是在回话。
 test("他那一枪里【没有】她的答案——隔离靠调用结构，不靠提示词写「别看」", () => {
   const body = nocomment(ans);
-  const instr = grab(ans, '        instruction: "你们是恋人。', "        schemaHint:");
+  const instr = grab(ans, '        instruction: relSay(char) + "。', "        schemaHint:");
   assert.ok(!/myAnswer/.test(instr), "又把她的答案递进去了——他就变回在回话了");
   assert.ok(!/顺着用户的回答接话|呼应 TA 说的/.test(body), "旧那句「顺着用户的回答接话」还留着");
   assert.match(instr, /各写各的、两边都写完才互相看/, "没把规矩说清");

@@ -15084,8 +15084,9 @@ function CoupleInviteCard({
   const t = useTheme();
   const nm = (character && character.remark) || (character && character.name) || "TA";
   const st = m.status;
+  const rl = typeof spaceRel === "function" ? spaceRel(m.rel) : { invite: "想和你在一起", together: "你们在一起了" };
   const info = st === "accepted"
-    ? { label: nm + " 收下了这封信 · 你们在一起了", tone: "#d16a86" }
+    ? { label: nm + " 收下了这封信 · " + rl.together, tone: "#d16a86" }
     : st === "declined" ? { label: nm + " 把信退回来了", tone: t.fog }
     : st === "failed" ? { label: "这封信没送到，可以再递一次", tone: t.fog }
     : { label: asking ? nm + " 正在拆开……" : "话说完了，等 TA 拆开", tone: t.sub };
@@ -15109,7 +15110,7 @@ function CoupleInviteCard({
     h("div", { style: { padding: "15px 15px 13px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.18em", color: "#c99aa8" } }, "第一封"),
       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 21, lineHeight: 1.25, color: "#2a2721", marginTop: 5, paddingRight: 26 } },
-        "想和你在一起")),
+        rl.invite)),
     // 折痕：一道压出来的线（上面一丝暗、下面一丝亮），不是普通分隔线
     h("div", { style: { height: 1, background: "rgba(0,0,0,.10)" } }),
     h("div", { style: { height: 1, background: "rgba(255,255,255,.85)" } }),

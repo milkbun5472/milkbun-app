@@ -60,10 +60,11 @@ test("挂在 buildBundle 里，所有走 bundle 的入口一起白得", () => {
   // ⚠️关键：单聊【不走】app.js 的 coupleLineFor（那个只管群聊两处），
   //   它走 ctxFor().coupleStatus → buildBundle。写在 app.js 里会修错地方。
   const i = eng.indexOf("if (!ctx.notRoleplay && ctx.coupleStatus)");
-  const seg = eng.slice(i, i + 1400);
+  const seg = eng.slice(i, eng.indexOf("function buildBundle(", i));
   assert.match(seg, /takenByOthersLine\(char && char\.id, rels, chars, uName\)/, "没接进 buildBundle");
   // 只在【不是用户的恋人】时才补这一句
-  assert.match(seg, /!\(ctx\.coupleStatus && String\(ctx\.coupleStatus\)\.split\("\|"\)\[0\] === "together"\)/,
+  // v75.773 起空间分关系：闺蜜 / 挚友 / 家人空间不是恋人，照样要发这句；只有恋人那种不发
+  assert.match(seg, /!\(ctx\.coupleStatus && String\(ctx\.coupleStatus\)\.split\("\|"\)\[0\] === "together" && spaceRelKey\(String\(ctx\.coupleStatus\)\.split\("\|"\)\[2\]\) === "lover"\)/,
     "和用户是恋人时也发这句，那就自相矛盾了");
   // 言秋那种不被扮演的照旧不发扮演类的层
   assert.match(seg, /!ctx\.notRoleplay && !\(ctx\.coupleStatus/);

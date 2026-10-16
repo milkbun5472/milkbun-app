@@ -6405,8 +6405,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     coupleStatus: (() => {
       const cp = !char.npc && couples[char.id];
       if (!cp) return "";
-      if (cp.status === "together") { const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null; return "together" + (days ? "|" + days : ""); }
-      if (cp.status === "pending") return "pending";
+      const rk = typeof spaceRelKey === "function" ? spaceRelKey(cp) : "lover";
+      if (cp.status === "together") { const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null; return "together|" + (days || "") + "|" + rk; }
+      if (cp.status === "pending") return "pending||" + rk;
       return "";
     })(),
     // 他给她起的那个称呼（抽卡 s_title，她点了「收下」才有）。
@@ -24034,7 +24035,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setCoupleBreakup(p => { const n = { ...p, [cid]: { ts: Date.now(), deducted: deduct, affAfter: after } }; saveJSON("x_coupleBreakup", n); return n; });
     toast("已解除情侣关系 · 好感 −" + deduct);
   };
-  const sendCoupleInvite = async char => {
+  const sendCoupleInvite = async (char, rel) => {
+    const rk = typeof spaceRelKey === "function" ? spaceRelKey(rel) : "lover", rl = typeof spaceRel === "function" ? spaceRel(rk) : { space: "情侣空间", invite: "想和你在一起" };
     if (!active) { toast("请先到设置配置 API"); return; }
     if (couples[char.id]) { toast(couples[char.id].status === "together" ? "你们已经在一起了" : "邀请已发出，等 TA 回应"); return; }
     // 解除冷却 + 复合门槛
@@ -24046,9 +24048,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (affOf(char.id) < need) { toast("TA 还没准备好复合——好感要至少加回被扣的一半（当前 " + Math.round(affOf(char.id)) + " / 需 " + Math.ceil(need) + "）"); return; }
     }
     const cid = "ci_" + Date.now();
-    setCoupleFor(char.id, { status: "pending", since: null });
-    // 往聊天里发一张情侣邀请卡
-    pChat(char.id, p => [...p, { role: "user", kind: "couple_invite", cid, status: "pending", content: "[情侣邀请] 想和你在一起", ts: Date.now(), read: true }]);
+    setCoupleFor(char.id, { status: "pending", since: null, rel: rk });
+    // 往聊天里发一张邀请卡（关系写在卡上：TA 看得到这是哪一种）
+    pChat(char.id, p => [...p, { role: "user", kind: "couple_invite", cid, status: "pending", rel: rk, content: "[" + rl.space + "邀请] " + rl.invite, ts: Date.now(), read: true }]);
     toast("邀请已送到和 " + char.name + " 的聊天——说完你想说的，再点卡片上「让 TA 回应」");
   };
   // 她点了卡片上那个按钮才回应。发出邀请到这一刻之间她说的话一并递过去——
@@ -24066,8 +24068,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const after = (at >= 0 ? line.slice(at + 1) : []).filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim()).slice(-12)
         .map(m => ({ role: m.role, content: m.content }));
       const bundle = buildBundle(ctxFor(char));
-      const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】用户向你发出「情侣邀请」，想和你正式在一起" + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
-        after.concat([{ role: "user", content: "（回应情侣邀请）" }]), { maxTokens: 8500 });
+      const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】" + ((rlI => rlI.space === "情侣空间" ? "用户向你发出「情侣邀请」，想和你正式在一起" : "用户想跟你开一个「" + rlI.space + "」：TA 说「" + rlI.invite + "」——这是" + rlI.zh + "那种关系，不是表白、不是要在一起；答不答应照你们现在的交情来")(spaceRel((couplesRef.current || {})[charId]))) + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
+        after.concat([{ role: "user", content: "（回应" + spaceRel((couplesRef.current || {})[charId]).space + "邀请）" }]), { maxTokens: 8500 });
       // 读不出来【不算TA拒绝】：卡标成「没送到」，pending 留着，她可以再点一次。
       // 原来这儿是 !!d.accept —— 解析一失败就是不可逆的婉拒。
       if (!r.ok) {
@@ -24104,9 +24106,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const char = characters.find(c => c.id === charId);
     setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
     const now = new Date();
-    setCoupleFor(charId, { status: "together", since: now.getTime() });
+    const rk0 = typeof spaceRelKey === "function" ? spaceRelKey((couplesRef.current || {})[charId]) : "lover";
+    setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0 });
     // 在一起纪念日写进日历（该角色视角）
-    saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
+    if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
+    else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");
+  };
+  // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
+  const relSay = c => {
+    const rk = spaceRelKey((couplesRef.current || {})[c && c.id]), r = spaceRel(rk);
+    return rk === "lover" ? "你们是恋人" : "你们是" + r.zh.replace(" / ", "、") + "，不是恋人（照" + (rk === "family" ? "家人" : "朋友") + "之间来写，不往恋爱、暧昧那头走）";
+  };
+  const letterWord = c => spaceRel((couplesRef.current || {})[c && c.id]).letter;
+  // 换这个空间的关系（她 2026-10-16）：开错了不用解除重来，改了以后 TA 那边下一句就照新关系来
+  const setCoupleRel = (charId, rel) => {
+    const rk = spaceRelKey(rel);
+    setCouples(p => { const cur = p[charId]; if (!cur) return p; const n = { ...p, [charId]: { ...cur, rel: rk } }; saveJSON("x_couples", n); return n; });
+    toast("改好了：这里现在是" + spaceRel(rk).space);
   };
   // ── TA写给她的申请信（v74.732，群里 2026-10-02：「char 可以反过来向 user 提出情侣申请让 user 拆开看吗」）──
   // 原来只有她 → 他一个方向。现在他也能先开口：在回复里附一封信，聊天里是一张封着的信封，点开才读得到。
@@ -24191,7 +24207,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。下面这件事你俩都在场，但记在这儿的是【" + (profile.name || "她") + "那一版】。\n"
+        instruction: relSay(char) + "。下面这件事你俩都在场，但记在这儿的是【" + (profile.name || "她") + "那一版】。\n"
           + "【她记下的】" + String(pick.text).slice(0, 300) + "\n"
           + "现在以「" + char.name + "」的身份写【你记得的那一版】。\n"
           + "要紧的是：你留意到的、和她写下来的，多半不是同一处。写你当时真正在看的东西、"
@@ -24257,7 +24273,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const uNm = (profile && profile.name) || "她";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。此刻你想着 " + uNm + "，但你没有发消息——你走到你俩的愿望板前，"
+        instruction: relSay(char) + "。此刻你想着 " + uNm + "，但你没有发消息——你走到你俩的愿望板前，"
           + "钉上一条【你自己想跟 " + uNm + " 一起做的事】。\n"
           + (styleHint ? styleHint + "\n" : "")
           + "这条是【你想的】，不是替她想的，也不是替她安排的：写你自己心里那件真想跟她一块儿去做、"
@@ -24323,7 +24339,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _pickZh = (OUTLET_KINDS.find(x => x[0] === _pick) || [])[1] || _pick;
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
+        instruction: relSay(char) + "。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
           + "【这一次留的是这一样】" + OUTLET_PICK[_pick] + "\n"
@@ -24532,7 +24548,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }) : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。你们共同的空间里要种下一盆花，由你来挑。以「" + char.name + "」的身份：\n"
+        instruction: relSay(char) + "。你们共同的空间里要种下一盆花，由你来挑。以「" + char.name + "」的身份：\n"
           + "· species：一种真实存在的花或植物——你真会想跟 Ta 一起养的那一种，不是花语大全里最好听的那一种。\n"
           + "· why：为什么是它，说给 Ta 听的一句。判据：**换一对情侣照样成立的那一句，就是挑坏了**——"
           + "它得连着你俩之间真实发生过的某件事、或某个只有你们才有的偏好。\n"
@@ -24601,7 +24617,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。你们俩定下来要一起去「" + trip.dest + "」——现在由你来排这趟旅行。"
+        instruction: relSay(char) + "。你们俩定下来要一起去「" + trip.dest + "」——现在由你来排这趟旅行。"
           + (window.DatePlaces ? window.DatePlaces.hint(char.id) : "")
           + "以「" + char.name + "」的身份出 3-6 段行程：每段一个 when（哪一天的什么时段）、"
           + "一个 where（具体到店、街、馆那一级，不是城市名）、一句 note——【为什么带 Ta 去这儿】，"
@@ -24638,7 +24654,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const from = g ? String(g.label || g.world || "") : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人，要一起去「" + trip.dest + "」" + (from ? "，从「" + from + "」出发" : "") + "。现在在订机票和酒店。"
+        instruction: relSay(char) + "，要一起去「" + trip.dest + "」" + (from ? "，从「" + from + "」出发" : "") + "。现在在订机票和酒店。"
           + "按你们所在的世界和这个目的地，列出 3 班去程交通（飞机为主；这个世界或这段路没有飞机就换成火车、船、马车这类当地真会有的）和 3 家酒店，"
           + "价格用人民币、按这个世界的物价写实在的数，三档要拉开（便宜的、适中的、贵的），各带一句实话短评。"
           + (trip.plan && trip.plan.legs && trip.plan.legs.length ? "已经排好的行程：" + trip.plan.legs.map(l => l.where).join("、") + "——酒店离这些地方远近要说得出。" : "")
@@ -25317,8 +25333,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cp = (couplesRef.current || {})[char.id];
     const R = rels || {};
     const label = [R["me->" + char.id], R[char.id + "->me"]].filter(Boolean).map(r => r.label || "").join("、");
-    const tier = (cp && cp.status === "together") || POV_LOVE_RE.test(label) ? 3
-      : POV_CLOSE_RE.test(label) || affOf(char.id) >= 70 ? 2 : 1;
+    const together = cp && cp.status === "together", lover = together && spaceRelKey(cp) === "lover";
+    const tier = lover || POV_LOVE_RE.test(label) ? 3
+      : together || POV_CLOSE_RE.test(label) || affOf(char.id) >= 70 ? 2 : 1;   // 闺蜜 / 挚友 / 家人空间：亲近那层，不是恋人那层
     const st = (statesRef.current || {})[char.id] || {};
     return { tier, name: char.remark || char.name || "TA", rel: label || (tier === 3 ? "恋人" : ""),
       wear: freshLiveStateValue(st, "wearing") || st.wearing || char.photoOutfit || "", look: String(char.appearance || "").slice(0, 80) };
@@ -25915,7 +25932,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️这里【不许】把她的答案递进来。递了TA就是在回话，不是在答题——
         // 两份答案摆在一起才有意思，而那要求TA写的时候确实没看过她那份。
         voice: true,
-        instruction: "你们是恋人。你俩有一个「情侣问答小本」，规矩是【同一道题各写各的、两边都写完才互相看】。"
+        instruction: relSay(char) + "。你俩有一个「情侣问答小本」，规矩是【同一道题各写各的、两边都写完才互相看】。"
           + "现在轮到你以「" + char.name + "」的身份写你那一份。\n【题目】" + item.question + "\n"
           + "她那一份已经封着了，你看不到，也不用去猜她会怎么写——就照你自己真实的想法答。"
           + "真挚、贴合人设，2-4 句，别喊口号，答完整别中途断。",
@@ -25965,7 +25982,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const thread = [...(e.replies || []), mine].map(r => (r.authorId === "user" ? me : char.name) + "：" + r.content).join("\n");
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。你俩的「情侣问答小本」里，这道题两个人都写完、已经一起打开了。\n【题目】" + e.question
+        instruction: relSay(char) + "。你俩的「情侣问答小本」里，这道题两个人都写完、已经一起打开了。\n【题目】" + e.question
           + "\n【" + me + "写的】" + (e.myAnswer || "（没写）") + "\n【你写的】" + (e.charAnswer || "（没写）")
           + "\n现在你们在这一页底下留言聊这题：\n" + thread + "\n\n以「" + char.name + "」的身份回她最新这句，可以说说看了她那份的感受、两份哪儿像哪儿不像。这是你在小本底下【打给她看的留言】，不是心里话、不是旁白；只回这一次，别替她接话。1-3 条短消息（气泡），贴人设，别复述题目。",
         salvage: raw => { const m = String(raw).match(/"bubbles"\s*:\s*\[([\s\S]*?)\]/); if (!m) return null; const arr = (m[1].match(/"((?:[^"\\]|\\.)*)"/g) || []).map(x => { try { return JSON.parse(x); } catch (e) { return ""; } }).filter(Boolean); return arr.length ? { bubbles: arr } : null; },
@@ -26022,7 +26039,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。用户在你俩的「情侣问答小本」里回答了一道题，请以「" + char.name + "」的身份重新回答同一道题——真挚、贴合人设、顺着用户的回答接话，2-4 句，别喊口号，答完整别中途断。\n【题目】" + entry.question + "\n【用户的回答】" + (entry.myAnswer || "（TA 没写）"),
+        instruction: relSay(char) + "。用户在你俩的「情侣问答小本」里回答了一道题，请以「" + char.name + "」的身份重新回答同一道题——真挚、贴合人设、顺着用户的回答接话，2-4 句，别喊口号，答完整别中途断。\n【题目】" + entry.question + "\n【用户的回答】" + (entry.myAnswer || "（TA 没写）"),
         schemaHint: "{\"answer\":\"你的回答\"}",
         maxTokens: 9400
       });
@@ -26117,7 +26134,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const uN = profile.name || "对方";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
         voice: true,
-        instruction: "你们是恋人，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
+        instruction: relSay(char) + "，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
         schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",
         maxTokens: 14000
       });
@@ -26171,7 +26188,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你们是恋人。" + (occasion ? "今天是你们的「" + String(occasion).slice(0, 20) + "」。" : "")
+        instruction: relSay(char) + "。" + (occasion ? "今天是你们的「" + String(occasion).slice(0, 20) + "」。" : "")
           + "以「" + char.name + "」身份，为你俩的恋爱时间轴写一条此刻的「感慨」——"
           + (occasion ? "写走到今天这个日子的真实感受，要落在你们之间某件具体的事上，不许写贺词；" : "")
           + "一个短标题（≤10 字）+ 一两句话（≤40 字），贴人设与当下心情，别喊口号。",
@@ -26274,7 +26291,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         voice: true,
         // 字数（她 2026-09-05：「情书是不是也有点短」）：150-300 写不开——
         // 那是张卡片的长度，不是一封信。下限比上限重要：说清至少要写到这个份上。
-        instruction: "你们是恋人。以「" + char.name + "」身份，给用户写一封**情书**——正式、真挚、有分量（不是日常小纸条）。" + LETTER_PERSON
+        instruction: relSay(char) + "。以「" + char.name + "」身份，给用户写一封**" + letterWord(char) + "**——正式、真挚、有分量（不是日常小纸条）。" + LETTER_PERSON
           + "一个标题 + 一封完整的信：**至少 450 个汉字、别超过 1000**，4-7 个自然段，贴人设，可回顾你们的点滴、说心里话，结尾落款。"
           + "别喊口号、别写成流水账。⚠️长不等于绕：每一段都要有一件具体的事或一句真话，别用感慨和排比把篇幅填满。信要写完整，别中途断。" + PAST_LETTERS,
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
@@ -26316,8 +26333,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (days < Math.max(3, threshold)) continue;
         const ok = await bgJob("letter", c, () => genCoupleLetter(c));
         if (ok) {
-          toast(c.name + " 给你写了封情书");
-          if (window.Notify) window.Notify.push({ title: c.name + " 给你写了封情书", body: "去情侣空间拆开看看", tag: "letter-" + c.id, charId: c.id });
+          toast(c.name + " 给你写了封" + letterWord(c));
+          if (window.Notify) window.Notify.push({ title: c.name + " 给你写了封" + letterWord(c), body: "去" + spaceRel((couplesRef.current || {})[c.id]).space + "拆开看看", tag: "letter-" + c.id, charId: c.id });
         }
         break; // 一次最多一封
       }
@@ -26342,7 +26359,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), { // 情书回信=TA 亲笔，跟随专线（v48.37）
         voice: true,
-        instruction: "你们是恋人，在情书里一来一回。" + (isNewLetter ? "用户刚给你写了一封情书，你读完后回应" : "顺着下面的情书往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】\n" + (context || ""),
+        instruction: relSay(char) + "，在" + letterWord(char) + "里一来一回。" + (isNewLetter ? "用户刚给你写了一封" + letterWord(char) + "，你读完后回应" : "顺着下面的" + letterWord(char) + "往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】\n" + (context || ""),
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 12000
       });
@@ -30219,7 +30236,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     discNowId: player.songId,
     discPlaying: !!player.playing,
     onBack: goHome,
-    onInvite: sendCoupleInvite,
+    onInvite: sendCoupleInvite, onSetRel: setCoupleRel,
     onUnlink: unlinkCouple,
     onSetSince: setCoupleSince,
     profile: profile,

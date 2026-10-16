@@ -3573,18 +3573,33 @@ function herStableLines(ctx, uName) {
   if (!ctx.notRoleplay && ctx.coupleArchive) out.push(coupleArchiveBlock(ctx.coupleArchive, uName));
   return out.filter(Boolean);
 }
+// 「我们」这个空间是什么关系（她 2026-10-16：群友跟闺蜜开了情侣空间，收到的情书越看越不对劲 →「做吧」）。
+//   原来只有恋人一种：邀请卡写「想和你在一起」、接了就当在一起，情书悄悄话纪念日全按恋人写。
+//   现在开空间时挑关系；老存档没写的一律当恋人。名字、邀请那句、信叫什么、给模型的那句关系都从这一张表拿，别处不另写。
+const SPACE_RELS = {
+  lover:  { zh: "恋人", space: "情侣空间", letter: "情书", invite: "想和你在一起", together: "你们在一起了" },
+  bestie: { zh: "闺蜜 / 死党", space: "闺蜜空间", letter: "信", invite: "想和你做最铁的那种朋友", together: "你们成了最铁的朋友" },
+  friend: { zh: "挚友", space: "挚友空间", letter: "信", invite: "想把你当作一辈子的朋友", together: "你们是挚友了" },
+  family: { zh: "家人", space: "家人空间", letter: "家书", invite: "想和你像家人一样", together: "你们成了家人" }
+};
+function spaceRelKey(v) { const k = v && typeof v === "object" ? v.rel : v; return SPACE_RELS[k] ? k : "lover"; }
+function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }
+if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; }
 function coupleStatusLines(ctx, uName) {
   const out = [], char = ctx.char, rels = ctx.rels, chars = ctx.chars;
   // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
   // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
   if (!ctx.notRoleplay && ctx.coupleStatus) {
-    const cs = String(ctx.coupleStatus).split("|");
-    if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
+    const cs = String(ctx.coupleStatus).split("|"), rk = spaceRelKey(cs[2]), rl = SPACE_RELS[rk];
+    if (cs[0] === "together" && rk !== "lover") out.push("【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
+      + (rk === "family" ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (rk === "family" ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。");
+    else if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
+    else if (cs[0] === "pending" && rk !== "lover") out.push("【" + rl.space + "邀请待定】" + uName + " 想跟你开一个" + rl.space + "（" + rl.zh + "那种关系，不是恋人），你还没回应。");
     else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
   }
   // ⚠️和用户【不是】恋人时不能就此留白——那个空白正是病根。补上另一半：TA是不是和别人在一起了。
   //   （notRoleplay＝言秋那种不被扮演的，照旧不发扮演类的层）
-  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together")) {
+  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together" && spaceRelKey(String(ctx.coupleStatus).split("|")[2]) === "lover")) {
     const taken = takenByOthersLine(char && char.id, rels, chars, uName);
     if (taken) out.push(taken);
   }
