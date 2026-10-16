@@ -23707,6 +23707,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const usingAlt = post => !(post && (post.board === "匿名吧" || post.anon)) && forumMe.using === "alt";
   const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : forumMaskNow() ? forumMaskName(forumMaskNow()) : (forumMe.handle || profile.name || "我");
   const myMaskTag = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && forumMaskNow() ? { mask: forumMaskNow() } : {};
+  // 大号露脸就涨一点粉（群友 2026-10-16：发帖涨了，「为啥评论不会涨」）：发帖、评论、楼中楼都走这一处。
+  //   weight 1＝发帖，评论按 0.3 算；匿名、小号、面具都不算在大号头上。
+  const growMyFans = weight => {
+    const f0 = Math.max(0, Number(forumMe.followers) || 0), w = Math.max(0, Number(weight) || 0);
+    const add = Math.round((f0 * (0.002 + Math.random() * 0.006) + Math.random() * 6) * w);
+    if (add > 0 || w >= 1) editForumMe({ followers: f0 + Math.max(w >= 1 ? 1 : 0, add) });
+  };
+  const fansCount = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && !forumMaskNow();
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
@@ -23715,6 +23723,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
+    if (fansCount(post)) growMyFans(0.3);
     genRepliesToMe(post, fid, forumWithPhoto(text, floor), "", floor);
   };
   // 我回复楼中楼 → 随后刷几条回我的挂到同一层
@@ -23731,6 +23740,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
+    if (fansCount(post)) growMyFans(0.3);
     genRepliesToMe(post, floorId, text, to);
   };
   // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
@@ -23871,7 +23881,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
     // 大号发帖会涨一点粉（群友 2026-10-16「我个人的粉丝数量会变化吗」）：按现有粉丝的千分之几起步，最少几个，匿名吧不算
-    if (!anonB && !maskB) { const f0 = Math.max(0, Number(forumMe.followers) || 0); editForumMe({ followers: f0 + Math.max(1, Math.round(f0 * (0.002 + Math.random() * 0.006) + Math.random() * 6)) }); }
+    if (!anonB && !maskB) growMyFans(1);
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
   };
   // 搜索：随机刷到四版块之外的吧（据全局聊天/世界话题），board 由 AI 起名

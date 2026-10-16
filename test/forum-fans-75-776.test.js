@@ -9,5 +9,10 @@ test("编辑资料里能填粉丝数", () => {
   assert.match(scr, /followers: Math\.max\(0, parseInt\(emFans, 10\) \|\| 0\)/);
 });
 test("大号发帖涨一点粉，匿名吧和面具帖不算", () => {
-  assert.match(app, /if \(!anonB && !maskB\) \{ const f0 = Math\.max\(0, Number\(forumMe\.followers\) \|\| 0\); editForumMe\(\{ followers:/);
+  assert.match(app, /if \(!anonB && !maskB\) growMyFans\(1\);/);
+});
+
+test("评论、楼中楼也涨（少一点），匿名、小号、面具不算", () => {
+  assert.equal((app.match(/if \(fansCount\(post\)\) growMyFans\(0\.3\);/g) || []).length, 2);
+  assert.match(app, /const fansCount = post => !\(post && \(post\.board === "匿名吧" \|\| post\.anon\)\) && !usingAlt\(post\) && !forumMaskNow\(\);/);
 });
