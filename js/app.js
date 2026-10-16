@@ -16771,8 +16771,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const schedPeerBlock = (char, dayKeys) => {
     const plans = schedulesRef.current || {};
     const nm = String(char.name || "").trim();
+    // 只看【同一个世界】里的人（她 2026-10-16 转群友：同一个人的现代版和西幻版连着关系线，
+    //   现代那位的日程照抄了西幻那位的「夏宫别墅、鹿鸣泉」）：钉在不同架空世界里的、一个钉了一个没钉的，不互相参照
+    const worldKeyOf = c => { const r = window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null; return r && r.kind === "world" && r.world ? "w:" + r.world.id : "real"; };
+    const myWorld = worldKeyOf(char);
     const peers = (characters || []).filter(c => c && c.id !== char.id && !c.npc
       && (rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id])
+      && worldKeyOf(c) === myWorld
       && Object.keys(plans[c.id] || {}).length).slice(0, SCHED_PEER_MAX);
     if (!peers.length) return "";
     const days = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);

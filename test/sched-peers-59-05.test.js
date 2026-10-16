@@ -7,8 +7,11 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), comp = R("components.js");
 const src = app.slice(app.indexOf("  const SCHED_PEER_MAX = 3"), app.indexOf("  const genScheduleDay = async (char, dayKey) => {"));
 // 纯函数拿出来真跑：characters / rels / schedulesRef 由外面喂
-const mk = (chars, rels, plans) => new Function("characters", "rels", "schedulesRef",
-  src + "\nreturn schedPeerBlock;")(chars, rels, { current: plans });
+// window / worldsRef：同一个世界才互相参照（2026-10-16）——桩照 map.js 的 charRealm：钉在哪个世界的 pins 里就是哪个世界
+const mk = (chars, rels, plans, worlds) => new Function("characters", "rels", "schedulesRef", "window", "worldsRef",
+  src + "\nreturn schedPeerBlock;")(chars, rels, { current: plans },
+    { MapKit: { charRealm: (c, ws) => { const w = (ws || []).find(x => x.pins && x.pins[c.id]); return w ? { kind: "world", world: w } : { kind: "real" }; } } },
+    { current: worlds || [] });
 const CH = [{ id: "c1", name: "裴照川" }, { id: "c2", name: "陆闻" }, { id: "c3", name: "路人" }];
 const RELS = { "c1->c2": { label: "下属" }, "c2->c1": { label: "上司" } };
 const K = "2026-08-31";
@@ -84,4 +87,12 @@ test("从聊天点进日程，直接落在那一天", () => {
   // 主屏那个日历组件进来（没有 initialView）仍旧是整月——那一处本来就该是整月
   assert.match(comp, /从主屏日历组件进来（没有 initialView）仍旧是整月/, "没写清为什么另一处不改");
   assert.match(comp, /const \[daySel, setDaySel\] = useState\(todayKey\);/, "落到那一天了却不是今天");
+});
+
+test("不同世界的人不互相参照（同一个人的现代版和西幻版连着关系线也一样）", () => {
+  const W = [{ id: "w_fantasy", pins: { c2: "夏宫" } }];
+  const out = mk(CH, RELS, PLANS, W)(CH[0], [K]);
+  assert.equal(out, "", "c1 没钉（现实），c2 钉在西幻里，不该带上 c2 的安排");
+  const W2 = [{ id: "w_fantasy", pins: { c1: "a", c2: "b" } }];
+  assert.match(mk(CH, RELS, PLANS, W2)(CH[0], [K]), /城南茶楼/, "同一个世界照旧参照");
 });
