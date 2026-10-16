@@ -34,6 +34,12 @@
       desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" },
     { key: "liar", emoji: "🎲", zh: "骗子骰", en: "Liar's Dice", min: 2, max: 6,
       desc: "每人五颗骰子扣着，轮流叫「桌上至少有几个几」，觉得上家在吹就开。1 点万能，每人三条命，撑到最后的赢。", rule: "2~6 人 · 每人 5 颗骰子 · 3 条命" },
+    { key: "poker", emoji: "♠️", zh: "德州扑克", en: "Texas Hold'em", min: 2, max: 6,
+      desc: "每人两张底牌，桌上五张公共牌，翻牌前、翻牌、转牌、河牌四轮下注，凑最大的五张。可以弃、跟、加注、全下，诈唬也算本事。", rule: "2~6 人 · 每人 1000 筹码 · 盲注 10/20 · 打十手" },
+    { key: "oldmaid", emoji: "🃏", zh: "抽鬼牌", en: "Old Maid", min: 2, max: 4,
+      desc: "一副牌加一张鬼牌发完，成对的先扔掉。轮流从下家手里抽一张，凑成对就扔，手里先空的上岸，最后捏着鬼牌的输。", rule: "2~4 人 · 53 张 · 最后拿鬼牌的输" },
+    { key: "blackjack", emoji: "🂡", zh: "21 点", en: "Blackjack", min: 2, max: 4,
+      desc: "庄家发牌，大家各自跟庄比：要牌、停牌、加倍，点数越接近 21 越好，爆了就输。A 算 1 或 11，JQK 算 10。", rule: "2~4 人 · 庄家发牌 · 每人 100 筹码 · 打八手" },
     { key: "date", emoji: "✉️", zh: "各怀心思的约会", en: "Secret Date", min: 2, max: 2,
       desc: "你和 TA 各抽一张秘密任务，有的看你们去了哪、做了什么，有的看你们聊了什么。每局的去处从一大堆地方里抽，路上还会撞上小意外；每到一站 TA 都会接话、替你挑东西。收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
     { key: "tetris", emoji: "🧱", zh: "俄罗斯方块", en: "Tetris", min: 2, max: 2,
@@ -259,6 +265,9 @@
     gomoku:    { paper: "#ecdcb8", ink: "#4a3a22", hot: "#1f1d1b", band: "#4a3a22", bandInk: "#ecdcb8" },
     uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" },
     liar:      { paper: "#e9dccb", ink: "#4b3527", hot: "#a8442f", band: "#4b3527", bandInk: "#e9dccb" },
+    poker:     { paper: "#dfe9df", ink: "#24402f", hot: "#b8433a", band: "#24402f", bandInk: "#dfe9df" },
+    oldmaid:   { paper: "#ebe3f0", ink: "#47395a", hot: "#7a4fb0", band: "#47395a", bandInk: "#ebe3f0" },
+    blackjack: { paper: "#e4e8de", ink: "#2c3a2a", hot: "#c0392b", band: "#2c3a2a", bandInk: "#e4e8de" },
     date:      { paper: "#f3e2d8", ink: "#654137", hot: "#b86651", band: "#654137", bandInk: "#f3e2d8" },
     story:     { paper: "#eee8dc", ink: "#3e4250", hot: "#5d6fa3", band: "#3e4250", bandInk: "#eee8dc" },
     tetris:    { paper: "#26252c", ink: "#ece8e0", hot: "#e8b53c", band: "#17161b", bandInk: "#ece8e0" }
@@ -365,6 +374,28 @@
         h("rect", { key: "f", x: 92, y: 36, width: 14, height: 14, rx: 3, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(-12 99 43)" }),
         h("circle", { key: "g", cx: 96, cy: 40, r: 1.5, fill: c.ink }), h("circle", { key: "i", cx: 102, cy: 46, r: 1.5, fill: c.ink })
       ],
+      // 两张底牌叠着，旁边一摞筹码
+      poker: [
+        h("rect", { key: "a", x: 30, y: 26, width: 28, height: 38, rx: 4, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(-10 44 45)" }),
+        h("rect", { key: "b", x: 46, y: 24, width: 28, height: 38, rx: 4, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(8 60 43)" }),
+        h("text", { key: "c", x: 60, y: 48, textAnchor: "middle", fontSize: 16, fill: c.ink }, "♠"),
+        h("ellipse", { key: "d", cx: 92, cy: 62, rx: 12, ry: 4, fill: c.hot }), h("ellipse", { key: "e", cx: 92, cy: 56, rx: 12, ry: 4, fill: c.ink }), h("ellipse", { key: "f", cx: 92, cy: 50, rx: 12, ry: 4, fill: c.hot })
+      ],
+      // 一把扇开的牌，中间那张是鬼
+      oldmaid: [
+        h("rect", { key: "a", x: 34, y: 28, width: 26, height: 36, rx: 4, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(-18 47 64)" }),
+        h("rect", { key: "b", x: 47, y: 24, width: 26, height: 36, rx: 4, fill: "#fff", stroke: c.hot, strokeWidth: 1.5 }),
+        h("rect", { key: "c", x: 60, y: 28, width: 26, height: 36, rx: 4, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(18 73 64)" }),
+        h("text", { key: "d", x: 60, y: 48, textAnchor: "middle", fontSize: 15 }, "🃏")
+      ],
+      // A 和 K 摊开，旁边写个 21
+      blackjack: [
+        h("rect", { key: "a", x: 28, y: 26, width: 28, height: 38, rx: 4, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
+        h("text", { key: "b", x: 42, y: 50, textAnchor: "middle", fontSize: 15, fill: c.ink }, "A"),
+        h("rect", { key: "c", x: 52, y: 30, width: 28, height: 38, rx: 4, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
+        h("text", { key: "d", x: 66, y: 54, textAnchor: "middle", fontSize: 15, fill: c.hot }, "K"),
+        h("text", { key: "e", x: 98, y: 52, textAnchor: "middle", fontSize: 18, fontWeight: 700, fill: c.hot }, "21")
+      ],
       // 摊开的本子，一行行字一直写到右页，末尾一支笔
       date: [
         h("path", { key: "a", d: "M19 35h35v30H19zM67 23h35v30H67z", fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
@@ -462,6 +493,9 @@
       if (session.game.key === "gomoku") return h(GomokuGame, engineProps);
       if (session.game.key === "draw") return h(DrawGuessGame, engineProps);
       if (session.game.key === "liar") return h(LiarDiceGame, engineProps);
+      if (session.game.key === "poker") return h(PokerGame, engineProps);
+      if (session.game.key === "oldmaid") return h(OldMaidGame, engineProps);
+      if (session.game.key === "blackjack") return h(BlackjackGame, engineProps);
       if (session.game.key === "story") return h(StoryChainGame, engineProps);
       if (session.game.key === "tetris" && window.TetrisCore) return h(TetrisGame, Object.assign({}, engineProps, { t: t }));
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
@@ -2849,6 +2883,9 @@
     gomoku: ["#c8a467", "#4a3a22"],
     draw: ["#d0533f", "#3f6fb0"],
     liar: ["#a8442f", "#4b3527"],
+    poker: ["#2f6b45", "#1d3326"],
+    oldmaid: ["#7a4fb0", "#47395a"],
+    blackjack: ["#2c6b4a", "#1f2e24"],
     date: ["#b86651", "#537c71"],
     story: ["#5d6fa3", "#3e4250"],
     tetris: ["#4fb3c8", "#26252c"]
@@ -6586,7 +6623,569 @@
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在想怎么接…（要用上「" + state.word + "」）") : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  // ============================================================
+  // 牌桌三样（她 2026-10-16：「打牌类放进小游戏」→「节奏你看看 uno 怎么做」→「都做了」）：
+  //   德州扑克 / 抽鬼牌 / 21 点。节奏照 UNO、骗子骰：规则、发牌、算输赢全在本机；
+  //   轮到角色的座位时问 TA 本人一次（能做的几样摆给 TA，TA 照自己的性格挑、顺口说一句，也可以不说）；
+  //   答得不合规、或者是配角（NPC）座位，就退回本机那一手。她的那一手也能顺口说一句。
+  // ============================================================
+  const CARD_SUITS = ["♠", "♥", "♦", "♣"], CARD_RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+  function cardDeck(rnd) {
+    const d = [];
+    CARD_SUITS.forEach(function (s) { CARD_RANKS.forEach(function (r, i) { d.push({ r: r, s: s, v: i + 2 }); }); });
+    return cardShuffle(d, rnd);
+  }
+  function cardShuffle(a, rnd) { const r = rnd || Math.random; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+  function cardName(c) { return c ? (c.joker ? "鬼牌" : c.s + c.r) : "?"; }
+  // 一张牌：白底圆角，红桃方块红字；back=扣着
+  function PlayCard(props) {
+    const c = props.c, w = props.w || 38, back = props.back || !c;
+    const red = c && (c.s === "♥" || c.s === "♦");
+    return h("div", { "data-wk": "gamecard", "data-on": props.hot ? "1" : "0", onClick: props.onClick, style: { width: w, height: Math.round(w * 1.4), borderRadius: Math.round(w / 7), flexShrink: 0,
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: props.onClick ? "pointer" : "default",
+        transform: props.lift ? "translateY(-8px)" : "none", transition: "transform .15s",
+        background: back ? "repeating-linear-gradient(45deg,#7d3b34 0 5px,#93473f 5px 10px)" : "#fbf8f1",
+        border: (props.hot ? "2px solid #e0a23a" : "1px solid rgba(47,42,36,.3)"), boxShadow: "0 2px 5px rgba(0,0,0,.18)", color: c && c.joker ? "#7a4fb0" : red ? "#c0392b" : "#2f2a24" } },
+      back ? null : c.joker ? h("span", { style: { fontSize: Math.round(w * .55) } }, "🃏")
+        : [h("span", { key: "r", style: { fontFamily: F_DISPLAY, fontSize: Math.round(w * .42), lineHeight: 1 } }, c.r), h("span", { key: "s", style: { fontSize: Math.round(w * .38), lineHeight: 1.1 } }, c.s)]);
+  }
+  function cardTalk(state, n) { return state.log.slice(-(n || 8)).map(function (x) { return x.text; }).join("\n"); }
+  // 桌上那块绒布（三样共用）
+  function feltBox(children, part) {
+    return h("div", { "data-wk": "gamefelt", "data-part": part, style: { position: "relative", borderRadius: 18, padding: "14px 12px 16px", marginBottom: 12, textAlign: "center", color: "#eef3ea",
+      background: "radial-gradient(120% 90% at 50% 30%, #2f6b4f 0%, #1f4e39 70%, #183d2d 100%)",
+      boxShadow: "inset 0 0 0 3px rgba(230,255,235,.07), inset 0 10px 30px rgba(0,0,0,.35), 0 8px 18px rgba(10,30,20,.25)" } }, children);
+  }
+  function cardSeatChar(props, p) { return p.isUser ? { name: p.name, avatarImage: (props.profile || {}).avatarImage, color: (props.profile || {}).color } : (props.characters || []).find(function (c) { return String(c.id) === String(p.key); }); }
+  function addChat(n, p, say) { const s = String(say || "").trim(); if (s) n.log.push({ kind: "chat", player: p.key, text: p.name + "：“" + s.slice(0, 160) + "”" }); }
+
+  // ---------------- 德州扑克 ----------------
+  const PK_CHIPS = 1000, PK_SB = 10, PK_BB = 20, PK_HANDS = 10;
+  // 七张里挑最好的五张：返回可比较的数组 [牌型, 比大小的点数…] 和牌型名
+  const PK_CAT = ["高牌", "一对", "两对", "三条", "顺子", "同花", "葫芦", "四条", "同花顺"];
+  function pkEval5(cs) {
+    const vs = cs.map(function (c) { return c.v; }).sort(function (a, b) { return b - a; });
+    const flush = cs.every(function (c) { return c.s === cs[0].s; });
+    let uniq = vs.filter(function (v, i) { return vs.indexOf(v) === i; });
+    let straightHi = 0;
+    if (uniq.length === 5 && vs[0] - vs[4] === 4) straightHi = vs[0];
+    if (uniq.length === 5 && vs[0] === 14 && vs[1] === 5 && vs[4] === 2) straightHi = 5;
+    const cnt = {}; vs.forEach(function (v) { cnt[v] = (cnt[v] || 0) + 1; });
+    const groups = Object.keys(cnt).map(Number).sort(function (a, b) { return cnt[b] - cnt[a] || b - a; });
+    const shape = groups.map(function (v) { return cnt[v]; });
+    if (straightHi && flush) return [8, straightHi];
+    if (shape[0] === 4) return [7].concat(groups);
+    if (shape[0] === 3 && shape[1] === 2) return [6].concat(groups);
+    if (flush) return [5].concat(vs);
+    if (straightHi) return [4, straightHi];
+    if (shape[0] === 3) return [3].concat(groups);
+    if (shape[0] === 2 && shape[1] === 2) return [2].concat(groups);
+    if (shape[0] === 2) return [1].concat(groups);
+    return [0].concat(vs);
+  }
+  function pkCmp(a, b) { for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) return d; } return 0; }
+  function pkBest(cards) {
+    let best = null;
+    for (let a = 0; a < cards.length; a++) for (let b = a + 1; b < cards.length; b++) {
+      const five = cards.filter(function (_, i) { return i !== a && i !== b; });
+      if (five.length !== 5) continue;
+      const sc = pkEval5(five); if (!best || pkCmp(sc, best) > 0) best = sc;
+    }
+    if (!best && cards.length === 5) best = pkEval5(cards);
+    return best || [0];
+  }
+  function pkLive(state) { return state.players.filter(function (p) { return p.chips > 0 || p.inHand; }); }
+  function pkNext(state, from, pred) {
+    const L = state.players.length;
+    for (let i = 1; i <= L; i++) { const j = (from + i) % L; if (pred(state.players[j])) return j; }
+    return -1;
+  }
+  const pkCanAct = function (p) { return p.inHand && !p.folded && !p.allin; };
+  function pkNewGame(players, rnd) {
+    const state = { id: "poker_" + Date.now().toString(36), status: "playing", hand: 0, log: [], dealer: Math.floor((rnd || Math.random)() * players.length), board: [], street: "", pot: 0, winner: null,
+      players: players.map(function (p) { return Object.assign({}, p, { chips: PK_CHIPS, hole: [], bet: 0, put: 0, folded: false, allin: false, inHand: false, acted: false }); }) };
+    return pkNewHand(state, rnd);
+  }
+  function pkNewHand(state, rnd) {
+    const alive = state.players.filter(function (p) { return p.chips > 0; });
+    if (alive.length <= 1 || state.hand >= PK_HANDS) return pkFinish(state);
+    state.hand += 1; state.deck = cardDeck(rnd); state.board = []; state.street = "preflop"; state.showdown = null;
+    state.players.forEach(function (p) { p.hole = []; p.bet = 0; p.put = 0; p.folded = p.chips <= 0; p.allin = false; p.inHand = p.chips > 0; p.acted = false; });
+    state.dealer = pkNext(state, state.dealer, function (p) { return p.inHand; });
+    const heads = alive.length === 2;
+    const sb = heads ? state.dealer : pkNext(state, state.dealer, function (p) { return p.inHand; });
+    const bb = pkNext(state, sb, function (p) { return p.inHand; });
+    state.players.forEach(function (p) { if (p.inHand) p.hole = [state.deck.pop(), state.deck.pop()]; });
+    pkPost(state, sb, PK_SB); pkPost(state, bb, PK_BB);
+    state.curBet = PK_BB; state.minRaise = PK_BB;
+    state.turn = pkNext(state, bb, pkCanAct);
+    state.log.push({ kind: "sys", text: "—— 第 " + state.hand + " / " + PK_HANDS + " 手 · " + state.players[state.dealer].name + " 坐庄，" + state.players[sb].name + " 小盲 " + PK_SB + "，" + state.players[bb].name + " 大盲 " + PK_BB + " ——" });
+    if (state.turn < 0) pkAdvance(state);
+    return state;
+  }
+  function pkPost(state, i, amt) { const p = state.players[i], a = Math.min(amt, p.chips); p.chips -= a; p.bet += a; p.put += a; if (p.chips === 0) p.allin = true; }
+  function pkPot(state) { return state.players.reduce(function (s, p) { return s + p.put; }, 0); }
+  // 现在这个人能做哪几样
+  function pkOptions(state, i) {
+    const p = state.players[i], toCall = Math.max(0, state.curBet - p.bet);
+    const o = { toCall: Math.min(toCall, p.chips), canCheck: toCall === 0, minRaiseTo: state.curBet + state.minRaise, maxTo: p.bet + p.chips };
+    o.canRaise = o.maxTo > state.curBet && p.chips > toCall;
+    return o;
+  }
+  // 一手：{kind:"fold"|"check"|"call"|"raise"(to)|"allin", say}
+  function pkAct(state, action) {
+    const i = state.turn, p = state.players[i];
+    if (!p || state.status !== "playing" || !pkCanAct(p)) throw new Error("现在不是出手的时候");
+    const o = pkOptions(state, i), say = String((action && action.say) || "").trim().slice(0, 160);
+    let k = action.kind, txt = "";
+    if (k === "check" && !o.canCheck) k = "call";
+    if (k === "call" && o.toCall === 0) k = "check";
+    if (k === "raise") {
+      let to = Math.floor(Number(action.to) || 0);
+      if (to >= o.maxTo) k = "allin";
+      else if (!o.canRaise || to < o.minRaiseTo) throw new Error("加注至少要加到 " + o.minRaiseTo);
+      else { const add = to - p.bet; p.chips -= add; p.put += add; p.bet = to; state.minRaise = to - state.curBet; state.curBet = to; state.players.forEach(function (q) { if (q !== p) q.acted = false; }); txt = "加注到 " + to; }
+    }
+    if (k === "allin") {
+      const add = p.chips, to = p.bet + add; p.chips = 0; p.put += add; p.bet = to; p.allin = true;
+      if (to > state.curBet) { if (to - state.curBet >= state.minRaise) state.minRaise = to - state.curBet; state.curBet = to; state.players.forEach(function (q) { if (q !== p) q.acted = false; }); }
+      txt = "全押（" + to + "）";
+    }
+    if (k === "fold") { p.folded = true; txt = "弃牌"; }
+    if (k === "check") txt = "过牌";
+    if (k === "call") { const a = o.toCall; p.chips -= a; p.put += a; p.bet += a; if (p.chips === 0) p.allin = true; txt = "跟 " + a; }
+    if (!txt) throw new Error("看不懂这一手");
+    p.acted = true;
+    state.log.push({ kind: "move", player: p.key, text: p.name + "：" + txt + (say ? "　“" + say + "”" : "") });
+    const inPlay = state.players.filter(function (q) { return q.inHand && !q.folded; });
+    if (inPlay.length === 1) return pkAward(state, [[inPlay[0]]], true);
+    const waiting = state.players.filter(function (q) { return pkCanAct(q) && (!q.acted || q.bet < state.curBet); });
+    if (waiting.length) { state.turn = pkNext(state, i, function (q) { return pkCanAct(q) && (!q.acted || q.bet < state.curBet); }); return state; }
+    return pkAdvance(state);
+  }
+  // 这一圈下完：发下一条街，或者摊牌
+  function pkAdvance(state) {
+    state.players.forEach(function (q) { q.bet = 0; q.acted = false; });
+    state.curBet = 0; state.minRaise = PK_BB;
+    const order = ["preflop", "flop", "turn", "river"], next = order[order.indexOf(state.street) + 1];
+    const canBet = state.players.filter(function (q) { return pkCanAct(q); }).length;
+    if (!next) return pkShowdown(state);
+    if (next === "flop") state.board.push(state.deck.pop(), state.deck.pop(), state.deck.pop()); else state.board.push(state.deck.pop());
+    state.street = next;
+    state.log.push({ kind: "sys", text: ({ flop: "翻牌", turn: "转牌", river: "河牌" })[next] + "：" + state.board.map(cardName).join(" ") });
+    if (canBet <= 1) return pkAdvance(state);
+    state.turn = pkNext(state, state.dealer, pkCanAct);
+    return state;
+  }
+  function pkShowdown(state) {
+    while (state.board.length < 5) state.board.push(state.deck.pop());
+    const live = state.players.filter(function (q) { return q.inHand && !q.folded; });
+    live.forEach(function (q) { q.score = pkBest(q.hole.concat(state.board)); });
+    state.showdown = live.map(function (q) { return { key: q.key, hole: q.hole.slice(), cat: PK_CAT[q.score[0]] }; });
+    const sorted = live.slice().sort(function (a, b) { return pkCmp(b.score, a.score); });
+    const tiers = []; sorted.forEach(function (q) { const last = tiers[tiers.length - 1]; if (last && pkCmp(last[0].score, q.score) === 0) last.push(q); else tiers.push([q]); });
+    return pkAward(state, tiers, false);
+  }
+  // 分池：按每人这一手一共放进去多少一层层分（有人全押时的边池）
+  function pkAward(state, tiers, uncontested) {
+    const contrib = state.players.map(function (q) { return { q: q, put: q.put }; });
+    const won = {};
+    let levels = contrib.map(function (x) { return x.put; }).filter(function (v, i, a) { return v > 0 && a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    let prev = 0;
+    levels.forEach(function (lv) {
+      const layer = contrib.reduce(function (s, x) { return s + Math.max(0, Math.min(x.put, lv) - prev); }, 0);
+      const elig = tiers.map(function (t) { return t.filter(function (q) { return q.put >= lv; }); }).find(function (t) { return t.length; });
+      const who = elig && elig.length ? elig : tiers[0];
+      const share = Math.floor(layer / who.length);
+      who.forEach(function (q, k) { const amt = share + (k === 0 ? layer - share * who.length : 0); q.chips += amt; won[q.key] = (won[q.key] || 0) + amt; });
+      prev = lv;
+    });
+    state.players.forEach(function (q) { q.put = 0; q.bet = 0; });
+    const names = Object.keys(won).map(function (k) { const q = state.players.find(function (x) { return x.key === k; }); return q.name + " 赢 " + won[k] + (uncontested ? "" : "（" + PK_CAT[q.score[0]] + "）"); });
+    state.log.push({ kind: "sys", text: (uncontested ? "其他人都弃了，" : "摊牌：") + names.join("，") + "。" });
+    state.street = "done"; state.lastWon = won;
+    return state;
+  }
+  function pkFinish(state) {
+    state.status = "finished";
+    const best = state.players.slice().sort(function (a, b) { return b.chips - a.chips; })[0];
+    state.winner = best ? best.key : null;
+    state.log.push({ kind: "sys", text: "收桌。" + state.players.map(function (p) { return p.name + " " + p.chips; }).join("，") + "。" });
+    return state;
+  }
+  // 不调模型的一手：看手牌和公共牌的强弱，按跟注要付的比例决定
+  function pkNpcMove(state, i, loose) {
+    const p = state.players[i], o = pkOptions(state, i);
+    let str;
+    if (!state.board.length) { const a = p.hole[0].v, b = p.hole[1].v; str = (Math.max(a, b) + Math.min(a, b) / 2) / 21 + (a === b ? .35 : 0) + (p.hole[0].s === p.hole[1].s ? .06 : 0); }
+    else { const sc = pkBest(p.hole.concat(state.board)); str = sc[0] / 4 + (sc[1] || 0) / 60; }
+    str += (loose || 0);
+    const potOdds = o.toCall / Math.max(1, pkPot(state) + o.toCall);
+    if (str > .9 && o.canRaise) return { kind: "raise", to: Math.min(o.maxTo, Math.max(o.minRaiseTo, state.curBet + Math.round(pkPot(state) / 2))) };
+    if (o.canCheck) return { kind: "check" };
+    if (str > potOdds + .25 || o.toCall <= PK_BB / 2) return { kind: "call" };
+    return { kind: "fold" };
+  }
+  function pkPublic(state, i) {
+    const me = state.players[i], o = pkOptions(state, i);
+    return "第 " + state.hand + " / " + PK_HANDS + " 手，" + ({ preflop: "翻牌前", flop: "翻牌圈", turn: "转牌圈", river: "河牌圈" })[state.street]
+      + "。\n你的底牌：" + me.hole.map(cardName).join(" ") + "；公共牌：" + (state.board.map(cardName).join(" ") || "还没发")
+      + "\n底池 " + pkPot(state) + "；你还有 " + me.chips + "；要跟 " + o.toCall + (o.canRaise ? "；加注最少加到 " + o.minRaiseTo + "，最多 " + o.maxTo + "（全押）" : "")
+      + "\n桌上：" + state.players.filter(function (q) { return q.inHand; }).map(function (q) { return q.name + "（" + (q.folded ? "已弃" : q.allin ? "全押" : "剩 " + q.chips) + "，这圈下了 " + q.bet + "）"; }).join("、")
+      + "\n最近：\n" + cardTalk(state, 8);
+  }
+  function PokerGame(props) {
+    const t = props.t, api = props.active, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () {
+      if (restored && restored.status === "playing") return restored;
+      return pkNewGame(unoPlayers(props));
+    });
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [say, setSay] = useState(""), [raiseTo, setRaiseTo] = useState(0);
+    const running = useRef("");
+    const current = state.players[state.turn], me = current && current.isUser && state.street !== "done" && pkCanAct(current);
+    const spectate = cfg.mode === "spectate", soft = cfg.mode === "easy";
+    const clone = function () { return JSON.parse(JSON.stringify(state)); };
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("poker"); return; }
+      saveGameSnap("poker", { config: cfg, state: state, label: "第 " + state.hand + " 手 · 底池 " + pkPot(state) });
+    }, [state]);
+    useEffect(function () { if (me) setRaiseTo(pkOptions(state, state.turn).minRaiseTo); }, [state.turn, state.street, state.hand]);
+    useEffect(function () {
+      if (!current || current.isUser || state.status !== "playing" || state.street === "done" || !pkCanAct(current) || busy) return;
+      const turnId = state.id + "#" + state.hand + "#" + state.street + "#" + current.key + "#" + state.log.length;
+      if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
+      const idx = state.turn;
+      const fallback = function () { return pkNpcMove(state, idx, soft ? -0.15 : 0); };
+      const apply = function (a, delegated) {
+        const n = clone();
+        try { pkAct(n, a); } catch (e) { const fb = fallback(); fb.say = a && a.say; pkAct(n, fb); }
+        if (delegated && n.log.length) n.log[n.log.length - 1].text += "（代）";
+        setState(n);
+      };
+      if (current.isNpc) { setTimeout(function () { try { apply(fallback()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700); return; }
+      const sys = "你正在亲自打德州扑克，不是在评论。保持你本人的声纹和性格，但先守规则。" + SKILL_RULE
+        + "\n每人两张底牌只自己看得见，桌上五张公共牌，最后用七张里最好的五张比大小。你可以弃牌、过牌（没人下注时）、跟注、加注、全押——怎么打照你这个人：谨慎的会算，冲动的爱全押，嘴硬的会诈。"
+        + (soft ? "\n这一局你想让着对面的她一点：别太凶，牌不好就早点弃。" : "")
+        + "\n只输出 JSON，不解释：{\"kind\":\"fold|check|call|raise|allin\",\"to\":加注加到多少（只有 raise 填）,\"say\":\"可空的一句桌上话\"}。桌上话可以诈唬、试探、挑衅、装可怜，不必每手都说，别把自己的底牌说出来（想骗就骗）。";
+      routeSeatCall(current, api, sys, [{ role: "user", content: pkPublic(state, idx) + "\n现在轮到你。" }], { game: "poker", turnId: turnId, expect: "{\"kind\":\"fold|check|call|raise|allin\",\"to\":0,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
+        .then(function (r) { const a = unoJson(r.value); apply(["fold", "check", "call", "raise", "allin"].indexOf(a.kind) >= 0 ? { kind: a.kind, to: a.to, say: a.say } : fallback(), r.delegated); })
+        .catch(function () { try { apply(fallback()); } catch (e2) { setError("这手没接稳：" + e2.message); } })
+        .finally(function () { running.current = ""; setBusy(false); });
+    }, [state, busy]);
+    function userAct(a) { try { const n = clone(); pkAct(n, Object.assign({}, a, { say: say })); setState(n); setSay(""); setError(""); } catch (e) { setError(e.message); } }
+    function nextHand() { const n = clone(); pkNewHand(n); setState(n); }
+    const u = state.players.find(function (p) { return p.isUser; });
+    const o = me ? pkOptions(state, state.turn) : null;
+    const show = function (p) { return p.isUser || spectate || (state.showdown && state.showdown.some(function (s) { return s.key === p.key; })) || state.status === "finished"; };
+    const btn = function (label, onClick, color, dis, wk) { return h("button", { "data-wk": wk, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
+    return h("div", { "data-wk": "gameplay", "data-part": "poker", className: "h-full flex flex-col", style: gameTable("poker", t) },
+      h(Head, { zh: "德州扑克", en: state.status === "finished" ? "收桌" : ("第 " + state.hand + " / " + PK_HANDS + " 手" + (current && state.street !== "done" ? " · 轮到 " + current.name : "")), onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
+        h(GameVsBar, { t: t, seats: state.players.map(function (p, i) {
+          return { key: p.key, name: p.name + (i === state.dealer ? " · 庄" : ""), char: cardSeatChar(props, p), isUser: p.isUser, on: i === state.turn && state.street !== "done" && state.status === "playing", out: p.chips <= 0 && !p.inHand,
+            hot: !!(state.lastWon && state.lastWon[p.key] && state.street === "done"), sub: p.folded && p.inHand ? "弃了 · " + p.chips : p.allin ? "全押" : String(p.chips) };
+        }) }),
+        feltBox([
+          h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".1em", opacity: .75 } }, "底池 " + pkPot(state) + (state.street !== "done" && state.curBet ? " · 这圈要跟到 " + state.curBet : "")),
+          h("div", { key: "b", style: { display: "flex", justifyContent: "center", gap: 6, marginTop: 10, minHeight: 56 } }, [0, 1, 2, 3, 4].map(function (k) { return h(PlayCard, { key: k, c: state.board[k], back: !state.board[k], w: 40 }); })),
+          h("div", { key: "c", "data-wk": "gamepokerhands", style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return p.inHand && show(p); }).map(function (p) {
+            const sd = state.showdown && state.showdown.find(function (s) { return s.key === p.key; });
+            return h("div", { key: p.key, style: { display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px", opacity: p.folded ? .5 : 1 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 64, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              p.hole.map(function (c, j) { return h(PlayCard, { key: j, c: c, w: 28 }); }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .85, marginLeft: 4 } }, sd ? sd.cat : p.folded ? "弃牌" : ""));
+          }))
+        ], "poker"),
+        h("div", { "data-wk": "gamelog", "data-part": "poker", style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 200, overflowY: "auto" } }, state.log.slice(-12).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: x.kind === "sys" ? t.fog : t.sub, lineHeight: 1.65 } }, x.text); })),
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+          ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 筹码最多！",
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const w = state.players.find(function (p) { return p.key === state.winner; });
+            return { key: "poker", zh: "德州扑克", ids: realCharIds(state.players), wins: w && realCharIds(state.players).indexOf(w.key) >= 0 ? [w.key] : [], meWin: u ? !!(w && w.isUser) : null,
+              text: "一起打了一局德州扑克，" + state.hand + " 手收桌，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 筹码最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.chips; }).join("，") + "。" };
+          } })) : null),
+      state.status === "playing" && state.street === "done" ? h("div", { "data-wk": "gameactions", "data-part": "poker", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
+        h("button", { "data-wk": "gamepokernext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, state.hand >= PK_HANDS ? "收桌算账" : "发下一手")) :
+      state.status === "playing" && me && o ? h("div", { "data-wk": "gameactions", "data-part": "poker", "data-kind": "bet", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
+        o.canRaise ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flexShrink: 0 } }, "加到"),
+          h("input", { type: "range", min: o.minRaiseTo, max: o.maxTo, step: 10, value: Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)), onChange: function (e) { setRaiseTo(Number(e.target.value)); }, style: { flex: 1 } }),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, minWidth: 44, textAlign: "right" } }, Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)))) : null,
+        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 } },
+          btn("弃牌", function () { userAct({ kind: "fold" }); }, "#7a6f66", false, "gamepokerfold"),
+          btn(o.canCheck ? "过牌" : "跟 " + o.toCall, function () { userAct({ kind: o.canCheck ? "check" : "call" }); }, t.ink, false, "gamepokercall"),
+          btn("加注", function () { userAct({ kind: "raise", to: Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)) }); }, t.tint, !o.canRaise, "gamepokerraise"),
+          btn("全押", function () { userAct({ kind: "allin" }); }, "#c0553f", false, "gamepokerallin"))) :
+      busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在看牌…") : null);
+  }
+
+  // ---------------- 抽鬼牌 ----------------
+  // 每个点数两张（凑对就扔），外加一张鬼牌。轮流从下家手里抽一张，凑成对就扔；最后手里剩鬼牌的输。
+  // 牌的张数跟人数走：人越多点数越多，一局大概十来手。
+  function omRanks(n) { return Math.min(13, 3 + 3 * n); }
+  function omDiscardPairs(hand) {
+    const out = [], seen = {};
+    hand.forEach(function (c) { if (c.joker) { out.push(c); return; } if (seen[c.r] !== undefined) { out.splice(seen[c.r], 1); Object.keys(seen).forEach(function (k) { if (seen[k] > seen[c.r]) seen[k]--; }); delete seen[c.r]; } else { seen[c.r] = out.length; out.push(c); } });
+    return out;
+  }
+  function omNewGame(players, rnd) {
+    const ranks = CARD_RANKS.slice(-omRanks(players.length)), deck = [];
+    ranks.forEach(function (r, i) { deck.push({ r: r, s: "♠", v: i }, { r: r, s: "♥", v: i }); });
+    deck.push({ joker: true, r: "JK", s: "", v: 99 });
+    cardShuffle(deck, rnd);
+    const ps = players.map(function (p) { return Object.assign({}, p, { hand: [], out: false }); });
+    deck.forEach(function (c, i) { ps[i % ps.length].hand.push(c); });
+    ps.forEach(function (p) { p.hand = cardShuffle(omDiscardPairs(p.hand), rnd); });
+    const state = { id: "oldmaid_" + Date.now().toString(36), status: "playing", log: [{ kind: "sys", text: "发好牌了，能凑对的先扔掉。轮流从下家手里抽一张，最后拿着鬼牌的人输。" }], players: ps, turn: 0, loser: null, last: null };
+    omSettle(state);
+    return state;
+  }
+  function omActive(state) { return state.players.filter(function (p) { return !p.out; }); }
+  function omSettle(state) {
+    state.players.forEach(function (p) { if (!p.out && p.hand.length === 0) { p.out = true; state.log.push({ kind: "sys", text: p.name + " 手里清空了，安全上岸。" }); } });
+    const left = omActive(state);
+    if (left.length <= 1) { state.status = "finished"; state.loser = left[0] ? left[0].key : null; state.log.push({ kind: "sys", text: (left[0] ? left[0].name + " 最后拿着鬼牌" : "没人拿着鬼牌") + "，输了。" }); }
+    else if (state.players[state.turn].out) state.turn = omNextActive(state, state.turn);
+    return state;
+  }
+  function omNextActive(state, from) { const L = state.players.length; for (let i = 1; i <= L; i++) { const j = (from + i) % L; if (!state.players[j].out) return j; } return from; }
+  function omTarget(state) { return omNextActive(state, state.turn); }
+  // 一手：从下家手里抽第 pick 张（从左数，0 起）
+  function omAct(state, pick, say, rnd) {
+    const p = state.players[state.turn], ti = omTarget(state), tg = state.players[ti];
+    if (!p || state.status !== "playing") throw new Error("现在不是抽牌的时候");
+    const k = Math.max(0, Math.min(tg.hand.length - 1, Math.floor(Number(pick) || 0)));
+    const c = tg.hand.splice(k, 1)[0];
+    const pair = !c.joker && p.hand.findIndex(function (x) { return x.r === c.r; });
+    let txt = p.name + " 从 " + tg.name + " 手里抽了第 " + (k + 1) + " 张";
+    if (!c.joker && pair >= 0) { p.hand.splice(pair, 1); txt += "，凑成一对 " + c.r + " 扔了"; }
+    else { p.hand.push(c); cardShuffle(p.hand, rnd); txt += c.joker ? (p.isUser ? "——是鬼牌！" : "") : ""; }
+    state.last = { by: p.key, from: tg.key, pos: k, joker: !!c.joker, paired: !c.joker && pair >= 0 };
+    state.log.push({ kind: "move", player: p.key, text: txt + (say ? "　“" + String(say).slice(0, 160) + "”" : "") });
+    state.turn = omNextActive(state, state.turn);
+    return omSettle(state);
+  }
+  function OldMaidGame(props) {
+    const t = props.t, api = props.active, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () { return restored && restored.status === "playing" ? restored : omNewGame(unoPlayers(props, 4)); });
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [say, setSay] = useState(""), [hover, setHover] = useState(-1);
+    const running = useRef("");
+    const current = state.players[state.turn], me = current && current.isUser && state.status === "playing";
+    const spectate = cfg.mode === "spectate";
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("oldmaid"); return; }
+      saveGameSnap("oldmaid", { config: cfg, state: state, label: "还剩 " + omActive(state).length + " 人在抽" });
+    }, [state]);
+    useEffect(function () {
+      if (!current || current.isUser || state.status !== "playing" || busy) return;
+      const turnId = state.id + "#" + state.log.length + "#" + current.key;
+      if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
+      const ti = omTarget(state), tg = state.players[ti], n0 = tg.hand.length;
+      const apply = function (pick, sayLine, delegated) {
+        const n = JSON.parse(JSON.stringify(state));
+        omAct(n, pick, sayLine);
+        if (delegated && n.log.length) n.log[n.log.length - 1].text += "（代）";
+        setState(n);
+      };
+      const rndPick = function () { return Math.floor(Math.random() * n0); };
+      if (current.isNpc) { setTimeout(function () { try { apply(rndPick()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700); return; }
+      const mine = current.hand.map(cardName).join(" ");
+      const lastLine = state.last ? (state.players.find(function (p) { return p.key === state.last.by; }) || {}).name + " 上一手抽了 " + (state.players.find(function (p) { return p.key === state.last.from; }) || {}).name + " 的第 " + (state.last.pos + 1) + " 张" + (state.last.paired ? "，凑了对" : "") : "";
+      const sys = "你正在亲自玩「抽鬼牌」，不是在评论。保持你本人的声纹和性格。" + SKILL_RULE
+        + "\n规则：每个点数两张，凑成对就扔掉；牌里有一张鬼牌。轮流从下家手里扣着的牌里抽一张，最后手里剩鬼牌的人输。你看不见别人的牌，只能挑位置——可以盯着对方的手和表情猜，也可以随便抽。"
+        + "\n只输出 JSON：{\"pick\":从左数第几张（1 到 " + n0 + "）,\"say\":\"可空的一句：试探、得意、慌张、逗对方都行\"}。别说出自己手里有没有鬼牌（想骗就骗）。";
+      const ctx = "你手里：" + (mine || "（空）") + (current.hand.some(function (c) { return c.joker; }) ? "——鬼牌在你手里，别让人看出来" : "")
+        + "\n这回你要从 " + tg.name + " 手里抽，TA 扣着 " + n0 + " 张。" + (lastLine ? "\n" + lastLine : "") + "\n最近：\n" + cardTalk(state, 8);
+      routeSeatCall(current, api, sys, [{ role: "user", content: ctx }], { game: "oldmaid", turnId: turnId, expect: "{\"pick\":1,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8300 } })
+        .then(function (r) { const a = unoJson(r.value); const k = Math.floor(Number(a.pick) || 0) - 1; apply(k >= 0 && k < n0 ? k : rndPick(), a.say, r.delegated); })
+        .catch(function () { try { apply(rndPick()); } catch (e2) { setError("这手没接稳：" + e2.message); } })
+        .finally(function () { running.current = ""; setBusy(false); });
+    }, [state, busy]);
+    function userPick(k) { try { const n = JSON.parse(JSON.stringify(state)); omAct(n, k, say); setState(n); setSay(""); setHover(-1); setError(""); } catch (e) { setError(e.message); } }
+    const u = state.players.find(function (p) { return p.isUser; });
+    const tgIdx = me ? omTarget(state) : -1, tg = tgIdx >= 0 ? state.players[tgIdx] : null;
+    return h("div", { "data-wk": "gameplay", "data-part": "oldmaid", className: "h-full flex flex-col", style: gameTable("oldmaid", t) },
+      h(Head, { zh: "抽鬼牌", en: state.status === "finished" ? "终局" : ("轮到 " + (current ? current.name : "—")), onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
+        h(GameVsBar, { t: t, seats: state.players.map(function (p, i) {
+          return { key: p.key, name: p.name, char: cardSeatChar(props, p), isUser: p.isUser, on: i === state.turn && state.status === "playing", out: p.out, hot: state.loser === p.key, sub: p.out ? "上岸" : p.hand.length + " 张" };
+        }) }),
+        feltBox(state.players.filter(function (p) { return !p.out && (!p.isUser || state.status === "finished"); }).map(function (p) {
+          const open = spectate || state.status === "finished";
+          return h("div", { key: p.key, style: { marginBottom: 10 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .8, marginBottom: 6 } }, p.name + " 手里" + (tg && tg.key === p.key ? " · 点一张抽走" : "")),
+            h("div", { style: { display: "flex", justifyContent: "center", gap: 4, flexWrap: "wrap" } }, p.hand.map(function (c, j) {
+              const mine = tg && tg.key === p.key;
+              return h(PlayCard, { key: j, c: open ? c : null, back: !open, w: 34, lift: mine && hover === j, hot: open && c.joker, onClick: mine ? function () { if (hover === j) userPick(j); else setHover(j); } : null });
+            })));
+        }).concat(state.status === "finished" && !state.players.some(function (p) { return !p.out; }) ? [] : []), "oldmaid"),
+        u && !u.out && state.status === "playing" ? h("div", { "data-wk": "gameoldmaidmine", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginRight: 4 } }, "我手里"),
+          u.hand.map(function (c, j) { return h(PlayCard, { key: j, c: c, w: 32, hot: c.joker }); })) : null,
+        h("div", { "data-wk": "gamelog", "data-part": "oldmaid", style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 200, overflowY: "auto" } }, state.log.slice(-12).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: x.kind === "sys" ? t.fog : t.sub, lineHeight: 1.65 } }, x.text); })),
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+          ((state.players.find(function (p) { return p.key === state.loser; }) || {}).name || "没人") + " 拿着鬼牌，输了！",
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const l = state.players.find(function (p) { return p.key === state.loser; });
+            const ids = realCharIds(state.players);
+            return { key: "oldmaid", zh: "抽鬼牌", ids: ids, wins: ids.filter(function (id) { return !l || id !== l.key; }), meWin: u ? !(l && l.isUser) : null,
+              text: "一起玩了一局抽鬼牌，最后鬼牌落在" + ((l && (l.isUser ? "她" : l.name)) || "没人") + "手里。" };
+          } })) : null),
+      me ? h("div", { "data-wk": "gameactions", "data-part": "oldmaid", "data-kind": "pick", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7, textAlign: "center" } }, hover >= 0 ? "再点一下第 " + (hover + 1) + " 张就抽走，或者换一张" : "点 " + (tg ? tg.name : "TA") + " 的一张牌（点一下先举起来，再点一下抽走）"),
+        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } })) :
+      busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 的手悬在牌上…") : null);
+  }
+
+  // ---------------- 21 点 ----------------
+  // 庄家是牌桌（不是谁），一律要到 17 点；你和 TA 们各自跟庄家比。每手各押 10，一共 8 手，筹码最多的赢。
+  const BJ_CHIPS = 100, BJ_BET = 10, BJ_HANDS = 8;
+  function bjValue(cards) {
+    let v = 0, aces = 0;
+    cards.forEach(function (c) { if (c.r === "A") { aces++; v += 11; } else v += ["J", "Q", "K"].indexOf(c.r) >= 0 ? 10 : Number(c.r); });
+    while (v > 21 && aces) { v -= 10; aces--; }
+    return v;
+  }
+  function bjNewGame(players, rnd) {
+    const state = { id: "bj_" + Date.now().toString(36), status: "playing", hand: 0, log: [], dealer: [], winner: null,
+      players: players.map(function (p) { return Object.assign({}, p, { chips: BJ_CHIPS, cards: [], bet: 0, done: false, result: "" }); }) };
+    return bjNewHand(state, rnd);
+  }
+  function bjNewHand(state, rnd) {
+    if (state.hand >= BJ_HANDS || state.players.every(function (p) { return p.chips < BJ_BET; })) return bjFinish(state);
+    state.hand += 1; state.deck = cardDeck(rnd); state.dealer = [state.deck.pop(), state.deck.pop()]; state.phase = "play";
+    state.players.forEach(function (p) {
+      p.result = ""; p.cards = []; p.bet = 0; p.done = true;
+      if (p.chips >= BJ_BET) { p.bet = BJ_BET; p.chips -= BJ_BET; p.cards = [state.deck.pop(), state.deck.pop()]; p.done = bjValue(p.cards) === 21; }
+    });
+    state.log.push({ kind: "sys", text: "—— 第 " + state.hand + " / " + BJ_HANDS + " 手 · 每人押 " + BJ_BET + "，庄家亮出 " + cardName(state.dealer[0]) + " ——" });
+    state.turn = state.players.findIndex(function (p) { return !p.done; });
+    if (state.turn < 0) bjDealer(state);
+    return state;
+  }
+  // 一手：{kind:"hit"|"stand"|"double", say}
+  function bjAct(state, action) {
+    const p = state.players[state.turn];
+    if (!p || p.done || state.phase !== "play") throw new Error("现在不是要牌的时候");
+    const say = String((action && action.say) || "").trim().slice(0, 160);
+    let k = action.kind;
+    if (k === "double" && (p.cards.length !== 2 || p.chips < p.bet)) k = "hit";
+    let txt;
+    if (k === "stand") { p.done = true; txt = "停牌（" + bjValue(p.cards) + "）"; }
+    else {
+      if (k === "double") { p.chips -= p.bet; p.bet *= 2; }
+      p.cards.push(state.deck.pop());
+      const v = bjValue(p.cards);
+      txt = (k === "double" ? "加倍，" : "要牌，") + "拿到 " + cardName(p.cards[p.cards.length - 1]) + "，" + v + " 点" + (v > 21 ? "，爆了" : "");
+      if (v >= 21 || k === "double") p.done = true;
+    }
+    state.log.push({ kind: "move", player: p.key, text: p.name + "：" + txt + (say ? "　“" + say + "”" : "") });
+    if (p.done) { state.turn = state.players.findIndex(function (q) { return !q.done; }); if (state.turn < 0) bjDealer(state); }
+    return state;
+  }
+  function bjDealer(state) {
+    const live = state.players.some(function (p) { return p.bet && bjValue(p.cards) <= 21; });
+    while (live && bjValue(state.dealer) < 17) state.dealer.push(state.deck.pop());
+    const dv = bjValue(state.dealer), dbj = dv === 21 && state.dealer.length === 2;
+    state.log.push({ kind: "sys", text: "庄家：" + state.dealer.map(cardName).join(" ") + "，" + dv + " 点" + (dv > 21 ? "，爆了" : "") });
+    state.players.forEach(function (p) {
+      if (!p.bet) return;
+      const v = bjValue(p.cards), bj = v === 21 && p.cards.length === 2;
+      let win = 0;
+      if (v > 21) { p.result = "爆"; }
+      else if (bj && !dbj) { win = Math.floor(p.bet * 2.5); p.result = "黑杰克"; }
+      else if (dv > 21 || v > dv) { win = p.bet * 2; p.result = "赢"; }
+      else if (v === dv) { win = p.bet; p.result = "平"; }
+      else p.result = "输";
+      p.chips += win;
+    });
+    state.log.push({ kind: "sys", text: state.players.filter(function (p) { return p.bet; }).map(function (p) { return p.name + " " + p.result; }).join("，") + "。" });
+    state.phase = "done"; state.turn = -1;
+    return state;
+  }
+  function bjFinish(state) {
+    state.status = "finished"; state.phase = "done";
+    const best = state.players.slice().sort(function (a, b) { return b.chips - a.chips; })[0];
+    state.winner = best ? best.key : null;
+    state.log.push({ kind: "sys", text: "散场。" + state.players.map(function (p) { return p.name + " " + p.chips; }).join("，") + "。" });
+    return state;
+  }
+  function bjNpcMove(state, i, soft) { const p = state.players[i], v = bjValue(p.cards); return { kind: v <= 11 && p.cards.length === 2 && !soft ? "double" : v < (soft ? 15 : 17) ? "hit" : "stand" }; }
+  function BlackjackGame(props) {
+    const t = props.t, api = props.active, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () { return restored && restored.status === "playing" ? restored : bjNewGame(unoPlayers(props, 4)); });
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [say, setSay] = useState("");
+    const running = useRef("");
+    const current = state.turn >= 0 ? state.players[state.turn] : null, me = current && current.isUser && state.phase === "play";
+    const soft = cfg.mode === "easy";
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("blackjack"); return; }
+      saveGameSnap("blackjack", { config: cfg, state: state, label: "第 " + state.hand + " 手" });
+    }, [state]);
+    useEffect(function () {
+      if (!current || current.isUser || state.phase !== "play" || state.status !== "playing" || busy) return;
+      const turnId = state.id + "#" + state.hand + "#" + current.key + "#" + current.cards.length;
+      if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
+      const idx = state.turn;
+      const apply = function (a, delegated) { const n = JSON.parse(JSON.stringify(state)); try { bjAct(n, a); } catch (e) { const fb = bjNpcMove(state, idx, soft); fb.say = a && a.say; bjAct(n, fb); } if (delegated && n.log.length) n.log[n.log.length - 1].text += "（代）"; setState(n); };
+      if (current.isNpc) { setTimeout(function () { try { apply(bjNpcMove(state, idx, soft)); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 650); return; }
+      const sys = "你正在亲自玩 21 点（跟庄家比，不是跟别人比），不是在评论。保持你本人的声纹和性格。" + SKILL_RULE
+        + "\n规则：点数越接近 21 越好，超过 21 就爆；A 算 1 或 11，JQK 算 10。庄家要到 17 点为止。你可以要牌、停牌，或者只在头两张时加倍（押注翻倍、只再拿一张）。冒不冒险照你这个人来。"
+        + "\n只输出 JSON：{\"kind\":\"hit|stand|double\",\"say\":\"可空的一句：紧张、嘴硬、得意、跟旁边的人搭话都行\"}。";
+      const ctx = "第 " + state.hand + " / " + BJ_HANDS + " 手。你手里：" + current.cards.map(cardName).join(" ") + "，" + bjValue(current.cards) + " 点；你还剩 " + current.chips + "，这手押了 " + current.bet
+        + "\n庄家亮着：" + cardName(state.dealer[0]) + "\n桌上其他人：" + state.players.filter(function (p) { return p !== current && p.bet; }).map(function (p) { return p.name + " " + p.cards.map(cardName).join(" "); }).join("；")
+        + "\n最近：\n" + cardTalk(state, 6);
+      routeSeatCall(current, api, sys, [{ role: "user", content: ctx + "\n现在轮到你。" }], { game: "blackjack", turnId: turnId, expect: "{\"kind\":\"hit|stand|double\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8300 } })
+        .then(function (r) { const a = unoJson(r.value); apply(["hit", "stand", "double"].indexOf(a.kind) >= 0 ? { kind: a.kind, say: a.say } : bjNpcMove(state, idx, soft), r.delegated); })
+        .catch(function () { try { apply(bjNpcMove(state, idx, soft)); } catch (e2) { setError("这手没接稳：" + e2.message); } })
+        .finally(function () { running.current = ""; setBusy(false); });
+    }, [state, busy]);
+    function userAct(a) { try { const n = JSON.parse(JSON.stringify(state)); bjAct(n, Object.assign({}, a, { say: say })); setState(n); setSay(""); setError(""); } catch (e) { setError(e.message); } }
+    function nextHand() { const n = JSON.parse(JSON.stringify(state)); bjNewHand(n); setState(n); }
+    const u = state.players.find(function (p) { return p.isUser; });
+    const btn = function (label, onClick, color, dis, wk) { return h("button", { "data-wk": wk, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 14 } }, label); };
+    const showDealer = state.phase === "done";
+    return h("div", { "data-wk": "gameplay", "data-part": "blackjack", className: "h-full flex flex-col", style: gameTable("blackjack", t) },
+      h(Head, { zh: "21 点", en: state.status === "finished" ? "散场" : ("第 " + state.hand + " / " + BJ_HANDS + " 手" + (current ? " · 轮到 " + current.name : "")), onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
+        h(GameVsBar, { t: t, seats: state.players.map(function (p, i) { return { key: p.key, name: p.name, char: cardSeatChar(props, p), isUser: p.isUser, on: i === state.turn && state.phase === "play", out: p.chips < BJ_BET && !p.bet, hot: p.result === "赢" || p.result === "黑杰克", sub: (p.result ? p.result + " · " : "") + p.chips }; }) }),
+        feltBox([
+          h("div", { key: "d", style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .8 } }, "庄家" + (showDealer ? " · " + bjValue(state.dealer) + " 点" : "")),
+          h("div", { key: "dc", style: { display: "flex", justifyContent: "center", gap: 5, margin: "6px 0 12px" } }, state.dealer.map(function (c, j) { return h(PlayCard, { key: j, c: c, back: !showDealer && j > 0, w: 38 }); })),
+          h("div", { key: "ps", "data-wk": "gamebjhands", style: { display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return p.bet; }).map(function (p) {
+            return h("div", { key: p.key, style: { display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 60, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              p.cards.map(function (c, j) { return h(PlayCard, { key: j, c: c, w: 28 }); }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, marginLeft: "auto" } }, bjValue(p.cards) + " 点" + (p.result ? " · " + p.result : "")));
+          }))
+        ], "blackjack"),
+        h("div", { "data-wk": "gamelog", "data-part": "blackjack", style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 200, overflowY: "auto" } }, state.log.slice(-12).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: x.kind === "sys" ? t.fog : t.sub, lineHeight: 1.65 } }, x.text); })),
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+          ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 筹码最多！",
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const w = state.players.find(function (p) { return p.key === state.winner; });
+            return { key: "blackjack", zh: "21 点", ids: realCharIds(state.players), wins: w && realCharIds(state.players).indexOf(w.key) >= 0 ? [w.key] : [], meWin: u ? !!(w && w.isUser) : null,
+              text: "一起玩了 " + state.hand + " 手 21 点，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 筹码最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.chips; }).join("，") + "。" };
+          } })) : null),
+      state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
+        h("button", { "data-wk": "gamebjnext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, state.hand >= BJ_HANDS ? "散场算账" : "发下一手")) :
+      me ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "play", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
+        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } },
+          btn("要牌", function () { userAct({ kind: "hit" }); }, t.tint, false, "gamebjhit"),
+          btn("停牌", function () { userAct({ kind: "stand" }); }, t.ink, false, "gamebjstand"),
+          btn("加倍", function () { userAct({ kind: "double" }); }, "#c0553f", !(current.cards.length === 2 && current.chips >= current.bet), "gamebjdouble"))) :
+      busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在想要不要再来一张…") : null);
+  }
+
+  if (typeof module === "object" && module.exports) module.exports = { cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   // 聊天那头要按 key 报菜名（房间里的「TA可以拉你玩点什么」），别在那边再抄一份清单。
   Games.LIST = GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;

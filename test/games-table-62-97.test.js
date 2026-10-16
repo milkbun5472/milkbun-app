@@ -42,8 +42,8 @@ test("八个对局外壳全都铺上了桌面，顶栏透明不压带子", () =>
   // 猜谜共用引擎按 kind 分桌（海龟汤和 25 问不是同一副游戏）
   assert.match(src, /gameTable\(kind, t\)/, "猜谜没按 kind 分桌");
   // 桌上的 Head 一律透明（§3.5），压回平色就是那条带子
-  // 13 = 架子 1 + 五个共用 header + UNO + 五子棋 + 你画我猜 + 骗子骰 + 故事接龙 + 开局配置 + 占位页；3 = 大富翁那三条（压缩写法）
-  assert.equal((src.match(/onBack: props\.onBack, bg: "transparent" \}\)/g) || []).length, 13, "有 Head 在桌上压平色带（或多出了没登记的）");
+  // 13 = 架子 1 + 五个共用 header + UNO + 五子棋 + 你画我猜 + 骗子骰 + 故事接龙 + 德州/抽鬼牌/21 点 + 开局配置 + 占位页；3 = 大富翁那三条（压缩写法）
+  assert.equal((src.match(/onBack: props\.onBack, bg: "transparent" \}\)/g) || []).length, 16, "有 Head 在桌上压平色带（或多出了没登记的）");
   assert.equal((src.match(/onBack:props\.onBack,bg:"transparent"/g) || []).length, 3, "大富翁的 Head 有漏");
   // 老样子一处都不许剩：贴细线的头像横排
   assert.ok(src.indexOf('padding: "10px 16px", borderBottom: "1px solid " + t.line') < 0, "还有老的头像横排");
