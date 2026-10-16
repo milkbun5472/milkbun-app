@@ -2709,6 +2709,7 @@ function Forum({
   const [emHandle, setEmHandle] = useState("");
   const [emBio, setEmBio] = useState("");
   const [emAlt, setEmAlt] = useState("");             // 她的小号叫什么（群友 2026-10-06）
+  const [emFans, setEmFans] = useState("");           // 大号粉丝数，自己能改（群友 2026-10-16：设定是大作家，几百个粉丝太可怜）
   const [cbAs, setCbAs] = useState("main");           // 这一帖用哪个号发：main 大号 / alt 小号
   const [searchQ, setSearchQ] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -3193,7 +3194,7 @@ function Forum({
                   m.name + (m.label ? "（" + m.label + "）" : "")); })) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + meta.handle)),
           isMe
-            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
+            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
             : h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
               h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注"),
               // 私信TA【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
@@ -3610,7 +3611,11 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, "小号叫什么"),
       h("input", { value: emAlt, onChange: e => setEmAlt(e.target.value.slice(0, 20)), placeholder: "另一个网名，发帖时可以选用它", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "用小号发的帖，楼里谁都认不出是你，认识你的角色也不知道；只有他翻你手机的时候才可能发现。"),
-      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim() }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, "大号粉丝数"),
+      h("input", { "data-wk": "forumfans", value: emFans, onChange: e => setEmFans(e.target.value.replace(/[^\d]/g, "").slice(0, 10)), inputMode: "numeric", placeholder: "比如 120000",
+        className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "照你的设定填就行；之后用大号发帖还会自己慢慢涨。"),
+      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim(), ...(emFans !== "" ? { followers: Math.max(0, parseInt(emFans, 10) || 0) } : {}) }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
     // 谁在逛论坛
     settingsOpen && h(PageSheet, { onClose: () => setSettingsOpen(false) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.775";
+const APP_VERSION = "v75.778";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8770,7 +8770,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offListenSongs = _offListenOn ? (_offListenL.songs || []).concat((_offListenL.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).map(x => x && x.title).filter(Boolean).filter((t, i, arr) => arr.indexOf(t) === i).slice(0, 30) : [];
       if (typeof vclockUse === "function") vclockUse(charId);
       const _oocSoon = oocSoonLive(sideRoom ? scopeKey : charId);
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, customNotes: [...(workSess.customNotes || []), ..._oocSoon], signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe(char.id) ? ((povFor(char) || {}).tier || true) : false, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, customNotes: [...(workSess.customNotes || []), ..._oocSoon], signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe(char.id) ? ((povFor(char) || {}).tier || true) : false, replyOpts: !!osFor(charId).replyOpts, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
@@ -8827,6 +8827,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         generated: true,
         // 终稿进入 history 后保留场景门控状态；否则 rewrite 洗掉触发词会让下一轮误判退出。
         registerExplicitActive: !!res.registerActive,
+        ...(res.replyOpts && res.replyOpts.length ? { replyOpts: res.replyOpts } : {}),
         turnId: offTurnId
       });
       // 配件·触发（线下）：再核一遍激活态才下发（她可能刚按急停）
@@ -23710,6 +23711,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const usingAlt = post => !(post && (post.board === "匿名吧" || post.anon)) && forumMe.using === "alt";
   const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : forumMaskNow() ? forumMaskName(forumMaskNow()) : (forumMe.handle || profile.name || "我");
   const myMaskTag = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && forumMaskNow() ? { mask: forumMaskNow() } : {};
+  // 大号露脸就涨一点粉（群友 2026-10-16：发帖涨了，「为啥评论不会涨」）：发帖、评论、楼中楼都走这一处。
+  //   weight 1＝发帖，评论按 0.3 算；匿名、小号、面具都不算在大号头上。
+  const growMyFans = weight => {
+    const f0 = Math.max(0, Number(forumMe.followers) || 0), w = Math.max(0, Number(weight) || 0);
+    const add = Math.round((f0 * (0.002 + Math.random() * 0.006) + Math.random() * 6) * w);
+    if (add > 0 || w >= 1) editForumMe({ followers: f0 + Math.max(w >= 1 ? 1 : 0, add) });
+  };
+  const fansCount = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && !forumMaskNow();
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
@@ -23718,6 +23727,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
+    if (fansCount(post)) growMyFans(0.3);
     genRepliesToMe(post, fid, forumWithPhoto(text, floor), "", floor);
   };
   // 我回复楼中楼 → 随后刷几条回我的挂到同一层
@@ -23734,6 +23744,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
+    if (fansCount(post)) growMyFans(0.3);
     genRepliesToMe(post, floorId, text, to);
   };
   // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
@@ -23873,6 +23884,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
+    // 大号发帖会涨一点粉（群友 2026-10-16「我个人的粉丝数量会变化吗」）：按现有粉丝的千分之几起步，最少几个，匿名吧不算
+    if (!anonB && !maskB) growMyFans(1);
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
   };
   // 搜索：随机刷到四版块之外的吧（据全局聊天/世界话题），board 由 AI 起名

@@ -56,6 +56,6 @@ test("⑤ 编辑器是聊天那一份，存在这个人的线下设置里", () =
   assert.match(SET, /h\(ChatCssFields, \{ css: sCss, setCSS: setSCss/, "没用聊天那一份编辑器，又另写了一个");
   assert.match(SET, /page: "offline"/, "页面挂点不是线下那一套");
   assert.match(SET, /window\.__previewOfflineLook/, "「去看看」没接上预览");
-  assert.match(SET, /bg: sBg, customCSS: sCss(, fontSize: sFont)? \}/, "保存那颗 ✓ 没把 CSS 一起存");
+  assert.match(SET, /bg: sBg, customCSS: sCss(, fontSize: sFont)?(, replyOpts: sOpts)? \}/, "保存那颗 ✓ 没把 CSS 一起存");
   assert.match(C, /const \[sCss, setSCss\] = useState\(os\.customCSS \|\| ""\);/, "没从这个人的线下设置里读回来");
 });
