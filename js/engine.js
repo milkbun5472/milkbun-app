@@ -7333,7 +7333,9 @@ async function translateToZh(text, lang, opts) {
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
-    { by: "模型", run: () => opts && opts.noModel ? Promise.reject(new Error("这一处只用免费翻译，不叫模型")) : _transModel(text) }
+    // 模型那一级默认不走了（她 2026-10-16：「翻译能不能不给模型翻译，浪费钱」）——免费两家都不成就照实报失败，点一下再试。
+    //   只有调用处明说 allowModel 才叫模型（现在没有哪一处这么说）
+    { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
   const names = ["Google", "MyMemory", "模型"];
