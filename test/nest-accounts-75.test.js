@@ -121,6 +121,7 @@ test("自己的页切「我收藏的／我关注的」：只认这一格自己�
   const pf = nest.slice(nest.indexOf("function Profile("), nest.indexOf("function Notices("));
   assert.match(pf, /setExtra\(Object\.assign\(\{ tab \}, x\)\)/, "拿回来的那份没记着是哪一格的");
   assert.match(pf, /const got = extra && extra\.tab === tab \? extra : null;/);
-  assert.ok(!/extra\.(users|items)/.test(pf), "还在直接读 extra.users / extra.items——切格子那一下会读到上一格的");
+  const code = pf.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");   // 注释里讲这个 bug 的那句不算
+  assert.ok(!/extra\.(users|items)/.test(code), "还在直接读 extra.users / extra.items——切格子那一下会读到上一格的");
   assert.match(pf, /\(got\.users \|\| \[\]\)\.length/);
 });
