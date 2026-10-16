@@ -6787,7 +6787,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6941,7 +6941,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   if (partner && cp[view] && cp[view].status === "together" && sub === "studio") {
     return h(PhotoStudio, { partner, myCloset: myCloset, charCloset: charClosetOf ? charClosetOf(partner.id) : null,
       shots: studioShots, busy: studioBusy, fitBusy: fitBusy, canShoot: !!(studioCanShoot && studioCanShoot(partner)),
-      onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o),
+      onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o), onRollStyles: onRollStyles,
       onShare: shot => onShareShot(partner, shot), onBack: () => setSub(null),
       onDelete: onDeletePhoto ? shot => onDeletePhoto(partner.id, { ...shot, src: "studio" }) : null });
   }
@@ -17638,7 +17638,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }
-function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onBack }) {
+function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onRollStyles, onBack }) {
   const t = useTheme();
   // 「补一句」写了一大段，退出照相馆再进来就没了（群友 2026-10-17：「我刚写了那么多，一下子全没」）：
   //   跟聊天输入框同一个做法，没拍出去的那段留在本机，拍完也不清（下一张常常还想照着改）
@@ -17663,8 +17663,14 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   // 自己写的画风可以带一段描述（关键词、像谁的画、什么质感），拍和重画时跟着名字一起送去
   const [styleDesc, setStyleDescRaw] = useState(() => { try { return loadJSON("x_studioStyleDesc", {}) || {}; } catch (e) { return {}; } });
   const [styleDescDraft, setStyleDescDraft] = useState("");
+  const [rolled, setRolled] = useState([]);       // 模型想出来、还没收下的那几种
+  const [rolling, setRolling] = useState(false);
+  const [editOld, setEditOld] = useState("");      // 正在改的是哪一种（改名时把旧的拿掉）
   const keepStyle = (nm, desc) => { if (!myStyles.includes(nm) && !STYLES.includes(nm)) saveStyles(myStyles.concat(nm).slice(-20));
     const n = { ...styleDesc }; if (String(desc || "").trim()) n[nm] = String(desc).trim().slice(0, 300); else delete n[nm]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
+  // 改名：把旧名字拿掉（描述跟着新名字走）
+  const renameStyle = (from, to) => { if (!from || from === to) return; const list = myStyles.filter(x => x !== from); saveStyles(list); const n = { ...styleDesc }; delete n[from]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
+  const dropStyle = nm => { saveStyles(myStyles.filter(x => x !== nm)); const n = { ...styleDesc }; delete n[nm]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
   const [styleDraft, setStyleDraft] = useState(null);
   const [paint, setPaint] = useState("");   // 拍之前就挑画风（空＝照片），一次出图，不用先拍再转
   const [reText, setReText] = useState(true);   // 杂志封面／电影海报换画风后把字照原样印回去
@@ -17747,16 +17753,30 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 style: { width: "100%", border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
               h("textarea", { "data-wk": "studiostyledesc", value: styleDescDraft, onChange: e => setStyleDescDraft(e.target.value), rows: 2, maxLength: 300, placeholder: "描述/关键词（可空）：像谁的画、线条、上色、质感、配色……写得越具体越像",
                 style: { width: "100%", border: "none", borderTop: "1px dashed " + t.line, outline: "none", resize: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, paddingTop: 4 } })),
-            h("button", { onClick: () => { setStyleDraft(null); setStyleDescDraft(""); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
+            h("button", { onClick: () => { setStyleDraft(null); setStyleDescDraft(""); setEditOld(""); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
             // 只存下、先不画（群友 2026-10-17：「必须重画一张才能保存画风名，好浪费」）
-            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); },
+            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); renameStyle(editOld, v); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); setEditOld(""); },
               className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a76a0" } }, "只存下"),
-            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); doRestyle(v); },
+            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); renameStyle(editOld, v); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); setEditOld(""); doRestyle(v); },
               className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下并重画")) : null,
-          styleDraft !== null && myStyles.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, alignSelf: "center" } }, "自己写过的，点 ✕ 拿掉："),
-            myStyles.map(st => h("button", { key: st, onClick: () => saveStyles(myStyles.filter(x => x !== st)), title: styleDesc[st] || "", className: "active:opacity-70",
-              style: { padding: "3px 9px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, st + " ✕"))) : null,
+          // 自己的画风：点名字改（名字和描述），✕ 删掉；还能让模型想几种，喜欢的收下（收下前也能改）
+          styleDraft !== null ? h("div", { "data-wk": "studiomystyles", style: { marginTop: 8 } },
+            myStyles.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "自己的画风：点名字改，点 ✕ 删") : null,
+            myStyles.map(st => h("div", { key: st, className: "flex items-start", style: { gap: 8, padding: "6px 0", borderBottom: "1px dashed " + t.line } },
+              h("button", { onClick: () => { setStyleDraft(st); setStyleDescDraft(styleDesc[st] || ""); setEditOld(st); }, className: "flex-1 min-w-0 text-left active:opacity-60" },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, st),
+                styleDesc[st] ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, styleDesc[st]) : null),
+              h("button", { onClick: () => dropStyle(st), "aria-label": "删掉 " + st, className: "shrink-0 active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 4px" } }, "✕"))),
+            onRollStyles ? h("button", { "data-wk": "studiostyleroll", disabled: rolling, onClick: async () => { setRolling(true); const r = await onRollStyles(STYLES.concat(myStyles, rolled.map(x => x.name)), styleDraft); setRolled(r || []); setRolling(false); },
+              className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, padding: "6px 12px", borderRadius: 999, border: "1px dashed #b9a6cc", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } },
+              rolling ? "在想…" : rolled.length ? "再想几种" : "让 AI 想几种" + (styleDraft && styleDraft.trim() ? "（照上面写的方向）" : "")) : null,
+            rolled.map((x, k) => h("div", { key: x.name + k, className: "flex items-start", style: { gap: 8, padding: "6px 0", borderBottom: "1px dashed " + t.line } },
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, x.name),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, x.desc)),
+              h("button", { onClick: () => { keepStyle(x.name, x.desc); setRolled(rolled.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "收下"),
+              h("button", { onClick: () => { setStyleDraft(x.name); setStyleDescDraft(x.desc); setEditOld(""); setRolled(rolled.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "改了再收"),
+              h("button", { onClick: () => setRolled(rolled.filter((_, i2) => i2 !== k)), "aria-label": "不要", className: "shrink-0 active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 4px" } }, "✕")))) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
