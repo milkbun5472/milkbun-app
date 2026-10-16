@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.808";
+const APP_VERSION = "v75.815";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25692,7 +25692,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ancient:  { zh: "古装", line: "【题材·古装】你们俩换上古装（衣冠发式照同一个朝代），在庭院、街市或灯下，像古装剧里的一张定妆照。" },
     wedding:  { zh: "婚纱照", lover: true, line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
     marriage: { zh: "结婚登记照", lover: true, line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
-    grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
+    grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩毕业那天在校园里的合照：可以穿学士服，也可以就穿自己好看的衣服、手里拿着毕业证书或花束；学士帽不用一直戴在头上（她 2026-10-17 嫌它丑）——拿在手里、往天上抛、或者干脆不出现都行，挑最好看的那种。" },
     band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
     magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图，打光讲究；是摄影棚里摄影师拍的时尚大片，两人摆杂志感的姿势、看镜头或看彼此，不是手机自拍；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
     movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
@@ -25974,14 +25974,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   题材、换画风、四格漫画各有自己那一套画面，不加。
       const boost = !!(opt && opt.expand) && !theme && !(opt && (opt.restyle || opt.comic));
       const herePlace = boost ? freshLiveStateValue(st, "place") : "";
-      const wRefS = boost && typeof worldRefFor === "function" ? worldRefFor(char, scene + " " + (herePlace || "")) : null;
+      // ⚠️挑了画风就不带地图那张场景图（群友 2026-10-17：挑了漫画还出真人）——那张是照片质感的，带上去生图端就照着它出写实
+      const wRefS = boost && !(opt && opt.paint) && typeof worldRefFor === "function" ? worldRefFor(char, scene + " " + (herePlace || "")) : null;
       let sceneShot = scene;
       if (boost) {
         try {
           const d = await runProbe(apiFor(char.id), ctxFor(char), {
             instruction: "你们俩要拍一张合照，她写的是：「" + scene + "」。" + (herePlace ? "你此刻人在：" + herePlace + "。" : "")
               + "把这一句写成拍照那一刻的画面，给出图的人看：在哪、什么光、周围有什么、你们俩在做什么、离得多近、什么表情。照你们俩的关系和你自己的样子来想；"
-              + "她这一句里写到的地点、动作、心情都照着来，不改意思，只补她没写的；不写衣服（衣服另有一行），不写镜头参数和画质词。一段话，150 字以内。",
+              + "她这一句里写到的地点、动作、心情都照着来，不改意思，只补她没写的；不写衣服（衣服另有一行），不写镜头参数和画质词" + (opt && opt.paint ? "，这张要画成「" + String(opt.paint).slice(0, 40) + "」，别写「照片、写实、真人」这类词" : "") + "。一段话，150 字以内。",
             schemaHint: "{\"scene\":\"\"}", maxTokens: 65000
           });
           const x = String((d && d.scene) || "").trim();
@@ -25994,6 +25995,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       // 换画风只发原图＋一句「原样转画风」（她 2026-10-13：重画成了另一张照片）：
       //   穿着、衣柜、场景一概不发——发了图像端就照文字重新拍一张，原图只剩个参考
+      // 自己写的画风带的那段描述（群友 2026-10-17：「自定义画风的地方有没有写关键词描述的」）：跟内置那几种的说明一个用法
+      const studioStyleDesc = nm => { try { const d = String((loadJSON("x_studioStyleDesc", {}) || {})[nm] || "").trim(); return d ? "这种画风是这样的：" + d.slice(0, 300) + "。" : ""; } catch (e) { return ""; } };
       const STYLE_BODY = { "Q版": "这张是平面的 Q 版二次元插画（不是立体手办、不是 3D）：两个人都缩成二到三头身，头占身高一半左右，手脚短短圆圆；干净利落的黑色或深色勾线，赛璐璐平涂上色，大大的亮晶晶眼睛，脸颊淡淡的腮红，像贴纸或周边立绘那样可爱；背景照原图但画得简单柔和。", "手办": "整张变成一个精致的 PVC 手办／盲盒小人实拍：两个人是二到三头身的立体小公仔，大头短手短脚，表面是光滑的树脂质感，站在照原图那个场景缩小后的桌面上，像拍手办的照片。", "黏土": "整个画面像黏土定格动画，人物圆润有指纹质感。", "毛毡": "整个画面像羊毛毡手作，人物和背景都是毛茸茸的毡质。", "像素": "整张是像素画，人物和背景都由清晰的方块像素组成。", "油画": "像精心完成的古典油画肖像：笔触柔和、色彩干净通透、皮肤光滑有光泽，不要粗糙的刮刀肌理、不要满屏的颗粒和裂纹，脸上不要脏污感。", "水彩": "水彩要清透、留白多、颜色淡雅，不要发灰发脏。",
         // 只写三个字的画风，生图端只抓到一层皮（她 2026-10-13：浮世绘拍出来是旧纸上的动漫插画）
         "浮世绘": "这是日本江户时代的木版画（像葛饰北斋、歌川广重）：粗而匀的黑色轮廓线，像刻出来的；平涂色块、没有渐变和立体阴影，颜色只用靛蓝、朱红、赭黄、米白、墨绿这几种；人物是浮世绘的画法——细长眼、小嘴、脸平、衣服褶皱是流畅的线条，不是现代动漫脸；浪花画成一卷一卷的爪状图案，云画成一条条的平带，远山是层叠的色块；纸面是淡淡的木版纹理。不要现代插画的阴影、高光和写实细节。",
@@ -26002,7 +26005,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         "水墨": "整张是中国水墨画：宣纸底，墨色分浓淡干湿，大块留白，笔触是毛笔的飞白和晕染，只点一点淡彩；人物用简练的笔线勾出来，不要写实阴影，不要厚涂。",
         "美式漫画": "美式超级英雄漫画的画法：粗黑描边、强烈的明暗块面（大块纯黑阴影）、网点和排线、饱和的原色，人物比例结实、动态夸张，像漫画书里的一格。",
         "复古港风": "九十年代香港电影海报／胶片质感：暖黄偏绿的胶片色调、颗粒感、霓虹招牌的红绿光晕、轻微柔焦和光晕，人物像王家卫电影里的定格画面。" };
-      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
+      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || studioStyleDesc(opt.restyle.style)) + "后两张参考照只用来锁住两个人的长相。⚠️每个人的年龄、性别、身高和体型都照第一张：大人还是大人、同龄的还是同龄，不许把谁画小成孩子，两个人之间的关系也不许被画成别的（朋友不能变成母女、情侣不能变成父女）。画面里不要加任何文字。" : "";
       // 封面先定字：TA写字＋定方向 → 本地挑整张的文字构图 → 留白写进生图那句（图照字的位置画）
       let cover = null, coverPlan = null;
       if (theme && theme.overlay && !RESTYLE_ONLY && window.PosterLayout) {
@@ -26011,13 +26014,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
-      const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
+      const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。⚠️参考照只拿来认长相（五官、发型、发色、脸型），它本身是照片还是画都别照着它的质感来：这一张通篇是「" + PAINT + "」，不许画成真人照片、不许写实摄影质感。" + (STYLE_BODY[PAINT] || studioStyleDesc(PAINT)) + "画面里不要加任何文字。" : "";
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", paint: PAINT || "", me: me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       if (wRefS && !firstRef) refs.push(wRefS.img);   // 地图上那个地点的场景图跟在两张脸后面
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {
@@ -30613,6 +30616,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     studioCanShoot: ch => !!(typeof imgApiReady === "function" && imgApiReady() && ch && ch.refPhoto && (meOf(ch.id) || {}).refPhoto),
     onGenDateFit: genDateOutfits,
     onStudioShoot: studioShoot,
+    // 让模型想几种画风（群友 2026-10-17：「可以自己 roll 多几种自定义画风和相应的描述」）：一次文字调用，6 种，名字＋一段描述
+    onRollStyles: async (have, hint) => {
+      const p = bgActiveRef.current || active;
+      if (!p) { toast("请先到设置配置 API"); return []; }
+      try {
+        const ins = "给一个照相馆想 6 种好看、彼此差得开的画风，拿来把两个人的合照画成插画/艺术风格。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
+            + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
+            + "每种给 name（画风名，2~8 个字）和 desc（写给生图模型看的一段描述，60~140 字：线条、上色、质感、配色、像哪类作品，具体到能照着画）。";
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const d = extractJSON(raw);
+        return (d && Array.isArray(d.styles) ? d.styles : []).filter(x => x && String(x.name || "").trim()).slice(0, 8)
+          .map(x => ({ name: String(x.name).trim().slice(0, 20), desc: String(x.desc || "").trim().slice(0, 300) }));
+      } catch (e) { toast("没想出来：" + (e.message || "再试一次")); return []; }
+    },
     onShareShot: shareShotToChat,
     ifLines: ifLines,
     ifBusy: gen.ifRoom,

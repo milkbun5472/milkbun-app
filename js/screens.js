@@ -6873,7 +6873,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -7027,7 +7027,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   if (partner && cp[view] && cp[view].status === "together" && sub === "studio") {
     return h(PhotoStudio, { partner, myCloset: myCloset, charCloset: charClosetOf ? charClosetOf(partner.id) : null,
       shots: studioShots, busy: studioBusy, fitBusy: fitBusy, canShoot: !!(studioCanShoot && studioCanShoot(partner)),
-      onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o),
+      onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o), onRollStyles: onRollStyles,
       onShare: shot => onShareShot(partner, shot), onBack: () => setSub(null),
       onDelete: onDeletePhoto ? shot => onDeletePhoto(partner.id, { ...shot, src: "studio" }) : null });
   }
@@ -17726,9 +17726,13 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }
-function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onBack }) {
+function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onRollStyles, onBack }) {
   const t = useTheme();
-  const [scene, setScene] = useState("");
+  // 「补一句」写了一大段，退出照相馆再进来就没了（群友 2026-10-17：「我刚写了那么多，一下子全没」）：
+  //   跟聊天输入框同一个做法，没拍出去的那段留在本机，拍完也不清（下一张常常还想照着改）
+  const sceneKey = "qq_draft:studio:" + ((partner && partner.id) || "");
+  const [scene, setSceneRaw] = useState(() => { try { return localStorage.getItem(sceneKey) || ""; } catch (e) { return ""; } });
+  const setScene = v => { setSceneRaw(v); try { v ? localStorage.setItem(sceneKey, v) : localStorage.removeItem(sceneKey); } catch (e) {} };
   // 两边都是【一组】衣服，不是一件（v64.34）：衣柜里外套和鞋常常分开挂着
   const [mine, setMine] = useState([]);
   const [theirs, setTheirs] = useState([]);
@@ -17744,6 +17748,17 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "手办", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];
   const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
   const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
+  // 自己写的画风可以带一段描述（关键词、像谁的画、什么质感），拍和重画时跟着名字一起送去
+  const [styleDesc, setStyleDescRaw] = useState(() => { try { return loadJSON("x_studioStyleDesc", {}) || {}; } catch (e) { return {}; } });
+  const [styleDescDraft, setStyleDescDraft] = useState("");
+  const [rolled, setRolled] = useState([]);       // 模型想出来、还没收下的那几种
+  const [rolling, setRolling] = useState(false);
+  const [editOld, setEditOld] = useState("");      // 正在改的是哪一种（改名时把旧的拿掉）
+  const keepStyle = (nm, desc) => { if (!myStyles.includes(nm) && !STYLES.includes(nm)) saveStyles(myStyles.concat(nm).slice(-20));
+    const n = { ...styleDesc }; if (String(desc || "").trim()) n[nm] = String(desc).trim().slice(0, 300); else delete n[nm]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
+  // 改名：把旧名字拿掉（描述跟着新名字走）
+  const renameStyle = (from, to) => { if (!from || from === to) return; const list = myStyles.filter(x => x !== from); saveStyles(list); const n = { ...styleDesc }; delete n[from]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
+  const dropStyle = nm => { saveStyles(myStyles.filter(x => x !== nm)); const n = { ...styleDesc }; delete n[nm]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
   const [styleDraft, setStyleDraft] = useState(null);
   const [paint, setPaint] = useState("");   // 拍之前就挑画风（空＝照片），一次出图，不用先拍再转
   const [reText, setReText] = useState(true);   // 杂志封面／电影海报换画风后把字照原样印回去
@@ -17793,6 +17808,39 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
     const i = bigStack.findIndex(y => y.id === big.id);
     if (i >= 0 && Math.abs(el.scrollLeft - i * el.clientWidth) > 4) el.scrollLeft = i * el.clientWidth;
   }, [big && big.id]);
+  // 自己写画风的那一块（写名字＋描述、自己的画风列表、让 AI 想几种）：拍之前那排和换画风那排共用这一份
+  //   （她 2026-10-17：「为什么只给了换画风那里，还没开拍的时候不能自定义」）。redraw＝在换画风那里（多一颗「存下并重画」）
+  const styleEditor = redraw => h(Fragment, null,
+          styleDraft !== null ? h("div", { "data-wk": "studiostyleedit", className: "flex items-center", style: { gap: 8, marginTop: 8, border: "1px solid " + t.line, borderRadius: 12, padding: "6px 10px" } },
+      h("div", { style: { flex: 1, minWidth: 0 } },
+        h("input", { value: styleDraft, onChange: e => { setStyleDraft(e.target.value); if (styleDesc[e.target.value.trim()]) setStyleDescDraft(styleDesc[e.target.value.trim()]); }, maxLength: 40, placeholder: "画风名（如：赛博朋克插画、老式明信片）",
+          style: { width: "100%", border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
+        h("textarea", { "data-wk": "studiostyledesc", value: styleDescDraft, onChange: e => setStyleDescDraft(e.target.value), rows: 2, maxLength: 300, placeholder: "描述/关键词（可空）：像谁的画、线条、上色、质感、配色……写得越具体越像",
+          style: { width: "100%", border: "none", borderTop: "1px dashed " + t.line, outline: "none", resize: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, paddingTop: 4 } })),
+      h("button", { onClick: () => { setStyleDraft(null); setStyleDescDraft(""); setEditOld(""); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
+      // 只存下、先不画（群友 2026-10-17：「必须重画一张才能保存画风名，好浪费」）
+      h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); renameStyle(editOld, v); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); setEditOld(""); if (!redraw) setPaint(v); },
+        className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: redraw ? "#8a76a0" : "#6d4d8f" } }, redraw ? "只存下" : "存下并选上"),
+      redraw && h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); renameStyle(editOld, v); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); setEditOld(""); doRestyle(v); },
+        className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下并重画")) : null,
+    // 自己的画风：点名字改（名字和描述），✕ 删掉；还能让模型想几种，喜欢的收下（收下前也能改）
+    styleDraft !== null ? h("div", { "data-wk": "studiomystyles", style: { marginTop: 8 } },
+      myStyles.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "自己的画风：点名字改，点 ✕ 删") : null,
+      myStyles.map(st => h("div", { key: st, className: "flex items-start", style: { gap: 8, padding: "6px 0", borderBottom: "1px dashed " + t.line } },
+        h("button", { onClick: () => { setStyleDraft(st); setStyleDescDraft(styleDesc[st] || ""); setEditOld(st); }, className: "flex-1 min-w-0 text-left active:opacity-60" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, st),
+          styleDesc[st] ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, styleDesc[st]) : null),
+        h("button", { onClick: () => dropStyle(st), "aria-label": "删掉 " + st, className: "shrink-0 active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 4px" } }, "✕"))),
+      onRollStyles ? h("button", { "data-wk": "studiostyleroll", disabled: rolling, onClick: async () => { setRolling(true); const r = await onRollStyles(STYLES.concat(myStyles, rolled.map(x => x.name)), styleDraft); setRolled(r || []); setRolling(false); },
+        className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, padding: "6px 12px", borderRadius: 999, border: "1px dashed #b9a6cc", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } },
+        rolling ? "在想…" : rolled.length ? "再想几种" : "让 AI 想几种" + (styleDraft && styleDraft.trim() ? "（照上面写的方向）" : "")) : null,
+      rolled.map((x, k) => h("div", { key: x.name + k, className: "flex items-start", style: { gap: 8, padding: "6px 0", borderBottom: "1px dashed " + t.line } },
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, x.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, x.desc)),
+        h("button", { onClick: () => { keepStyle(x.name, x.desc); setRolled(rolled.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "收下"),
+        h("button", { onClick: () => { setStyleDraft(x.name); setStyleDescDraft(x.desc); setEditOld(""); setRolled(rolled.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "改了再收"),
+        h("button", { onClick: () => setRolled(rolled.filter((_, i2) => i2 !== k)), "aria-label": "不要", className: "shrink-0 active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 4px" } }, "✕")))) : null);
   return h("div", { className: "h-full flex flex-col", style: cycSkin(t) },
     h(Head, { zh: big ? "" : "照相馆", bg: "transparent", noLine: true, onBack: () => big ? setBig(null) : onBack() }),
     big
@@ -17820,16 +17868,8 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             style: { marginTop: 8, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
             h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1.5px solid " + t.ink, background: reText ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "13px", textAlign: "center" } }, reText ? "✓" : ""),
             (bigStack.find(y => !y.style) || big).comicPanels ? "重画后把四格台词照原样排回去" : "重画后把封面上的字照原样印回去") : null,
-          styleDraft !== null ? h("div", { "data-wk": "studiostyleedit", className: "flex items-center", style: { gap: 8, marginTop: 8, border: "1px solid " + t.line, borderRadius: 12, padding: "6px 10px" } },
-            h("input", { value: styleDraft, onChange: e => setStyleDraft(e.target.value), maxLength: 40, placeholder: "想要什么画风（如：赛博朋克插画、老式明信片）",
-              style: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
-            h("button", { onClick: () => setStyleDraft(null), style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
-            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); if (!myStyles.includes(v) && !STYLES.includes(v)) saveStyles(myStyles.concat(v).slice(-20)); setStyleDraft(null); doRestyle(v); },
-              className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下并重画")) : null,
-          styleDraft !== null && myStyles.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, alignSelf: "center" } }, "自己写过的，点 ✕ 拿掉："),
-            myStyles.map(st => h("button", { key: st, onClick: () => saveStyles(myStyles.filter(x => x !== st)), className: "active:opacity-70",
-              style: { padding: "3px 9px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, st + " ✕"))) : null,
+          styleEditor(true),
+
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
@@ -17870,7 +17910,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { "data-wk": "studiopaint", className: "flex items-center", style: { gap: 6, marginTop: 12, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 } },
               h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, "画风"),
               [""].concat(STYLES, myStyles.filter(x => !STYLES.includes(x))).map(st => h("button", { key: st || "_photo", "data-on": paint === st ? "1" : "0", onClick: () => setPaint(st), className: "shrink-0 active:opacity-70",
-                style: { padding: "5px 11px", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid " + (paint === st ? "#6d4d8f" : "#e2d9ea"), background: paint === st ? "#6d4d8f" : "#fff", color: paint === st ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, st || "照片"))),
+                style: { padding: "5px 11px", borderRadius: 999, whiteSpace: "nowrap", border: "1px solid " + (paint === st ? "#6d4d8f" : "#e2d9ea"), background: paint === st ? "#6d4d8f" : "#fff", color: paint === st ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, st || "照片")),
+              h("button", { "data-wk": "studiostyleadd", onClick: () => setStyleDraft(v => v === null ? "" : null), className: "shrink-0 active:opacity-70",
+                style: { padding: "5px 11px", borderRadius: 999, whiteSpace: "nowrap", border: "1px dashed #b9a6cc", background: "transparent", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, "＋自己写")),
+            !big ? styleEditor(false) : null,
             h("div", { "data-wk": "studiomodes", className: "flex", style: { marginTop: 14, padding: 3, borderRadius: 13, border: "1px solid " + t.line, gap: 3 } },
               h("button", { "data-wk": "studiosingle", "data-on": !grid && !polaroid ? "1" : "0", onClick: () => { setGrid(false); setPolaroid(false); }, className: "flex-1 active:opacity-70",
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: !grid && !polaroid ? "#6d4d8f" : "transparent", color: !grid && !polaroid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "单张"),
