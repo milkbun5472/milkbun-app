@@ -131,9 +131,8 @@
       :h('button',{type:'button','aria-label':'看大图',onClick:()=>{setFull(false);setBig(true);},style:{display:'block',width:'100%',padding:0,background:'transparent',border:0}},h('img',{src,alt:label,loading:'lazy',style:{display:'block',width:'100%',height:'auto',borderRadius:7}})),
       hasBack&&h('button',{type:'button',onClick:()=>setBack(v=>!v),'aria-pressed':back,style:{...pickButtonStyle(),padding:'7px 12px',marginTop:8,fontSize:12,minHeight:40}},back?'看看正面':'翻看背面'),
       // 大图：先整张放进屏幕；点图切到原始像素，可以拖着看细节
-      big&&ReactDOM.createPortal(h('div',{'data-frame-big':true,role:'dialog','aria-label':label||'旅行相框',onClick:()=>setBig(false),style:{position:'fixed',inset:0,zIndex:2147483000,background:'rgba(20,18,14,.94)',overflow:'auto',WebkitOverflowScrolling:'touch',display:full?'block':'flex',alignItems:'center',justifyContent:'center'}},
-        h('img',{src,alt:label,onClick:e=>{e.stopPropagation();setFull(v=>!v);},style:full?{display:'block',maxWidth:'none'}:{display:'block',maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}),
-        h('button',{type:'button','aria-label':'关闭大图',onClick:e=>{e.stopPropagation();setBig(false);},style:{position:'fixed',top:'calc(env(safe-area-inset-top) + 10px)',right:12,width:40,height:40,borderRadius:20,background:'rgba(255,255,255,.18)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}},h(IX,{size:18,color:'#fff'}))),document.body));
+      // 大图走全库那一份 ImageViewer（2026-10-16 九处并一处）：先整张放进屏幕，点图切原始像素拖着看（zoomable）
+      big&&h(ImageViewer,{onClose:()=>setBig(false),zoomable:true,items:[{src,caption:label||''}]}));
   }
   function travelFramePreview(t){return t.image?h(TravelFramePreview,{src:t.image,label:t.name,memory:t.memory,back:{back:t.back}}):null;}
   // 背面留言：她写一句，TA 写一句，都可以不写；写过还能改（2026-09-25）

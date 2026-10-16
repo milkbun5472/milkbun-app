@@ -97,3 +97,31 @@ test("纸条歪的角度照 id 算：同一张每次一样，不会一刷新就�
   assert.equal(N.tilt("abc123"), N.tilt("abc123"));
   for (const id of ["a", "b", "zz9", "0f3c", "item-77"]) assert.ok(Math.abs(N.tilt(id)) <= 1.1, id);
 });
+
+test("预览截图：上传带上压好的图和第一张做的小图；纸条和详情按 /img/<id>/<n> 去取", () => {
+  const up = nest.slice(nest.indexOf("function Upload("), nest.indexOf("function NestApp("));
+  assert.match(up, /resizeImageFile\(f, 900, 0\.78\)/, "预览图没在手机这头压小");
+  assert.match(up, /resizeImageFile\(f, 320, 0\.7\)/, "墙上那张小图没单独压");
+  assert.match(up, /images: shots\.map\(x => x\.full\), thumb: shots\.length \? shots\[0\]\.thumb : undefined/);
+  assert.match(up, /accept: "image\/\*", multiple: true/);
+  const slip = nest.slice(nest.indexOf("function Slip("), nest.indexOf("const Wall ="));
+  assert.match(slip, /!big && it\.thumb \? h\("div", \{ "data-wk": "nestpolaroid"/);
+  assert.match(slip, /NEST \+ "\/img\/" \+ it\.id \+ "\/t"/);
+  const shots = nest.slice(nest.indexOf("function Shots("), nest.indexOf("function Guestbook("));
+  assert.match(shots, /NEST \+ "\/img\/" \+ it\.id \+ "\/" \+ k/);
+});
+
+test("导入次数只给作者本人：后端没带这个数就整句不显示，不显示成「导入 0 次」", () => {
+  const det = nest.slice(nest.indexOf("function Detail("), nest.indexOf("function Shots("));
+  assert.match(det, /it\.imports != null \? h\("span", \{ "data-wk": "nestimports"/);
+  assert.ok(!/"导入 " \+ \(it\.imports \|\| 0\)/.test(nest), "还会给别人显示成导入 0 次");
+});
+
+test("自己的页切「我收藏的／我关注的」：只认这一格自己拿回来的那份，不拿上一格的去画（她 2026-10-16 截图白页）", () => {
+  const pf = nest.slice(nest.indexOf("function Profile("), nest.indexOf("function Notices("));
+  assert.match(pf, /setExtra\(Object\.assign\(\{ tab \}, x\)\)/, "拿回来的那份没记着是哪一格的");
+  assert.match(pf, /const got = extra && extra\.tab === tab \? extra : null;/);
+  const code = pf.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");   // 注释里讲这个 bug 的那句不算
+  assert.ok(!/extra\.(users|items)/.test(code), "还在直接读 extra.users / extra.items——切格子那一下会读到上一格的");
+  assert.match(pf, /\(got\.users \|\| \[\]\)\.length/);
+});

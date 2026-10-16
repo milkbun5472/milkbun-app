@@ -359,11 +359,8 @@
     // 真·全屏看图（她 2026-09-01：「去掉了全屏观看」）。
     // 全屏就该是【只有图】：没有渐变、没有标题、没有统计条，点一下就退出来。
     // portal 到 body——外面那几层有 transform，fixed 会锚到它们身上而不是屏幕。
-    const fullShot = (shot && typeof ReactDOM !== "undefined") ? ReactDOM.createPortal(
-      h("div", { onClick: function () { setShot(""); }, style: { position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "dwellpagetap", "data-part": "1" },
-        h("img", { src: shot, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } }),
-        h("div", { style: { position: "absolute", left: 0, right: 0, textAlign: "center", bottom: "calc(env(safe-area-inset-bottom) + 18px)", fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)" } }, "点一下退出")),
-      document.body) : null;
+    // 场景图看大图：全库那一份 ImageViewer（2026-10-16 九处并一处）
+    const fullShot = shot ? h(ImageViewer, { onClose: function () { setShot(""); }, items: [{ src: shot }] }) : null;
     // 底衬：上一层那张图糊开压暗铺满整页（no-half-sheet.md 明写的那一条）。
     // 它不是装饰——进了区域、进了物件，人还得看得见自己在哪儿。没图就是一整块暗底加细网格。
     const backdrop = function (p) {

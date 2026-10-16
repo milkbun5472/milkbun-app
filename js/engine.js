@@ -6645,6 +6645,8 @@ async function saveImgOriginal(ref, name) {
     if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
     else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
     else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+    // 网址的也认（小窝的预览图是后端地址，2026-10-16「小窝上传的图片能不能也保存」）：拉下来再走同一条存法
+    else if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) blob = await r.blob(); }
   } catch (e) {}
   if (!blob) return false;
   const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");

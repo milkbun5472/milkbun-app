@@ -62,7 +62,7 @@ test("图库删掉的图不会被补档收回来", () => {
   assert.match(gone, /x_trpgGalleryGone/, "没有墓碑，删了也会被补回来");
   const back = grab("      // 图库上线前已出过的封面与画面", "      if (add.length)", 900);
   assert.match(back, /loadGalGone\(\)\.forEach\(img => have\[img\] = 1\)/, "补档那一步没绕开墓碑");
-  const del = grab('h("button", { onClick: () => { const id = galView.id', '}, style: { padding: "8px 16px"', 400);
+  const del = grab('label: "删除", danger: true, onClick: () => { const id = galView.id', ' }] });', 400);
   assert.match(del, /galTomb\(img\)/, "删的时候没立墓碑");
 });
 
