@@ -87,3 +87,12 @@ test("本子各长各的：卷宗、诉状、批注、对照卡、岔路、签�
   const f = scr.slice(i, j);
   ["blackcase", "complain", "advisor", "mouth", "choices", "credit", "safe", "favor"].forEach(k => assert.match(f, new RegExp('book\\.key === "' + k + '"'), k + " 没有自己的长相"));
 });
+
+// 她：「你这只是换了个颜色喂」——四本换的是形状：档案袋点开成卷宗、诉状点开分原告被告席、卡片能翻面、车票带一条路
+test("本子长成那样东西：档案袋、庭审两边、翻面卡、车票", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
+  const f = scr.slice(i, j);
+  assert.match(f, /"← 合上卷宗"/); assert.match(f, /"原告席 · "/); assert.match(f, /rotateY\(180deg\)/); assert.match(f, /\["出门", "路上", "到了"\]/);
+  assert.match(f, /OBJ\[book\.key\] && list\.length \? objView\(\)/);
+});

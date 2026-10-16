@@ -17121,6 +17121,8 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
   const t = useTheme();
   const [form, setForm] = useState(null);          // 正在记的那一条
   const [draft, setDraft] = useState({});           // 每条下面那一行：{ [entryId]: { kind, text } }
+  const [openId, setOpenId] = useState(null);       // 卷宗 / 诉状 / 车票 点开的那一份
+  const [flip, setFlip] = useState({});             // 嘴硬对照卡翻到背面的那几张
   const nm = (partner && (partner.remark || partner.name)) || "TA";
   const list = entries || [];
   const startForm = () => { const f = {}; book.fields.forEach(x => { if (x.pick) f[x.k] = x.pick[0][0]; }); setForm(f); };
@@ -17135,19 +17137,145 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
         f.pick.map(o => h("button", { key: o[0], onClick: () => set(o[0]), className: "active:opacity-70", style: { padding: "4px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (val === o[0] ? book.band : t.line), background: val === o[0] ? book.band : "transparent", color: val === o[0] ? "#fff" : t.sub } }, o[1] === "TA 的" ? nm + " 的" : o[1])))
     : h(f.long ? "textarea" : "input", { key: f.k, value: val || "", onChange: e => set(e.target.value), placeholder: f.zh + (f.ph ? "：" + f.ph : ""), rows: f.long ? 3 : undefined,
         style: { width: "100%", boxSizing: "border-box", marginTop: 8, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, outline: "none", resize: "none" } });
+  // ════ 长成那样东西（她 2026-10-16「你这只是换了个颜色喂」）════
+  //   卷宗是一叠档案袋、点开是夹着纸的卷宗；诉状点开是原告席被告席分两边；对照卡是一张张能翻面的卡；报平安是一张张车票。
+  //   不是同一张卡换配色——摆法、点法、接话的方式都跟着那样东西走。
+  const OBJ = { blackcase: 1, complain: 1, mouth: 1, safe: 1 };
+  // 顶上那两颗也照那样东西说话：立案、递诉状、拍卡、报平安
+  const VERB = { blackcase: ["立一桩案", "让 {n} 举报一桩"], complain: ["递一份诉状", "让 {n} 告你一状"], mouth: ["拍一张卡", "让 {n} 拍一张"], safe: ["报个平安", "让 {n} 报个平安"] }[book.key] || ["记一条", "让 {n} 开一条"];
+  const INK = "#2f2a24", RED = "#b23a2e";
+  const dOf = e => draft[e.id] || { kind: book.kinds[0], text: "" };
+  const setDOf = (e, v) => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, dOf(e), v) }));
+  const sendOf = e => { const d = dOf(e); if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setDOf(e, { text: "" }); };
+  const whoTxtOf = e => { const f = book.fields.find(x => x.pick); return f && e[f.k] ? (e[f.k] === "ta" ? nm : "我") : ""; };
+  const dateOf = ts => (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(ts));
+  const timeOf = ts => (dd => String(dd.getHours()).padStart(2, "0") + ":" + String(dd.getMinutes()).padStart(2, "0"))(new Date(ts));
+  const noOf = e => String(list.length - list.indexOf(e)).padStart(3, "0");
+  // 接话那一栏：卷宗是一排墨章，诉状是庭上的几个动作，车票和对照卡是一行小字
+  const replyBar = (e, look) => {
+    const d = dOf(e);
+    const kinds = look === "stamp"
+      ? h("div", { className: "flex", style: { gap: 10, justifyContent: "center", marginBottom: 10 } }, book.kinds.map((k, i) => h("button", { key: k, onClick: () => setDOf(e, { kind: k }), className: "active:scale-95",
+          style: { width: 52, height: 52, borderRadius: 999, border: "2px solid " + RED, background: d.kind === k ? RED : "transparent", color: d.kind === k ? "#fff" : RED, fontFamily: F_DISPLAY, fontSize: 14, transform: "rotate(" + ((i % 2 ? 1 : -1) * (4 + i * 2)) + "deg)", opacity: d.kind === k ? 1 : .75 } }, k)))
+      : h("div", { className: "flex", style: { gap: 14, justifyContent: "center", marginBottom: 8, flexWrap: "wrap" } }, book.kinds.map(k => h("button", { key: k, onClick: () => setDOf(e, { kind: k }),
+          style: { fontFamily: F_BODY, fontSize: 13, color: d.kind === k ? book.band : "#9a8f80", background: "transparent", borderBottom: "2px solid " + (d.kind === k ? book.band : "transparent"), padding: "2px 2px" } }, k)));
+    return h("div", { "data-wk": "spacebookreply", style: { marginTop: 14 } }, kinds,
+      h("div", { className: "flex", style: { gap: 6 } },
+        h("input", { value: d.text, onChange: ev => setDOf(e, { text: ev.target.value }), placeholder: look === "stamp" ? "盖「" + d.kind + "」，写一句…" : d.kind + "：…", style: { flex: 1, minWidth: 0, border: 0, borderBottom: "1px solid " + INK, padding: "8px 2px", background: "transparent", color: INK, fontFamily: F_HAND, fontSize: 17, outline: "none" } }),
+        h("button", { onClick: () => sendOf(e), disabled: !d.text.trim(), style: { padding: "6px 12px", border: 0, background: "transparent", color: d.text.trim() ? book.band : "#c4b9a6", fontFamily: F_DISPLAY, fontSize: 15 } }, "落笔")),
+      h("button", { "data-wk": "spacebookask", onClick: () => onTa(e.id), disabled: !!busy, className: "w-full active:opacity-70", style: { marginTop: 10, padding: "9px 0", border: "1px dashed " + book.band, borderRadius: 999, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 13 } },
+        busy === book.key + ":" + e.id ? nm + " 在写…" : look === "court" ? "请 " + nm + " 答辩" : look === "stamp" ? "叫 " + nm + " 来录口供" : "让 " + nm + " 接"),
+      h("button", { onClick: () => requestAppConfirm("撕掉这一份？", "这一份和底下的话都没了。", () => { onRemove(e.id); setOpenId(null); }, "撕掉"), style: { display: "block", margin: "12px auto 0", fontFamily: F_BODY, fontSize: 11, color: "#a99f90", background: "transparent" } }, "撕掉"));
+  };
+  const openE = openId ? list.find(e => e.id === openId) : null;
+  const objView = () => {
+    // ── 黑历史案卷：一叠牛皮纸档案袋，标签错开露在上面 ──
+    if (book.key === "blackcase") {
+      if (openE) { const e = openE, ws = whoTxtOf(e);
+        return h("div", { "data-wk": "spacebookopen", style: { position: "relative", background: "linear-gradient(170deg,#d9bb8c,#c9a370)", borderRadius: 6, padding: "18px 14px 16px", boxShadow: "0 6px 16px rgba(80,55,20,.22)" } },
+          h("button", { onClick: () => setOpenId(null), style: { fontFamily: F_BODY, fontSize: 12, color: "#5a4325", background: "transparent", marginBottom: 10 } }, "← 合上卷宗"),
+          h("div", { style: { position: "relative", background: "#fffdf7", padding: "18px 16px 14px", boxShadow: "0 2px 6px rgba(0,0,0,.15)", transform: "rotate(-.6deg)" } },
+            h("span", { style: { position: "absolute", left: 22, top: -12, width: 12, height: 36, border: "3px solid #8e98a3", borderRadius: 8 } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".2em", color: "#8a7f70", textAlign: "right" } }, "黑历史 · 第 " + noOf(e) + " 号"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: INK, marginTop: 6 } }, "《" + (e.title || "无名案") + "》"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#7a6a55", marginTop: 4 } }, "当事人：" + (ws || "—") + "　举报人：" + who(e.by) + "　" + dateOf(e.ts) + " 立案"),
+            h("div", { style: { fontFamily: F_HAND, fontSize: 18, lineHeight: 1.7, color: INK, marginTop: 10, whiteSpace: "pre-wrap" } }, e.body),
+            (e.thread || []).some(x => x.kind === "翻案") ? h("div", { style: { position: "absolute", right: 14, bottom: 12, transform: "rotate(-12deg)", border: "3px double " + RED, color: RED, padding: "2px 10px", fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".2em", opacity: .85 } }, "申请翻案") : null),
+          h("div", { style: { background: "#fffdf7", marginTop: 12, padding: "12px 16px", backgroundImage: "repeating-linear-gradient(transparent 0 29px,#e4dccd 29px 30px)", minHeight: 90 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: ".4em", color: "#8a7f70", marginBottom: 4 } }, "笔　录"),
+            (e.thread || []).length ? e.thread.map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { lineHeight: "30px", fontFamily: F_HAND, fontSize: 17, color: INK } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: RED, border: "1px solid " + RED, borderRadius: 3, padding: "0 4px", marginRight: 6, verticalAlign: "middle" } }, x.kind), who(x.by) + "：" + x.text))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a99f90", lineHeight: "30px" } }, "还没人开口。")),
+          h("div", { style: { background: "#fffdf7", marginTop: 12, padding: "12px 14px" } }, replyBar(e, "stamp")));
+      }
+      return h("div", { style: { paddingTop: 16 } }, list.map((e, i) => { const ws = whoTxtOf(e);
+        return h("button", { key: e.id, "data-wk": "spacebookitem", "data-kind": "blackcase", onClick: () => setOpenId(e.id), className: "w-full text-left active:opacity-90", style: { position: "relative", display: "block", marginTop: i ? -6 : 0, marginBottom: 22, background: "transparent" } },
+          h("span", { style: { position: "absolute", top: -16, left: 18 + (i % 3) * 92, width: 84, height: 20, borderRadius: "6px 6px 0 0", background: "#cfae7c", fontFamily: F_BODY, fontSize: 10.5, color: "#5a4325", textAlign: "center", lineHeight: "20px", letterSpacing: ".1em" } }, "No." + noOf(e)),
+          h("div", { style: { position: "relative", background: "linear-gradient(175deg,#dcc093,#cfae7c)", borderRadius: 4, padding: "16px 16px 14px", boxShadow: "0 3px 8px rgba(80,55,20,.2)" } },
+            h("div", { style: { fontFamily: F_HAND, fontSize: 22, color: "#3a2c18" } }, e.title || "无名案"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#6b5332", marginTop: 4 } }, "当事人 " + (ws || "—") + " · 笔录 " + (e.thread || []).length + " 条"),
+            (e.thread || []).some(x => x.kind === "翻案") ? h("span", { style: { position: "absolute", right: 14, top: 14, transform: "rotate(-10deg)", border: "2px solid " + RED, color: RED, padding: "0 6px", fontFamily: F_DISPLAY, fontSize: 12 } }, "翻案中") : null));
+      }));
+    }
+    // ── 家里告状台：诉状一份份摞着；点开是原告席、被告席分坐两边 ──
+    if (book.key === "complain") {
+      if (openE) { const e = openE, plaintiff = e.by, ws = whoTxtOf(e);
+        const side = by => by === plaintiff ? "left" : "right";
+        const bubble = (txt, by, kind, key) => h("div", { key, "data-wk": "spacebookline", "data-me": by === "me" ? "1" : "0", className: "flex", style: { justifyContent: side(by) === "left" ? "flex-start" : "flex-end", marginTop: 10 } },
+          h("div", { style: { maxWidth: "78%", padding: "8px 11px", borderRadius: side(by) === "left" ? "2px 12px 12px 12px" : "12px 2px 12px 12px", background: side(by) === "left" ? "#f3e4da" : "#e3e6ee", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: INK, whiteSpace: "pre-wrap" } },
+            kind ? h("div", { style: { fontSize: 10.5, color: "#8a7f70", marginBottom: 2 } }, who(by) + " · " + kind) : null, txt));
+        return h("div", { "data-wk": "spacebookopen", style: { background: "#fbf7f0", border: "1px solid #e4d8c5", borderRadius: 8, padding: "14px 14px 16px" } },
+          h("button", { onClick: () => setOpenId(null), style: { fontFamily: F_BODY, fontSize: 12, color: "#7a6a55", background: "transparent" } }, "← 退庭"),
+          h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 18, color: INK, marginTop: 6 } }, e.title || "一桩家事"),
+          h("div", { className: "flex", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11, letterSpacing: ".2em", color: "#8a7f70" } },
+            h("div", { className: "flex-1", style: { borderBottom: "2px solid #c98f6f", paddingBottom: 3 } }, "原告席 · " + who(plaintiff)),
+            h("div", { style: { width: 30, textAlign: "center" } }, "⚖"),
+            h("div", { className: "flex-1", style: { borderBottom: "2px solid #8f9ab8", paddingBottom: 3, textAlign: "right" } }, (ws || "—") + " · 被告席")),
+          bubble(e.body, plaintiff, "诉称", "b"),
+          (e.thread || []).map((x, i) => bubble(x.text, x.by, x.kind, i)),
+          e.closed ? h("div", { style: { textAlign: "center", marginTop: 16, fontFamily: F_DISPLAY, fontSize: 15, color: "#4f7a5a", letterSpacing: ".3em" } }, "— 本案已和解 —") : replyBar(e, "court"));
+      }
+      return h("div", null, list.map(e => { const ws = whoTxtOf(e);
+        return h("button", { key: e.id, "data-wk": "spacebookitem", "data-kind": "complain", onClick: () => setOpenId(e.id), className: "w-full text-left active:opacity-90", style: { display: "block", position: "relative", marginBottom: 14, padding: "14px 16px", background: "#fffdf8", border: "1px solid #e4d8c5", boxShadow: "3px 3px 0 #efe6d6, 6px 6px 0 #e4d8c5" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7f70", letterSpacing: ".1em" } }, "家诉字第 " + noOf(e) + " 号 · " + dateOf(e.ts)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INK, marginTop: 6 } }, who(e.by), h("span", { style: { fontSize: 13, color: "#8a7f70", margin: "0 8px" } }, "诉"), ws || "—"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#5a5045", marginTop: 4 } }, "诉由：" + (e.title || "")),
+          h("span", { style: { position: "absolute", right: 14, top: 14, transform: "rotate(-8deg)", border: "2px solid " + (e.closed ? "#4f7a5a" : RED), color: e.closed ? "#4f7a5a" : RED, borderRadius: 4, padding: "0 6px", fontFamily: F_DISPLAY, fontSize: 13 } }, e.closed ? "已和解" : "待审"));
+      }));
+    }
+    // ── 嘴硬对照卡：一张张卡，正面是当时的狠话，点一下翻过来是后来 ──
+    if (book.key === "mouth") {
+      return h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, list.map(e => { const f = !!flip[e.id], ws = whoTxtOf(e), wide = f;
+        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-kind": "mouth", "data-flip": f ? "1" : "0", style: { gridColumn: wide ? "1 / -1" : "auto", perspective: 900 } },
+          h("div", { style: { position: "relative", transition: "transform .5s", transformStyle: "preserve-3d", transform: f ? "rotateY(180deg)" : "none", minHeight: wide ? 300 : 170 } },
+            h("button", { onClick: () => setFlip(o => Object.assign({}, o, { [e.id]: true })), className: "text-left", style: { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", background: "#fff", border: "1px solid #ddd5ea", borderRadius: 12, padding: "14px 12px", boxShadow: "0 3px 8px rgba(60,40,90,.1)", display: "flex", flexDirection: "column" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: book.band } }, (ws || "谁") + " 说过"),
+              h("div", { className: "flex-1", style: { fontFamily: F_HAND, fontSize: 19, lineHeight: 1.4, color: INK, marginTop: 6, overflow: "hidden" } }, "「" + e.body + "」"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a99fb5", textAlign: "right" } }, "翻过来看 ↻")),
+            h("div", { style: { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "#efe9f6", border: "1px solid #ddd5ea", borderRadius: 12, padding: "14px 14px", overflowY: "auto" } },
+              h("div", { className: "flex justify-between" }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: book.band } }, "后来"), h("button", { onClick: () => setFlip(o => Object.assign({}, o, { [e.id]: false })), style: { fontFamily: F_BODY, fontSize: 11, color: "#8a7fa0", background: "transparent" } }, "翻回去 ↻")),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: INK, marginTop: 4 } }, e.after || "还没对上"),
+              (e.thread || []).map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: INK } }, h("span", { style: { color: book.band, marginRight: 4 } }, who(x.by) + "·" + x.kind), x.text)),
+              replyBar(e, "line"))));
+      }));
+    }
+    // ── 报平安簿：一张张车票，左边存根是时间，右边是去向，底下一条路走到「到了」 ──
+    if (book.key === "safe") {
+      return h("div", null, list.map(e => {
+        const stage = e.closed ? 2 : (e.thread || []).some(x => x.kind === "路上") ? 1 : 0, open = openId === e.id;
+        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-kind": "safe", style: { marginBottom: 14 } },
+          h("button", { onClick: () => setOpenId(open ? null : e.id), className: "w-full text-left flex active:opacity-90", style: { background: "transparent", filter: "drop-shadow(0 3px 6px rgba(90,60,20,.15))" } },
+            h("div", { style: { width: 76, flexShrink: 0, background: book.band, color: "#fff", borderRadius: "10px 0 0 10px", padding: "12px 8px", textAlign: "center" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, opacity: .8 } }, who(e.by)),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, marginTop: 4 } }, timeOf(e.ts)),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .85, marginTop: 2 } }, dateOf(e.ts))),
+            h("div", { style: { width: 0, borderLeft: "2px dashed #f7efe0", position: "relative" } }),
+            h("div", { className: "flex-1", style: { background: "#fbf3e3", borderRadius: "0 10px 10px 0", padding: "12px 14px" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: INK, lineHeight: 1.4 } }, e.body),
+              h("div", { className: "flex items-center", style: { marginTop: 10 } }, ["出门", "路上", "到了"].map((st, k) => h(React.Fragment, { key: st },
+                k ? h("div", { className: "flex-1", style: { height: 2, background: k <= stage ? book.band : "#e3d4b8" } }) : null,
+                h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", fontFamily: F_BODY, fontSize: 10, color: k <= stage ? book.band : "#b9ab90" } },
+                  h("span", { style: { width: 10, height: 10, borderRadius: 999, background: k <= stage ? book.band : "#fbf3e3", border: "2px solid " + (k <= stage ? book.band : "#d9c9a8") } }), st)))))),
+          open ? h("div", { style: { margin: "0 10px", padding: "10px 14px 12px", background: "#fffaf0", borderRadius: "0 0 10px 10px", border: "1px solid #eadcc0", borderTop: 0 } },
+            (e.thread || []).map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { fontFamily: F_BODY, fontSize: 13, color: INK, marginTop: 6 } }, h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, timeOf(x.ts || e.ts) + " " + who(x.by) + " · " + x.kind), x.text)),
+            e.closed ? h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, color: "#4f7a5a", marginTop: 10, letterSpacing: ".2em" } }, "平安到了") : replyBar(e, "line")) : null);
+      }));
+    }
+    return null;
+  };
   return h("div", { "data-wk": "spacebook", "data-kind": book.key, className: "h-full flex flex-col", style: cpSkin(t, "page") },
     h(Head, { zh: book.zh, bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "2px 2px 12px" } }, book.say),
       !form ? h("div", { className: "flex", style: { gap: 8, marginBottom: 14 } },
-        h("button", { "data-wk": "spacebooknew", onClick: startForm, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: 0, background: book.band, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "记一条"),
-        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : "让 " + nm + " 开一条") : null) :
+        h("button", { "data-wk": "spacebooknew", onClick: startForm, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: 0, background: book.band, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, VERB[0]),
+        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : VERB[1].replace("{n}", nm)) : null) :
       h("div", { "data-wk": "spacebookform", style: { marginBottom: 14, padding: "12px 13px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         book.fields.map(f => field(f, form[f.k], v => setForm(o => Object.assign({}, o, { [f.k]: v })))),
         h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
           h("button", { onClick: () => setForm(null), className: "active:opacity-70", style: { padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
           h("button", { onClick: submit, disabled: !String(form.body || "").trim(), className: "flex-1 active:opacity-70", style: { padding: "9px 0", borderRadius: 999, border: 0, background: String(form.body || "").trim() ? book.band : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, book.autoAsk ? "记下，让 " + nm + " 看看" : "记下"))),
-      list.length ? list.map(e => {
+      OBJ[book.key] && list.length ? objView() : list.length ? list.map(e => {
         const d = draft[e.id] || { kind: book.kinds[0], text: "" };
         const setD = v => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, d, v) }));
         const send = () => { if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setD({ text: "" }); };
