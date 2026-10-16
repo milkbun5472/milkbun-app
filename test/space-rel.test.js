@@ -78,3 +78,12 @@ test("家人细分：role 进关系那句，只说身份、不写怎么当", () 
   // 只给身份不给剧本（她：「这也是八股限制吧，每个兄弟姐妹都不一样」）
   assert.doesNotMatch(b, /互损|护短|操心的长辈|抢东西/);
 });
+
+// 她 2026-10-16「每个 ui 都弄好看点，判据是如果在别的 app 成立那就是做坏了」：八本各长各的
+test("本子各长各的：卷宗、诉状、批注、对照卡、岔路、签名页、一路的站、账本", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
+  assert.ok(i > 0 && j > i);
+  const f = scr.slice(i, j);
+  ["blackcase", "complain", "advisor", "mouth", "choices", "credit", "safe", "favor"].forEach(k => assert.match(f, new RegExp('book\\.key === "' + k + '"'), k + " 没有自己的长相"));
+});

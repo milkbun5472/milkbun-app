@@ -17151,21 +17151,105 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
         const d = draft[e.id] || { kind: book.kinds[0], text: "" };
         const setD = v => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, d, v) }));
         const send = () => { if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setD({ text: "" }); };
-        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-closed": e.closed ? "1" : "0", style: { marginBottom: 12, padding: "13px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, borderLeft: "3px solid " + book.band, opacity: e.closed ? .85 : 1 } },
-          h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.title || (e.closed ? "收好了" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, who(e.by) + " 记 · " + (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts)) + book.fields.filter(f => f.pick && f.tag && e[f.k]).map(f => " · " + f.tag.replace("{who}", e[f.k] === "ta" ? nm : "我")).join("") + (e.closed ? " · 已收尾" : ""))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginTop: 6, whiteSpace: "pre-wrap" } }, e.body),
-          book.fields.filter(f => !f.pick && f.k !== "title" && f.k !== "body" && e[f.k]).map(f => h("div", { key: f.k, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 4 } }, f.zh + "：" + e[f.k])),
-          (e.thread || []).map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } },
-            h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, who(x.by) + " · " + x.kind), x.text)),
-          h("div", { className: "flex", style: { gap: 5, marginTop: 10, flexWrap: "wrap" } },
-            book.kinds.map(k => h("button", { key: k, onClick: () => setD({ kind: k }), className: "active:opacity-70", style: { padding: "3px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (d.kind === k ? book.band : t.line), background: d.kind === k ? book.band : "transparent", color: d.kind === k ? "#fff" : t.fog } }, k))),
+        // 每本长成它自己那样东西（她 2026-10-16「判据是如果在别的 app 成立那就是做坏了」）：
+        //   案卷是卷宗、观察簿是批注页、对照卡是两面、选择册是岔路、署名是签名页、报平安是一路的站、告状是诉状、小账是账本。
+        //   接话那一行、撕掉都共用；长相按 book.key 分。
+        const no = list.length - list.indexOf(e);
+        const ink = "#2f2a24", paper = "#f6f0e2", red = "#b4463a";
+        const tagOf = f => f.tag.replace("{who}", e[f.k] === "ta" ? nm : "我");
+        const whoF = book.fields.find(f => f.pick), whoTxt = whoF && e[whoF.k] ? (e[whoF.k] === "ta" ? nm : "我") : "";
+        const otherF = book.fields.filter(f => !f.pick && f.k !== "title" && f.k !== "body" && e[f.k]);
+        const stamp = (txt, color) => h("div", { "data-wk": "spacebookstamp", style: { position: "absolute", right: 12, top: 10, transform: "rotate(-9deg)", border: "2px solid " + color, color: color, borderRadius: 6, padding: "1px 8px", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: ".15em", opacity: .82 } }, txt);
+        const date = (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts));
+        const lineOf = (x, i) => {
+          const mine = x.by === "me", nmx = who(x.by);
+          if (book.key === "safe") return h("div", { key: i, "data-wk": "spacebookline", "data-me": mine ? "1" : "0", style: { position: "relative", paddingLeft: 20, marginTop: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: ink } },
+            h("span", { style: { position: "absolute", left: 3, top: 5, width: 9, height: 9, borderRadius: 999, background: x.kind === "到了" ? book.band : "#fff", border: "2px solid " + book.band } }),
+            h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, nmx + " · " + x.kind), x.text);
+          if (book.key === "advisor" && !mine) return h("div", { key: i, "data-wk": "spacebookline", "data-me": "0", style: { marginTop: 10, padding: "6px 10px", borderLeft: "2px solid " + red, fontFamily: F_HAND, fontSize: 15.5, lineHeight: 1.6, color: red, transform: "rotate(-.4deg)" } }, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, marginRight: 6, opacity: .8 } }, "军师批 · " + x.kind), x.text);
+          if (book.key === "blackcase" || book.key === "complain") return h("div", { key: i, "data-wk": "spacebookline", "data-me": mine ? "1" : "0", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: ink } },
+            h("span", { style: { color: book.band, fontWeight: 600 } }, nmx), h("span", { style: { color: "#8a7f70" } }, (book.key === "complain" ? " 当庭" : " ") + "【" + x.kind + "】"), x.text);
+          if (book.key === "favor") return h("div", { key: i, "data-wk": "spacebookline", "data-me": mine ? "1" : "0", className: "flex", style: { gap: 8, marginTop: 6, paddingTop: 6, borderTop: "1px solid #e6dcc6", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: ink } },
+            h("span", { style: { width: 42, flexShrink: 0, fontSize: 11, color: book.band } }, nmx), h("span", { className: "flex-1" }, h("span", { style: { fontSize: 11, color: "#8a7f70", marginRight: 4 } }, x.kind), x.text));
+          return h("div", { key: i, "data-wk": "spacebookline", "data-me": mine ? "1" : "0", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed #ddd2bd", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: ink, whiteSpace: "pre-wrap" } },
+            h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, nmx + " · " + x.kind), x.text);
+        };
+        // ── 各本的上半张 ──
+        let head;
+        if (book.key === "blackcase") head = [
+          h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".2em", color: "#8a7f70" } }, "黑历史 · 第 " + String(no).padStart(3, "0") + " 号 · " + date + " 立案"),
+          h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 19, color: ink, marginTop: 4, paddingRight: 64 } }, "《" + (e.title || "无名案") + "》"),
+          whoTxt ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 12, color: book.band, marginTop: 4 } }, "当事人：" + whoTxt + "　·　举报人：" + who(e.by)) : null,
+          h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: ink, marginTop: 10, padding: "10px 12px", background: "rgba(255,255,255,.55)", borderRadius: 6, whiteSpace: "pre-wrap" } }, h("span", { style: { fontSize: 11, color: "#8a7f70", marginRight: 6 } }, "案情"), e.body),
+          stamp((e.thread || []).some(x => x.kind === "翻案") ? "翻案中" : "在案", red)];
+        else if (book.key === "complain") head = [
+          h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: ".3em", color: "#8a7f70", textAlign: "center" } }, "诉　状"),
+          h("div", { key: "p", style: { fontFamily: F_BODY, fontSize: 12.5, color: ink, marginTop: 8, lineHeight: 1.8 } }, "原告：" + who(e.by) + "　被告：" + (whoTxt || "—")),
+          h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 17, color: ink, marginTop: 2, paddingRight: 64 } }, "诉由：" + (e.title || "")),
+          h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: ink, marginTop: 6, whiteSpace: "pre-wrap" } }, e.body),
+          e.closed ? stamp("已和解", "#4f7a5a") : stamp("待审", red)];
+        else if (book.key === "advisor") head = [
+          h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".15em", color: "#8a7f70" } }, "观察记录 · " + date),
+          h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 17, color: ink, marginTop: 4 } }, e.title || "一件事"),
+          h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: "26px", color: ink, marginTop: 6, whiteSpace: "pre-wrap", backgroundImage: "repeating-linear-gradient(transparent 0 25px, #e3d8c2 25px 26px)" } }, e.body)];
+        else if (book.key === "mouth") head = [
+          h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 16, color: ink, paddingRight: 64 } }, e.title || "对照卡"),
+          whoTxt ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 11.5, color: book.band, marginTop: 2 } }, whoTxt + " 嘴硬") : null,
+          h("div", { key: "c", className: "flex", style: { gap: 0, marginTop: 10, borderRadius: 10, overflow: "hidden", border: "1px solid #ddd2bd" } },
+            h("div", { style: { flex: 1, padding: "9px 10px", background: "#fff", borderRight: "1px dashed #ccbfa6" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7f70", marginBottom: 4 } }, "当时说的"), h("div", { style: { fontFamily: F_HAND, fontSize: 16, lineHeight: 1.5, color: ink, whiteSpace: "pre-wrap" } }, "「" + e.body + "」")),
+            h("div", { style: { flex: 1, padding: "9px 10px", background: "#efe9f6" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: book.band, marginBottom: 4 } }, "后来做的"), h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: e.after ? ink : "#a99f90", whiteSpace: "pre-wrap" } }, e.after || "还没对上"))),
+          (e.thread || []).some(x => x.kind === "认领") ? stamp("认了", book.band) : null];
+        else if (book.key === "choices") {
+          const opts = String(e.body || "").split(/\n|；|;|／|\/|、/).map(x => x.trim()).filter(Boolean);
+          const res = (e.thread || []).filter(x => x.kind === "结果").slice(-1)[0];
+          head = [
+            h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 17, color: ink, paddingRight: 64 } }, e.title || "一个决定"),
+            h("div", { key: "o", style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 6 } }, (opts.length > 1 ? opts : [e.body]).map((o, k) => h("div", { key: k, className: "flex items-center", style: { gap: 8 } },
+              h("span", { style: { width: 18, height: 18, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 11, color: "#fff", background: book.band } }, String.fromCharCode(65 + k)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: ink, lineHeight: 1.5 } }, o)))),
+            e.lean ? h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7f70", marginTop: 8 } }, who(e.by) + " 当时倾向：" + e.lean) : null,
+            res ? h("div", { key: "r", style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#e5eef0", fontFamily: F_BODY, fontSize: 13, color: ink } }, h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, "后来选了"), res.text) : null,
+            e.closed ? stamp("已定", book.band) : null];
+        } else if (book.key === "credit") {
+          const signed = e.closed;
+          head = [
+            h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: ".35em", color: "#8a7f70", textAlign: "center" } }, "共 同 署 名"),
+            h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 19, color: ink, textAlign: "center", marginTop: 6 } }, e.title || "一件事"),
+            h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: ink, marginTop: 8, whiteSpace: "pre-wrap" } }, e.body),
+            otherF.length ? h("div", { key: "s", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7f70", marginTop: 6 } }, who(e.by) + " 出的力：" + e.share) : null,
+            h("div", { key: "g", className: "flex", style: { gap: 18, marginTop: 14 } }, ["我", nm].map(n => h("div", { key: n, className: "flex-1", style: { borderBottom: "1px solid " + ink, paddingBottom: 2, textAlign: "center", fontFamily: signed ? F_HAND : F_BODY, fontSize: signed ? 20 : 11, color: signed ? ink : "#a99f90" } }, signed ? n : n + " 签名处")))];
+        } else if (book.key === "safe") head = [
+          h("div", { key: "t", className: "flex items-center", style: { gap: 8 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#fff", background: e.closed ? "#4f7a5a" : book.band, borderRadius: 999, padding: "2px 9px" } }, e.closed ? "到了" : "在路上"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7f70" } }, who(e.by) + " · " + date)),
+          h("div", { key: "b", style: { position: "relative", paddingLeft: 20, marginTop: 10, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: ink, whiteSpace: "pre-wrap" } },
+            h("span", { style: { position: "absolute", left: 3, top: 5, width: 9, height: 9, borderRadius: 999, background: book.band } }), e.body)];
+        else if (book.key === "favor") head = [
+          h("div", { key: "r", className: "flex", style: { gap: 8, fontFamily: F_BODY, fontSize: 13.5, color: ink } },
+            h("span", { style: { width: 42, flexShrink: 0, fontSize: 11, color: "#8a7f70", paddingTop: 2 } }, date),
+            h("div", { className: "flex-1" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, e.title || "一笔"),
+              whoTxt ? h("div", { style: { fontSize: 11.5, color: book.band, marginTop: 2 } }, whoTxt + " 偷偷偏心") : null,
+              e.body ? h("div", { style: { marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, e.body) : null))];
+        else head = [h("div", { key: "t", style: { fontFamily: F_DISPLAY, fontSize: 16, color: ink } }, e.title || ""), h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: ink, marginTop: 6, whiteSpace: "pre-wrap" } }, e.body),
+          otherF.map(f => h("div", { key: f.k, style: { fontFamily: F_BODY, fontSize: 12.5, color: "#8a7f70", marginTop: 4 } }, f.zh + "：" + e[f.k])), whoF && e[whoF.k] && whoF.tag ? h("div", { key: "w", style: { fontSize: 11.5, color: book.band } }, tagOf(whoF)) : null];
+        const card = book.key === "favor" ? { background: "linear-gradient(90deg, transparent 49px, #e9c9b5 49px 50px, transparent 50px), #fbf6ea", border: "1px solid #e6dcc6", borderRadius: 4 }
+          : book.key === "credit" ? { background: "#fbf8f0", border: "1px solid #d9cfba", borderRadius: 4, boxShadow: "inset 0 0 0 5px #fbf8f0, inset 0 0 0 6px #d9cfba" }
+          : book.key === "mouth" ? { background: "#f7f4fb", border: "1px solid #ddd5ea", borderRadius: 14 }
+          : book.key === "safe" ? { background: "#fbf7ef", border: "1px solid #e8dcc4", borderRadius: 14 }
+          : { background: paper, border: "1px solid #e1d6bf", borderRadius: 6, boxShadow: "0 1px 0 #e1d6bf, 0 3px 0 -1px #f6f0e2, 0 4px 0 -1px #e1d6bf" };
+        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-kind": book.key, "data-closed": e.closed ? "1" : "0", style: Object.assign({ position: "relative", marginBottom: 16, padding: "14px 15px" }, card) },
+          head,
+          (e.thread || []).length ? h("div", { style: { marginTop: book.key === "safe" ? 0 : 10, position: "relative" } },
+            book.key === "safe" ? h("span", { style: { position: "absolute", left: 7, top: -14, bottom: 6, width: 1, background: "#d9c9a8" } }) : null,
+            e.thread.map(lineOf)) : null,
+          h("div", { className: "flex", style: { gap: 5, marginTop: 12, flexWrap: "wrap" } },
+            book.kinds.map(k => h("button", { key: k, onClick: () => setD({ kind: k }), className: "active:opacity-70", style: { padding: "3px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (d.kind === k ? book.band : "#ddd2bd"), background: d.kind === k ? book.band : "transparent", color: d.kind === k ? "#fff" : "#8a7f70" } }, k))),
           h("div", { className: "flex", style: { gap: 6, marginTop: 6 } },
-            h("input", { value: d.text, onChange: ev => setD({ text: ev.target.value }), placeholder: "接一句…", style: { flex: 1, minWidth: 0, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 12px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
-            h("button", { onClick: send, disabled: !d.text.trim(), style: { padding: "8px 12px", borderRadius: 999, border: 0, background: d.text.trim() ? book.band : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "写上"),
+            h("input", { value: d.text, onChange: ev => setD({ text: ev.target.value }), placeholder: "接一句…", style: { flex: 1, minWidth: 0, border: "1px solid #ddd2bd", borderRadius: 999, padding: "8px 12px", background: "rgba(255,255,255,.7)", color: ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+            h("button", { onClick: send, disabled: !d.text.trim(), style: { padding: "8px 12px", borderRadius: 999, border: 0, background: d.text.trim() ? book.band : "#ddd2bd", color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "写上"),
             h("button", { "data-wk": "spacebookask", onClick: () => onTa(e.id), disabled: !!busy, style: { padding: "8px 10px", borderRadius: 999, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, busy === book.key + ":" + e.id ? "在写…" : "让 " + nm + " 接")),
-          h("button", { onClick: () => requestAppConfirm("撕掉这一条？", "这一条和底下接过的话都没了。", () => onRemove(e.id), "撕掉"), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, background: "transparent" } }, "撕掉这一条"));
+          h("button", { onClick: () => requestAppConfirm("撕掉这一条？", "这一条和底下接过的话都没了。", () => onRemove(e.id), "撕掉"), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: "#a99f90", background: "transparent" } }, "撕掉这一条"));
       }) : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "30px 0" } }, "还是空的。")));
 }
 
