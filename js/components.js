@@ -1573,15 +1573,23 @@ const CHAT_WINDOW = 200;
 // 一键回到最底／跳到最顶（群友 2026-10-14 许愿）：单聊、群聊、线下共用这一支。
 //   往上翻离开最新那段才露出来；位置照滚动框自己的矩形贴在它右下角（position:fixed），放在哪个子节点里都一样。
 //   onTop：先把窗口撑开到第 0 条（reveal(0)），再滚到顶——不然一到顶就触发往上补，又被顶回中间。
+//   停下来不滑 2 秒就淡掉、不挡内容（群友 2026-10-16 许愿），一滑又出来；手指按在箭头上时不淡。
+const CHAT_JUMP_IDLE_MS = 2000;
 function ChatJumpArrows({ scroller, onTop, t }) {
   const [st, setSt] = useState({ down: false, up: false, r: null });
+  const [awake, setAwake] = useState(true);
+  const idle = useRef(null);
+  const wake = () => { setAwake(true); clearTimeout(idle.current); idle.current = setTimeout(() => setAwake(false), CHAT_JUMP_IDLE_MS); };
+  const hold = () => { setAwake(true); clearTimeout(idle.current); };
+  useEffect(() => () => clearTimeout(idle.current), []);
   useEffect(() => {
     const el = scroller && scroller.current; if (!el) return;
     const upd = () => { const ch = el.clientHeight || 1, fromBottom = el.scrollHeight - el.scrollTop - ch;
       const down = fromBottom > ch * 1.2, up = down && el.scrollTop > ch * 0.5;
       setSt(o => o.down === down && o.up === up && o.r ? o : { down, up, r: el.getBoundingClientRect() }); };
-    upd(); el.addEventListener("scroll", upd, { passive: true }); window.addEventListener("resize", upd);
-    return () => { el.removeEventListener("scroll", upd); window.removeEventListener("resize", upd); };
+    const onScroll = () => { upd(); wake(); };
+    upd(); wake(); el.addEventListener("scroll", onScroll, { passive: true }); window.addEventListener("resize", upd);
+    return () => { el.removeEventListener("scroll", onScroll); window.removeEventListener("resize", upd); };
   }, [scroller && scroller.current]);
   if (!st.down || !st.r) return null;
   // 挂点名必须是写死的字面量，所以按【转交】那一支写：组件里原样放上去，名字由调用点给字面量
@@ -1590,7 +1598,8 @@ function ChatJumpArrows({ scroller, onTop, t }) {
     style: { width: 36, height: 36, borderRadius: 18, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 2px 8px rgba(0,0,0,.12)", display: "flex", alignItems: "center", justifyContent: "center" } },
     h(Svg, { size: 18, color: t.sub, sw: 2 }, h("path", { d })));
   const go = top => { const el = scroller.current; if (el) el.scrollTo({ top, behavior: "smooth" }); };
-  return h("div", { "data-wk": "chatjump", style: { position: "fixed", right: Math.max(10, window.innerWidth - st.r.right + 12), top: st.r.bottom - (st.up ? 92 : 48), zIndex: 30, display: "flex", flexDirection: "column", gap: 8 } },
+  return h("div", { "data-wk": "chatjump", "data-on": awake ? "1" : "0", onPointerDown: hold, onPointerUp: wake, onPointerCancel: wake,
+    style: { opacity: awake ? 1 : 0, pointerEvents: awake ? "auto" : "none", transition: "opacity .35s ease", position: "fixed", right: Math.max(10, window.innerWidth - st.r.right + 12), top: st.r.bottom - (st.up ? 92 : 48), zIndex: 30, display: "flex", flexDirection: "column", gap: 8 } },
     st.up ? btn({ wk: "chatjumptop", label: "跳到最早", d: "M6 15l6-6 6 6", onClick: () => { onTop && onTop(); requestAnimationFrame(() => requestAnimationFrame(() => go(0))); } }) : null,
     btn({ wk: "chatjumpbottom", label: "回到最新", d: "M6 9l6 6 6-6", onClick: () => go((scroller.current || {}).scrollHeight || 0) }));
 }

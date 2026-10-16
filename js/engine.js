@@ -4912,7 +4912,17 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "只露出半张脸：低着头目光朝下，或者脸在画面边缘被裁掉一半",
     "斜着拿手机，画面有点歪，像随手一按",
     "手机搁在桌上或架在什么东西上拍的，人退开一点，手不在画面里",
-    "逆着光，脸的一侧偏暗"
+    "逆着光，脸的一侧偏暗",
+    // 她 2026-10-16「照相馆机位是不是也很少要不要多加点」→「太具体了不要」→「我让你加啊」：
+    //   加，但只写镜头语言（远近、高低、朝向、构图），不写道具和动作——那些交给场景和模型。
+    //   最后一格把这条轴整个还给模型（bans-make-it-dumber.md：代码不是关门，是关一部分门）。
+    "侧脸，轮廓对着镜头",
+    "从很低的角度往上拍",
+    "从正上方往下拍",
+    "人在画面一边，另一边留空",
+    "前景挡住一点，前景是虚的",
+    "表情没摆好，抓到的是半截",
+    "这一张的机位你自己定：挑一个跟上面这些都不一样、又合这个时刻的角度"
   ];
   const PHOTO_SHOTS_OTHER = [
     "远一点的全身，人在环境里",
@@ -4922,7 +4932,14 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "背对镜头回头的一瞬",
     "站着平视的日常人像",
     "俯拍，人在画面中下方",
-    "近一点的上半身，视线偏开"
+    "近一点的上半身，视线偏开",
+    "很远，人在画面里只占一小块",
+    "很近的侧脸",
+    "从高处往下拍",
+    "贴着很低的位置往上拍",
+    "人在画面一边，另一边留空",
+    "隔着前景拍，前景是虚的",
+    "这一张的机位你自己定：挑一个跟上面这些都不一样、又合这个时刻的角度"
   ];
   // 合照的【两个人怎么待在一起】（她 2026-09-24：「为啥合照也都是一种姿势」）。
   // 上面那张机位表是给【一个人自拍】写的，合照也从那儿抽——它只管镜头，
@@ -4940,7 +4957,13 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "两个人面对面，镜头从侧面拍到两张侧脸",
     "一个人低头在做什么，另一个人凑过来看",
     "手机高举俯拍，两个人仰着脸挤进画面",
-    "一前一后，前面那个人清楚，后面那个人稍微虚一点"
+    "一前一后，前面那个人清楚，后面那个人稍微虚一点",
+    "两个人离得很近，都没看镜头",
+    "两个人隔开一点距离，一个看着另一个",
+    "只拍到两个人的背影",
+    "两个人在做同一件事",
+    "一个人在笑，另一个人看着对方",
+    "这一张两个人怎么待在一起你自己定：挑一个跟上面这些都不一样、又合这个时刻的样子"
   ];
   function photoDuoPoseLine(seed) {
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
@@ -5472,6 +5495,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       try { return await generateSelfieImage(prompt, refPhotoDataUrl, inner); }
       catch (e) {
         const m = String((e && e.message) || e);
+        // 被内容审核拦的（moderation / safety / content_policy）不是站子不收图：是这张参考照或这次画面被判成太露骨。
+        //   同一个站、一个角色能拍另一个不能，多半就是那个角色的参考照（或外貌里的词）。别把人往「不锁脸」上指。
+        if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)) throw new Error(m + "（这是站子的内容审核拦下来的，不是站子不收参考照：多半是这个角色的参考照、或者外貌和这次画面里有被判成太露骨的地方。换一张穿着整齐的参考照，或者把外貌里相关的词改掉再试；同一个站别的角色能拍就是这个原因。）");
         if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
         throw e;
       }
@@ -5779,7 +5805,20 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         v4_prompt: { caption: { base_caption: promptText, char_captions: [] }, use_coords: false, use_order: true },
         v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] } } };
       if (useRef && refBlobs.length) {
-        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(b));
+        // 角色参考图 NovelAI 只收三种画布：1024x1536／1536x1024／1472x1472，别的尺寸上游直接 500。
+        //   按原图横竖挑一张最近的画布，等比缩进去、四周补黑边（官网前端也是这么垫的）。
+        const naiCanvas = async b0 => {
+          try {
+            const bm = await createImageBitmap(b0), r = bm.width / bm.height;
+            const [cw, ch] = r > 1.2 ? [1536, 1024] : r < 0.83 ? [1024, 1536] : [1472, 1472];
+            const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+            const g = cv.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, cw, ch);
+            const k = Math.min(cw / bm.width, ch / bm.height), dw = Math.round(bm.width * k), dh = Math.round(bm.height * k);
+            g.drawImage(bm, Math.round((cw - dw) / 2), Math.round((ch - dh) / 2), dw, dh);
+            return await new Promise(res => cv.toBlob(x => res(x || b0), "image/png"));
+          } catch (e) { return b0; }
+        };
+        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(await naiCanvas(b)));
         Object.assign(parameters, { normalize_reference_strength_multiple: false, director_reference_images: imgs,
           director_reference_descriptions: imgs.map(() => ({ caption: { base_caption: "character", char_captions: [] }, legacy_uc: false })),
           director_reference_information_extracted: imgs.map(() => 1),

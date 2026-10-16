@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.746";
+const APP_VERSION = "v75.756";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17322,6 +17322,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
     finally { setPhotoDiaryBusy(""); }
   };
+  // 删掉照片日记那张图（她 2026-10-16「能不能搞删除」）：日记还在，只拿掉这张、连图库里那份一起清
+  const delPhotoDiary = (charId, entry) => {
+    const key = entry && entry.photoStrip && entry.photoStrip.imgKey;
+    setDiaries(p => {
+      const n = { ...p, [charId]: (p[charId] || []).map(e => { if (e.id !== entry.id) return e; const { photoStrip, ...rest } = e; return rest; }) };
+      saveJSON("x_diaries", n); return n;
+    });
+    if (key && typeof idbImgDel === "function") idbImgDel(key).catch(() => {});
+    toast("这张照片删掉了");
+  };
   // 用户自己写日记（存 x_diaries["__me"]），时间/天气/城市由 compose 组件抓本地后传进来
   const addMyDiaryEntry = data => {
     const paras = (data.body || "").split(/\n+/).map(s => s.trim()).filter(Boolean).map(text => ({ text, secret: false }));
@@ -28636,17 +28646,65 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
     return { name: name, text: await blob.text(), what: what };
   };
+  // ⚠️拆成两份（群里 2026-10-16：「备份不下来了，秋秋说可能是内存太大了」）：
+  //   原来一份文件里连图带视频全转成 base64，图一多就是几百 MB 的一整串字，手机浏览器拼到一半就撑不住，
+  //   连最要紧的人设和聊天也一起导不出来。现在「导出全部数据」先存文字那一份（小，几乎一定成），
+  //   图片和视频另按 MEDIA_PART 切成几包，一包一个文件，按顺序点着存。
+  //   导入那头认 kind:"media"：只往图库里加，不碰文字、不清别的图——两份先导哪份都行。
+  const MEDIA_PART = 30 * 1024 * 1024;
+  const [mediaParts, setMediaParts] = useState(null);   // { id, parts:[[{src,k,b}]], album, done:{1:true} }
+  const planMedia = async () => {
+    const rows = [];
+    try { if (typeof idbVaultEntries === "function") (await idbVaultEntries()).forEach(([k, b]) => rows.push({ src: "vault", k, b })); } catch (e) {}
+    try { if (typeof idbImgEntries === "function") (await idbImgEntries()).forEach(([k, b]) => rows.push({ src: "selfies", k, b })); } catch (e) {}
+    try { if (window.VideoApi && window.VideoApi.allVideos) (await window.VideoApi.allVideos()).forEach(([k, b]) => rows.push({ src: "videos", k, b })); } catch (e) {}
+    // 同一道闸（见 buildExportPack）：存档里引用着 iv_ 图，图库却一张都读不出来＝读失败，不是没图
+    let refs = 0;
+    try { Object.keys(localStorage).forEach(k => { if (k.startsWith("x_") && /iv_[A-Za-z0-9_-]+/.test(localStorage.getItem(k) || "")) refs++; }); } catch (e) {}
+    if (refs && !rows.some(x => x.src === "vault")) return { broken: true };
+    let album = [];
+    try { if (typeof idbAlbumEntries === "function") album = await idbAlbumEntries(); } catch (e) {}
+    const parts = []; let cur = [], size = 0;
+    rows.forEach(x => {
+      const n = (x.b && x.b.size) || 0;
+      if (cur.length && size + n > MEDIA_PART) { parts.push(cur); cur = []; size = 0; }
+      cur.push(x); size += n;
+    });
+    if (cur.length) parts.push(cur);
+    return { id: "m" + Date.now().toString(36), parts, album, done: {} };
+  };
+  const doExportMedia = async (partNo, boxIn) => {
+    const box = boxIn || mediaParts;
+    if (!box || !box.parts[partNo - 1]) return;
+    const out = { __archive: 1, kind: "media", version: 1, id: box.id, part: partNo, parts: box.parts.length, exportedAt: Date.now(),
+      vault: {}, selfies: {}, videos: {}, album: partNo === 1 ? box.album : [] };
+    for (const x of box.parts[partNo - 1]) { try { out[x.src][x.k] = await blobToDataUrl(x.b); } catch (e) {} }
+    const name = "archive-media-" + new Date().toISOString().slice(0, 10) + "-" + partNo + "of" + box.parts.length + ".json";
+    try {
+      const via = await saveTextFile(name, JSON.stringify(out), "application/json");
+      if (via === "cancel") { toast("这一包取消了，什么都没存"); return; }
+      setMediaParts(Object.assign({}, box, { done: Object.assign({}, box.done, { [partNo]: true }) }));
+      toast("图片和视频第 " + partNo + "/" + box.parts.length + " 包" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出"));
+    } catch (e) {
+      toast("这一包没导成：" + (e && e.message || e) + "——数据还在，没有丢");
+    }
+  };
   const doExport = async () => {
-    const pack = await buildExportPack();
-    if (!pack) return;                 // 上面那道图库核对已经当面说过了
+    const pack = await buildExportPack({ noImages: true });
+    if (!pack) return;
+    let saved = false;
     try {
       const via = await saveTextFile(pack.name, pack.text, "application/json");
-      if (via === "cancel") toast("导出取消了，什么都没存");
-      else if (via === "share") toast("备份已交给分享面板" + pack.what + "，在里面选「存储到文件」");
-      else toast("已导出备份" + pack.what);
+      if (via === "cancel") { toast("导出取消了，什么都没存"); return; }
+      saved = true;
+      toast("文字那一份" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出") + "——图片和视频在下面按包接着存");
     } catch (e) {
       toast("导出没成功：" + (e && e.message || e) + "——数据还在，没有丢");
     }
+    if (!saved) return;
+    const box = await planMedia();
+    if (box.broken) { toast("图片没导：存档里引用着图，图库却一张都读不出来——这是读失败，不是真没图。别关 app，先跟工程师说一声"); return; }
+    setMediaParts(box.parts.length ? box : null);
   };
   // QQ／微信／微博这些【内置浏览器】里，点下载多半落不到手上：它会接管成自己那个
   // 「文件下载」页，然后存进 app 自己的沙盒，你再也找不着（她 2026-09-22 转来的截图）。
@@ -28810,6 +28868,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️失败要返回 false：贴那条路靠它决定【要不要把她贴的那一大段留着】
         toast("导入失败：内容损坏或不是备份文件");
         return false;
+      }
+      // 图片和视频那几包：只往库里加，不碰文字、不清别的图
+      if (parsed.__archive && parsed.kind === "media") {
+        let n = 0;
+        const put = async (rows, fn) => { for (const [k, durl] of Object.entries(rows || {})) { try { const b = dataUrlToBlob(durl); if (b) { await fn(k, b); n++; } } catch (e2) {} } };
+        if (typeof dataUrlToBlob === "function") {
+          if (typeof idbVaultPut === "function") await put(parsed.vault, idbVaultPut);
+          if (typeof idbImgPut === "function") await put(parsed.selfies, idbImgPut);
+          if (window.VideoApi && window.VideoApi.restoreVideo) await put(parsed.videos, window.VideoApi.restoreVideo);
+        }
+        if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
+          for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
+        }
+        toast("图片和视频第 " + (parsed.part || 1) + "/" + (parsed.parts || 1) + " 包导好了（" + n + " 个），正在重载…");
+        setTimeout(() => location.reload(), 800);
+        return true;
       }
       if (!parsed.__archive || !parsed.data) {
         toast("格式不对，这不像是这个 app 的备份");
@@ -31363,7 +31437,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
     onSaveFields: saveDiaryFields,
-    onPhotoDiary: genPhotoDiary, photoDiaryBusy: photoDiaryBusy,
+    onPhotoDiary: genPhotoDiary, onDelPhotoDiary: delPhotoDiary, photoDiaryBusy: photoDiaryBusy,
     onAddMyEntry: addMyDiaryEntry,
     onGenComments: genDiaryCommentsFor,
     toast: toast
@@ -31572,6 +31646,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: goHome,
     onExport: doExport,
     onCopyExport: doCopyExport,
+    mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
+    onExportMedia: doExportMedia,
     onImportText: doImportPasted,
     copyParts: copyParts,
     inAppBrowser: inAppBrowser(),

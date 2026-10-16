@@ -10229,7 +10229,7 @@ function Config(props) {
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
-      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }
@@ -11799,6 +11799,8 @@ function HomeLayoutProbe({ toast }) {
 function DataConfig({
   characters,
   onExport,
+  mediaParts,
+  onExportMedia,
   onCopyExport,
   copyParts,
   onImportText,
@@ -11842,12 +11844,26 @@ function DataConfig({
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
+    // 图片和视频另按包存（群里 2026-10-16「备份不下来了」）：文字那份存好后这儿才冒出来
+    mediaParts && mediaParts.n
+      ? h("div", { style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.ink } },
+            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时每一包都用「导入备份恢复」导一次，先导哪份都行。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+            Array.from({ length: mediaParts.n }, (_, k) => h("button", {
+              key: k, onClick: () => onExportMedia(k + 1), className: "active:opacity-70",
+              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12,
+                border: "1px solid " + (mediaParts.done[k + 1] ? t.ink : t.line),
+                background: mediaParts.done[k + 1] ? t.ink : "transparent",
+                color: mediaParts.done[k + 1] ? t.bg2 : t.ink }
+            }, (mediaParts.done[k + 1] ? "✓ " : "") + "图片第 " + (k + 1) + " 包"))))
+      : null,
     // ⚠️「导出全部数据」这个名字是句半真话：有五个 IndexedDB 库根本不在里面（审计 P1）。
     //   以前唯一提到这件事的地方，是【导入失败之后】那个 alert——那时候已经晚了。
     //   固定摆在按钮旁边，按之前就看得见。
     h("div", { style: { margin: "8px 0 4px", padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub } },
-        "这份文件带走的是：角色、聊天、记忆、手机、情侣空间这些正文，加上图库、自拍和照片说明。"),
+        "先存一份文字（角色、聊天、记忆、手机、情侣空间这些正文），再按包存图库、自拍、照片说明和动态形象视频——图多也导得出来。"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f", marginTop: 5 } },
         "⚠️ 不含：API 密钥 · 一起读的书正文 · 语音音频 · 一起听的本地歌 · 网易云 Cookie。换设备之后这几样要重来一次。")),
     // ── 下载落不下来的那条退路（她 2026-09-22 转来的截图：QQ 内置浏览器把下载
@@ -13586,7 +13602,7 @@ function diaryPreview(e) {
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
 // ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
-function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting, onPhotoDiary, photoBusy }) {
+function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
   const t = useTheme();
   // 虚拟时间开着时，TA 那篇上的日子按 TA 那只钟（她 2026-10-11：「日记显示的日期要跟随虚拟时间」）
   const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
@@ -13642,7 +13658,12 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
         entry.photoStrip ? h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 8 } }, "这一天的照片"),
           h("div", { style: { borderRadius: 8, overflow: "hidden", border: "1px solid rgba(" + iRGB + ",.14)" } }, h(AlbumPhoto, { photo: entry.photoStrip })),
-          h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 })) : null,
+          h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 }),
+          // 添加到主屏幕的网页版里长按图片没有「存储图像」（群里 2026-10-16）——给一颗明着存的键，走公共那条 saveImgOriginal
+          entry.photoStrip.imgKey ? h("button", { onClick: () => { if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图"); window.saveImgOriginal(entry.photoStrip.imgKey, "照片日记").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); }); },
+            className: "w-full mt-3 flex items-center justify-center gap-2 active:opacity-70", style: { border: "1px solid rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "transparent" } }, "保存这张照片") : null,
+          onDelPhoto ? h("button", { "data-wk": "photodiarydel", onClick: () => requestAppConfirm("删掉这张照片？", "日记留着，只删这张图；删了想要得再拍一次（再花一次生图）。", () => onDelPhoto(entry), "删掉"), disabled: !!photoBusy, className: "w-full mt-2 active:opacity-70 disabled:opacity-50",
+            style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: 12.5, color: "#c0503f", background: "transparent" } }, "删掉这张照片（日记留着）") : null) : null,
         h("button", { onClick: () => onPhotoDiary(entry), disabled: !!photoBusy, className: "w-full mt-4 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50",
           style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub, background: "transparent" } },
           photoBusy ? "在冲洗这一天…" : entry.photoStrip ? "重拍这一天（再生成一次图）" : "把这一天拍成照片日记（生成一次图）")) : null));
@@ -13814,7 +13835,7 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, photoDiaryBusy, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
@@ -13897,7 +13918,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         onComment: isMe ? () => setCommentPick(entry.id) : null,
         onBack: () => { setCurEntry(null); setView("entries"); },
         onDelete: () => { onDelEntry(curId, entry.id); setCurEntry(null); setView("entries"); },
-        onPhotoDiary: onPhotoDiary ? en => onPhotoDiary(curId, en) : null, photoBusy: photoDiaryBusy === entry.id
+        onPhotoDiary: onPhotoDiary ? en => onPhotoDiary(curId, en) : null, onDelPhoto: onDelPhotoDiary ? en => onDelPhotoDiary(curId, en) : null, photoBusy: photoDiaryBusy === entry.id
       }));
     return h(Fragment, null,
       h("div", { className: "h-full relative", style: { perspective: 1500, perspectiveOrigin: "0% 50%", overflow: "hidden", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },
