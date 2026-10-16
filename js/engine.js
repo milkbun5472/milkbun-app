@@ -5261,6 +5261,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
   if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
+  // opts.lead：管【整张图长什么样】的那一句（胶片条三格、四宫格）放在最前面——
+  //   原来夹在「场景/正在做什么」里、排在三十几条规矩后面，gpt 出图常常没读到，三格只回一张（她 2026-10-16）。
+  if (opts.lead) parts.unshift(String(opts.lead).trim() + "\n");
   return parts.join("");
 }
 

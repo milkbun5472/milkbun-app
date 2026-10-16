@@ -17311,7 +17311,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n这篇日记：\n" + body
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
-      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3 });
+      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3,
+        lead: "【最重要·整张图的版式】这一张不是一张照片，是一条竖着的三格胶片：从上到下三格一样大、格子之间留一道粗白边，三格拍的是这一天的三个时刻。必须画成三格，不许只画一张。" });
       // 给看得见这一页的人（半窗里的他）一句话：这三张拍的是什么
       const stripDesc = "他这篇日记那天的照片日记，竖着三格，从早到晚：照日记里写的「" + body.replace(/\s+/g, " ").slice(0, 80) + "…」那一天拍的"
         + (dayWears.length ? "；穿着：" + dayWears.map(x => x.t + " " + x.w).join("、") : "") + (entry.location ? "；在" + entry.location : "") + (entry.weather ? "；" + entry.weather : "");
@@ -25731,7 +25732,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
       const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
