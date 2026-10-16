@@ -106,3 +106,19 @@ test("本子布景：木桌、小法庭、软木板、站台", () => {
   assert.match(f, /style: sc \? sc\.page : cpSkin\(t, "page"\)/);
   assert.match(f, /ink: sc \? sc\.ink : undefined/);
 });
+// 她 2026-10-16「567 也做了」：门牌 / 东西在谁那儿 / 留灯——事实进 TA 的上下文，留灯过早上六点熄
+test("空间门口：spaceDoor 进 coupleStatusLines，x_spaceHome 走 IndexedDB 那一批，SpaceDoor 三块都在", () => {
+  const g = load();
+  const out = g.lines({ coupleStatus: "together|3|bestie|", spaceDoor: "【留灯】她今晚给你留了灯", char: { id: "c" } }, "她");
+  assert.ok(out.includes("【留灯】她今晚给你留了灯"));
+  assert.ok(!g.lines({ coupleStatus: "together|3|bestie|", spaceDoor: "x", notRoleplay: true, char: { id: "c" } }, "她").includes("x"));
+  assert.match(eng, /"x_spaceBooks", "x_spaceHome",/);
+  assert.match(app, /const spaceDoorLine = \(char, uN\) =>/);
+  assert.match(app, /const lightLit = x =>/);
+  assert.match(app, /if \(pl\.edit === "me"\) throw new Error/);
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceDoor("), j = scr.indexOf("function Us(", i);
+  assert.ok(i > 0 && j > i);
+  ["usplaque", "usthing", "uslight", "usplaqueta"].forEach(k => assert.ok(scr.slice(i, j).includes('"data-wk": "' + k + '"'), k));
+  assert.match(scr, /bestie: \{ days: \["闺蜜盖章", "天"\]/);
+});

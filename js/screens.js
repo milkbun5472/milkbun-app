@@ -6787,7 +6787,93 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+// ════ 空间门口（她 2026-10-16「567 也做了」）：门牌 / 东西在谁那儿 / 留灯 ════
+//   门牌是一块挂在门上的牌子，被涂改过的那格旧字划掉、新字手写在旁边；东西是一张两栏的条子（在我这儿 | 在 TA 那儿），
+//   点一下就挪到另一边；留灯是两盏小灯，亮着就是暖光。
+function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, ta }) {
+  const t = useTheme();
+  const nm = (partner && (partner.remark || partner.name)) || "TA";
+  const pl = home.plaque || {}, things = home.things || [], L = home.light || {};
+  const [edit, setEdit] = useState(null);       // 正在改门牌哪一格
+  const [val, setVal] = useState("");
+  const [adding, setAdding] = useState(null);   // { name, owner, at, note }
+  const [lightNote, setLightNote] = useState("");
+  const PZ = [["title", "称号", "你们这一对叫什么"], ["boss", "谁说了算", "比如：吃什么她说了算"], ["guard", "护短", "谁护着谁、护到什么份上"]];
+  const EDIT = [["both", "都能改"], ["me", "只有我"], ["ta", "只有 " + nm]];
+  const lastMark = k => (pl.marks || []).find(m => m.field === k && m.from);
+  const savePl = (k, v) => put(h0 => ({ ...h0, plaque: { ...(h0.plaque || {}), [k]: v, marks: k === "edit" ? (h0.plaque || {}).marks : [{ by: "me", field: k, from: (h0.plaque || {})[k] || "", to: v, ts: Date.now() }, ...(((h0.plaque || {}).marks) || [])].slice(0, 20) } }));
+  const meCanEdit = pl.edit !== "ta", taCanEdit = pl.edit !== "me";
+  const lastSay = (pl.marks || []).find(m => m.by === "ta" && m.say);
+  // ── 门牌 ──
+  const plaque = h("div", { "data-wk": "usplaque", style: { position: "relative", marginTop: 14, padding: "18px 16px 14px", borderRadius: 10, background: "#fffdf8", border: "1px solid " + tone, boxShadow: "inset 0 0 0 4px #fffdf8, inset 0 0 0 5px " + tone + "55, 0 4px 12px rgba(60,40,30,.08)" } },
+    h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -9, marginLeft: -5, width: 10, height: 10, borderRadius: 999, background: tone, boxShadow: "0 1px 2px rgba(0,0,0,.25)" } }),
+    PZ.map(([k, zh, ph]) => { const m = lastMark(k);
+      return h("div", { key: k, className: "flex", style: { alignItems: "baseline", gap: 10, padding: "7px 0", borderBottom: "1px dashed " + t.line } },
+        h("div", { style: { width: 58, flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: tone, letterSpacing: ".1em" } }, zh),
+        edit === k ? h("div", { className: "flex-1 flex", style: { gap: 6 } },
+            h("input", { autoFocus: true, value: val, onChange: e => setVal(e.target.value), placeholder: ph, style: { flex: 1, minWidth: 0, border: 0, borderBottom: "1px solid " + tone, background: "transparent", color: t.ink, fontFamily: F_HAND, fontSize: 17, outline: "none", padding: "2px 0" } }),
+            h("button", { onClick: () => { savePl(k, val.trim()); setEdit(null); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: tone, background: "transparent" } }, "写上"))
+          : h("button", { onClick: () => { if (!meCanEdit) return; setEdit(k); setVal(pl[k] || ""); }, className: "flex-1 text-left", style: { background: "transparent", minWidth: 0 } },
+              m && m.from && m.from !== pl[k] ? h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textDecoration: "line-through", textDecorationColor: "#b23a2e", marginRight: 6 } }, m.from) : null,
+              pl[k] ? h("span", { style: { fontFamily: m && m.by === "ta" ? F_HAND : F_DISPLAY, fontSize: m && m.by === "ta" ? 18 : 15, color: m && m.by === "ta" ? tone : t.ink } }, pl[k])
+                : h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, meCanEdit ? "空着 · 点一下写" : "空着")));
+    }),
+    h("div", { className: "flex items-center", style: { gap: 6, marginTop: 10, flexWrap: "wrap" } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginRight: 2 } }, "门牌谁能改"),
+      EDIT.map(([k, zh]) => { const on = (pl.edit || "both") === k;
+        return h("button", { key: k, onClick: () => savePl("edit", k), style: { padding: "2px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (on ? tone : t.line), background: on ? tone : "transparent", color: on ? "#fff" : t.sub } }, zh); })),
+    lastSay ? h("div", { style: { marginTop: 8, fontFamily: F_HAND, fontSize: 16, color: tone } }, nm + "：" + lastSay.say) : null,
+    taCanEdit ? h("button", { "data-wk": "usplaqueta", onClick: () => ta("plaque"), disabled: !!busy, className: "w-full active:opacity-70", style: { marginTop: 10, padding: "8px 0", borderRadius: 999, border: "1px dashed " + tone, background: "transparent", color: tone, fontFamily: F_BODY, fontSize: 12.5 } },
+      busy === "plaque" ? nm + " 拿着笔在看…" : "把笔递给 " + nm) : null);
+  // ── 东西在谁那儿 ──
+  const move = x => put(h0 => ({ ...h0, things: (h0.things || []).map(y => y.id === x.id ? { ...y, at: y.at === "me" ? "ta" : "me", ts: Date.now() } : y) }));
+  const drop = x => requestAppConfirm("这样东西不记了？", "「" + x.name + "」从条子上划掉。", () => put(h0 => ({ ...h0, things: (h0.things || []).filter(y => y.id !== x.id) })), "划掉");
+  const col = side => h("div", { className: "flex-1 min-w-0", style: { padding: "4px 10px 10px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: tone, letterSpacing: ".15em", padding: "6px 0", borderBottom: "1px solid " + t.line, marginBottom: 4 } }, side === "me" ? "在我这儿" : "在 " + nm + " 那儿"),
+    things.filter(x => x.at === side).map(x => h("div", { key: x.id, "data-wk": "usthing", "data-at": side, className: "flex items-center", style: { gap: 4, padding: "5px 0" } },
+      h("button", { onClick: () => move(x), className: "flex-1 text-left min-w-0", style: { background: "transparent" } },
+        h("div", { style: { fontFamily: F_HAND, fontSize: 17, color: t.ink, lineHeight: 1.3 } }, (x.owner === "me" ? "我的" : nm + "的") + x.name),
+        x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, x.note) : null),
+      h("button", { onClick: () => move(x), "aria-label": "挪到另一边", style: { fontSize: 14, color: tone, background: "transparent", padding: "0 2px" } }, side === "me" ? "→" : "←"),
+      h("button", { onClick: () => drop(x), "aria-label": "划掉", style: { fontSize: 11, color: t.fog, background: "transparent", padding: "0 2px" } }, "✕"))),
+    !things.some(x => x.at === side) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "6px 0" } }, "—") : null);
+  const addRow = adding ? h("div", { style: { padding: "10px 12px", borderTop: "1px dashed " + t.line } },
+      carryNames.length && adding.owner === "ta" ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 8 } }, carryNames.map(n => h("button", { key: n, onClick: () => setAdding(a => ({ ...a, name: n })), style: { padding: "2px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (adding.name === n ? tone : t.line), background: adding.name === n ? tone : "transparent", color: adding.name === n ? "#fff" : t.sub } }, n))) : null,
+      h("div", { className: "flex", style: { gap: 6, marginBottom: 8 } },
+        [["ta", nm + " 的"], ["me", "我的"]].map(([k, zh]) => h("button", { key: k, onClick: () => setAdding(a => ({ ...a, owner: k, at: k === "ta" ? "me" : "ta" })), style: { padding: "3px 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (adding.owner === k ? tone : t.line), background: adding.owner === k ? tone : "transparent", color: adding.owner === k ? "#fff" : t.sub } }, zh))),
+      h("input", { value: adding.name, onChange: e => setAdding(a => ({ ...a, name: e.target.value })), placeholder: "什么东西", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, outline: "none" } }),
+      h("input", { value: adding.note, onChange: e => setAdding(a => ({ ...a, note: e.target.value })), placeholder: "一句来历（可空）", style: { width: "100%", boxSizing: "border-box", marginTop: 6, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+      h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+        h("button", { onClick: () => setAdding(null), style: { padding: "7px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "算了"),
+        h("button", { disabled: !adding.name.trim(), onClick: () => { const a = adding; put(h0 => ({ ...h0, things: [{ id: "th_" + Date.now(), name: a.name.trim().slice(0, 30), owner: a.owner, at: a.at, note: a.note.trim().slice(0, 60), ts: Date.now() }, ...(h0.things || [])].slice(0, 40) })); setAdding(null); },
+          className: "flex-1", style: { padding: "7px 0", borderRadius: 999, border: 0, background: adding.name.trim() ? tone : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "记上")))
+    : h("button", { onClick: () => setAdding({ name: "", owner: "ta", at: "me", note: "" }), className: "w-full active:opacity-70", style: { padding: "9px 0", borderTop: "1px dashed " + t.line, background: "transparent", color: tone, fontFamily: F_BODY, fontSize: 12.5 } }, "+ 记一样");
+  const ledger = h("div", { style: { marginTop: 4, borderRadius: 10, background: "#fffdf8", border: "1px solid " + t.line, overflow: "hidden" } },
+    h("div", { className: "flex", style: { alignItems: "stretch" } }, col("me"), h("div", { style: { width: 1, background: t.line } }), col("ta")), addRow);
+  // ── 留灯 ──
+  const lamp = (on, who, sub, act) => h("div", { "data-wk": "uslight", "data-who": who, "data-on": on ? "1" : "0", className: "flex-1", style: { position: "relative", padding: "14px 12px 12px", borderRadius: 12, textAlign: "center", overflow: "hidden",
+      background: on ? "radial-gradient(90% 70% at 50% 18%, rgba(255,214,140,.55), rgba(255,240,210,.25) 55%, #fffdf8 100%)" : "#fffdf8", border: "1px solid " + (on ? "#e9c98e" : t.line), transition: "background .4s" } },
+    h("div", { "aria-hidden": "true", style: { width: 26, height: 26, margin: "0 auto", borderRadius: 999, background: on ? "radial-gradient(circle at 50% 40%, #fff6dc, #ffc46b 70%)" : "#e4ded4", boxShadow: on ? "0 0 18px 6px rgba(255,196,107,.55)" : "none" } }),
+    h("div", { "aria-hidden": "true", style: { width: 2, height: 10, margin: "0 auto", background: on ? "#d8b072" : "#d8d0c4" } }),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginTop: 4 } }, who === "me" ? "我给 " + nm + " 留的" : nm + " 给我留的"),
+    h("div", { style: { fontFamily: who === "ta" && on ? F_HAND : F_BODY, fontSize: who === "ta" && on ? 15 : 11.5, color: t.sub, marginTop: 3, minHeight: 16, lineHeight: 1.4 } }, sub),
+    act);
+  const meOn = lit(L.me), taOn = lit(L.ta), taAsked = L.ta && lit({ on: true, ts: L.ta.ts });
+  const lights = h("div", { className: "flex", style: { gap: 10, marginTop: 4 } },
+    lamp(meOn, "me", meOn ? (L.me.note || "亮着，到早上六点") : "没开",
+      meOn ? h("button", { onClick: () => put(h0 => ({ ...h0, light: { ...(h0.light || {}), me: { ...((h0.light || {}).me || {}), on: false } } })), style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent" } }, "关掉")
+        : h("div", { style: { marginTop: 8 } },
+            h("input", { value: lightNote, onChange: e => setLightNote(e.target.value), placeholder: "留一句（可空）", style: { width: "100%", boxSizing: "border-box", border: 0, borderBottom: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 12, outline: "none", textAlign: "center", padding: "3px 0" } }),
+            h("button", { onClick: () => { put(h0 => ({ ...h0, light: { ...(h0.light || {}), me: { on: true, note: lightNote.trim().slice(0, 60), ts: Date.now() } } })); setLightNote(""); }, style: { marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: "#b07a2a", background: "transparent" } }, "留灯"))),
+    lamp(taOn, "ta", taAsked ? (L.ta.say || "") : "还没问",
+      h("button", { onClick: () => ta("light"), disabled: !!busy, style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: "#b07a2a", background: "transparent" } }, busy === "light" ? "在等 " + nm + " 回…" : taAsked ? "再问一次" : "问 " + nm + " 留不留")));
+  return h(React.Fragment, null,
+    eyebrow("门牌", "两个人都能涂改"), plaque,
+    eyebrow("东西在谁那儿", "点一下挪到另一边"), ledger,
+    eyebrow("留灯", "今晚的，早上六点熄"), lights);
+}
+
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -7209,8 +7295,8 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
     //   家人不数「做家人第几天」——家人不是哪天开始做的（她：「什么叫做家人第n天」），只数这个空间开了几天。
     const HOME_REL = {
       lover: null,
-      bestie: { days: ["做死党", "天"], val: "默契值", act: "碰一下", glyph: "✦", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
-      friend: { days: ["做挚友", "天"], val: "交情", act: "报个到", glyph: "◆", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
+      bestie: { days: ["闺蜜盖章", "天"], val: "默契值", act: "碰一下", glyph: "✦", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
+      friend: { days: ["交情续费", "天"], val: "交情", act: "报个到", glyph: "◆", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
       family: { days: ["空间开了", "天"], val: "暖度", act: "回家", glyph: "⌂", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
     };
     const hr = HOME_REL[window.spaceRelKey ? window.spaceRelKey(cp[view]) : "lover"] || null;
@@ -7672,6 +7758,8 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
                         dFace && dFace.note ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 10.5, color: "rgba(200,190,215,.62)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + one(dFace.note, 24) + "」") : null)) });
                 })()),
               // ── ③ 收着的：一列书脊 ─────────────────────────────
+              onSpaceHome ? h(SpaceDoor, { partner, home: (spaceHome || {})[bCid] || {}, busy: spaceHomeBusy, lit: lightLit || (() => false), carryNames: carryNamesOf ? carryNamesOf(bCid) : [],
+                tone: window.spaceRel ? window.spaceRel(cp[bCid]).tone : "#a8505f", eyebrow, put: fn => onSpaceHome(bCid, fn), ta: kind => onSpaceHomeTa(bCid, kind) }) : null,
               eyebrow("收着的", "一本一本翻"),
               shelf([
                 // 这层关系自己的几本（闺蜜：黑历史案卷、军师观察簿；挚友：人生选择册；家人：报平安簿）排在最前
