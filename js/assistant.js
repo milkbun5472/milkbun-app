@@ -951,7 +951,8 @@
   const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
-  function manualBlock(question, hereId) {
+  // extraIds：秋秋看了目录自己要翻的那几条（「翻一下」那一枪），连同字面挑中的一起给全文
+  function manualBlock(question, hereId, extraIds) {
     const M = MAN(); if (!M) return "";
     // 她此刻开着的那一页，词条也捎上：这样「这一页是干嘛的」不用她先说出它叫什么
     // 她开着的那一页：攻略里那一整个 app 都捎上（信息那一页底下有说话、见面、小房间……），
@@ -960,11 +961,12 @@
     const page = here ? M.appEntries(here.app) : [];
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
+    (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
       + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
   }
 
-  function buildSystem(ctx, question, history) {
+  function buildSystem(ctx, question, history, extraIds) {
     // ⚠️「这会儿在说谁」拿【要发给模型的那整段窗口】来找，不是只看当前这一句：
     //   她上一句常常是「宝宝你再看看呢」，名字是在前面提的。
     //   跟发出去的窗口用同一份文本，判据才对得上——我们在聊谁，那张卡就是全的。
@@ -1073,7 +1075,10 @@
       + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
-      + manualBlock(question, here && here.man) + "\n\n"
+      + manualBlock(question, here && here.man, extraIds) + "\n\n"
+      + (extraIds && extraIds.length ? "【你刚要翻的那几条已经放进上面的详细里了，照着答；这次别再要 lookup】\n\n"
+        : "【翻一下攻略】她问的是 App 怎么用，可上面「详细」里没有答案，而目录里看得出答案多半在某一条（看「里面讲」那一行）："
+          + "这一轮先别答，只输出 {\"lookup\":[\"那一条方括号里的 id\"]}（最多 3 条），那几条正文会递给你，你再答。详细里已经有答案、或者不是问功能，就别用 lookup。\n\n")
       + "【App 现状快照】\n" + JSON.stringify(snap, null, 1) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
@@ -1091,9 +1096,17 @@
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
-    const sysText = buildSystem(ctx, text, history);
-    const raw = await callAI(active, sysText, msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+    let sysText = buildSystem(ctx, text, history);
+    let raw = await callAI(active, sysText, msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
     let d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    // 它说要翻攻略（lookup）：把那几条正文递给它，再问一次——只有字面挑偏的时候才多花这一枪
+    const M0 = MAN(), want = Array.isArray(d.lookup) ? d.lookup.map(x => String(x || "").replace(/[\[\]]/g, "").trim()).filter(id => M0 && M0.byId(id)).slice(0, 3) : [];
+    if (want.length && !(Array.isArray(d.patches) && d.patches.length) && !(signal && signal.aborted)) {
+      sysText = buildSystem(ctx, text, history, want);
+      raw = await callAI(active, sysText, msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+      d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+      d.looked = want;
+    }
     // 卡掉了救回来（她 2026-10-14：「经常说点应用就可以了但是卡没发出来，有时候好几轮才成功」）：
     //   最常见的是 CSS 里的 [data-wk="bubble"] 那种双引号没转义，整段 JSON 一下就坏了，所有卡一起丢。
     //   ① 先在原文里一张张抠：认 "target" 打头，text 读到下一个字段名为止（里头有没转义的引号也不怕）
