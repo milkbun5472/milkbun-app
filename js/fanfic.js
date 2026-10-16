@@ -2677,8 +2677,37 @@
     return { kudos: 30 + ficHash("kudos:" + seed) % 4000, hits: 500 + ficHash("hits:" + seed) % 90000 };
   }
 
+  // ---- 同人图（她 2026-10-16：「同人文是不是也可以搞个生图」「都可以做」）----
+  //   三样：文章头图、画手太太产粮（书评区里带图的那一条）、出本（本子封面＋一张无料书签）。
+  //   都是她点了才画，一次就是一次生图的钱。先让写文那条线读这一章、挑出要画的那一幕，
+  //   再交给 app 那头去出图（锁脸、排封面字、存图库都在那边，props.onFicImage）。
+  const FIC_ART_STYLES = ["日系厚涂", "水彩", "赛璐璐平涂", "古风工笔", "胶片感插画", "铅笔淡彩", "暗调油画", "黑白网点漫画"];
+  function ficArtText(fic, chapIdx) {
+    const chs = fic.chapters || [];
+    const i = Math.max(0, Math.min(chs.length - 1, chapIdx == null ? chs.length - 1 : chapIdx));
+    const c = String((chs[i] || {}).content || fic.body || "");
+    return c.length > 3200 ? c.slice(0, 1600) + "\n……\n" + c.slice(-1600) : c;
+  }
+  async function genFicArtBrief(active, fic, kind, chapIdx, cpText, painters) {
+    const tags = (fic.tags || []).slice(0, 8).join("、");
+    const ask = kind === "head" ? "给这篇配一张头图：一眼看得出这篇是什么味道、这几个人是什么关系的一幕，不必是某个具体情节。"
+      : kind === "fanart" ? "圈里一位画手读完这一章，被里面某个名场面戳中，画了一张同人图交到书评区。先编这位画手：name＝她的圈名（2~6 字，像真的圈名）；"
+        + "style＝她的画风（一句话，可以从这些里挑一种，也可以自己说：" + FIC_ART_STYLES.join("／") + "）；say＝她交图时在书评区说的一句话（像真的圈里人，带着情绪，不超过 40 字）。"
+        + (painters ? "已经交过图的画手：" + painters + "，这次换一位。" : "")
+      : "这篇要出同人本了，画本子的封面。再写 tagline＝封面上一句小字文案（8~18 字，从文里化出来，不剧透）；genre＝这本的类型（四个字左右）；mood＝气质（两三个字）。";
+    const sys = "你是同人圈里的美术编辑。读下面这篇同人文。" + ask + "\n"
+      + "scene＝要画的画面（中文，80~160 字）：谁在哪儿、在做什么、几个人之间什么距离和姿态、光和天气、这一刻的情绪。只写画面里看得见的，不写心理活动，不写对白。画面里的人只用 CP 里的名字。\n"
+      + "只输出 JSON：" + (kind === "fanart" ? "{\"name\":\"\",\"style\":\"\",\"say\":\"\",\"scene\":\"\"}" : kind === "book" ? "{\"scene\":\"\",\"tagline\":\"\",\"genre\":\"\",\"mood\":\"\"}" : "{\"scene\":\"\"}");
+    const user = "《" + (fic.title || "") + "》\nCP：" + cpText + (tags ? "\n标签：" + tags : "") + (fic.groupWay ? "\n关系：" + fic.groupWay : "") + "\n\n" + ficArtText(fic, chapIdx);
+    const raw = await callAI(active, sys, [{ role: "user", content: user }], { maxTokens: 6000, timeout: 120000 });
+    const d = parseJSONLoose(raw) || {};
+    if (!String(d.scene || "").trim()) throw new Error("没想好画什么，再点一次");
+    return d;
+  }
+
   // ---- 暴露 --------------------------------------------------
   window.Fanfic = {
+    genFicArtBrief: genFicArtBrief, FIC_ART_STYLES: FIC_ART_STYLES,
     loadTabs: loadTabs, saveTabs: saveTabs, loadFics: loadFics, saveFics: saveFics,
     loadCPs: loadCPs, saveCPs: saveCPs, loadCfg: loadCfg, saveCfg: saveCfg, activeStyleText: activeStyleText,
     allStylePresets: allStylePresets, styleTextForIds: styleTextForIds,
@@ -2873,6 +2902,32 @@
   // 底下那行 Words · Chapters · Kudos。原先这张卡里标题/CP/作者/摘要/标签
   // 一律差不多大小，一眼扫过去分不出主次。
   // 「我们之间的设计」＝那道色条标的不是分级，是【这篇里有没有我】。
+  // 同人图：图在图库（img_fic_ 开头），读出来挂上；点一下放大，放大页能存到手机
+  function FicImg(props) {
+    const [u, setU] = useState("");
+    useEffect(function () {
+      let alive = true, obj = null;
+      if (props.k && typeof idbImgGet === "function") idbImgGet(props.k).then(function (b) { if (alive && b && b.size) { obj = URL.createObjectURL(b); setU(obj); } }).catch(function () {});
+      return function () { alive = false; if (obj) URL.revokeObjectURL(obj); };
+    }, [props.k]);
+    if (!u) return null;
+    return h("img", { src: u, alt: "", onClick: props.onClick ? function (e) { e.stopPropagation(); props.onClick(props.k); } : undefined,
+      style: Object.assign({ display: "block", width: "100%" }, props.style || {}) });
+  }
+  function FicArtView(props) {
+    if (!props.k) return null;
+    const save = async function (e) {
+      e.stopPropagation();
+      try {
+        const b = await idbImgGet(props.k);
+        const via = await saveFile(new File([b], "fanfic-" + Date.now() + ".png", { type: b.type || "image/png" }));
+        props.toast && props.toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "已经存下来了");
+      } catch (er) { props.toast && props.toast("没存成，再试一次"); }
+    };
+    return h("div", { onClick: props.onClose, className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
+      h(FicImg, { k: props.k, style: { maxWidth: "94%", maxHeight: "74vh", width: "auto", borderRadius: 6 } }),
+      h("button", { onClick: save, className: "active:opacity-70", style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "保存这张"));
+  }
   function FicTag(props) {
     const t = useTheme();
     const st = ficTagStyle(ficTagKind(props.tag), t, !!props.onDark);
@@ -2905,6 +2960,8 @@
     const isLead = idx === 0 && !props.noLead;
     const no = String(idx + 1).padStart(2, "0");
     const summary = (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 110);
+    // 出过本就摆本子封面，没出本有头图就摆头图
+    const thumb = (f.book && f.book.cover) || (f.art && f.art.head) || "";
     const dot = function (txt, key) { return h("span", { key: key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog }, "data-wk": "ficficcarddot" }, txt); };
     // 目录页的引导点：篇名之后一路点到右边那格字数。这是目录独有的东西，
     // 换个 app 就不成立——别处的列表右边不是页码。
@@ -2985,6 +3042,7 @@
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.2em", color: t.fog } }, props.leadLabel || "圈子里最上面那一篇"),
         h("span", { style: { flex: 1 } }),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, color: hasMe ? t.accent : t.fog } }, no)),
+      thumb ? h("div", { style: { margin: "0 0 10px", borderRadius: 2, overflow: "hidden", height: 150 } }, h(FicImg, { k: thumb, style: { height: 150, objectFit: "cover" } })) : null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.18, color: t.ink, fontWeight: 500 } }, f.title),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 5 } },
         "by " + author + "　·　",
@@ -3013,7 +3071,9 @@
           h("span", { style: { color: t.accent } }, cpLabel(f.cp, characters, props.userName)),
           mine ? h("span", { style: { color: t.accent } }, "　·　我写的") : null),
         h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginTop: 5 } }, summary),
-        tagRow(7), statRow(7)));
+        tagRow(7), statRow(7)),
+      thumb ? h("div", { style: { width: 46, height: 64, flexShrink: 0, alignSelf: "center", borderRadius: 2, overflow: "hidden", boxShadow: "0 2px 5px " + hexA(t.ink, .25) } },
+        h(FicImg, { k: thumb, style: { height: 64, objectFit: "cover" } })) : null);
   }
 
   // ---------- 掀开封面：点进一篇时的翻页 ----------
@@ -3357,6 +3417,8 @@
     const [replyText, setReplyText] = useState("");
     const [newComment, setNewComment] = useState("");
     const [fwdOpen, setFwdOpen] = useState(false);
+    const [busyArt, setBusyArt] = useState("");   // 正在画哪一样：head / fanart / book
+    const [artView, setArtView] = useState(null); // 放大看的那一张
     // 打开时回到上次读到的那一章（v58.02）
     const [chapIdx, setChapIdx] = useState(function () {
       const r = loadRead()[props.fic && props.fic.id];
@@ -3553,6 +3615,38 @@
       setBusyRev(false);
     }
     // 我发一条顶层书评 → 生成 NPC（含作者）回复挂它下面
+    // 同人图（她 2026-10-16）：头图、约画手产粮、出本。都是点了才画。
+    async function drawArt(kind) {
+      if (busyArt) return;
+      if (!props.onFicImage) return;
+      if (!props.active) { props.toast && props.toast("先在设置里配一条写文的线路"); return; }
+      setBusyArt(kind);
+      try {
+        const cpText = cpLabel(f.cp, props.characters, props.userName);
+        const painters = (f.reviews || []).filter(function (r) { return r && r.art; }).map(function (r) { return r.author; }).join("、");
+        const d = await window.Fanfic.genFicArtBrief(props.active, f, kind, kind === "fanart" ? chapIdx : null, cpText, painters);
+        if (kind === "book") {
+          const cover = await props.onFicImage({ kind: "cover", cp: f.cp, scene: d.scene,
+            poster: { title: f.title, tagline: String(d.tagline || "").slice(0, 24), genre: d.genre, mood: d.mood, credit: "by " + authorName } });
+          if (!cover) return;
+          const mark = await props.onFicImage({ kind: "bookmark", cp: f.cp, scene: d.scene });
+          props.onUpdate(f.id, function (x) { x.book = { cover: cover, mark: mark || "", ts: Date.now() }; return x; });
+          props.toast && props.toast("本子出好了，在点赞那一排底下");
+        } else if (kind === "head") {
+          const k = await props.onFicImage({ kind: "head", cp: f.cp, scene: d.scene });
+          if (k) props.onUpdate(f.id, function (x) { x.art = Object.assign({}, x.art || {}, { head: k }); return x; });
+        } else {
+          const name = String(d.name || "").trim().slice(0, 12) || "路过的画手";
+          const k = await props.onFicImage({ kind: "fanart", cp: f.cp, scene: d.scene, style: String(d.style || "").trim() });
+          if (k) props.onUpdate(f.id, function (x) {
+            x.reviews = (x.reviews || []).concat([{ id: uid("rv"), author: name, painter: true, art: k, artChap: chapIdx,
+              content: String(d.say || "").trim() || "看完这一章没忍住，画了。", replies: [] }]);
+            return x;
+          });
+        }
+      } catch (e) { props.toast && props.toast("没画成：" + String((e && e.message) || e)); }
+      finally { setBusyArt(""); }
+    }
     async function postComment() {
       const txt = newComment.trim(); if (!txt) return;
       const rvId = uid("rv");
@@ -3614,6 +3708,12 @@
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.28, color: t.ink, fontWeight: 500 } }, f.title),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "by " + authorName))),
+        // 头图：有就挂在篇名底下，点开能放大、能存；没有就一颗小键
+        (f.art && f.art.head) ? h("div", { style: { margin: "12px 0 2px", borderRadius: 6, overflow: "hidden" } },
+          h(FicImg, { k: f.art.head, onClick: setArtView })) : null,
+        props.onFicImage ? h("button", { onClick: function () { drawArt("head"); }, disabled: !!busyArt, className: "active:opacity-60",
+          style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: busyArt === "head" ? t.fog : t.sub, background: "transparent", border: "1px dashed " + t.line, borderRadius: 999, padding: "5px 12px" }, "data-wk": "ficreaderbtn", "data-part": "head" },
+          busyArt === "head" ? "在画头图…" : (f.art && f.art.head) ? "重画头图（花一次生图）" : "配个头图（花一次生图）") : null,
         metaRow((f.cp || []).length >= 3 ? "这几个" : "这一对",
           h("div", null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
@@ -3636,7 +3736,15 @@
           h("button", { onClick: function () { props.onLike(f.id); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: f.liked ? t.accent : t.sub }, "data-wk": "ficreaderbtn", "data-part": "3" },
             h(IHeart, { size: 16, color: f.liked ? t.accent : t.sub, filled: f.liked }), f.liked ? "已赞" : "点赞"),
           h("button", { onClick: function () { setFwdOpen(true); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub }, "data-wk": "ficreaderbtn", "data-part": "4" },
-            h(IRepeat, { size: 16, color: t.sub }), "转发")),
+            h(IRepeat, { size: 16, color: t.sub }), "转发"),
+          // 出本：本子封面＋一张无料书签，两次生图
+          props.onFicImage ? h("button", { onClick: function () { drawArt("book"); }, disabled: !!busyArt, className: "active:opacity-60 flex items-center gap-1.5",
+            style: { fontFamily: F_BODY, fontSize: 12.5, color: busyArt === "book" ? t.fog : t.sub }, "data-wk": "ficreaderbtn", "data-part": "book" },
+            busyArt === "book" ? "在印本子…" : f.book ? "再出一版本子" : "出本") : null),
+        f.book ? h("div", { className: "flex", style: { gap: 10, alignItems: "flex-end", margin: "-6px 0 20px" } },
+          h("div", { style: { width: "58%", borderRadius: 3, overflow: "hidden", boxShadow: "0 6px 14px -6px " + hexA(t.ink, .45) } }, h(FicImg, { k: f.book.cover, onClick: setArtView })),
+          f.book.mark ? h("div", { style: { width: "22%", borderRadius: 3, overflow: "hidden", boxShadow: "0 4px 10px -5px " + hexA(t.ink, .4) } }, h(FicImg, { k: f.book.mark, onClick: setArtView, style: { aspectRatio: "1 / 3", objectFit: "cover" } })) : null,
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog } }, "本子封面", f.book.mark ? h("br") : null, f.book.mark ? "＋无料书签" : null)) : null,
         // 章节（翻页，不再一路下滑；顶部+底部箭头 + 左右滑动）
         (function () {
           const chs = f.chapters || [];
@@ -3725,11 +3833,15 @@
             busyChap ? "枪手写着呢…" : "请枪手接着写")) : null,
 
         // 书评区
-        h("div", { className: "flex items-center justify-between mb-3" },
+        h("div", { className: "flex items-center justify-between mb-3", style: { gap: 10 } },
           // ⚠️数的是【这儿显示的】那些：挂在某一章上的留言在那一章底下，不在这儿——
           //   把它也数进来，就会出现「书评 · 2」底下只有一条的怪事
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "书评 · " + (f.reviews || []).filter(function (r) { return r && r.chapterIdx == null; }).length),
-          h("button", { onClick: loadReviews, disabled: busyRev, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficreaderbtn", "data-part": "12" }, busyRev ? "召唤读者中…" : "刷出书评")),
+          h("button", { onClick: loadReviews, disabled: busyRev, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficreaderbtn", "data-part": "12" }, busyRev ? "召唤读者中…" : "刷出书评"),
+          // 约一张图：圈里一位画手读完这一章画一张，带着图交到书评区（花一次生图）
+          props.onFicImage ? h("button", { onClick: function () { drawArt("fanart"); }, disabled: !!busyArt, className: "active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12, color: busyArt === "fanart" ? t.fog : t.accent, marginLeft: "auto" }, "data-wk": "ficreaderbtn", "data-part": "fanart" },
+            busyArt === "fanart" ? "画手在画…" : "约一张图") : null),
         // 我直接写书评
         h("div", { className: "flex items-center gap-2 mb-4" },
           h("input", { value: newComment, onChange: function (e) { setNewComment(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") postComment(); }, placeholder: "写条书评…", className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficreaderinput", "data-part": "写条书评…" }),
@@ -3750,6 +3862,8 @@
               penName(r, 12),
               r.isAuthor ? authorTag(t) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink } }, r.content),
+            r.art ? h("div", { style: { marginTop: 8, width: "72%", borderRadius: 4, overflow: "hidden" } }, h(FicImg, { k: r.art, onClick: setArtView })) : null,
+            r.art && r.artChap != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "画的是第 " + (r.artChap + 1) + " 章") : null,
             (r.replies || []).map(function (rp) {
               return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line }, "data-wk": "ficreader", "data-part": "r6" },
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, penName(rp, 11.5), "：", rp.isAuthor ? authorTag(t) : null),
@@ -3761,6 +3875,7 @@
                   h("button", { onClick: function () { sendReply(r.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent }, "data-wk": "ficreaderbtn", "data-part": "15" }, "发送"))
               : h("button", { onClick: function () { setReplyTo(r.id); setReplyText(""); }, className: "mt-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }, "data-wk": "ficreaderbtn", "data-part": "16" }, "回复"));
         }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "还没有书评，写一条或点「刷出书评」召唤一批读者。"); })()),
+      artView ? h(FicArtView, { k: artView, toast: props.toast, onClose: function () { setArtView(null); } }) : null,
       // 只给这一篇换纸（她 2026-08-30：「每一篇可以单独设置」）
       paperOpen ? h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: function () { setPaperOpen(false); }, "data-wk": "ficreadertap", "data-part": "1" },
         h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "72vh", overflowY: "auto" }, "data-wk": "ficreadertap", "data-part": "2" },
@@ -5503,7 +5618,8 @@
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
         onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared,
         // 让角色来写：TA跟她、跟 CP 另一方是什么关系，由 app 那头算好递进来
-        relOf: props.relOf, onFileChapter: props.onFileChapter, onNoteChapter: props.onNoteChapter, allChars: props.allChars
+        relOf: props.relOf, onFileChapter: props.onFileChapter, onNoteChapter: props.onNoteChapter, allChars: props.allChars,
+        onFicImage: props.onFicImage
       })));
     }
 

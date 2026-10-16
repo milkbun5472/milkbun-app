@@ -20,7 +20,8 @@ function generation(name, reply) {
 }
 test('同人文六处解析共用 engine，不留本地修复链', () => {
   // 8 处：v66.76 加了「让他接着写」（genChapterMore），v66.77 加了「去请她回来」（genAuthorBack）
-  assert.equal((src.match(/= parseJSONLoose\(/g) || []).length, 8);
+  // 第 9 处：v75.776 同人图读章挑画面（genFicArtBrief）
+  assert.equal((src.match(/= parseJSONLoose\(/g) || []).length, 9);
   assert.doesNotMatch(src, /\b(?:extractJSON|repairJSON)\(/);
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   assert.ok(html.indexOf('js/engine.js?') < html.indexOf('js/fanfic.js?'));

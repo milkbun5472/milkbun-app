@@ -25615,6 +25615,42 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return key;
     } catch (e) { toast("没拍成：" + ((e && e.message) || "重试")); return null; }
   };
+  // 同人图（她 2026-10-16）：同人文那头读好章、写好画面，这儿负责出图——插画不是照片；
+  //   CP 里有参考照的锁脸（你也在 CP 里就用你的参考照），本子封面照电影海报那套排字。
+  const ficImage = async (req) => {
+    if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
+    try {
+      const who = (req.cp || []).map(tok => tok === "me"
+        ? { name: userName(profile), appearance: profile.appearance || "", refPhoto: profile.refPhoto }
+        : characters.find(c => c.id === tok)).filter(Boolean);
+      const refs = [];
+      who.forEach(x => { if (x.refPhoto && refs.length < 4 && refs.indexOf(x.refPhoto) < 0) refs.push(x.refPhoto); });
+      const look = who.map(x => "「" + (x.remark || x.name) + "」" + (x.refPhoto && refs.indexOf(x.refPhoto) >= 0 ? "：长相照第 " + (refs.indexOf(x.refPhoto) + 1) + " 张参考图" : "")
+        + (x.appearance ? "；" + String(x.appearance).replace(/\s+/g, " ").slice(0, 160) : "")).join("\n");
+      const kind = req.kind;
+      let plan = null;
+      if (kind === "cover" && window.PosterLayout && req.poster) plan = window.PosterLayout.plan("movie", { title: req.poster.title, genre: req.poster.genre, mood: req.poster.mood });
+      const frame = kind === "cover" ? "同人本的封面插画，竖版，人物是画面主体"
+        : kind === "bookmark" ? "同人本附赠的无料书签：一张细长竖条的小插画，画这本里的一个小细节或两个人的一个小动作，构图照细长条来"
+        : kind === "head" ? "同人文顶上那张题图，横版，交代这篇的味道和这几个人的关系"
+        : "画手读完这一章画的同人图，画这一章的名场面";
+      const prompt = "【最重要·这是一张" + (req.style || "精致的同人插画") + "风格的插画，不是照片】" + frame + "。\n"
+        + (look ? "【画面里的人】\n" + look + "\n参考图只决定长相：机位、姿势、表情、衣服照下面的画面来。\n" : "")
+        + "【画面】" + String(req.scene || "").slice(0, 400) + "\n"
+        + (typeof photoShotPick === "function" && kind !== "bookmark" ? "【机位】" + photoShotPick("other") + "；画面描述里写了怎么取景的就照描述。\n" : "")
+        + (plan ? window.PosterLayout.spaceLine(plan) + "\n" : "")
+        + "画面里不要出现任何文字、字母、签名、水印。手和身体结构要对：每人两只手、五根手指。";
+      const size = kind === "head" ? "1536x1024" : "1024x1536";
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size });
+      let blob = out && out.blob;
+      if (!blob && out && out.url) { try { blob = await (await fetch(out.url)).blob(); } catch (e) {} }
+      if (!blob) throw new Error((out && out.err) || "上游没有返回图片");
+      if (plan) blob = await studioOverlay(blob, plan, { title: req.poster.title, tagline: req.poster.tagline || "", credit: req.poster.credit || "", dateLine: "同人本 · 随本附赠无料书签" }, who.map(x => x.remark || x.name));
+      const key = "img_fic_" + kind + "_" + Date.now();
+      await idbImgPut(key, blob);
+      return key;
+    } catch (e) { toast("没画成：" + ((e && e.message) || "重试")); return null; }
+  };
   // 封面上的字交给 PosterLayout（js/poster-layout.js）：构图是出图前就定好的（plan），这里照它排、挑一张
   const studioOverlay = async (blob, plan, copy, names) => {
     try { return window.PosterLayout ? await window.PosterLayout.compose(blob, plan, copy, names) : blob; }
@@ -31340,6 +31376,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
+    onFicImage: ficImage,
     // 同人文（含续章、书评、穿越互动）统一走线下创作线路。
     active: offlineActive,
     characters: liveChars,

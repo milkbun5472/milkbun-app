@@ -378,7 +378,8 @@
     return {
       tagline: A(cp.tagline).slice(0, 22).join(""),
       credits: cp.credit ? A(cp.credit).slice(0, 28).join("") : names.join("　"),
-      date: (cp.date ? String(cp.date) + "　" : "") + "上映",
+      // dateLine：不是电影的（同人本封面）自己给底下那一行，不写「上映」
+      date: cp.dateLine ? A(cp.dateLine).slice(0, 20).join("") : (cp.date ? String(cp.date) + "　" : "") + "上映",
       en: A(cp.en).slice(0, 36).join("").toUpperCase()
     };
   }
@@ -521,7 +522,7 @@
     const x = c.getContext("2d"), W = c.width, H = c.height;
     x.drawImage(im, 0, 0);
     const look = sampler(x, W, H);
-    const allText = T + (cp.tagline || "") + (cp.credit || "") + nm.join("") + (cp.date || "") + (cp.genre || "") + (cp.lines || []).join("") + (cp.special || "") + (cp.mast || "") + JSON.stringify([cp.coverLines || [], cp.story || {}, cp.no || "", cp.en || ""]) + "上映年月刊独家专访我们的故事|×　0123456789";
+    const allText = T + (cp.tagline || "") + (cp.credit || "") + (cp.dateLine || "") + nm.join("") + (cp.date || "") + (cp.genre || "") + (cp.lines || []).join("") + (cp.special || "") + (cp.mast || "") + JSON.stringify([cp.coverLines || [], cp.story || {}, cp.no || "", cp.en || ""]) + "上映年月刊独家专访我们的故事|×　0123456789";
     await ensureFonts([P.title, P.small, [P.title[0], 700]], allText);
     PAL = paletteOf(x, W, H); P.accentOn = accentOn(p && p.persona);
     const accent = inkFor(look({ x: 0, y: H * 0.3, w: W, h: H * 0.4 }), "accent").ink;
