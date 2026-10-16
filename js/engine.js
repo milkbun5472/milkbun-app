@@ -4822,6 +4822,17 @@ async function sttTranscribe(wavBlob) {
 // 服装锁、随身物全塞进去的大家伙，出来还是一两千字——而上游拒绝的第一条原因就写着
 // prompt is too long（她 2026-08-22 第三张截图）。所以这份手搓：只留【这是谁】
 // 和【拍一张普通人像】，其余一个字不要。审核挑不出东西，参考照也还在。
+// 掷一个机位（公共那一份：主稿 photoShotLine、审核降级的最简稿、别处带参考照的生图都从这儿抽）。
+//   连着两张不重样——群里 2026-10-16：「把锁脸关了还用那个角度」，最简稿和时刻卡那几处原来不掷，永远是模型最顺手那一张。
+function photoShotPick(kind, seed) {
+  const t = buildPhotoPrompt("__shots"), list = kind === "other" ? t.other : t.self;
+  const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
+  let idx = n % list.length;
+  if (idx === photoShotPick._last) idx = (idx + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+  photoShotPick._last = idx;
+  return list[idx];
+}
+if (typeof window !== "undefined") window.photoShotPick = photoShotPick;
 function buildMinimalPhotoPrompt(char, opts) {
   const anime = char && char.photoStyle === "anime";
   const duo = opts && (opts.kind === "duo" || opts.cast);
@@ -4838,6 +4849,7 @@ function buildMinimalPhotoPrompt(char, opts) {
     + (look ? "【" + name + "的外貌·务必贴合】" + look + "\n" : "")
     + (wear ? "【穿着】" + wear + "\n" : (look ? "【穿着】按上述外貌里写的来；外貌没写明服装时，按这个人所处的时代与身份自然推导，别串到别的时代去。\n" : ""))
     + "照搬的只有【长相】：机位、视线方向和姿势按这张照片自己的情境另定，别沿用参考图的角度。\n"
+    + (typeof photoShotPick === "function" && !duo ? "【这一张的机位】" + photoShotPick(kind) + "。\n" : "")
     + (anime ? "精致的二次元动画插画风格。" : "真实照片风格。")
     + (duo
       ? "一张两人的自然合照：两人都清楚可辨，背景简单干净，画面平静、可公开展示。"
@@ -4938,6 +4950,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "隔着前景拍，前景是虚的",
     "这一张的机位你自己定：挑一个跟上面这些都不一样、又合这个时刻的角度"
   ];
+  // photoShotPick（上面那份公共的）来这儿借表：表只写在这一处
+  if (char === "__shots") return { self: PHOTO_SHOTS, other: PHOTO_SHOTS_OTHER };
   // 合照的【两个人怎么待在一起】（她 2026-09-24：「为啥合照也都是一种姿势」）。
   // 上面那张机位表是给【一个人自拍】写的，合照也从那儿抽——它只管镜头，
   //   从没说过两个人之间是什么样子。没人说，模型就回到最常见的那一张：

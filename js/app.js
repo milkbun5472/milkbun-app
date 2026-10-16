@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.760";
+const APP_VERSION = "v75.762";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -30345,6 +30345,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenDrawer: openDrawerItem,
     onDropDrawer: dropDrawerItem,
     onEditDrawer: editDrawerItem,
+    // 抽屉里拆开的那一样发给他（群友 2026-10-16：「他画的画好傻，想发给他打趣他一下」）：
+    //   落成你发的一条消息、带上那张画，打开聊天；不叫他当场开口，等你自己说两句再让他回（跟别处转发同一个做法）
+    onForwardDrawer: (charId, x) => {
+      if (!x || !(characters || []).some(c => c.id === charId)) return;
+      const kz = { thing: "你捡到放进抽屉的", word: "你放进抽屉的半句话", draw: "你画了放进抽屉的那张", whisper: "你放进抽屉的悄悄话", drop: "你放进抽屉的" }[x.kind] || "你放进抽屉的";
+      const body = "【翻出" + kz + "】" + (x.title && x.kind !== "whisper" ? "「" + x.title + "」" : "") + "\n" + String(x.text || "").trim();
+      pChat(charId, p => [...p, x.kind === "draw" && x.svg
+        ? { role: "user", kind: "photo", imageRef: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: body, content: body, ts: Date.now() }
+        : { role: "user", content: body, ts: Date.now() }]);
+      openChatById(charId);
+    },
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,
@@ -31278,6 +31289,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const scene = (m.what && m.what.lines && m.what.lines.length ? m.what.lines.join(" ") : m.title).slice(0, 300);
         const prompt = "A cinematic visual-novel CG illustration, a memory scene: " + m.title + ". What happened that day: " + scene + ". "
           + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
+          // 机位也掷一个（群里 2026-10-16「还用那个角度」）：带着参考照不点名机位，就照搬参考照那个角度
+          + (typeof photoShotPick === "function" ? " Camera / framing for this shot (do NOT copy the reference photo's angle): " + photoShotPick("other") + "." : "")
           + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark."
           // 多手多脚是这类图最常见的翻车（她 2026-10-03：「他这是生成了两条手吗」）——说清楚，并且少画手
           + " Correct human anatomy: exactly two arms and two hands, natural hand poses, no extra or duplicated limbs; prefer a composition where hands are relaxed or out of frame.";
