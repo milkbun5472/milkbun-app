@@ -51,7 +51,9 @@ test("不肯说的那句：糊成墨块，点一下才化开", () => {
 // C：每个角色一种纸
 test("每个角色一种纸，而且是稳定的", () => {
   const src = grab("const DIARY_PAPERS = [", "function diaryPreview", "diaryPaperOf");
-  const { diaryPaperOf, DIARY_PAPERS } = new Function(src + "\nreturn { diaryPaperOf, DIARY_PAPERS };")();
+  // loadJSON 桩：封面「换纸」挑过的存在 x_diaryPaper（2026-10-16）；这儿先当没挑过
+  const store = {};
+  const { diaryPaperOf, DIARY_PAPERS, setDiaryPaper } = new Function("loadJSON", "saveJSON", src + "\nreturn { diaryPaperOf, DIARY_PAPERS, setDiaryPaper };")((k, d) => store[k] || d, (k, v) => { store[k] = v; });
   assert.ok(DIARY_PAPERS.length >= 4, "纸的种类太少，几个角色就撞了");
   const a = diaryPaperOf({ id: "c1" });
   assert.equal(a, diaryPaperOf({ id: "c1" }), "同一个角色每次进来纸都不一样");
@@ -62,6 +64,10 @@ test("每个角色一种纸，而且是稳定的", () => {
   // 手动指定优先
   assert.equal(diaryPaperOf({ id: "c1", diaryPaper: "night" }), "night", "指定了纸也不听");
   assert.ok(DIARY_PAPERS.indexOf(diaryPaperOf({ id: "c1", diaryPaper: "乱写的" })) >= 0, "指定了不存在的纸没兜住");
+  // 封面上换的纸优先；「我」那本没挑过是白纸，挑了就用挑的
+  assert.equal(diaryPaperOf({ id: "me" }, true), "paper");
+  setDiaryPaper({ id: "c1" }, false, "wood"); assert.equal(diaryPaperOf({ id: "c1" }), "wood");
+  setDiaryPaper(null, true, "night"); assert.equal(diaryPaperOf({ id: "x" }, true), "night");
 });
 
 test("封面、目录、全文三处都铺同一张纸", () => {
@@ -80,8 +86,9 @@ test("封面、目录、全文三处都铺同一张纸", () => {
   assert.ok(!/fontSize: 72|No\." \+/.test(cover), "又回到大字名字 + 编号那套了");
   const entry = grab("function DiaryEntryView(", "\nfunction fmtClockShort", "全文页");
   assert.match(entry, /pageSkin\(paper, t, \{ corner: false \}\)/, "全文页没铺纸");
-  assert.match(entry, /const paper = isMe \? "paper" : diaryPaperOf\(char\)/, "全文页没按角色挑纸");
-  assert.match(scr, /pageSkin\(isMe \? "paper" : diaryPaperOf\(curAuthor\)/, "目录页没铺纸");
+  // 2026-10-16 起「我」那本也能换纸：isMe 交给 diaryPaperOf 自己判（没挑过还是白纸）
+  assert.match(entry, /const paper = diaryPaperOf\(char, isMe\)/, "全文页没按角色挑纸");
+  assert.match(scr, /pageSkin\(diaryPaperOf\(curAuthor, isMe\)/, "目录页没铺纸");
 });
 
 test("摘要不许拿划掉的半句或票根开头（它们单看都不成句）", () => {

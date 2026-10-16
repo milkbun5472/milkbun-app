@@ -68,7 +68,7 @@ test("目录永远全发，命中的才发全文——两件事都得真的进 s
   A.box.calls = 0;
   await A.api.ask({}, { characters: [] }, [], "穿书怎么玩？", "chat");
   assert.match(A.box.sys, /这个 App 有哪些东西 · 目录/);
-  assert.ok(A.box.sys.indexOf("· 塔罗（") > 0, "目录没发全，它就不知道这个世界里有什么");
+  assert.ok(/· \[[\w-]+\] 塔罗（/.test(A.box.sys), "目录没发全，它就不知道这个世界里有什么");   // 2026-10-16 目录每条前面带 [id]，秋秋要翻哪条用它
   assert.match(A.box.sys, /书脊/, "问穿书却没把穿书那条详细发过去");
   assert.doesNotMatch(A.box.sys, /腊月|羁绊值会/, "把不相干的词条也塞进去了");
 });
@@ -99,7 +99,9 @@ test("问「怎么造出来的」当场回绝，一次调用都不花", async ()
 test("「哪儿不对劲」不算代码问题——那是要它帮忙查的", async () => {
   const ctx = { characters: [] };
   for (const q of ["购物有 bug，送到了还显示在路上", "我设的文风没生效", "线下出图老是失败",
-                   "API 在哪儿配", "接口填了还是不能用", "怎么把字调大"]) {
+                   "API 在哪儿配", "接口填了还是不能用", "怎么把字调大",
+                   // 她 2026-10-16：日常也会说的词别被当成问代码
+                   "好多小红书repo都叫他小乐", "世界观框架该怎么写", "一起听能不能循环播放", "分支剧情怎么开"]) {
     A.box.calls = 0;
     await A.api.ask({}, ctx, [], q, "chat");
     assert.equal(A.box.calls, 1, "「" + q + "」被误挡了");
@@ -695,4 +697,21 @@ test("快照里有世界书，提示词里讲了 lore 怎么写", async () => {
   assert.match(src2, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory\|lore\|/);
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.equal((app.match(/loreList: \(\) => loreRef\.current \|\| \[\],\n    onSaveLore: list => saveLore\(list\),/g) || []).length, 2, "整页和小球两处都要接上");
+});
+
+// 翻一下攻略（她 2026-10-16：「如果问的不是字面上有的怎么办」）：目录里带小标题；
+//   秋秋回 lookup 时把那几条正文递给它再问一次——只有这时才多花一枪
+test("目录里带「里面讲」小标题；lookup 了就把那几条正文递过去再问一次", async () => {
+  assert.match(MAN.index(), /· \[config\] 设置[^\n]*\n    里面讲：/);
+  const seq = ['{"lookup":["tarot"]}', '{"reply":"在塔罗那儿","patches":[]}'];
+  const sys = [];
+  const old = A.box.reply;
+  A.box.calls = 0;
+  Object.defineProperty(A.box, "reply", { configurable: true, get() { sys.push(A.box.sys); return seq.shift(); } });
+  const r = await A.api.ask({}, { characters: [] }, [], "那个能抽牌算命的在哪", "chat");
+  delete A.box.reply; A.box.reply = old;
+  assert.equal(A.box.calls, 2, "要翻就再问一次");
+  assert.match(sys[1], /你刚要翻的那几条已经放进上面的详细里了/);
+  assert.ok(sys[1].indexOf("【塔罗】\n在哪儿") > 0, "要翻的那条正文没递过去");
+  assert.equal(r.reply, "在塔罗那儿");
 });

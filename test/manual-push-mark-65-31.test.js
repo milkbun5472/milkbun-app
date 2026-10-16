@@ -13,7 +13,8 @@ test("Cloud.push 成功路径盖 MARK 且与 upsert 同戳", () => {
   assert.match(body, /const ts = new Date\(\)\.toISOString\(\)/, "缺统一时间戳 ts");
   assert.match(body, /updated_at: ts/, "upsert 没用 ts");
   assert.match(body, /this\.markSynced\(ts\)/, "成功后没盖 markSynced(ts)");
-  const errIdx = body.indexOf("if (error) throw error");
+  // v75.7xx 起这一句里多了「这次要传多少 MB」的提示，判据还是同一件事：先查错、再盖戳
+  const errIdx = body.indexOf("if (error) {");
   const markIdx = body.indexOf("this.markSynced(ts)");
   assert.ok(errIdx >= 0 && markIdx > errIdx, "markSynced 必须在 error 检查之后（失败不许盖戳）");
 });

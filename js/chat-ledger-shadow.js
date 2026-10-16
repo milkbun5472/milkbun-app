@@ -9,7 +9,18 @@
 
   const OUTBOX_KEY = "chat_ledger_outbox_v1"; // 无 x_ 前缀：不混进整份 saves
   const DELETE_OUTBOX_KEY = "chat_ledger_delete_outbox_v1";
+  const QUARANTINE_KEY = "chat_ledger_quarantine_v1"; // 连败多次的毒行挪到这里，队伍继续走；行不删，等人工审
   const DIAG_KEY = "chat_ledger_shadow_diag_v1";
+  const POISON_LIMIT = 5; // 同一行单独上传连败这么多次才隔离
+  // 云端 chat_messages 对 content 有 1..16000 字的校验约束；超长行（线下大段叙事泡）
+  // 会让整批 upsert 吃闭门羹——10-05 断流的毒行就是它。账本是副本，正文主档仍在
+  // App 聊天里，所以发货前裁到上限并以省略号标记，不算丢话。
+  const MAX_CONTENT = 16000;
+  const fitContent = row => {
+    const c = text(row && row.content);
+    if (c.length <= MAX_CONTENT) return row;
+    return { ...row, content: c.slice(0, MAX_CONTENT - 1) + "…" };
+  };
   const LIVE_CURSOR_KEY = "chat_ledger_live_cursor_v1";
   const CONTINUITY_KEY = "yanqiu_cross_surface_continuity_v1";
   const THREAD_TYPES = new Set(["private", "offline", "group", "group_offline"]);
@@ -368,38 +379,113 @@
       return root.Cloud.chatMessagesSoftDelete(keys);
     });
     let chain = Promise.resolve();
+    // 10-05 断流案真凶：上传请求悬死不返回，整条 chain 永远排在死人后面——
+    // 没成功、没报错、没诊断，六天全冻结。网络层必须有超时，让挂死变成可见的失败。
+    const CALL_TIMEOUT = Number(options.callTimeout || 20000);
+    const withTimeout = (run, label) => Promise.race([
+      run(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(label + " timeout " + CALL_TIMEOUT + "ms")), CALL_TIMEOUT))
+    ]);
 
     const diagnostic = patch => {
-      const old = parse(storage, DIAG_KEY, {});
-      write(storage, DIAG_KEY, { ...old, ...patch, updated_at: new Date(clock()).toISOString() });
+      // 诊断永远不许反过来弄死主流程：配额满时 setItem 会抛，吞掉。
+      try {
+        const old = parse(storage, DIAG_KEY, {});
+        const merged = { ...old, ...patch, updated_at: new Date(clock()).toISOString() };
+        write(storage, DIAG_KEY, merged);
+        // 镜像一份进 x_ 存档（IDB，随 saves 上云）：外送卡死时 CC 那头才看得见死因，
+        // 不再依赖只存本机的 DIAG——10-15 这病就是瞎在这儿，连按钮都被 false&& 关了。
+        if (typeof root.saveJSON === "function") root.saveJSON("x_ledgerDiag", merged);
+      } catch (_) {}
+    };
+    // 坏 JSON 自救：配额写炸可能留下解析不了的半截队列——不声不响当空队列，是
+    // 「表一动不动、又没有任何报错」的完美伪装。原文搬进 IDB 留档（不丢一字），
+    // 再清掉这把键把 localStorage 的地方腾出来。
+    const salvageIfCorrupt = key => {
+      let raw = null;
+      try { raw = storage.getItem(key); } catch (_) { return; }
+      if (!raw) return;
+      try { JSON.parse(raw); return; } catch (_) {}
+      try {
+        if (typeof root.saveJSON === "function") root.saveJSON("x_ledgerCorrupt_" + key, { saved_at: new Date(clock()).toISOString(), raw });
+        storage.removeItem(key);
+        diagnostic({ corrupt_salvaged: key, corrupt_bytes: raw.length });
+      } catch (_) {}
+    };
+    const dropSent = keys => {
+      const sent = new Set(keys);
+      const current = parse(storage, OUTBOX_KEY, []);
+      const remaining = current.filter(r => !sent.has(r.message_key));
+      write(storage, OUTBOX_KEY, remaining);
+      return remaining.length;
+    };
+    const quarantineRow = row => {
+      // 行不删：挪进隔离区等人工审（scripts/cc-ledger-replay.mjs 同源可读），队伍继续走。
+      const held = parse(storage, QUARANTINE_KEY, []);
+      if (!held.some(r => r.message_key === row.message_key)) held.push(row);
+      write(storage, QUARANTINE_KEY, held);
+      dropSent([row.message_key]);
+      diagnostic({ quarantined: held.length });
     };
     const internalFlush = async () => {
+      salvageIfCorrupt(OUTBOX_KEY);
+      salvageIfCorrupt(DELETE_OUTBOX_KEY);
+      let deleteError = null;
       const deletes = parse(storage, DELETE_OUTBOX_KEY, []);
       if (deletes.length) {
         const batchKeys = deletes.slice(0, 50);
         try {
-          await deleter(batchKeys);
+          await withTimeout(() => deleter(batchKeys), "chat ledger delete");
           const done = new Set(batchKeys), currentDeletes = parse(storage, DELETE_OUTBOX_KEY, []);
           write(storage, DELETE_OUTBOX_KEY, currentDeletes.filter(k => !done.has(k)));
         } catch (error) {
-          diagnostic({ last_error: String(error && error.message || error), pending_deletes: deletes.length });
-          return { sent: 0, pending: parse(storage, OUTBOX_KEY, []).length, pendingDeletes: deletes.length, error };
+          // 软删失败只记账，不许堵住后面的上传——10-05 起六天断流就是这里一票否决出来的形状。
+          deleteError = error;
+          diagnostic({ last_delete_error: String(error && error.message || error), pending_deletes: deletes.length });
         }
       }
-      const outbox = parse(storage, OUTBOX_KEY, []);
-      if (!outbox.length) return { sent: 0, pending: 0, pendingDeletes: parse(storage, DELETE_OUTBOX_KEY, []).length };
+      let outbox = parse(storage, OUTBOX_KEY, []);
+      // 旧版本时代混进队里的空正文行：云端约束要求至少 1 字，裁长刀管不了太短。
+      // 它们按现行规则本就不该入账，直接整批进隔离区，不再让每批 50 条陪跑。
+      const empties = outbox.filter(r => !text(r && r.content));
+      if (empties.length) {
+        const held = parse(storage, QUARANTINE_KEY, []);
+        empties.forEach(r => { if (!held.some(h => h.message_key === r.message_key)) held.push(r); });
+        write(storage, QUARANTINE_KEY, held);
+        outbox = outbox.filter(r => text(r && r.content));
+        write(storage, OUTBOX_KEY, outbox);
+        diagnostic({ quarantined: held.length, pending: outbox.length });
+      }
+      if (!outbox.length) {
+        // 从有到空只记一次，别让 60 秒心跳反复写存档
+        if (Number(parse(storage, DIAG_KEY, {}).pending || 0) !== 0) diagnostic({ pending: 0 });
+        return { sent: 0, pending: 0, pendingDeletes: parse(storage, DELETE_OUTBOX_KEY, []).length, error: deleteError || undefined };
+      }
       const batch = outbox.slice(0, 50);
       try {
-        await uploader(batch);
-        const sent = new Set(batch.map(r => r.message_key));
-        const current = parse(storage, OUTBOX_KEY, []);
-        const remaining = current.filter(r => !sent.has(r.message_key));
-        write(storage, OUTBOX_KEY, remaining);
+        await withTimeout(() => uploader(batch.map(fitContent)), "chat ledger upload");
+        const remaining = dropSent(batch.map(r => r.message_key));
         diagnostic({ last_success_at: new Date(clock()).toISOString(), last_error: null, pending: remaining.length });
-        return { sent: batch.length, pending: remaining.length };
+        return { sent: batch.length, pending: remaining.length, error: deleteError || undefined };
       } catch (error) {
         diagnostic({ last_error: String(error && error.message || error), pending: outbox.length });
-        return { sent: 0, pending: outbox.length, error };
+        // 整批失败时试队头单行：能过＝队里有毒行但不是它，至少每轮前进一行；
+        // 单行也连败 POISON_LIMIT 次＝它就是毒行，隔离后下一轮换新队头。
+        if (batch.length > 1) {
+          const head = batch[0];
+          try {
+            await withTimeout(() => uploader([fitContent(head)]), "chat ledger upload(head)");
+            const remaining = dropSent([head.message_key]);
+            diagnostic({ last_success_at: new Date(clock()).toISOString(), pending: remaining.length });
+            return { sent: 1, pending: remaining.length, error };
+          } catch (headError) {
+            const diag = parse(storage, DIAG_KEY, {});
+            const fails = (diag.head_fails && diag.head_fails.key === head.message_key ? diag.head_fails.count : 0) + 1;
+            if (fails >= POISON_LIMIT) { quarantineRow(head); diagnostic({ head_fails: null }); }
+            else diagnostic({ head_fails: { key: head.message_key, count: fails } });
+          }
+        }
+        return { sent: 0, pending: parse(storage, OUTBOX_KEY, []).length, error };
       }
     };
     const enqueue = (context, messages) => {
@@ -411,9 +497,16 @@
         let newCount = 0;
         rows.forEach(r => { if (!byKey.has(r.message_key)) { byKey.set(r.message_key, r); newCount++; } });
         const merged = Array.from(byKey.values());
-        write(storage, OUTBOX_KEY, merged);
+        let saved = true;
+        try { write(storage, OUTBOX_KEY, merged); }
+        catch (_) { saved = false; } // 配额满：先去投递腾地方，别让这一炸把 flush 一起带走
         diagnostic({ total_queued: Number(parse(storage, DIAG_KEY, {}).total_queued || 0) + newCount, pending: merged.length });
         const result = await internalFlush();
+        if (!saved) {
+          // 投递若成功会腾出空间，补写一次；再失败就老实记一笔丢行数，不装没事。
+          try { write(storage, OUTBOX_KEY, Array.from(new Map([...parse(storage, OUTBOX_KEY, []), ...rows].map(r => [r.message_key, r])).values())); saved = true; }
+          catch (_) { diagnostic({ rows_dropped: Number(parse(storage, DIAG_KEY, {}).rows_dropped || 0) + newCount }); }
+        }
         return { queued: rows.length, ...result };
       });
       return chain;
@@ -432,15 +525,15 @@
       return chain;
     };
     const flush = () => { chain = chain.catch(() => {}).then(internalFlush); return chain; };
-    const status = () => ({ outbox: parse(storage, OUTBOX_KEY, []), deleteOutbox: parse(storage, DELETE_OUTBOX_KEY, []), diagnostic: parse(storage, DIAG_KEY, {}) });
-    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); storage.removeItem(CONTINUITY_KEY); };
+    const status = () => ({ outbox: parse(storage, OUTBOX_KEY, []), deleteOutbox: parse(storage, DELETE_OUTBOX_KEY, []), quarantine: parse(storage, QUARANTINE_KEY, []), diagnostic: parse(storage, DIAG_KEY, {}) });
+    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(QUARANTINE_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); storage.removeItem(CONTINUITY_KEY); };
     return { enqueue, invalidate, flush, status, clearLocal };
   }
 
   // 第 4 步：只观察 CC/Stack-chan 入站，不保存正文、更不写进真实聊天。
   const manager = root.localStorage ? createManager() : null;
   return {
-    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
+    OUTBOX_KEY, DELETE_OUTBOX_KEY, QUARANTINE_KEY, DIAG_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
     rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, modelHistory, restoreAppRows, createManager,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),

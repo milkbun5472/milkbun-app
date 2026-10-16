@@ -92,7 +92,7 @@
         + "。他们评不评、评什么、当着网友的面说成什么样，照他们跟你的关系来，写进 friends（name 只能是这几个；一个都没刷到就空着）。" : "");
   }
   const NPC_SHAPE = '{"videos":[{"author":"","scene":"","who":"none","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
-  function npcSystem(uName, persona, n, skin, hot) {
+  function npcSystem(uName, persona, n, skin, hot, regs) {
     return AC() + CB()
       + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "——推荐流里会有几条在蹭这些。\n" : "")
       + DATE_FACT().slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
@@ -100,7 +100,8 @@
       + "\n\n每条一个不同的博主。题材、拍法、口吻、热度各不一样：有大号有小号，有认真做内容的也有随手一拍的。"
       + "\n写 videos（" + n + " 条），每条：author 博主网名、scene 视频里拍了什么（2~4 句，像在讲一段视频怎么走）、who 画面里有没有人（self 博主本人出镜 / part 只露手或背影 / none 没有人）、"
       + "caption 文案（" + CAPTION_FACT + "）、tags 话题（0~4 个，不带井号）、likes 点赞数（数字）、comments 评论（2~5 条，name 网友网名，text）。"
-      + (skin === "b" ? B_EXTRA : V_FACT);
+      + (skin === "b" ? B_EXTRA : V_FACT)
+      + (regs ? regs + "\n这一批里可以有一条是熟面孔自己发的（author 照抄网名，拍的是他平时会拍的东西）。" : "");
   }
   // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
   const SPOT_SHAPE = '{"spots":[{"name":"","comment":"","recognized":false,"why":""}]}';
@@ -132,7 +133,22 @@
   //   照论坛「回我那层楼」那一套：一枪写 2~5 条接在她这句后面——被她回的那个人【必回】，
   //   作者看情况，再来几个路人，可以互相搭话、唱反调；不是每条都冲着她。
   //   原来只有作者一个人、还写着「不想回就留空」，于是常常一句没有；路人的视频更是谁都不理她。
-  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":""}]}';
+  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":"","tone":""}]}';
+  // ── 熟面孔（她 2026-10-16：「论坛有意思是因为有一套熟人系统…片刻里面没有」）──────────────
+  //   就是论坛那批常驻网友，换了片刻上的网名和刷视频的习惯。跟她的碰面账两边共用。
+  //   regs：[{id,name,voice,tie}]；pairs：他们之间的交情；me：她这次用的号名
+  function regularsBlock(regs, pairs, me) {
+    if (!regs || !regs.length) return "";
+    const pick = regs.filter(r => r.tie && r.tie.encounters).concat(regs.filter(r => !(r.tie && r.tie.encounters)).sort(() => Math.random() - 0.5)).slice(0, 6);
+    const ids = new Set(pick.map(r => r.id));
+    const tieOf = r => { const t = r.tie; if (!t || !t.encounters) return ""; const n0 = Math.min(9, t.encounters);
+      const how = (t.warm || 0) >= (t.spar || 0) * 2 && t.warm > 1 ? "，碰上多半聊得来" : (t.spar || 0) >= (t.warm || 0) * 2 && t.spar > 1 ? "，碰上多半要抬两句杠" : "";
+      return "；跟 @" + me + " 在评论区碰过 " + n0 + " 次" + how + "，再遇见认得出这个号，可以接着以前的调子（但不知道她的私生活）"; };
+    const ps = (pairs || []).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
+    return "\n\n【这个平台上的熟面孔】下面几位是常在这儿刷视频、发评论的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
+      + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同一条底下碰见了可以接旧梗、互损，别每次重新认识。" : "")
+      + "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。";
+  }
   // 她评论之后那一串——一枪写完（她 2026-10-15：「论坛都不用两次调用」）。
   //   第一版 ooc 的病根不在一枪，在【没告诉模型谁是谁】：情侣号是他俩共用的、评论的「Lisa」就是他女朋友本人，
   //   都没写，于是他把自己的号当外人、把她当路人怼。现在把这几条身份钉死在最前面，再写路人。
@@ -143,9 +159,10 @@
       + "\n【谁是谁——写之前先看清】" + o.ids.join("")
       + (o.brief ? "\n\n" + o.brief : "")
       + "\n\n【这一串评论的现场】\n" + o.transcript
-      + "\n\n「" + o.me + "」刚说了：「" + o.text + "」。写接在后面的 " + o.n + " 条回复 items（name、text、to 回的是这串里谁——照抄名字）："
-      + (o.must ? "\n① 第一条必须是「" + o.must + "」回她的（name 照抄「" + o.must + "」）" + (o.mustChar ? "——就是上面那个人本人，照TA的人设、记忆和跟她的关系，当着网友的面打字回：短，像真在评论区回一句，没有动作和旁白" : "——人家被回了总要接一句，冷淡、怼回去也算") + "。" : "")
+      + "\n\n「" + o.me + "」刚说了：「" + o.text + "」。写接在后面的正好 " + o.n + " 条回复 items（name、text、to 回的是这串里谁——照抄名字）："
+      + (o.must ? "\n① 第一条必须是「" + o.must + "」回她的（name 照抄「" + o.must + "」）" + (o.mustChar ? "——就是上面那个人本人。TA平时怎么跟她说话，在评论区还是那个样子：网友看着不会让TA换一副腔调，该撩就撩、该贫就贫、该护着就护着，照TA的人设和你俩的关系来。是打字，没有动作和旁白；长短照TA想回的" : "——人家被回了总要接一句，冷淡、怼回去也算") + "。" : "")
       + "\n" + (o.must ? "② 其余" : "") + "是刷到这里的陌生网友：不认识这串里任何人，不知道谁跟谁什么关系。像真在刷评论区——短，一句甚至几个字；不复述视频、不总结、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问；口气、长短、标点各不一样。可以回她，也可以回楼里别人。"
+      + (o.regs || "")
       + "\n⚠️「" + o.me + "」是真人本人，绝对不许以她的名义写任何一句。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
@@ -153,9 +170,9 @@
     return AC() + CB()
       + "【场景】" + uName + "在「" + APP_NAME + "」上发了一条视频。拍的是：" + v.scene + "\n文案：" + (v.caption || "（没写）")
       + (same ? "\n这条是她照着 " + same.name + " 发的一条视频拍的同款（" + same.name + " 原来那条拍的是：" + S(same.scene).slice(0, 80) + "）。" + same.name + " 刷到了自己被拍同款，怎么接照TA这个人来。" : "")
-      + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（2~4 条，name 网名、text）。" : "")
+      + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（3~6 条，name 网名、text）：多是嗑你俩的 CP 粉——催更、考古、起 CP 名、嗑到了、起哄，口气各不一样。" : "")
       + (co ? "\n这条是她和 " + co.name + " 一起出镜的合拍，" + co.name + " 就在画面里。" + co.name + " 评论时是合拍的另一半，当着大家的面怎么接，照TA跟她的关系来。另外写几条刷到这条的网友起哄 crowd（2~4 条，name 网名、text）。" : "")
-      + "\n\n下面这几个人都认识她，都刷到了这条。各自照自己的性子决定评不评、评什么——评论区是公开的，别人都看得见；谁跟她什么关系、此刻什么心情，决定他当着别人怎么说。"
+      + "\n\n下面这几个人都认识她，都刷到了这条，每人写一条评论（实在不想评的才不写）。每个人照自己的人设、跟她的关系、此刻的心情来——他们平时私聊里怎么跟她说话（下面各自那几句），评论区里还是那个人，只是别人也看得见。"
       + "\n\n" + briefs.join("\n\n")
       + "\n\n写：comments（name 只能是：" + chars.map(c => c.name).join("、") + "；不想评的人就不写）、likes（这条视频的点赞数，数字）。";
   }
@@ -191,14 +208,31 @@
   function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
     const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
     const [more, setMore] = useState(false);   // 「⋯」：扔掉、画出来收在这儿，右边那排才不会顶到状态栏
+    // 双击画面点赞、冒一颗心（只点亮，不会因为双击把赞取消掉；跟抖音一样）
+    const tapRef = useRef(0);
+    const [heart, setHeart] = useState(null);
+    const onTap = e => {
+      if (e.target && e.target.closest && e.target.closest("button,a,input,textarea,label")) return;   // 点在右边那排、展开字上不算
+      const now = Date.now();
+      if (now - tapRef.current < 300) {
+        tapRef.current = 0;
+        const r = e.currentTarget.getBoundingClientRect();
+        setHeart({ x: e.clientX - r.left, y: e.clientY - r.top, k: now });
+        if (!v.liked) onLike();
+        setTimeout(() => setHeart(hh => hh && hh.k === now ? null : hh), 800);
+      } else tapRef.current = now;
+    };
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
     const railBtn = (icon, n, on, fn, key) => h("button", { "data-wk": "shuarailbtn", "data-on": on ? "1" : "0", key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, minHeight: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
       icon(on ? RED : INK),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, color: INK, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, n));
-    return h("div", { "data-wk": "shuavcard", style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
+    return h("div", { "data-wk": "shuavcard", onClick: onTap, style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
       src ? h("img", { src: src, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null,
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.28) 0,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 52%,rgba(0,0,0,.66) 100%)" } }),
+      heart ? h("div", { key: heart.k, "data-wk": "shuaheart", "aria-hidden": "true", style: { position: "absolute", left: heart.x - 40, top: heart.y - 40, zIndex: 6, pointerEvents: "none", animation: "shuaHeartPop .8s ease-out forwards" } },
+        h("style", null, "@keyframes shuaHeartPop{0%{transform:scale(.4) rotate(-12deg);opacity:0}20%{transform:scale(1.15) rotate(-12deg);opacity:1}60%{transform:scale(1) rotate(-12deg);opacity:1}100%{transform:scale(1.3) translateY(-40px) rotate(-12deg);opacity:0}}"),
+        h(IHeart, { size: 80, color: RED, filled: true })) : null,
       // 没画出来的时候，画面那几句摆在正中，当它就是这一段视频（她 2026-10-07：「做居中而不是居左上」）
       !src ? h("div", { "data-wk": "shuascene", className: "flex items-center justify-center", style: { position: "absolute", left: 30, right: 66, top: 110, bottom: 200, pointerEvents: "none" } },
         h("div", { onClick: () => setOpen(o => !o), style: { pointerEvents: "auto", maxHeight: "100%", overflowY: open ? "auto" : "hidden", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } },
@@ -226,26 +260,76 @@
   }
 
   // ── 评论区（整页）──────────────────────────────────────
-  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P }) {
+  function CommentsPage({ v, busy, onSend, onReply, onBack, t, P, sheet, emotePacks, onMore, more, onPerson }) {
     const [text, setText] = useState("");
+    const [emoOpen, setEmoOpen] = useState(false);
+    // 发一张表情：直接发出去（回着谁就回谁），字面写成「[表情：关键词]」好让接话的人知道发了什么
+    const sendEmo = em => { if (!em || !em.url || busy) return; const x = "[表情：" + (em.keyword || "表情") + "]"; setEmoOpen(false);
+      if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : "", em.url); setReplyTo(null); return; } onSend(x, em.url); };
+    const emoImg = u => u ? h("img", { src: typeof resolveImg === "function" ? resolveImg(u) : u, alt: "", style: { display: "block", width: 72, height: 72, objectFit: "contain", marginTop: 4, borderRadius: 8 } }) : null;
+    // 熟面孔名字后面带个小标（论坛那批老网友）
+    const regTag = x => x.reg ? h("span", { "data-wk": "shuaregtag", style: { marginLeft: 4, padding: "0 4px", borderRadius: 4, fontSize: 9.5, border: "1px solid " + P.line, color: P.dim } }, "熟面孔") : null;
+    const nameOf = (x, label) => x.reg ? h("span", null, label, regTag(x)) : x.by === "char" && x.charId && onPerson
+      ? h("button", { "data-wk": "shuacmtperson", onClick: () => onPerson(x.charId), className: "active:opacity-60", style: { color: "inherit", font: "inherit", padding: 0 } }, label) : label;
+    const moreBtn = onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!more, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: P.accent, minHeight: 36, padding: "0 10px" } }, more ? "有人路过…" : "刷点评论") : null;
     const [replyTo, setReplyTo] = useState(null);   // { id 那条评论, name 回的是谁 }
     const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : ""); setReplyTo(null); return; } onSend(x); };
     const rb = (id, name, sub) => onReply ? h("button", { "data-wk": "shuareplybtn", onClick: () => setReplyTo({ id, name, sub }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginLeft: 8 } }, "回复") : null;
-    return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg } },
-      h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
+    // sheet：竖着刷里从底下升起来的那一层（她 2026-10-15：「切到新窗口看评论不像抖音那样方便」）——
+    //   顶上一根把手＋标题＋✕，把手那一截往下一拉就收；内容和整页那版是同一份。
+    const dragY = useRef(0);
+    const sheetHead = sheet ? h("div", { "data-wk": "shuacmtsheethead", className: "shrink-0", style: { position: "relative", padding: "8px 0 10px", textAlign: "center", touchAction: "none" },
+        onTouchStart: e => { dragY.current = e.touches[0].clientY; },
+        onTouchEnd: e => { const dy = (e.changedTouches[0] || {}).clientY - dragY.current; if (dy > 50) onBack(); } },
+      h("div", { "aria-hidden": "true", style: { width: 36, height: 4, borderRadius: 2, background: P.line, margin: "0 auto 8px" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.ink, fontWeight: 600 } }, arr(v.comments).length + " 条评论"),
+      moreBtn ? h("div", { style: { position: "absolute", left: 6, top: 8 } }, moreBtn) : null,
+      h("button", { onClick: onBack, "aria-label": "收起评论", className: "active:opacity-60", style: { position: "absolute", right: 6, top: 4, width: 44, height: 44, color: P.dim, fontSize: 16 } }, "✕")) : null;
+    return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg, ...(sheet ? { borderRadius: "14px 14px 0 0" } : {}) } },
+      sheet ? sheetHead : h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
+      !sheet && moreBtn ? h("div", { className: "shrink-0 flex justify-end px-3" }, moreBtn) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 12 } },
         arr(v.comments).length ? arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
-          h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
-          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text, c.by !== "me" ? rb(c.id, c.name, false) : null),
+          h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, nameOf(c, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : ""))),
+          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.emo ? null : c.text, c.emo ? emoImg(c.emo) : null, c.by !== "me" ? rb(c.id, c.name, false) : null),
           arr(c.replies).length ? h("div", { style: { marginTop: 6, paddingLeft: 10, borderLeft: "2px solid " + P.line } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: P.ink, padding: "2px 0" } },
-            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, r.name + (r.to ? " 回复 @" + r.to : "") + "："), r.text, r.by !== "me" ? rb(c.id, r.name, true) : null))) : null)) :
+            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, nameOf(r, r.name) , (r.to ? " 回复 @" + r.to : "") + "："), r.emo ? emoImg(r.emo) : r.text, r.by !== "me" ? rb(c.id, r.name, true) : null))) : null)) :
           h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "40px 0" } }, "还没有评论"),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, padding: "8px 0" } }, "……") : null),
+      emoOpen && typeof StickerPanel === "function" ? h("div", { "data-wk": "shuaemopanel", className: "shrink-0", style: { maxHeight: 260, overflowY: "auto", borderTop: "1px solid " + P.line, background: "#fff" } },
+        h(StickerPanel, { packs: emotePacks, onPick: sendEmo })) : null,
       h("div", { "data-wk": "shuacompose", className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + P.line } },
         replyTo ? h("button", { onClick: () => setReplyTo(null), "aria-label": "取消回复", className: "shrink-0 active:opacity-60", style: { width: 28, height: 42, color: P.dim, fontSize: 15 } }, "✕") : null,
+        arr(emotePacks).length && typeof StickerPanel === "function" ? h("button", { "data-wk": "shuaemobtn", "data-on": emoOpen ? "1" : "0", onClick: () => setEmoOpen(o => !o), "aria-label": "表情", className: "shrink-0 active:opacity-60", style: { width: 36, height: 42, fontSize: 20, color: emoOpen ? P.accent : P.dim } }, "☺") : null,
         h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: replyTo ? "回复 @" + replyTo.name + "（点这里左边的 ✕ 取消）" : "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
           style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5 } }),
         h("button", { "data-wk": "shuasend", onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
+  }
+
+  // 今天是不是在一起的整百天／整周年（不是就空）
+  function annivLabel(since, d0) {
+    const s0 = new Date(since); s0.setHours(0, 0, 0, 0);
+    const days = Math.round((d0 - s0) / 86400000), years = d0.getFullYear() - s0.getFullYear();
+    if (years >= 1 && d0.getMonth() === s0.getMonth() && d0.getDate() === s0.getDate()) return "在一起 " + years + " 周年";
+    return days > 0 && days % 100 === 0 ? "在一起第 " + days + " 天" : "";
+  }
+  // ── 情侣挑战（她 2026-10-15「都做吧」第 3 条）：两个人分开写答案，最后一起亮出来 ─────
+  const CP_CHALLENGES = ["对方手机里给我的备注是什么", "我们第一次见面，我穿的是什么", "对方最受不了我哪一点", "谁先说的喜欢", "吵完架通常谁先低头", "对方最常对我说的一句话",
+    "对方最喜欢我身上哪个地方", "我们俩谁更粘人", "对方吃醋的时候会怎么样", "如果明天放一天假，对方最想跟我干嘛", "对方偷偷存了我哪张照片", "我们之间最好笑的一次"];
+  function CpChallengePage({ P, cName, busy, onGo, onBack }) {
+    const [q, setQ] = useState(() => CP_CHALLENGES[Math.floor(Math.random() * CP_CHALLENGES.length)]);
+    const [ans, setAns] = useState("");
+    const next = () => setQ(x => { let y = x; while (y === x) y = CP_CHALLENGES[Math.floor(Math.random() * CP_CHALLENGES.length)]; return y; });
+    return h("div", { "data-wk": "shuacpchal", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
+      h(Head, { zh: "情侣挑战", bg: "transparent", ink: P.ink, onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 8, lineHeight: 1.6 } }, "你和 " + cName + " 各写各的答案，谁也看不见谁的，发出去的时候一起亮出来，评论区看你俩对不对得上。"),
+        h("div", { "data-wk": "shuacpq", style: { marginTop: 16, padding: "16px 18px", borderRadius: 16, background: "linear-gradient(120deg,#fe2c55,#7a3cff)", color: "#fff", fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.5 } }, q),
+        h("button", { onClick: next, className: "active:opacity-60", style: { marginTop: 8, minHeight: 36, fontFamily: F_BODY, fontSize: 12.5, color: P.accent } }, "换一题"),
+        h("textarea", { "data-wk": "shuafield", value: ans, onChange: e => setAns(e.target.value), rows: 3, placeholder: "你的答案", className: "w-full outline-none resize-none",
+          style: { borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, marginTop: 8 } }),
+        h("button", { "data-wk": "shuacpchalgo", disabled: !!busy || !ans.trim(), onClick: () => onGo(q, ans.trim()), className: "w-full active:opacity-80",
+          style: { marginTop: 18, minHeight: 48, borderRadius: 14, background: (!ans.trim() || busy) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } }, busy ? cName + " 在写他的答案…" : "写好了，一起亮出来")));
   }
 
   // ── 刷新那一页：两颗，跟论坛一样 ────────────────────────
@@ -277,6 +361,14 @@
   function PostPage({ busy, onPost, onLive, onBack, P, skin, characters, onAlt, same }) {
     const [scene, setScene] = useState(""), [caption, setCaption] = useState(same ? "拍了 @" + same.author + " 的同款 " : ""), [who, setWho] = useState("self"), [title, setTitle] = useState("");
     const [withId, setWithId] = useState("");   // 和谁一起出镜（合拍，第 4 条）
+    // 拿一张照片当画面（她 2026-10-15：「自己发视频可以上传照片写描述假装是视频」）：照片铺成画面，描述就是这段视频拍了什么
+    const [pic, setPic] = useState(""), [picBusy, setPicBusy] = useState(false);
+    const pickPic = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      setPicBusy(true);
+      try { const d = await resizeImageFile(f, 1280, 0.86); setPic(typeof imgToVault === "function" ? await imgToVault(d) : d); }
+      catch (err) { } finally { setPicBusy(false); }
+    };
     const field = (val, set, ph, rows) => h("textarea", { "data-wk": "shuafield", value: val, onChange: e => set(e.target.value), rows: rows, placeholder: ph, className: "w-full outline-none resize-none",
       style: { borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, marginTop: 8 } });
     const chip = (k, label) => h("button", { "data-wk": "shuachip", "data-on": who === k ? "1" : "0", key: k, onClick: () => setWho(k), className: "active:opacity-60", style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (who === k ? P.ink : P.line), background: who === k ? P.ink : "transparent", color: who === k ? P.bg : P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, label);
@@ -291,7 +383,14 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, "开直播"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 3 } }, "你开播，你的人混在观众里看着")),
         skin === "b" ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 22 } }, "标题") : null,
         skin === "b" ? field(title, setTitle, "这条视频叫什么", 1) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: skin === "b" ? 16 : 22 } }, "视频里拍了什么"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: skin === "b" ? 16 : 22 } }, "画面（可选）：放一张照片当这段视频"),
+        h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+          pic ? h("img", { src: typeof resolveImg === "function" ? resolveImg(pic) : pic, alt: "", style: { width: 64, height: 86, objectFit: "cover", borderRadius: 10, border: "1px solid " + P.line } }) : null,
+          h("label", { "data-wk": "shuapostpic", className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px dashed " + P.line, color: P.ink, fontFamily: F_BODY, fontSize: 12.5, display: "inline-flex", alignItems: "center", cursor: "pointer" } },
+            picBusy ? "放进来…" : pic ? "换一张" : "选一张照片",
+            h("input", { type: "file", accept: "image/*", onChange: pickPic, style: { display: "none" } })),
+          pic ? h("button", { onClick: () => setPic(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "不用了") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 16 } }, pic ? "这段视频拍了什么（照着照片写，大家看到的是照片＋这段）" : "视频里拍了什么"),
         field(scene, setScene, "镜头里看得见什么，怎么走的", 3),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 16 } }, "文案"),
         field(caption, setCaption, "配一句话，可以带 #话题", 2),
@@ -302,7 +401,7 @@
         !onAlt && (characters || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 10 } }, characters.map(c => h("button", { "data-wk": "shuawithpick", "data-on": withId === c.id ? "1" : "0", key: c.id, onClick: () => setWithId(w => w === c.id ? "" : c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 52, opacity: withId === c.id ? 1 : .5 } },
           h("div", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (withId === c.id ? P.accent : "transparent") } }, h(Avatar, { character: c, size: 40 })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: P.ink, marginTop: 3, maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))) : null,
-        h("button", { "data-wk": "shuapostbtn", disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null }),
+        h("button", { "data-wk": "shuapostbtn", disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null, img: pic || "" }),
           className: "w-full active:opacity-80", style: { marginTop: 24, minHeight: 48, borderRadius: 14, background: (!scene.trim() || busy) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } }, busy ? "发着…" : "发布")));
   }
 
@@ -337,7 +436,7 @@
         h("input", { "data-wk": "shuachargeinput", value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
         h("button", { "data-wk": "shuachargebtn", disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
   }
-  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
+  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply, onMore, moreBusy }) {
     const [text, setText] = useState("");
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
     const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
@@ -386,7 +485,8 @@
           onCoin ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 2, textAlign: "right" } }, "今天还剩 " + coinsLeft + " 枚硬币") : null,
           charging && onCharge ? h(ChargePanel, { onCharge: n => { setCharging(false); onCharge(n); } }) : null),
         h("div", { "data-wk": "shuabcmts", style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
+          h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length,
+            onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!moreBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: B.accent, minHeight: 32, padding: "0 4px" } }, moreBusy ? "有人路过…" : "刷点评论") : null),
           arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
             h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
             h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
@@ -427,6 +527,10 @@
     const [tab, setTab] = useState("home");          // home | live | msg | me
     const [feed, setFeed] = useState("rec");          // follow | rec
     const [page, setPage] = useState(() => { const p0 = pendingPage; pendingPage = null; return p0; });
+    // 竖着刷里点评论：不换页，从底下升一层（哪条视频的评论）
+    const [sheet, setSheet] = useState(null);
+    const [cpEdit, setCpEdit] = useState("");   // 情侣号卡片里正在「自己改」的是哪一张
+    useEffect(() => { setSheet(null); }, [page]);   // 换页（分享、进主页…）就把评论层收掉
     // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
     const [busy, setBusy] = useState(null);
@@ -493,7 +597,39 @@
     // ⚠️拍好一条就落一条，不等最慢那个（群友 2026-10-07：「刷新会卡着刷不出来」——原来 Promise.all 要等五个人全回来，
     //   一个人的线路卡住，整批都看不见；再加一层 3 分钟的兜底，过了就当这个人这回没拍）
     // forceCp：情侣号页上那颗「让TA往这个号发一条」（她 2026-10-15）——这一回不掷那三分之一，直接发在情侣号上
-    const genChars = async (ids, forceCp) => {
+    // ── 情侣号好玩一点（她 2026-10-15「都做吧」）────────────────────────
+    // TA往情侣号发一条时多知道的几件事：粉丝是嗑你俩的、这条是不是偷拍她、是不是纪念日、能不能顺手改号
+    const cpPostLine = (c, a, isCandid, anniv) => "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + a.handle + "」上" + (a.bio ? "（主页简介：" + a.bio + "）" : "") + "，号上有 " + (a.followers || 0) + " 个粉丝，多半是嗑你俩的 CP 粉。"
+      + (anniv ? "今天是你们的「" + anniv + "」，这一条是纪念日发的——拍什么、文案怎么写照你这个人来。" : isCandid ? "这一条是你背着她偷偷拍的她（她没注意的时候：睡着、吃东西、发呆、在忙……画面里是她），文案是你写的，她还不知道你发了。" : "拍的多半跟你俩有关，她也会看到。")
+      + "\n底下网友评论 comments 多是这个号的 CP 粉：催更、考古以前的视频、给你俩起 CP 名、嗑到了、起哄——口气各不一样。"
+      + "\n号名和简介你俩谁都能改" + (a.lastEdit && a.lastEdit.by === "me" ? "（她最近刚改过：现在这个名字和简介是她弄的）" : "") + "：想顺手改，就在 cpEdit 写新的 handle／bio；不改就都留空。";
+    // 情侣号涨粉；跨过一千、一万、十万、百万时消息里落一条，TA也记一笔（聊天时说不说看TA）
+    const cpFans = (id, add) => {
+      const a = (dbRef.current.cps || {})[id]; if (!a || !(add > 0)) return;
+      const was = a.followers || 0, now = was + Math.round(add);
+      save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { followers: now }) }) }));
+      const mark = [1000, 10000, 100000, 1000000].find(m => was < m && now >= m);
+      if (!mark) return;
+      const label = mark >= 10000 ? (mark / 10000) + " 万" : mark + "";
+      note("你俩的情侣号「" + a.handle + "」粉丝破 " + label + " 了", null);
+      if (props.remember) props.remember([id], "你和 " + uName + " 在「" + APP_NAME + "」上共用的情侣号「" + a.handle + "」粉丝破了 " + label + "。");
+    };
+    // 情侣挑战：TA照自己写答案（看不见她的），再当成你俩情侣号上的一条视频发出去——评论走发视频那一套（TA也会来评）
+    const playChallenge = async (q, mine) => {
+      const c = charOf(cpId); if (!c || !props.probeAs) return;
+      setBusy("chal");
+      let his = "";
+      try {
+        const d = await props.probeAs(c, "【这一轮发生在「" + APP_NAME + "」】你和 " + uName + " 在你俩的情侣号上玩情侣挑战，题目是：「" + q + "」。两个人分开写答案，谁也看不见谁的，待会儿一起亮出来。写你的答案——照你知道的、你俩真实的事来答，一两句。", '{"answer":""}');
+        his = S(d && d.answer).slice(0, 200);
+      } catch (e) { toast("挑战没玩成：" + ((e && e.message) || "")); setBusy(null); return; }
+      setBusy(null);
+      if (!his) { toast(c.name + " 没写出来，再试一次"); return; }
+      await postMine({ scene: "情侣挑战「" + q + "」：两个人分开写答案，一起亮出来。\n" + uName + " 写的：" + mine + "\n" + c.name + " 写的：" + his, caption: "#情侣挑战 " + q, who: "self", title: "情侣挑战｜" + q, withId: "", same: null, chal: { q, me: mine, him: his } });
+    };
+    // opts.anniv：纪念日那一条的由头（自动发）；opts.quiet：不切页、不弹「发了新视频」（后台自动发时）
+    const genChars = async (ids, forceCp, opts) => {
+      opts = opts || {};
       const pick = ids.map(charOf).filter(Boolean).slice(0, PICK_MAX);
       if (!pick.length) return;
       const sk = skin;
@@ -501,6 +637,7 @@
       let done = 0;
       const names = [], failed = [];
       const toCp = {};   // 这一批里谁这条发在情侣号上
+      const candid = {};   // 这一批里谁那条是偷拍她的
       const one = c => {
         const acc = (dbRef.current.accounts || {})[c.id] || {};
         const timeout = new Promise(res => setTimeout(() => res(null), 180000));
@@ -513,6 +650,8 @@
         // 有情侣号的那位，三回里大约有一回这条发在情侣号上
         const cpHere = (dbRef.current.cps || {})[c.id];
         if (cpHere && togetherIds.indexOf(c.id) >= 0 && (forceCp || Math.random() < 0.33)) toCp[c.id] = cpHere;
+        // 偷拍她（第 2 条）：发在情侣号上的，大约一半是背着她拍的她；纪念日那条不算
+        if (toCp[c.id] && !opts.anniv && Math.random() < 0.5) candid[c.id] = true;
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
         // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
         let extra = "";
@@ -525,7 +664,7 @@
           const heard = mineB.slice(0, 3).flatMap(x => arr(x.myDms).map(d => d.text)).slice(0, 6);
           if (heard.length) extra += "\n你最近几条视频画面上，有人发过这几条弹幕：" + heard.map(x => "「" + x + "」").join("") + "（不知道是谁发的）。";
         }
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
@@ -537,7 +676,17 @@
             hadAcc ? {} : { bio: S(d.bio).slice(0, 60), niche: S(d.niche).slice(0, 20) },
             { followers: Math.max(0, Math.round(Number(hadAcc ? prevAcc.followers : d.followers) || 0)) + Math.round((Number(d.likes) || 0) * 0.01) });
           const cpA = toCp[c.id];
-          const nv = mkVideo(d, cpA ? { by: "char", charId: c.id, author: cpA.handle, skin: sk, cp: c.id, withCharId: c.id } : { by: "char", charId: c.id, author: handle, skin: sk });
+          const nv = mkVideo(d, cpA ? { by: "char", charId: c.id, author: cpA.handle, skin: sk, cp: c.id, withCharId: c.id, ...(candid[c.id] ? { candid: true } : {}), ...(opts.anniv ? { anniv: opts.anniv } : {}) } : { by: "char", charId: c.id, author: handle, skin: sk });
+          // 号的掌控权（第 4 条）：TA顺手改了情侣号的名字／简介 → 改掉，消息里告诉她
+          if (cpA && d.cpEdit && typeof d.cpEdit === "object") {
+            const nh = S(d.cpEdit.handle).slice(0, 20), nb = S(d.cpEdit.bio).slice(0, 80);
+            const ch = {}; if (nh && nh !== cpA.handle) ch.handle = nh; if (nb && nb !== (cpA.bio || "")) ch.bio = nb;
+            if (Object.keys(ch).length) {
+              save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [c.id]: Object.assign({}, (dbRef.current.cps || {})[c.id], ch, { lastEdit: { by: c.id, ts: Date.now() } }) }) }));
+              if (ch.handle) nv.author = ch.handle;
+              note(c.name + " 把情侣号" + (ch.handle ? "的名字改成了「" + ch.handle + "」" : "") + (ch.handle && ch.bio ? "，" : "") + (ch.bio ? "简介改成了「" + ch.bio + "」" : ""), null);
+            }
+          }
           if (sk === "b" && S(d.series)) {
             nv.series = S(d.series).replace(/[《》]/g, "").slice(0, 20);
             nv.ep = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id && x.series === nv.series).length + 1;
@@ -554,6 +703,7 @@
             if (S(th.back) && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」发的视频（" + S(nv.scene).slice(0, 40) + "）底下，网友「" + thCm.name + "」说「" + S(thCm.text).slice(0, 60) + "」，你回了「" + S(th.reply).slice(0, 60) + "」，对方又回你「" + S(th.back).slice(0, 60) + "」。");
           }
           save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
+          if (cpA) cpFans(c.id, Math.round((Number(d.likes) || 0) * 0.03) + 20);
           // 追更（她 2026-10-08）：她追着的系列出了新一期，消息里落一条，点进去就是这一期
           if (nv.series && ((dbRef.current.me || {}).series || {})[c.id + "|" + nv.series]) note((accounts[c.id] || {}).handle + " 的《" + nv.series + "》更新到第 " + nv.ep + " 期", nv.id);
           names.push(c.name);
@@ -568,6 +718,7 @@
       };
       try {
         await Promise.all(pick.map(one));
+        if (opts.quiet) return;
         if (names.length) toast(names.join("、") + " 发了新视频" + (failed.length ? "（" + failed.join("、") + " 这回没拍出来）" : ""));
         else toast("这一轮没发出来，再点一次试试");
         if (names.length) { setPage(p => p && p.kind === "refresh" ? null : p); setTab("home"); setFeed("follow"); posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0; }
@@ -579,10 +730,10 @@
       const sk = skin;
       setBusy("npc");
       try {
-        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday())
+        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText())
           + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
             + (props.cityNote ? props.cityNote(city) : "") : ""), shapeNpc(sk));
-        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {})));
+        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {}, regOf(x.author) ? { reg: regOf(x.author) } : {})));
         if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
         addVideos(vids); setPage(null); setTab("home"); setFeed(city ? "city" : "rec");
         posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0;
@@ -612,8 +763,13 @@
       const put = r => patchV(vid, xv => Object.assign({}, xv, { comments: arr(xv.comments).map(c2 => c2.id === cmId ? Object.assign({}, c2, { replies: arr(c2.replies).concat([r]) }) : c2) }));
       setBusy("reply");
       try {
-        const d = await props.ask(crowdSystem(v, { me: myName, text: myText, n: must ? "2~4" : "2~4", must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
-        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, 5);
+        // 条数不固定、而且要多（她 2026-10-15：「路人和整体回复数太固定了」「不不不我嫌少了评论」）：
+        //   每回随机，少的时候三四个路人，热闹起来十来个。
+        const CROWD_N = [3, 4, 4, 5, 5, 6, 6, 7, 8, 9, 10, 12];
+        const crowdN = CROWD_N[Math.floor(Math.random() * CROWD_N.length)];
+        const nTotal = (must ? 1 : 0) + (must ? crowdN : Math.max(1, crowdN));
+        const d = await props.ask(crowdSystem(v, { regs: regsText(), me: myName, text: myText, n: String(nTotal), must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
+        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, nTotal + 1);
         let wait = 0;
         items.forEach((x, k) => {
           const isResp = resp && (k === 0 || S(x.name) === must);
@@ -621,7 +777,9 @@
           // 路人顶着认识的人的名字说话：丢掉
           if (!isResp && resp && name === must) return;
           const to = S(x.to) && S(x.to) !== name ? S(x.to).slice(0, 20) : "";
-          const r = { id: uid("rp"), name, text: S(x.text).slice(0, 300), by: isResp ? "char" : "npc", ...(isResp ? { charId: resp.id } : {}), ...(isResp && resp === authorC ? { isAuthor: true } : {}), ...(to ? { to } : {}), ts: Date.now() + k };
+          const reg = isResp ? null : regOf(name);
+          if (reg && to === myName) touchReg(reg, "theirs", x.tone);
+          const r = { id: uid("rp"), name, text: S(x.text).slice(0, 300), by: isResp ? "char" : "npc", ...(isResp ? { charId: resp.id } : {}), ...(isResp && resp === authorC ? { isAuthor: true } : {}), ...(reg ? { reg } : {}), ...(to ? { to } : {}), ts: Date.now() + k };
           wait += k ? 900 + Math.random() * 2200 : 500;
           setTimeout(() => { put(r); if (to === myName || (k === 0 && must)) note(name + " 回复了你：" + r.text, vid); }, wait);
         });
@@ -629,10 +787,48 @@
         setTimeout(() => setBusy(b => b === "reply" ? null : b), wait + 200);
       } catch (e) { toast("回复没刷出来：" + ((e && e.message) || "")); setBusy(null); }
     };
+    // 熟面孔（论坛那批人）：拼进提示词的那一段、按网名认人、记碰面账（她用小号时不记，跟论坛一样）
+    const regsText = () => props.regulars ? regularsBlock(props.regulars(), props.regularPairs ? props.regularPairs() : [], myName) : "";
+    const regOf = name => { if (!props.regulars) return null; const r = props.regulars().find(x => x.name === S(name)); return r ? r.id : null; };
+    const touchReg = (id, dir, tone) => { if (id && props.touchRegular && !onAlt) props.touchRegular(id, dir, tone === "warm" || tone === "spar" ? tone : ""); };
+    // 刷点评论（她 2026-10-15：「跟论坛一样可以不用自己评论直接生成路人评论」）：一枪写一批路过的网友，
+    //   有的另起一条，有的回底下已有的那几条；一两秒冒一条。认识的人不在这一枪里（他们各走自己那份）。
+    const moreComments = async vid => {
+      const v = dbRef.current.videos.find(x => x.id === vid); if (!v || !props.ask) return;
+      const n = [4, 5, 6, 6, 7, 8, 9, 10][Math.floor(Math.random() * 8)];
+      const have = arr(v.comments).slice(-14).map(c => c.name + "：" + c.text + arr(c.replies).slice(-3).map(r => "\n  " + r.name + (r.to ? " 回复 @" + r.to : "") + "：" + r.text).join("")).join("\n");
+      const authorC = v.by === "char" ? charOf(v.charId) : (v.cp ? charOf(v.cp) : null);
+      const known = [v.by !== "npc" ? v.author : "", myName].filter(Boolean);
+      const sys = AC() + CB() + "【场景】「" + APP_NAME + "」上一条视频（@" + v.author + "）拍的是：" + S(v.scene).slice(0, 200) + (v.caption ? "；文案：" + S(v.caption).slice(0, 80) : "") + "。"
+        + (v.cp ? "\n这是一个情侣号，刷到的多半是这个号的 CP 粉：催更、考古以前的视频、给他俩起 CP 名、嗑到了、起哄。" : "")
+        + (have ? "\n\n【底下已有的评论】\n" + have : "\n\n底下还没有评论。")
+        + "\n\n写正好 " + n + " 条刚刷到这条的陌生网友的评论 items（name 网名、text、to：要是在回底下某一条就照抄那条的网名，另起一条就空着）。"
+        + "\n他们素不相识，只看得见这条视频和这些评论，不认识「" + known.join("」「") + "」，只当普通账号。像真在刷评论区：短，一句甚至几个字；不复述视频、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问，有人在楼里接别人的话；口气、长短、标点各不一样。"
+        + "\n⚠️不许以「" + known.join("」「") + "」的名义写任何一句。" + regsText();
+      setBusy("more:" + vid);
+      try {
+        const d = await props.ask(sys, CROWD_SHAPE, authorC ? authorC.id : null);
+        const bad = new Set(known);
+        const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && !bad.has(S(x.name))).slice(0, n + 2);
+        if (!items.length) { toast("这回没人路过"); setBusy(null); return; }
+        let wait = 0;
+        items.forEach((x, k) => {
+          wait += k ? 700 + Math.random() * 1800 : 300;
+          setTimeout(() => patchV(vid, xv => {
+            const name = S(x.name).slice(0, 20), text = S(x.text).slice(0, 200), to = S(x.to), reg = regOf(name);
+            if (reg && to === myName) touchReg(reg, "theirs", x.tone);
+            const host = to && to !== name ? arr(xv.comments).find(c => c.name === to) || arr(xv.comments).find(c => arr(c.replies).some(r => r.name === to)) : null;
+            if (host) return Object.assign({}, xv, { comments: arr(xv.comments).map(c => c.id === host.id ? Object.assign({}, c, { replies: arr(c.replies).concat([{ id: uid("rp"), name, text, by: "npc", ...(reg ? { reg } : {}), ...(to !== host.name ? { to } : {}), ts: Date.now() }]) }) : c) });
+            return Object.assign({}, xv, { comments: arr(xv.comments).concat([{ id: uid("cm"), name, text, by: "npc", ...(reg ? { reg } : {}), ts: Date.now() }]) });
+          }), wait);
+        });
+        setTimeout(() => setBusy(b => b === "more:" + vid ? null : b), wait + 200);
+      } catch (e) { toast("没刷出评论：" + ((e && e.message) || "")); setBusy(null); }
+    };
     // 她评论：落一条自己的，然后那一串陆续接上来（作者的视频作者必回；她自己的视频是路人和认识的人来接）
-    const comment = (id, text) => {
+    const comment = (id, text, emo) => {
       const v0 = dbRef.current.videos.find(x => x.id === id); if (!v0) return;
-      const mine = { id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ts: Date.now() };
+      const mine = { id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ...(emo ? { emo } : {}), ts: Date.now() };
       patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([mine]) }));
       crowd(id, mine.id, text, { name: v0.author, isAuthor: true, by: v0.by });
     };
@@ -655,7 +851,7 @@
 
     // 她发一条：认识她的人刷到了
     const postMine = async d => {
-      const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin });
+      const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin, ...(d.img ? { img: d.img, photo: true } : {}) });
       const co = d.withId ? charOf(d.withId) : null;
       if (co) { v.withCharId = co.id; v.withName = S(((dbRef.current.accounts || {})[co.id] || {}).handle) || co.name; }
       if (onAlt) v.alt = true;
@@ -663,6 +859,7 @@
       const sameChar0 = d.same && d.same.by === "char" ? charOf(d.same.charId) : null;
       const sameChar = sameChar0 && knows(sameChar0) ? sameChar0 : null;
       if (d.same) { v.sameOf = d.same.id; v.sameAuthor = d.same.author; }
+      if (d.chal) v.chal = d.chal;
       // 发在情侣号上：TA也是这个号的主人，画面默认你俩（画出来锁两张脸），TA当然会看到
       const cpChar = onCp ? charOf(cpId) : null;
       if (cpChar) { v.cp = cpId; if (!co) { v.withCharId = cpChar.id; } }
@@ -671,8 +868,14 @@
       // 合拍的那一位一定在（TA就在画面里），其余随缘两个
       // 刷到、来评论的只叫认得出这张面具的人（合拍的那一位本来就在画面里，照旧来）
       const lead = cpChar || co || sameChar;
-      const pool = (lead ? [lead] : []).concat(characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).sort(() => Math.random() - 0.5).slice(0, lead ? 2 : 3));
-      if (!pool.length) return;
+      // 谁刷到了：本机先掷骰子（她 2026-10-15）——先掷有没有人刷到，再掷几个、是谁；
+      //   掷中的那几位一枪写完，各带自己的人设、跟你的关系、你俩最近怎么说话（briefFor），外加防八股那一套（AC）。
+      //   一个都没刷到就不花这次调用。合拍／情侣号／被拍同款的那一位本来就在，不掷。
+      const others = characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).sort(() => Math.random() - 0.5);
+      const anyone = lead ? true : Math.random() < 0.4;   // 四成（她 2026-10-15：「太多了改成四成」）
+      const howMany = anyone ? [1, 1, 2, 2, 2, 3, 3, 4][Math.floor(Math.random() * 8)] - (lead ? 1 : 0) : 0;
+      const pool = (lead ? [lead] : []).concat(others.slice(0, Math.max(0, howMany)));
+      if (!pool.length) { patchV(v.id, x => Object.assign({}, x, { likes: Math.floor(Math.random() * 40), plays: Math.floor(Math.random() * 400) })); return; }
       setBusy("post");
       try {
         const r = await props.ask(mineSystem(v, uName, pool, pool.map(props.briefFor), co, cpChar ? { name: cpChar.name, handle: cps[cpId].handle } : null, sameChar && !onAlt ? { name: sameChar.name, scene: d.same.scene } : null), (co || cpChar) ? MINE_SHAPE.replace(/\}$/, ',"crowd":[{"name":"","text":""}]}') : MINE_SHAPE, pool[0].id);
@@ -682,7 +885,7 @@
         const likes = Math.max(0, Math.round(Number(r && r.likes) || 0));
         // 合拍的起哄：网友那几句（只有合拍才有）
         const crowd = (co || cpChar) ? normComments(r && r.crowd) : [];
-        if (cpChar) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [cpId]: Object.assign({}, (dbRef.current.cps || {})[cpId], { followers: ((((dbRef.current.cps || {})[cpId] || {}).followers) || 0) + Math.round(Math.max(0, Number(r && r.likes) || 0) * 0.02) }) }) }));
+        if (cpChar) cpFans(cpId, Math.round(Math.max(0, Number(r && r.likes) || 0) * 0.02) + 10);
         patchV(v.id, x => Object.assign({}, x, { likes, plays: Math.max(likes * 8, likes), comments: cms.concat(crowd) }));
         cms.forEach(c => note(c.name + " 评论了你的视频：" + c.text, v.id));
       } catch (e) { toast("评论区还空着：" + ((e && e.message) || "")); }
@@ -725,14 +928,35 @@
     // 她自己发的弹幕：飘在画面上；TA下次在横着看那套发视频时会看到（不知道是谁）
     const dm = (v, text) => { patchV(v.id, x => Object.assign({}, x, { myDms: arr(x.myDms).concat([{ text: text.slice(0, 30), ts: Date.now() }]).slice(-20) })); toast("弹幕发出去了"); };
     // 楼中楼：她回了某一条评论（或那条底下的某个人）——被回的那个必接，旁人看情况
-    const reply = (v, cid, text, toName) => {
+    const reply = (v, cid, text, toName, emo) => {
       const target = arr(v.comments).find(x => x.id === cid); if (!target) return;
-      patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([{ id: uid("rp"), name: myName, text, by: "me", ...(toName ? { to: toName } : {}), ts: Date.now() }]) }) : cm) }));
+      patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([{ id: uid("rp"), name: myName, text, by: "me", ...(toName ? { to: toName } : {}), ...(emo ? { emo } : {}), ts: Date.now() }]) }) : cm) }));
       const sub = toName ? arr(target.replies).slice().reverse().find(r => r.name === toName && r.by !== "me") : null;
       const who = sub || (target.by !== "me" ? target : arr(target.replies).slice().reverse().find(r => r.by !== "me")) || null;
+      if (who && who.by === "npc") touchReg(who.reg || regOf(who.name), "mine");   // 她去接熟面孔的话
       crowd(v.id, cid, text, who);
     };
-    const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() }));
+    const like = v => { patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() })); sawCandid(v); };
+    // 纪念日自动发（第 5 条）：在一起满整百天、整周年那天，进片刻时TA自己往情侣号发一条（一天一回，一次调用）
+    useEffect(() => {
+      if (!props.coupleOf || !props.probeAs) return;
+      const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+      const key = d0.getFullYear() + "-" + (d0.getMonth() + 1) + "-" + d0.getDate();
+      togetherIds.forEach(id => {
+        const a = (dbRef.current.cps || {})[id], cp = props.coupleOf(id) || {};
+        if (!a || !cp.since || a.annivDone === key) return;
+        const label = annivLabel(cp.since, d0);
+        if (!label) return;
+        save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { annivDone: key }) }) }));
+        genChars([id], true, { anniv: label, quiet: true }).then(() => note((charOf(id) || {}).name + " 在你俩的情侣号上发了一条「" + label + "」", null)).catch(() => {});
+      });
+    }, []);
+    // 她刷到了TA偷拍她的那条（点赞或点开评论）：TA记一笔「她看到了」，只记一次
+    const sawCandid = v => {
+      if (!v || !v.candid || v.candidSeen || !v.charId) return;
+      patchV(v.id, x => Object.assign({}, x, { candidSeen: Date.now() }));
+      if (props.remember) props.remember([v.charId], uName + " 刷到了你背着她偷偷发在情侣号上的那条（" + S(v.scene).slice(0, 50) + "），她看到了。");
+    };
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
 
     // 两套各刷各的：没标皮的旧视频算竖屏那套
@@ -755,14 +979,29 @@
     const unread = arr(db.notes).filter(n => n.unread).length;
 
     // 全屏的那几页
+    // 评论层：上面三成露着视频，点那块就收；评论区占下面七成。
+    //   首页、单条视频、我的作品、收藏都挂这一层（她 2026-10-15：「从我的作品、收藏或者别人主页点进单条视频…也改了」）
+    const sheetLayer = () => {
+      const sheetV = sheet ? arr(db.videos).find(x => x.id === sheet) : null;
+      return sheetV ? h("div", { "data-wk": "shuacmtsheet", style: { position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column" } },
+        h("div", { onClick: () => setSheet(null), "aria-label": "收起评论", style: { flex: "0 0 30%", background: "rgba(0,0,0,.25)" } }),
+        h("div", { style: { flex: "1 1 auto", minHeight: 0, boxShadow: "0 -6px 20px rgba(0,0,0,.35)", borderRadius: "14px 14px 0 0", overflow: "hidden" } },
+          h(CommentsPage, cmtProps(sheetV, { sheet: true, onBack: () => setSheet(null) })))) : null;
+    };
+    // 评论区（整页和底下那一层）共用的那几样：发、回、带表情、点名字进主页、刷点评论
+    const cmtProps = (v, extra) => Object.assign({ v, t, P, busy: busy === "reply" || busy === "more:" + v.id,
+      onSend: (x, emo) => comment(v.id, x, emo), onReply: (cid, x, to, emo) => reply(v, cid, x, to, emo),
+      emotePacks: props.emotePacks || [], onMore: props.ask ? () => moreComments(v.id) : null, more: busy === "more:" + v.id,
+      onPerson: id => charOf(id) ? setPage({ kind: "acct", charId: id, back: page }) : null }, extra);
+    const withSheet = node => h("div", { className: "h-full", style: { position: "relative" } }, node, sheetLayer());
     if (page && page.kind === "comments") {
       const v = db.videos.find(x => x.id === page.id);
-      if (v) return h(CommentsPage, { v, t, P, busy: busy === "reply", onSend: x => comment(v.id, x), onReply: (cid, x, to) => reply(v, cid, x, to), onBack: () => setPage(page.back || null) });
+      if (v) return h(CommentsPage, cmtProps(v, { onBack: () => setPage(page.back || null) }));
     }
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
       if (v) return h(BDetail, { v, charOf, seriesOn: !!(v.series && v.charId && ((dbRef.current.me || {}).series || {})[v.charId + "|" + v.series]),
-        onFollowSeries: v.series && v.charId && v.by === "char" ? () => { const k = v.charId + "|" + v.series, me = dbRef.current.me || {}, sr = Object.assign({}, me.series); if (sr[k]) delete sr[k]; else sr[k] = true; save(Object.assign({}, dbRef.current, { me: Object.assign({}, me, { series: sr }) })); toast(sr[k] ? "追更了，出新一期会在消息里提醒你" : "不追了"); } : null, busy: busy === "reply", onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
+        onFollowSeries: v.series && v.charId && v.by === "char" ? () => { const k = v.charId + "|" + v.series, me = dbRef.current.me || {}, sr = Object.assign({}, me.series); if (sr[k]) delete sr[k]; else sr[k] = true; save(Object.assign({}, dbRef.current, { me: Object.assign({}, me, { series: sr }) })); toast(sr[k] ? "追更了，出新一期会在消息里提醒你" : "不追了"); } : null, busy: busy === "reply" || busy === "more:" + v.id, onMore: props.ask ? () => moreComments(v.id) : null, moreBusy: busy === "more:" + v.id, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
@@ -789,7 +1028,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "18px 0 8px" } }, "作品"),
           vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: skin === "b" ? "1fr 1fr" : "repeat(3,1fr)", gap: skin === "b" ? 8 : 3 } }, vids.map(v => skin === "b"
             ? h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) })
-            : h("button", { "data-wk": "shuatile", key: v.id, onClick: () => setPage({ kind: "comments", id: v.id, back: page }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
+            : h("button", { "data-wk": "shuatile", key: v.id, onClick: () => setPage({ kind: "one", id: v.id, back: page }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
               !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.85)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || v.scene) : null,
               h("div", { style: { position: "absolute", left: 6, bottom: 4, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)" } }, "赞 " + fmtN(v.likes))))) :
             h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "这套里还没发过")));
@@ -815,6 +1054,7 @@
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
       realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: () => genNpc(feed === "city" && cities.length ? cityNow : ""), npcCity: feed === "city" && cities.length ? cityNow : "", onChars: genChars, onBack: () => setPage(null) });
+    if (page && page.kind === "cpchal") return h(CpChallengePage, { P, cName: (charOf(cpId) || {}).name || "TA", busy: busy === "chal" || busy === "post", onGo: playChallenge, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, same: page.same || null, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
     // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
@@ -831,7 +1071,7 @@
       onScroll: e => { posRef.current[posKey] = Math.round(e.currentTarget.scrollTop / (paneH || 1)); }, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
       vids.length ? vids.map(v => h(VideoPane, { key: v.id, v, height: paneH, charOf,
         onLike: () => like(v), onFave: () => fave(v),
-        onComments: () => setPage({ kind: "comments", id: v.id, back: page }),
+        onComments: () => { setSheet(v.id); sawCandid(v); },
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
@@ -852,20 +1092,70 @@
       setPage(vidSkin(v) === "b" ? { kind: "bdetail", id: v.id } : { kind: "one", id: v.id });
     };
     if (page && page.kind === "one") { const ov = arr(db.videos).find(x => x.id === page.id);
-      return h("div", { "data-wk": "shuaone", className: "h-full flex flex-col", style: { background: BLACK } },
-        h(Head, { zh: "视频", bg: "transparent", ink: INK, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(null) }),
-        ov ? feedView([ov], null) : null); }
-    if (page && page.kind === "favs") return h("div", { "data-wk": "shuafavs", className: "h-full flex flex-col", style: { background: P.bg } },
+      return withSheet(h("div", { "data-wk": "shuaone", className: "h-full flex flex-col", style: { background: BLACK } },
+        h(Head, { zh: "视频", bg: "transparent", ink: INK, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null) }),
+        ov ? feedView([ov], null) : null)); }
+    if (page && page.kind === "favs") return withSheet(h("div", { "data-wk": "shuafavs", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的收藏", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
-      feedView(page.folder && page.folder !== "all" ? favAll.filter(v => page.folder === "none" ? !arr(db.folders).some(f => f.id === v.folder) : v.folder === page.folder) : favAll, null));
+      feedView(page.folder && page.folder !== "all" ? favAll.filter(v => page.folder === "none" ? !arr(db.folders).some(f => f.id === v.folder) : v.folder === page.folder) : favAll, null)));
     // 「我」那一格点进自己的作品
-    if (page && page.kind === "mine") return h("div", { "data-wk": "shuamine", className: "h-full flex flex-col", style: { background: P.bg } },
+    if (page && page.kind === "mine") return withSheet(h("div", { "data-wk": "shuamine", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的作品", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
-      skin === "b" ? gridView(mine, null) : feedView(mine, null));
+      skin === "b" ? gridView(mine, null) : feedView(mine, null)));
 
     const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { "data-wk": "shuafeedtab", "data-on": feed === f[0] ? "1" : "0", key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: feed === f[0] ? ink : dim, fontWeight: feed === f[0] ? 700 : 400, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.5)" : "none" } }, f[1]),
       h("span", { style: { width: 18, height: 2.5, borderRadius: 2, marginTop: 4, background: feed === f[0] ? bar : "transparent" } })));
+    // 让 TA 给情侣号起名、写简介：走TA自己那份完整上下文（人设、记忆、你俩的梗），一次调用
+    const nameCp = async id => {
+      const c = charOf(id); if (!c || !props.probeAs) return;
+      const a = (dbRef.current.cps || {})[id];
+      setBusy("cpname:" + id);
+      try {
+        const d = await props.probeAs(c, "【这一轮发生在「" + APP_NAME + "」】" + (a ? "你和 " + uName + " 共用的情侣号现在叫「" + a.handle + "」" + (a.bio ? "，主页简介是「" + a.bio + "」" : "，还没写简介") + "。她请你来重新起名、写简介——想留着原来的名字也行。" : "你和 " + uName + " 要开一个两个人共用的情侣号，她请你来起名、写主页简介。")
+          + "\n照你这个人、你俩现在的关系、你们之间的梗来起：handle 是号名（16 个字以内），bio 是主页简介（一两句，60 个字以内，粉丝点进来看到的那句）。", '{"handle":"","bio":""}');
+        const handle = S(d && d.handle).slice(0, 20), bio = S(d && d.bio).slice(0, 80);
+        if (!handle && !bio) { toast("TA 想了想，没起出来"); return; }
+        const base = a || { followers: 0, ts: Date.now() };
+        save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, base, handle ? { handle } : {}, bio ? { bio } : {}, { namedBy: c.id }) }),
+          me: a ? dbRef.current.me : Object.assign({}, dbRef.current.me, { using: "cp:" + id }) }));
+        toast(c.name + " 起好了：「" + (handle || base.handle) + "」");
+      } catch (e) { toast("没起出来：" + ((e && e.message) || "")); }
+      finally { setBusy(b => b === "cpname:" + id ? null : b); }
+    };
+    // 她自己改了号名／简介：记一笔「是她改的」，TA下回往这个号发东西时知道，聊天里也可能提（号的掌控权）
+    const setCp = (id, patch) => {
+      const a = (dbRef.current.cps || {})[id] || {};
+      const changed = Object.keys(patch).filter(k => S(patch[k]) !== S(a[k]));
+      if (!changed.length) return;
+      save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, patch, { lastEdit: { by: "me", ts: Date.now() } }) }) }));
+      if (props.remember) props.remember([id], uName + " 把你俩在「" + APP_NAME + "」的情侣号" + changed.map(k => (k === "handle" ? "名字从「" + (a.handle || "") + "」改成了「" + patch.handle + "」" : "简介改成了「" + patch.bio + "」")).join("，") + "。");
+    };
+    const cpCard = id => {
+      const c = charOf(id); if (!c) return null;
+      const a = cps[id], on = cpId === id, naming = busy === "cpname:" + id, editing = cpEdit === id;
+      const meAv = { name: uName, avatarImage: profile && profile.avatarImage };
+      const btn = (label, fn, primary, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 34, padding: "0 12px", borderRadius: 999, background: primary ? P.accent : "transparent", border: primary ? "none" : "1px solid " + P.line, color: primary ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12 } }, label);
+      const inp = (key, val, ph, onSave, max) => h("input", { key, defaultValue: val, placeholder: ph, onBlur: e => onSave(e.target.value.trim().slice(0, max)),
+        className: "w-full outline-none", style: { marginTop: 6, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } });
+      return h("div", { "data-wk": "shuacprow", "data-on": on ? "1" : "0", key: id, style: { marginTop: 8, padding: "12px 14px", borderRadius: 16, border: (a ? "1px solid " : "1px dashed ") + (on ? P.accent : P.line), background: on ? "linear-gradient(120deg,rgba(254,44,85,.16),rgba(122,60,255,.12))" : P.field } },
+        h("div", { className: "flex items-center", style: { gap: 12 } },
+          h("div", { style: { position: "relative", width: 58, height: 40, flexShrink: 0 } },
+            h("div", { style: { position: "absolute", left: 0, top: 0, borderRadius: 99, border: "2px solid " + P.bg } }, h(Avatar, { character: meAv, size: 36 })),
+            h("div", { style: { position: "absolute", left: 20, top: 0, borderRadius: 99, border: "2px solid " + P.bg } }, h(Avatar, { character: c, size: 36 }))),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { "data-wk": "shuacpname", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: P.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a ? a.handle : "和 " + (c.remark || c.name) + " 的情侣号"),
+            h("div", { "data-wk": "shuacpbio", style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim, marginTop: 2, lineHeight: 1.45 } },
+              a ? (a.bio || "还没有简介") + " · " + fmtN(a.followers || 0) + " 粉丝" + (on ? " · 正在用" : "") : "还没开"))),
+        editing && a ? h("div", { style: { marginTop: 6 } },
+          inp("cpn_" + id, a.handle, "号名", v => v && setCp(id, { handle: v }), 20),
+          inp("cpb_" + id, a.bio || "", "主页简介（一两句）", v => setCp(id, { bio: v }), 80)) : null,
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
+          a ? btn(on ? "切回大号" : "切过去", () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { using: on ? "main" : "cp:" + id }) })), true)
+            : btn("开一个", () => save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign({}, dbRef.current.me, { using: "cp:" + id }) })), true),
+          props.probeAs ? btn(naming ? "TA 在想…" : a ? "让 TA 重新起" : "让 TA 起名开号", () => nameCp(id), false, naming) : null,
+          a ? btn(editing ? "改好了" : "自己改", () => setCpEdit(editing ? "" : id), false) : null));
+    };
     let body;
     if (tab === "home" && skin === "v") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { position: "relative", background: BLACK } },
       // 顶上那两个字：关注 / 推荐，浮在画面上
@@ -969,23 +1259,14 @@
           maskList.map(m => { const on = maskUse === m.id;
             return h("button", { key: m.id || "main", "data-wk": "shuamask", "data-on": on ? "1" : "0", onClick: () => { save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { mask: m.id }) })); toast("现在用「" + m.name + "」发；只有跟这张面具聊的人认得出是你"); },
               className: "active:opacity-70", style: { minHeight: 30, padding: "0 11px", borderRadius: 10, border: "1px solid " + (on ? P.accent : P.line), background: on ? P.accent : "transparent", color: on ? "#fff" : P.dim, fontFamily: F_BODY, fontSize: 12 } }, m.name); })) : null,
-        // 情侣号：在一起的那几位各一行。没开过就「开一个」，开过就「切过去」；正用着时一颗「切回大号」
-        togetherIds.length ? h("div", { style: { marginTop: 12 } }, togetherIds.map(id => {
-          const c = charOf(id); if (!c) return null;
-          const a = cps[id];
-          return h("div", { "data-wk": "shuacprow", key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
-            h(Avatar, { character: c, size: 26 }),
-            a ? h("input", { key: "cp_" + id, defaultValue: a.handle, onBlur: e => { const v = e.target.value.trim().slice(0, 20); if (v) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { handle: v }) }) })); },
-              className: "flex-1 outline-none", style: { minWidth: 0, width: 0, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })   // ⚠️minWidth/width 0：输入框天生有个默认宽度，不压到 0 它会把右边「切回大号」挤出屏幕、整页横着滑（群友 2026-10-15）
-              : h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
-            h("button", { onClick: () => {
-                const me2 = Object.assign({}, dbRef.current.me);
-                if (!a) { save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign(me2, { using: "cp:" + id }) })); return; }
-                save(Object.assign({}, dbRef.current, { me: Object.assign(me2, { using: cpId === id ? "main" : "cp:" + id }) }));
-              }, className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12 } },
-              !a ? "开一个" : cpId === id ? "切回大号" : "切过去"));
-        })) : null,
+        // 情侣号（她 2026-10-15：「列表看起来不好看换个ui，让他可以选情侣号名字和主页简介」）：
+        //   在一起的那几位各一张卡——两只头像叠在一起、号名、简介、粉丝；能切过去，能自己改，也能「让 TA 起」。
+        togetherIds.length ? h("div", { style: { marginTop: 16 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginBottom: 8 } }, "情侣号"),
+          togetherIds.map(id => cpCard(id))) : null,
         onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
+        onCp && props.probeAs ? h("button", { "data-wk": "shuacpchalbtn", disabled: !!busy, onClick: () => setPage({ kind: "cpchal" }), className: "w-full active:opacity-70 disabled:opacity-40",
+          style: { marginTop: 10, minHeight: 42, borderRadius: 12, background: "linear-gradient(120deg,#fe2c55,#7a3cff)", color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "玩一个情侣挑战") : null,
         // 平时TA发视频只有三回里一回落在情侣号上；想看就点这颗，专门发一条到这儿（一次调用）
         onCp ? h("button", { "data-wk": "shuacppost", disabled: !!busy, onClick: () => genChars([cpId], true), className: "w-full active:opacity-70 disabled:opacity-40",
           style: { marginTop: 8, minHeight: 38, borderRadius: 10, border: "1px solid " + P.accent, color: P.accent, background: "transparent", fontFamily: F_BODY, fontSize: 12.5 } },
@@ -1013,8 +1294,9 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: tab === k ? (skin === "b" ? P.accent : P.ink) : P.dim, fontWeight: tab === k ? 700 : 400 } }, label),
       k === "me" && unread ? h("span", { style: { position: "absolute", top: 8, right: "22%", minWidth: 16, height: 16, borderRadius: 99, background: P.accent, color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center", padding: "0 4px" } }, unread > 99 ? "99+" : unread) : null);
     const barBg = skin === "b" ? B.card : BLACK;
-    return h("div", { "data-wk": "shuapage", className: "h-full flex flex-col", style: { background: barBg } },
+    return h("div", { "data-wk": "shuapage", className: "h-full flex flex-col", style: { background: barBg, position: "relative" } },
       body,
+      sheetLayer(),
       h("div", { "data-wk": "shuatabbar", className: "shrink-0 flex items-center", style: { background: barBg, borderTop: "1px solid " + P.line, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)" } },
         tabBtn("home", "首页"), tabBtn("live", "直播"),
         h("button", { "data-wk": "shuapostfab", onClick: () => setPage({ kind: "post" }), "aria-label": "发一条", className: "active:opacity-70 flex items-center justify-center", style: { flex: 1, minHeight: 48 } },

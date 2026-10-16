@@ -460,7 +460,7 @@
     Object.freeze({zh:"资料卡",pages:Object.freeze(["contact"]),hooks:Object.freeze([["cdpage", "整页最外层（带角色颜色的纸底）"], ["cdhead", "头部一行（头像、名字、简介）"], ["cdname", "角色名大字"], ["cdtagline", "名字下面那行简介"], ["cdage", "年龄和生日那一行"], ["cdaffinity", "好感度那一块"], ["cdrules", "「长期准则」整块"], ["cdrule", "单条准则卡片"], ["cdactions", "底部操作按钮那一组"], ["cdbtn", "单个操作按钮（data-kind=chat/state/desires；心上那颗 data-on=\"1\" 是有念想）"]])}),
     Object.freeze({zh:"设置",pages:Object.freeze(["config"]),hooks:Object.freeze([["cfhome", "设置首页那一列入口的容器"], ["calllog", "设置 · 调用记录与缓存 里的「模型调用记录」整块"], ["mcprelay", "设置 · 文字模型 · MCP 那一页里「转接」那一块"], ["calllogrow", "调用记录的一行（data-ok=\"1\" 成功，\"0\" 失败或断开）"], ["calllogtok", "调用记录那行里的输入／输出 token"], ["failretry", "调用记录页顶上「失败了自动再试一次」那一行"], ["cfrow", "首页的一行入口（data-page＝通往哪个子页，如 api/look/data）"], ["cfrowtitle", "首页一行的标题"], ["cfrowstate", "首页一行右下那行灰色状态小字"], ["cfnote", "首页底部那张说明卡"], ["cfmark", "方角汉字栏号牌（首页每行、子页每格都有）"], ["cfgrid", "子页里两列格子的网格"], ["cftile", "子页里的单个入口格子（data-wide=\"1\" 是占满一行的宽格）"], ["cfpanel", "子页内容外面那张卡片框（data-flush=\"1\" 没内边距）"], ["composerlift", "外观与壁纸里「输入栏往上抬」那一格"]])}),
     Object.freeze({zh:"论坛",pages:Object.freeze(["forum"]),hooks:Object.freeze([["pmwechat","论坛私信里「加个微信 / 去微信聊」那颗键"],["forummaskrow","论坛「我」页「用哪张面具发」那一排"],["forummask","挑面具的一颗；data-on=1 现在用的"],["forumpage","论坛整页最外层（底色在这儿改；data-nav＝home/search/notice/pm/me，data-sub＝1 是点进帖子、主页这些里层）"],["foboards","主页顶上一排版块（吧）"],["forules","版块下面那条吧规横杠"],["fosort","「正在聊／最新发帖／热榜」那一排"],["fonav","论坛底栏整条"],["fonavtab","底栏的一颗（data-part＝home/search/notice/pm/me，data-on＝1 当前）"],["fopostpage","点进一个帖子后的整页"],["fopostcard","帖子详情顶上楼主那一大张卡"],["fochip", "版块切换的小标签（data-on=\"1\" 是当前那个）"], ["forow", "帖子流里的一张帖子卡（data-me=\"1\" 我发的，data-anon=\"1\" 匿名）"], ["fonotes", "论坛双列时那块瀑布流"], ["folayout", "论坛「我」页里「首页排版」那两颗（单列 / 双列，data-on=\"1\" 是选中的那颗）"], ["fonewhead", "「新帖在这里」「新回复在这里」那一行（点了展开，aria-expanded=\"true\" 是开着）"], ["fonote", "双列时的一张卡片"], ["foname", "帖子卡上的作者名"], ["fobody", "帖子卡正文预览"], ["foacts", "帖子卡底部操作栏"], ["fofloor", "帖子详情里的一层楼（data-me=\"1\" 我的，data-new=\"1\" 新楼）"], ["foreplies", "楼中楼回复框"], ["fosend", "详情页底部回复栏的发送键"], ["fofab", "右下角悬浮的发帖键"]])}),
-    Object.freeze({zh:"日记",pages:Object.freeze(["diary"]),hooks:Object.freeze([["diauthor", "日记本列表里每个人的一行（data-on=\"1\" 当前那本，data-me=\"1\" 我自己）"], ["diname", "那一行里的名字"], ["dirow", "一篇日记（data-me=\"1\" 我写的）"], ["didate", "日记左侧的日期块"], ["dititle", "日记标题"], ["dibody", "日记正文预览"], ["dimarks", "条目下方的小标记行（划掉/秘密/贴纸、几人看过）"], ["dipen", "右上角写日记的铅笔键"], ["dipage", "翻页阅读时的单页日记"]])}),
+    Object.freeze({zh:"日记",pages:Object.freeze(["diary"]),hooks:Object.freeze([["diauthor", "日记本列表里每个人的一行（data-on=\"1\" 当前那本，data-me=\"1\" 我自己）"], ["diname", "那一行里的名字"], ["dirow", "一篇日记（data-me=\"1\" 我写的）"], ["didate", "日记左侧的日期块"], ["dititle", "日记标题"], ["dibody", "日记正文预览"], ["dimarks", "条目下方的小标记行（划掉/秘密/贴纸、几人看过）"], ["dipen", "右上角写日记的铅笔键"], ["dipage", "翻页阅读时的单页日记"], ["dicover", "日记本封面那一整页（底纸在这儿改；data-paper＝白纸 paper/横线 lined/方格 grid/布纹 cloth/夜空 night/木纹 wood）"], ["dibook", "封面上那本日记本"], ["dipaperbtn", "封面「换纸」那颗"], ["dipaper", "换纸那一排（按钮 data-on=1 是现在这张）"], ["dibg", "日记目录页和全文页的整页底纸（data-paper 同上）"]])}),
     Object.freeze({zh:"情侣空间",pages:Object.freeze(["us"]),hooks:Object.freeze([["qareplies", "问答小本一页底下的留言串（两份都打开后才有）"],["uscouple", "情侣列表的一行（data-on=\"1\" 在一起，否则邀请中；data-new=\"1\" 有新东西）"], ["usname", "列表行里的角色名"], ["uspair", "空间内页封面上那两枚头像的外框（整组挪位置）"], ["usavatar", "空间内页封面上的一枚头像（带环；data-who=\"ta\" 是他、\"me\" 是我）。默认我那枚往左压 18px 叠着，想拉开成两个整圆：[data-wk=\"usavatar\"][data-who=\"me\"]{margin-left:12px !important}"], ["uscount", "列表行里「在一起 N 天」的天数大字"], ["usdays", "空间内页「在一起 N 天」那一组"], ["usnow", "「TA 此刻」那张便签"], ["uspaper", "往上滚时盖住封面的那张底纸（颜色、透明度、磨砂都在它身上，写的时候要加 !important）"], ["uswall", "墙上的功能卡片（data-kind＝模块）"], ["usspine", "「收着的」那一列书脊入口（data-kind＝letters/exdiary/qa/capsule…；data-new=\"1\" 有新内容）"], ["useyebrow", "各区块的小眉标标题"], ["jarpage", "存钱罐那一整页"], ["jarglass", "存钱罐页顶上那只玻璃罐"], ["jarrow", "存钱罐流水的一行（data-who=\"me\" 是你放的／取的）"]])}),
     Object.freeze({zh:"时刻",pages:Object.freeze(["shike"]),hooks:Object.freeze([["shikepage","时刻外层整页（横着滑那一层）"],["shikecard","横着滑的那张整屏 CG 卡（data-on=\"1\" 是当前停着的）"],["shikedetail","点进一个人以后的那一页"],["shikeitem","里层横着滑的一张时刻卡（data-kind=meet/us/bday/fest/first）"],["shikesay","时刻卡上TA说的那段话"],["shikecreate","「开一张时刻」那一页"],["shikemonths","里层底下那条时间轴（一张时刻一道刻度）"],["shikemenu","里层右上角「⋯」打开的那张小菜单"],["shikeacts","时刻卡底那一行小字动作"],["shikenote","时刻卡上写着那天的事的那块底框"],["shikewith","群里那种卡上「一起的还有」那一行"],["shikesoon","卡上那个倒计时小签（data-today=\"1\" 是就在今天）"]])}),
     // 一起学 · 我来教（2026-10-03）
@@ -490,6 +490,22 @@
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
         ["listenstay", "一起听选人底下「说的话只留在一起听里」那一格"],
         ["listenlog", "一起听播放页底下「刚才说的」"],
+        ["shuacmtsheet", "刷刷竖着刷里从底下升起来的评论层"],
+        ["shuacmtsheethead", "评论层顶上那条（把手、标题、✕）"],
+        ["shuaheart", "片刻双击点赞冒出来的那颗心"],
+        ["shuamorecmt", "片刻评论区「刷点评论」"],
+        ["shuaemobtn", "片刻评论输入框旁的表情键"],
+        ["shuaemopanel", "片刻评论里挑表情那一格"],
+        ["shuacmtperson", "片刻评论里点得进主页的名字"],
+        ["shuapostpic", "片刻发视频「选一张照片」"],
+        ["shuacpname", "片刻情侣号卡片上的号名"],
+        ["shuacpbio", "片刻情侣号卡片上的简介和粉丝那行"],
+        ["shuacpchal", "片刻情侣挑战那一页"],
+        ["shuacpq", "情侣挑战的题目卡"],
+        ["shuacpchalgo", "情侣挑战「一起亮出来」"],
+        ["shuacpchalbtn", "情侣号里「玩一个情侣挑战」"],
+        ["sysnotecopy", "出戏回话小卡片右上角的「复制」"],
+        ["shuaregtag", "片刻评论里熟面孔名字后面那个小标"],
         ["roomlisten", "一起听房里那条横幅上的「进去一起听」"],
         ["messagesource", "游戏对话上方的世界来源（data-world区分世界；旧记录显示来源未记录）"],
         ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],
@@ -1011,7 +1027,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.711",changed: "刷刷评论区：一次调用，他认得出你和情侣号",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.739",changed: "日记本能换纸了，秋秋也改得了日记的底色",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

@@ -1,0 +1,34 @@
+Mode: built-in image_gen; ads-marketing with style and product screenshot references.
+Use case: ads-marketing.
+Asset: ONE revised Xiaohongshu cover, portrait 3:4, ideally 1536x2048, publishable flat graphic.
+Important user correction: The supplied sample sheet is ONLY A STYLE REFERENCE. It shows a tiny subset of this product. The cover must advertise the FULL “查 char 手机” experience, which actually has 21 apps, rather than just WeChat, notes, shopping and browsing. Rebuild the content and visual selection to communicate breadth.
+
+Input roles:
+Image 1: STYLE REFERENCE ONLY, the original light icy-blue / graphite digital editorial promo sheet. Keep the mist-blue background, navy type, gentle grid, translucent magnifying-glass motif, precise editorial alignment, white panels and polished shallow shadows. Do not reuse its limited four-app feature list, yellow note card, or two-panel page layout.
+Image 2: PRODUCT SCREENSHOT INSERT, actual second desktop page. Use in the main graphite-framed phone: it contains reading, personal writing, mail, clock, shopping, forum, 小红书, video, health, 深夜台, takeout and anonymous-inbox icons. Preserve the supplied mint/white UI, correct screen proportions, and original content.
+Image 3: PRODUCT SCREENSHOT INSERT, actual forum-alt view. Use a cropped floating panel with visible 大号 / 小号 / 匿名 selectors to signal more sides of the character.
+Image 4: PRODUCT SCREENSHOT INSERT, actual private-health view. Use a cropped secondary panel headed 私密 with calm report styling. Keep it factual and subtle.
+Use actual screenshots as product inserts, faithful to their existing UI. The surroundings can be designed; do not invent another interface or fabricate app data.
+
+Design and hierarchy:
+Strong single-cover composition. Top small brand masthead with a minimal phone icon; HUGE two-line headline, dark navy first line, medium blue second line. Place a clear large "21 个应用" badge near the headline/subtitle so the breadth reads at thumbnail size.
+Middle: one large phone slightly off-center, balanced by two small layered white screenshot panels (forum identities and private-health report). Give each insert a tiny neat label, not a paragraph. Keep the scene elegant rather than chaotic. Original UI details may be secondary, but device and panels must be recognizable.
+Lower section: a pale translucent app-directory block showing ALL 21 app names in THREE clean aligned rows of seven. These are the product's real apps, not decorative invented apps. Use short minimal line icons only if needed; clearly readable labels matter most. Make the directory compact so the main headline stays dominant.
+Bottom: a dark navy strip with a clear white sentence about watching the character use the phone.
+Retain comfortable 5–6% margins. No cute mascots, pastel scrapbook tape, yellow sticky note, external mockup, watermark, exaggerated secrecy slogans, unrelated app branding, or paragraph-sized sales copy.
+
+Exact marketing copy and labels:
+masthead: "秋秋机 · 查 char 手机"
+headline line 1: "翻开 char 的手机"
+headline line 2: "看看 TA 的另一面"
+badge: "21 个应用"
+subtitle: "生活、习惯和心事，都能慢慢翻。"
+label for main phone: "TA 的生活日常"
+forum panel label: "论坛小号与匿名"
+health panel label: "私密健康记录"
+App-directory row 1, seven separate evenly-spaced labels: "微信", "电话", "便签", "浏览器", "购物", "相册", "论坛"
+App-directory row 2, seven separate evenly-spaced labels: "音乐", "视频", "深夜台", "阅读", "小红书", "健康", "剪贴板"
+App-directory row 3, seven separate evenly-spaced labels: "日历", "外卖", "邮件", "账本", "匿名信箱", "时间线", "星测"
+footer: "还能看 TA 自己玩手机 · 打字、删改、回复"
+
+Accurate simplified Chinese, exact lowercase char and uppercase TA. Do not use 自推. No additional promotional copy or extra duplicate labels. Product screenshots and their existing small text are allowed. Font is clean bold Chinese editorial sans-serif, NOT the woolly toy style of the previous pet cover. Strong contrast, opaque background. The finished result should instantly say: this is a whole character's phone with a rich ecosystem, many apps and different sides of their life.

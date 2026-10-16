@@ -1,0 +1,822 @@
+{
+  "checks": [
+    {
+      "id": 1,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 骗子骰",
+          "left": 67,
+          "right": 240.5,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "01 / 04",
+          "left": 1023.890625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 116,
+          "clientWidth": 116
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "骰子藏着，嘴上可不认输。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "TA按自己的人设出手，会诈唬、嘴硬，也能让着你。\n你也能边叫边回一句；开了杯，再看谁刚才在嘴硬。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "骰子扣着，桌上的话可没停。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1465.96875,
+          "scrollHeight": 1129,
+          "clientHeight": 1129,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1415.96875,
+          "scrollHeight": 1071,
+          "clientHeight": 1071,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "骰子扣着，桌上的话可没停。",
+          "left": 85,
+          "right": 539,
+          "top": 1415.96875,
+          "bottom": 1457.96875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "一开杯，骰子和这一手的结果都亮了。",
+          "left": 649,
+          "right": 1123,
+          "top": 335,
+          "bottom": 1465.96875,
+          "scrollHeight": 1129,
+          "clientHeight": 1129,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 659,
+          "right": 1113,
+          "top": 345,
+          "bottom": 1415.96875,
+          "scrollHeight": 1071,
+          "clientHeight": 1071,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "一开杯，骰子和这一手的结果都亮了。",
+          "left": 659,
+          "right": 1113,
+          "top": 1415.96875,
+          "bottom": 1457.96875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "正常／放水／观战 · 人设与水平分别发挥 · 叫价、开杯和扣命都按实际判\n真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "正常／放水／观战 · 人设与水平分别发挥 · 叫价、开杯和扣命都按实际判",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/liar-playing-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            454,
+            1070.96875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/liar-reveal-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            454,
+            1070.96875
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 故事接龙",
+          "left": 67,
+          "right": 264.265625,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 197,
+          "clientWidth": 197
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "02 / 04",
+          "left": 1019.515625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 120,
+          "clientWidth": 120
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "你接一句，TA把故事拐个弯。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 221,
+          "scrollHeight": 97,
+          "clientHeight": 97,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "和几个角色轮流接，接法跟着各自的人设走。\n抽到的词会标出来，写完能起名字、复制整篇带走。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "轮到你接，抽到的词就在输入栏。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1465.96875,
+          "scrollHeight": 1129,
+          "clientHeight": 1129,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1415.96875,
+          "scrollHeight": 1071,
+          "clientHeight": 1071,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "轮到你接，抽到的词就在输入栏。",
+          "left": 85,
+          "right": 539,
+          "top": 1415.96875,
+          "bottom": 1457.96875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "你们接的句子，拼成了同一篇。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "你们接的句子，拼成了同一篇。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "2–8人一起写 · 每人一词 · 三圈收尾 · 谁接了哪句看得到\n真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "2–8人一起写 · 每人一词 · 三圈收尾 · 谁接了哪句看得到",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/story-writing-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            454,
+            1070.96875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/story-finished-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 各怀心思的约会",
+          "left": 67,
+          "right": 335.546875,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 269,
+          "clientWidth": 269
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "03 / 04",
+          "left": 1019.515625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 120,
+          "clientWidth": 120
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "约你出门，TA也藏着算盘。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "各抽一张秘密任务，轮流商量这一站去哪。\n地图从地点池里抽，路上可能撞小意外；到站TA也会接话。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "商量下一站，也藏着各自的心思。",
+          "left": 102.90625,
+          "right": 521.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "商量下一站，也藏着各自的心思。",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "TA停前后排，你拖滑杆管左右。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "TA停前后排，你拖滑杆管左右。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "各自秘密任务 · 轮流做主 · 抓玩偶TA管前后、你管左右 · 预算在本局\n真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "各自秘密任务 · 轮流做主 · 抓玩偶TA管前后、你管左右 · 预算在本局",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/date-plan-chat-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/date-claw-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 各怀心思的约会",
+          "left": 67,
+          "right": 335.546875,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 269,
+          "clientWidth": 269
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "04 / 04",
+          "left": 1019.515625,
+          "right": 1142,
+          "top": 49,
+          "bottom": 87,
+          "scrollHeight": 36,
+          "clientHeight": 36,
+          "scrollWidth": 120,
+          "clientWidth": 120
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "你猜他的心思，他也在猜你。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "合照拖滑杆选动作，听TA的提示找默契；失手能再配合一次。\n收工各猜一次对方任务，翻牌看谁做成了、谁猜中了。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "听TA的提示，拖滑杆配一个动作。",
+          "left": 102.90625,
+          "right": 521.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "听TA的提示，拖滑杆配一个动作。",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "到最后翻牌，才知道他藏着什么。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "到最后翻牌，才知道他藏着什么。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "合照配动作 · TA先封猜测 · 完成+2／猜中+1 · 独立存档，不进回忆\n真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "合照配动作 · TA先封猜测 · 完成+2／猜中+1 · 独立存档，不进回忆",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实游戏界面 · 人物、对话与局内数据为演示数据 · 入口：一起玩 → 小游戏",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/date-photo-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/date-result-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "violations": []
+}

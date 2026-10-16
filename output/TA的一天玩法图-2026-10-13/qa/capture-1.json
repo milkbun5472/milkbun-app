@@ -1,0 +1,1787 @@
+{
+  "phase": 1,
+  "shots": [
+    {
+      "name": "home-widget-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "picker-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "home-scene-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "schedule-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "work-scene-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "home-thought-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    },
+    {
+      "name": "pair-cuddle-full",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      }
+    }
+  ],
+  "actions": [
+    "Native thought switch renders a prepared fictional thought",
+    "TA initiates actual seated interaction"
+  ],
+  "errors": [],
+  "missing": [],
+  "calls": [
+    {
+      "tag": "此刻的念头"
+    }
+  ],
+  "scene": {
+    "outing": null,
+    "hasScheduledResume": false,
+    "cameraMode": "both",
+    "hostChore": null,
+    "transfer": null,
+    "pairStyles": {
+      "ta": {
+        "label": "温柔",
+        "description": "缓缓靠近，轻轻接住",
+        "delay": 0.35,
+        "reach": 1.1,
+        "lean": 0.1,
+        "sway": 0.008,
+        "style": "gentle",
+        "source": "persona",
+        "phase": 1.17
+      },
+      "me": {
+        "label": "主动",
+        "description": "直接伸手，靠近得更快",
+        "delay": 0.08,
+        "reach": 0.65,
+        "lean": 0.14,
+        "sway": 0.012,
+        "style": "active",
+        "source": "persona",
+        "phase": 4.363
+      }
+    },
+    "kitchenStation": "",
+    "kitchenBoard": null,
+    "kitchenTool": null,
+    "kitchenView": null,
+    "lunchCarry": null,
+    "kitchenProgress": null,
+    "kitchenDrag": null,
+    "framedActors": [
+      {
+        "minX": -0.7687367410184047,
+        "maxX": 0.3338015228840416,
+        "minY": -0.6448488818644168,
+        "maxY": 0.19468268040438022,
+        "who": "ta"
+      },
+      {
+        "minX": -0.3421558653111605,
+        "maxX": 0.7750700555919474,
+        "minY": -0.7123120263990267,
+        "maxY": 0.13517529291689062,
+        "who": "me"
+      }
+    ],
+    "motion": {
+      "id": "day-demo-a:ta",
+      "style": "natural",
+      "source": "persona",
+      "label": "自然",
+      "description": "动作舒展，节奏平稳",
+      "tempo": 0.9909,
+      "walk": 1,
+      "lean": 0.018,
+      "sway": 0.004,
+      "gaze": 0.025,
+      "habit": 12,
+      "phase": 1.17
+    },
+    "visitorMotion": {
+      "id": "__me:me",
+      "style": "lively",
+      "source": "persona",
+      "label": "活泼",
+      "description": "动作轻快，时不时看看四周",
+      "tempo": 1.068963,
+      "walk": 1.04,
+      "lean": 0.022,
+      "sway": 0.012,
+      "gaze": 0.055,
+      "habit": 8,
+      "phase": 4.363
+    },
+    "contacts": {
+      "ta": {
+        "left": null,
+        "right": 0.028958321756037325
+      },
+      "me": {
+        "left": null,
+        "right": null
+      }
+    },
+    "together": {
+      "moment": null,
+      "kind": "sit-hug",
+      "label": "坐着搂肩",
+      "phase": "active",
+      "a": {
+        "x": 0,
+        "z": 4.8
+      },
+      "b": {
+        "x": -1.7671743856370448,
+        "z": 2.65,
+        "heading": -2.1275689289654585
+      },
+      "seats": {
+        "a": {
+          "x": -2.4,
+          "z": 1.7979999999999998,
+          "rise": 0.45,
+          "heading": 0,
+          "approach": {
+            "x": -0.7000000000000002,
+            "z": 1.65
+          },
+          "piece": "sofa",
+          "pose": "chair"
+        },
+        "b": {
+          "x": -1.7671743856370448,
+          "z": 1.7979999999999998,
+          "rise": 0.45,
+          "heading": 0,
+          "approach": {
+            "x": -1.7671743856370448,
+            "z": 2.65
+          },
+          "piece": "sofa",
+          "pose": "chair"
+        }
+      },
+      "beds": null,
+      "posture": "sit",
+      "local": true,
+      "intimate": {
+        "ok": true,
+        "posture": "sit",
+        "progress": 0.9997535687453043,
+        "contacts": [
+          {
+            "who": "ta",
+            "side": "right",
+            "error": 0.028967809308262076
+          }
+        ],
+        "stage": "相依",
+        "points": {
+          "a": [
+            -2.3978281330020903,
+            1.223916255523006,
+            1.8025012345841165
+          ],
+          "b": [
+            -1.8313006616325014,
+            1.2228434875586727,
+            1.8057682993728756
+          ]
+        }
+      },
+      "contact": null,
+      "initiator": "a",
+      "tour": null,
+      "elapsed": 1.4399999999999997,
+      "automatic": false,
+      "styles": {
+        "a": {
+          "style": "gentle",
+          "delay": 0.35,
+          "reach": 1.1,
+          "lean": 0.1,
+          "sway": 0.008,
+          "phase": 1.17,
+          "label": "温柔",
+          "description": "缓缓靠近，轻轻接住",
+          "source": "persona"
+        },
+        "b": {
+          "style": "active",
+          "delay": 0.08,
+          "reach": 0.65,
+          "lean": 0.14,
+          "sway": 0.012,
+          "phase": 4.363,
+          "label": "主动",
+          "description": "直接伸手，靠近得更快",
+          "source": "persona"
+        }
+      },
+      "aTask": null,
+      "bTask": null
+    },
+    "visitorLook": {
+      "outfit": "garden",
+      "hair": "airbang",
+      "hairColor": "#634630",
+      "skin": "#e3ba9c",
+      "face": "happy"
+    },
+    "visitor": {
+      "map": "dayHome",
+      "present": true,
+      "position": {
+        "x": -1.7671743856370448,
+        "z": 2.65,
+        "heading": -2.1275689289654585
+      },
+      "heading": 0,
+      "bed": null,
+      "lying": false,
+      "route": [],
+      "seated": true,
+      "seat": {
+        "x": -1.7671743856370448,
+        "z": 1.7979999999999998,
+        "rise": 0.45,
+        "heading": 0,
+        "approach": {
+          "x": -1.7671743856370448,
+          "z": 2.65
+        },
+        "piece": "sofa",
+        "pose": "chair"
+      },
+      "busy": false,
+      "interaction": "sit-hug",
+      "interactionPhase": "active",
+      "leaving": false,
+      "notice": "坐着搂肩中，可以随时结束。",
+      "activity": null,
+      "pendingActivity": null,
+      "control": "manual",
+      "manualAction": "manual",
+      "following": false,
+      "task": null,
+      "chore": null,
+      "choreContact": null,
+      "dailyAction": {
+        "gesture": "rest",
+        "packet": false,
+        "grains": false,
+        "waving": false,
+        "stretching": false,
+        "can": false,
+        "drops": false,
+        "flower": false,
+        "cup": false,
+        "bowl": false,
+        "book": false,
+        "page": 0,
+        "seated": true
+      },
+      "motion": {
+        "id": "__me:me",
+        "style": "lively",
+        "source": "persona",
+        "label": "活泼",
+        "description": "动作轻快，时不时看看四周",
+        "tempo": 1.068963,
+        "walk": 1.04,
+        "lean": 0.022,
+        "sway": 0.012,
+        "gaze": 0.055,
+        "habit": 8,
+        "phase": 4.363
+      },
+      "visible": true,
+      "visualPosition": [
+        -1.7671743856370448,
+        0.27792999634704124,
+        1.7979999999999998
+      ],
+      "leg": 1.5711394798049352
+    },
+    "visitLoading": false,
+    "ready": true,
+    "map": "dayHome",
+    "spaceStyle": "warm",
+    "editing": false,
+    "selected": "",
+    "dragging": false,
+    "editHistory": 0,
+    "homePlacements": {
+      "double-bed": {
+        "catalogId": "wood-bed",
+        "x": -4,
+        "z": -3,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "wardrobe": {
+        "catalogId": "wardrobe",
+        "x": -6.25,
+        "z": -2.7,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "bedside": {
+        "catalogId": "bedside",
+        "x": -2.05,
+        "z": -4.2,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "sofa": {
+        "catalogId": "sofa",
+        "x": -3,
+        "z": 1.4,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "coffee-table": {
+        "catalogId": "coffee-table",
+        "x": -3,
+        "z": 3,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "dining-table": {
+        "catalogId": "dining-table",
+        "x": 3,
+        "z": -0.25,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "dining-chair": {
+        "catalogId": "chair",
+        "x": 3,
+        "z": 0.9,
+        "heading": 3.141592653589793,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "partner-chair": {
+        "catalogId": "chair",
+        "x": 3,
+        "z": -1.4,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "kitchen": {
+        "catalogId": "kitchen",
+        "x": 3.4,
+        "z": -4.65,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "pantry": {
+        "catalogId": "pantry",
+        "x": 6.15,
+        "z": -3.1,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "home-plant": {
+        "catalogId": "plant",
+        "x": 6,
+        "z": 3.8,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "bookcase": {
+        "catalogId": "bookcase",
+        "x": -6.25,
+        "z": 0.7,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "home-shower": {
+        "catalogId": "shower",
+        "x": 10.95,
+        "z": -1.65,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "home-basin": {
+        "catalogId": "basin",
+        "x": 8.65,
+        "z": 1.8,
+        "heading": 1.5707963267948966,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "home-toilet": {
+        "catalogId": "toilet",
+        "x": 8.65,
+        "z": -1.8,
+        "heading": 0,
+        "stored": false,
+        "color": "",
+        "material": "auto"
+      },
+      "$room": {
+        "size": "compact",
+        "originalRugs": true,
+        "originalWallDecor": true,
+        "wall": "auto",
+        "floor": "auto",
+        "wallColor": "",
+        "floorColor": "",
+        "uses": {}
+      }
+    },
+    "spot": "read",
+    "activity": {
+      "map": "dayHome",
+      "spot": "read",
+      "action": "read",
+      "gesture": "read",
+      "phase": "work",
+      "phaseLabel": "翻书阅读",
+      "standing": false,
+      "stroll": false,
+      "group": "dayHome:read",
+      "groupLabel": "阅读与整理",
+      "motion": "read",
+      "carry": false,
+      "carryType": null
+    },
+    "task": null,
+    "workAction": {
+      "kind": null,
+      "weights": false,
+      "basket": false,
+      "product": false,
+      "productKind": null,
+      "bag": false,
+      "carry": false,
+      "pen": false,
+      "screwdriver": false,
+      "gavel": false,
+      "pipette": false,
+      "brush": false,
+      "chalk": false,
+      "marker": false,
+      "makeup": false,
+      "shaker": false,
+      "tray": false,
+      "clipboard": false,
+      "guitar": false,
+      "ticket": false,
+      "luggage": false,
+      "luggagePoint": null,
+      "rise": 0,
+      "cushion": false,
+      "target": null
+    },
+    "avatarPosition": [
+      -2.4,
+      0.2505022573345906,
+      1.7979999999999998
+    ],
+    "avatarHeading": 0,
+    "visualPosition": [
+      -2.4,
+      0.2505022573345906,
+      1.7979999999999998
+    ],
+    "furnitureNodes": [
+      "double-bed",
+      "wardrobe",
+      "bedside",
+      "sofa",
+      "coffee-table",
+      "dining-table",
+      "dining-chair",
+      "partner-chair",
+      "kitchen",
+      "pantry",
+      "home-plant",
+      "bookcase",
+      "home-shower",
+      "home-basin",
+      "home-toilet"
+    ],
+    "layout": {
+      "id": "dayHome",
+      "style": "warm",
+      "furniture": [
+        {
+          "id": "double-bed",
+          "label": "双人床",
+          "category": "bed",
+          "kind": "bed",
+          "w": 3,
+          "d": 3.35,
+          "catalogId": "wood-bed",
+          "x": -4,
+          "z": -3,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "wardrobe",
+          "label": "衣柜",
+          "category": "storage",
+          "kind": "wardrobe",
+          "w": 0.8,
+          "d": 2.1,
+          "catalogId": "wardrobe",
+          "x": -6.25,
+          "z": -2.7,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "bedside",
+          "label": "床头柜",
+          "category": "storage",
+          "kind": "cabinet",
+          "w": 0.65,
+          "d": 0.7,
+          "catalogId": "bedside",
+          "x": -2.05,
+          "z": -4.2,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "sofa",
+          "label": "沙发",
+          "category": "sofa",
+          "kind": "sofa",
+          "w": 3.4,
+          "d": 1,
+          "catalogId": "sofa",
+          "x": -3,
+          "z": 1.4,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "coffee-table",
+          "label": "低茶几",
+          "category": "dining",
+          "kind": "table",
+          "w": 1.9,
+          "d": 0.75,
+          "top": 0.56,
+          "catalogId": "coffee-table",
+          "x": -3,
+          "z": 3,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "dining-table",
+          "label": "长餐桌",
+          "category": "dining",
+          "kind": "table",
+          "w": 2.4,
+          "d": 1.1,
+          "dining": true,
+          "catalogId": "dining-table",
+          "x": 3,
+          "z": -0.25,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "dining-chair",
+          "label": "餐椅",
+          "category": "dining",
+          "kind": "chair",
+          "w": 0.56,
+          "d": 0.57,
+          "catalogId": "chair",
+          "x": 3,
+          "z": 0.9,
+          "heading": 3.141592653589793,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "partner-chair",
+          "label": "另一把餐椅",
+          "category": "dining",
+          "kind": "chair",
+          "w": 0.56,
+          "d": 0.57,
+          "catalogId": "chair",
+          "x": 3,
+          "z": -1.4,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "kitchen",
+          "label": "厨房台面",
+          "category": "kitchen",
+          "kind": "kitchen",
+          "w": 4.6,
+          "d": 0.8,
+          "catalogId": "kitchen",
+          "x": 3.4,
+          "z": -4.65,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "pantry",
+          "label": "储物柜",
+          "category": "storage",
+          "kind": "wardrobe",
+          "w": 0.75,
+          "d": 1.15,
+          "catalogId": "pantry",
+          "x": 6.15,
+          "z": -3.1,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "home-plant",
+          "label": "盆栽",
+          "category": "plant",
+          "kind": "plant",
+          "w": 0.5,
+          "d": 0.5,
+          "catalogId": "plant",
+          "x": 6,
+          "z": 3.8,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "bookcase",
+          "label": "书柜",
+          "category": "storage",
+          "kind": "shelf",
+          "w": 0.75,
+          "d": 1.65,
+          "catalogId": "bookcase",
+          "x": -6.25,
+          "z": 0.7,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "home-shower",
+          "label": "帘式淋浴间",
+          "category": "bathroom",
+          "kind": "shower",
+          "w": 1.7,
+          "d": 1.7,
+          "primaryField": "fabric",
+          "catalogId": "shower",
+          "x": 10.95,
+          "z": -1.65,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "home-basin",
+          "label": "镜柜洗手台",
+          "category": "bathroom",
+          "kind": "basin",
+          "w": 1.3,
+          "d": 0.72,
+          "primaryField": "wood",
+          "catalogId": "basin",
+          "x": 8.65,
+          "z": 1.8,
+          "heading": 1.5707963267948966,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        },
+        {
+          "id": "home-toilet",
+          "label": "圆润坐便器",
+          "category": "bathroom",
+          "kind": "toilet",
+          "w": 0.82,
+          "d": 1.35,
+          "primaryField": "paper",
+          "catalogId": "toilet",
+          "x": 8.65,
+          "z": -1.8,
+          "heading": 0,
+          "stored": false,
+          "color": "",
+          "material": "auto"
+        }
+      ],
+      "zones": [
+        {
+          "id": "bedroom",
+          "label": "双人卧室"
+        },
+        {
+          "id": "living",
+          "label": "起居室"
+        },
+        {
+          "id": "kitchen",
+          "label": "厨房与餐区"
+        },
+        {
+          "id": "free",
+          "label": "留给以后布置"
+        },
+        {
+          "id": "bathroom",
+          "label": "独立浴室"
+        }
+      ],
+      "room": {
+        "size": "compact",
+        "originalRugs": true,
+        "originalWallDecor": true,
+        "wall": "auto",
+        "floor": "auto",
+        "wallColor": "",
+        "floorColor": "",
+        "uses": {}
+      }
+    },
+    "finishes": [
+      {
+        "id": "double-bed",
+        "finish": "auto",
+        "primary": "#547b6d",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "wardrobe",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "bedside",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "sofa",
+        "finish": "auto",
+        "primary": "#547b6d",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "coffee-table",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#eee6d4",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "dining-table",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "dining-chair",
+        "finish": "auto",
+        "primary": "#547b6d",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "partner-chair",
+        "finish": "auto",
+        "primary": "#547b6d",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "kitchen",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c2d5cc",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "pantry",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "home-plant",
+        "finish": "auto",
+        "primary": "#547b6d",
+        "materials": [
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "bookcase",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#e3d4af",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "home-shower",
+        "finish": "auto",
+        "primary": "#547b6d",
+        "materials": [
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c2d5cc",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c2d5cc",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.25,
+            "metalness": 0.5,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.25,
+            "metalness": 0.5,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "home-basin",
+        "finish": "auto",
+        "primary": "#a57450",
+        "materials": [
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.25,
+            "metalness": 0.5,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c2d5cc",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.25,
+            "metalness": 0.5,
+            "textured": false
+          },
+          {
+            "color": "#a57450",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c2d5cc",
+            "roughness": 0.15,
+            "metalness": 0.65,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c57f68",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      },
+      {
+        "id": "home-toilet",
+        "finish": "auto",
+        "primary": "#f4e8cf",
+        "materials": [
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#c2d5cc",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#547b6d",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          },
+          {
+            "color": "#594c40",
+            "roughness": 0.25,
+            "metalness": 0.5,
+            "textured": false
+          },
+          {
+            "color": "#f4e8cf",
+            "roughness": 0.88,
+            "metalness": 0,
+            "textured": false
+          }
+        ]
+      }
+    ],
+    "seat": {
+      "x": -2.4,
+      "z": 1.7979999999999998,
+      "rise": 0.45,
+      "heading": 0,
+      "approach": {
+        "x": -0.7000000000000002,
+        "z": 1.65
+      },
+      "piece": "sofa",
+      "pose": "chair"
+    },
+    "error": "",
+    "bed": null,
+    "visible": true,
+    "visualTilt": 0.018,
+    "position": {
+      "x": 0,
+      "z": 4.8
+    },
+    "route": [],
+    "gesture": "rest",
+    "emotion": null,
+    "dailyAction": {
+      "gesture": "rest",
+      "packet": false,
+      "grains": false,
+      "waving": false,
+      "stretching": false,
+      "can": false,
+      "drops": false,
+      "flower": false,
+      "cup": false,
+      "bowl": false,
+      "book": false,
+      "page": 0,
+      "seated": true
+    },
+    "arm": [
+      -0.5115522215378349,
+      -0.5346823847910224,
+      0.4851520378397806,
+      -0.4658933029802863
+    ],
+    "chinContact": [
+      2.3224297854802263,
+      -1.513871878622636,
+      0.007196646955323516
+    ],
+    "following": true,
+    "key": "[\"day-demo-a\",\"2026-10-13\",1791914400000,1791925200000,\"在小家看书，等你一起吃晚饭\",\"小家窗边\",{\"scene\":\"dayHome\",\"spot\":\"read\"},null]",
+    "charId": "day-demo-a",
+    "changing": false,
+    "look": "[\"day-demo-a\",\"他\",{\"outfit\":\"academy\",\"hair\":\"korean\",\"hairColor\":\"#40362f\",\"face\":\"relax\",\"skin\":\"#dfb693\"}]",
+    "markersVisible": false,
+    "faceTextures": [
+      "http://127.0.0.1:59994/apps/companion/faces/relax.webp"
+    ],
+    "sceneAction": {
+      "kind": null,
+      "beltRunning": false,
+      "weightsBorrowed": false,
+      "marketPicking": null,
+      "pressedKeys": [],
+      "printing": false,
+      "blackboardWriting": false,
+      "coffeeMaking": false,
+      "mixingAudio": false,
+      "recording": false,
+      "guitarBorrowed": false,
+      "doors": [],
+      "train": null
+    },
+    "environment": {
+      "minute": 1090,
+      "daylight": 0.8737997256515775,
+      "warmth": 0.7815500685871056,
+      "kind": "unknown",
+      "known": false,
+      "night": false,
+      "hemi": 2.0811796982167357,
+      "sun": 2.699259259259259,
+      "fill": 0.8780658436213991,
+      "lamp": 0.12620027434842251,
+      "wet": false,
+      "phase": "夕阳",
+      "windows": 1,
+      "outsideRain": false,
+      "outsideSnow": false,
+      "particles": 0,
+      "lamps": 1
+    },
+    "cameraView": {
+      "orbit": {
+        "yaw": 0.5585993153435624,
+        "pitch": 0.5473746389727906
+      },
+      "pivot": [
+        -2.082385824268983,
+        0.8280076613222312,
+        1.8071901595914344
+      ],
+      "pivotProjection": [
+        0.00015700501383964413,
+        -0.25678034850241926,
+        -0.49106756135976715
+      ],
+      "pan": {
+        "x": -3.009741442220651,
+        "z": 0.32378904636429856
+      },
+      "position": [
+        6.990258557779351,
+        12.000000000000002,
+        16.3237890463643
+      ],
+      "cutaway": {
+        "hidden": []
+      }
+    },
+    "render": {
+      "quality": "high",
+      "qualityLabel": "细腻",
+      "pixelRatio": 1.7,
+      "shadowSize": 2048,
+      "load": {
+        "triangles": 103158,
+        "meshes": 160,
+        "furniture": 15
+      },
+      "activeMaps": [
+        "dayHome"
+      ],
+      "calls": 68,
+      "triangles": 161895,
+      "zoom": 2.851319796558612,
+      "homeOverview": false
+    }
+  }
+}

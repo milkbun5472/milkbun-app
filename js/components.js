@@ -946,20 +946,26 @@ function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, t
     title: "删除旁白"
   }, "✕") : null);
 }
-function SysNote({ label, text, tone, onClose, title, kind }) {
+// copyable：卡片右上角多一颗「复制」，字也能长按选（群友 2026-10-15：线下让出戏只改一段，改好的那段复制不下来）
+function SysNote({ label, text, tone, onClose, title, kind, copyable }) {
   const t = useTheme();
+  const [copied, setCopied] = useState(false);
   const col = tone === "warn" ? t.accent : t.fog;
   // 调用处一处不动：拉黑那几张按字认出来，抬头那行「系统」换成「拉黑」
   kind = kind || sysNoteKind({ content: text });
   if (kind === "block" && label === "系统") label = "拉黑";
   return h("div", { className: "flex justify-center my-3 px-5" },
     h("div", { "data-wk": "sysnote", "data-kind": kind, style: { position: "relative", maxWidth: "88%", minWidth: 0, display: "flex", gap: 9,
-        padding: "8px 30px 9px 10px", background: skinAlpha(t.bg2, "e6"),
+        padding: "8px 30px 9px 10px", paddingTop: copyable ? 22 : 8, background: skinAlpha(t.bg2, "e6"),
         border: "1px dashed " + hexA(t.ink, .22), borderLeft: "2px solid " + hexA(col, .55),
         borderRadius: "2px 8px 8px 2px" } },
       h("div", { style: { minWidth: 0, flex: 1 } },
         label ? h("div", { "data-wk": "sysnotelabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: col, opacity: .85, marginBottom: 3 } }, label) : null,
-        h("div", { "data-wk": "sysnotetext", style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.7, color: tone === "warn" ? t.sub : t.fog, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text)),
+        h("div", { "data-wk": "sysnotetext", style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.7, color: tone === "warn" ? t.sub : t.fog, whiteSpace: "pre-wrap", wordBreak: "break-word", ...(copyable ? { userSelect: "text", WebkitUserSelect: "text" } : {}) } }, text)),
+      copyable ? h("button", { "data-wk": "sysnotecopy", onClick: function (e) { e.preventDefault(); e.stopPropagation(); copyText(text).then(function (ok) { setCopied(ok ? "ok" : "fail"); setTimeout(function () { setCopied(false); }, 1600); }); },
+        className: "active:opacity-50", title: "复制这一段",
+        style: { position: "absolute", right: onClose ? 28 : 4, top: 3, height: 24, padding: "0 6px", fontFamily: F_BODY, fontSize: 11, lineHeight: 1, color: copied === "ok" ? t.accent : t.fog, background: "transparent", border: "none" } },
+        copied === "ok" ? "已复制" : copied === "fail" ? "没复制上" : "复制") : null,
       onClose ? h("button", { "data-wk": "sysnoteclose", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClose(); },
         className: "active:opacity-50", title: title || "从屏幕上拿掉",
         style: { position: "absolute", right: 2, top: 2, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
@@ -10473,7 +10479,7 @@ function ChatThread({
             userPerson === "ta" ? "她" : "")
         : m.content });
     // 系统提示这一族全走 SysNote（v63.49）：单聊 / 群聊 / 线下同一个长相，右上角都能 ✕ 掉
-    if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
+    if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content, copyable: m.role !== "user",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: [character], onBg: !!dsp.chatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
     // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
@@ -14788,16 +14794,26 @@ function draftMeasure(el) {
   } catch (e) { return el.scrollHeight; }
 }
 // keepKey（群友 2026-10-15：「聊天输入后可以保存在对话框，不会因为退出小窗就立刻消失」）：
-//   给了就把没发出去的那段留在本机，下次进这个对话还在；发出去就清掉。
-//   ⚠️故意不用 x_ 前缀：x_ 的每次写入都会排队云同步，打一个字推一次不值得，草稿只留这台设备。
-//   每个对话一把钥匙，单聊/群聊/线下各管各的。
-const draftKeyOf = k => "qq_draft:" + k;
+//   给了就把没发出去的那段留下，下次进这个对话还在；发出去就清掉。每个对话一把钥匙，单聊/群聊/线下各管各的。
+// ⚠️不放 localStorage（她 2026-10-15 实测：打字→左上角返回→再进来就没了）：小仓库快满的手机上
+//   setItem 会悄悄失败，草稿根本没存住。现在先记在内存里（这一趟进进出出一定在），
+//   再攒一下写进 x_drafts（大仓库 IDB），关了 app 再开也在。
+const DRAFTS = (() => { let m = null; return () => { if (!m) { m = {}; try { const v = loadJSON("x_drafts", {}); if (v && typeof v === "object") m = v; } catch (e) {} } return m; }; })();
+let draftSaveT = 0;
+const draftGet = k => (k && DRAFTS()[k]) || "";
+const draftPut = (k, v) => {
+  if (!k) return;
+  const m = DRAFTS();
+  if (v) m[k] = v; else delete m[k];
+  clearTimeout(draftSaveT);
+  draftSaveT = setTimeout(() => { try { saveJSON("x_drafts", m); } catch (e) {} }, 800);
+};
 function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey }) {
-  const [draft, setDraftRaw] = useState(() => { if (!keepKey) return ""; try { return localStorage.getItem(draftKeyOf(keepKey)) || ""; } catch (e) { return ""; } });
-  const setDraft = v => { setDraftRaw(v); if (keepKey) try { v ? localStorage.setItem(draftKeyOf(keepKey), v) : localStorage.removeItem(draftKeyOf(keepKey)); } catch (e) {} };
+  const [draft, setDraftRaw] = useState(() => draftGet(keepKey));
+  const setDraft = v => { setDraftRaw(v); draftPut(keepKey, v); };
   // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
   const lastKey = useRef(keepKey);
-  useEffect(() => { if (lastKey.current === keepKey) return; lastKey.current = keepKey; let v = ""; try { v = keepKey ? localStorage.getItem(draftKeyOf(keepKey)) || "" : ""; } catch (e) {} setDraftRaw(v); }, [keepKey]);
+  useEffect(() => { if (lastKey.current === keepKey) return; lastKey.current = keepKey; setDraftRaw(draftGet(keepKey)); }, [keepKey]);
   const ref = useRef(null);
   // ⚠️量高度不许动真框（群里 2026-10-09 报：「一直反反复复弹上去弹下来」「修改对话很难」）：
   //   原来每打一个字都先把真框设成 auto 缩回一行再量，iOS 看见输入框忽高忽低，
@@ -16941,7 +16957,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
   useEffect(() => { setTxt(m.content || ""); }, [m.content]);
   // 系统提示这一族全走 SysNote（v63.49）：线下和单聊、群聊同一个长相
   if (m.kind === "ooc") {
-    return h(SysNote, { label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
+    return h(SysNote, { label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content, copyable: m.role !== "user",
       onClose: (editable && onDelete) ? function () { onDelete(m.id, msgIndex); } : null });
   }
   const isUser = m.role === "user";
@@ -17869,7 +17885,7 @@ function GroupThread({
     //   全靠它定位（onDeleteMessages([i])），重新编号错一位就是删错消息。
     if (i < winStart) return null;
     // 系统提示这一族全走 SysNote（v63.49）：和单聊、线下同一个长相，右上角都能 ✕ 掉
-    if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
+    if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content, copyable: m.role !== "user",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i, className: "my-3 mx-6"

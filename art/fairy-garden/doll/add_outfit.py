@@ -151,6 +151,8 @@ def add_outfit(oid):
         _elbows['split_forearms'](m,rig,_elbows['arm_ends'](rig))
     if oid == 'tee':
         runpy.run_path(os.path.join(HERE,'refine_tee.py'))['refine_tee']()
+    if oid == 'jacket':
+        runpy.run_path(os.path.join(HERE,'refine_jacket_collar.py'))['refine_jacket_collar']()
     if oid == 'suit':
         runpy.run_path(os.path.join(HERE,'restore_suit_footwear.py'))['restore_suit_footwear']()
     return {'label':cfg['label'],'colors':colors}

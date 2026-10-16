@@ -1,0 +1,185 @@
+{
+  "shots": [
+    {
+      "name": "journal-home",
+      "type": "native-screen"
+    },
+    {
+      "name": "journal-compose",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-voice",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-voice-text",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-fragment",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-pick",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-reading-one",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-reading-two",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-signs",
+      "type": "native-screen"
+    },
+    {
+      "name": "journal-signs-list",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-motifs",
+      "type": "native-element"
+    },
+    {
+      "name": "journal-none",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-setup",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-setup-people",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-setup-chat",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-play",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-scene",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-options",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-next",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-chosen",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-arrive",
+      "type": "native-element"
+    },
+    {
+      "name": "keepsake-before",
+      "type": "native-element"
+    },
+    {
+      "name": "keepsake-after",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-rewind",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-wake",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-struggle",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-struggle-scene",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-struggle-options",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-face",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-broken",
+      "type": "native-element"
+    },
+    {
+      "name": "familiar-familiar0",
+      "type": "native-element"
+    },
+    {
+      "name": "familiar-familiar1",
+      "type": "native-element"
+    },
+    {
+      "name": "familiar-play",
+      "type": "native-element"
+    },
+    {
+      "name": "dream-shelf",
+      "type": "native-screen"
+    },
+    {
+      "name": "dream-saves",
+      "type": "native-element"
+    },
+    {
+      "name": "inventory-group",
+      "type": "native-element"
+    },
+    {
+      "name": "inventory-detail",
+      "type": "native-screen"
+    },
+    {
+      "name": "chat-keepsake",
+      "type": "native-screen"
+    },
+    {
+      "name": "their-list",
+      "type": "native-screen"
+    },
+    {
+      "name": "their-dream",
+      "type": "native-element"
+    },
+    {
+      "name": "their-queued",
+      "type": "native-element"
+    }
+  ],
+  "actions": [
+    "Native DictateButton starts local demonstration voice session",
+    "Native DictateButton appends prepared transcript to textarea",
+    "Native addEntry saves a dream fragment",
+    "Native interpretation uses character context and appends first reading",
+    "Same dream receives a second character interpretation without replacing the first",
+    "Original choice handler records selected action and weaves the next scene",
+    "Original final choice resolves dream core with keepsake",
+    "Native keepsake action writes inventory and taken marker",
+    "Native rewind returns to the preceding choice and retains taken keepsake",
+    "Native wake action stores left ending",
+    "Resistance creates one native struggle scene instead of immediate collapse",
+    "Native face response resolves fourth ending",
+    "Native shatter response resolves broken ending and explanation"
+  ],
+  "errors": [],
+  "blocked": []
+}

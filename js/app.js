@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.711";
+const APP_VERSION = "v75.739";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26,21 +26,23 @@ const FORUM_NPC_REGISTRY = [
   //   一帖十几楼，摊在两三个熟面孔身上，谁写都是一个调调。
   //   「脑洞吧」原来只有摸鱼办主任和沙发不是我的两个人，「兴趣吧」只有三个。
   //   放宽的是【这几位本来就说得上话的吧】，没有新编人——人少才是那个病。
-  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人" },
-  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊" },
-  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准" },
-  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话" },
-  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物" },
-  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风" },
-  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素" },
-  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜" },
-  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛" },
-  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立" },
+  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人", shua: { name: "摸鱼中勿扰", voice: "刷到就截图转给同事的上班族，评论区冷不丁一句冷笑话，弹幕爱发「下班了吗」" } },
+  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊", shua: { name: "雨天带了伞", voice: "收藏夹比关注多的生活区观众，爱在评论区补一句实用小窍门，偶尔把视频里的东西认错" } },
+  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准", shua: { name: "小区猫片收集员", voice: "专刷萌宠和街拍，话少，一句「这只猫我见过」能顶十句" } },
+  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话", shua: { name: "暂停逐帧党", voice: "爱暂停逐帧找细节的考据型观众，评论里常写「02:13 那一帧」，挑错但给出处" } },
+  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物", shua: { name: "饭点准时刷", voice: "吃播和探店的忠实观众，什么视频都能拐到吃的，常问「这家在哪」" } },
+  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风", shua: { name: "先别急着冲", voice: "冷静派，不跟风刷屏，喜欢在一片「嗑到了」里问一句「真的假的」" } },
+  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素", shua: { name: "省钱小能手", voice: "平价好物爱好者，评论区专问价格和链接，爱讲自家的小事" } },
+  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜", shua: { name: "凌晨三点还醒着", voice: "深夜才刷的夜猫子，评论偏感性但不煽情，常是一条视频底下最后冒出来的那个" } },
+  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛", shua: { name: "前排占座", voice: "抢前排、玩梗型，第一个冒出来刷「来了来了」，遇到正经事会收敛" } },
+  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立", shua: { name: "课代表来了", voice: "B站式课代表，爱把视频总结成一二三，也会指出视频里说错的地方" } },
   { id: "npc_anon_thirdcat", name: "三楼的猫", handle: "third_floor_cat", boards: ["匿名吧"], voice: "谨慎克制，只谈感受不猜身份" },
   { id: "npc_anon_nightbus", name: "末班车乘客", handle: "last_bus", boards: ["匿名吧"], voice: "深夜坦白型，懂得共情但不强行劝和" },
   { id: "npc_anon_blank", name: "id已隐藏", handle: "hidden_id", boards: ["匿名吧"], voice: "直接、现实，尊重隐私，不追问细节" },
   { id: "npc_anon_deleted", name: "注销前说一句", handle: "before_logout", boards: ["匿名吧"], voice: "偶尔尖锐，反感套话，习惯提醒风险和后果" }
 ];
+// shua：同一个人在片刻（短视频）上的网名和刷视频的习惯（她 2026-10-16：「同一批人，人设符合刷抖音和 B 站的习惯，网名可以改」）。
+//   是同一个人：跟她的碰面账（x_forumPublicTies）两边共用，论坛里熟了片刻里也认得。
 // 论坛熟面孔之间的公开交情：只决定公开回帖时的接梗/抬杠方式，不进角色私聊或记忆库。
 // 固定 pair + 固定描述，让他们跨帖子认得彼此；不是每次让模型重新编一套关系。
 // 私信一次刷几个人、手上最多留几个会话（她 2026-09-01：「私信刷出来的人数放大点」）。
@@ -4066,7 +4068,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!y) throw new Error("还没找到唯一的言秋身份");
       if (!user) throw new Error("请先登录云端账号");
       let live = null; try { live = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY) || "null"); } catch (e) {}
-      toast("CC 回流：已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀"));
+      const shadow = window.ChatLedgerShadow.status();
+      const diag = shadow.diagnostic || {};
+      const outLine = "；外送：待发 " + shadow.outbox.length + " 条" + (shadow.quarantine && shadow.quarantine.length ? " · 隔离 " + shadow.quarantine.length : "") + (diag.last_error ? " · 上次失败：" + String(diag.last_error).slice(0, 60) : diag.last_success_at ? " · 上次送达 " + String(diag.last_success_at).slice(5, 16).replace("T", " ") : "");
+      toast("CC 回流：已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀") + outLine);
     } catch (e) { toast("CC 回流影子尚未就绪：" + String((e && e.message) || e)); }
   };
   const enableMemoryTableAuthority = async () => {
@@ -16769,8 +16774,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const schedPeerBlock = (char, dayKeys) => {
     const plans = schedulesRef.current || {};
     const nm = String(char.name || "").trim();
+    // 只看【同一个世界】里的人（她 2026-10-16 转群友：同一个人的现代版和西幻版连着关系线，
+    //   现代那位的日程照抄了西幻那位的「夏宫别墅、鹿鸣泉」）：钉在不同架空世界里的、一个钉了一个没钉的，不互相参照
+    const worldKeyOf = c => { const r = window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null; return r && r.kind === "world" && r.world ? "w:" + r.world.id : "real"; };
+    const myWorld = worldKeyOf(char);
     const peers = (characters || []).filter(c => c && c.id !== char.id && !c.npc
       && (rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id])
+      && worldKeyOf(c) === myWorld
       && Object.keys(plans[c.id] || {}).length).slice(0, SCHED_PEER_MAX);
     if (!peers.length) return "";
     const days = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
@@ -23454,6 +23464,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const gapZh = !prev ? "" : gap < 3 * 60000 ? "，接着上一句没停" : gap < 3600000 ? "，离上一条隔了 " + Math.round(gap / 60000) + " 分钟" : gap < 86400000 ? "，离上一条隔了 " + Math.round(gap / 3600000) + " 小时" : "，离上一条隔了 " + Math.round(gap / 86400000) + " 天";
     return "\n【现在】" + now.toLocaleString("zh-CN", { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }) + gapZh + "。\n";
   };
+  // 私信记录写给网友那一方看时，两边都标清是谁（她 2026-10-16：加微信后的简介把她的话安到了对方头上——
+  //   「我是潜水党」「是我先私信的」都成了他的。原来记录里她那一边写的是「我」，网友读来就是在说他自己）
+  const pmConvo = (th, msgs) => {
+    const her = th.alt ? (th.altName || myAltName()) : (forumMe.handle || userName(profile));
+    return msgs.map(m => (m.from === "me" ? "对方「" + her + "」" : "你「" + th.npcName + "」") + "：" + m.text).join("\n");
+  };
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -23461,7 +23477,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!active) return;
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
-      const convo = [...th.messages, { from: "me", text }].map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      const convo = pmConvo(th, [...th.messages, { from: "me", text }]);
       const tl = pmTimeLine([...th.messages, { from: "me", text, ts: Date.now() }]);
       // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
       // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
@@ -23520,12 +23536,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: asked, updatedTs: Date.now() } : t); saveJSON("x_forumPMs", n); return n; });
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
-      const convo = asked.map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      const convo = pmConvo(th, asked);
+      const firstBy = (asked[0] || {}).from === "me" ? "对方先私信的你" : "是你先私信的对方";
       const d = await runProbeRetry(active, forumWorldCtx(convo), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
           + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + pmTimeLine(asked)
           + "这是你和对方的私信记录：\n" + convo + "\n\n对方想加你微信。照你的脾气和你俩聊得怎么样决定加不加（accept），回 1-2 个气泡（say）。"
-          + "加的话再给 brief：用第三人称写一段这个人的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。",
+          + "加的话再给 brief：用第三人称写一段【你自己（「" + th.npcName + "」）】的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。"
+          + "⚠️记录里「对方」说的她自己的事（她是什么样的人、她的习惯）是她的，不许写成你的；你俩是怎么聊起来的照记录来：" + firstBy + "。",
         schemaHint: "{\"accept\":true,\"say\":[\"气泡\"],\"brief\":\"\"}",
         maxTokens: FTOK.pm
       });
@@ -30449,8 +30467,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const present = Array.isArray(all) && all.length ? all : [c];
       if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
       const cp = (couplesRef.current || {})[c.id] || {};
+      // 最近十句：片刻里TA回你、刷到你的视频，要照你俩平时怎么说话来（她 2026-10-15），六句看不出口气
       const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
-        .slice(-6).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
+        .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
       return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
         + Object.values(groupNowSegs(c, { interop: true })).join("")
         + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
@@ -30537,6 +30556,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return out.slice(0, 8);
     };
     body = window.ShuaApp ? h(window.ShuaApp, {
+      // 评论里发表情：全局的、我自己能用的那几套（专属给某个人的不摆，评论区是公开的）
+      emotePacks: emotePacksForChar("__nobody__"),   // 只剩全局的、没指定给谁的那几套
       // 按面具发（她 2026-10-09，跟论坛同一套）：主面具＋别的面具；谁认得出看 TA 跟她用的是哪张
       masks: () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage }))),
       maskKeyOf: id => maskKeyOf(id),
@@ -30573,6 +30594,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 情侣号只给在一起的人开（她 2026-10-07）
       confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),
+      // 片刻的熟面孔＝论坛那批人换了个网名（shua）；碰面账、彼此的交情都是同一份
+      regulars: () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); },
+      regularPairs: () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.replace(new RegExp(a.name, "g"), a.shua.name).replace(new RegExp(b.name, "g"), b.shua.name) } : null; }).filter(Boolean),
+      touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),
+      coupleOf: id => (couplesRef.current || {})[id] || null,   // 情侣号纪念日：在一起是哪天
       live: liveProps,
       // 视频分享给 TA（她 2026-10-07）：跟直播回放一样，落一张卡、可选小房间、不让TA当场开口
       onShare: (v, c, roomId) => {

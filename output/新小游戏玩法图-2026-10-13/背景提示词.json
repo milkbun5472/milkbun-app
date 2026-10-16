@@ -1,0 +1,20 @@
+{
+  "mode": "built-in image_gen.imagegen",
+  "prompts": [
+    {
+      "key": "games_dice_bg",
+      "name": "骗子骰-绒布底图",
+      "prompt": "Use case: ads-marketing. An unlettered portrait 3:4 background for a Chinese character companion app dice game feature poster. Restrained tactile tabletop editorial style: deep peacock green and burgundy felt, warm soft side lighting, one dark brown leather dice cup and a few ivory six-sided dice partly outside the lower left edge, a fine brass table edge barely visible at upper right. Beautiful real fabric texture and slight soft shadows, cinematic depth, cozy late evening play with friends. The upper left headline area and central 75 percent are empty and consistently dark green for later Chinese typography and real app screenshots. Small props only at edges. No money, chips, people, faces, casino signage, text, lettering, numbers outside actual dice pips, logo, phone or interface. Quiet and elegant, not extravagant."
+    },
+    {
+      "key": "games_story_bg",
+      "name": "故事接龙-写作底图",
+      "prompt": "Use case: ads-marketing. An unlettered portrait 3:4 background for a Chinese character companion app collaborative storytelling feature poster. Distinctive writer's desk editorial style: pale powder blue and ivory paper, cobalt ink shadows, a small open stitched notebook with blank pages partly visible at the bottom left edge and a fountain pen near the far right edge. Stacked manuscript paper corners, realistic paper fibers and soft morning light, slight dimensional shadows and ink-blue accents. Delicate playful feeling of several people writing a story together. The upper left headline area and central 75 percent must stay light, uncluttered and empty for real screenshots and Chinese text placed later. No writing, letters, words, readable marks, logos, people, faces, phone, app UI, moon or stars. Rich tactile depth, restrained and not flat."
+    },
+    {
+      "key": "games_date_bg",
+      "name": "秘密约会-信封底图",
+      "prompt": "Use case: ads-marketing. An unlettered portrait 3:4 background for a Chinese character companion app game about a date with secret objectives. Fresh mint pistachio, soft peach, butter yellow and cream. Dimensional printed paper ephemera: two small sealed envelopes in different pastel colors partly visible along the lower left and upper right edges, a cream city-map booklet with only faint abstract street lines at the far bottom right, a blank transit ticket tucked under one envelope. Soft afternoon light and fine paper grain, editorial scrapbook warmth without busy clutter. The upper left headline area and central 75 percent stay empty and pale for real app screenshots and Chinese typography. No people, faces, characters, text, lettering, labels, numbers, logo, phone, screen or interface. No glitter or excessive romantic decorations. Quiet playful tactile depth."
+    }
+  ]
+}

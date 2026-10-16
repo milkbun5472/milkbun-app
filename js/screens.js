@@ -3425,12 +3425,15 @@ function Forum({
     return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
       // 角色发的新帖在哪个吧（她 2026-10-02 转群友：「首页论坛提示了数字2，点进去没有引导，得一个个吧去看」）
       forumNewCharPosts.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, overflow: "hidden" } },
-        h("button", { "data-wk": "fonewhead", onClick: () => setNewPostsOpen(v => !v), "aria-expanded": newPostsOpen ? "true" : "false", className: "w-full flex items-center justify-between px-3 py-2 active:opacity-60", style: { borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖 " + (newPostsOpen ? "▴" : "▾"))),
-        // 一键已读（她 2026-10-12：「有时候不想看」）：这几帖不再算新，下次进来也不算
-        h("button", { "data-wk": "fonewallread", onClick: () => { setNewPostSeen(x => x.concat(forumNewCharPosts.map(p => p.id))); try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} setNewPostsOpen(false); },
-          className: "w-full text-right px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } }, "全部标为已读"),
+        // 一键已读跟标题挤在同一行（她 2026-10-16：「放上面一帖旁边，现在空白太多不好看」）：
+        //   左边标题＋帖数点了展开，右边「全部标为已读」——两颗分开的键，别把按钮套进按钮里
+        h("div", { className: "flex items-center", style: { borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
+          h("button", { "data-wk": "fonewhead", onClick: () => setNewPostsOpen(v => !v), "aria-expanded": newPostsOpen ? "true" : "false", className: "flex-1 min-w-0 flex items-center justify-between pl-3 pr-2 py-2 active:opacity-60" },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖 " + (newPostsOpen ? "▴" : "▾"))),
+          // 一键已读（她 2026-10-12：「有时候不想看」）：这几帖不再算新，下次进来也不算
+          h("button", { "data-wk": "fonewallread", onClick: () => { setNewPostSeen(x => x.concat(forumNewCharPosts.map(p => p.id))); try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} setNewPostsOpen(false); },
+            className: "shrink-0 pl-2 pr-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, borderLeft: "1px solid " + FORUM_SKIN.line } }, "全部标为已读")),
         newPostsOpen && forumNewCharPosts.slice(0, 8).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
           h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),
@@ -9509,7 +9512,7 @@ function ImageApiConfig({ toast }) {
         h("option", { value: "chat" }, "聊天接口 /chat/completions"),
         h("option", { value: "gemini" }, "Gemini 原生 /v1beta/…:generateContent"),
         h("option", { value: "minimax" }, "MiniMax 原生 /v1/image_generation（image-01）"),
-        h("option", { value: "nai" }, "NAI 原生 /ai/generate-image（站长说「nai 的格式」选这个，能锁脸）"))),
+        h("option", { value: "nai" }, "NAI 原生 /ai/generate-image（中转说是「nai 的格式」选这个，能锁脸）"))),
       // 这个站不锁脸（她 2026-10-05）：有的站不收带图的请求——打开就只发文字，一次请求
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
         h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
@@ -13549,7 +13552,19 @@ function InkSecret({ text, seed, rgb, ink }) {
 }
 // 每个角色一种纸：TA的本子长什么样，本来就该是TA的一部分
 const DIARY_PAPERS = ["paper", "lined", "grid", "cloth", "night", "wood"];
-function diaryPaperOf(char) {
+// 每本日记用哪张纸（她 2026-10-16 转群友：「这一页的背景换不了吗」）——封面上「换纸」挑的，存在 x_diaryPaper（大仓库）；
+//   我自己那本用 "__me"。没挑过：TA的按名字随机分一张，我的是白纸。
+const DIARY_PAPER_ZH = { paper: "白纸", lined: "横线", grid: "方格", cloth: "布纹", night: "夜空", wood: "木纹" };
+function diaryPaperKey(char, me) { return me || (char && char.isMe) ? "__me" : String((char && char.id) || ""); }
+function setDiaryPaper(char, me, kind) {
+  const m = Object.assign({}, loadJSON("x_diaryPaper", {}) || {});
+  m[diaryPaperKey(char, me)] = kind;
+  saveJSON("x_diaryPaper", m);
+}
+function diaryPaperOf(char, me) {
+  const picked = (loadJSON("x_diaryPaper", {}) || {})[diaryPaperKey(char, me)];
+  if (picked && DIARY_PAPERS.indexOf(picked) >= 0) return picked;
+  if (me || (char && char.isMe)) return "paper";
   if (char && char.diaryPaper && DIARY_PAPERS.indexOf(char.diaryPaper) >= 0) return char.diaryPaper;
   const s2 = String((char && (char.id || char.name)) || "?");
   let x = 0;
@@ -13572,13 +13587,13 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
   const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
   const wd = "日一二三四五六"[d.getDay()];
   const dateStr = (!isMe && char && typeof vclockCfg === "function" && vclockCfg(char.id) ? vclockYear(d.getFullYear(), vclockCfg(char.id)) : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
-  const paper = isMe ? "paper" : diaryPaperOf(char);
+  const paper = diaryPaperOf(char, isMe);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
   const comments = entry.comments || [];
   const margin = [entry.location, entry.weather].filter(Boolean).join(" · ");
   const title = isMe ? (entry.title || "") : (entry.titleZh || entry.titleEn || "");
   const sub = (!isMe && entry.titleZh && entry.titleEn) ? entry.titleEn : "";
-  return h("div", { className: "h-full flex flex-col", style: pageSkin(paper, t, { corner: false }) },
+  return h("div", { "data-wk": "dibg", "data-paper": paper, className: "h-full flex flex-col", style: pageSkin(paper, t, { corner: false }) },
     h(Head, { zh: char ? (char.remark || char.name) : "日记", sub: isMe ? "我的手记" : characterText(char, "他写的"),
       bg: "transparent", noLine: true, onBack,
       right: h("button", { onClick: onDelete, "aria-label": "删掉", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(ITrash, { size: 17, color: t.fog })) }),
@@ -13635,6 +13650,8 @@ function fmtClockShort(d) {
 function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, onOpenList, onEditStyle, onCompose }) {
   const t = useTheme();
   const tp = useRef(null);
+  const [, setPaperTick] = useState(0);
+  const [pickPaper, setPickPaper] = useState(false);
   const idx = Math.max(0, characters.findIndex(c => c.id === curId));
   const char = characters[idx] || characters[0];
   if (!char) return null;
@@ -13657,15 +13674,20 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   //   那是照着别人的来的，她 2026-08-30 明说要我们自己的东西。
   const paper = diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
+  const paperRow = pickPaper ? h("div", { "data-wk": "dipaper", className: "flex flex-wrap justify-center", style: { gap: 10, marginTop: 14 } },
+    DIARY_PAPERS.map(k => h("button", { key: k, "data-on": k === paper ? "1" : "0", onClick: () => { setDiaryPaper(char, false, k); setPaperTick(x => x + 1); },
+      className: "flex flex-col items-center active:opacity-70", style: { gap: 4 } },
+      h("span", { style: Object.assign({}, pageSkin(k, t, { corner: false }), { display: "block", width: 40, height: 40, borderRadius: 8, border: (k === paper ? "2px solid " + t.ink : "1px solid " + t.line) }) }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: k === paper ? t.ink : t.fog } }, DIARY_PAPER_ZH[k])))) : null;
   const lastStr = last ? (new Date(last.ts).getMonth() + 1) + "月" + new Date(last.ts).getDate() + "日" : "";
-  return h("div", { className: "h-full flex flex-col", style: Object.assign({}, pageSkin(paper, t, { corner: false }), { touchAction: "pan-y" }), onTouchStart: onTS, onTouchEnd: onTE },
+  return h("div", { "data-wk": "dicover", "data-paper": paper, className: "h-full flex flex-col", style: Object.assign({}, pageSkin(paper, t, { corner: false }), { touchAction: "pan-y" }), onTouchStart: onTS, onTouchEnd: onTE },
     h(Head, { zh: "日记", sub: characters.length > 1 ? "第 " + (idx + 1) + " / " + characters.length + " 本" : "",
       bg: "transparent", noLine: true, onBack,
       right: h("div", { className: "flex items-center", style: { gap: 12 } },
         h("button", { onClick: () => char.isMe ? onCompose() : onEditStyle(char.id), "aria-label": char.isMe ? "写一篇" : "改文风", className: "active:opacity-50" }, h(IPencil, { size: 17, color: t.ink })),
         h("button", { onClick: onOpenList, "aria-label": "换一本", className: "active:opacity-50" }, h(IChevR, { size: 18, color: t.fog }))) }),
     h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-4", style: { position: "relative" } },
-      h("button", { onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: "clamp(280px, calc(100vh - 362px), 350px)" } },
+      h("button", { "data-wk": "dibook", onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: "clamp(280px, calc(100vh - 362px), 350px)" } },
         h("div", { style: Object.assign({}, pageSkin(paper, t, { base: t.bg2, corner: false, strength: .85 }), {
           position: "relative", width: "100%", aspectRatio: "3 / 4.1", borderRadius: "3px 12px 12px 3px",
           border: "1px solid rgba(" + iRGB + ",.16)", boxShadow: "0 16px 40px rgba(0,0,0,.14)", overflow: "hidden" }) },
@@ -13682,7 +13704,10 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
           char.avatarImage ? h("div", { style: { position: "absolute", right: "9%", bottom: "7%", width: 74, height: 74, borderRadius: 4, overflow: "hidden", transform: "rotate(3deg)", border: "3px solid rgba(255,255,255,.8)", boxShadow: "0 4px 12px rgba(0,0,0,.16)" } },
             h("img", { src: (typeof resolveImg === "function" ? resolveImg(char.avatarImage) : char.avatarImage), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
           char.motto ? h("div", { style: { position: "absolute", left: "16%", right: "36%", bottom: "9%", fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.8, color: t.fog } }, "「" + char.motto + "」") : null)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 26, letterSpacing: ".1em" } }, "翻开"),
+      h("div", { className: "flex items-center", style: { gap: 18, marginTop: 22 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, letterSpacing: ".1em" } }, "翻开"),
+        h("button", { "data-wk": "dipaperbtn", onClick: () => setPickPaper(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line } }, pickPaper ? "收起" : "换纸")),
+      paperRow,
       characters.length > 1 ? h("div", { className: "flex items-center justify-center", style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) * .4 + 18px)", gap: 20 } },
         h("button", { onClick: () => go(-1), disabled: idx === 0, "aria-label": "上一本", className: "active:opacity-50", style: { opacity: idx === 0 ? .25 : .65, padding: 9 } }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex", style: { gap: 7 } }, characters.map((c, i2) => h("span", { key: c.id, style: { width: i2 === idx ? 16 : 6, height: 6, borderRadius: 999, background: t.ink, opacity: i2 === idx ? .7 : .22, transition: "width .2s" } }))),
@@ -13965,7 +13990,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: 13, color: t.sub }
       }, "全部补齐（" + missing.length + " 篇）") : null));
     // 目录也铺TA那张纸：翻TA的日记，从目录起就该是TA的本子
-    return h("div", { className: "h-full flex flex-col", style: pageSkin(isMe ? "paper" : diaryPaperOf(curAuthor), t, { corner: false, strength: .7 }) }, daySheet,
+    return h("div", { className: "h-full flex flex-col", "data-wk": "dibg", "data-paper": diaryPaperOf(curAuthor, isMe), style: pageSkin(diaryPaperOf(curAuthor, isMe), t, { corner: false, strength: .7 }) }, daySheet,
       h(Head, {
         zh: curAuthor.name, en: isMe ? "My Journal · 我的日记" : "Journal · 翻阅日记",
         onBack: () => setView("archive"),

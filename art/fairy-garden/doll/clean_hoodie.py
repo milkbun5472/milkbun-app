@@ -7,7 +7,8 @@ HERE=Path(__file__).parent
 def clean_hoodie():
  old=bpy.data.objects['outfit_ranger']
  if old.get('cleanHoodieVersion'):
-  runpy.run_path(str(HERE/'clean_ranger_edges.py'))['clean_ranger_edges']();return
+  runpy.run_path(str(HERE/'clean_ranger_edges.py'))['clean_ranger_edges']()
+  runpy.run_path(str(HERE/'repair_hoodie_neck.py'))['repair_hoodie_neck']();return
  rig=old.parent;mat=old.data.materials[0];props={k:old[k].to_dict() if hasattr(old[k],'to_dict') else old[k].to_list() if hasattr(old[k],'to_list') else old[k] for k in old.keys()}
  # Keep the already fitted trousers and their source UVs, shoes and leg morphs.
  pants=old.copy();pants.data=old.data.copy();pants.name='outfit_ranger_trousers';bpy.context.collection.objects.link(pants)
@@ -137,6 +138,7 @@ def clean_hoodie():
   for i,v in enumerate(k.data):v.co=Vector(P[i]+D[i])
  m=o.modifiers.new('Rig','ARMATURE');m.object=rig
  runpy.run_path(str(HERE/'clean_ranger_edges.py'))['clean_ranger_edges']()
+ runpy.run_path(str(HERE/'repair_hoodie_neck.py'))['repair_hoodie_neck']()
 
 def main():
  import sys

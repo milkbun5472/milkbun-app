@@ -9,7 +9,8 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927',out=process.env.
  if(process.env.PARTS_DIR)for(const id of ['academy','garden','ranger','cardigan','jacket','suit'])await page.route('**/outfits/'+id+'.glb*',r=>r.fulfill({path:process.env.PARTS_DIR+'/'+id+'.glb',contentType:'model/gltf-binary'}));
  if(process.env.MODEL)await page.route('**/doll.glb*',r=>r.fulfill({path:process.env.MODEL,contentType:'model/gltf-binary'}));await page.goto(base+'/apps/companion/');
  await page.evaluate(async()=>{
-  const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await import('../fairy-garden/traveler.mjs');
+  const T=await import('three'),{GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadOutfits,preloadHair}=await import('../fairy-garden/traveler.mjs');
+  await preloadHair(['curtains']); // A hidden, hair-pending avatar cannot validate dye pixels.
   const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');const loader=new GLTFLoader();loader.setDRACOLoader(draco);
   const source=(await loader.loadAsync('../fairy-garden/doll.glb').then(async g=>(await preloadOutfits(),g))).scene,catalog=await(await fetch('../fairy-garden/doll.json')).json();
   const scene=new T.Scene();scene.background=new T.Color('#f0e8db');scene.add(new T.HemisphereLight('#fff','#aaa',2.3));const light=new T.DirectionalLight('#fff',1.5);light.position.set(2,3,4);scene.add(light);

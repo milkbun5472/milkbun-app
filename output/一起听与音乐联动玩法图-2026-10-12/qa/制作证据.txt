@@ -1,0 +1,29 @@
+一起听与音乐联动 · 制作证据
+交付：18张单图1200×1600，含小红书封面；无合组。
+范围：宣传资产，原生UI配隔离虚构数据，不修改产品、版本或发布。
+开工HEAD：af6d54892f9aebac5e39a0b4bff5a7cecd73ba0f
+170原运行文件快照，SHA256逐份通过；product-source/index.html仅移除App挂载以供隔离组件渲染。
+
+代码与功能：
+js/screens.js ListenTogether：选听歌对象、双人头像、歌词、播放进度、队列、私人歌单、搜索与歌单操作。
+js/listen-talk.js：companionHead完整上下文、当前歌曲与已唱歌词、用户输入和主动开口、逐泡显示，原话同步onToChat。
+js/app.js onToChat：每条role/content/ts原样写主聊天，via=listen、listenSong保留；主流程断言4条原话以及对应歌名通过。
+js/app.js listenInvite/acceptListenInvite：邀请卡→设对象→找指定曲目→打开一起听。
+js/app.js songSwitch：曲库／歌单搜索，未命中经音乐源检索，再切全局播放曲。
+js/app.js genCharPlaylist/collectRealSongs：按人设推私人歌曲与note，检索后追加、去重，未固定承诺数量；演示两轮16+16=32。
+js/phone.js MusicView/PhoneCarry：读取同一char歌单、摊开note、放这首、open-tier提这首回主聊天；watch玩家原界面点歌驱动播放。
+js/app.js forwardPhonePeekToChat：歌曲与备注以phonepeek进入对应主聊天；不自动替TA抢先开口。
+js/app.js discAdd/genCoupleDisc/discSetNote：聊天／手动搜索刻歌，共同唱片B面、TA推共同歌曲与改字；本地演示共15首。
+js/app.js roomMusicEnter/Leave和disc/phoneMusic入口：暂借播放器，记队列、时间和播放状态；返回原曲/3首队列/72秒断言通过。
+js/components.js：原生ChatThread、listeninvite、MiniPlayer；carved写入system被系统分支提前显示，未伪造回执卡，13页用实际对话＋已入唱片B面。
+
+主流程70次截图、20项原生操作、5本地预置模型回复，58个本地曲库／歌词查询，零真实模型／账号／音乐源请求。
+42原App函数与3能力分支按声明完整提取，见native-writers.js与native-extraction.json；没有改变处理器逻辑。
+音频播放接口与外部检索是演示边界，不代表现场实测真实音乐源播放成功。
+补3处截图细节、覆盖2张，raw共71；另一次本地预置回复，只为补全气泡画面，不重复整套验证。
+capture.json最终mainSync=0源于之后独立演示重置chat fixture；同步检查在此前原生断言并截图完成，见chat-synced和capture.cjs的synced检查。
+正式memLib为空；每次新浏览器origin隔离，服务和浏览器finally关闭。
+
+排版：18页截图／文字边界、解码与重叠检查通过。已看18页总览与关键原尺寸。
+交付：index.html、18PNG、独立封面、ZIP、18页总览、制作说明及完整背景提示词。
+核查：render-checks、final-checks、gallery-checks、qa/refinement-checks与脚本保留。

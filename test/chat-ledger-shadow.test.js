@@ -147,3 +147,144 @@ test("CC turn 留在 App 聊天副本但不重复进入模型历史", () => {
   assert.equal(visible.length, 3);
   assert.deepEqual(model.map(x => x.id), ["ledger:emotion", "app"]);
 });
+
+// —— 10-05 断流案的三道回归（锚点钉在 createManager 的行为上）——
+
+test("软删一直失败不许堵住上传：删队留着，账照送", async () => {
+  const s = storage(); let uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000,
+    upload: async rows => { uploaded.push(...rows); },
+    remove: async () => { throw new Error("delete rpc down"); }
+  });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  await manager.enqueue(context, [{ role: "assistant", content: "旧泡", ts: 10, turnId: "t1" }]);
+  await manager.invalidate(context, [{ role: "assistant", content: "旧泡", ts: 10, turnId: "t1" }]);
+  await manager.enqueue(context, [{ role: "user", content: "新话", ts: 20 }]);
+  assert.ok(uploaded.some(r => r.content === "新话"), "软删挂了，新消息也必须照送");
+  assert.equal(manager.status().deleteOutbox.length, 1, "删队保留等重试");
+  assert.ok(manager.status().diagnostic.last_delete_error);
+});
+
+test("毒行连败五次被隔离，队伍继续走且行不丢", async () => {
+  const s = storage(); let uploaded = [];
+  const upload = async rows => {
+    if (rows.some(r => r.content === "毒")) throw new Error("poison row");
+    uploaded.push(...rows);
+  };
+  const manager = Ledger.createManager({ storage: s, now: () => 1000, upload });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  await manager.enqueue(context, [
+    { role: "user", content: "毒", ts: 10 },
+    { role: "user", content: "好行", ts: 11 }
+  ]);
+  for (let i = 0; i < 5; i++) await manager.flush();
+  assert.equal(manager.status().quarantine.length, 1, "毒行进隔离区");
+  assert.equal(manager.status().quarantine[0].content, "毒", "隔离的是毒行本身，不删");
+  await manager.flush();
+  assert.ok(uploaded.some(r => r.content === "好行"), "毒行让开后队伍继续送");
+  assert.equal(manager.status().outbox.length, 0);
+});
+
+test("配额满时诊断与入队都不许炸链：flush 照跑，腾出空间后补写", async () => {
+  const m = new Map(); let full = false;
+  const s = {
+    getItem: k => m.has(k) ? m.get(k) : null,
+    // 贴近真实配额：满了之后只拒绝会让这把键变大的写入，改小照常（覆盖写不占新空间）
+    setItem: (k, v) => {
+      const old = m.get(k) || "";
+      if (full && String(v).length > old.length) throw new Error("The quota has been exceeded.");
+      m.set(k, String(v));
+    },
+    removeItem: k => m.delete(k)
+  };
+  let online = false, uploaded = [];
+  const manager = Ledger.createManager({ storage: s, now: () => 1000, upload: async rows => { if (!online) throw new Error("offline"); uploaded.push(...rows); full = false; } });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  await manager.enqueue(context, [{ role: "user", content: "先囤着的旧账", ts: 10 }]);
+  full = true; online = true;
+  const r = await manager.enqueue(context, [{ role: "user", content: "挤不进去的新话", ts: 20 }]);
+  assert.equal(r.queued, 1, "enqueue 不许因 setItem 抛错而整链失败");
+  assert.ok(uploaded.some(x => x.content === "先囤着的旧账"), "配额满也要先把旧账送出去腾地方");
+  assert.equal(manager.status().outbox.length, 1, "腾出空间后新话补写进队");
+  assert.equal(manager.status().outbox[0].content, "挤不进去的新话");
+});
+
+test("半截坏 JSON 队列：原文搬进 IDB 留档、清键腾地方，flush 不再装瞎", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  m.set(Ledger.OUTBOX_KEY, '[{"message_key":"k1","content":"半截'); // 配额写炸留下的残骸
+  const saved = {};
+  const prevSave = globalThis.saveJSON;
+  globalThis.saveJSON = (k, v) => { saved[k] = v; };
+  try {
+    const manager = Ledger.createManager({ storage: s, now: () => 1000, upload: async () => {} });
+    await manager.flush();
+    assert.ok(saved["x_ledgerCorrupt_" + Ledger.OUTBOX_KEY], "残骸原文进 IDB 留档");
+    assert.ok(String(saved["x_ledgerCorrupt_" + Ledger.OUTBOX_KEY].raw).includes("半截"));
+    assert.equal(m.has(Ledger.OUTBOX_KEY), false, "坏键清掉腾地方");
+    assert.ok(saved["x_ledgerDiag"], "诊断镜像进 x_ 存档让云端可见");
+    assert.equal(saved["x_ledgerDiag"].corrupt_salvaged, Ledger.OUTBOX_KEY);
+  } finally {
+    if (prevSave === undefined) delete globalThis.saveJSON; else globalThis.saveJSON = prevSave;
+  }
+});
+
+test("上传悬死有超时：挂死变成可见失败，下一轮 flush 不再排队等死人", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  let hang = true, uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000, callTimeout: 30,
+    upload: async rows => { if (hang) return new Promise(() => {}); uploaded.push(...rows); }
+  });
+  const context = { charId: "y", threadType: "private", threadId: "y" };
+  const r1 = await manager.enqueue(context, [{ role: "user", content: "被挂死的话", ts: 10 }]);
+  assert.ok(r1.error && /timeout/.test(String(r1.error.message)), "悬死请求按超时失败返回");
+  assert.ok(/timeout/.test(String(manager.status().diagnostic.last_error || "")), "死因写进诊断");
+  hang = false;
+  await manager.flush();
+  assert.equal(uploaded.length, 1, "网络恢复后同一条照常送达");
+  assert.equal(manager.status().outbox.length, 0);
+});
+
+test("超长正文发货前裁到云端约束上限，整批不再被毒行连坐", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  let uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000,
+    upload: async rows => {
+      rows.forEach(r => { const n = r.content.length; if (n < 1 || n > 16000) throw new Error("violates check constraint"); });
+      uploaded.push(...rows);
+    }
+  });
+  const context = { charId: "y", threadType: "offline", threadId: "y" };
+  await manager.enqueue(context, [
+    { role: "narration", content: "长".repeat(20000), ts: 10 },
+    { role: "user", content: "正常短句", ts: 11 }
+  ]);
+  assert.equal(uploaded.length, 2, "超长行裁完随批送达，不再连坐");
+  assert.equal(uploaded.find(r => r.content.includes("长")).content.length, 16000);
+  assert.ok(uploaded.find(r => r.content.includes("长")).content.endsWith("…"), "裁尾留省略号标记");
+  assert.equal(manager.status().outbox.length, 0);
+});
+
+test("队里历史遗留的空正文行整批进隔离区，不再让每批陪跑", async () => {
+  const m = new Map();
+  const s = { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+  m.set(Ledger.OUTBOX_KEY, JSON.stringify([
+    { message_key: "e1", content: "", speaker_type: "lisa" },
+    { message_key: "e2", content: "  ", speaker_type: "lisa" },
+    { message_key: "g1", content: "好行", speaker_type: "lisa" }
+  ]));
+  let uploaded = [];
+  const manager = Ledger.createManager({
+    storage: s, now: () => 1000,
+    upload: async rows => { rows.forEach(r => { if (!r.content.trim()) throw new Error("violates check constraint"); }); uploaded.push(...rows); }
+  });
+  await manager.flush();
+  assert.deepEqual(uploaded.map(r => r.message_key), ["g1"], "好行照送");
+  assert.deepEqual(manager.status().quarantine.map(r => r.message_key).sort(), ["e1", "e2"], "空行全进隔离区");
+  assert.equal(manager.status().outbox.length, 0);
+});
