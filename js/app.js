@@ -25947,7 +25947,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         "水墨": "整张是中国水墨画：宣纸底，墨色分浓淡干湿，大块留白，笔触是毛笔的飞白和晕染，只点一点淡彩；人物用简练的笔线勾出来，不要写实阴影，不要厚涂。",
         "美式漫画": "美式超级英雄漫画的画法：粗黑描边、强烈的明暗块面（大块纯黑阴影）、网点和排线、饱和的原色，人物比例结实、动态夸张，像漫画书里的一格。",
         "复古港风": "九十年代香港电影海报／胶片质感：暖黄偏绿的胶片色调、颗粒感、霓虹招牌的红绿光晕、轻微柔焦和光晕，人物像王家卫电影里的定格画面。" };
-      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。画面里不要加任何文字。" : "";
+      const RESTYLE_ONLY = opt && opt.restyle ? "把第一张参考图原样转成「" + opt.restyle.style + "」的画风。构图、镜头角度、人物位置、动作、表情、衣服、发型、背景都照第一张。但「画法」是整张一起换的，不是只换脸：人物的身体比例、轮廓线条、上色方式、背景的画法都要换成这种画风该有的样子（比如 Q 版就是二到三头身、大头小身子短胳膊短腿，黏土、毛毡就是整个人和背景都像捏出来的手工质感），别出现真人身体顶着一张画风脸。" + (STYLE_BODY[opt.restyle.style] || "") + "后两张参考照只用来锁住两个人的长相。⚠️每个人的年龄、性别、身高和体型都照第一张：大人还是大人、同龄的还是同龄，不许把谁画小成孩子，两个人之间的关系也不许被画成别的（朋友不能变成母女、情侣不能变成父女）。画面里不要加任何文字。" : "";
       // 封面先定字：TA写字＋定方向 → 本地挑整张的文字构图 → 留白写进生图那句（图照字的位置画）
       let cover = null, coverPlan = null;
       if (theme && theme.overlay && !RESTYLE_ONLY && window.PosterLayout) {
@@ -25956,7 +25956,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
-      const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
+      const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。⚠️参考照只拿来认长相（五官、发型、发色、脸型），它本身是照片还是画都别照着它的质感来：这一张通篇是「" + PAINT + "」，不许画成真人照片、不许写实摄影质感。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
       const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;

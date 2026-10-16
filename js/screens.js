@@ -17627,7 +17627,11 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
 }
 function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onBack }) {
   const t = useTheme();
-  const [scene, setScene] = useState("");
+  // 「补一句」写了一大段，退出照相馆再进来就没了（群友 2026-10-17：「我刚写了那么多，一下子全没」）：
+  //   跟聊天输入框同一个做法，没拍出去的那段留在本机，拍完也不清（下一张常常还想照着改）
+  const sceneKey = "qq_draft:studio:" + ((partner && partner.id) || "");
+  const [scene, setSceneRaw] = useState(() => { try { return localStorage.getItem(sceneKey) || ""; } catch (e) { return ""; } });
+  const setScene = v => { setSceneRaw(v); try { v ? localStorage.setItem(sceneKey, v) : localStorage.removeItem(sceneKey); } catch (e) {} };
   // 两边都是【一组】衣服，不是一件（v64.34）：衣柜里外套和鞋常常分开挂着
   const [mine, setMine] = useState([]);
   const [theirs, setTheirs] = useState([]);
@@ -17723,6 +17727,9 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("input", { value: styleDraft, onChange: e => setStyleDraft(e.target.value), maxLength: 40, placeholder: "想要什么画风（如：赛博朋克插画、老式明信片）",
               style: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
             h("button", { onClick: () => setStyleDraft(null), style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
+            // 只存下、先不画（群友 2026-10-17：「必须重画一张才能保存画风名，好浪费」）
+            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); if (!myStyles.includes(v) && !STYLES.includes(v)) saveStyles(myStyles.concat(v).slice(-20)); setStyleDraft(null); },
+              className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a76a0" } }, "只存下"),
             h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); if (!myStyles.includes(v) && !STYLES.includes(v)) saveStyles(myStyles.concat(v).slice(-20)); setStyleDraft(null); doRestyle(v); },
               className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下并重画")) : null,
           styleDraft !== null && myStyles.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
