@@ -3353,8 +3353,8 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         // 比的是这本的 _upd 和整份的 _lastUpd：**同一个时间戳才算数**，
         // 所以下一次刷新如果没动它，点自己就灭了，不用另存一份「看过没」。
         (b._upd && b._upd === lastUpd) ? h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 99, background: "#d9705f", flexShrink: 0, alignSelf: "center" } }) : null,
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, b.title || "无题"),
-        b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, b.author) : null),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, PTX(b.title || "无题")),
+        b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, PTX(b.author)) : null),
       b.readAt ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: cold ? pal.accent : READ_DIM, marginTop: 5 } }, b.readAt) : null,
       // 走了多远：有百分比就画那么长，认不出来的不画——不画比画错强
       pct != null ? h("div", { "aria-hidden": "true", style: { height: 2, borderRadius: 2, background: READ_LINE, marginTop: 9, overflow: "hidden" } },
@@ -3365,7 +3365,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     const books = Array.isArray(sh.books) ? sh.books : [];
     return h("section", { key: si, style: { marginBottom: 30 } },
       h("div", { style: { borderLeft: "3px solid " + pal.accent, paddingLeft: 12, marginBottom: 4 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: READ_INK, wordBreak: "break-word" } }, sh.name || "没起名的一架"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: READ_INK, wordBreak: "break-word" } }, PTX(sh.name || "没起名的一架")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 4 } },
           books.length ? books.length + " 本 · " + (function () {
             const done = books.filter(b => readPct(b.readAt) === 100).length;
@@ -3403,8 +3403,8 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 10.5, lineHeight: 1.3, color: pal.text, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 4 } }, (b && b.title) || "—")),
     h("div", { className: "flex-1 min-w-0" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, label),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: READ_INK, marginTop: 5 } }, (b && b.title) || "—"),
-      (b && b.author) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 4 } }, b.author) : null));
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: READ_INK, marginTop: 5 } }, PTX((b && b.title) || "—")),
+      (b && b.author) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 4 } }, PTX(b.author)) : null));
   const statCell = (n, label) => h("div", { className: "flex-1 text-center" },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: READ_INK } }, n),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: READ_DIM, marginTop: 3 } }, label));
@@ -3456,14 +3456,14 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: READ_DIM, textAlign: "right" } }, (book._shelf || "书架") + " · Vol." + String(book._no).padStart(2, "0")),
     h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -11, marginLeft: -16, width: 32, height: 40, background: "#2a2720", clipPath: "polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)" } })),
   h("div", { style: { padding: "22px 22px 26px" } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1.25, color: READ_INK } }, book.title || "无题"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: READ_DIM, marginTop: 7 } }, book.author || ""),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1.25, color: READ_INK } }, PTX(book.title || "无题")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: READ_DIM, marginTop: 7 } }, PTX(book.author || "")),
     book.readAt ? h("div", { style: { marginTop: 20, borderLeft: "3px solid #9dc49a", background: "rgba(157,196,154,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "读到"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: READ_INK, marginTop: 6 } }, book.readAt)) : null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: READ_INK, marginTop: 6 } }, PTX(book.readAt))) : null,
     book.quote ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, T("他划的一句")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, book.quote)) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, PTX(book.quote))) : null,
     // ── 批注条：只有「看TA玩」演到写批注那一下才出现 ──
     drive && drive.typing != null ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, characterText(char, "他正在写的批注")),
@@ -3473,7 +3473,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { marginTop: 10, textAlign: "center", borderRadius: 8, padding: "7px 0", fontFamily: F_BODY, fontSize: 12.5, color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? "#b07f8e" : "rgba(0,0,0,.06)" } }, "记下")) : null,
     book.note ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "批注"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, book.note)) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, PTX(book.note))) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: T("他读的书"), title: "《" + (book.title || "") + "》" + (book.readAt ? " · " + book.readAt : ""), text: [book.quote ? T("他划了：") + book.quote : "", book.note].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
