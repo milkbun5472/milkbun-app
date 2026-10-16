@@ -30564,12 +30564,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const p = bgActiveRef.current || active;
       if (!p) { toast("请先到设置配置 API"); return []; }
       try {
-        const d = await runProbe(p, "", {
-          instruction: "给一个照相馆想 6 种好看、彼此差得开的画风，拿来把两个人的合照画成插画/艺术风格。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
+        const ins = "给一个照相馆想 6 种好看、彼此差得开的画风，拿来把两个人的合照画成插画/艺术风格。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
             + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
-            + "每种给 name（画风名，2~8 个字）和 desc（写给生图模型看的一段描述，60~140 字：线条、上色、质感、配色、像哪类作品，具体到能照着画）。",
-          schemaHint: "{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", maxTokens: 8000
-        });
+            + "每种给 name（画风名，2~8 个字）和 desc（写给生图模型看的一段描述，60~140 字：线条、上色、质感、配色、像哪类作品，具体到能照着画）。";
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const d = extractJSON(raw);
         return (d && Array.isArray(d.styles) ? d.styles : []).filter(x => x && String(x.name || "").trim()).slice(0, 8)
           .map(x => ({ name: String(x.name).trim().slice(0, 20), desc: String(x.desc || "").trim().slice(0, 300) }));
       } catch (e) { toast("没想出来：" + (e.message || "再试一次")); return []; }
