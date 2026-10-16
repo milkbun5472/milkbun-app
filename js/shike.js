@@ -173,6 +173,19 @@
   const loadCovers = () => { try { return (typeof loadJSON === "function" ? loadJSON(COVER_KEY, {}) : {}) || {}; } catch (e) { return {}; } };
   const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的", kept: "TA 存的", manual: "我开的", group: "群里", world: "那天的世界" };
   // 时刻卡的底图：那天的照片（自拍在 IDB 图库里，用 useIdbImgUrl 取；她发的照片是 iv_ 门牌）
+  // 时刻的图点开看大图、存到手机（她 2026-10-16）：黑底整屏、整张不裁，点空白处关
+  function MomentArtBig({ img, onClose, onSave }) {
+    const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
+    const src = img && img.imgKey ? idbUrl : (img && img.ref ? (typeof resolveImg === "function" ? resolveImg(img.ref) : img.ref) : null);
+    return h("div", { "data-wk": "shikebig", onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: "calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px)" } },
+      src ? h("img", { src, alt: "", style: { maxWidth: "100%", maxHeight: "calc(100% - 64px)", objectFit: "contain", borderRadius: 8 } }) : null,
+      h("div", { className: "flex", style: { gap: 10, marginTop: 14 } },
+        h("button", { "data-wk": "shikebigsave", onClick: e => { e.stopPropagation(); onSave(); }, className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "9px 18px" } }, "保存到手机"),
+        h("button", { onClick: e => { e.stopPropagation(); onClose(); }, className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 13, color: "rgba(255,255,255,.8)", background: "transparent", border: "1px solid rgba(255,255,255,.25)", borderRadius: 999, padding: "9px 18px" } }, "关掉")));
+  }
   function MomentArt({ img }) {
     const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
     const src = img && img.imgKey ? idbUrl : (img && img.ref ? (typeof resolveImg === "function" ? resolveImg(img.ref) : img.ref) : null);
@@ -232,6 +245,7 @@
     // 每张时刻卡自己的图（她 2026-10-03 点的第 3、4 条）：画一张 / 自己贴一张。{ charId: { momentKey: iv_ } }
     const [arts, setArts] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeArt", {}) : {}) || {}; } catch (e) { return {}; } });
     const [drawing, setDrawing] = useState("");
+    const [big, setBig] = useState(null);   // 正在看大图的那张：{ img, name }
     const fileRef = React.useRef(null), pickFor = React.useRef(null), mRef = React.useRef(null);
     const [exporting, setExporting] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -475,6 +489,7 @@
                (m.pinId || m.gpinId) && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? [summing === m.key ? "总结中…" : "总结", () => summarize(m), !!summing] : null,
                m.summary ? [rawOpen[m.key] ? "看总结" : "看原话", () => setRawOpen(o => Object.assign({}, o, { [m.key]: !o[m.key] }))] : null,
                props.onDrawMoment ? [drawing === m.key ? "正在画…" : "画一张", () => draw(m), !!drawing] : null,
+               ((arts[cur.id] || {})[m.key] || m.img) ? ["看大图", () => setBig({ img: (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img, name: (cur.remark || cur.name) + "·" + m.title })] : null,
                ["贴图", () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }],
                (arts[cur.id] || {})[m.key] ? ["拿掉图", () => setArt(cur.id, m.key, null)] : null,
                (m.pinId || m.gpinId) ? ["删掉", () => dropPin(m)] : null,
@@ -496,6 +511,11 @@
       };
       return h("div", { className: "h-full flex flex-col", "data-wk": "shikedetail", style: Object.assign({ position: "relative" }, shell(t)) },
         h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
+        big ? h(MomentArtBig, { img: big.img, onClose: () => setBig(null), onSave: async () => {
+          const ref = big.img.imgKey || big.img.ref;
+          const ok = typeof saveImgOriginal === "function" ? await saveImgOriginal(ref, big.name) : false;
+          props.toast && props.toast(ok ? "已经存下来了" : "这张取不到原图");
+        } }) : null,
         h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); setMenuOpen(false); }, bg: "transparent",
           right: h("button", { onClick: () => setMenuOpen(v => !v), className: "active:opacity-50", "aria-label": "更多", style: { width: 44, height: 38, fontSize: 22, color: t.ink, background: "transparent", border: "none" } }, "⋯") }),
         h("div", { className: "shrink-0", style: { textAlign: "center", padding: "2px 16px 0" } },

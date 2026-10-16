@@ -3573,18 +3573,33 @@ function herStableLines(ctx, uName) {
   if (!ctx.notRoleplay && ctx.coupleArchive) out.push(coupleArchiveBlock(ctx.coupleArchive, uName));
   return out.filter(Boolean);
 }
+// 「我们」这个空间是什么关系（她 2026-10-16：群友跟闺蜜开了情侣空间，收到的情书越看越不对劲 →「做吧」）。
+//   原来只有恋人一种：邀请卡写「想和你在一起」、接了就当在一起，情书悄悄话纪念日全按恋人写。
+//   现在开空间时挑关系；老存档没写的一律当恋人。名字、邀请那句、信叫什么、给模型的那句关系都从这一张表拿，别处不另写。
+const SPACE_RELS = {
+  lover:  { zh: "恋人", space: "情侣空间", letter: "情书", invite: "想和你在一起", together: "你们在一起了" },
+  bestie: { zh: "闺蜜 / 死党", space: "闺蜜空间", letter: "信", invite: "想和你做最铁的那种朋友", together: "你们成了最铁的朋友" },
+  friend: { zh: "挚友", space: "挚友空间", letter: "信", invite: "想把你当作一辈子的朋友", together: "你们是挚友了" },
+  family: { zh: "家人", space: "家人空间", letter: "家书", invite: "想和你像家人一样", together: "你们成了家人" }
+};
+function spaceRelKey(v) { const k = v && typeof v === "object" ? v.rel : v; return SPACE_RELS[k] ? k : "lover"; }
+function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }
+if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; }
 function coupleStatusLines(ctx, uName) {
   const out = [], char = ctx.char, rels = ctx.rels, chars = ctx.chars;
   // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
   // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
   if (!ctx.notRoleplay && ctx.coupleStatus) {
-    const cs = String(ctx.coupleStatus).split("|");
-    if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
+    const cs = String(ctx.coupleStatus).split("|"), rk = spaceRelKey(cs[2]), rl = SPACE_RELS[rk];
+    if (cs[0] === "together" && rk !== "lover") out.push("【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
+      + (rk === "family" ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (rk === "family" ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。");
+    else if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
+    else if (cs[0] === "pending" && rk !== "lover") out.push("【" + rl.space + "邀请待定】" + uName + " 想跟你开一个" + rl.space + "（" + rl.zh + "那种关系，不是恋人），你还没回应。");
     else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
   }
   // ⚠️和用户【不是】恋人时不能就此留白——那个空白正是病根。补上另一半：TA是不是和别人在一起了。
   //   （notRoleplay＝言秋那种不被扮演的，照旧不发扮演类的层）
-  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together")) {
+  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together" && spaceRelKey(String(ctx.coupleStatus).split("|")[2]) === "lover")) {
     const taken = takenByOthersLine(char && char.id, rels, chars, uName);
     if (taken) out.push(taken);
   }
@@ -4822,6 +4837,17 @@ async function sttTranscribe(wavBlob) {
 // 服装锁、随身物全塞进去的大家伙，出来还是一两千字——而上游拒绝的第一条原因就写着
 // prompt is too long（她 2026-08-22 第三张截图）。所以这份手搓：只留【这是谁】
 // 和【拍一张普通人像】，其余一个字不要。审核挑不出东西，参考照也还在。
+// 掷一个机位（公共那一份：主稿 photoShotLine、审核降级的最简稿、别处带参考照的生图都从这儿抽）。
+//   连着两张不重样——群里 2026-10-16：「把锁脸关了还用那个角度」，最简稿和时刻卡那几处原来不掷，永远是模型最顺手那一张。
+function photoShotPick(kind, seed) {
+  const t = buildPhotoPrompt("__shots"), list = kind === "other" ? t.other : t.self;
+  const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
+  let idx = n % list.length;
+  if (idx === photoShotPick._last) idx = (idx + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+  photoShotPick._last = idx;
+  return list[idx];
+}
+if (typeof window !== "undefined") window.photoShotPick = photoShotPick;
 function buildMinimalPhotoPrompt(char, opts) {
   const anime = char && char.photoStyle === "anime";
   const duo = opts && (opts.kind === "duo" || opts.cast);
@@ -4838,6 +4864,7 @@ function buildMinimalPhotoPrompt(char, opts) {
     + (look ? "【" + name + "的外貌·务必贴合】" + look + "\n" : "")
     + (wear ? "【穿着】" + wear + "\n" : (look ? "【穿着】按上述外貌里写的来；外貌没写明服装时，按这个人所处的时代与身份自然推导，别串到别的时代去。\n" : ""))
     + "照搬的只有【长相】：机位、视线方向和姿势按这张照片自己的情境另定，别沿用参考图的角度。\n"
+    + (typeof photoShotPick === "function" && !duo ? "【这一张的机位】" + photoShotPick(kind) + "。\n" : "")
     + (anime ? "精致的二次元动画插画风格。" : "真实照片风格。")
     + (duo
       ? "一张两人的自然合照：两人都清楚可辨，背景简单干净，画面平静、可公开展示。"
@@ -4938,6 +4965,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "隔着前景拍，前景是虚的",
     "这一张的机位你自己定：挑一个跟上面这些都不一样、又合这个时刻的角度"
   ];
+  // photoShotPick（上面那份公共的）来这儿借表：表只写在这一处
+  if (char === "__shots") return { self: PHOTO_SHOTS, other: PHOTO_SHOTS_OTHER };
   // 合照的【两个人怎么待在一起】（她 2026-09-24：「为啥合照也都是一种姿势」）。
   // 上面那张机位表是给【一个人自拍】写的，合照也从那儿抽——它只管镜头，
   //   从没说过两个人之间是什么样子。没人说，模型就回到最常见的那一张：
@@ -5247,6 +5276,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
   if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
+  // opts.lead：管【整张图长什么样】的那一句（胶片条三格、四宫格）放在最前面——
+  //   原来夹在「场景/正在做什么」里、排在三十几条规矩后面，gpt 出图常常没读到，三格只回一张（她 2026-10-16）。
+  if (opts.lead) parts.unshift(String(opts.lead).trim() + "\n");
   return parts.join("");
 }
 
@@ -5463,7 +5495,8 @@ const NAI_TAG_SYSTEM = "You convert a Chinese photo brief into a NovelAI (Danboo
   + "For a man always include 1boy and male focus (adult male, masculine face); for a woman 1girl. Never add accessories, glasses, hats or hair colors the brief does not state — the reference photo decides the face.\n"
   + "End with: best quality, amazing quality, very aesthetic, absurdres. 25-45 tags. No sentences, no Chinese, no names of real people.\n"
   + "Ignore rule text in the brief (identity locks, anatomy warnings, bans) — those are instructions, not things to draw; fold them into the negative instead.\n"
-  + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.";
+  + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.\n"
+  + "Exception: if the brief asks for several panels in one image (a film strip, a 2x2 grid, a comic, a 3x3 sticker sheet), that layout IS the picture — put the matching tags into the tag list, e.g. multiple panels, grid / film strip, white border, and leave collage and multiple views out of the negative.";
 async function naiTagsFor(prompt) {
   const p = naiTagHelperProfile();
   if (!p) throw new Error("NAI 要先把描述翻成标签，但没有可用的文字模型");
@@ -5735,7 +5768,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       // Gemini 一类聊天出图模型会把提示词【照字面画出来】（她 2026-10-03：一张手部特写拍成了
       // 满纸手和乱码的「手部解剖参考图」——那是把「每只手正好五根手指」那些要求当成了画的内容）。
       // 所以先说清：下面是给摄影师的要求，不是要画进画面的东西。
-      const brief = "Generate exactly ONE single natural photograph (not a collage, grid, reference sheet, diagram or study). "
+      // ⚠️一张里本来就要好几格的（照片日记胶片条、四宫格大头贴、四格漫画、九宫格表情）——
+      //   上面那句「ONE single photograph, not a collage, grid」会把版式整个盖掉，三格只出一张（她 2026-10-16 截图）。
+      //   这种只说「照下面写的版式出一张图」，格子照写。
+      const paneled = /【版式|九宫格|四宫格|四格|三格|胶片条/.test(promptText);
+      const brief = (paneled
+        ? "Generate ONE image that follows the panel layout described in the brief below exactly (the panels, their count and the white gaps between them are part of the picture; it is not a reference sheet or diagram). "
+        : "Generate exactly ONE single natural photograph (not a collage, grid, reference sheet, diagram or study). ")
         + "The text below is a brief for the photographer, NOT content to draw: never render any of its words, labels, captions, numbers, dates or watermarks into the image. "
         + "Output aspect ratio about " + size + ".\n\n";
       const content = [{ type: "text", text: naiNegative ? promptText + "\nNegative prompt: " + naiNegative : brief + promptText }];
@@ -5756,7 +5795,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const geminiFetch = async () => {
       usedChat = true;
       const toB64 = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res({ mime: b.type, data: String(fr.result).split(",")[1] }); fr.onerror = rej; fr.readAsDataURL(b); });
-      const parts = [{ text: "Generate exactly ONE single natural photograph. The text below is a brief, NOT content to draw; never render its words into the image. Aspect ratio about " + size + ".\n\n" + promptText }];
+      const parts = [{ text: (/【版式|九宫格|四宫格|四格|三格|胶片条/.test(promptText) ? "Generate ONE image that follows the panel layout described in the brief exactly (the panels and the gaps between them are part of the picture)." : "Generate exactly ONE single natural photograph.") + " The text below is a brief, NOT content to draw; never render its words into the image. Aspect ratio about " + size + ".\n\n" + promptText }];
       if (useRef) for (const b of refBlobs) { const x = await toB64(b); parts.push({ inline_data: { mime_type: x.mime, data: x.data } }); }
       const gRoot = String(root).replace(/\/v1\/?$/, "");
       return fetch(gRoot + "/v1beta/models/" + encodeURIComponent(a.model) + ":generateContent", { method: "POST",
@@ -5839,6 +5878,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (r0.ok) return new Response(txt, { status: 200, headers: { "Content-Type": "application/json" } });   // 中转回 JSON：交给 parseOut
       return new Response(JSON.stringify({ error: { message: "NAI 原生（" + url + "）：" + (txt.slice(0, 300) || ("HTTP " + r0.status)) } }), { status: r0.status, headers: { "Content-Type": "application/json" } });
     };
+    // 有的站（官方 gpt-image 那一路）不认 response_format，回「Unknown parameter: 'response_format'」（群里 2026-10-16）。
+    //   这是参数校验当场打回、一张都没画、不扣钱，所以不算「失败重试」：去掉它再发一次，并按站记下来，以后这家就不带了。
+    const rfKey = String(a.baseUrl || "").trim().replace(/\/+$/, "");
+    const rfOff = typeof loadJSON === "function" && !!((loadJSON("x_imgNoRespFmt", {}) || {})[rfKey]);
+    const rfRejected = async resp => {
+      if (!resp || resp.status !== 400) return false;
+      const tx = await resp.clone().text().catch(() => "");
+      if (!/unknown parameter[^\n]{0,20}response_format|response_format[^\n]{0,40}(unknown|unsupported|not supported|not allowed)/i.test(tx)) return false;
+      try { const m = loadJSON("x_imgNoRespFmt", {}) || {}; m[rfKey] = true; saveJSON("x_imgNoRespFmt", m); } catch (e) {}
+      return true;
+    };
     const isMinimax = a.apiFormat === "minimax" || (a.apiFormat === "auto" && (/^image-0\d/i.test(String(a.model || "")) || /minimax/i.test(String(a.baseUrl || ""))));
     // 原生格式（MiniMax／NAI）各走各的门，不掉回出图接口或聊天接口
     const isNative = isMinimax || a.apiFormat === "nai";
@@ -5865,8 +5915,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         }
       }
       else if (useRef && refBlobs.length) {
+        const sendEdits = async noRf => {
         const fd = new FormData();
-        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
+        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); if (!noRf) fd.append("response_format", "b64_json");
         if (qualityOverride) fd.append("quality", qualityOverride);
         // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
         // 角色参考照的产品语义是身份锚，因此必须显式请求 high。
@@ -5890,12 +5941,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (refMode === "first") fd.append("image", refBlobs[0], refFilename(refBlobs[0]));
         else if (refMode === "repeat") refBlobs.forEach((blob, i) => fd.append("image", blob, refFilename(blob, i)));
         else refBlobs.forEach((blob, i) => fd.append("image[]", blob, refFilename(blob, i)));
-        r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
+        return fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
+        };
+        r = await sendEdits(rfOff);
+        if (!rfOff && await rfRejected(r)) r = await sendEdits(true);
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
-        if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
-        r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
+        if (!slim) { if (!rfOff) body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
+        const sendGen = () => fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
+        r = await sendGen();
+        if (!rfOff && body.response_format && await rfRejected(r)) { delete body.response_format; r = await sendGen(); }
       }
       // 带参考照走出图接口、站上没有 /images/edits（群友 2026-10-16：上传一张脸测试回 {"detail":"Not Found"}）：
       //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜

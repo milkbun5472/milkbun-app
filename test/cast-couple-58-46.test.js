@@ -142,7 +142,7 @@ test("邀请卡跟别的自己发的卡一样带头像", () => {
 });
 
 test("发出邀请不再自动开口，等她点了才回应", () => {
-  const i = app.indexOf("const sendCoupleInvite = async char =>");
+  const i = app.indexOf("const sendCoupleInvite = async (char, rel) =>");
   const j = app.indexOf("const askCoupleInvite", i);
   assert.ok(i > 0 && j > i && j - i < 2200, "抠不出 sendCoupleInvite");
   const send = app.slice(i, j);
@@ -166,7 +166,7 @@ test("她在邀请之后说的话，一起递给 TA", () => {
   assert.ok(i > 0 && j > i && j - i < 2600, "抠不出 askCoupleInvite");
   const ask = app.slice(i, j);
   assert.match(ask, /line\.slice\(at \+ 1\)/, "没有把邀请之后那几句捞出来");
-  assert.match(ask, /after\.concat\(\[\{ role: "user", content: "（回应情侣邀请）" \}\]\)/, "捞出来了却没递给模型");
+  assert.match(ask, /after\.concat\(\[\{ role: "user", content: "（回应" \+ spaceRel\(/, "捞出来了却没递给模型");
   assert.match(ask, /if \(gen\.coupleAsk\) return;/, "连点两下会问两次，白花两次钱");
   assert.match(ask, /status: "failed"/, "失败了卡片没留下再问一次的口子");
 });

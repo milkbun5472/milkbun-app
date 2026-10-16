@@ -45,7 +45,9 @@ test("TA 的视角：机位按关系分三层，越亲近能抽的越多", () =>
 });
 
 test("层从关系和好感来：在一起/恋人＝3，暧昧闺蜜挚友或好感≥70＝2，其余 1；三处出图都带上", () => {
-  assert.match(app, /const tier = \(cp && cp\.status === "together"\) \|\| POV_LOVE_RE\.test\(label\) \? 3\n      : POV_CLOSE_RE\.test\(label\) \|\| affOf\(char\.id\) >= 70 \? 2 : 1;/);
+  // v75.773 起空间分关系：只有恋人空间算 3，闺蜜 / 挚友 / 家人空间算 2
+  assert.match(app, /lover = together && spaceRelKey\(cp\) === "lover";/);
+  assert.match(app, /const tier = lover \|\| POV_LOVE_RE\.test\(label\) \? 3\n      : together \|\| POV_CLOSE_RE\.test\(label\) \|\| affOf\(char\.id\) >= 70 \? 2 : 1;/);
   assert.match(app, /pov: meShot \? povFor\(realChar\) : null/);
   assert.match(app, /pov: meShot \? povFor\(spk\) : null/);
   assert.match(app, /pov: kind === "me" \? povFor\(char\) : null/);

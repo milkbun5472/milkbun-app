@@ -71,3 +71,47 @@ test("UNO 手机出牌：整局打完不报错，一手都是合规的", () => {
     assert.equal(s.status, "finished", "打了三千手还没完");
   }
 });
+
+// 她 2026-10-16「都做了宝宝」：斗地主、21 点让 TA 坐庄、德州输的人答真心话
+test("斗地主：牌型认得对、压得对", () => {
+  const D = s => s.split(" ").map((x, i) => { const v = { J: 11, Q: 12, K: 13, A: 14, "2": 15, SJ: 16, BJ: 17 }[x] || +x; return { v, uid: x + "_" + i, r: x, s: "♠", joker: v > 15 }; });
+  const A = s => g.ddzAnalyze(D(s));
+  assert.equal(A("3 4 5 6 7").type, "straight");
+  assert.equal(A("10 J Q K A 2"), null, "2 不能进顺子");
+  assert.equal(A("3 3 4 4 5 5").type, "pairs");
+  assert.equal(A("3 3 3 4 4 4 7 9").type, "plane1");
+  assert.equal(A("6 6 6 6").type, "bomb");
+  assert.equal(A("SJ BJ").type, "rocket");
+  assert.ok(g.ddzBeats(A("3 3 3 3"), A("2 2")), "炸弹压对子");
+  assert.ok(!g.ddzBeats(A("4 5 6 7 8 9"), A("3 4 5 6 7")), "顺子长度不一样不能压");
+  assert.ok(g.ddzBeats(A("SJ BJ"), A("2 2 2 2")));
+});
+
+test("斗地主：手机打满五局不出错，分数总和是零", () => {
+  for (let k = 0; k < 40; k++) {
+    const s = g.ddzNewGame(P(3));
+    let n = 0;
+    while (s.status === "playing" && n++ < 5000) {
+      if (s.phase === "bid") g.ddzBid(s, g.ddzNpcBid(s, s.bidTurn));
+      else if (s.phase === "play") g.ddzPlay(s, g.ddzNpcPlay(s, s.turn));
+      else g.ddzNewRound(s);
+    }
+    assert.equal(s.status, "finished");
+    assert.equal(s.players.reduce((a, p) => a + p.pts, 0), 0);
+  }
+});
+
+test("21 点 TA 坐庄：不下注，输赢都走 TA 的筹码，总数不变", () => {
+  const s = g.bjNewGame(P(3), undefined, "c1");
+  const total = () => s.players.reduce((a, p) => a + p.chips + p.bet, 0);
+  const t0 = total();
+  assert.equal(s.players.find(p => p.key === "c1").bet, 0);
+  let n = 0; while (s.status === "playing" && n++ < 200) { if (s.phase === "play") g.bjAct(s, { kind: "stand" }); else g.bjNewHand(s); }
+  assert.equal(s.players.reduce((a, p) => a + p.chips, 0), t0);
+});
+
+test("德州真心话：开着的话，一手打完记下谁问谁答", () => {
+  const s = g.pkNewGame(P(3)); s.truthOn = true;
+  let n = 0; while (s.street !== "done" && n++ < 200) g.pkAct(s, s.players[s.turn].isUser ? { kind: "allin" } : { kind: "call" });
+  if (s.truth) { assert.notEqual(s.truth.asker, s.truth.answerer); assert.equal(s.truth.stage, "ask"); }
+});
