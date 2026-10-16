@@ -12460,7 +12460,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -12941,6 +12941,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   markPauseVoice 放占位符，发气泡那一圈走到它就地发成语音条；丢了的最后补发。
       //   ⚠️放在最前面：后面那几道都按字符串处理，对象进去会变成 [object Object]。
       let _inlineVoice = [];
+      // 夹在 word 里的 {"emote":"关键词"}（她 2026-10-16「为啥群聊表情包可以插在话中间但是单聊一定在最下面」）：
+      //   先写成「[表情] 关键词」，底下那道认表情的会在原位置留一个 emoteslot，发气泡那一圈走到就地发
+      words = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
       if (typeof markPauseVoice === "function") { const _pv = markPauseVoice(words); words = _pv.words.filter(w => String(w).trim()); _inlineVoice = _pv.voice.map(v => typeof v === "object" ? { ...v, sent: false } : { t: v, sent: false }); }
       // 单独那一栏 voice 已经取消（她 2026-09-30：「取消掉语音那条，不喜欢在最下面」）。
       //   模型要是还照老习惯交回来，不丢、也不排到最后：插在第一句后面（「说一句→发条语音」最常见）。
@@ -13064,6 +13067,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // \u8868\u60c5\u88ab\u5199\u8fdb\u6587\u5b57\u6c14\u6ce1\u7684\u515c\u5e95\uff08\u5979\u53cd\u9988\u300c\u8868\u60c5\u5076\u5c14\u8fd8\u662f\u53d1\u51fa\u6587\u5b57\u300d\uff09\uff1aword \u91cc\u82e5\u6709\u4e00\u6761\u3010\u53bb\u62ec\u53f7\u6807\u70b9\u540e\u6b63\u597d\u7b49\u4e8e\u3011\u67d0\u4e2a\u53ef\u7528\u8868\u60c5\u5173\u952e\u8bcd\uff0c
       // \u5c31\u628a\u5b83\u5f53\u8868\u60c5\u53d1\u3001\u522b\u5f53\u6587\u5b57\uff08\u7cbe\u786e\u76f8\u7b49\u3001\u4e0d\u505a\u5b50\u4e32\uff0c\u514d\u5f97\u300c\u6211\u597d\u5f00\u5fc3\u300d\u88ab\u8bef\u5f53\u300c\u5f00\u5fc3\u300d\u8868\u60c5\uff09\uff1b\u7eaf\u300c[\u8868\u60c5]\u300d\u8fd9\u7c7b\u7a7a\u6807\u8bb0\u76f4\u63a5\u4e22\u3002
       const emoteWordKws = [];
+      // 表情留在原位置：气泡数组里放一个 emoteslotN（跟语音的 voiceslotN 同一个办法），发到它就地发
+      const EMOTE_SLOT = kw => { emoteWordKws.push({ kw, sent: false }); return "emoteslot" + (emoteWordKws.length - 1); };
+      const emoteSlotOf = w => { const m = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; };
+      const _emoteSeen = new Set();
+      const sendEmoteKw = async kw => {
+        const match = emotes.length ? emoteMatch(emotes, kw) : null;
+        if (!match || _emoteSeen.has(match.id || match.keyword)) return;
+        _emoteSeen.add(match.id || match.keyword);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
+        delivered = true;
+        notifyBubble("[表情] " + match.keyword, "emote-" + (match.id || match.keyword));
+      };
       if (emotes.length) {
         const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
         // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
@@ -13089,7 +13104,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const keep = [];
           w.split("\n").forEach(ln => {
             const m1 = ln.match(TAG_RE) || ln.match(WRAP_RE);
-            if (m1 && m1[1].trim()) emoteWordKws.push(m1[1].trim()); else keep.push(ln);
+            if (m1 && m1[1].trim()) { const r0 = keep.join("\n").trim(); if (r0) acc.push(r0); keep.length = 0; acc.push(EMOTE_SLOT(m1[1].trim())); } else keep.push(ln);
           });
           const rest = keep.join("\n").trim();
           if (rest) acc.push(rest);
@@ -13100,23 +13115,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
         words = words.reduce((acc, w) => {
           const mMid = typeof w === "string" ? w.match(MID_TAG) : null;
-          if (mMid && mMid[2].trim()) { emoteWordKws.push(mMid[2].trim()); acc.push(mMid[1].trim()); }
+          if (mMid && mMid[2].trim()) { acc.push(mMid[1].trim()); acc.push(EMOTE_SLOT(mMid[2].trim())); }
           else acc.push(w);
           return acc;
         }, []);
-        words = words.filter(w => {
+        words = words.map(w => {
           const s = String(w == null ? "" : w);
+          if (emoteSlotOf(s) != null) return w;
           const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
-          if (mWrap && mWrap[1].trim()) { emoteWordKws.push(mWrap[1].trim()); return false; }
+          if (mWrap && mWrap[1].trim()) return EMOTE_SLOT(mWrap[1].trim());
           const mTag = s.match(TAG_RE);
-          if (mTag && mTag[1].trim()) { emoteWordKws.push(mTag[1].trim()); return false; }
+          if (mTag && mTag[1].trim()) return EMOTE_SLOT(mTag[1].trim());
           const n = emoteNorm(w);
-          if (!n) return true;
-          if (/^(\u8868\u60c5|\u8868\u60c5\u5305|emoji|sticker|\u56fe\u7247|\u8d34\u56fe|gif)$/.test(n)) return false; // \u7a7a\u8868\u60c5\u6807\u8bb0\uff0c\u4e22
+          if (!n) return w;
+          if (/^(\u8868\u60c5|\u8868\u60c5\u5305|emoji|sticker|\u56fe\u7247|\u8d34\u56fe|gif)$/.test(n)) return null; // \u7a7a\u8868\u60c5\u6807\u8bb0\uff0c\u4e22
           const hit = emoNormMap.get(n);
-          if (hit) { emoteWordKws.push(hit); return false; }
-          return true;
-        });
+          if (hit) return EMOTE_SLOT(hit);
+          return w;
+        }).filter(w => w != null);
       }
       // 掉格式兜底（她 2026-09-22 给的读者样张）：整整一轮全是身体动作描写、
       //   一句话都没说，四条白气泡条条带已读——那不是消息，是一段线下正文被塞进了聊天框。
@@ -13352,6 +13368,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
         if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
+        const _eSlot = emoteSlotOf(words[i]);
+        if (_eSlot != null) { const _e = emoteWordKws[_eSlot]; if (_e && !_e.sent) { _e.sent = true; await sendEmoteKw(_e.kw); } continue; }
         const _slot = typeof voiceSlotOf === "function" ? voiceSlotOf(words[i]) : null;
         if (_slot != null) {
           const _v = _inlineVoice[_slot];
@@ -13379,21 +13397,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // TA 甩了一张表情：按关键词匹配可用表情，作为一条 emote 消息
       const emoteKw = parsed.emote && String(parsed.emote).toLowerCase() !== "null" ? String(parsed.emote).trim() : null;
       // parsed.emote（正规渠道）+ 从文字气泡里抽出来的表情，一并发出
-      const allEmoteKws = (emoteKw ? [emoteKw] : []).concat(emoteWordKws);
-      if (allEmoteKws.length && emotes.length) {
-        // 去重（v48.73）：emote 字段和「[表情] xxx」文字气泡可能指向同一张表情→只发一次，别一文一图两条
-        const _seenEmote = new Set();
-        for (const kw of allEmoteKws) {
-          const match = emoteMatch(emotes, kw);
-          if (match && !_seenEmote.has(match.id || match.keyword)) {
-            _seenEmote.add(match.id || match.keyword);
-            await new Promise(r => setTimeout(r, 420));
-            pChat(chatKey, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
-            delivered = true;
-            notifyBubble("[表情] " + match.keyword, "emote-" + (match.id || match.keyword));
-          }
-        }
-      }
+      // 单独那一栏 emote 和没在原位置发出去的（被哪一道弄丢了占位）补在最后；跟上面就地发的去重
+      const allEmoteKws = (emoteKw ? [emoteKw] : []).concat(emoteWordKws.filter(e => !e.sent).map(e => e.kw));
+      for (const kw of allEmoteKws) { await new Promise(r => setTimeout(r, 420)); await sendEmoteKw(kw); }
       // TA 发语音消息（显示成语音气泡+转文字）。v48.31：元素兼容两代形态——"转文字" 或 {t, emo}（emo=作者标的语气，TTS 优先用它）
       // 只剩就地没发出去的（被中间哪一道弄丢了占位）才补在这儿，平常是空的
       const vArr = _inlineVoice.filter(v => !v.sent).map(v => ({ t: v.t, emo: v.emo }));
@@ -13773,7 +13779,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
       if (!sideRoom) observeEmotionAShadow(charId, _affD, parsed.mood && parsed.mood.label);
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。
-      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.filter(w => voiceSlotOf(w) == null).map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
+      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.filter(w => voiceSlotOf(w) == null && !/^\W*emoteslot\d+\W*$/.test(String(w))).map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
       const stateNow = Date.now();
       const _live0 = statesRef.current[charId] || {};

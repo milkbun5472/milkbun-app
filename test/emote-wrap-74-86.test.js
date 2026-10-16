@@ -11,5 +11,8 @@ test("【emote：…】整条认成表情，切成两半的先拼回去", () => 
   assert.ok(OPEN.test("【emote：白色小狗一脸自豪"));
   assert.equal(("【emote：白色小狗一脸自豪" + "任由黄色小狗摸头夸夸 】").match(RE)[1], "白色小狗一脸自豪任由黄色小狗摸头夸夸");
   assert.ok(!RE.test("这就发"), "普通话被吃了");
-  assert.match(app, /if \(mWrap && mWrap\[1\]\.trim\(\)\) \{ emoteWordKws\.push\(mWrap\[1\]\.trim\(\)\); return false; \}/);
+  // 2026-10-16 起认到的表情在原位置留 emoteslot（「单聊一定在最下面」），不再抽走攒到最后
+  assert.match(app, /if \(mWrap && mWrap\[1\]\.trim\(\)\) return EMOTE_SLOT\(mWrap\[1\]\.trim\(\)\);/);
+  assert.match(app, /const _eSlot = emoteSlotOf\(words\[i\]\);/);
+  assert.match(app, /emote:string=表情包关键词（想让表情夹在两句话中间/);
 });
