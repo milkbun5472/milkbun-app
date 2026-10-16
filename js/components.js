@@ -15364,6 +15364,45 @@ function GeoStampSheet({ recent, places, onMoveMe, onClose, onSend }) {
 //   等一会儿表情包库加载出来又好了」）。两种情况都是暂时的：
 //   ① 本机图库（iv_）这一张还没进缓存——显示的那一刻拿不到地址；② 外链图床慢、第一下超时。
 //   现在：iv_ 拿不到就自己去图库取一次；外链出错隔一会儿重试两次；地址变了就重新来。都不行才裂。
+// ── 聊天半窗（她 2026-10-16：「为什么不能开半窗把聊天界面放在这页上面」）─────────────
+//   在别的页面上直接跟他说两句，不跳走：下半屏是你俩主聊天的最近几十条，能打字、能「让他回」，
+//   发的、他回的都落在真聊天里（同一份），点「去聊天」才整页跳过去。别处想用就传 chatPeek 进来。
+//   chatPeek：{ msgsOf(id), send(id, text), reply(id) → Promise, open(id) }
+function ChatPeekSheet({ character, peek, onClose }) {
+  const t = useTheme();
+  const [text, setText] = useState("");
+  const [waiting, setWaiting] = useState(false);
+  const boxRef = useRef(null);
+  const msgs = (peek.msgsOf(character.id) || []).filter(m => m && (m.role === "user" || m.role === "assistant")).slice(-40);
+  useEffect(() => { const el = boxRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length, waiting]);
+  const label = m => m.kind === "photo" || m.kind === "selfie" ? (m.imageRef || m.imgUrl ? null : "［照片］" + (m.desc || ""))
+    : m.kind === "emote" ? null : m.kind && !m.content ? "［" + m.kind + "］" : String(m.content || "");
+  const say = () => { const v = text.trim(); if (!v) return; setText(""); peek.send(character.id, v); };
+  const reply = async () => { const v = text.trim(); if (v) { setText(""); peek.send(character.id, v); } setWaiting(true); try { await peek.reply(character.id); } catch (e) {} setWaiting(false); };
+  return h("div", { "data-wk": "chatpeek", style: { position: "fixed", inset: 0, zIndex: 120, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,.28)" }, onClick: onClose },
+    h("div", { onClick: e => e.stopPropagation(), style: { height: "62%", background: t.bg, borderRadius: "16px 16px 0 0", display: "flex", flexDirection: "column", boxShadow: "0 -8px 24px rgba(0,0,0,.16)" } },
+      h("div", { className: "flex items-center", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line, gap: 8 } },
+        h(Avatar, { character, size: 28, radius: 8 }),
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, character.remark || character.name),
+        peek.open ? h("button", { onClick: () => { onClose(); peek.open(character.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.accent, padding: "6px 4px" } }, "去聊天") : null,
+        h("button", { onClick: onClose, "aria-label": "收起", className: "active:opacity-60", style: { fontSize: 15, color: t.fog, padding: "6px 6px" } }, "✕")),
+      h("div", { ref: boxRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 14px" } },
+        msgs.map((m, i) => {
+          const mine = m.role === "user", lb = label(m);
+          const img = (m.kind === "photo" || m.kind === "selfie") && (m.imageRef || m.imgUrl) ? (typeof resolveImg === "function" ? resolveImg(m.imageRef || m.imgUrl) : (m.imageRef || m.imgUrl)) : null;
+          return h("div", { key: m.id || i, className: "flex " + (mine ? "justify-end" : "justify-start"), style: { marginBottom: 7 } },
+            m.kind === "emote" ? h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 80 })
+              : img ? h("img", { src: img, alt: "", style: { maxWidth: "62%", maxHeight: 180, borderRadius: 10, background: "#fff" } })
+              : h("div", { style: { maxWidth: "78%", padding: "7px 11px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                  background: mine ? (t.tint || t.accent) : t.bg2, color: mine ? "#fff" : t.ink } }, lb));
+        }),
+        waiting ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, (character.remark || character.name) + " 正在输入…") : null),
+      h("div", { className: "flex items-end", style: { gap: 8, padding: "8px 12px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.5 + 10px)", borderTop: "1px solid " + t.line } },
+        h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: "说点什么…", className: "flex-1 outline-none resize-none",
+          style: { minWidth: 0, minHeight: 40, maxHeight: 96, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: 14 } }),
+        h("button", { onClick: say, disabled: !text.trim(), className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { height: 40, padding: "0 12px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "发送"),
+        h("button", { onClick: reply, disabled: waiting, className: "shrink-0 active:opacity-70 disabled:opacity-40", style: { height: 40, padding: "0 12px", borderRadius: 12, background: t.tint || t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, waiting ? "…" : "让他回"))));
+}
 function EmoteBubble({ url, keyword, max }) {
   const t = useTheme();
   const raw = url;
