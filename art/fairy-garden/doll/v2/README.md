@@ -81,6 +81,8 @@
   - 连衣裙没有单独的「裤子」「点缀」色槽；鞋照样 `make_shoes()` 补一双深棕的。
 - **M04 刺刺短发**（ID 沿用旧的 `pixie`）：发壳 `hunyuan-m04-shell.glb` 自带耳朵缺口。`INNER=.9 DZ=-.1 python3 fit_shell.py …`，再 `FRINGE_K=.8 python3 shape_hair.py …`（刘海收短到和 85% 那版一样长，头发其余部分还是 90%）。
 - **C03 连帽卫衣工装裤**（ID 沿用旧的 `ranger`）：`UNDER_TEX=1 SLEEVE_K=.35 UREACH=.3 CONFORM_TOP=.55 UNDER=1 CRUMB=200 S=.63 SY=1.3 Z0=.06 python3 skin_outfit.py …`（`UCOL` 底衣换成卫衣色；裤子到脚踝，`Z0` 放低）。补一双浅棕鞋。
+  - 贴颈衬里：`repair_hoodie_neck.py` 降低本套 torso 遮挡到 `.675`，沿实际 DollBody 射线贴合一圈连续厚边内领，遮住皮肤下缘并避免胸口穿布。只加 `outfit_ranger_neck_lining`，原衣帽、袖子、包裤鞋与贴图保留；内领随卫衣配色、原 body 骨与六体型。`clean_hoodie()` 的旧件迁移／重建都调用它，已完成标记防重复。单件迁移：`Blender -b --python-exit-code 1 --python repair_hoodie_neck.py -- before.glb ranger.glb`。
+  - `sewn_fabric.py` 共用夹克领片的厚边、配色和形态键生成；夹克重建字节一致。`hoodie-neck-assets.py` 验64端点、原网格六形态／贴图、闭合与幂等；`hoodie-neck-browser.cjs` 让真实 skin shader 的下缘显色，原遮挡能检出132像素，修后64体型×4方向×2头颈姿势的512帧为0，并验实际陪伴入口与换装隔离。
 - **体积**：web 件按用途减面（身体 `TRIS=20000`、衣服 `15000`、头发 `18000`），组装时 Draco 量化调低、形态键存稀疏。三套衣服 + 五款发型的 `doll.glb` 约 3.9MB（原来 6.2MB），庭院里看不出差别。体积大头是体型滑杆的形态键（没被 Draco 压）。
 - **C04 小兔毛衣**（ID 沿用旧的 `cardigan`，自带球鞋，不补鞋）：这件是照腿长、身瘦的人生成的——`LIFT=.1` 把腰以上整体提到肩膀（鞋留在地上），`SX` 控制宽度。`UNDER_TEX=1 ARM_SKIP=1 UREACH=.2 CONFORM_TOP=.68 UNDER=1 CRUMB=200 LIFT=.1 SX=1.0 SY=1.5 S=.63 Z0=-.01`。`CONFORM_TOP` 要盖到胸口，否则粉色底衣会盖住小兔图案。袖子和身体连成一片，压短袖口会皱，所以保持长袖。
   - `UNDER_TEX=1`：底衣不再是纯色，而是用毛衣自己的贴图（取上臂附近布料的中位色那一点），颜色和明暗跟毛衣一样，看不出垫了一层。
@@ -100,7 +102,10 @@
   - `side_lining()`：腋下补一片夹克色的身体侧面复制层（外推 4 mm、绑躯干），抬手时这里不再是洞。
   - 皮肤遮挡：`torsoAbove 0`（长裤到脚）、`coversFeetBelow .12`。
 - ⚠️Blender 5（pip `bpy`）里新建颜色属性会让之前拿到的 UV 层失效，`round_sleeves.py` 现在两个都建好再按名字取。
-- 验图：`scripts/checks/shared-cloth-browser.cjs` 591 格（默认/最小/最大/改色，十种动作四个方向）。已知：抬手时夹克侧边还有一点细毛边；衬衫在减面后略有棱角。
+- 领口：`refine_jacket_collar.py` 仅替换原碎裂领片与衬衫领根，白衬衫领、外套翻领各为连续厚度曲面，沿原六体型形态键与 body 骨绑定。保留原肩膀、袖子、口袋、裤子、鞋及贴图；新增领片用 `dyeSlot` 明确归属内搭或夹克，原衬衫缩短后的 UV 岛仍归内搭。`add_outfit()` 在侧缝修补后调用同一入口，版本标记避免重复加工。
+  - 原完整母版在场时直接运行脚本；仅迁移现役按需资产时：`Blender -b --python-exit-code 1 --python refine_jacket_collar.py -- before.glb jacket.glb`。不要重组其他衣服。
+  - `scripts/checks/jacket-collar-assets.py` 验原纹理、下方衣物和袖子、192 个领片体型端点、封闭厚边及幂等；`jacket-collar-browser.cjs` 验实际陪伴入口、正侧背、体型、动作及三片独立染色。`outfit-dye-browser.cjs` 验七套原配色与复位。
+- 其余验图：`scripts/checks/shared-cloth-browser.cjs`。已知的原侧边细毛边、口袋和衣身减面细节不由领口修补覆盖。
 
 ## C06 小西装短裤（`suit`，2026-09-26）
 

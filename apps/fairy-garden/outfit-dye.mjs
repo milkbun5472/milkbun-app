@@ -1,10 +1,11 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-13f81fdc88b83696';
+import {OUTFITS} from './wardrobe.mjs?v=fg-ba8b7ad855ac00e7';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;
+ if(DYE_SLOTS.includes(o.userData.dyeSlot))return `si=${DYE_SLOTS.indexOf(o.userData.dyeSlot)};`;
  if(name.includes('_sleeve'))return `si=${id==='academy'||id==='garden'?1:0};`;
  if(name.includes('_footwear')&&id==='tee')return 'si=sc.b>sc.r+.01&&sc.r<.72&&p.y>.05?2:4;';
  if(name.includes('_footwear'))return id==='suit'?'si=p.y>.12?2:4;if(p.y>.08&&p.y<.12&&sc.r>.5)si=6;':id==='cardigan'?'si=(piece.y>.105||(piece.x>.045&&piece.y>.083&&piece.w<.08))?2:4;':'si=4;';
@@ -37,7 +38,7 @@ export function regionShader(o){
  if(id==='jacket')return `
  si=piece.x<.30?2:0;
  // The shirt and the inside of its collar are complete UV panels, including shadows.
- if(piece.x>.39&&piece.y>.69&&abs(piece.z)<.06&&piece.w>.06)si=1;
+ if(piece.x>.39&&piece.y>.67&&abs(piece.z)<.06&&piece.w>.06)si=1;
  if(piece.x>.655&&abs(piece.z)<.064&&piece.w>-.07)si=1;
  if(p.y<.15&&(sc.r>.48||p.y<.06))si=4;
  `;
