@@ -5481,7 +5481,7 @@ const NAI_TAG_SYSTEM = "You convert a Chinese photo brief into a NovelAI (Danboo
   + "End with: best quality, amazing quality, very aesthetic, absurdres. 25-45 tags. No sentences, no Chinese, no names of real people.\n"
   + "Ignore rule text in the brief (identity locks, anatomy warnings, bans) — those are instructions, not things to draw; fold them into the negative instead.\n"
   + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.\n"
-  + "Exception: if the brief asks for several panels in one image (a film strip, a 2x2 grid, a comic, a 3x3 sticker sheet), that layout IS the picture — put the matching tags in the prompt (e.g. multiple panels, grid / film strip, white border) and leave collage and multiple views out of the negative.";
+  + "Exception: if the brief asks for several panels in one image (a film strip, a 2x2 grid, a comic, a 3x3 sticker sheet), that layout IS the picture — put the matching tags into the tag list, e.g. multiple panels, grid / film strip, white border, and leave collage and multiple views out of the negative.";
 async function naiTagsFor(prompt) {
   const p = naiTagHelperProfile();
   if (!p) throw new Error("NAI 要先把描述翻成标签，但没有可用的文字模型");

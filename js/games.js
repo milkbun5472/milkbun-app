@@ -7660,7 +7660,7 @@
     const toggle = function (uid) { setPick(function (p) { return p.indexOf(uid) >= 0 ? p.filter(function (x) { return x !== uid; }) : p.concat([uid]); }); };
     const lead = state.phase === "play" && (!state.last || state.last.by === state.turn || state.last.cleared);
     const pickCombo = me && state.phase === "play" ? ddzAnalyze((u ? u.hand : []).filter(function (c) { return pick.indexOf(c.uid) >= 0; })) : null;
-    const btn = function (label, onClick, color, dis, wk) { return h("button", { "data-wk": wk, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
+    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
     const showAll = spectate || state.phase === "done" || state.status === "finished";
     return h("div", { "data-wk": "gameplay", "data-part": "doudizhu", className: "h-full flex flex-col", style: gameTable("doudizhu", t) },
       h(Head, { zh: "斗地主", en: state.status === "finished" ? "打完了" : ("第 " + state.round + " / " + DDZ_ROUNDS + " 局" + (actor ? " · " + (state.phase === "bid" ? actor.name + " 叫分" : "轮到 " + actor.name) : "")), onBack: props.onBack, bg: "transparent" }),
@@ -7706,9 +7706,9 @@
           [0, 1, 2, 3].map(function (n) { return h("button", { key: n, onClick: function () { act(function (s) { ddzBid(s, n, say); }); }, disabled: n > 0 && n <= state.bid.n,
             style: { border: 0, borderRadius: 999, padding: "11px 6px", color: "#fff", background: n > 0 && n <= state.bid.n ? t.line : n ? t.tint : "#7a6f66", fontFamily: F_BODY, fontSize: 13.5 } }, n ? n + " 分" : "不叫"); })) :
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 6 } },
-          btn("提示", function () { setPick(ddzHint(state, state.turn)); }, "#7a6f66", false, "gameddzhint"),
-          btn("不出", function () { act(function (s) { ddzPlay(s, [], say); }); }, t.ink, lead, "gameddzpass"),
-          btn(pickCombo ? "出 " + DDZ_TYPE_ZH[pickCombo.type] : "出牌", function () { act(function (s) { ddzPlay(s, pick, say); }); }, "#c0553f", !pickCombo, "gameddzplay"))) :
+          btn("提示", function () { setPick(ddzHint(state, state.turn)); }, "#7a6f66", false, { wk: "gameddzhint" }),
+          btn("不出", function () { act(function (s) { ddzPlay(s, [], say); }); }, t.ink, lead, { wk: "gameddzpass" }),
+          btn(pickCombo ? "出 " + DDZ_TYPE_ZH[pickCombo.type] : "出牌", function () { act(function (s) { ddzPlay(s, pick, say); }); }, "#c0553f", !pickCombo, { wk: "gameddzplay" }))) :
       busy && actor ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, actor.name + (state.phase === "bid" ? " 在想叫不叫…" : " 在理牌…")) : null);
   }
 
