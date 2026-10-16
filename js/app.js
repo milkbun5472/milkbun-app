@@ -26,21 +26,23 @@ const FORUM_NPC_REGISTRY = [
   //   一帖十几楼，摊在两三个熟面孔身上，谁写都是一个调调。
   //   「脑洞吧」原来只有摸鱼办主任和沙发不是我的两个人，「兴趣吧」只有三个。
   //   放宽的是【这几位本来就说得上话的吧】，没有新编人——人少才是那个病。
-  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人" },
-  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊" },
-  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准" },
-  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话" },
-  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物" },
-  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风" },
-  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素" },
-  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜" },
-  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛" },
-  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立" },
+  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人", shua: { name: "摸鱼中勿扰", voice: "刷到就截图转给同事的上班族，评论区冷不丁一句冷笑话，弹幕爱发「下班了吗」" } },
+  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊", shua: { name: "雨天带了伞", voice: "收藏夹比关注多的生活区观众，爱在评论区补一句实用小窍门，偶尔把视频里的东西认错" } },
+  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准", shua: { name: "小区猫片收集员", voice: "专刷萌宠和街拍，话少，一句「这只猫我见过」能顶十句" } },
+  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话", shua: { name: "暂停逐帧党", voice: "爱暂停逐帧找细节的考据型观众，评论里常写「02:13 那一帧」，挑错但给出处" } },
+  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧", "兴趣吧"], voice: "吃喝派，热心但容易把话题拐到食物", shua: { name: "饭点准时刷", voice: "吃播和探店的忠实观众，什么视频都能拐到吃的，常问「这家在哪」" } },
+  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧", "脑洞吧"], voice: "先质疑再给建议，有边界感，不爱跟风", shua: { name: "先别急着冲", voice: "冷静派，不跟风刷屏，喜欢在一片「嗑到了」里问一句「真的假的」" } },
+  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧", "兴趣吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素", shua: { name: "省钱小能手", voice: "平价好物爱好者，评论区专问价格和链接，爱讲自家的小事" } },
+  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧", "脑洞吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜", shua: { name: "凌晨三点还醒着", voice: "深夜才刷的夜猫子，评论偏感性但不煽情，常是一条视频底下最后冒出来的那个" } },
+  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧", "脑洞吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛", shua: { name: "前排占座", voice: "抢前排、玩梗型，第一个冒出来刷「来了来了」，遇到正经事会收敛" } },
+  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧", "兴趣吧", "脑洞吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立", shua: { name: "课代表来了", voice: "B站式课代表，爱把视频总结成一二三，也会指出视频里说错的地方" } },
   { id: "npc_anon_thirdcat", name: "三楼的猫", handle: "third_floor_cat", boards: ["匿名吧"], voice: "谨慎克制，只谈感受不猜身份" },
   { id: "npc_anon_nightbus", name: "末班车乘客", handle: "last_bus", boards: ["匿名吧"], voice: "深夜坦白型，懂得共情但不强行劝和" },
   { id: "npc_anon_blank", name: "id已隐藏", handle: "hidden_id", boards: ["匿名吧"], voice: "直接、现实，尊重隐私，不追问细节" },
   { id: "npc_anon_deleted", name: "注销前说一句", handle: "before_logout", boards: ["匿名吧"], voice: "偶尔尖锐，反感套话，习惯提醒风险和后果" }
 ];
+// shua：同一个人在片刻（短视频）上的网名和刷视频的习惯（她 2026-10-16：「同一批人，人设符合刷抖音和 B 站的习惯，网名可以改」）。
+//   是同一个人：跟她的碰面账（x_forumPublicTies）两边共用，论坛里熟了片刻里也认得。
 // 论坛熟面孔之间的公开交情：只决定公开回帖时的接梗/抬杠方式，不进角色私聊或记忆库。
 // 固定 pair + 固定描述，让他们跨帖子认得彼此；不是每次让模型重新编一套关系。
 // 私信一次刷几个人、手上最多留几个会话（她 2026-09-01：「私信刷出来的人数放大点」）。
@@ -30576,6 +30578,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 情侣号只给在一起的人开（她 2026-10-07）
       confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),
+      // 片刻的熟面孔＝论坛那批人换了个网名（shua）；碰面账、彼此的交情都是同一份
+      regulars: () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); },
+      regularPairs: () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.replace(new RegExp(a.name, "g"), a.shua.name).replace(new RegExp(b.name, "g"), b.shua.name) } : null; }).filter(Boolean),
+      touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),
       coupleOf: id => (couplesRef.current || {})[id] || null,   // 情侣号纪念日：在一起是哪天
       live: liveProps,
       // 视频分享给 TA（她 2026-10-07）：跟直播回放一样，落一张卡、可选小房间、不让TA当场开口

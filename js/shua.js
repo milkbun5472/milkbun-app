@@ -92,7 +92,7 @@
         + "。他们评不评、评什么、当着网友的面说成什么样，照他们跟你的关系来，写进 friends（name 只能是这几个；一个都没刷到就空着）。" : "");
   }
   const NPC_SHAPE = '{"videos":[{"author":"","scene":"","who":"none","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
-  function npcSystem(uName, persona, n, skin, hot) {
+  function npcSystem(uName, persona, n, skin, hot, regs) {
     return AC() + CB()
       + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "——推荐流里会有几条在蹭这些。\n" : "")
       + DATE_FACT().slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
@@ -100,7 +100,8 @@
       + "\n\n每条一个不同的博主。题材、拍法、口吻、热度各不一样：有大号有小号，有认真做内容的也有随手一拍的。"
       + "\n写 videos（" + n + " 条），每条：author 博主网名、scene 视频里拍了什么（2~4 句，像在讲一段视频怎么走）、who 画面里有没有人（self 博主本人出镜 / part 只露手或背影 / none 没有人）、"
       + "caption 文案（" + CAPTION_FACT + "）、tags 话题（0~4 个，不带井号）、likes 点赞数（数字）、comments 评论（2~5 条，name 网友网名，text）。"
-      + (skin === "b" ? B_EXTRA : V_FACT);
+      + (skin === "b" ? B_EXTRA : V_FACT)
+      + (regs ? regs + "\n这一批里可以有一条是熟面孔自己发的（author 照抄网名，拍的是他平时会拍的东西）。" : "");
   }
   // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
   const SPOT_SHAPE = '{"spots":[{"name":"","comment":"","recognized":false,"why":""}]}';
@@ -132,7 +133,22 @@
   //   照论坛「回我那层楼」那一套：一枪写 2~5 条接在她这句后面——被她回的那个人【必回】，
   //   作者看情况，再来几个路人，可以互相搭话、唱反调；不是每条都冲着她。
   //   原来只有作者一个人、还写着「不想回就留空」，于是常常一句没有；路人的视频更是谁都不理她。
-  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":""}]}';
+  const CROWD_SHAPE = '{"items":[{"name":"","text":"","to":"","tone":""}]}';
+  // ── 熟面孔（她 2026-10-16：「论坛有意思是因为有一套熟人系统…片刻里面没有」）──────────────
+  //   就是论坛那批常驻网友，换了片刻上的网名和刷视频的习惯。跟她的碰面账两边共用。
+  //   regs：[{id,name,voice,tie}]；pairs：他们之间的交情；me：她这次用的号名
+  function regularsBlock(regs, pairs, me) {
+    if (!regs || !regs.length) return "";
+    const pick = regs.filter(r => r.tie && r.tie.encounters).concat(regs.filter(r => !(r.tie && r.tie.encounters)).sort(() => Math.random() - 0.5)).slice(0, 6);
+    const ids = new Set(pick.map(r => r.id));
+    const tieOf = r => { const t = r.tie; if (!t || !t.encounters) return ""; const n0 = Math.min(9, t.encounters);
+      const how = (t.warm || 0) >= (t.spar || 0) * 2 && t.warm > 1 ? "，碰上多半聊得来" : (t.spar || 0) >= (t.warm || 0) * 2 && t.spar > 1 ? "，碰上多半要抬两句杠" : "";
+      return "；跟 @" + me + " 在评论区碰过 " + n0 + " 次" + how + "，再遇见认得出这个号，可以接着以前的调子（但不知道她的私生活）"; };
+    const ps = (pairs || []).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
+    return "\n\n【这个平台上的熟面孔】下面几位是常在这儿刷视频、发评论的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
+      + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同一条底下碰见了可以接旧梗、互损，别每次重新认识。" : "")
+      + "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。";
+  }
   // 她评论之后那一串——一枪写完（她 2026-10-15：「论坛都不用两次调用」）。
   //   第一版 ooc 的病根不在一枪，在【没告诉模型谁是谁】：情侣号是他俩共用的、评论的「Lisa」就是他女朋友本人，
   //   都没写，于是他把自己的号当外人、把她当路人怼。现在把这几条身份钉死在最前面，再写路人。
@@ -146,6 +162,7 @@
       + "\n\n「" + o.me + "」刚说了：「" + o.text + "」。写接在后面的正好 " + o.n + " 条回复 items（name、text、to 回的是这串里谁——照抄名字）："
       + (o.must ? "\n① 第一条必须是「" + o.must + "」回她的（name 照抄「" + o.must + "」）" + (o.mustChar ? "——就是上面那个人本人。TA平时怎么跟她说话，在评论区还是那个样子：网友看着不会让TA换一副腔调，该撩就撩、该贫就贫、该护着就护着，照TA的人设和你俩的关系来。是打字，没有动作和旁白；长短照TA想回的" : "——人家被回了总要接一句，冷淡、怼回去也算") + "。" : "")
       + "\n" + (o.must ? "② 其余" : "") + "是刷到这里的陌生网友：不认识这串里任何人，不知道谁跟谁什么关系。像真在刷评论区——短，一句甚至几个字；不复述视频、不总结、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问；口气、长短、标点各不一样。可以回她，也可以回楼里别人。"
+      + (o.regs || "")
       + "\n⚠️「" + o.me + "」是真人本人，绝对不许以她的名义写任何一句。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
@@ -250,7 +267,9 @@
     const sendEmo = em => { if (!em || !em.url || busy) return; const x = "[表情：" + (em.keyword || "表情") + "]"; setEmoOpen(false);
       if (replyTo && onReply) { onReply(replyTo.id, x, replyTo.sub ? replyTo.name : "", em.url); setReplyTo(null); return; } onSend(x, em.url); };
     const emoImg = u => u ? h("img", { src: typeof resolveImg === "function" ? resolveImg(u) : u, alt: "", style: { display: "block", width: 72, height: 72, objectFit: "contain", marginTop: 4, borderRadius: 8 } }) : null;
-    const nameOf = (x, label) => x.by === "char" && x.charId && onPerson
+    // 熟面孔名字后面带个小标（论坛那批老网友）
+    const regTag = x => x.reg ? h("span", { "data-wk": "shuaregtag", style: { marginLeft: 4, padding: "0 4px", borderRadius: 4, fontSize: 9.5, border: "1px solid " + P.line, color: P.dim } }, "熟面孔") : null;
+    const nameOf = (x, label) => x.reg ? h("span", null, label, regTag(x)) : x.by === "char" && x.charId && onPerson
       ? h("button", { "data-wk": "shuacmtperson", onClick: () => onPerson(x.charId), className: "active:opacity-60", style: { color: "inherit", font: "inherit", padding: 0 } }, label) : label;
     const moreBtn = onMore ? h("button", { "data-wk": "shuamorecmt", onClick: onMore, disabled: !!more, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: P.accent, minHeight: 36, padding: "0 10px" } }, more ? "有人路过…" : "刷点评论") : null;
     const [replyTo, setReplyTo] = useState(null);   // { id 那条评论, name 回的是谁 }
@@ -711,10 +730,10 @@
       const sk = skin;
       setBusy("npc");
       try {
-        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday())
+        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday(), regsText())
           + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
             + (props.cityNote ? props.cityNote(city) : "") : ""), shapeNpc(sk));
-        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {})));
+        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {}, regOf(x.author) ? { reg: regOf(x.author) } : {})));
         if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
         addVideos(vids); setPage(null); setTab("home"); setFeed(city ? "city" : "rec");
         posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0;
@@ -749,7 +768,7 @@
         const CROWD_N = [3, 4, 4, 5, 5, 6, 6, 7, 8, 9, 10, 12];
         const crowdN = CROWD_N[Math.floor(Math.random() * CROWD_N.length)];
         const nTotal = (must ? 1 : 0) + (must ? crowdN : Math.max(1, crowdN));
-        const d = await props.ask(crowdSystem(v, { me: myName, text: myText, n: String(nTotal), must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
+        const d = await props.ask(crowdSystem(v, { regs: regsText(), me: myName, text: myText, n: String(nTotal), must, mustChar: !!resp, ids, brief: resp && props.briefFor ? props.briefFor(resp) : "", transcript: lines.join("\n") }), CROWD_SHAPE, (resp || authorC || {}).id);
         const items = arr(d && d.items).filter(x => x && S(x.text) && S(x.name) && S(x.name) !== myName).slice(0, nTotal + 1);
         let wait = 0;
         items.forEach((x, k) => {
@@ -758,7 +777,9 @@
           // 路人顶着认识的人的名字说话：丢掉
           if (!isResp && resp && name === must) return;
           const to = S(x.to) && S(x.to) !== name ? S(x.to).slice(0, 20) : "";
-          const r = { id: uid("rp"), name, text: S(x.text).slice(0, 300), by: isResp ? "char" : "npc", ...(isResp ? { charId: resp.id } : {}), ...(isResp && resp === authorC ? { isAuthor: true } : {}), ...(to ? { to } : {}), ts: Date.now() + k };
+          const reg = isResp ? null : regOf(name);
+          if (reg && to === myName) touchReg(reg, "theirs", x.tone);
+          const r = { id: uid("rp"), name, text: S(x.text).slice(0, 300), by: isResp ? "char" : "npc", ...(isResp ? { charId: resp.id } : {}), ...(isResp && resp === authorC ? { isAuthor: true } : {}), ...(reg ? { reg } : {}), ...(to ? { to } : {}), ts: Date.now() + k };
           wait += k ? 900 + Math.random() * 2200 : 500;
           setTimeout(() => { put(r); if (to === myName || (k === 0 && must)) note(name + " 回复了你：" + r.text, vid); }, wait);
         });
@@ -766,6 +787,10 @@
         setTimeout(() => setBusy(b => b === "reply" ? null : b), wait + 200);
       } catch (e) { toast("回复没刷出来：" + ((e && e.message) || "")); setBusy(null); }
     };
+    // 熟面孔（论坛那批人）：拼进提示词的那一段、按网名认人、记碰面账（她用小号时不记，跟论坛一样）
+    const regsText = () => props.regulars ? regularsBlock(props.regulars(), props.regularPairs ? props.regularPairs() : [], myName) : "";
+    const regOf = name => { if (!props.regulars) return null; const r = props.regulars().find(x => x.name === S(name)); return r ? r.id : null; };
+    const touchReg = (id, dir, tone) => { if (id && props.touchRegular && !onAlt) props.touchRegular(id, dir, tone === "warm" || tone === "spar" ? tone : ""); };
     // 刷点评论（她 2026-10-15：「跟论坛一样可以不用自己评论直接生成路人评论」）：一枪写一批路过的网友，
     //   有的另起一条，有的回底下已有的那几条；一两秒冒一条。认识的人不在这一枪里（他们各走自己那份）。
     const moreComments = async vid => {
@@ -779,7 +804,7 @@
         + (have ? "\n\n【底下已有的评论】\n" + have : "\n\n底下还没有评论。")
         + "\n\n写正好 " + n + " 条刚刷到这条的陌生网友的评论 items（name 网名、text、to：要是在回底下某一条就照抄那条的网名，另起一条就空着）。"
         + "\n他们素不相识，只看得见这条视频和这些评论，不认识「" + known.join("」「") + "」，只当普通账号。像真在刷评论区：短，一句甚至几个字；不复述视频、不写作文；有人只发「哈哈哈哈」或表情，有人抓一个词起哄，有人唱反调，有人答非所问，有人在楼里接别人的话；口气、长短、标点各不一样。"
-        + "\n⚠️不许以「" + known.join("」「") + "」的名义写任何一句。";
+        + "\n⚠️不许以「" + known.join("」「") + "」的名义写任何一句。" + regsText();
       setBusy("more:" + vid);
       try {
         const d = await props.ask(sys, CROWD_SHAPE, authorC ? authorC.id : null);
@@ -790,10 +815,11 @@
         items.forEach((x, k) => {
           wait += k ? 700 + Math.random() * 1800 : 300;
           setTimeout(() => patchV(vid, xv => {
-            const name = S(x.name).slice(0, 20), text = S(x.text).slice(0, 200), to = S(x.to);
+            const name = S(x.name).slice(0, 20), text = S(x.text).slice(0, 200), to = S(x.to), reg = regOf(name);
+            if (reg && to === myName) touchReg(reg, "theirs", x.tone);
             const host = to && to !== name ? arr(xv.comments).find(c => c.name === to) || arr(xv.comments).find(c => arr(c.replies).some(r => r.name === to)) : null;
-            if (host) return Object.assign({}, xv, { comments: arr(xv.comments).map(c => c.id === host.id ? Object.assign({}, c, { replies: arr(c.replies).concat([{ id: uid("rp"), name, text, by: "npc", ...(to !== host.name ? { to } : {}), ts: Date.now() }]) }) : c) });
-            return Object.assign({}, xv, { comments: arr(xv.comments).concat([{ id: uid("cm"), name, text, by: "npc", ts: Date.now() }]) });
+            if (host) return Object.assign({}, xv, { comments: arr(xv.comments).map(c => c.id === host.id ? Object.assign({}, c, { replies: arr(c.replies).concat([{ id: uid("rp"), name, text, by: "npc", ...(reg ? { reg } : {}), ...(to !== host.name ? { to } : {}), ts: Date.now() }]) }) : c) });
+            return Object.assign({}, xv, { comments: arr(xv.comments).concat([{ id: uid("cm"), name, text, by: "npc", ...(reg ? { reg } : {}), ts: Date.now() }]) });
           }), wait);
         });
         setTimeout(() => setBusy(b => b === "more:" + vid ? null : b), wait + 200);
@@ -907,6 +933,7 @@
       patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([{ id: uid("rp"), name: myName, text, by: "me", ...(toName ? { to: toName } : {}), ...(emo ? { emo } : {}), ts: Date.now() }]) }) : cm) }));
       const sub = toName ? arr(target.replies).slice().reverse().find(r => r.name === toName && r.by !== "me") : null;
       const who = sub || (target.by !== "me" ? target : arr(target.replies).slice().reverse().find(r => r.by !== "me")) || null;
+      if (who && who.by === "npc") touchReg(who.reg || regOf(who.name), "mine");   // 她去接熟面孔的话
       crowd(v.id, cid, text, who);
     };
     const like = v => { patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() })); sawCandid(v); };
