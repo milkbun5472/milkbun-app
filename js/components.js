@@ -2074,7 +2074,10 @@ function VClockEditor({ v, onChange, compact, title }) {
         chip("+1 小时", false, () => put({ base: cur + 3600e3 })),
         chip("+6 小时", false, () => put({ base: cur + 6 * 3600e3 })),
         chip("+1 天", false, () => put({ base: cur + 86400e3 })),
-        chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); })),
+        chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); }),
+        // 对齐现实（她 2026-10-16：「调了虚拟时间然后调回来会差几秒」）——上面那格只到分钟，拨回来秒数对不上；
+        //   这颗把这只钟直接定到现实此刻、速度回到 ×1。钟照样开着，往后跟现实一起走
+        chip("对齐现实时间", false, () => put({ base: Date.now(), speed: 1 }))),
       h(VClockJump, { field, fs, onJump: f => put({ base: f(cur) }) }),
       // 离开小手机就停（群友 2026-10-11：「离开小手机后能设置时间静止么」）：切走、锁屏、关掉那段时间不算，回来接着走
       h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
