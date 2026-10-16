@@ -3344,6 +3344,8 @@
     const [busy, setBusy] = useState("");         // 内联小操作（发书评/回复）
     const chapterTaskKey = "fanfic:chapter:" + f.id;
     const [busyChap, setBusyChap] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(chapterTaskKey).busy); }); // 追更（离开阅读页仍继续）
+    // 改这一章：写完了也能回头改字（她 2026-10-16 群里许愿）。哪一章在改、改成什么，只活在这一页。
+    const [editIdx, setEditIdx] = useState(-1), [editTxt, setEditTxt] = useState("");
     const [busyMore, setBusyMore] = useState(false); // 「让TA接着写」那一枪：她按了才发
     const [busyBack, setBusyBack] = useState(false); // 「去请她回来」那一枪
     const [fileIdx, setFileIdx] = useState(-1);      // 正在挑「拿给谁看」的那一章
@@ -3532,6 +3534,19 @@
     // 所以翻页、阅读进度、分享给角色那几处一个字都不用改。
     // ⚠️endHook 留空：那是给续写用的锚点，她写的时候没这一栏——
     //   genNextChapter 拿到空的会自己写成「（无锚点）」，不会崩。
+    // 改这一章：只换这一章的字，谁写的、章末留言、锚点都不动——后面续写照样接得上。
+    function saveEditChapter(i) {
+      const txt = editTxt.trim();
+      if (!txt) { props.toast && props.toast("一章不能是空的"); return; }
+      props.onUpdate(f.id, function (fic) {
+        const chs = (fic.chapters || []).slice();
+        if (!chs[i]) return fic;
+        chs[i] = Object.assign({}, chs[i], { content: txt, edited: true });
+        fic.chapters = chs; fic.updatedAt = Date.now(); return fic;
+      });
+      setEditIdx(-1); setEditTxt("");
+      props.toast && props.toast("改好了");
+    }
     function saveMyChapter() {
       const txt = myChap.trim();
       if (!txt) { props.toast && props.toast("还没写呢"); return; }
@@ -3665,6 +3680,15 @@
             // 正文按【读小说】排：字大一档、行距松开、段与段之间留白。
             // AO3 是不缩进＋段间距那一派，中文长文这样读着最不累（v58.02）。
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 2.05, color: t.ink, letterSpacing: "0.01em" } },
+              editIdx === idx ? h("div", null,
+                h("textarea", { value: editTxt, onChange: function (e) { setEditTxt(e.target.value); },
+                  className: "w-full outline-none", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.95, padding: "13px 14px", borderRadius: 12,
+                    background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 320, resize: "vertical" }, "data-wk": "ficreadertext", "data-part": "改这一章" }),
+                h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
+                  h("button", { onClick: function () { setEditIdx(-1); setEditTxt(""); }, className: "active:opacity-70",
+                    style: { minHeight: 44, padding: "0 16px", borderRadius: 12, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.sub }, "data-wk": "ficreaderbtn", "data-part": "12" }, "不改了"),
+                  h("button", { onClick: function () { saveEditChapter(idx); }, className: "flex-1 active:opacity-80",
+                    style: { minHeight: 44, borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 }, "data-wk": "ficreaderbtn", "data-part": "13" }, "改好了"))) :
               String(ch.content || "").split(/\n\s*\n|\n/).filter(function (x) { return x.trim(); }).map(function (para, pi) {
                 return h("p", { key: pi, style: { margin: "0 0 1.05em" } }, para.trim());
               })),
@@ -3687,6 +3711,9 @@
               h("button", { onClick: function () { setFileIdx(idx); }, className: "active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 }, "data-wk": "ficreaderbtn", "data-part": "6" },
                 ch.byCharId ? "记进房间" : "拿给TA看"),
+              editIdx !== idx ? h("button", { onClick: function () { setEditIdx(idx); setEditTxt(String(ch.content || "")); }, className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 40 }, "data-wk": "ficreaderbtn", "data-part": "14" },
+                "改这一章") : null,
               filedNote ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, filedNote) : null),
             // 偷懒的那一章不许悄无声息地落盘（她 2026-09-11）。
             // ⚠️只留一行字 + 一颗键，**绝不自动再打一枪**——她定的：任何东西都不接受一次发两遍。
