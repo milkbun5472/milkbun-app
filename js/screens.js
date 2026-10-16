@@ -7296,7 +7296,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
     const HOME_REL = {
       lover: null,
       bestie: { days: ["闺蜜盖章", "天"], val: "默契值", act: "碰一下", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
-      friend: { days: ["知己认证", "天"], val: "交情", act: "报个到", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
+      friend: { days: ["挚友结盟", "天"], val: "交情", act: "报个到", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
       family: { days: ["空间开了", "天"], val: "暖度", act: "回家", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
     };
     const hr = HOME_REL[window.spaceRelKey ? window.spaceRelKey(cp[view]) : "lover"] || null;
