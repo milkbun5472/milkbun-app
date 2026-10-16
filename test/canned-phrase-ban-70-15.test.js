@@ -27,6 +27,9 @@ test("三族都点了名", () => {
   ["回去当面找你算账", "等我回去收拾你", "你给我等着", "扰乱军心", "皮痒了"]
     .forEach(q => assert.ok(!BAN.includes(q), "桥段那族又在念原句：" + q));
   assert.ok(BAN.includes("包成一句命令或威胁来收尾"), "桥段那族的骨架没说出来");
+  // 她 2026-10-16「这个别xxx也是高发事故地」：她还没做，先认定她会拖、提前怪上她——同样只讲骨架
+  assert.ok(BAN.includes("提前怪上她"), "预先怪她那一种没说出来");
+  assert.ok(!BAN.includes("别等我到了"), "又在念原句");
   assert.ok(BAN.includes("谁说都成立"), "要说清它坏在哪：换个人说一样成立");
   assert.ok(BAN.includes("三族"), "开头那句还写着两族");
 });
