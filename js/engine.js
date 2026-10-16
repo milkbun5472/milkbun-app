@@ -5853,6 +5853,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (r0.ok) return new Response(txt, { status: 200, headers: { "Content-Type": "application/json" } });   // 中转回 JSON：交给 parseOut
       return new Response(JSON.stringify({ error: { message: "NAI 原生（" + url + "）：" + (txt.slice(0, 300) || ("HTTP " + r0.status)) } }), { status: r0.status, headers: { "Content-Type": "application/json" } });
     };
+    // 有的站（官方 gpt-image 那一路）不认 response_format，回「Unknown parameter: 'response_format'」（群里 2026-10-16）。
+    //   这是参数校验当场打回、一张都没画、不扣钱，所以不算「失败重试」：去掉它再发一次，并按站记下来，以后这家就不带了。
+    const rfKey = String(a.baseUrl || "").trim().replace(/\/+$/, "");
+    const rfOff = typeof loadJSON === "function" && !!((loadJSON("x_imgNoRespFmt", {}) || {})[rfKey]);
+    const rfRejected = async resp => {
+      if (!resp || resp.status !== 400) return false;
+      const tx = await resp.clone().text().catch(() => "");
+      if (!/unknown parameter[^\n]{0,20}response_format|response_format[^\n]{0,40}(unknown|unsupported|not supported|not allowed)/i.test(tx)) return false;
+      try { const m = loadJSON("x_imgNoRespFmt", {}) || {}; m[rfKey] = true; saveJSON("x_imgNoRespFmt", m); } catch (e) {}
+      return true;
+    };
     const isMinimax = a.apiFormat === "minimax" || (a.apiFormat === "auto" && (/^image-0\d/i.test(String(a.model || "")) || /minimax/i.test(String(a.baseUrl || ""))));
     // 原生格式（MiniMax／NAI）各走各的门，不掉回出图接口或聊天接口
     const isNative = isMinimax || a.apiFormat === "nai";
@@ -5879,8 +5890,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         }
       }
       else if (useRef && refBlobs.length) {
+        const sendEdits = async noRf => {
         const fd = new FormData();
-        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
+        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); if (!noRf) fd.append("response_format", "b64_json");
         if (qualityOverride) fd.append("quality", qualityOverride);
         // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
         // 角色参考照的产品语义是身份锚，因此必须显式请求 high。
@@ -5904,12 +5916,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (refMode === "first") fd.append("image", refBlobs[0], refFilename(refBlobs[0]));
         else if (refMode === "repeat") refBlobs.forEach((blob, i) => fd.append("image", blob, refFilename(blob, i)));
         else refBlobs.forEach((blob, i) => fd.append("image[]", blob, refFilename(blob, i)));
-        r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
+        return fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
+        };
+        r = await sendEdits(rfOff);
+        if (!rfOff && await rfRejected(r)) r = await sendEdits(true);
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
-        if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
-        r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
+        if (!slim) { if (!rfOff) body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
+        const sendGen = () => fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
+        r = await sendGen();
+        if (!rfOff && body.response_format && await rfRejected(r)) { delete body.response_format; r = await sendGen(); }
       }
       // 带参考照走出图接口、站上没有 /images/edits（群友 2026-10-16：上传一张脸测试回 {"detail":"Not Found"}）：
       //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
