@@ -28,8 +28,9 @@ test("一次调用配一对，不是各配各的", () => {
   assert.match(fit, /配得上同一个场合、也配得上彼此/, "没要求两身是配着的一对");
   assert.match(fit, /换个朝代、换个身份就不成立的才算写对/, "没立那条判据——不然会写出一身谁都能穿的衣服");
   // 两边各挂一身，用的是同一个 put
-  assert.match(fit, /saveMyCloset\(put\(myClosetRef\.current, d && d\.hers\)\);/, "我这边没挂上");
-  assert.match(fit, /outfit: put\(box\.outfit, d && d\.his\)/, "他那边没挂上");
+  // 两边都只添不挤：我这边走 myClosetPut，他那边走 closetMerge（满了不挂，回执照实说）
+  assert.match(fit, /const nextMine = myClosetPut\(myClosetRef\.current, occ, setOf\(d && d\.hers\)\);/, "我这边没挂上");
+  assert.match(fit, /outfit: closetMerge\(box\.outfit, \{ closet: \[\{ occasion: occ, sets: \[his\] \}\] \}\)/, "他那边没挂上");
 });
 
 // ⚠️衣柜只挂着没用：图像端读的是画面描述，不是衣柜
@@ -63,7 +64,7 @@ test("挑好的两身要显式写进画面描述里", () => {
 // 照相馆拍的就是【合照】：两张参考照缺一张就锁不住脸。
 // 线下那条会降级成「她替他拍的单人照」，这儿不行——这一页的全部意义就是合照。
 test("参考照不齐就明说，不偷偷降级成单人照", () => {
-  assert.match(shoot, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\)\) \{ toast\([\s\S]*?\); return false; \}/,
+  assert.match(shoot, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\) && !\(typeof loadImgApi === "function" && loadImgApi\(\)\.noRef\)\) \{ toast\([\s\S]*?\); return false; \}/,
     "参考照不齐还往下拍");
   assert.ok(shoot.indexOf('kind = "other"') < 0, "偷偷降级成单人照了");
   assert.match(shoot, /imgApiReady\(\)\)\) \{ toast\([\s\S]*?\); return false; \}/, "没配图像 API 也往下走");

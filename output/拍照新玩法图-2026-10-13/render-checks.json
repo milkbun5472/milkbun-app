@@ -1,0 +1,1281 @@
+{
+  "checks": [
+    {
+      "id": 1,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 照相馆",
+          "left": 67,
+          "right": 240.5,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "01 / 06",
+          "left": 1022.890625,
+          "right": 1143,
+          "top": 50,
+          "bottom": 86,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 118,
+          "clientWidth": 118
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "挑好衣服，换个世界合照。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "平行世界、杂志封面、电影海报，题材还能自己写。\n拍之前挑画风，拍完也能重画；原图会留着。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "题材、两边衣服和画风，在这儿挑。",
+          "left": 102.90625,
+          "right": 521.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "题材、两边衣服和画风，在这儿挑。",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "拍好能换画风，也能发回聊天。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "拍好能换画风，也能发回聊天。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "情侣空间 → 墙上 → 照相馆 · 两边衣柜可多选 · 拍好可发回聊天\n真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API及双方参考照",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "情侣空间 → 墙上 → 照相馆 · 两边衣柜可多选 · 拍好可发回聊天",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API及双方参考照",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/studio-single-entry-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/studio-single-result-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 照相馆",
+          "left": 67,
+          "right": 240.5,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "02 / 06",
+          "left": 1018.515625,
+          "right": 1143,
+          "top": 50,
+          "bottom": 86,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 122,
+          "clientWidth": 122
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "一张四宫格，四个小表情。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "拍成大头贴，也能先挑你喜欢的画风。\n每一格都能单独放大；想更清楚，就把那格再拍成单张。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "四宫格拍好，底下能逐格看。",
+          "left": 102.90625,
+          "right": 521.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "四宫格拍好，底下能逐格看。",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "点开一格，能放大，也能再拍。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "点开一格，能放大，也能再拍。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "四宫格 · 选画风 · 单格放大 · 单格重拍需再用一次生图\n真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API及双方参考照",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "四宫格 · 选画风 · 单格放大 · 单格重拍需再用一次生图",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API及双方参考照",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/studio-grid-result-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/studio-grid-cell-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 照相馆",
+          "left": 67,
+          "right": 240.5,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "03 / 06",
+          "left": 1018.515625,
+          "right": 1143,
+          "top": 50,
+          "bottom": 86,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 122,
+          "clientWidth": 122
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "咔嚓一下，等照片慢慢显影。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "白边相纸，底下还有TA写的一行字。\n两小时后才显出来；等不及就长按甩一甩。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "拍完先是一张还在显影的相纸。",
+          "left": 102.90625,
+          "right": 521.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "拍完先是一张还在显影的相纸。",
+          "left": 112.90625,
+          "right": 511.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "显影后，照片和他的字都在。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "显影后，照片和他的字都在。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "拍立得 · 延迟显影 · 长按甩一甩 · 偶尔会漏光、糊或偏色\n真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API及双方参考照",
+          "left": 60,
+          "right": 1140,
+          "top": 1482,
+          "bottom": 1568,
+          "scrollHeight": 84,
+          "clientHeight": 84,
+          "scrollWidth": 1078,
+          "clientWidth": 1078
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "拍立得 · 延迟显影 · 长按甩一甩 · 偶尔会漏光、糊或偏色",
+          "left": 75,
+          "right": 1125,
+          "top": 1495,
+          "bottom": 1524,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API及双方参考照",
+          "left": 75,
+          "right": 1125,
+          "top": 1529,
+          "bottom": 1555,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1050,
+          "clientWidth": 1050
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/polaroid-wait-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/polaroid-developed-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 照片日记",
+          "left": 67,
+          "right": 264.265625,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 197,
+          "clientWidth": 197
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "04 / 06",
+          "left": 1032.515625,
+          "right": 1131,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 98,
+          "clientWidth": 98
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "把他这一天，冲成三格胶片。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 218.1875,
+          "scrollHeight": 94,
+          "clientHeight": 94,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "照着那天的日记和日程，从早到晚选三个时刻。\n那天记下的换装也会带进去；三格都能点开看。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "日记最底下，点一下才拍。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1465.96875,
+          "scrollHeight": 1129,
+          "clientHeight": 1129,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1415.96875,
+          "scrollHeight": 1071,
+          "clientHeight": 1071,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "日记最底下，点一下才拍。",
+          "left": 85,
+          "right": 539,
+          "top": 1415.96875,
+          "bottom": 1457.96875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "三格照片，连着他这一天。",
+          "left": 713.0625,
+          "right": 1058.921875,
+          "top": 335,
+          "bottom": 1466.984375,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 344,
+          "clientWidth": 344
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 723.0625,
+          "right": 1048.921875,
+          "top": 345,
+          "bottom": 1416.984375,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 326,
+          "clientWidth": 326
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "三格照片，连着他这一天。",
+          "left": 723.0625,
+          "right": 1048.921875,
+          "top": 1416.984375,
+          "bottom": 1458.984375,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 326,
+          "clientWidth": 326
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "他的日记页最底下 · 手动点一次才拍 · 每格能单独放大\n真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API、给TA传参考照",
+          "left": 69,
+          "right": 1131,
+          "top": 1490,
+          "bottom": 1565,
+          "scrollHeight": 74,
+          "clientHeight": 74,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "他的日记页最底下 · 手动点一次才拍 · 每格能单独放大",
+          "left": 69,
+          "right": 1131,
+          "top": 1505,
+          "bottom": 1534,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能截图 · 人物、图像、对话为演示数据 · 出图先配图像API、给TA传参考照",
+          "left": 69,
+          "right": 1131,
+          "top": 1539,
+          "bottom": 1565,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/photo-diary-before-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            454,
+            1070.96875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/photo-diary-after-full.png",
+          "natural": [
+            1170,
+            3849
+          ],
+          "display": [
+            325.859375,
+            1071.984375
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 照片上互动",
+          "left": 67,
+          "right": 288.015625,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 221,
+          "clientWidth": 221
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "05 / 06",
+          "left": 1032.515625,
+          "right": 1131,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 98,
+          "clientWidth": 98
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "在他的照片上，回他一笔。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 215.390625,
+          "scrollHeight": 91,
+          "clientHeight": 91,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "画画、圈出来问他，画完连照片一起发回聊天。\n他也能在你画过的那张上接几笔，再发回来。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "圈住想问的地方，连图一起问。",
+          "left": 75,
+          "right": 549,
+          "top": 335,
+          "bottom": 1465.96875,
+          "scrollHeight": 1129,
+          "clientHeight": 1129,
+          "scrollWidth": 472,
+          "clientWidth": 472
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 85,
+          "right": 539,
+          "top": 345,
+          "bottom": 1415.96875,
+          "scrollHeight": 1071,
+          "clientHeight": 1071,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "圈住想问的地方，连图一起问。",
+          "left": 85,
+          "right": 539,
+          "top": 1415.96875,
+          "bottom": 1457.96875,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 454,
+          "clientWidth": 454
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "你画过的那张，TA接了一笔。",
+          "left": 676.90625,
+          "right": 1095.0625,
+          "top": 335,
+          "bottom": 1466.953125,
+          "scrollHeight": 1130,
+          "clientHeight": 1130,
+          "scrollWidth": 416,
+          "clientWidth": 416
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 345,
+          "bottom": 1416.953125,
+          "scrollHeight": 1072,
+          "clientHeight": 1072,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "你画过的那张，TA接了一笔。",
+          "left": 686.90625,
+          "right": 1085.0625,
+          "top": 1416.953125,
+          "bottom": 1458.953125,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 398,
+          "clientWidth": 398
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "点开TA的照片 → 在上面画，发回去 · 换颜色／笔粗细 · 撤销\n真实功能截图 · 人物、图像、对话为演示数据 · 涂画、打分和抠图在本机完成",
+          "left": 69,
+          "right": 1131,
+          "top": 1490,
+          "bottom": 1565,
+          "scrollHeight": 74,
+          "clientHeight": 74,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "点开TA的照片 → 在上面画，发回去 · 换颜色／笔粗细 · 撤销",
+          "left": 69,
+          "right": 1131,
+          "top": 1505,
+          "bottom": 1534,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能截图 · 人物、图像、对话为演示数据 · 涂画、打分和抠图在本机完成",
+          "left": 69,
+          "right": 1131,
+          "top": 1539,
+          "bottom": 1565,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/doodle-circle-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            454,
+            1070.96875
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/doodle-return-chat-full.png",
+          "natural": [
+            1170,
+            3150
+          ],
+          "display": [
+            398.15625,
+            1071.953125
+          ],
+          "fit": "fill"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "size": [
+        1200,
+        1600
+      ],
+      "boxes": [
+        {
+          "tag": "DIV",
+          "class": "brand checked",
+          "text": "秋秋机 · 照片上互动",
+          "left": 67,
+          "right": 288.015625,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 221,
+          "clientWidth": 221
+        },
+        {
+          "tag": "DIV",
+          "class": "number checked",
+          "text": "06 / 06",
+          "left": 1032.515625,
+          "right": 1131,
+          "top": 50,
+          "bottom": 84,
+          "scrollHeight": 34,
+          "clientHeight": 34,
+          "scrollWidth": 98,
+          "clientWidth": 98
+        },
+        {
+          "tag": "H1",
+          "class": "checked",
+          "text": "贴个分数，抠成他的表情。",
+          "left": 62,
+          "right": 1142,
+          "top": 124,
+          "bottom": 215.390625,
+          "scrollHeight": 91,
+          "clientHeight": 91,
+          "scrollWidth": 1080,
+          "clientWidth": 1080
+        },
+        {
+          "tag": "P",
+          "class": "sub checked",
+          "text": "表情、文字、分数都能自己贴。描一圈就能抠成透明贴纸，\n起个名字、印一句字，放进他的表情包，你们都能发。",
+          "left": 69,
+          "right": 1132,
+          "top": 226,
+          "bottom": 304,
+          "scrollHeight": 78,
+          "clientHeight": 78,
+          "scrollWidth": 1063,
+          "clientWidth": 1063
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "自己写个分数，点一下贴上去。",
+          "left": 103.59375,
+          "right": 520.375,
+          "top": 335,
+          "bottom": 1330.984375,
+          "scrollHeight": 994,
+          "clientHeight": 994,
+          "scrollWidth": 415,
+          "clientWidth": 415
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 113.59375,
+          "right": 510.375,
+          "top": 345,
+          "bottom": 1280.984375,
+          "scrollHeight": 936,
+          "clientHeight": 936,
+          "scrollWidth": 397,
+          "clientWidth": 397
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "自己写个分数，点一下贴上去。",
+          "left": 113.59375,
+          "right": 510.375,
+          "top": 1280.984375,
+          "bottom": 1322.984375,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 397,
+          "clientWidth": 397
+        },
+        {
+          "tag": "FIGURE",
+          "class": "native checked",
+          "text": "描一圈、起名字，也能印一句字。",
+          "left": 677.59375,
+          "right": 1094.375,
+          "top": 335,
+          "bottom": 1330.984375,
+          "scrollHeight": 994,
+          "clientHeight": 994,
+          "scrollWidth": 415,
+          "clientWidth": 415
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 687.59375,
+          "right": 1084.375,
+          "top": 345,
+          "bottom": 1280.984375,
+          "scrollHeight": 936,
+          "clientHeight": 936,
+          "scrollWidth": 397,
+          "clientWidth": 397
+        },
+        {
+          "tag": "FIGCAPTION",
+          "class": "checked",
+          "text": "描一圈、起名字，也能印一句字。",
+          "left": 687.59375,
+          "right": 1084.375,
+          "top": 1280.984375,
+          "bottom": 1322.984375,
+          "scrollHeight": 42,
+          "clientHeight": 42,
+          "scrollWidth": 397,
+          "clientWidth": 397
+        },
+        {
+          "tag": "DIV",
+          "class": "sticker-result checked",
+          "text": "抠好了 →「沈屿的表情」\n起的名字，你们聊天都能用。",
+          "left": 92,
+          "right": 612,
+          "top": 1347,
+          "bottom": 1466,
+          "scrollHeight": 119,
+          "clientHeight": 119,
+          "scrollWidth": 520,
+          "clientWidth": 520
+        },
+        {
+          "tag": "IMG",
+          "class": "checked",
+          "text": "",
+          "left": 92,
+          "right": 178,
+          "top": 1348.5625,
+          "bottom": 1464.421875,
+          "scrollHeight": 116,
+          "clientHeight": 116,
+          "scrollWidth": 86,
+          "clientWidth": 86
+        },
+        {
+          "tag": "P",
+          "class": "checked",
+          "text": "抠好了 →「沈屿的表情」\n起的名字，你们聊天都能用。",
+          "left": 202,
+          "right": 514,
+          "top": 1371.5,
+          "bottom": 1441.5,
+          "scrollHeight": 70,
+          "clientHeight": 70,
+          "scrollWidth": 312,
+          "clientWidth": 312
+        },
+        {
+          "tag": "FOOTER",
+          "class": "footer checked",
+          "text": "贴 · 自己写 · 打分 · 抠透明底 · 起名字 · 图上印字 · 角色也能发\n真实功能截图 · 人物、图像、对话为演示数据 · 涂画、打分和抠图在本机完成",
+          "left": 69,
+          "right": 1131,
+          "top": 1490,
+          "bottom": 1565,
+          "scrollHeight": 74,
+          "clientHeight": 74,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        },
+        {
+          "tag": "SPAN",
+          "class": "features checked",
+          "text": "贴 · 自己写 · 打分 · 抠透明底 · 起名字 · 图上印字 · 角色也能发",
+          "left": 69,
+          "right": 1131,
+          "top": 1505,
+          "bottom": 1534,
+          "scrollHeight": 29,
+          "clientHeight": 29,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        },
+        {
+          "tag": "SPAN",
+          "class": "demo checked",
+          "text": "真实功能截图 · 人物、图像、对话为演示数据 · 涂画、打分和抠图在本机完成",
+          "left": 69,
+          "right": 1131,
+          "top": 1539,
+          "bottom": 1565,
+          "scrollHeight": 26,
+          "clientHeight": 26,
+          "scrollWidth": 1062,
+          "clientWidth": 1062
+        }
+      ],
+      "images": [
+        {
+          "src": "../raw/doodle-stamp-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            396.78125,
+            935.984375
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/doodle-cut-full.png",
+          "natural": [
+            1170,
+            2760
+          ],
+          "display": [
+            396.78125,
+            935.984375
+          ],
+          "fit": "fill"
+        },
+        {
+          "src": "../raw/native-cut-sticker.png",
+          "natural": [
+            380,
+            512
+          ],
+          "display": [
+            86,
+            115.859375
+          ],
+          "fit": "fill"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "violations": []
+}

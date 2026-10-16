@@ -590,7 +590,29 @@ function callDiag(model, promptChars, maxTokens, t0) {
     + "｜等了 " + secs + " 秒"
     + (secs < 8 ? "＝上游直接打回来了（拦截／格式／配额），不是超时" : "＝等到一半才断，像超时或冷启动") + "〕";
 }
+// 正文里漏出来的英文思考（她 2026-10-16 转群友：新站子「容易掉思维链」——**Refining the Draft** 那种小标题 + 「I'm now…」一段段，
+//   被当成回话拆成一串气泡）。有的中转把模型的思考摘要直接拼在正文前面、不放进 reasoning 字段，也不带 <think> 标记。
+//   只在【开头就是这种英文自述、后面又真有正文（{ 开头的 JSON 或中文）】时才切：切掉前面那段，后面原样不动；
+//   认不准（后面找不到正文）就一个字不动。
+const LEAK_HEAD_RE = /^\s*(\*\*[A-Z][^*\n]{2,80}\*\*|(I'm|I've|I'll|I am|I need|I will|My |Okay|OK,|Let me|The user|Alright|Now,? I)\b)/;
+function stripLeakedThoughts(t) {
+  const s = String(t == null ? "" : t);
+  if (!LEAK_HEAD_RE.test(s)) return s;
+  const lines = s.split("\n");
+  let at = -1, pos = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i], trimmed = L.trim();
+    const cjk = (trimmed.match(/[\u4e00-\u9fff]/g) || []).length;
+    if (/^(```(json)?\s*$|\{|\[\s*\{)/.test(trimmed) || (trimmed.length >= 2 && cjk / trimmed.length > 0.3)) { at = pos; break; }
+    pos += L.length + 1;
+  }
+  if (at <= 0) return s;
+  const head = s.slice(0, at);
+  if ((head.match(/[\u4e00-\u9fff]/g) || []).length > head.length * 0.05 || head.trim().length < 40) return s;
+  return s.slice(at).trim();
+}
 function assertNotUpstreamError(t, model, diag) {
+  t = stripLeakedThoughts(t);
   const hit = upstreamErrorInContent(t);
   if (!hit) return t;
   throw new Error("线路报错（不是模型写的正文）：" + hit.replace(/\s+/g, " ").slice(0, 300)
@@ -1404,6 +1426,16 @@ function jsonEscapeHtmlQuotes(t) {
     .replace(/<style\b[^]*?<\/style\s*>/gi, fix)
     .replace(/<[A-Za-z!\/][^<>]*>/g, fix);
 }
+// 要的是带某个键的那个对象（她 2026-10-16 出戏截图：思考型模型先写了一大段英文分析、里面带括号，然后才是 {"reply":…}，
+//   extractJSON 抓到了前面那段里的括号，reply 就整段原样摆出来）：先照常抓，抓到的没有这个键，就从 {"键" 那里重抓
+function extractJSONKey(raw, key) {
+  const d = extractJSON(raw);
+  if (d && typeof d === "object" && !Array.isArray(d) && key in d) return d;
+  const t = String(raw || ""), m = t.match(new RegExp("\\{\\s*\"" + key + "\"\\s*:"));
+  if (!m) return d;
+  const d2 = extractJSON(t.slice(m.index));
+  return d2 && typeof d2 === "object" && key in d2 ? d2 : d;
+}
 function extractJSON(raw) {
   if (!raw) return null;
   let t = String(raw).replace(/```(?:json)?/gi, "").trim();
@@ -1423,6 +1455,19 @@ function extractJSON(raw) {
   if (e > 0) {
     r = tryParse(t.slice(0, e + 1));
     if (r !== undefined) return r;
+  }
+  // JSON 后面又跟了一段话、话里还带括号（群友 2026-10-15 问答小本：```json {…} ``` 后面接着写「Lisa叫了…」）——
+  //   「切到最后一个 }」切进了那段话里。按括号配对找第一个对象自己的结尾（跳过字符串里的括号）再试一次。
+  {
+    let depth = 0, inStr = false, esc0 = false, end = -1;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (inStr) { if (esc0) esc0 = false; else if (ch === "\\") esc0 = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === "{" || ch === "[") depth++;
+      else if (ch === "}" || ch === "]") { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end > 0 && end < t.length - 1) { r = tryParse(t.slice(0, end + 1)); if (r !== undefined) return r; }
   }
   // 正文里直接写了换行/制表符（最常见的坏法）：先把字符串里的控制字符补成转义再试。
   // 这一步原来只在 parseJSONLoose 里有，可全库大多数地方直接调的是 extractJSON（她 2026-09-29 要全 app 兜底）
@@ -2442,9 +2487,19 @@ if (typeof window !== "undefined") window.ActLine = { as: actLineAs };
 // （那是故意的，否则会甩出一个巨大的气泡），可拆出来的那一泡要是只剩「）」「」」，
 // 屏幕上就是一个空气泡里吊着半个标点。粘回上一泡，最难看的那一种就没了。
 const BUBBLE_ORPHAN_TAIL = /^[）)」』”’\]】]+[。！？!?…、，,\s]*$/;
+// 颜文字／表情跟在问号后面（她 2026-10-14：「问号后面的表情包被强行截了，它不应该是个单独气泡」）：
+//   按「？」断句会把「…してない？(￣ω￣)」后面那张脸甩成一泡。一个汉字都没有、没有成词的字母、
+//   假名谚文最多一个、又不长的那一段，就是一张脸或几个 emoji，粘回上一泡
+function bubbleIsFace(x) {
+  const t = String(x || "").replace(/\s+/g, "");
+  if (!t || t.length > 18) return false;
+  if (/[\u4e00-\u9fff\uac00-\ud7af]/.test(t) || /[A-Za-z]{2,}/.test(t)) return false;
+  if ((t.match(/[\u3040-\u30ff]/g) || []).length > 1) return false;
+  return /[^\w。！？!?…、，,.\s]/.test(t);
+}
 function bubbleGlueOrphans(list) {
   return list.reduce((a, x) => {
-    if (a.length && BUBBLE_ORPHAN_TAIL.test(String(x).trim())) a[a.length - 1] += x;
+    if (a.length && (BUBBLE_ORPHAN_TAIL.test(String(x).trim()) || bubbleIsFace(x))) a[a.length - 1] += x;
     else a.push(x);
     return a;
   }, []);
@@ -4857,7 +4912,16 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "只露出半张脸：低着头目光朝下，或者脸在画面边缘被裁掉一半",
     "斜着拿手机，画面有点歪，像随手一按",
     "手机搁在桌上或架在什么东西上拍的，人退开一点，手不在画面里",
-    "逆着光，脸的一侧偏暗"
+    "逆着光，脸的一侧偏暗",
+    // 她 2026-10-16「照相馆机位是不是也很少要不要多加点」→「太具体了不要」→「我让你加啊」：
+    //   加，但只写镜头语言（远近、高低、朝向、构图），不写道具和动作——那些交给场景和模型。
+    //   「从很低往上」「从正上方往下」这种极端俯仰不加：她「这个好看吗你就加」——人拍出来不好看的角度不进表。
+    //   最后一格把这条轴整个还给模型（bans-make-it-dumber.md：代码不是关门，是关一部分门）。
+    "侧脸，轮廓对着镜头",
+    "人在画面一边，另一边留空",
+    "前景挡住一点，前景是虚的",
+    "表情没摆好，抓到的是半截",
+    "这一张的机位你自己定：挑一个跟上面这些都不一样、又合这个时刻的角度"
   ];
   const PHOTO_SHOTS_OTHER = [
     "远一点的全身，人在环境里",
@@ -4867,7 +4931,12 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "背对镜头回头的一瞬",
     "站着平视的日常人像",
     "俯拍，人在画面中下方",
-    "近一点的上半身，视线偏开"
+    "近一点的上半身，视线偏开",
+    "很远，人在画面里只占一小块",
+    "很近的侧脸",
+    "人在画面一边，另一边留空",
+    "隔着前景拍，前景是虚的",
+    "这一张的机位你自己定：挑一个跟上面这些都不一样、又合这个时刻的角度"
   ];
   // 合照的【两个人怎么待在一起】（她 2026-09-24：「为啥合照也都是一种姿势」）。
   // 上面那张机位表是给【一个人自拍】写的，合照也从那儿抽——它只管镜头，
@@ -4885,7 +4954,13 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "两个人面对面，镜头从侧面拍到两张侧脸",
     "一个人低头在做什么，另一个人凑过来看",
     "手机高举俯拍，两个人仰着脸挤进画面",
-    "一前一后，前面那个人清楚，后面那个人稍微虚一点"
+    "一前一后，前面那个人清楚，后面那个人稍微虚一点",
+    "两个人离得很近，都没看镜头",
+    "两个人隔开一点距离，一个看着另一个",
+    "只拍到两个人的背影",
+    "两个人在做同一件事",
+    "一个人在笑，另一个人看着对方",
+    "这一张两个人怎么待在一起你自己定：挑一个跟上面这些都不一样、又合这个时刻的样子"
   ];
   function photoDuoPoseLine(seed) {
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
@@ -5116,9 +5191,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
   // opts.editorial：杂志封面／电影海报（她 2026-10-13：「还是偏自拍」）——不掷自拍那张机位表，换成摄影棚大片
   else if (opts.editorial) {
-    const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；两个人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
-      + (opts.editorial === "movie" ? "电影感布光、有景深和氛围，像正式定妆海报，两人摆出有戏的站位（背靠背、一前一后、对视、同看远方都行）。" : "棚拍或精心挑过的外景，讲究的打光，半身到全身构图，两人摆时尚大片的姿势（站姿、倚靠、一坐一站、肩挨肩看镜头都行），表情有态度，像真的杂志封面人物。")
-      + "画面上方和一侧要留出排字的空间，人物别顶满画面。";
+    const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；画面里的人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
+      + (opts.editorial === "movie" ? "电影感布光、有景深和氛围，像正式定妆海报，站位要有戏。" : "棚拍或精心挑过的外景，讲究的打光，摆时尚大片的姿势，表情有态度，像真的杂志人物。")
+      + (opts.editorialSpace || "画面上方和一侧要留出排字的空间，人物别顶满画面。");
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _ed); else parts.push(_ed);
   }
@@ -5128,7 +5203,6 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     // 一远、一中、一近各掷一格，顺序再打乱（她 2026-10-13 第二次：「这机位来来回回一个样」——
     //   原来从那张八格的表里抽，「回头」「侧脸视线偏开」「近景低头」占了一半，三格总落在这几个上）。
     //   至少一格要正面看得清脸。
-    const R = a => a[Math.floor(Math.random() * a.length)];
     // 每档十几种（她 2026-10-13：「不能多搞点吗，平时的机位不是很多吗」）
     const WIDE = ["远景全身，人只占画面三分之一，周围环境交代清楚", "从门口或走廊往里拍的远景，人在房间深处", "从对面拍的全身，人正在走过来或站着", "高一点的位置拍下去的全景，看得到整张桌子或整个房间",
       "隔着窗户或玻璃拍的，玻璃上有一点反光", "街上或路边，人和身后的街景一起入画", "地面高度拍的全身，镜头几乎贴着地", "人在画面一侧，另一大半是环境和留白",
@@ -5139,15 +5213,29 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     const CLOSE = ["正面近景，看着镜头，表情自然", "镜头略低一点的近景，他抬眼看过来", "手和手里东西的特写，画面上方带到下巴和嘴角", "近景，正在笑或者在说话，脸是正的",
       "三分之二侧脸的近景，光从一边打过来", "托着下巴的近景，看着镜头或者看着前面", "刚睡醒或刚洗完脸的近景，头发有点乱，正脸", "戴着耳机或叼着吸管的近景，正脸",
       "正面的大头近景，离镜头很近但不怼脸、没有变形", "被逗笑的一瞬，眼睛弯起来，正脸", "眼镜、耳钉或手上小东西的特写，带到半张脸", "隔着杯口或书页边缘拍的近景，露出眼睛"];
-    let pick = [R(WIDE), R(MID), R(CLOSE)].slice(0, Math.max(1, opts.panels));
-    if (!pick.some(x => /看着镜头|看过来|脸是正的/.test(x))) pick[pick.length - 1] = "正面近景，看着镜头，表情自然";
-    for (let k = pick.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pick[k], pick[j]] = [pick[j], pick[k]]; }
-    const _pl = "【每一格的机位·各不相同，由这次拍摄决定，不许沿用参考图】" + pick.map((x, k) => "第" + (k + 1) + "格：" + x).join("；")
-      + "。参考图只决定这是谁，每格脸的朝向、离镜头多远都照这几句来，三格不许是同一个角度；不要回头看镜头、不要每格都把脸侧开或低着头。";
+    // 不再硬抽「一远一中一近」（她 2026-10-13：「我反而觉得这种应该自由一点」——固定套路看几次就一个样）：
+    //   每格怎么拍跟着那个时刻在做的事走，像跟拍的朋友会怎么拍；池子里随手递几种当灵感，不强制。
+    //   只留两条底线：各格角度不重复；至少两格看得清脸。
+    const pool = WIDE.concat(MID, CLOSE);
+    for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+    const ideas = pool.slice(0, 6);
+    const _pl = "【每一格的机位·自己定，不许沿用参考图】每一格怎么拍，照那个时刻他在做的事来定——像一个跟在旁边的朋友会怎么拍这一下：吵架可能是门口偷看的一眼，做饭可能是锅铲的特写，出门可能是背影。远近、高低、正侧都可以自由组合，"
+      + "但同一张里" + opts.panels + "格不许是同一个角度、也别全是同一个距离；至少两格要看得清他的脸（正脸或四分之三侧）。参考图只决定这是谁，脸的朝向和离镜头多远都不要照搬参考图。"
+      + "没主意时可以从这几种里挑，用不用都行：" + ideas.join("／") + "。";
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
   }
-  else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
+  // TA 帮她拍：不掷机位（她 2026-10-15：「不是说不给具体机位吗，应该像照相馆那样」）——
+  //   掷到「她回头看过来」那一格，描述里写的咬汤匙就被盖掉了。跟照片日记同一个做法：怎么拍他自己定，池子只递几种当灵感。
+  else if (opts.pov) {
+    const pool = povSlotsFor(opts.pov.tier).slice();
+    for (let k = pool.length - 1; k > 0; k--) { const q = Math.floor(Math.random() * (k + 1)); [pool[k], pool[q]] = [pool[q], pool[k]]; }
+    const _pl = "【这一张怎么拍·他自己定】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作；"
+      + "远近和角度照这一刻来定，像他举着手机真会怎么拍下这一下的她。参考图只决定她是谁，姿势、角度、离镜头多远都不要照搬参考图。"
+      + "描述里没写她在做什么时，可以从这几种里挑，用不用都行：" + pool.slice(0, 4).join("／") + "。";
+    const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
+    if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
+  }
   else {
     // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
     //   原来压在一长串外貌、画质、参考图说明的最后，出图模型读不到，照样回到它最熟的那个角度。
@@ -5404,6 +5492,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       try { return await generateSelfieImage(prompt, refPhotoDataUrl, inner); }
       catch (e) {
         const m = String((e && e.message) || e);
+        // 被内容审核拦的（moderation / safety / content_policy）不是站子不收图：是这张参考照或这次画面被判成太露骨。
+        //   同一个站、一个角色能拍另一个不能，多半就是那个角色的参考照（或外貌里的词）。别把人往「不锁脸」上指。
+        if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)) throw new Error(m + "（这是站子的内容审核拦下来的，不是站子不收参考照：多半是这个角色的参考照、或者外貌和这次画面里有被判成太露骨的地方。换一张穿着整齐的参考照，或者把外貌里相关的词改掉再试；同一个站别的角色能拍就是这个原因。）");
         if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
         throw e;
       }
@@ -5419,7 +5510,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   if (!/gpt-image|dall-?e/i.test(String(a.model || "")) && typeof prompt === "string")
     prompt = prompt.replace(/【手脚必须解剖正确】[^【]*/, "【手】双手自然，手指数目正确。").replace(/【数一数手】[^【]*/, "");
   let naiNegative = "";
-  if (isNaiImageModel(a.model) && typeof prompt === "string") {
+  if ((isNaiImageModel(a.model) || a.apiFormat === "nai") && typeof prompt === "string") {
     const nt = await naiTagsFor(prompt);
     prompt = nt.prompt; naiNegative = nt.negative;
     if (opts && opts.minimalPrompt) opts = Object.assign({}, opts, { minimalPrompt: nt.prompt });
@@ -5694,12 +5785,69 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const msg = (br && br.status_msg) || txt.slice(0, 300) || ("HTTP " + r0.status);
       return new Response(JSON.stringify({ error: { message: "MiniMax：" + msg + (br && br.status_code ? "（" + br.status_code + "）" : "") } }), { status: r0.ok ? 400 : r0.status, headers: { "Content-Type": "application/json" } });
     };
+    // NAI 原生（她 2026-10-15 转来站长给的两份请求）：POST /ai/generate-image，NovelAI 自己那套 body。
+    //   锁脸走 director_reference_images（原图 base64，强度 0.6／次强度 0.4，描述 character）——
+    //   vibe 那种 reference_image_multiple 要先另付点数编码、管的是画风不管脸，不用。
+    //   回包官方是一个 zip（里面一张 png）；中转有的改回 JSON 或直接回图，三种都认，翻成 { data:[{b64_json}] }。
+    const naiFetch = async () => {
+      const toB64 = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(b); });
+      const wh = /^(\d+)x(\d+)$/.exec(String(size || "")), w0 = wh ? +wh[1] : 832, h0 = wh ? +wh[2] : 1216;
+      const [width, height] = w0 === h0 ? [1024, 1024] : w0 < h0 ? [832, 1216] : [1216, 832];
+      const seed = Math.floor(Math.random() * 4294967000);
+      const neg = naiNegative || "lowres, bad anatomy, bad hands, text, watermark, worst quality, low quality, blurry";
+      const parameters = { params_version: 3, width, height, scale: 7, sampler: "k_euler_ancestral", steps: 28, n_samples: 1,
+        ucPreset: 2, qualityToggle: true, noise_schedule: "karras", cfg_rescale: 0, seed, extra_noise_seed: seed - 1,
+        legacy: false, legacy_v3_extend: false, add_original_image: true, dynamic_thresholding: false, use_coords: false,
+        negative_prompt: neg, characterPrompts: [],
+        v4_prompt: { caption: { base_caption: promptText, char_captions: [] }, use_coords: false, use_order: true },
+        v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] } } };
+      if (useRef && refBlobs.length) {
+        // 角色参考图 NovelAI 只收三种画布：1024x1536／1536x1024／1472x1472，别的尺寸上游直接 500。
+        //   按原图横竖挑一张最近的画布，等比缩进去、四周补黑边（官网前端也是这么垫的）。
+        const naiCanvas = async b0 => {
+          try {
+            const bm = await createImageBitmap(b0), r = bm.width / bm.height;
+            const [cw, ch] = r > 1.2 ? [1536, 1024] : r < 0.83 ? [1024, 1536] : [1472, 1472];
+            const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+            const g = cv.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, cw, ch);
+            const k = Math.min(cw / bm.width, ch / bm.height), dw = Math.round(bm.width * k), dh = Math.round(bm.height * k);
+            g.drawImage(bm, Math.round((cw - dw) / 2), Math.round((ch - dh) / 2), dw, dh);
+            return await new Promise(res => cv.toBlob(x => res(x || b0), "image/png"));
+          } catch (e) { return b0; }
+        };
+        const imgs = []; for (const b of refBlobs) imgs.push(await toB64(await naiCanvas(b)));
+        Object.assign(parameters, { normalize_reference_strength_multiple: false, director_reference_images: imgs,
+          director_reference_descriptions: imgs.map(() => ({ caption: { base_caption: "character", char_captions: [] }, legacy_uc: false })),
+          director_reference_information_extracted: imgs.map(() => 1),
+          director_reference_strength_values: imgs.map(() => 0.6),
+          director_reference_secondary_strength_values: imgs.map(() => 0.4) });
+      }
+      const model = /nai-diffusion/i.test(String(a.model || "")) ? a.model : "nai-diffusion-4-5-full";
+      const raw0 = String(a.baseUrl || "").trim().replace(/\/+$/, "");
+      const url = /\/ai\/generate-image/i.test(raw0) ? raw0 : raw0.replace(/\/v1$/i, "") + "/ai/generate-image";
+      const r0 = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ input: promptText, model, action: "generate", parameters }), signal: ctrl.signal });
+      const buf = await r0.arrayBuffer(), u8 = new Uint8Array(buf);
+      const json = b64 => new Response(JSON.stringify({ data: [{ b64_json: b64 }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      const bytesToB64 = bs => { let s = ""; for (let i = 0; i < bs.length; i += 32768) s += String.fromCharCode.apply(null, bs.subarray(i, i + 32768)); return btoa(s); };
+      if (r0.ok && u8[0] === 0x50 && u8[1] === 0x4b) {   // PK：官方的 zip
+        const z = await openZip(buf), name = z.names.find(n => /\.(png|jpe?g|webp)$/i.test(n)) || z.names[0];
+        const img = name && await z.read(name);
+        if (img && img.length) return json(bytesToB64(img));
+      }
+      if (r0.ok && ((u8[0] === 0x89 && u8[1] === 0x50) || (u8[0] === 0xff && u8[1] === 0xd8))) return json(bytesToB64(u8));
+      const txt = new TextDecoder().decode(u8);
+      if (r0.ok) return new Response(txt, { status: 200, headers: { "Content-Type": "application/json" } });   // 中转回 JSON：交给 parseOut
+      return new Response(JSON.stringify({ error: { message: "NAI 原生（" + url + "）：" + (txt.slice(0, 300) || ("HTTP " + r0.status)) } }), { status: r0.status, headers: { "Content-Type": "application/json" } });
+    };
     const isMinimax = a.apiFormat === "minimax" || (a.apiFormat === "auto" && (/^image-0\d/i.test(String(a.model || "")) || /minimax/i.test(String(a.baseUrl || ""))));
+    // 原生格式（MiniMax／NAI）各走各的门，不掉回出图接口或聊天接口
+    const isNative = isMinimax || a.apiFormat === "nai";
     try {
       // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
       //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
       const chatFirst = a.apiFormat === "chat" || a.apiFormat === "gemini" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
-      if (isMinimax) r = await minimaxFetch();
+      if (a.apiFormat === "nai") r = await naiFetch();
+      else if (isMinimax) r = await minimaxFetch();
       else if (a.apiFormat === "gemini") r = await geminiFetch();
       else if (chatFirst) {
         r = await chatFetch();
@@ -5749,13 +5897,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
-      if (!isMinimax && !chatFirst && a.apiFormat !== "images" && !r.ok) {
+      // 带参考照走出图接口、站上没有 /images/edits（群友 2026-10-16：上传一张脸测试回 {"detail":"Not Found"}）：
+      //   不是时好时坏，是这家只开了纯文字那扇门。直接说清楚往哪儿走，别甩一句 Not Found 给她猜
+      if (!isNative && !chatFirst && useRef && refBlobs.length && r && r.status === 404)
+        throw new Error("这个站的出图接口不收参考照（带照片的那扇门 /images/edits 回了 404 Not Found，纯文字那扇是通的）。把「请求方式」换成「聊天接口」再测一次；还不行就去问你用的那家，带参考图要走哪个接口，或者打开「这个站不锁脸」只发文字出图（长相不保证像）");
+      if (!isNative && !chatFirst && a.apiFormat !== "images" && !r.ok) {
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
         if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();
       }
     } catch (err) {
-      if (!isMinimax && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
+      if (!isNative && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
         try { r = await chatFetch(); } catch (e2) { throw err; }
       } else {
       // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」
@@ -6555,8 +6707,18 @@ function ttsSoundTagsOn() {
   try { const a = typeof loadTtsApi === "function" ? loadTtsApi() : null;
     return !!(a && a.enabled && (a.provider || "minimax") === "minimax" && /^speech-2\.8/i.test(String(a.model || ""))); } catch (e) { return false; }
 }
-// 教模型可以插哪些声音：只在选了 2.8 时才给，平常一个字都不占
+// 唱两句（她 2026-10-13：「不是真歌，就是唱几句这样」）：只有 ElevenLabs 的 eleven_v3 以后那几代真会唱（[sings] 标签），
+//   别家合成只会念。所以只在选了 v3 及以后（v4……）时教；歌词用 ♪ 包起来，合成前换成 [sings]，气泡里 ♪ 留着当样子。
+function ttsSingOn() {
+  try { const a = typeof loadTtsApi === "function" ? loadTtsApi() : null;
+    return !!(a && a.enabled && a.provider === "elevenlabs" && (Number((/eleven_v(\d+)/i.exec(String(a.elModel || "")) || [])[1]) >= 3)); } catch (e) { return false; }
+}
+const VOICE_SING_HINT = "想唱两句的时候（哄睡、开心、逗对方、被点歌），可以在语音里唱：把唱的那几句用 ♪ 包起来，比如 ♪月亮代表我的心♪。一次一两句就够，唱完可以接着说话；不是每条都唱，照你这个人会不会、想不想。";
+// 教模型可以插哪些声音：只在选了 2.8 时才给，平常一个字都不占；会唱的那档另给一句
 function voiceSoundHint() {
+  return mmSoundHint() + (ttsSingOn() ? VOICE_SING_HINT : "");
+}
+function mmSoundHint() {
   if (!ttsSoundTagsOn()) return "";
   return "也可以插声音，写成英文半角括号：(breath) 换气、(sighs) 叹气、(gasps) 倒吸气、(chuckle) 轻笑、(laughs) 笑出声、(sniffs) 吸鼻子、(snorts) 哼一声、(exhale) 呼气、(pant) 喘、(emm) 嗯、(lip-smacking) 亲一下、(humming) 哼着、(coughs) 咳、(clear-throat) 清嗓子、(groans) 闷哼、(crying) 哭腔。放在这个人此刻真会出声的地方，一条一两个就够；括号里的不会显示成字，只会变成声音。";
 }
@@ -6572,8 +6734,8 @@ function ttsMarkForSynth(text) {
   const s = String(text == null ? "" : text);
   if (!s) return "";
   // speech-2.8 认声音标签：名单里的留着送上去出声，其余照旧剥
-  const keep = ttsSoundTagsOn();
-  return s.replace(TTS_MARK_TAG_RE, m => keep && MM_SOUND_TAG_RE_ONE.test(m) ? m : " ").replace(/[ \t\u3000]+/g, " ")
+  const keep = ttsSoundTagsOn(), sing = ttsSingOn();
+  return s.replace(/♪\s*([^♪]+?)\s*♪/g, (m, x) => sing ? " [sings] " + x + " " : x).replace(/[♪♫]/g, sing ? "" : " ").replace(TTS_MARK_TAG_RE, m => keep && MM_SOUND_TAG_RE_ONE.test(m) ? m : " ").replace(/[ \t\u3000]+/g, " ")
     .replace(/\s+([，。！？、；：」』）])/g, "$1").trim();
 }
 function ttsMarkStrip(text) {
@@ -7207,7 +7369,9 @@ async function translateToZh(text, lang, opts) {
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
-    { by: "模型", run: () => opts && opts.noModel ? Promise.reject(new Error("这一处只用免费翻译，不叫模型")) : _transModel(text) }
+    // 模型那一级默认不走了（她 2026-10-16：「翻译能不能不给模型翻译，浪费钱」）——免费两家都不成就照实报失败，点一下再试。
+    //   只有调用处明说 allowModel 才叫模型（现在没有哪一处这么说）
+    { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
   const names = ["Google", "MyMemory", "模型"];
@@ -9308,15 +9472,18 @@ function oocResult(parsed, existing) {
   const refused = !!parsed.refused;
   const nums = Array.isArray(parsed.replaces) ? parsed.replaces : (parsed.replaces != null ? [parsed.replaces] : []);
   const replaced = refused ? [] : [...new Set(nums.map(n => existing[Number(n) - 1]).filter(Boolean))];
-  return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced };
+  // 只管接下来几轮的安排（她 2026-10-13）：轮数封顶 10，更长的该是长期准则
+  const sn = !refused && parsed.soon && typeof parsed.soon === "object" && String(parsed.soon.text || "").trim()
+    ? { text: String(parsed.soon.text).trim().slice(0, 200), turns: Math.max(1, Math.min(10, Math.round(Number(parsed.soon.turns) || 1))) } : null;
+  return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused, replaced, soon: sn };
 }
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
-  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n若只是 A 类提问，directive 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"refused\":false}";
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n(C) 不是长期规矩，而是【只管接下来几轮】的安排（让角色下一轮去做某件事、这几轮先别提某件事、接下来怎么接某段剧情）——这种别填 directive，改填 soon：text 写成一句对角色说的祈使句，turns 是管几轮（用户说「下一轮」就是 1；没说清就按这件事大概要几轮做完来估；用户说了数字就照它；最多 10，更长的就是长期规矩、走 B）。同样要先判断会不会崩人设，崩的话照 B 的办法拒绝。reply 里答应了就必须填上，别让角色下一轮又不知道。\n若只是 A 类提问，directive 和 soon 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"soon\":{\"text\":\"只管接下来几轮的那句安排\",\"turns\":1}或 null,\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
-  const parsed = extractJSON(raw);
+  const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") {
     return oocResult(parsed, existing);
   }
@@ -9335,7 +9502,7 @@ async function oocAskGroup(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";
   const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 14000 });
-  const parsed = extractJSON(raw);
+  const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
 }
@@ -10106,17 +10273,39 @@ function fmtStamp(ts, id) {
 //   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群传 "g:"+群id，照群挑的那张面具。
 function vclockState() { try { return typeof window !== "undefined" ? window.__vclock || null : null; } catch (e) { return null; } }
 function vclockUse(id) { const W = vclockState(); if (W) W.active = id == null ? null : String(id); }
-function vclockCfg(id) {
+function vclockCfg(id, ts) {
   const W = vclockState(); if (!W) return null;
   if (W.on !== undefined && !W.clocks) return W.on && isFinite(Number(W.base)) ? W : null;   // 旧的单只钟
   const who = id !== undefined ? id : W.active;
   let key = "";
-  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who)) || "") : ""; } catch (e) { key = ""; }
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : ""; } catch (e) { key = ""; }
   const c = (W.clocks || {})[key || "main"];
   return c && c.on && isFinite(Number(c.base)) ? c : null;
 }
+// 拨过钟以后，旧消息要照【当时那一版钟】算（群友 2026-10-14：「9点、9点10分、9点30写的三轮，前两轮最后都变成9点30了」）：
+//   每次拨钟（base/at/speed 变得接不上）把上一版存进 hist：{ until: 现实那一刻, base, at, speed, awayAt }。
+//   算某条消息时，先找 until 在它之后的最早那一版；都没有才用现在这版。
+function vclockSeg(c, ts) {
+  const h = Array.isArray(c && c.hist) ? c.hist : null;
+  if (h) for (let i = 0; i < h.length; i++) if (h[i] && Number(ts) < Number(h[i].until)) return h[i];
+  return c;
+}
+function vclockKeepHist(oldClocks, newClocks, now) {
+  const out = { ...(newClocks || {}) }; now = now || Date.now();
+  Object.keys(out).forEach(k => {
+    const o = oldClocks && oldClocks[k], n = out[k];
+    if (!o || !n || !o.on || !n.on) return;
+    // 只要这版钟的四样有一样变了（拨钟、改速度、离开停住又回来），旧消息照旧版算才不会挪
+    const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
+    if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
+    const seg = { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) };
+    out[k] = { ...n, hist: [...(Array.isArray(o.hist) ? o.hist : []), seg].slice(-300) };
+  });
+  return out;
+}
 function vclockMap(ts, id) {
-  const c = vclockCfg(id); if (!c) return Number(ts);
+  const c0 = vclockCfg(id, ts); if (!c0) return Number(ts);
+  const c = vclockSeg(c0, ts);
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
   const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);

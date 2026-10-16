@@ -31,7 +31,7 @@ test('outfits own separate sleeve coverage and rabbit source shoes',()=>{
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
   assert.equal(shirt.extras.skinCoverage.sleeve[0],id==='garden'?.140:.198);
   assert.equal(shirt.extras.skinCoverage.torsoAbove,id==='ranger'?.3:.4,'bare legs stay visible');
-  assert.equal(shirt.extras.skinCoverage.torsoBelow,.705);
+  assert.equal(shirt.extras.skinCoverage.torsoBelow,id==='ranger'?.675:.705,'hoodie neckline keeps the neck connected below the lining');
  }
 });
 

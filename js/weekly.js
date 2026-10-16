@@ -544,6 +544,10 @@
   }
   // ---- 数据版：全部在本地算，模型只负责写标题和点评，一个数字都不许改 ----
   const STOP2 = ["什么", "这样", "那样", "没有", "可以", "我们", "你们", "他们", "自己", "一个", "一下", "怎么", "知道", "现在", "时候", "因为", "所以", "但是", "如果", "还是", "就是", "不是", "这个", "那个", "已经"];
+  // 只留嘴上说的：括号里的动作／神态描写（动描）、星号旁白都拿掉（她 2026-10-14：「反复出现的词是不是把动描也算进去了」）
+  function saidOnly(t) {
+    return String(t || "").replace(/（[^（）]*）|\([^()]*\)|【[^【】]*】|\*[^*\n]+\*|〔[^〔〕]*〕/g, " ").replace(/\s+/g, " ").trim();
+  }
   function weeklyStats(mat, characters, uName) {
     const rows = (mat && mat.global) || [];
     const byWho = {}, hours = new Array(24).fill(0);
@@ -560,7 +564,7 @@
       byWho[who] = (byWho[who] || 0) + 1;
       hours[new Date(r.ts).getHours()]++;
       if (!longest || txt.length > longest.len) longest = { who: who, len: txt.length, text: txt.slice(0, 40) };
-      const pure = txt.replace(/[^\u4e00-\u9fa5]/g, "");
+      const pure = saidOnly(txt).replace(/[^\u4e00-\u9fa5]/g, "");
       for (let k = 0; k + 2 <= pure.length; k++) { const g = pure.slice(k, k + 2); if (STOP2.indexOf(g) < 0) gram[g] = (gram[g] || 0) + 1; }
     });
     const talkers = Object.keys(byWho).map(function (k) { return { who: k, n: byWho[k] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 4);
@@ -647,9 +651,10 @@
     const pre = String(name || "") + "：";
     return String(material || "").split("\n")
       .filter(function (l) { return l.indexOf(pre) === 0 || l.indexOf("】" + pre) > -1; })
-      .map(function (l) { return l.slice(l.lastIndexOf(pre) + pre.length).trim(); })
-      .filter(function (x) { return x.length >= 4 && x.length <= 60; })
-      .slice(-10);
+      // 声纹样本只要嘴上的话：动作描写混进来，模型学到的是旁白腔（她 2026-10-14：「专访回答的风格跟本人说话不太像」）
+      .map(function (l) { return saidOnly(l.slice(l.lastIndexOf(pre) + pre.length)); })
+      .filter(function (x, k, arr) { return x.length >= 2 && x.length <= 90 && arr.indexOf(x) === k; })
+      .slice(-24);
   }
   async function genInterview(active, char, material, userName, reportLabel, interviewer) {
     const ownLines = ownVoiceLines(material, char.name);
@@ -664,7 +669,7 @@
       // 素材里本来就有TA这周说过的原话，但以「记录」身份进去权重不够；单拎出来当声纹样本，
       // 和日记那边同一个做法（日记有、周刊一直没有，2026-08-18 补齐）
       (ownLines.length ? "\n\n【" + char.name + " 本周真实说过的话 · 声纹最高优先】\n" + ownLines.map(function (x, k) { return (k + 1) + ". " + x; }).join("\n") +
-        characterText(char, "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。") : "") +
+        characterText(char, "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。\n具体对照这几样：他平时一句话多长、用不用句号和感叹号、爱不爱用省略号和语气词（嗯、啧、哦）、说话直不直接、会不会反问——专访里照他平时的样子来，不要因为是「接受采访」就变得完整、礼貌、有条理；他平时说话怎么短、怎么冲、怎么绕，在这儿也一样。") : "") +
       "\n【本周出场人物（人名铁律用）】" + char.name + "、" + uName + NAME_GUARD +
       "\n\n【本期报道窗口】" + (reportLabel || "上一完整周") + "。这里只描述本期采编取材范围，不等于角色最近一次聊天的日期。\n" +
       "【机械核验，不得推翻】本期采集器为 " + char.name + " 收录了 " + materialCount + " 条上下文。" +
@@ -689,8 +694,10 @@
       // ⚠️「每条都两三句」是生成感最明显的那个破绽
       characterText(char, "· 回答的长短要不齐：至少一轮短到一句、甚至半句（不想说、懒得说、一个字顶回去都算），至少一轮是他真的说开了的一大段。全篇每条都两三句，那是稿子不是采访。\n") +
       "② 狗仔：同一个你，写一段花边小道消息，只报 " + char.name + " 本周的戏。全程「据悉／知情人士向本刊透露／本刊直击」式无实锤爆料，暧昧、留白、点到为止，不给实锤。\n" +
+      // 专访开篇要的两样（她 2026-10-13 改版：专访照铺满开篇，标题和导语压在上面）
+      "③ 这篇专访的标题 headline（12 字以内，从 " + char.name + " 说过的话或这周的事里来，不写空话）和导语 lead（两三句，第三人称，交代在哪儿采访、他当时什么状态，只写看得见的，不下评价）。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
-      '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）；有括号动作就夹在它真的发生的那一处"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
+      '{"interview":{"headline":"专访标题","lead":"导语","qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）；有括号动作就夹在它真的发生的那一处"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
     for (let i = 0; i < 2; i++) {
       try {
         const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 14000);
@@ -700,7 +707,7 @@
           const qa = d.interview.qa.filter(function (x) { return x && (x.q || x.a); })
             .map(function (x) { return { q: String(x.q || "").trim(), a: String(x.a || "").trim(), action: String(x.action || "").trim() }; });
           const pap = d.paparazzi || {};
-          return { interview: { qa: qa }, paparazzi: { title: String(pap.title || "").trim(), body: String(pap.body || "").trim() } };
+          return { interview: { qa: qa, headline: String(d.interview.headline || "").trim().slice(0, 24), lead: String(d.interview.lead || "").trim().slice(0, 200) }, paparazzi: { title: String(pap.title || "").trim(), body: String(pap.body || "").trim() } };
         }
       } catch (e) { if (i) throw e; }
     }
@@ -1322,6 +1329,19 @@
 
   // Editorial 杂志封面：主次由版块占据的网格面积决定；实心色块是结构，不是贴纸装饰。
   // 阅读顺序始终是左上主头条 → 右栏 → 下方索引，不拿“艺术感”牺牲可读性。
+  // 周刊里的照片（她 2026-10-13）：封面照、专访照、本周画报。图都在 IndexedDB 里，跟照相馆同一套取法
+  function WeeklyPhoto(props) {
+    const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(props.imgKey || null) : null;
+    const src = props.imgUrl || url;
+    if (!src) return h("div", { style: Object.assign({ background: "rgba(35,32,25,.08)", aspectRatio: "2 / 3" }, props.style || {}) });
+    return h("img", { src: src, alt: props.alt || "", "data-wk": "wklyphoto", style: Object.assign({ display: "block", width: "100%", height: "auto" }, props.style || {}) });
+  }
+  // 拍照那颗按钮：点了才拍、拍的时候转着
+  function ShootBtn(props) {
+    return h("button", { onClick: props.busy ? null : props.onClick, disabled: !!props.busy, className: "active:opacity-60", "data-wk": "wklyshoot",
+      style: { padding: "8px 14px", border: "1px solid currentColor", fontFamily: F_BODY, fontSize: 12, letterSpacing: ".04em", opacity: props.busy ? .55 : 1, background: "transparent", color: "inherit" } },
+      props.busy ? "拍摄中…" : props.label);
+  }
   function CoverPage(props) {
     const t = useTheme();
     const items = props.items || [];
@@ -1362,6 +1382,9 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".08em", color: sub } }, "第 " + (props.num || "—")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.45, color: sub, marginTop: 5 } }, props.label || ""),
           h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.sections[1].solid }))),
+      // 封面照（拍过才有）：这一期被采访的那几位上封面，压在刊头和栏目网格之间
+      props.coverPhoto ? h("button", { onClick: props.onOpenCover, className: "active:opacity-80", style: { display: "block", width: "100%", marginTop: 14 }, "data-wk": "wklycoverphoto" },
+        h(WeeklyPhoto, { imgKey: props.coverPhoto, alt: "本期封面" })) : null,
       // 七块内容落在 12 栏网格里：三块实心承重，其余用同栏目色的淡底与实体边梁咬合。
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12,minmax(0,1fr))", gridTemplateRows: "repeat(5,104px)", columnGap: 6, rowGap: 7, marginTop: 14 } },
         laid.map(function (L, i) {
@@ -1466,12 +1489,25 @@
   // 头版详情
   function CoverSection(props) {
     const c = props.cover; const L = sectionLooks().cover;
+    // 拍了封面照：头条压在照片下沿（跟专访开篇同一个做法）；没拍：原来那块实色头条
+    const headBlock = props.photo
+      ? h("div", { "data-wk": "wklycoverhero", style: { position: "relative", margin: "0 -22px 22px" } },
+          // 封面照上已经排好了刊名、头条和看点（PosterLayout），这里不再叠一层网页字——叠了就是两份头条重影（她 2026-10-14）
+          h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" }),
+          // 封面上的头条按标点截过，完整那句排在照片底下
+          h("div", { style: { padding: "16px 22px 0" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", color: L.tint, marginBottom: 8 } }, "头条 · 01"),
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 25, fontWeight: 600, lineHeight: 1.18, letterSpacing: "-.02em" } }, c.headline)))
+      : h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
+          h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline));
     return h("div", { "data-wk": "wklycoversection" },
-      h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
-      h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
-        h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.13, letterSpacing: "-.02em" } }, c.headline)),
-      c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 ? 2 : 1, columnGap: 22 } }, c.lead) : null,
+      props.photo ? headBlock : null,
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 14, color: L.tint } },
+        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: props.photo ? "重拍封面" : "拍这期封面（本期受访的人上封面）" }) : h("span"),
+        h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
+      props.photo ? null : headBlock,
+      c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 || (props.photo && c.lead.length > 120) ? 2 : 1, columnGap: 22 } }, c.lead) : null,
       (c.highlights || []).length ? h("div", { style: { borderTop: "5px solid " + L.tint, padding: "15px 0 4px", marginBottom: 8 } },
         h("div", { style: { fontFamily: F_BODY, letterSpacing: ".05em", fontSize: 10.5, color: L.tint, marginBottom: 12 } }, "本期看点"),
         (c.highlights || []).map(function (hl, i) {
@@ -1486,14 +1522,40 @@
   function InterviewEntry(props) {
     const t = useTheme(); const e = props.entry; const L = sectionLooks().interview;
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 专访回答朗读
+    // 专访开篇（她 2026-10-13 改版）：有专访照就铺满开篇、名字和标题压在照片下沿；没有就用头像＋大字名字做纯排版开篇。
+    //   接着一句大引文（从他的回答里挑）、一段导语，再进问答。
+    const ivx = e.interview || {};
+    const qas = ivx.qa || [];
+    const quotes = [];
+    qas.forEach(function (x) { (spokenOnly(x.a || "").match(/[^。！？!?…]{8,34}[。！？!?…]/g) || []).forEach(function (q) { quotes.push(q.trim()); }); });
+    quotes.sort(function (a, b) { return Math.abs(a.length - 18) - Math.abs(b.length - 18); });
+    const pullTop = quotes[0] || "", pullMid = quotes[1] || "";
+    const midAt = Math.floor(qas.length / 2);
+    const kicker = h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, marginBottom: 7, opacity: .85 } }, "独家专访 · 04");
+    const opener = e.photo
+      ? h("div", { "data-wk": "wklyivopener", "data-part": "photo", style: { position: "relative", margin: "0 -22px 0" } },
+          h(WeeklyPhoto, { imgKey: e.photo, alt: e.charName }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "70px 22px 18px", background: "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.62))", color: "#fffaf3" } },
+            kicker,
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 34, fontWeight: 600, lineHeight: 1.02 } }, e.charName),
+            ivx.headline ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 15, marginTop: 8, lineHeight: 1.45, opacity: .95 } }, ivx.headline) : null))
+      : h("div", { "data-wk": "wklyivopener", "data-part": "type", style: { display: "grid", gridTemplateColumns: "64px minmax(0,1fr)", gap: 14, alignItems: "end", margin: "0 -10px", padding: "20px 16px 18px", background: L.tint, color: "#fffaf3" } },
+          h(Avatar, { character: props.spk || { name: e.charName }, size: 64, radius: 0 }),
+          h("div", { style: { minWidth: 0 } }, kicker,
+            h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 31, fontWeight: 600, lineHeight: 1.04 } }, e.charName),
+            ivx.headline ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 14, marginTop: 6, lineHeight: 1.45, opacity: .92 } }, ivx.headline) : null));
+    const bigQuote = function (q, mid) { return q ? h("div", { "data-wk": "wklyivquote", style: { margin: mid ? "4px 0 26px" : "20px 0 16px", padding: mid ? "14px 0" : 0, borderTop: mid ? "3px solid " + L.tint : "none", borderBottom: mid ? "1px solid " + L.tint : "none",
+      fontFamily: "'Songti SC',Georgia,serif", fontSize: mid ? 19 : 22, fontWeight: 600, lineHeight: 1.45, color: L.tint } }, "「" + q + "」") : null; };
     return h("div", { style: { position: "relative" }, "data-wk": "wklyinterviewentry" },
-      h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 74px", alignItems: "end", borderBottom: "7px solid " + L.tint, margin: "0 -2px 22px", paddingBottom: 13 } },
-        h("div", null,
-          h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, color: L.tint, marginBottom: 7 } }, "独家专访 · 04"),
-          h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 29, fontWeight: 600, color: L.ink, lineHeight: 1.05 } }, e.charName)),
+      opener,
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, margin: "12px 0 0", color: L.tint } },
+        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: e.photo ? "重拍专访照" : "拍一张专访照" }) : h("span"),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
+      bigQuote(pullTop, false),
+      ivx.lead ? h("div", { "data-wk": "wklyivlead", style: { fontFamily: "'STKaiti','KaiTi',serif", fontSize: 14, lineHeight: 1.85, color: L.muted, margin: "0 0 24px", paddingBottom: 18, borderBottom: "7px solid " + L.tint } }, ivx.lead)
+        : h("div", { style: { borderBottom: "7px solid " + L.tint, margin: "0 0 22px" } }),
       (e.interview && e.interview.qa || []).map(function (qa, i) {
-        return h("div", { key: i, style: { display: "grid", gridTemplateColumns: i % 2 ? "1fr 37px" : "37px 1fr", gap: 13, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid " + pageColor("weekly", "line", paletteAlpha(L.tint, "33")) }, "data-wk": "wklyinterviewentry", "data-part": "r2" },
+        return h(React.Fragment, { key: i }, i === midAt && i > 0 ? bigQuote(pullMid, true) : null, h("div", { key: i, style: { display: "grid", gridTemplateColumns: i % 2 ? "1fr 37px" : "37px 1fr", gap: 13, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid " + pageColor("weekly", "line", paletteAlpha(L.tint, "33")) }, "data-wk": "wklyinterviewentry", "data-part": "r2" },
           i % 2 ? null : h("span", { style: { gridColumn: 1, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1 } }, "Q"),
           h("div", { style: { gridColumn: i % 2 ? 1 : 2, fontFamily: "'STKaiti','KaiTi',serif", fontSize: 14, color: L.muted, lineHeight: 1.7 } }, qa.q),
           h("div", { style: { gridColumn: i % 2 ? 1 : 2, marginTop: 7, fontFamily: "'Songti SC',Georgia,serif", fontSize: 15.5, color: L.ink, lineHeight: 1.82 } },
@@ -1508,7 +1570,7 @@
               qa.action ? h("span", { style: { fontFamily: "'STKaiti','KaiTi',serif", fontStyle: "italic", color: L.muted } }, "（" + qa.action + "）") : null,
               // ⚠️朗读只念TA说的话：括号里那几下是动作，念出来就成了「TA伸手」这种旁白
               (tp && props.spk && typeof TtsDot === "function") ? h(TtsDot, { k: "wiv" + i, text: spokenOnly(qa.a), spk: props.spk, tp: tp }) : null),
-          i % 2 ? h("span", { style: { gridColumn: 2, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1, textAlign: "right" } }, "Q") : null);
+          i % 2 ? h("span", { style: { gridColumn: 2, gridRow: "1 / 3", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: 30, color: L.tint, lineHeight: 1, textAlign: "right" } }, "Q") : null));
       }),
       e.paparazzi && (e.paparazzi.title || e.paparazzi.body) ? h("div", { style: { margin: "26px -10px 0 36px", padding: "17px 18px", background: L.tint, color: "#fff" } },
         h("div", { style: { fontFamily: F_BODY, letterSpacing: ".08em", fontSize: 8, opacity: .7, marginBottom: 8 } }, "边角闲话"),
@@ -1667,12 +1729,35 @@
     const deskSec = (issue.sections || []).find(function (s) { return s.type === "desk"; });
     const lettersSec = (issue.sections || []).find(function (s) { return s.type === "letters"; });
     const win = { start: issue.weekOf.start, end: issue.weekOf.end, key: issue.key, label: issue.label };
+    // 本周画报（不花钱）：这一周在照相馆拍的合照、封面、海报、漫画，按时间排
+    const pics = (function () { try { return (loadJSON("x_studio", []) || []).filter(function (r) { return r && (r.imgKey || r.imgUrl) && !r.style && Number(r.ts) >= win.start && Number(r.ts) < win.end; }).sort(function (a, b) { return a.ts - b.ts; }); } catch (e) { return []; } })();
     const num = window.Weekly.issueNo(issue, props.issues || []);
     function goSub(next, dir) {
       setTurn(function (old) { return { dir: dir || "next", n: old.n + 1 }; });
       setSub(next);
     }
 
+    // 拍照（封面＝本期受访的那几位，专访＝那一位）：拍完把 imgKey 记进这一期
+    async function shootCover(sec) {
+      if (!props.onShoot) return;
+      const ids = ((iv && iv.entries) || []).map(function (e) { return e.charId; });
+      if (!ids.length) { props.toast("这期还没有采访，先补一位再拍封面"); return; }
+      setBusyUnit("shoot_cover");
+      const key = await props.onShoot("cover", { charIds: ids, headline: sec.headline, highlights: sec.highlights || [], no: num, mood: "" });
+      if (key) props.onPatch(issue.id, function (iss) { iss.coverPhoto = key; return iss; });
+      setBusyUnit(null);
+    }
+    async function shootPortrait(en) {
+      if (!props.onShoot) return;
+      setBusyUnit("shoot_" + en.id);
+      const first = ((en.interview && en.interview.qa) || [])[0];
+      const key = await props.onShoot("portrait", { charIds: [en.charId], about: (en.interview && en.interview.title) || (first ? first.a : "") });
+      if (key) props.onPatch(issue.id, function (iss) {
+        iss.sections = iss.sections.map(function (s) { return s.type !== "interview" ? s : Object.assign({}, s, { entries: (s.entries || []).map(function (x) { return x.id === en.id ? Object.assign({}, x, { photo: key }) : x; }) }); });
+        return iss;
+      });
+      setBusyUnit(null);
+    }
     async function regenCover(sec) {
       setBusyUnit(sec.id);
       try {
@@ -1836,7 +1921,8 @@
           })) : null);
     } else if (sub && sub.kind === "cover" && cover) {
       headZh = "头版"; headEn = "";
-      detail = h(CoverSection, { cover: cover, busy: busyUnit === cover.id, onRegen: function () { regenCover(cover); } });
+      detail = h(CoverSection, { cover: cover, busy: busyUnit === cover.id, onRegen: function () { regenCover(cover); },
+        photo: issue.coverPhoto, shooting: busyUnit === "shoot_cover", onShoot: props.onShoot ? function () { shootCover(cover); } : null });
     } else if (sub && sub.kind === "interview" && iv) {
       headZh = "采访版"; headEn = "";
       const entries = iv.entries || [];
@@ -1857,7 +1943,8 @@
                   h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".14em", opacity: .7 } }, String(i + 1).padStart(2, "0")),
                   h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: 12.5, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, e.charName))));
           })),
-        en ? h(InterviewEntry, { key: en.id, entry: en, spk: (props.characters || []).find(function (c) { return c.id === en.charId; }), busy: busyUnit === en.id, onRegen: function () { regenInterview(en); } }) : null
+        en ? h(InterviewEntry, { key: en.id, entry: en, spk: (props.characters || []).find(function (c) { return c.id === en.charId; }), busy: busyUnit === en.id, onRegen: function () { regenInterview(en); },
+          shooting: busyUnit === "shoot_" + en.id, onShoot: props.onShoot ? function () { shootPortrait(en); } : null }) : null
       ) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.6 } }, "本周无人露面——采访版空场。");
       // 没被抽中的人:列在下面，想看谁点谁，补出来的不占轮次
       const shown = (iv.entries || []).map(function (e) { return e.charId; });
@@ -1872,6 +1959,21 @@
               style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, opacity: on ? .5 : 1 }, "data-wk": "wklyissueview", "data-part": "r6", "data-on": on ? "1" : "0" },
               on ? "采访中…" : c.name);
           }))));
+    } else if (sub && sub.kind === "pics") {
+      headZh = "本周画报"; headEn = "";
+      // 画报的排法：一张整幅、两张并排交替（单出来的最后一张也整幅）；图说是角上的小字，不抢图
+      detail = h("div", { "data-wk": "wklypics" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, "这一周在照相馆拍下的 " + pics.length + " 张"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", columnGap: 10, rowGap: 20, margin: "0 -8px" } },
+          pics.map(function (r, i) {
+            const d = new Date(r.ts);
+            const k = i % 3, wide = k === 0 || (k === 1 && i === pics.length - 1);
+            return h("figure", { key: r.id || i, "data-wk": "wklypic", "data-part": wide ? "wide" : "half", style: { margin: 0, gridColumn: wide ? "1 / -1" : "auto", minWidth: 0 } },
+              h(WeeklyPhoto, { imgKey: r.imgKey, imgUrl: r.imgUrl, alt: r.scene || "" }),
+              h("figcaption", { style: { display: "flex", gap: 7, alignItems: "baseline", marginTop: 6, fontFamily: F_BODY, fontSize: wide ? 11.5 : 10.5, lineHeight: 1.5, color: t.sub } },
+                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: t.fog, flexShrink: 0 } }, String(i + 1).padStart(2, "0")),
+                h("span", { style: { minWidth: 0 } }, (r.scene || "合照") + " · " + (d.getMonth() + 1) + "月" + d.getDate() + "日")));
+          })));
     } else if (sub && sub.kind === "media") {
       const sec = medias.find(function (s) { return s.id === sub.id; });
       if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = ""; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
@@ -1882,6 +1984,7 @@
       deskSec ? [{ key: "desk", label: "资料室", sub: { kind: "desk" } }] : [],
       lettersSec ? [{ key: "letters", label: "读者来信", sub: { kind: "letters" } }] : [],
       iv ? [{ key: "interview", label: "采访版", sub: { kind: "interview" } }] : [],
+      pics.length ? [{ key: "pics", label: "本周画报", sub: { kind: "pics" } }] : [],
       medias.map(function (sec) { return { key: "media:" + sec.id, label: voiceOf(sec.voiceId).name, sub: { kind: "media", id: sec.id } }; })
     );
     const currentPageKey = !sub ? "contents" : (sub.kind === "media" ? "media:" + sub.id : sub.kind);
@@ -1915,9 +2018,11 @@
         detail ? h("div", { style: { padding: "18px 22px 48px" } }, detail) : h("div", null,
           h(CoverPage, {
             issueKey: issue.key, num: num, label: issue.label, target: window.Weekly.nextRefreshTime(), onBack: props.onBack,
+            coverPhoto: issue.coverPhoto, onOpenCover: function () { goSub({ kind: "cover" }, "next"); },
             onTools: function () { setTools("menu"); },
             items: [].concat(
               cover ? [{ en: "", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
+              pics.length ? [{ en: "", title: "本周画报", meta: pics.length + " 张", onOpen: function () { goSub({ kind: "pics" }, "next"); } }] : [],
               deskSec ? [{ en: "", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
               lettersSec ? [{ en: "", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { goSub({ kind: "letters" }, "next"); } }] : [],
               iv ? [{ en: "", title: "本期专访", meta: (iv.entries || []).length + " 位" + (window.Weekly.interviewerOfIssue(issue) ? " · " + window.Weekly.interviewerOfIssue(issue).name + "来问" : ""), onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
@@ -2104,7 +2209,7 @@
       const iss = issues.find(function (x) { return x.id === openId; });
       if (iss) return h(IssueView, {
         issue: iss, issues: issues, active: props.active, characters: props.characters || [], groups: props.groups || [],
-        userName: userName, toast: props.toast, onPatch: patchIssue, refreshBusy: gen.busy,
+        userName: userName, toast: props.toast, onPatch: patchIssue, refreshBusy: gen.busy, onShoot: props.onShoot,
         onRefresh: doGenerate, onShelf: function () { setView("shelf"); },
         onBack: function () { setView(currentIssue && currentIssue.id === openId ? "cover" : "shelf"); }
       });

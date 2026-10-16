@@ -32,7 +32,8 @@ test("photo 字段真的会从模型那边回来（声明了没人接＝白写�
 });
 
 test("合照要两张脸都有真参考照，否则降级——绝不一张真一张编", () => {
-  assert.match(app, /const offlinePhotoCanDuo = char => !!\(char && char\.refPhoto && profile && profile\.refPhoto\)/);
+  // v75.685：线下的「我」也走面具
+  assert.match(app, /const duoFacesOk = char => !!\(char && \(\(char\.refPhoto && \(meOf\(char\.id\) \|\| \{\}\)\.refPhoto\) \|\| imgSiteNoRef\(\)\)\);\s*const offlinePhotoCanDuo = char => duoFacesOk\(char\);/);
   assert.match(app, /if \(kind === "duo" && !offlinePhotoCanDuo\(char\)\) kind = "other"/, "duo 没有降级这一道");
   assert.match(app, /if \(kind === "group" && \(!cast \|\| cast\.length < 2\)\) \{ kind = "other"; cast = null; \}/, "多人合影凑不齐人也要降级");
   // 提示词那一侧同理：凑不出 duo 就不该把这个选项摆出来

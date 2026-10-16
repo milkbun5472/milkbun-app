@@ -1,0 +1,37 @@
+{
+  "records": [
+    {
+      "file": "01-照相馆单张与题材.png",
+      "sha256": "1d8ceb96ad439a29507d7a0bc8388eebdeb4add25a6c76b0c5234d48c5f301d7",
+      "bytes": 1676739
+    },
+    {
+      "file": "02-照相馆四宫格.png",
+      "sha256": "199dd73c7a0fb1963e8eb25370077b388ac01994f07fe1106f963a4015314569",
+      "bytes": 1835028
+    },
+    {
+      "file": "03-照相馆拍立得.png",
+      "sha256": "3e725d7c4ccef155625f886de0d0a5ed0123e1526466d509c6bf810aa0620ae7",
+      "bytes": 1499017
+    },
+    {
+      "file": "04-照片日记.png",
+      "sha256": "274f6abed97c5be0d2432ed9eabc337b90e8a0e8a9408f100fda91927bfdd07c",
+      "bytes": 1409518
+    },
+    {
+      "file": "05-照片涂画与TA接笔.png",
+      "sha256": "2e294ba5d4930dc8dcce9539a27596fcfc619897697c383f440248de6b7c5747",
+      "bytes": 1503169
+    },
+    {
+      "file": "06-照片打分与抠成表情.png",
+      "sha256": "370042a73cbd760581f65dc843a4ed3349e53d6cac5223d6db711af788050d6a",
+      "bytes": 1615652
+    }
+  ],
+  "zip": "拍照新玩法-6张.zip",
+  "zipBytes": 9537538,
+  "crc": true
+}

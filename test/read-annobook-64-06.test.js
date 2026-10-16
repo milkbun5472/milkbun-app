@@ -101,7 +101,7 @@ test("顶栏一行放得下：设定收进去，常驻只留读到哪儿 / 讲�
   const seg = code.slice(code.indexOf("const topbar = h(\"div\""), code.indexOf("const reader = h(\"div\", { ref: scrollRef"));
   // 原来「每次批 N 条」「范围 N 页」「讲解显示中」「批注册 N」硬塞一行，窄屏折成两行、词都断开
   assert.match(seg, /const \[setOpen, setSetOpen\]|setSetOpen\(!setOpen\)/, "设定没有收起来那个开关");
-  assert.match(seg, /\(partner && setOpen\) \? h\("div"/, "那两个步进器还常驻在顶栏里");
+  assert.match(seg, /(\(partner && setOpen\)|setOpen) \? h\("div"/, "那两个步进器还常驻在顶栏里");  // 2026-10-14 起没邀人也能开设定（只有字体），步进器在里面另判 partner
   assert.match(seg, /whiteSpace: "nowrap"/, "钮上的字没锁住，还会断行");
   // 读到哪儿改成一条进度轴：比「3 / 47」看得出这本书有多厚
   assert.match(seg, /width: Math\.round\(\(\(pageIdx \+ 1\) \/ Math\.max\(1, totalPages\)\) \* 100\) \+ "%"/);

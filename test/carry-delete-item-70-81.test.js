@@ -86,7 +86,8 @@ test("界面：每一件详情里都有那颗删除键，而且先问一句", ()
   assert.match(scr, /requestAppConfirm\("删掉「" \+ sheet\.name \+ "」？"/, "删东西不问一句");
   assert.match(scr, /onDeleteItem\(char\.id, sectionKey, sheet\.name\); setSheet\(null\);/);
   // 钉住的那件要在确认里说清楚钉子也会拔——不然她会以为钉住还在
-  assert.match(scr, /isPinned\(sheet\) \? "这一件是钉住的，删掉时钉子也一起拔掉/);
+  // 「留着」（界面上原来叫钉住，2026-10-13 改名，免得跟「固定穿」混）的那件，确认里要说清楚会一起取消
+  assert.match(scr, /isPinned\(sheet\) \? "这一件是留着的，删掉时一起取消/);
   // 只开删除、没有钉住和摆出来时，那一块也得出得来
   assert.match(scr, /const pinRow = \(onTogglePin \|\| onPeek \|\| onDeleteItem\)/);
 });

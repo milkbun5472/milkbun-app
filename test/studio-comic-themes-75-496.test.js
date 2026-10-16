@@ -5,7 +5,7 @@ const path = require("node:path");
 const rd = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = rd("app.js"), comp = rd("components.js"), scr = rd("screens.js");
 assert.match(comp, /"data-wk": "selcomic"[\s\S]{0,200}"画成漫画"/);
-assert.match(app, /onComic: indices =>/);
+assert.match(app, /onComic: \(indices, style\) =>/);
 assert.match(app, /const comicFromMessages = async/);
 assert.match(app, /不要任何文字、不要对话气泡/, "字不能交给图像端写");
 assert.match(app, /opt && opt\.comic \? await comicCompose/);
@@ -21,7 +21,7 @@ assert.match(scr, /"data-wk": "studiothemeadd"/);
 assert.match(scr, /"\+自己写"|"＋自己写"/);
 console.log("ok custom themes");
 // 换画风只转原图；墙上分类；重画叠成一摞（她 2026-10-13）
-assert.match(app, /const prompt = RESTYLE_ONLY \|\| buildPhotoPrompt/, "换画风不许再走整套拍照提示词");
+assert.match(app, /const prompt = RESTYLE_ONLY \|\| (\(PAINT_LINE[^\n]*?\+ )?buildPhotoPrompt/, "换画风不许再走整套拍照提示词");
 assert.match(app, /parentId: opt\.restyle\.parent/);
 assert.match(scr, /"data-wk": "studiokinds"/);
 assert.match(scr, /"data-wk": "studiostack"/);
@@ -48,11 +48,9 @@ assert.match(app, /平面的 Q 版二次元插画/);
 assert.match(scr, /"Q版", "手办"/);
 console.log("ok figure");
 // 杂志封面：字量着写不出画；挑了衣服题材照穿（她 2026-10-13）
-assert.match(app, /const put = \(str, size, px, py, align, color, weight, maxW, font, shadow\) =>/);
-assert.match(app, /const coverCopy = async \(char, kind, title\) =>/);
-assert.match(app, /const v = Math.floor\(Math.random\(\) \* 4\);/);
+assert.match(app, /const coverCopy = async \(char, kind, title(, picked)?\) =>/);
 assert.match(app, /\(!theme \|\| picked\)/);
-assert.match(app, /const masthead = \(color, y\) =>/);
+assert.match(app, /window\.PosterLayout\.compose\(blob, plan, copy, names\)/);
 assert.match(app, /editorial: theme.overlay/);
 assert.match(require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8"), /绝对不是自拍/);
 console.log("ok cover");
@@ -60,3 +58,21 @@ console.log("ok cover");
 assert.match(scr, /h\(AlbumPhoto, \{ photo: big, full: true \}\)/);
 assert.match(scr, /h\(AlbumPhoto, \{ photo: y, full: true \}\)/);
 console.log("ok full");
+// 封面／海报换画风：拿不带字的那张重画，照原样印回字（她 2026-10-13）
+assert.match(app, /await idbImgPut\(imgKey \+ "_raw", out\.blob\)/);
+assert.match(app, /opt\.restyle && opt\.restyle\.overlay && opt\.restyle\.overlay\.plan/);
+assert.match(scr, /"data-wk": "studioretext"/);
+assert.match(scr, /src\.rawKey \? await photoDataUrl\(\{ imgKey: src\.rawKey \}\)/);
+console.log("ok retext");
+// 四格漫画换画风：拿没排台词的 2×2 去重画，台词照原样排回（她 2026-10-13）
+assert.match(app, /comic: true, comicPanels: opt\.comic, rawKey: imgKey \+ "_raw"/);
+assert.match(app, /reComic \? await comicCompose\(out\.blob, reComic[,)]/);
+assert.match(scr, /src\.comicPanels && reText \? \{ comic: src\.comicPanels \}/);
+console.log("ok comic retext");
+// 漫画画好直接发进聊天，不是情侣也看得到（她 2026-10-13）
+assert.match(app, /await shareShotToChat\(char, \{ \.\.\.row, desc: comicDesc, scene: comicDesc \}\)/);
+console.log("ok comic chat");
+// 拍立得、四宫格不写场景不挑题材也能拍（她 2026-10-13）
+assert.match(scr, /!\(scene\.trim\(\) \|\| theme \|\| polaroid \|\| grid\)/);
+assert.match(app, /opt && opt\.polaroid \? "随手用拍立得拍的一张合照/);
+console.log("ok blank shoot");

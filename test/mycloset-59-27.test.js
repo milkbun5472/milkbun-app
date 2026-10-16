@@ -57,8 +57,15 @@ test("也能自己挂、拿得掉，且不会越攒越多", () => {
   const put = cut(app, "  const myClosetPut = (box, occ, set) => {", "\n  };");
   assert.match(put, /String\(occ \|\| ""\)\.trim\(\)\.slice\(0, 8\) \|\| "平常"/, "场合没兜底，空的会散成一堆无名格");
   assert.match(put, /if \(!one\.name\) return box;/, "没名字也往里塞");
-  assert.match(put, /\.slice\(0, MYCLOSET_MAX_SETS\)/, "一个场合里没有上限");
-  assert.match(put, /cur\.slice\(0, MYCLOSET_MAX_OCC\)/, "场合数没有上限");
+  // 有上限，但满了是【不挂】，不是把最老的挤掉（群友 2026-10-13：「生成新的之后旧的就会被覆盖」）
+  assert.match(put, /if \(\(cur\[i\]\.sets \|\| \[\]\)\.length >= MYCLOSET_MAX_SETS\) return box;/, "一个场合里没有上限，或者满了在挤旧的");
+  assert.match(put, /if \(cur\.length >= MYCLOSET_MAX_OCC\) return box;/, "场合数没有上限，或者满了在挤旧的");
+  const P = new Function("MYCLOSET_MAX_OCC", "MYCLOSET_MAX_SETS", "return " + put.slice(put.indexOf("(box, occ, set) =>")) + "\n  };")(2, 2);
+  let box = {};
+  ["一", "二", "三"].forEach(n => { box = P(box, "平常", { name: n }); });
+  assert.deepEqual(box.closet[0].sets.map(x => x.name), ["二", "一"], "满了还把老的挤掉了");
+  box = P(box, "上班", { name: "甲" }); box = P(box, "约会", { name: "乙" });
+  assert.deepEqual(box.closet.map(g => g.occasion), ["上班", "平常"], "场合满了还把老的一类挤掉了");
   // 同一个场合挂到同一格里，不是每次新开一格
   assert.match(put, /cur\.findIndex\(g => g && String\(g\.occasion \|\| ""\) === occasion\)/, "同名场合会开出好几格");
   const add = cut(app, "  const myClosetAdd = (occ, name, note) => {", "\n  };");
@@ -66,6 +73,7 @@ test("也能自己挂、拿得掉，且不会越攒越多", () => {
   const drop = cut(app, "  const myClosetDrop = (occ, name) => {", "\n  };");
   assert.match(drop, /\.filter\(g => \(g\.sets \|\| \[\]\)\.length\)/, "拿空了的场合还留着一个空格子");
   // 存的是同一份，照相馆那条路照旧
-  assert.match(app, /saveMyCloset\(myClosetPut\(myClosetRef\.current, occ/, "自己挂的没存进同一份");
-  assert.match(app, /saveMyCloset\(put\(myClosetRef\.current, d && d\.hers\)\)/, "照相馆那条路被弄坏了");
+  assert.match(app, /const next = myClosetPut\(myClosetRef\.current, occ, \{ name: name, note: note \}\);/, "自己挂的没走同一个口");
+  assert.match(app, /const nextMine = myClosetPut\(myClosetRef\.current, occ, setOf\(d && d\.hers\)\);/, "照相馆配一对那条路没走同一个口");
+  assert.ok(!/next\.slice\(0, 8\)/.test(app), "配一对那条路又自己写了一份会挤旧衣服的");
 });

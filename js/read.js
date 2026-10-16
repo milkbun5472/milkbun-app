@@ -15,6 +15,31 @@
 
   // ---- 元数据存取 ----
   function loadBooks() { return loadJSON("x_read_books", []); }
+  // 一起读正文能挑的字体：书宋（原来那支）打头，后面是 FontChoice 名单里的（去掉「默认」和重复的思源宋体）
+  // 她在主题里自己传的字体也能挑（她 2026-10-14：「接吧」）：名单还是 FontChoice.facesWith 那一份
+  function readCustom() { try { return ((window.ThemeStudio && window.ThemeStudio.current && window.ThemeStudio.current()) || {}).customFonts || []; } catch (e) { return []; } }
+  function readFaces() {
+    const FC = typeof window !== "undefined" && window.FontChoice;
+    const F = FC ? (FC.facesWith ? FC.facesWith(readCustom()) : FC.FACES) : [];
+    return [{ key: "", zh: "书宋", stack: "'Noto Serif SC',serif" }].concat(F.filter(function (f) { return f.key && f.key !== "songti"; }));
+  }
+  // 挑了要下载／自己传的字体：拉链接、把文件字体的 @font-face 挂上（ensure、faceBlocks 都会查重，重复调没事）
+  function readEnsureFont(key) {
+    const FC = typeof window !== "undefined" && window.FontChoice; if (!FC || !key) return;
+    const custom = readCustom();
+    try { FC.ensure({ body: key }, custom); } catch (e) {}
+    if (String(key).indexOf("u:") === 0 && FC.faceBlocks && typeof document !== "undefined") {
+      try {
+        const css = FC.faceBlocks(custom, window.resolveImg); const id = "wk-read-fontfaces";
+        let el = document.getElementById(id); if (!el) { el = document.createElement("style"); el.id = id; document.head.appendChild(el); }
+        if (el.textContent !== css) el.textContent = css;
+      } catch (e) {}
+    }
+  }
+  function readFontStack(key) {
+    const f = readFaces().filter(function (x) { return x.key === (key || ""); })[0];
+    return (f && f.stack) || "'Noto Serif SC',serif";
+  }
   function saveBooks(list) { return saveJSON("x_read_books", list); }
 
   const PAGE_CHARS = 1600; // 每页目标字数（按段落边界切）
@@ -302,12 +327,29 @@
       const f = e.target.files && e.target.files[0];
       e.target.value = "";
       if (!f) return;
-      const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
+      // 不靠后缀认：有的手机传过来没后缀、类型也是空的（她 2026-10-13：「pdf 没办法选中」——选择框按类型把它灰掉了，
+      //   现在选择框什么都给选，这里看文件头：%PDF 是 pdf，PK 开头里带 epub 的是 epub，别的当文字）
+      const head = new Uint8Array(await f.slice(0, 64).arrayBuffer()), headStr = String.fromCharCode.apply(null, Array.from(head));
+      const sniffPdf = headStr.indexOf("%PDF") === 0, sniffEpub = headStr.indexOf("PK") === 0 && headStr.indexOf("epub") > 0;
+      const isPdf = sniffPdf || /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
       const isTxt = /\.txt$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
-      if (!isPdf && !isTxt) { props.toast && props.toast("支持 .txt 或已 OCR 的 .pdf"); return; }
+      const isEpub = sniffEpub || /\.epub$/i.test(f.name) || f.type === "application/epub+zip";
+      const isDocx = /\.docx$/i.test(f.name);
+      if (/\.(mobi|azw3?)$/i.test(f.name)) { props.toast && props.toast("mobi / azw 读不了：先转成 epub 或 txt 再传"); return; }
+      if (/\.doc$/i.test(f.name)) { props.toast && props.toast("老的 .doc 读不了：在 Word 里另存为 .docx 或 txt 再传"); return; }
+      if (!isPdf && !isTxt && !isEpub && !isDocx && headStr.indexOf("PK") !== 0 && !/^(image|video|audio)\//.test(f.type || "")) { /* 没后缀没类型的：当文字试试 */ }
+      else if (!isPdf && !isTxt && !isEpub && !isDocx) { props.toast && props.toast("支持 .txt、.epub、.docx，或者有文字层的 .pdf"); return; }
       try {
         let text;
-        if (isPdf) {
+        if (isEpub) {
+          props.toast && props.toast("在拆这本 epub…");
+          text = await epubToText(await f.arrayBuffer());
+          if (!text || !text.trim()) { props.toast && props.toast("这本 epub 里没读到文字（可能整本是图片）"); return; }
+        } else if (isDocx) {
+          if (typeof docxToText !== "function") throw new Error("这台手机读不了 docx，存成 txt 再传");
+          text = await docxToText(await f.arrayBuffer());
+          if (!text || !text.trim()) { props.toast && props.toast("这个 docx 里没读到文字"); return; }
+        } else if (isPdf) {
           props.toast && props.toast("解析 PDF 中…");
           text = await extractPdfText(f, function (p, n) { if (p === 1 || p % 20 === 0 || p === n) props.toast && props.toast("解析 PDF " + p + "/" + n + " 页…"); });
           if (!text || !text.trim()) { props.toast && props.toast("没读到文字——这份 PDF 可能是没 OCR 的扫描图，先 OCR 成带文本层的 PDF 再传"); return; }
@@ -318,7 +360,7 @@
         }
         const id = "bk_" + Date.now();
         await idbPut(id, text);
-        const title = f.name.replace(/\.(txt|pdf)$/i, "").slice(0, 40);
+        const title = f.name.replace(/\.(txt|pdf|epub|docx)$/i, "").slice(0, 40);
         // roomId＝这本书算哪间房的（"main"＝主聊天）。写回边界要认这一戳，
         // 否则「不带出门」那间房里读的书会从主线的TA嘴里说出来（同一起学那一戳）。
         persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, roomId: "main", perPass: 3, annotations: [], explains: {}, synopsis: "", showExplains: true }].concat(loadBooks()));
@@ -411,7 +453,7 @@
     }
     return h("div", { className: "h-full flex flex-col", style: shelfPage, "data-wk": "readshelfboard", "data-part": "r2" },
       h(Head, { zh: "一起读", onBack: props.onBack, bg: "transparent" }),
-      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf", style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
+      h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: onFile, "data-wk": "readpageinput", "data-part": "1" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
         rows,
         books.length === 0
@@ -426,6 +468,8 @@
   function Reader(props) {
     const t = useTheme();
     const book = props.book;
+    // 挑过要下载的字体（站酷、手写这几支）：重开这本书时也得把它拉回来，不然退回书宋（ensure 自己会查重）
+    if (book && book.font) readEnsureFont(book.font);
     const [pages, setPages] = useState(null);
     const [pageIdx, setPageIdx] = useState(book.page || 0);
     const [loading, setLoading] = useState(true);
@@ -534,6 +578,62 @@
     const gotoPage = function (idx) {
       const n = Math.max(0, Math.min(totalPages - 1, idx));
       setPageIdx(n); setSel(null); props.onPatch({ page: n, lastReadTs: Date.now() });
+    };
+
+    // ---- TA 念正文（群友 2026-10-14 许愿「一起读里让 ta 念」）----
+    //   用TA的音色从这一页往下一段一段念；念到哪段高亮哪段，念完一页自己翻（设定里能改成念完这页就停）。
+    //   ⚠️正文按字数走语音 API：只往后【提前合成一段】（公共的 ttsWarm），听到哪合成到哪；
+    //   念过的段落 ttsSpeak 自己有缓存，重听不再花钱。太长的段落按句号切成两三百字一截，免得一次超长。
+    const [narr, setNarr] = useState(null);   // { page, para, st: "gen" | "play" }
+    const narrRef = useRef({ run: 0, aud: null });
+    const chunksOf = function (pg) {
+      const ps = pages ? (pages[pg] || []) : [], out = [];
+      ps.forEach(function (p, i) {
+        const s0 = String(p || "").trim(); if (!s0) return;
+        const parts = s0.length <= 280 ? [s0] : (s0.match(/[^。！？!?…]+[。！？!?…”」』]*|.+$/g) || [s0]);
+        let buf = "";
+        parts.forEach(function (x) { if (buf && (buf + x).length > 280) { out.push({ para: i, text: buf }); buf = x; } else buf += x; });
+        if (buf) out.push({ para: i, text: buf });
+      });
+      return out;
+    };
+    const narrStop = function () {
+      narrRef.current.run++;
+      const a = narrRef.current.aud; if (a) { try { a.pause(); } catch (e) {} }
+      narrRef.current.aud = null; setNarr(null);
+    };
+    useEffect(function () { return function () { narrStop(); }; }, [book.id]);
+    const narrPlay = async function (pg, idx, run) {
+      if (narrRef.current.run !== run || !partner) return;
+      const ch = chunksOf(pg);
+      if (idx >= ch.length) {
+        if (book.narrStop !== "page" && pg < totalPages - 1) { gotoPage(pg + 1); return narrPlay(pg + 1, 0, run); }
+        narrStop(); return;
+      }
+      setNarr({ page: pg, para: ch[idx].para, st: "gen" });
+      const next = ch[idx + 1] || (book.narrStop !== "page" ? chunksOf(pg + 1)[0] : null);
+      try {
+        const blob = await ttsSpeak(ch[idx].text, partner.voiceId);
+        if (narrRef.current.run !== run) return;
+        if (next && typeof ttsWarm === "function") ttsWarm(next.text, partner.voiceId);
+        const aud = narrRef.current.aud; if (!aud) return;
+        const url = URL.createObjectURL(blob);
+        aud.src = url;
+        setNarr({ page: pg, para: ch[idx].para, st: "play" });
+        await new Promise(function (ok) { aud.onended = aud.onerror = ok; aud.play().catch(ok); });
+        URL.revokeObjectURL(url);
+      } catch (e) { if (narrRef.current.run === run) { props.toast && props.toast("这段没念出来：" + ((e && e.message) || "重试")); narrStop(); } return; }
+      return narrPlay(pg, idx + 1, run);
+    };
+    const narrStart = function (pg, fromPara) {
+      if (!partner) { setPickOpen(true); return; }
+      if (!partner.voiceId || !(typeof ttsReady === "function" && ttsReady())) { props.toast && props.toast("先给 " + partner.name + " 配一个音色（设置 → 语音 API，指派音色）"); return; }
+      narrStop();
+      const run = ++narrRef.current.run;
+      const aud = new Audio(); try { aud.play().catch(function () {}); } catch (e) {}   // 手势里先解锁 iOS 的音频
+      narrRef.current.aud = aud;
+      const ch = chunksOf(pg); const at = ch.findIndex(function (c) { return c.para >= (fromPara || 0); });
+      narrPlay(pg, at < 0 ? 0 : at, run);
     };
 
     // ---- 逐段讲解：让 Ta 把这一页每段都用大白话讲给你听（中译中），并把本页梗概续进已读脉络 ----
@@ -816,18 +916,32 @@
           style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "4" }, "批注册"),
         h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0",
           style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "5" }, "设定")
-      ) : null,
-      // 「设定」展开才出现：一次批几条、覆盖几页
-      (partner && setOpen) ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
-        h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+      )
+      // 没邀人也能开「设定」（她 2026-10-14：「不用选人就可以设置」）：这时里头只有字体那一格
+      : h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 8 } },
+          h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0", "data-wk": "readreaderbtn", "data-part": "5",
+            style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" } }, "设定")),
+      // 「设定」展开才出现：字体；邀了人再加一次批几条、覆盖几页
+      setOpen ? h("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
+        // 正文字体（群友 2026-10-14：「希望能让一起读界面字体修改为默认系统字体」，她：「不能多搞几个字体选择吗」）：
+        //   名单只问 FontChoice 那一份（跟主题换字体同一份，one-public-mechanism），书宋＝原来那支，记在这本书上
+        h("div", { "data-wk": "readfont", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, width: "100%" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "字体"),
+          readFaces().map(function (o) { const on = (book.font || "") === o.key;
+            return h("button", { key: o.key || "_def", "data-on": on ? "1" : "0", onClick: function () { readEnsureFont(o.key); props.onPatch({ font: o.key }); },
+              style: { fontFamily: o.stack || "'Noto Serif SC',serif", fontSize: 11.5, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o.zh); })),
+        partner ? h("button", { "data-wk": "readnarrstop", "data-on": book.narrStop === "page" ? "1" : "0", onClick: function () { props.onPatch({ narrStop: book.narrStop === "page" ? "go" : "page" }); },
+          style: { fontFamily: F_BODY, fontSize: 11.5, padding: "3px 10px", borderRadius: 999, color: t.sub, border: "1px solid " + t.line, background: "transparent" } },
+          "TA 念：" + (book.narrStop === "page" ? "念完这页就停" : "一直往下念")) : null,
+        partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")),
-        h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")) : null,
+        partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "范围"),
           h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")),
-        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")) : null,
+        partner && span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
       ) : null);
 
     // ---- 正文页 ----
@@ -846,8 +960,9 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink,
+              h("p", { "data-wk": "readpara", "data-reading": narr && narr.page === pageIdx && narr.para === i ? "1" : "0", style: { fontFamily: readFontStack(book.font), fontSize: 16, lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
+                background: narr && narr.page === pageIdx && narr.para === i ? skinAlpha(t.tint, "1f") : "transparent", transition: "background .3s",
                 paddingLeft: 11, marginLeft: -11,
                 // 页边那道记号：TA批过就实线、只讲解过就虚一点，两种一眼分得开
                 borderLeft: hot ? ("2px " + (anns.length ? "solid" : "dotted") + " " + skinAlpha(t.tint, anns.length ? "bb" : "77")) : "2px solid transparent",
@@ -903,10 +1018,15 @@
             h("button", { onClick: queueForYanqiu, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3f6ea8", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(63,110,168,.3)" }, "data-wk": "readreaderbtn", "data-part": "10" }, "📨 送这页给言秋"),
             h("button", { onClick: pullYanqiuReplies, disabled: pulling, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#3f6ea8", background: t.bg2, border: "1px solid #3f6ea855", borderRadius: 999, padding: "9px 14px", opacity: pulling ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "11" }, pulling ? "取…" : "📥 取批注"))
         : h("button", { onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "12" }, "✎ 批注"),
+      h("button", { "data-wk": "readnarr", "data-on": narr ? "1" : "0", onClick: function () { if (narr) narrStop(); else narrStart(pageIdx, 0); },
+        style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: narr ? "#fff" : t.ink, background: narr ? t.tint : t.bg2, border: "1px solid " + (narr ? t.tint : t.line), borderRadius: 999, padding: "9px 14px" } },
+        narr ? (narr.st === "gen" ? "… 准备念" : "⏸ 停下") : "🔈 TA 念"),
       h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" }, "data-wk": "readreaderbtn", "data-part": "13" }, "💬 讨论"));
 
     // ---- 划线后浮出的「让 Ta 讲这句」----
     const selBar = sel ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 100, display: "flex", justifyContent: "center", gap: 8, zIndex: 30, pointerEvents: "none" } },
+      // 只念选中这一句（不往下接着念）
+      partner && partner.voiceId && tp ? h("button", { "data-wk": "readselread", onClick: function () { narrStop(); tp.toggle("rselread", sel.text, partner.voiceId); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.18)" } }, "🔈 念这句") : null,
       h("button", { onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" }, "data-wk": "readreaderbtn", "data-part": "14" }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句"),
       isYanqiu ? h("button", { onClick: function () { setNoteSheet({ anchor: sel.text, val: "" }); setSel(null); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(201,106,148,.3)" }, "data-wk": "readreaderbtn", "data-part": "15" }, "✎ 记给言秋") : null) : null;
 

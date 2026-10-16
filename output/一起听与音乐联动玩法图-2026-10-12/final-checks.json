@@ -1,0 +1,32 @@
+{
+  "pages": 18,
+  "dimensions": [
+    1200,
+    1600
+  ],
+  "pngHashes": {
+    "01-小红书封面.png": "de65b24e233003c15ea65779d747ec7175f0b7b53c688ee40a79f4b2360a61aa",
+    "02-挑个人一起听.png": "f183677da9e993042999d521b9910cc2cb9a2bbc00be5ba32f2a1dceffa2b276",
+    "03-聊天里的邀请.png": "eaa75a62afda7043d01c4510efa7463f746ff4028fd240e195cd13ad353bfdd8",
+    "04-边听边说.png": "e2cf2eb2529d99a71fe07098180221458c34ebb4d136ca4a0e9f3fc85118adc8",
+    "05-聊到正在唱的那一句.png": "e349be959fbdee0c6aeb1b4da82e189ed783af95eb5a5bacfd4ae0bd37956e51",
+    "06-让TA自己开口.png": "356eb05800f65c307e05a185090480ec4e2db6f84bed5eb6378046e73f87f952",
+    "07-原话回到主聊天.png": "5dfcbf0e8134c429737a2c0507b478095536fe955cc6e6c649aa580009d4d6ef",
+    "08-聊天里点歌切歌.png": "ef59bf122b3c63dbbf39f57352b65604b24d51a9b29bf26e1f1d95a68d38c143",
+    "09-生成TA自己的歌单.png": "ec0a636ff1a139a947d58efc9dc9468def13defcdda7c79ab323b5c43bb50a6d",
+    "10-查手机是同一张歌单.png": "19ef57f6d8ce0c2982ba654d407b1ad9486d4c0649c53829b32afb3e2d4dcfa7",
+    "11-把他的偏爱拿回去聊.png": "32a3d04df9a509e5b5a4453a18a317a53d31dc2bd76b2c6ca4774107cc5221ed",
+    "12-看TA在手机里点歌.png": "a07ca676df508b476d0271980c36f9241f0126e09996ca24e6977c70b2fc2b0f",
+    "13-在聊天里刻一首歌.png": "f22d9bf8aba17f25b5f8df582ab726d5007965ac96cfa6aa433a619c12738f79",
+    "14-让TA挑共同的唱片.png": "679e7694369ed54e39ffb35a7ba8f17ec5b1fb0a11dc344c9a28bb19334f9b17",
+    "15-自己刻歌和改B面.png": "09d3cee0b1f7f7efaf6a5249163d5b1dd99c887823fbd749ba84f2c80e754126",
+    "16-收进自己的歌单.png": "ee6e09bee9063f9980b8a20eaaa8e39df33d449bb6ea6d559b9ad6dcb346534b",
+    "17-队列和悬浮播放器.png": "1770a4065b0125819b31561b0dba66ac22c594c3142b905880c4078718cea94a",
+    "18-进出空间接着听.png": "272bc0884ca2d8a8cdb48d7c118710429f5d236a1ae93f39c559a8e714747ab7"
+  },
+  "zipCRC": "pass",
+  "zipHashes": "pass",
+  "sourceSnapshotHashes": 170,
+  "renderErrors": 0,
+  "zipBytes": 33538172
+}

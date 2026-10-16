@@ -10,7 +10,8 @@
 // 用法（先把改动写好，不用自己 commit）：
 //   node scripts/ship.mjs --msg-file /tmp/msg.txt --entries couple,chat
 //   node scripts/ship.mjs --msg-file /tmp/msg.txt --none "纯修内部，用法没变"
-//   可选：--brief "新增 xxx、yyy 挂点。"（不传就写「没动挂点」）
+//   可选：--tests "test/x.test.js test/y.test.mjs"（只跑相关的；不传才跑全套）
+//         --brief "新增 xxx、yyy 挂点。"（不传就写「没动挂点」）
 //         --allow 测试名片段（某个红灯【在 main 上也红、跟这次无关】时才用，要在回复里写明）
 // msg 文件里写整段提交说明（含 Co-Authored-By 等尾注）；脚本会在第一行前面补上版本号。
 //
@@ -24,6 +25,8 @@ const msgFile = arg("--msg-file");
 const entries = (arg("--entries") || "").split(",").map(s => s.trim()).filter(Boolean);
 const none = arg("--none") || "";
 const brief = arg("--brief") || "";
+// --tests "test/a.test.js test/b.test.mjs"：只跑这次动过的那几份（她 2026-10-13：「不要跑全套！就跑动过的」）
+const only = arg("--tests") || "";
 const allow = argv.flatMap((v, i) => v === "--allow" ? [argv[i + 1]] : []).filter(Boolean);
 if (!msgFile || !existsSync(msgFile)) die("要给 --msg-file（提交说明，含尾注）");
 if (!entries.length && !none) die("攻略那一关：--entries 写这版改了哪几条攻略，或 --none 写为什么不用改（manual-stamp 规矩）");
@@ -33,6 +36,8 @@ const tryd = c => { try { return sh(c); } catch (e) { return null; } };
 function die(m) { console.error("✗ " + m); process.exit(1); }
 const REMOTE = (() => { const rs = (tryd("git remote") || "origin").split("\n"); return rs.includes("origin") ? "origin" : rs[0]; })();
 const BRANCH = sh("git rev-parse --abbrev-ref HEAD");
+const GIT_DIR = sh("git rev-parse --absolute-git-dir");
+const quote = s => "'" + String(s).replaceAll("'", "'\\''") + "'";
 const VERSION_FILES = ["index.html", "manifest.json", "rescue.html", "js/app.js"];
 
 // 版本那几行冲突：两边都只是号不同，取 main 那侧（反正马上重写）
@@ -44,6 +49,10 @@ const takeTheirsStampLines = p => {
   return !/^<<<<<<< /m.test(s);
 };
 
+// 开跑前：上一次合到一半没收完、或者文件里还留着冲突标记，一律不动
+if (existsSync(GIT_DIR + "/MERGE_HEAD")) die("有一次合并还没收完（.git/MERGE_HEAD 在）：先收好或 git merge --abort 再跑");
+{ const left = tryd("git grep -lE \"^(<<<<<<<|>>>>>>>) \" -- js index.html test scripts");
+  if (left) die("这些文件里还有冲突标记，先收干净：\n" + left); }
 for (let round = 1; round <= 4; round++) {
   console.log("── 第 " + round + " 轮");
   // 1) 收进一个本地提交（发版提交最后再做一次，这个只是为了能合 main）
@@ -56,7 +65,9 @@ for (let round = 1; round <= 4; round++) {
     for (const f of conflicted) {
       if (VERSION_FILES.includes(f) && f !== "js/app.js") { sh("git show " + REMOTE + "/main:" + f + " > " + f, { shell: "/bin/bash" }); continue; }
       if (/assistant-manual\.js$|theme-studio\.js$|js\/app\.js$/.test(f) && takeTheirsStampLines(f)) continue;
-      die("合 main 有真冲突：" + f + "——先手动收（不许 checkout --ours），再重跑");
+      // 先把合了一半的状态退回去再停：不然下次一跑，开头那个 wip 提交会把带冲突标记的文件原样提交掉（2026-10-13 真出过）
+      tryd("git merge --abort");
+      die("合 main 有真冲突：" + f + "——已经退回合并前。手动 git merge " + REMOTE + "/main 收好（不许 checkout --ours）再重跑");
     }
     sh("git add -A"); sh("git commit -qm \"merge main\"");
   }
@@ -87,17 +98,17 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("node scripts/check-version.mjs") === null) die("check-version 不过：" + (tryd("node scripts/check-version.mjs 2>&1; true") || ""));
   for (const f of changed) if (existsSync("js/" + f + ".js") && tryd("node --check js/" + f + ".js") === null) die("语法错：js/" + f + ".js");
   if (tryd("git diff --check " + REMOTE + "/main") === null) die("git diff --check 不过（行尾空白／冲突标记）");
-  console.log("跑全套测试（并行）…");
+  console.log(only ? "跑这次相关的测试：" + only : "跑全套测试（并行）…");
   let out = "";
-  try { out = sh("node --test test/*.test.js test/*.test.mjs 2>&1", { shell: "/bin/bash" }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
+  try { out = sh("node --test " + (only || "test/*.test.js test/*.test.mjs") + " 2>&1", { shell: "/bin/bash" }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
   const pass = (out.match(/^# pass (\d+)/m) || [])[1], fail = (out.match(/^# fail (\d+)/m) || [])[1];
   console.log("测试：" + pass + " 过，" + fail + " 不过" + (allow.length ? "（--allow 放过：" + allow.join("、") + "）" : ""));
   if (fails.length) die("有红灯，不推：\n" + fails.join("\n"));
   // 6) 发版提交 + 推
   const msg = readFileSync(msgFile, "utf8").replace(/^\s*/, "v" + V + " ");
-  writeFileSync(".git/SHIP_MSG", msg);
-  sh("git add -A"); sh("git commit -q --allow-empty -F .git/SHIP_MSG");   // 上一次停在半路时版本号已经跟着 wip 提交进去了，这里可能没有新改动，说明照样要落一条
+  writeFileSync(GIT_DIR + "/SHIP_MSG", msg);
+  sh("git add -A"); sh("git commit -q --allow-empty -F " + quote(GIT_DIR + "/SHIP_MSG"));   // 上一次停在半路时版本号已经跟着 wip 提交进去了，这里可能没有新改动，说明照样要落一条
   sh("git push -q " + REMOTE + " HEAD:" + BRANCH);
   sh("git fetch -q " + REMOTE + " main");
   if (tryd("git merge-base --is-ancestor " + REMOTE + "/main HEAD") === null) { console.log("main 在这期间又被别人推了，重来一轮"); continue; }

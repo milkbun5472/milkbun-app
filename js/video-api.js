@@ -352,7 +352,8 @@
       row("视频模型", h("select", { "aria-label": "视频模型", value: c.model, onChange: e => set({ model: e.target.value, resolution: resolutions(e.target.value)[0], duration: durations(e.target.value, resolutions(e.target.value)[0])[0] }), style: input }, MODELS.map(m => h("option", { key: m, value: m }, m)))),
       row("画质", h("select", { "aria-label": "视频画质", value: c.resolution, onChange: e => set({ resolution: e.target.value }), style: input }, resolutions(c.model).map(r => h("option", { key: r, value: r }, r)))),
       row("时长", h("select", { "aria-label": "视频时长", value: c.duration, onChange: e => set({ duration: Number(e.target.value) }), style: input }, durations(c.model, c.resolution).map(n => h("option", { key: n, value: n }, n + " 秒")))),
-      h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "H3 可选 4～15 秒，H3 Max 可选 5～15 秒；旧型号保留原时长。H3 官方站直连可能被浏览器跨域拦截，此时接口地址需填写支持 MiniMax V2 的中转地址。密钥与语音设置分别保存。到「动态形象」里制作和预览；模型是否开放、费用以对应站点账户为准。")),
+      h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "H3 可选 4～15 秒，H3 Max 可选 5～15 秒；旧型号保留原时长。H3 官方站直连可能被浏览器跨域拦截，此时接口地址需填写支持 MiniMax V2 的中转地址（下面可以自己搭一个）。密钥与语音设置分别保存。到「动态形象」里制作和预览；模型是否开放、费用以对应站点账户为准。")),
+      typeof RelayHelp === "function" && typeof MINIMAX_API_SITES !== "undefined" ? h(RelayHelp, { toast: typeof toast === "function" ? toast : null, hosts: MINIMAX_API_SITES.slice(0, 2), what: "再生成一段试试" }) : null,
       err ? h("p", { role: "alert", style: { color: t.accent } }, err) : null);
   }
   // 动态形象编辑页（她 2026-10-05）：一个角色一本，顶上一条胶片选哪一格（平时 / 专注时 / 通话时）。

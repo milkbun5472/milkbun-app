@@ -2,6 +2,7 @@
 // 一起听·边听边说（她 2026-09-29：「有人说一起听想做成这样」——网易云那种两只头像挂在唱片上、
 //   谁说话谁冒气泡）。上下文走 companionHead（整份 buildBundle）。
 //   ⚠️说的每一句都【原样落进单聊】（她 2026-09-29：「为啥不直接做气泡也落在单聊而不是小条」）——
+//   从一起听房进来时落进那间房（talkKey＝房的 chatKey，她 2026-10-15）。
 //   回到单聊往上一翻就是那几句，不再是一条「一起听了几首」的小条。listenLogText 只留着认旧存档里的小条。
 // ⚠️自己开口按次花钱：一首歌最多一句、两句之间至少隔 AUTO_GAP_S 秒；总闸在
 //   设置 → 自动生成 →「一起听时开口」，页面上那颗是同一格（window.__setAutoFromPage）。
@@ -33,11 +34,24 @@
     if (m) { try { const d = JSON.parse(m[0]); const arr = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []); return arr.map(function (x) { return String(x || "").trim(); }).filter(Boolean); } catch (e) {} }
     return s && !/^[\[{]/.test(s) ? [s] : [];
   }
+  // 状态卡那几格（她 2026-10-15：「在一起听里面打字状态卡不会变」）：跟说的话同一份 JSON 里带回来，
+  //   交给 app 那头按单聊/房间各自写进状态卡。没写的格子就是没变。
+  function parseState(raw) {
+    const m = String(raw || "").match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+      const d = JSON.parse(m[0]), out = {};
+      const mood = d.mood && typeof d.mood === "object" ? d.mood.label : d.mood;
+      if (mood) out.mood = String(mood).trim();
+      ["thought", "action"].forEach(function (k) { if (typeof d[k] === "string" && d[k].trim() && d[k].trim() !== "null") out[k] = d[k].trim(); });
+      return Object.keys(out).length ? out : null;
+    } catch (e) { return null; }
+  }
 
   // mode：reply＝她说了一句；auto＝歌放着，TA想说就说（可以不说）
   async function askListen(p, char, song, lyric, mode, text) {
     const uName = (p.profile && p.profile.name) || "对方";
-    const past = talkOf(char.id).slice();
+    const past = talkOf(p.talkKey || char.id).slice();
     if (mode === "reply" && past.length && past[past.length - 1].role === "user") past.pop();
     const talk = past.slice(-FEED).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + String(m.content || "") + (m.song ? "（在放《" + m.song + "》时）" : ""); }).join("\n");
     const sys = companionHead(p.ctxFor, char)
@@ -48,10 +62,12 @@
       + (mode === "auto"
         ? "歌正放着，没人问你。这一段你真有反应才说一两句，没什么想说的就给空数组——安静一起听本来就是常态。\n"
         : "")
-      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"]}";
+      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"],\"mood\":\"此刻中文心情词\",\"action\":\"此刻在做什么，一句\",\"thought\":\"一句没说出口的念头，没有就填 null\"}";
     const msg = mode === "auto" ? "（歌放着）" : text;
     const raw = await callAI(p.active, sys, [{ role: "user", content: msg }], { maxTokens: 65000 });
-    return parseSay(raw);
+    const say = parseSay(raw), st = parseState(raw);
+    if (st && p.onState) try { p.onState(char.id, st); } catch (e) {}
+    return say;
   }
 
   function lyricWindow(lines, active, cur) {
@@ -65,21 +81,24 @@
   // props：partner, profile, song, player{t,dur,playing}, lyricLines, lyricActive, active, ctxFor, toast, t(主题)
   function ListenTalk(props) {
     const partner = props.partner, song = props.song, t = props.t;
-    const [rows, setRows] = useState(() => partner ? talkOf(partner.id) : []);
+    // 这一份记录挂在谁名下：一起听房里进来的挂在那间房（talkKey＝房的 chatKey），别处挂在这个人身上
+    const tk = props.talkKey || (partner && partner.id);
+    const [rows, setRows] = useState(() => tk ? talkOf(tk) : []);
     const [txt, setTxt] = useState("");
     const [busy, setBusy] = useState(false);
+    const [showLog, setShowLog] = useState(false);
     const [, setTick] = useState(0);
     const busyRef = useRef(false), lastAutoRef = useRef(0), spokeForRef = useRef({});
     const autoOn = () => !!(window.__autoRefreshOn && window.__autoRefreshOn("listen"));
     const [auto, setAuto] = useState(autoOn);
-    useEffect(() => { setRows(partner ? talkOf(partner.id) : []); }, [partner && partner.id]);
+    useEffect(() => { setRows(tk ? talkOf(tk) : []); }, [tk]);
     // 气泡按时间淡掉：有气泡挂着时每秒刷一下
     useEffect(() => { const iv = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(iv); }, []);
 
     // 同一句两处落：这一页的气泡（x_listenTalk）＋单聊里真的一条消息
     const add = list => {
       if (!partner) return;
-      push(partner.id, list); setRows(talkOf(partner.id));
+      push(tk, list); setRows(talkOf(tk));
       if (props.onToChat) props.onToChat(partner.id, list);
     };
     const ask = async (mode, text) => {
@@ -149,7 +168,7 @@
       side === "l" && busy ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "…") : null);
     const stage = h("div", { style: { position: "relative", paddingTop: 8, height: 96 } },
       h("div", { className: "flex items-center justify-center" }, head(partner, false), wave, head(null, true)),
-      h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "同一首歌，同一刻"),
+      h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, props.roomName ? "在「" + props.roomName + "」里听 · 说的话落在这间房" : "同一首歌，同一刻"),
       col(theirs, "l"), col(mine, "r"));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
       h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },
@@ -160,9 +179,18 @@
       h("button", { onClick: flip, "aria-pressed": String(auto), className: "active:opacity-70",
         style: { height: 38, padding: "0 10px", borderRadius: 999, border: "1px dashed " + (auto ? (t.accent || t.ink) : t.line), color: auto ? (t.accent || t.ink) : t.fog, fontFamily: F_BODY, fontSize: 11.5, whiteSpace: "nowrap" } },
         auto ? "TA 会开口" : "TA 不开口"));
-    return { stage: stage, bar: bar };
+    // 刚才说的：气泡九秒就淡，不进单聊时（或者想往回看）在这儿翻这份记录
+    const who = r => r.role === "user" ? ((props.profile && props.profile.name) || "我") : (partner.remark || partner.name);
+    const log = rows.length ? h("div", { className: "w-full", style: { maxWidth: 340, marginTop: 8 } },
+      h("button", { onClick: () => setShowLog(v => !v), "data-wk": "listenlog", className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "6px 0", minHeight: 32 } },
+        (showLog ? "收起" : "刚才说的") + "（" + rows.length + "）"),
+      showLog ? h("div", { style: { maxHeight: 240, overflowY: "auto", padding: "8px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+        rows.map((r, i) => h("div", { key: (r.ts || 0) + "_" + i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, marginBottom: 4 } },
+          h("span", { style: { color: t.fog } }, who(r) + "："), r.content,
+          r.song ? h("span", { style: { color: t.fog, fontSize: 10.5 } }, "  《" + r.song + "》") : null))) : null) : null;
+    return { stage: stage, bar: h(React.Fragment, null, bar, log) };
   }
 
-  window.ListenTalk = { KEY, listenLogText, askListen, lyricWindow, parseSay, useTalk: ListenTalk };
+  window.ListenTalk = { KEY, listenLogText, askListen, lyricWindow, parseSay, parseState, useTalk: ListenTalk };
   window.listenLogText = listenLogText;
 })();

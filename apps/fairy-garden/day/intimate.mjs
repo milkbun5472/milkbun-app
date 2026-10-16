@@ -1,11 +1,11 @@
 import * as T from 'three';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-6155029e59419336';
-import './social.js?v=fg-6155029e59419336';
-import {pairProgress} from './motion-profile.mjs?v=fg-6155029e59419336';
-import {walkable,segmentClear} from '../world.mjs?v=fg-6155029e59419336';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-ba8b7ad855ac00e7';
+import './social.js?v=fg-ba8b7ad855ac00e7';
+import {pairProgress} from './motion-profile.mjs?v=fg-ba8b7ad855ac00e7';
+import {walkable,segmentClear} from '../world.mjs?v=fg-ba8b7ad855ac00e7';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-6155029e59419336';
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-ba8b7ad855ac00e7';
 export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
@@ -22,7 +22,7 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
  const dish=new T.Mesh(new T.CylinderGeometry(.08,.06,.05,16),new T.MeshStandardMaterial({color:'#ead7b5',roughness:.85}));snack.add(dish);
  const morsel=bite.clone();morsel.position.set(0,.038,0);snack.add(morsel);
  let diagnostics=null,foodKey='',servingFood=null;
- function hide(){disposeFood(servingFood);servingFood=null;foodKey='';dish.visible=morsel.visible=true;spoon.visible=snack.visible=false;diagnostics=null;}
+ function hide(clearFood=true){if(clearFood){disposeFood(servingFood);servingFood=null;foodKey='';}dish.visible=morsel.visible=true;spoon.visible=snack.visible=false;diagnostics=null;}
  const contact=pairContact;
  function safeMove(actor,dx,dz,other,clearance=.26){
   const old={x:actor.root.position.x,z:actor.root.position.z},next={x:old.x+dx,z:old.z+dz},m=map(),id=m.id||m.renderer;
@@ -40,7 +40,7 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
   return headPoint(giver,gp).distanceTo(headPoint(receiver,rp));
  }
  function tick(s){
-  hide();const definition=INTIMATE[s.kind];if(!definition||s.phase!=='active')return null;
+  hide(false);const definition=INTIMATE[s.kind];if(!definition||s.phase!=='active')return null;
   const initiator=s.initiator||'b',other=initiator==='a'?'b':'a',g=actors[initiator],r=actors[other],pg=pairProgress(s.elapsed,style(initiator)),pr=pairProgress(s.elapsed,style(other)),p=Math.min(pg,pr),contacts=[];
   const hc=headPoint(g,[0,0,0]),rc=headPoint(r,[0,0,0]),heightDifference=hc.y-rc.y;
   const posture=(actor,pose)=>actor.contactPose(pose);
@@ -90,11 +90,11 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
    const gs=nearHand(g,r.root.position),rs=nearHand(r,g.root.position),target=(actor,side)=>{const bone=actor.root.getObjectByName(side+'Forearm');return bone?bone.getWorldPosition(new T.Vector3()):actor.root.localToWorld(new T.Vector3(0,.64,0));};
    contact(g,{[gs]:target(r,rs)},pg,contacts);contact(r,{[rs]:target(g,gs)},pr,contacts);
   }else if(s.kind==='feed'){
-   const meal=kitchen()?.job,course=meal?.kind==='meal'?meal.courses?.[0]:meal?.kind==='cook'&&s.moment?.kind?.startsWith('taste')?{id:meal.id,recipeId:meal.recipeId,variation:meal.cooking?.variation}:null,key=course?meal.id+':'+course.id:'';
-   if(key!==foodKey){disposeFood(servingFood);servingFood=null;foodKey=key;if(course){servingFood=makeRecipeFood(course.recipeId,{variation:course.variation,finish:course.finish});servingFood.scale.setScalar(.28);servingFood.position.y=.024;snack.add(servingFood);bite.material.color.set(servingFood.userData.biteColor);}dish.visible=morsel.visible=!course;}
+   const meal=kitchen()?.job,course=meal?.kind==='meal'?meal.courses?.[0]:meal?.kind==='cook'&&s.moment?.kind?.startsWith('taste')?{id:meal.id,recipeId:meal.recipeId,variation:meal.cooking?.variation}:null,key=course?meal.id+':'+course.id+':'+JSON.stringify([course.variation,course.finish,course.tabletop]):'';
+   if(key!==foodKey){disposeFood(servingFood);servingFood=null;foodKey=key;if(course){servingFood=makeRecipeFood(course.recipeId,{variation:course.variation,finish:course.finish,tabletop:course.tabletop});servingFood.scale.setScalar(.28);servingFood.position.y=.024;snack.add(servingFood);bite.material.color.set(servingFood.userData.biteColor);}dish.visible=morsel.visible=!course;}
    diagnostics.recipeId=course?.recipeId||null;
    const turn=actor=>{const other=actor===g?r:g;return Math.sign(actor.root.worldToLocal(other.root.position.clone()).x)*.55;};
-   posture(g,{tilt:.10*pg,turn:s.plan.seats?turn(g)*pg:0});posture(r,{tilt:Math.max(0,-heightDifference)*.8*pr,turn:s.plan.seats?turn(r)*pr:0});
+   posture(g,{tilt:.10*pg,turn:s.plan.seats&&!s.plan.tableMeal?turn(g)*pg:0});posture(r,{tilt:(s.plan.tableMeal?Math.min(.15,Math.max(0,-heightDifference)*.8):Math.max(0,-heightDifference)*.8)*pr,turn:s.plan.seats?turn(r)*pr:0});
    const mouth=headPoint(r,[0,-.42,.99]),serving=nearHand(g,mouth),holding=serving==='left'?'right':'left',shoulder=g.root.getObjectByName(serving+'Arm').getWorldPosition(new T.Vector3()),direction=mouth.clone().sub(shoulder).normalize(),grip=mouth.clone().addScaledVector(direction,-.17);
    const reach=smooth(((s.elapsed%(style(initiator).style==='clingy'?9:7))/7)*1.5);
    contact(g,{[serving]:grip},pg*reach,contacts);const wrist=hand(g,serving).getWorldPosition(new T.Vector3());

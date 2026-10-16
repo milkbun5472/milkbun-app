@@ -10,6 +10,7 @@ test("线下心声两处、状态页心声两处都包了 TransText", () => {
 });
 test("心声翻不成就停：免费的两家都失败也不去叫模型", () => {
   const eng = require("node:fs").readFileSync(require.resolve("../js/engine.js"), "utf8");
-  assert.match(eng, /run: \(\) => opts && opts\.noModel \? Promise\.reject/);
+  // 2026-10-16 起模型那级默认就不走（只有 allowModel 才叫），心声自然也不会叫模型
+  assert.match(eng, /run: \(\) => !\(opts && opts\.allowModel\) \? Promise\.reject/);
   assert.match(comp, /translateLongToZh\(text, lang, noModel \? \{ noModel: true \} : undefined\)/);
 });

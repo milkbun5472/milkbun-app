@@ -447,7 +447,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, where))),
           h("div", { style: { marginTop: 12 } },
             h(Btn, { t, solid: !file, onClick: () => fileRef.current && fileRef.current.click(), wk: "nestfile" }, file ? "换一份" : "选文件"),
-            h("input", { ref: fileRef, type: "file", accept: ACCEPT[kind], style: { display: "none" }, onChange: readFile })),
+            h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: readFile })),
           file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
             "已选 " + file.name + " · 读到" + file.note) : null),
         // ② 贴一份（主题／美化／CSS）或者从 app 里挑（其余四类）

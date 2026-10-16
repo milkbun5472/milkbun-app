@@ -42,8 +42,8 @@ test("八个对局外壳全都铺上了桌面，顶栏透明不压带子", () =>
   // 猜谜共用引擎按 kind 分桌（海龟汤和 25 问不是同一副游戏）
   assert.match(src, /gameTable\(kind, t\)/, "猜谜没按 kind 分桌");
   // 桌上的 Head 一律透明（§3.5），压回平色就是那条带子
-  // 13 = 架子 1 + 五个共用 header + UNO + 五子棋 + 你画我猜 + 骗子骰 + 故事接龙 + 开局配置 + 占位页；3 = 大富翁那三条（压缩写法）
-  assert.equal((src.match(/onBack: props\.onBack, bg: "transparent" \}\)/g) || []).length, 13, "有 Head 在桌上压平色带（或多出了没登记的）");
+  // 13 = 架子 1 + 五个共用 header + UNO + 五子棋 + 你画我猜 + 骗子骰 + 故事接龙 + 德州/抽鬼牌/21 点 + 开局配置 + 占位页；3 = 大富翁那三条（压缩写法）
+  assert.equal((src.match(/onBack: props\.onBack, bg: "transparent" \}\)/g) || []).length, 16, "有 Head 在桌上压平色带（或多出了没登记的）");
   assert.equal((src.match(/onBack:props\.onBack,bg:"transparent"/g) || []).length, 3, "大富翁的 Head 有漏");
   // 老样子一处都不许剩：贴细线的头像横排
   assert.ok(src.indexOf('padding: "10px 16px", borderBottom: "1px solid " + t.line') < 0, "还有老的头像横排");
@@ -61,13 +61,15 @@ test("座位是席位牌：出局翻倒盖章，圈人靠牌框不靠淡出", ()
 });
 
 test("UNO 和大富翁：轮到谁，谁的牌抬起来——不靠一个色差认", () => {
-  // UNO：席位牌上摊一小叠牌背，轮次＝整张牌抬起（transform+阴影+粗框，三样一起变）
-  // ⚠️终点锚要从起点之后找：同一句话在这一屏之前就出现过一次，不带 fromIndex 会切出空段
+  // UNO：v75.745 起跟德州、21 点、抽鬼牌坐同一圈座位（CardSeats）：轮到谁，谁的头像外圈一闪一闪，座位上摊着 TA 那一小叠牌背
   const unoAt = src.indexOf('gameTable("uno", t)');
   const uno = src.slice(unoAt, src.indexOf('state.status === "finished"', unoAt));
-  assert.match(uno, /transform: on \? "translateY\(-2px\)" : "none"/, "UNO 轮次牌不抬了");
-  assert.match(uno, /\[0, 1, 2\]\.map\(function \(j\)/, "UNO 席位牌上那叠牌背没了");
-  assert.ok(uno.indexOf('borderRadius: 999, padding: "6px 10px"') < 0, "UNO 又回到药丸了");
+  assert.match(uno, /h\(CardSeats, \{/, "UNO 的座位不是牌桌那一圈了");
+  const seatsAt = src.indexOf("function CardSeats("), seatsEnd = src.indexOf("function CardLog(", seatsAt);
+  assert.ok(seatsAt > 0 && seatsEnd > seatsAt, "抠不出 CardSeats");
+  const seats = src.slice(seatsAt, seatsEnd);
+  assert.match(seats, /animation: s\.on \? "gcardPulse/, "轮到谁不闪了");
+  assert.match(seats, /h\(CardBacks, \{/, "座位上那叠牌背没了");
   // 大富翁同款抬起
   assert.match(src, /transform:i===turn&&!p\.bankrupt\?"translateY\(-2px\)":"none"/, "大富翁轮次牌不抬了");
 });

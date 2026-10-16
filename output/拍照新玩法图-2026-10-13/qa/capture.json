@@ -1,0 +1,202 @@
+{
+  "shots": [
+    {
+      "name": "studio-single-entry-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "studio-single-result-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "studio-share-chat-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "studio-custom-theme-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "studio-grid-entry-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "studio-grid-result-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "studio-grid-cell-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "polaroid-wait-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "polaroid-developed-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "photo-diary-before-full",
+      "viewport": {
+        "width": 390,
+        "height": 920
+      }
+    },
+    {
+      "name": "photo-diary-after-full",
+      "viewport": {
+        "width": 390,
+        "height": 1283
+      }
+    },
+    {
+      "name": "photo-diary-cell-full",
+      "viewport": {
+        "width": 390,
+        "height": 1283
+      }
+    },
+    {
+      "name": "doodle-circle-full",
+      "viewport": {
+        "width": 390,
+        "height": 920
+      }
+    },
+    {
+      "name": "doodle-send-composer-full",
+      "viewport": {
+        "width": 390,
+        "height": 920
+      }
+    },
+    {
+      "name": "doodle-return-chat-full",
+      "viewport": {
+        "width": 390,
+        "height": 1050
+      }
+    },
+    {
+      "name": "doodle-stamp-full",
+      "viewport": {
+        "width": 390,
+        "height": 920
+      }
+    },
+    {
+      "name": "doodle-cut-full",
+      "viewport": {
+        "width": 390,
+        "height": 920
+      }
+    },
+    {
+      "name": "doodle-sticker-pack-full",
+      "viewport": {
+        "width": 390,
+        "height": 1430
+      }
+    }
+  ],
+  "actions": [
+    "Original studioShoot writes selected outfits and paint, actual PosterLayout composes magazine cover",
+    "Original shareShotToChat stores image and scene in native main chat",
+    "Original custom theme save",
+    "Original four-panel shoot creates a grid record",
+    "Original single-cell sharpening sends the selected cell as first reference",
+    "Original Polaroid compose adds frame, caption and two-hour develop time",
+    "Native long press shakes and develops the actual stored Polaroid",
+    "Original photo diary uses the diary day, schedule and three historical outfits",
+    "Native circle question opens the original photo composer",
+    "Original drawBackOn composites TA pen strokes onto the received drawing",
+    "Original cutOut and addSelfSticker save transparent sticker, caption, keyword and character permission"
+  ],
+  "errors": [],
+  "cover": {
+    "theme": "magazine",
+    "paint": "彩铅绘本",
+    "mine": "奶油开衫",
+    "theirs": "橄榄绿外套、米白衬衫",
+    "hasOverlay": true,
+    "hasRaw": true
+  },
+  "polaroid": {
+    "developAt": 0,
+    "caption": "你靠过来的那一下，拍到了。",
+    "flaw": ""
+  },
+  "diary": {
+    "historicalOutfits": true,
+    "currentOutfitExcluded": true,
+    "cells": 3
+  },
+  "drawback": true,
+  "sticker": {
+    "name": "沈屿 的表情",
+    "keyword": "看书中",
+    "charIds": [
+      "demo-shenyu"
+    ]
+  },
+  "requests": [
+    {
+      "asset": "示例合照",
+      "referenceCount": 2,
+      "size": null
+    },
+    {
+      "asset": "示例四宫格",
+      "referenceCount": 2,
+      "size": "1024x1024"
+    },
+    {
+      "asset": "示例合照",
+      "referenceCount": 3,
+      "size": null
+    },
+    {
+      "asset": "示例合照",
+      "referenceCount": 2,
+      "size": null
+    },
+    {
+      "asset": "示例照片日记",
+      "referenceCount": 1,
+      "size": "1024x1536"
+    }
+  ],
+  "textCalls": 2,
+  "toasts": [
+    "发过去了——点「让 他 回复」听他说",
+    "抠好了，放进表情包里了"
+  ]
+}

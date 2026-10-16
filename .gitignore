@@ -16,3 +16,6 @@ xcuserdata/
 art/**/*.blend
 art/**/*.blend1
 art/incoming/
+
+# 玩法图截图用的整站快照,行尾空白会挡 ship 的 diff --check;文件留磁盘不入库
+output/*/product-source/

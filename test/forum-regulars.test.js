@@ -31,7 +31,7 @@ test("常驻网友档案只存公开习惯，不接入私聊或记忆库", () =>
 
 test("角色大号、固定小号与匿名身份是三条独立展示路径", () => {
   assert.match(app, /const FORUM_ALT_NAMES = \[/);
-  assert.match(app, /const altName = m\.altName \|\|/);
+  assert.match(app, /const altName = forumAltNameOf\(c\.id\);/);   // 存过的照用、撞名的换一个（forum-alt-unique）
   assert.match(app, /authorType: "character_alt"/);
   assert.match(app, /authorType: "character_anon"/);
   // v74.021 起发帖身份由代码掷；楼里冒泡照旧让模型在三个身份里挑

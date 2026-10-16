@@ -132,7 +132,13 @@ test("TA主动约她：偶尔给、不闹别扭时给、三天一回、挂着没
   const i = app.indexOf('openCaps.push("dateAsk")');
   const gate = app.slice(app.lastIndexOf("if (", i), i);
   assert.match(gate, /!_moodNeg && !_harsh/);
-  assert.match(gate, /!charInviteOf\(charId\) && dateAskReady\(charId\) && Math\.random\(\) < 0\.1/);
+  // ⚠️别钉整条表达式（anchor-on-code）：v75.630 加了「她开口叫他发邀约就必给」这一支，
+  //   v75.631 把固定的一成改成隔得越久越想约。守的是三件事还在：
+  //   挂着没回的不再约、三天一回、给不给仍然掷一次轴。
+  assert.match(gate, /!charInviteOf\(charId\)/, "挂着没回的那张还在时又约了");
+  assert.match(gate, /dateAskReady\(charId\)/, "三天那道闸没了");
+  assert.match(gate, /Math\.random\(\) < _dateAskP/, "变成每轮都给了");
+  assert.match(app, /const _dateAskP = Math\.min\(0\.4, 0\.15 \+ Math\.max\(0, _askDays - 3\) \* 0\.06\)/, "隔得越久越想约那一段没了");
   assert.match(app, /kind: "dateask", place: \{ name: nm, note: nt \}/);
   assert.match(app, /saveJSON\("x_dateAskLast", a\)/);
   const ans = app.slice(app.indexOf("const answerDateAsk"), app.indexOf("const pendingInviteOf"));
@@ -163,7 +169,8 @@ test("「我换」里配一身：参考在场的人此刻穿的，挂进我的�
   const i = app.indexOf("const wearMatch = ");
   const seg = app.slice(i, app.indexOf("const wardrobeFor = ", i));
   assert.match(seg, /【一起的人此刻穿着】/);
-  assert.match(seg, /saveMyCloset\(myClosetPut\(myClosetRef\.current,/);
+  assert.match(seg, /const next = myClosetPut\(myClosetRef\.current,/);
+  assert.match(seg, /saveMyCloset\(next\)/);
   assert.match(seg, /wearScene\(scope, "me",/);
   assert.equal((app.match(/return wearMatch\(sc, kw, wardrobeFor\(sc,/g) || []).length, 2);
   assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe, onMatch, matchBusy,/g) || []).length, 2);

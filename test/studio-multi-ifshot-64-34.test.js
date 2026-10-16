@@ -20,7 +20,7 @@ test("衣服能挑好几件——衣柜里外套和鞋本来就分开挂", () =>
   assert.match(scr, /const \[mine, setMine\] = useState\(\[\]\);/, "我这边还是单件");
   assert.match(scr, /const \[theirs, setTheirs\] = useState\(\[\]\);/, "他那边还是单件");
   // 递到出图那头仍是一句话：那一层不用跟着改
-  assert.match(scr, /onShoot\(\{ scene, mine: mine\.join\("、"\), theirs: theirs\.join\("、"\)(, grid)?(, theme)?(, polaroid)? \}\)/, "多件没拼成一句话递过去");
+  assert.match(scr, /onShoot\(\{ scene, mine: mine\.join\("、"\), theirs: theirs\.join\("、"\)(, grid)?(, theme)?(, polaroid)?(, paint)? \}\)/, "多件没拼成一句话递过去");
 });
 
 test("空景那张不许再冒充合照", () => {
@@ -41,7 +41,7 @@ test("要脸的那张走照相馆现成的真 duo 路，不另拼一份提示词
   assert.match(body, /if \(row && \(row\.imgKey \|\| row\.imgUrl\)\) ifBgFromPhoto\(lineId, row\);/, "拍完还是只在合照里看得见");
   assert.ok(body.indexOf("buildPhotoPrompt") < 0 && body.indexOf("generateSelfieImage") < 0, "绕过了照相馆那条链");
   // 两张参考照的门槛由 studioShoot 统一兜（说清楚缺什么，不是默默画个陌生人）
-  assert.match(app, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\)\) \{ toast\("合照要你俩都设了参考照/, "锁脸那道闸没了");
+  assert.match(app, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\) && !\(typeof loadImgApi === "function" && loadImgApi\(\)\.noRef\)\) \{ toast\("合照要你俩都设了参考照/, "锁脸那道闸没了");
   // 界面上两颗按钮各是各的
   assert.match(scr, /shotBusy \? "拍着…" : "拍张我俩"/, "如果馆里没有这颗按钮");
   assert.match(scr, /shotBusy: studioBusy, onShot: onIfShot,/, "没接上");

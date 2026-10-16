@@ -80,7 +80,7 @@ test("「英文 · 中文」夹着写的也算——中文那半已经把话说�
       const caps = x.match(/\b[A-Z]{3,}(?:[ ][A-Z]{2,})*\b/g) || [];
       caps.forEach(c => {
         // 技术名词 / 产品名 / 中文圈里就这么写的词 / 主屏装饰件上的印刷字
-        if (/^(DOCX|TXT|PDF|CSS|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI)$/.test(c)) return;
+        if (/^(DOCX|TXT|PDF|CSS|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI|WPS|ADMIT TWO)$/.test(c)) return;
         bad.push("js/" + f + " → " + x.slice(0, 40));
       });
     });

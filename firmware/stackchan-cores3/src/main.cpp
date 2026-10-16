@@ -82,33 +82,92 @@ int clampInt(int value, int low, int high) {
 }
 
 void drawFace(const char* label) {
+  // v2 图形脸（2026-10-09 言秋自绘，设计稿 stackchan-faces-v2.png，Lisa 全员过稿）。
+  // 整帧画在离屏 canvas 再 push，天然无空白帧，不再依赖等宽字体覆盖技巧。
   if (displayMutex) xSemaphoreTake(displayMutex, portMAX_DELAY);
   auto& display = M5StackChan.Display();
-  if (!faceDrawn) {
+  static M5Canvas faceCanvas(&display);
+  static bool canvasReady = false;
+  if (!canvasReady) {
+    faceCanvas.setPsram(true);
+    canvasReady = faceCanvas.createSprite(display.width(), display.height()) != nullptr;
+  }
+  const String mood(label ? label : "neutral");
+  const uint16_t kWhite = TFT_WHITE;
+  const uint16_t kBlush = faceCanvas.color565(255, 140, 90);
+  const uint16_t kTear = faceCanvas.color565(120, 190, 255);
+  // 布局与设计稿一致（320x240 基准）：左右眼心 (100,100)/(220,100)，嘴心 (160,170)
+  const int EL = 100, ER = 220, EY = 100, MX = 160, MY = 170;
+  auto arcEye = [&](int cx, int cy, int a0, int a1) {  // 粗弧眼：r 19..26 ≈ 7px 笔宽
+    faceCanvas.fillArc(cx, cy, 19, 26, a0, a1, kWhite);
+  };
+  auto roundEye = [&](int cx, int cy) { faceCanvas.fillCircle(cx, cy, 18, kWhite); };
+  auto dotEye = [&](int cx, int cy) { faceCanvas.fillCircle(cx, cy, 10, kWhite); };
+  auto lineEye = [&](int cx, int cy) { faceCanvas.fillRect(cx - 26, cy - 3, 52, 7, kWhite); };
+  auto blush = [&](int cx, int cy) { faceCanvas.fillEllipse(cx, cy, 16, 8, kBlush); };
+  auto dots3 = [&](int cy) {
+    for (int i = 0; i < 3; i++) faceCanvas.fillCircle(MX - 24 + i * 24, cy, 4, kWhite);
+  };
+  if (canvasReady) {
+    faceCanvas.fillSprite(TFT_BLACK);
+    if (mood == "happy") {
+      arcEye(EL, EY, 200, 340); arcEye(ER, EY, 200, 340);
+      blush(EL - 10, EY + 42); blush(ER + 10, EY + 42);
+      faceCanvas.fillArc(MX, MY - 4, 0, 30, 0, 180, kWhite);        // 实心下半圆大笑口
+    } else if (mood == "sad") {
+      arcEye(EL, EY, 20, 160); arcEye(ER, EY, 20, 160);             // 下垂弯月
+      faceCanvas.fillArc(MX, MY + 22, 17, 24, 200, 340, kWhite);    // 倒扣扁嘴
+      faceCanvas.fillTriangle(EL - 34, EY + 14, EL - 22, EY + 14, EL - 28, EY + 42, kTear);
+    } else if (mood == "angry") {
+      for (int t = -4; t <= 4; t++) {                                // 斜眉线眼
+        faceCanvas.drawLine(EL - 26, EY - 14 + t, EL + 22, EY + 10 + t, kWhite);
+        faceCanvas.drawLine(ER + 26, EY - 14 + t, ER - 22, EY + 10 + t, kWhite);
+      }
+      for (int i = 0; i < 5; i++) {                                  // 波浪嘴
+        int x = MX - 30 + i * 15;
+        faceCanvas.fillArc(x, MY, 5, 9, (i % 2) ? 180 : 0, (i % 2) ? 360 : 180, kWhite);
+      }
+    } else if (mood == "sleepy") {
+      lineEye(EL, EY); lineEye(ER, EY);
+      faceCanvas.fillArc(MX, MY, 6, 11, 0, 360, kWhite);            // 小圆嘴
+      faceCanvas.setTextColor(kWhite, TFT_BLACK);
+      faceCanvas.setTextDatum(middle_center);
+      faceCanvas.setTextSize(3);
+      faceCanvas.drawString("z", ER + 44, EY - 62);
+      faceCanvas.setTextSize(4);
+      faceCanvas.drawString("Z", ER + 66, EY - 86);
+    } else if (mood == "surprised") {
+      for (int cx : {EL, ER}) {
+        faceCanvas.fillArc(cx, EY, 16, 23, 0, 360, kWhite);          // 大圈眼
+        faceCanvas.fillCircle(cx, EY, 7, kWhite);
+      }
+      faceCanvas.fillArc(MX, MY, 11, 17, 0, 360, kWhite);            // 椭圆惊叹嘴(近圆环)
+    } else if (mood == "listening") {
+      dotEye(EL, EY); dotEye(ER, EY); dots3(MY);
+    } else if (mood == "thinking") {
+      lineEye(EL, EY); lineEye(ER, EY); dots3(MY);
+    } else if (mood == "reading") {
+      arcEye(EL, EY, 20, 160); arcEye(ER, EY, 20, 160);              // 垂目
+      faceCanvas.fillCircle(MX, MY, 4, kWhite);
+    } else if (mood == "wink") {
+      arcEye(EL, EY, 200, 340); roundEye(ER, EY); blush(EL - 10, EY + 42);
+      faceCanvas.fillArc(MX - 2, MY - 6, 21, 28, 10, 150, kWhite);   // 斜笑
+    } else {  // neutral
+      roundEye(EL, EY); roundEye(ER, EY);
+      faceCanvas.fillArc(MX, MY, 15, 21, 20, 160, kWhite);           // 浅弧嘴
+    }
+    faceCanvas.pushSprite(0, 0);
+    faceDrawn = true;
+  } else {
+    // canvas 建不起来（内存极端吃紧）的兜底：至少别黑屏
     display.fillScreen(TFT_BLACK);
+    display.setTextDatum(middle_center);
+    display.setTextColor(TFT_WHITE, TFT_BLACK);
+    display.setTextSize(5);
+    display.drawString("^  ^", display.width() / 2, 75);
+    display.drawString("  w  ", display.width() / 2, 155);
     faceDrawn = true;
   }
-  display.setTextDatum(middle_center);
-  display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextSize(5);
-  String eyes = "^  ^";
-  String mouth = "  w  ";
-  const String mood(label ? label : "neutral");
-  if (mood == "happy") { eyes = "^  ^"; mouth = "  v  "; }
-  else if (mood == "sad") { eyes = "T  T"; mouth = "  _  "; }
-  else if (mood == "angry") { eyes = ">  <"; mouth = "  ~  "; }
-  else if (mood == "sleepy") { eyes = "-  -"; mouth = "  o  "; }
-  else if (mood == "surprised") { eyes = "O  O"; mouth = "  o  "; }
-  else if (mood == "listening") { eyes = "o  o"; mouth = " ... "; }
-  else if (mood == "thinking") { eyes = "-  -"; mouth = " ... "; }
-  else if (mood == "reading") { eyes = "v  v"; mouth = "  .  "; }
-  // The built-in font is fixed-width and every face row has the same number
-  // of cells. Opaque text rendering therefore replaces the previous row in
-  // one pass; clearing first would create a visible blank-face frame.
-  display.startWrite();
-  display.drawString(eyes, display.width() / 2, 75);
-  display.drawString(mouth, display.width() / 2, 155);
-  display.endWrite();
   currentFace = mood;
   if (displayMutex) xSemaphoreGive(displayMutex);
 }

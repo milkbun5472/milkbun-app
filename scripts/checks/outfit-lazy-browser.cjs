@@ -10,7 +10,8 @@ const base=process.env.CLOTH_TEST_URL||'http://127.0.0.1:18927';
  await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));
  await page.goto(base+'/apps/companion/');
  const out=await page.evaluate(async()=>{
-  const {GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler}=await import('../fairy-garden/traveler.mjs');
+  const {GLTFLoader}=await import('../fairy-garden/vendor/GLTFLoader.js'),{DRACOLoader}=await import('../fairy-garden/vendor/DRACOLoader.js'),{createTraveler,preloadHair}=await import('../fairy-garden/traveler.mjs');
+  await preloadHair(); // Hair readiness is independent of the outfit cache under test.
   const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');const loader=new GLTFLoader();loader.setDRACOLoader(draco);
   const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene;
   const outfitsIn=o=>{const s=new Set();o.traverse(m=>{if(m.userData.outfit)s.add(m.userData.outfit);});return [...s];};

@@ -58,5 +58,6 @@ test("④ 三处朋友圈正文都走 TransText，免费兜底跟着一起来", 
   // 兜底链本身还在：译不出来别只报最后一条原因
   const eng = fs.readFileSync("js/engine.js", "utf8");
   assert.match(eng, /\{ by: "免费", run: \(\) => _transGoogle/, "免费第一顺位没了");
-  assert.match(eng, /\{ by: "模型", run: \(\) => opts && opts\.noModel \? Promise\.reject\(new Error\("[^"]*"\)\) : _transModel/, "最后那级兜底没了");
+  // 2026-10-16 她：「翻译能不能不给模型翻译，浪费钱」——模型那级默认关，免费两家都不成就报失败
+  assert.match(eng, /\{ by: "模型", run: \(\) => !\(opts && opts\.allowModel\) \? Promise\.reject\(new Error\("[^"]*"\)\) : _transModel/);
 });

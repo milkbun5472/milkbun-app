@@ -632,6 +632,7 @@
     //   id＝new 是新建；其余照快照里那条的 id。关键词／常驻／绑谁跟着 patch 走，没写就保持原样。
     lore: {
       zh: "世界书词条",
+      // 分类、去哪几处（她 2026-10-14「知道世界书有什么用、照做」）：跟世界书页同一份分类名、同一套章
       read: ctx => ((ctx.loreList && ctx.loreList()) || []).map(e => ({ id: e.id, name: e.title, text: e.payload })),
       write: (id, patch, ctx) => {
         if (!ctx.onSaveLore || !ctx.loreList) throw new Error("这个页面没接世界书写入口");
@@ -643,7 +644,10 @@
         const extra = e => Object.assign({},
           kw != null ? { keyword: kw } : {},
           patch.always != null ? { alwaysOn: !!patch.always } : (kw != null ? { alwaysOn: !kw } : {}),
-          bindIds.length ? { charIds: bindIds } : {});
+          bindIds.length ? { charIds: bindIds } : {},
+          LORE_CATS.indexOf(String(patch.cat || "").trim()) >= 0 ? { category: String(patch.cat).trim() } : {},
+          /^[1-5]$/.test(String(patch.priority || "").trim()) ? { priority: Number(patch.priority) } : {},
+          stampsOf(patch.stamps, e));
         if (!id || id === "new") {
           const e = Object.assign({ id: "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: String(patch.name || "").trim() || "秋秋写的设定",
             payload: String(patch.text || ""), keyword: "", alwaysOn: true, enabled: true, priority: 3, ensemble: false, ts: Date.now() }, extra({}));
@@ -669,20 +673,63 @@
     }
   };
 
+  // 秋秋多管的几样（聊天设置、小房间开关、记忆库改删、衣柜、日历）住在 assistant-extras.js，并进同一张表
+  if (typeof window !== "undefined" && window.AssistExtras) Object.assign(TARGETS, window.AssistExtras.TARGETS);
+
+  // ---- 坏 JSON 里把改动卡一张张抠回来 ----
+  //   字段名单就是 apply 认的那几个；text 这种长的读到「下一个字段名」或「这张卡收尾」为止，
+  //   所以里头夹着没转义的双引号（CSS 选择器、HTML 属性）也能整段拿回来。
+  const LORE_CATS = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
+  // stamps：「聊天与线下、日记」这样的中文章名 → e.scope；不填不动。chat 默认是开的，没列就明写 false
+  const stampsOf = (txt, e) => {
+    const t = String(txt || "").trim(); if (!t) return {};
+    const ZH = (window.AssistExtras && window.AssistExtras.LORE_STAMPS) || {};
+    const want = t.split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean).map(x => Object.keys(ZH).find(k => k === x || ZH[k] === x || ZH[k].indexOf(x) === 0)).filter(Boolean);
+    if (!want.length) return {};
+    const scope = Object.assign({}, (e && e.scope) || {});
+    Object.keys(ZH).forEach(k => { scope[k] = want.indexOf(k) >= 0; });
+    return { scope };
+  };
+  const PATCH_KEYS = ["target", "id", "field", "find", "append", "whole", "title", "name", "text", "why", "both", "keyword", "keywords", "always", "bind", "drop", "date", "occasion", "view", "type", "time", "done", "yearly", "cat", "stamps", "priority"];
+  const unJ = v => String(v).replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  function salvageField(chunk, key) {
+    const re = new RegExp('"' + key + '"\\s*:\\s*');
+    const m = re.exec(chunk); if (!m) return "";
+    let i = m.index + m[0].length;
+    if (chunk[i] !== '"') { const lit = /^(true|false|null|-?\d+(?:\.\d+)?)/.exec(chunk.slice(i)); return lit ? lit[1] : ""; }
+    i++;
+    const others = PATCH_KEYS.concat(["reply", "patches", "file", "code"]).filter(k => k !== key).join("|");
+    const end = new RegExp('"\\s*,\\s*"(?:' + others + ')"\\s*:|"\\s*\\}\\s*,?\\s*(?:\\{|\\]|$)');
+    const rest = chunk.slice(i), e = end.exec(rest);
+    return unJ(e ? rest.slice(0, e.index) : rest.replace(/"\s*\}?\s*\]?\s*\}?\s*$/, ""));
+  }
+  function salvagePatches(raw) {
+    const s = String(raw || "");
+    const starts = []; const re = /\{\s*"target"\s*:/g; let m;
+    while ((m = re.exec(s))) starts.push(m.index);
+    return starts.map((st, k) => {
+      const chunk = s.slice(st, k + 1 < starts.length ? starts[k + 1] : s.length);
+      const o = {};
+      PATCH_KEYS.forEach(key => { const v = salvageField(chunk, key); if (v !== "") o[key] = v === "true" ? true : v === "false" ? false : v; });
+      return o.target ? o : null;
+    }).filter(Boolean);
+  }
+
   // ---- 代码/框架那道门（她 2026-09-03 点名的那条）----
   // 判的是【这东西怎么造出来的】，不是【这东西哪儿不对劲】：
   // 她说「购物有 bug」是在报毛病，那要答；问「用什么框架写的」才回绝。
   // 所以 bug / 报错 / 不生效 一个都不在这张表里。
   // ⚠️也不许把「API」「接口」整个拉黑——设置里那一屏就叫接口配置，
   //   拉黑等于她问「API 怎么配」都会被顶回来。
+  // ⚠️这道门只拦【一看就是在问代码】的：她 2026-10-16 截图——「好多小红书 repo 都叫他小乐」（repo＝返图）被当成问仓库顶了回来。
+  //   日常里也会说的词一律不在这儿拦：框架（世界观框架）、循环（循环播放）、分支（分支剧情）、部署、开源、前端、数据库、repo、git……
+  //   这些交给模型自己按上下文判断（提示词里「不答怎么造出来的」那条照旧管着）。
   const CODE_SIGNS = [
-    /源代码|源码|代码|码农/i, /\bcode\b/i,
-    /框架|技术栈|架构|底层实现|怎么实现的|用什么写的|用什么做的|用的什么语言/,
+    /源代码|源码|写代码|代码怎么|什么代码|\bsource code\b/i,
+    /技术栈|底层实现|怎么实现的|用什么写的|用什么做的|用的什么语言|什么框架写的|用什么框架|用的什么框架|哪个框架做的/,
     /\breact\b|\bvue\b|\bsvelte\b|\bangular\b|\bjquery\b|\btailwind\b/i,
     /javascript|typescript|\bjsx\b|\bnpm\b|\bwebpack\b|\bvite\b|\bnode\.js\b/i,
-    /函数|变量|数组|循环|正则表达式|算法复杂度|设计模式/,
-    /仓库地址|\brepo\b|\bgit\b|\bcommit\b|分支|部署|开源/i,
-    /前端|后端|数据库|\bsql\b|localstorage|indexeddb|存储键/i,
+    /仓库地址|github|localstorage|indexeddb|存储键/i,
     /[\w-]+\.(js|mjs|ts|jsx|html|json)\b/i
   ];
   // 命中就当场回绝，一次调用都不花（她按次计费，这也是替她省钱）
@@ -841,7 +888,8 @@
       .map(k => ({ id: k, 谁: relName(k, ctx), 关系: String((R[k] || {}).label || "") }));
     return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
-      最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
+      最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
+      ...(typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.snapshotExtra(ctx, hot) : {}) };
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
@@ -885,6 +933,12 @@
       + "  ② 页面 CSS 会被系统【自动加上作用域】。你只管写普通选择器，**绝不要自己加 .theme-xxx 或 [data-page=...] 这类前缀**，加了就永远匹配不到。\n"
       + "  ③ 能稳稳抓住的就是下面这些钩子，**别去猜别的类名**（这个 App 没有语义 class，只有 Tailwind 工具类）。\n"
       + "  ⚠️图标是 SVG：要给它上色得写 **stroke**（少数实心的写 fill），color 管不到它。\n"
+      // 群友 2026-10-14：「顶栏太高了秋秋不会修」——她的 CSS 给 chathead 写了 padding:5px 4px，把刘海那条安全区一起抹掉了，顶栏钻进状态栏底下
+      + "  ⚠️顶栏（chathead、各页 Head）和底栏（composer）自带一截【刘海／底部横条的安全区】，是写在 padding-top／padding-bottom 里的。\n"
+      + "     **别对它们写 padding 简写，也别把 padding-top（底栏是 padding-bottom）写成死数**——一写就把安全区抹了，顶栏钻进时间、信号那条状态栏底下，看起来像「顶栏太高、跟时间叠在一起」。\n"
+      + "     要调上下留白就写 padding-top: calc(var(--app-safe-top) + 6px) !important（底栏用 var(--app-safe-bottom)），左右单独写 padding-left/right。\n"
+      + "     顶栏里用 position:absolute; top:50% 居中的东西（名字、头像）会比两边按钮高半截刘海——要写 top: calc(50% + var(--app-safe-top) / 2) !important。她说「名字／头像太高了、没跟按钮对齐」就先找这个——改的是【她 CSS 里写了 top:50% 的那一条】（多半是 headname，中间那块名字加小图标），不是 avatar：顶栏的 avatar 常常已经被她隐藏了，改它看不出任何变化。\n"
+      + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"
       + wkHere()
@@ -895,10 +949,11 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，用于 persona／appearance／profile 和美化 CSS 加新规则）","whole":"（可选，true＝美化 CSS 整份重做，只在她说整体重做时填）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
-  function manualBlock(question, hereId) {
+  // extraIds：秋秋看了目录自己要翻的那几条（「翻一下」那一枪），连同字面挑中的一起给全文
+  function manualBlock(question, hereId, extraIds) {
     const M = MAN(); if (!M) return "";
     // 她此刻开着的那一页，词条也捎上：这样「这一页是干嘛的」不用她先说出它叫什么
     // 她开着的那一页：攻略里那一整个 app 都捎上（信息那一页底下有说话、见面、小房间……），
@@ -907,11 +962,12 @@
     const page = here ? M.appEntries(here.app) : [];
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
+    (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
       + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
   }
 
-  function buildSystem(ctx, question, history) {
+  function buildSystem(ctx, question, history, extraIds) {
     // ⚠️「这会儿在说谁」拿【要发给模型的那整段窗口】来找，不是只看当前这一句：
     //   她上一句常常是「宝宝你再看看呢」，名字是在前面提的。
     //   跟发出去的窗口用同一份文本，判据才对得上——我们在聊谁，那张卡就是全的。
@@ -957,6 +1013,7 @@
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
+      + (typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.docLines() : "")
       + "· rel 两个人之间的一条关系线（快照里【关系】那一栏）：id 写成 \"A->B\"（A、B 是角色或配角的名字或 id，她本人写「我」），text＝A 对 B 是什么关系（几个字）；both:true＝两个方向写成同一句；text 留空＝删掉这条线。"
       + "她说「这几个人其实是一伙的」，就给每两个该连的人各出一张；有就改、没有就加，快照里已经对的别重复出。\n"
       + "· npc 新建一位配角（id 填 new；text 是一份 JSON：{\"name\":\"名字\",\"brief\":\"TA 是个什么样的人\",\"owner\":\"在谁身边（角色名；她本人写「我」；大家共同认识的留空）\",\"links\":[{\"who\":\"认识的人（角色、配角，或「我」）\",\"label\":\"是什么关系\"}]}）。"
@@ -1008,6 +1065,10 @@
       + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
       + "text＝换成的那一段。替换在本地做，原文别处一个字节都不动。\n"
       + "  find 必须在原文里【只出现一次】；抄不准或者拿不准就别出这条 patch，先问她。\n"
+      + "· **美化 CSS（theme／chatcss／offlinecss／groupcss）**：原来有内容时，她让你改某一处，就只动那一处——"
+      + "改已有的规则用 find（逐字抄那一条规则）；加新规则用 \"append\":true，text 只写新加的那几条，会接在最后。"
+      + "选择器要窄到只命中她说的那一处：共用的挂点（note、card…）看挂点说明里的 data-part／data-kind，连它一起写。"
+      + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
@@ -1015,7 +1076,10 @@
       + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
-      + manualBlock(question, here && here.man) + "\n\n"
+      + manualBlock(question, here && here.man, extraIds) + "\n\n"
+      + (extraIds && extraIds.length ? "【你刚要翻的那几条已经放进上面的详细里了，照着答；这次别再要 lookup】\n\n"
+        : "【翻一下攻略】她问的是 App 怎么用，可上面「详细」里没有答案，而目录里看得出答案多半在某一条（看「里面讲」那一行）："
+          + "这一轮先别答，只输出 {\"lookup\":[\"那一条方括号里的 id\"]}（最多 3 条），那几条正文会递给你，你再答。详细里已经有答案、或者不是问功能，就别用 lookup。\n\n")
       + "【App 现状快照】\n" + JSON.stringify(snap, null, 1) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
@@ -1028,17 +1092,47 @@
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
     const img = isFile ? null : pic;
     const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
-    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了一张图）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
-      .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? [img] : undefined }]);
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
+      .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : Array.isArray(img) && img.length > 1 ? "（她发来 " + img.length + " 张图，看看说说）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? (Array.isArray(img) ? img : [img]) : undefined }]);
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
-    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
-    const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    let sysText = buildSystem(ctx, text, history);
+    let raw = await callAI(active, sysText, msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+    let d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    // 它说要翻攻略（lookup）：把那几条正文递给它，再问一次——只有字面挑偏的时候才多花这一枪
+    const M0 = MAN(), want = Array.isArray(d.lookup) ? d.lookup.map(x => String(x || "").replace(/[\[\]]/g, "").trim()).filter(id => M0 && M0.byId(id)).slice(0, 3) : [];
+    if (want.length && !(Array.isArray(d.patches) && d.patches.length) && !(signal && signal.aborted)) {
+      sysText = buildSystem(ctx, text, history, want);
+      raw = await callAI(active, sysText, msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+      d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+      d.looked = want;
+    }
+    // 卡掉了救回来（她 2026-10-14：「经常说点应用就可以了但是卡没发出来，有时候好几轮才成功」）：
+    //   最常见的是 CSS 里的 [data-wk="bubble"] 那种双引号没转义，整段 JSON 一下就坏了，所有卡一起丢。
+    //   ① 先在原文里一张张抠：认 "target" 打头，text 读到下一个字段名为止（里头有没转义的引号也不怕）
+    //   ② 还是一张没有、它嘴上又说了有卡：自动再问它一次，只要改动稿
+    const listOf = o => Array.isArray(o.patches) ? o.patches : Array.isArray(o.cards) ? o.cards : Array.isArray(o.changes) ? o.changes : (o.patch && typeof o.patch === "object") ? [o.patch] : [];
+    if (!listOf(d).length && /"target"\s*:/.test(raw)) {
+      const got = salvagePatches(raw);
+      if (got.length) d = Object.assign({}, d, { patches: got, reply: d.reply || salvageField(raw, "reply") });
+    }
+    const saidCard = o => /改动卡|改动稿|卡片|卡在下面|点.{0,3}应用/.test(String(o.reply || "")) || /"patches"\s*:\s*\[\s*\{/.test(raw);
+    if (!listOf(d).length && saidCard(Object.keys(d).length ? d : { reply: raw }) && !(signal && signal.aborted)) {
+      try {
+        const raw2 = await callAI(active, sysText, msgs.concat([{ role: "assistant", content: String(raw).slice(0, 60000) },
+          { role: "user", content: "（系统：你上一条说有改动卡，但卡没写出来或者格式坏了，她那边一张都没收到。别重复说话，只把这一轮的改动稿重新发一遍："
+            + "只输出 {\"reply\":\"\",\"patches\":[...]}。text 里的双引号一律写成 \\\"，换行写成 \\n。）" }]),
+          { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
+        let d2 = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw2) : extractJSON(raw2)) || {};
+        if (!listOf(d2).length && /"target"\s*:/.test(raw2)) d2 = { patches: salvagePatches(raw2) };
+        if (listOf(d2).length) d = Object.assign({}, d, { patches: listOf(d2), reply: d.reply || salvageField(raw, "reply") || "" });
+      } catch (e) {}
+    }
     // 世界书只改关键词／常驻／绑谁的那种（她 2026-10-10 截图：「4 条常驻改成关键词」两次都没出卡）：
     //   正文一个字不动，text 本来就该空着——原来这道筛子只认有正文的，四张卡被当成空的整批丢掉，回话却照样说「卡在下面」
     const loreMetaOnly = x => x.target === "lore" && x.id && x.id !== "new" && !String(x.text || "").trim()
-      && (x.keyword != null || x.always != null || String(x.bind || "").trim());
+      && (x.keyword != null || x.always != null || String(x.bind || "").trim() || String(x.cat || "").trim() || String(x.stamps || "").trim() || String(x.priority || "").trim());
     // 有的模型把改动稿放进别的名字里（cards／changes／patch 单张），或者关键词写成 keywords 数组——
     //   她 2026-10-12 截图：秋秋连说两遍「卡在下面」，一张都没出。认得出就收下，认不出下面照实说。
     const rawList = Array.isArray(d.patches) ? d.patches : Array.isArray(d.cards) ? d.cards : Array.isArray(d.changes) ? d.changes
@@ -1051,7 +1145,7 @@
     });
     // 关系那一条 text 空着＝删掉这条线，是正经的一张卡
     const relDrop = x => x.target === "rel" && String(x.id || "").trim();
-    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x)))
+    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x) || (typeof window !== "undefined" && window.AssistExtras && window.AssistExtras.okWithoutText(x))))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
       // 导世界书、把一串人连起来：全是世界书／关系／配角的那一轮放宽到 12 张
       .slice(0, (rawPatches.length && rawPatches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
@@ -1060,12 +1154,17 @@
         target: x.target, id: String(x.id || "").trim(),
         field: String(x.field || "").trim(),
         find: String(x.find || ""),          // 有 find＝只改这一段，别处一个字节不动
-        append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续）
+        append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续；CSS 加几条新规则）
+        whole: x.whole === true || x.whole === "true",       // CSS 整份重做：只有她说了「整体重做／全部换掉」才填
 
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
         ...(x.target === "rel" ? { both: x.both === true || x.both === "true" } : {}),
-        ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
+        ...(/^(memedit|closet|cal|wish|anniv|presetmod)$/.test(x.target) ? { drop: x.drop === true || x.drop === "true", date: clip(x.date, 12), occasion: clip(x.occasion, 20), view: clip(x.view, 60) } : {}),
+        ...(x.target === "wish" ? { type: clip(x.type, 10), done: x.done === true || x.done === "true" } : {}),
+        ...(x.target === "anniv" ? { yearly: !(x.yearly === false || x.yearly === "false") } : {}),
+        ...(x.target === "sched" ? { time: clip(x.time, 5) } : {}),
+        ...(x.target === "lore" ? { cat: clip(x.cat, 6), stamps: clip(x.stamps, 80), priority: clip(x.priority, 2), keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
     // 现成的 Worker 代码（她 2026-10-13「有些人直接复制不了，让他们用秋秋发的复制」）：
     //   模型只报是哪一段，代码从 App 里那一份原样取——模型抄一遍，少一个括号整段就不能用。
@@ -1082,6 +1181,20 @@
       ? { name: (String(d.file.name || "秋秋给你的文件.txt").replace(/[\\/:*?"<>|\n]/g, "").trim().slice(0, 60) || "秋秋给你的文件.txt"), text: String(d.file.text).slice(0, 400000) } : null);
     let reply = scrubCode(String(d.reply || "").trim());
     // 它说了有卡、一张都没留下：照实告诉她，别让她对着「快点应用」找半天
+    // 她扔来一份分条写好的预设 json（她 2026-10-16「扔给秋秋也能拆」）：不靠模型抄——几万字的预设模型抄一遍必走样，
+    //   照文风台导入同一个拆法（StylePresets.fromPromptList）原样拆好，直接摆一张文风台预设卡；模型自己出了预设卡就不另加
+    try {
+      if (isFile && window.StylePresets && window.StylePresets.fromPromptList && !patches.some(x => x.target === "preset")) {
+        const tv = window.StylePresets.fromPromptList(JSON.parse(String(pic.text || "")), String(pic.name || "").replace(/\.json$/i, ""));
+        if (tv) {
+          const on = {}; tv.presets[0].mods.forEach(id => { on[id] = 1; });
+          patches.push({ pid: "p" + Date.now() + "_tv", target: "preset", id: "new", field: "", find: "", append: false, whole: false,
+            title: "文风台预设（照文件原样拆）", name: tv.presets[0].name,
+            text: JSON.stringify(tv.modules.map(m => Object.assign({ name: m.name, hint: "", text: m.text }, on[m.id] ? {} : { off: true }))),
+            why: "一共 " + tv.modules.length + " 条，原来开着的 " + tv.presets[0].mods.length + " 条照顺序勾进预设，关着的只进模块库" });
+        }
+      }
+    } catch (e) {}
     if (rawPatches.length && !patches.length) reply = (reply ? reply + "\n\n" : "") + "（这一轮的 " + rawPatches.length + " 张改动稿格式不对，没能做成卡片。再叫它一次就好。）";
     // 嘴上说有卡、实际一张改动稿都没写：也照实说，别让她对着「点应用」找
     else if (!rawPatches.length && /改动卡|改动稿|卡片|卡在下面|点.{0,3}应用/.test(reply)) reply += "\n\n（这一轮它说了有改动卡，但其实一张都没写出来。再跟它说一次「把卡给我」就好。）";
@@ -1250,8 +1363,18 @@
     //   算完再存的话，改一小段那一支拿到的已经是新文本了，等于备份了个假的。
     pushUndo(p, ctx);
     // 接着往后写（她 2026-10-06：长人设一段一段续）：只给人设、外貌、档案那几栏开，接在这一栏现有内容的最后
+    // 美化那几栏（她 2026-10-13：「要它改某一个小部分，它的改动会牵扯到我不想改的地方」）：
+    //   原来常常是整份 CSS 重写一遍，照抄旧规则时抄漏抄错，没让它动的地方也跟着变了。
+    //   现在原来有东西的话，只许「改一小段」(find) 或「在后面加」(append)；整份重做要它自己标 whole。
+    const CSS_T = { theme: 1, chatcss: 1, offlinecss: 1, groupcss: 1 };
+    if (CSS_T[p.target] && p.append && !p.find) {
+      const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
+      return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
+    }
+    if (CSS_T[p.target] && !p.find && !p.whole && String(before(p, ctx) || "").trim())
+      throw new Error("这一栏原来有 CSS，这条却是整份重写——别处会被跟着改掉。让它改用「改一小段」或「在后面加」；真要整体重做，跟它说清楚「整体重做」");
     if (p.append && !p.find) {
-      if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌和档案那几栏能接着往后写");
+      if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌、档案和美化 CSS 那几栏能接着往后写");
       const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
       return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
     }
@@ -1285,6 +1408,7 @@
   function before(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) return "";
+    if (typeof T.before === "function") { try { return String(T.before(patch, ctx) || ""); } catch (e) { return ""; } }
     const rows = T.read(ctx) || [];
     const hit = rows.find(x => String(x.id) === String(patch.id));
     if (!hit) return "";
@@ -1295,6 +1419,21 @@
   // 摆给她看的那一份：气泡那一栏存的是 JSON，直接摆出来的话，改前是人话、改后是一串
   // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
   const previewText = patch => {
+    if (patch && patch.drop) return "（删掉这一条）";
+    if (patch && patch.target === "danger") return "⚠️ " + String(patch.text || patch.id) + "\n" + (window.AssistExtras ? window.AssistExtras.DANGER_WARN : "");
+    if (patch && patch.target === "auto") return String(patch.id).split(":")[1] + "：" + String(patch.text || "");
+    if (patch && patch.target === "setting") { const d = window.AssistExtras && window.AssistExtras.SET_BY[String(patch.id).split(":")[1]]; return (d ? d.zh : "") + "：" + String(patch.text || ""); }
+    if (patch && patch.target === "roomset") return String(patch.id).split(":")[2] + "：" + String(patch.text || "");
+    if (patch && /^(gsetting|osetting|global)$/.test(patch.target)) { const A = window.AssistExtras || {}; const k = String(patch.id).split(":").pop();
+      const d = (patch.target === "global" ? A.GLOBALS : patch.target === "gsetting" ? A.GROUP_SETTINGS : A.OFFLINE_SETTINGS || []).find(x => x.key === k); return (d ? d.zh : k) + "：" + String(patch.text || ""); }
+    if (patch && patch.target === "preset") { try { const a = JSON.parse(String(patch.text || "")); const L = Array.isArray(a) ? a : (a.mods || []);
+      return "预设「" + (patch.name || "秋秋搭的预设") + "」\n" + L.map((m, i) => (i + 1) + ". " + (m.off ? "（只进模块库、不勾）" : "") + (m.use ? "（现成的）" + m.use : (m.name || "") + (m.hint ? "——" + m.hint : "") + "\n   " + String(m.text || "").slice(0, 400))).join("\n"); } catch (e) { return String(patch.text || ""); } }
+    if (patch && patch.target === "presetmod") return /:\+/.test(String(patch.id)) ? "勾进来：" + String(patch.id).split(":+")[1] : (patch.name ? patch.name + "：" : "") + String(patch.text || "");
+    if (patch && patch.target === "sched") return [patch.time, patch.name, String(patch.text || "").trim() ? "@ " + patch.text : ""].filter(x => String(x || "").trim()).join(" ");
+    if (patch && patch.target === "wish") return patch.done ? "（标成做到了）" : [patch.type ? "【" + patch.type + "】" : "", patch.name, patch.text].filter(x => String(x || "").trim()).join(" ");
+    if (patch && patch.target === "anniv") return [patch.date, patch.name, patch.yearly === false ? "（只这一次）" : "（每年）"].filter(Boolean).join(" ");
+    if (patch && patch.target === "cal") return [patch.date, patch.name, patch.text].filter(x => String(x || "").trim()).join("　");
+    if (patch && patch.target === "closet") return (patch.occasion ? "【" + patch.occasion + "】" : "") + (patch.name || "") + (String(patch.text || "").trim() ? "：" + patch.text : "");
     if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");
     if (patch && patch.target === "rel") return String(patch.text || "").trim() ? patch.text + (patch.both ? "（两个方向都是）" : "") : "（删掉这条关系）";
     if (patch && patch.target === "npc") {
@@ -1445,10 +1584,10 @@
       A.setAbort(ac); A.setLastPic(pic || null);
       const before = A.loadChat();
       const isFile = pic && pic.kind === "file";
-      put(before.concat([{ role: "me", text: q, pic: pic && !isFile ? pic.thumb : undefined,
+      put(before.concat([{ role: "me", text: q, pic: pic && !isFile ? pic.thumb : undefined, pics: pic && !isFile && pic.pics && pic.pics.length > 1 ? pic.pics.map(x => x.thumb) : undefined,
         file: isFile ? { name: pic.name, size: pic.size, chars: pic.chars, cut: pic.cut, max: pic.max, text: pic.text } : undefined, ts: Date.now() }]));
       try {
-        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? pic.full : null), ac && ac.signal);
+        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? (pic.pics && pic.pics.length > 1 ? pic.pics.map(x => x.full) : pic.full) : null), ac && ac.signal);
         put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, outFile: r.file || undefined, ts: Date.now() }]));
       } catch (e) {
         // 她自己叉掉的：不算「没答上来」，留一颗重新生成（已经发出去的那一枪收不回来，回来的结果直接丢掉）
@@ -1466,9 +1605,15 @@
       send(m.q, A.lastPic());
     };
     const applyOne = p => {
-      if (p.done === "已应用") return;           // 记忆库会加两遍、改一小段会找不到原文
+      if (p.done === "已应用" || p.done === "应用中…") return;           // 记忆库会加两遍、改一小段会找不到原文
       try {
         const n = A.apply(p, ctx);
+        // 有的写口是要等落盘的（小世界那支 durable 写口）：等它回来再说成没成
+        if (n && typeof n.then === "function") {
+          A.markPatch(p.pid, "应用中…");
+          n.then(() => { A.markPatch(p.pid, "已应用"); toast && toast("改好了"); }, e => A.markPatch(p.pid, "没应用：" + ((e && e.message) || "没存上，再点一次")));
+          return;
+        }
         A.markPatch(p.pid, "已应用");
         toast && toast(p.target === "memory" ? "写进记忆库 " + n + " 条"
           : p.target === "theme" ? "装修上身了" : "改好了，下次生成生效");
@@ -1532,7 +1677,9 @@
     return h(React.Fragment, null, C.msgs.map((m, i) => m.role === "me"
       ? h("div", { "data-wk": "qqmsg", "data-me": "1", key: i, style: { display: "flex", justifyContent: "flex-end", alignItems: "flex-start", gap: 7, marginBottom: sm ? 9 : 12 } },
           h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
-            m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
+            m.pics && m.pics.length > 1
+              ? h("div", { style: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 4, maxWidth: sm ? 160 : 220 } }, m.pics.map((u, k) => h("img", { key: k, src: u, alt: "", style: { width: sm ? 50 : 70, height: sm ? 50 : 70, borderRadius: 8, border: "1px solid " + t.line, objectFit: "cover", display: "block" } })))
+              : m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
             m.file && typeof FileCard === "function" ? h(FileCard, { m: m.file }) : null,
             m.text ? h("div", { "data-wk": "qqbubble", "data-me": "1", style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null,
             // 她这侧也给一颗（群里 2026-10-09：「退出去截断了想把我的指令再发一遍，得自己重打」）
@@ -1680,27 +1827,42 @@
   // 发图给秋秋（她 2026-09-30）：整页和小悬浮屏两处输入栏共用这一颗（one-public-mechanism）。
   //   pic＝{ full, thumb }：full 768px 给模型看，thumb 240px 留在聊天记录里给她看。
   // 附件：📷 一张图，📎 一份文件（CSS、文本、PDF、Word——读法跟聊天里发文件是同一个 pickTextFile）
+  // 一次能挑好几张（她 2026-10-16「给秋秋发图能不能一次多几张」）：最多 6 张，跟聊天里发照片同一个上限。
+  //   pic＝{ full, thumb, pics:[{full,thumb}] }：full/thumb 是第一张（老的那几处照旧读得到），pics 是全部。
+  const ASSIST_PICS_MAX = 6;
   function AssistAttach({ pic, setPic, small, toast }) {
     const t = useTheme(), ref = useRef(null);
+    const pics = pic && pic.kind !== "file" ? (pic.pics || [{ full: pic.full, thumb: pic.thumb }]) : [];
+    const setPics = arr => setPic(arr.length ? { full: arr[0].full, thumb: arr[0].thumb, pics: arr } : null);
     const pick = async e => {
-      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-      try { setPic({ full: await resizeImageFile(f, 768, .82), thumb: await resizeImageFile(f, 240, .75) }); }
-      catch (err) { toast && toast("这张图读不出来，换一张试试"); }
+      const fs = Array.from((e.target.files) || []); e.target.value = ""; if (!fs.length) return;
+      const room = ASSIST_PICS_MAX - pics.length;
+      if (fs.length > room) toast && toast("一次最多 " + ASSIST_PICS_MAX + " 张，多的没放进来");
+      const got = [];
+      for (const f of fs.slice(0, Math.max(0, room))) {
+        try { got.push({ full: await resizeImageFile(f, 768, .82), thumb: await resizeImageFile(f, 240, .75) }); }
+        catch (err) { toast && toast("有一张图读不出来，跳过了"); }
+      }
+      if (got.length) setPics(pics.concat(got));
     };
     const pickFile = () => { if (typeof pickTextFile === "function") pickTextFile(m => setPic(Object.assign({ kind: "file" }, m)), { max: 60000 }); };
     const sz = small ? 32 : 38;
     const round = { flexShrink: 0, width: sz, height: sz, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.sub, fontSize: small ? 14 : 16, display: "flex", alignItems: "center", justifyContent: "center" };
-    const x = label => h("button", { onClick: () => setPic(null), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×");
+    const x = (label, onClick) => h("button", { onClick: onClick || (() => setPic(null)), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×");
     return h(React.Fragment, null,
-      pic && pic.kind === "file" ? h("div", { "data-wk": "qqattach", "data-part": "file", style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub, overflow: "visible" } },
+      pic && pic.kind === "file" ? h("div", { "data-wk": "qqattach", "data-part": "file", style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub } },
           h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📎 " + pic.name), x("拿掉这个文件"))
-      : pic ? h("div", { "data-wk": "qqattach", "data-part": "pic", style: { position: "relative", flexShrink: 0 } },
-          h("img", { src: pic.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }), x("拿掉这张图"))
+      : pics.length ? h("div", { className: "flex items-center", style: { gap: 8, flexShrink: 0, overflowX: "auto", maxWidth: small ? 140 : 200, paddingTop: 6, paddingRight: 6 } },
+          pics.map((p, k) => h("div", { key: k, "data-wk": "qqattach", "data-part": "pic", style: { position: "relative", flexShrink: 0 } },
+            h("img", { src: p.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }),
+            x("拿掉这张图", () => setPics(pics.filter((_, i) => i !== k))))),
+          pics.length < ASSIST_PICS_MAX ? h("button", { "data-wk": "qqattachbtn", "data-part": "pic", onClick: () => ref.current && ref.current.click(), "aria-label": "再加一张图", className: "active:opacity-60", style: round }, "＋") : null)
       : h(React.Fragment, null,
-          h("button", { "data-wk": "qqattachbtn", "data-part": "pic", onClick: () => ref.current && ref.current.click(), "aria-label": "发一张图", className: "active:opacity-60", style: round }, "📷"),
+          h("button", { "data-wk": "qqattachbtn", "data-part": "pic", onClick: () => ref.current && ref.current.click(), "aria-label": "发图", className: "active:opacity-60", style: round }, "📷"),
           h("button", { "data-wk": "qqattachbtn", "data-part": "file", onClick: pickFile, "aria-label": "发一个文件", className: "active:opacity-60", style: round }, "📎")),
-      h("input", { ref: ref, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }));
+      h("input", { ref: ref, type: "file", accept: "image/*", multiple: true, onChange: pick, style: { display: "none" } }));
   }
+
 
 
   function AssistantApp(props) {

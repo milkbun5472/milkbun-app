@@ -1,0 +1,31 @@
+{
+  "sourceRef": "dfec02cacd176bdf5e782416a97a3aef79e4c1a6",
+  "originalFilesUnchanged": 839,
+  "nativeScreenshots": 32,
+  "nativeActions": 16,
+  "localPreparedModelCalls": 4,
+  "formalMemories": [],
+  "publishedPages": 12,
+  "nativeErrors": [],
+  "missingAssets": [],
+  "renderViolations": [],
+  "galleryWidths": [
+    1200,
+    390
+  ],
+  "zipCRC": true,
+  "zipBytes": 17865495,
+  "productChanged": false,
+  "postedExternally": false,
+  "visualInspection": {
+    "contactAll12": true,
+    "individualPosterPages": [
+      1,
+      6,
+      8,
+      11,
+      12
+    ],
+    "nativeInteractionViewed": true
+  }
+}

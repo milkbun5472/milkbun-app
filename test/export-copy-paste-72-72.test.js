@@ -16,7 +16,7 @@ test("备份文本只攒一份，存文件和复制都问它要", () => {
   const i = app.indexOf("const doExport = "), j = app.indexOf("const inAppBrowser = ", i);
   assert.ok(i > 0 && j > i, "抠不出 doExport");
   const seg = app.slice(i, j);
-  assert.match(seg, /const pack = await buildExportPack\(\)/, "存文件那条自己又攒了一份");
+  assert.match(seg, /const pack = await buildExportPack\(\{ noImages: true \}\)/, "存文件那条自己又攒了一份（文字那份不带图，图另按包存）");
   assert.match(seg, /saveTextFile\(pack\.name, pack\.text/);
   // 图库读失败那道闸还在，而且现在要返回 null（不然复制那条会照样吐出一份残档）
   assert.match(app, /图库却一张都读不出来/);
