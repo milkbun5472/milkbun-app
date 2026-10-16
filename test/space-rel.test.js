@@ -71,9 +71,10 @@ test("空间本子：一张表管四本，按关系各拿各的；TA 接话走 r
 });
 
 // 她 2026-10-16「一起」：家人细分（哥哥姐姐弟弟妹妹爸妈……）——手足别演成操心长辈
-test("家人细分：role 进关系那句；手足那种写明互损护短", () => {
+test("家人细分：role 进关系那句，只说身份、不写怎么当", () => {
   const g = load();
   const b = g.lines({ coupleStatus: "together|5|family|哥哥" }, "她").join("");
-  assert.match(b, /你是 她 的哥哥/); assert.match(b, /别演成操心的长辈/);
-  assert.doesNotMatch(g.lines({ coupleStatus: "together|5|family|妈妈" }, "她").join(""), /手足/);
+  assert.match(b, /你是 她 的哥哥/); assert.match(b, /照你的人设和你们一起过来的经历/);
+  // 只给身份不给剧本（她：「这也是八股限制吧，每个兄弟姐妹都不一样」）
+  assert.doesNotMatch(b, /互损|护短|操心的长辈|抢东西/);
 });

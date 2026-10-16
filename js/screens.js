@@ -6860,7 +6860,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const daysWith = since => since ? Math.max(1, Math.floor((Date.now() - since) / 86400000) + 1) : 1;
 
   // 挑关系（她 2026-10-16）：恋人 / 闺蜜 / 挚友 / 家人，一行说清开了以后 TA 会怎么当
-  const REL_NOTE = { lover: "TA 接了就当你们在一起了，信是情书。", bestie: "最铁的那种朋友，什么都能说，不往恋爱那头走。", friend: "一辈子的朋友，信写的是交情。", family: "像家人一样，惦记、唠叨、护着。" };
+  const REL_NOTE = { lover: "TA 接了就当你们在一起了，信是情书。", bestie: "最铁的那种朋友，什么都能说，不往恋爱那头走。", friend: "一辈子的朋友，信写的是交情。", family: "家里人那一层，TA 是你的谁、怎么相处照人设。" };
   // 家人再细分（她 2026-10-16）：点「家人」先展开一排「TA 是你的谁」，挑了才算数；不细分也行
   const FAM_ROLES = ["哥哥", "姐姐", "弟弟", "妹妹", "爸妈", "长辈", "孩子"];
   const famPick = (nowRole, onPick) => h("div", { "data-wk": "usfamrole", style: { margin: "-2px 0 10px 14px" } },
