@@ -5472,6 +5472,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       try { return await generateSelfieImage(prompt, refPhotoDataUrl, inner); }
       catch (e) {
         const m = String((e && e.message) || e);
+        // 被内容审核拦的（moderation / safety / content_policy）不是站子不收图：是这张参考照或这次画面被判成太露骨。
+        //   同一个站、一个角色能拍另一个不能，多半就是那个角色的参考照（或外貌里的词）。别把人往「不锁脸」上指。
+        if (/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)) throw new Error(m + "（这是站子的内容审核拦下来的，不是站子不收参考照：多半是这个角色的参考照、或者外貌和这次画面里有被判成太露骨的地方。换一张穿着整齐的参考照，或者把外貌里相关的词改掉再试；同一个站别的角色能拍就是这个原因。）");
         if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
         throw e;
       }
