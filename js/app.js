@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.784";
+const APP_VERSION = "v75.790";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16803,6 +16803,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️只给【有关系】的那几位（rels 里连着线的），而且只给时间/做什么/在哪这三样——
   // 这是为了让同一件事在两边说得一样，不是把别人的一天端过来给TA看。
   const SCHED_PEER_MAX = 3, SCHED_PEER_LINES = 20, SCHED_PEER_DAYS = 3;
+  // 排完 TA 这一天：点到某位有关系的人的那几段，抄进那个人那天的日程（那人那天排好了才抄，没排的等TA自己排时看⭐对上）。
+  //   不多花调用。只抄这一层，不再往下连锁。
+  const schedMirrorPeers = (char, dayKey, seqs) => {
+    try {
+      const plans = schedulesRef.current || {};
+      const nm = String(char.name || "").trim();
+      if (!nm || !window.ScheduleClock || !window.ScheduleClock.mirrorJoint) return;
+      const worldKeyOf = c => { const r = window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null; return r && r.kind === "world" && r.world ? "w:" + r.world.id : "real"; };
+      const myWorld = worldKeyOf(char);
+      (characters || []).forEach(c => {
+        if (!c || c.id === char.id || c.npc || !c.name) return;
+        if (!(rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id]) || worldKeyOf(c) !== myWorld) return;
+        const cur = (plans[c.id] || {})[dayKey];
+        if (!cur || !Array.isArray(cur.seqs) || !cur.seqs.length) return;
+        let next = cur.seqs;
+        (seqs || []).forEach(q => { if (String((q && q.title) || "").indexOf(c.name) < 0) return; const m = window.ScheduleClock.mirrorJoint(schedFillEnds(next), q, nm, c.name); if (m) next = m; });
+        if (next !== cur.seqs) saveSchedDay(c.id, dayKey, { ...cur, seqs: next });
+      });
+    } catch (e) {}
+  };
   const schedPeerBlock = (char, dayKeys) => {
     const plans = schedulesRef.current || {};
     const nm = String(char.name || "").trim();
@@ -16913,6 +16933,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         generatedAt: Date.now()
       };
       saveSchedDay(char.id, dayKey, plan);
+      schedMirrorPeers(char, dayKey, plan.seqs);
       // 回填昨天的碎碎念
       if (needY && Array.isArray(d.yesterdayMurmurs)) {
         const ym = d.yesterdayMurmurs.filter(m => m && m.text);
@@ -17005,6 +17026,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           load: clean.load || "NORMAL", estTime: Number(clean.estTime) || null,
           seqs, murmurs: [], kind: key === today ? "live" : "plan", generatedAt: Date.now()
         });
+        schedMirrorPeers(char, key, seqs);
         n++;
       });
       if (!n) throw new Error("排出来的日期对不上");
@@ -31446,7 +31468,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onNotifyChapter: notifyChapterToChars,
     // 让角色来写（她 2026-09-11）：立场由同人文那边算，料由这儿给。
     // ⚠️算法在上面 relOfChar 那一处，只许有一份——房里那一枪走的是同一个。
-    relOf: relOfChar,
+    meOf: meOf, relOf: relOfChar,
     // TA替你写的那一章落在哪儿（她 2026-09-11 改的口）。
     // ⚠️原来这儿是**自动往主线记忆库写一条**——她当场指出：「有时候我也只是想测试一下，
     //   但是不想让他们记得」。她是对的：「不记」事后能补，「记了」得手动去删，

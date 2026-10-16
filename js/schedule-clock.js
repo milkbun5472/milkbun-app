@@ -117,5 +117,27 @@
     if (sourceDay !== day) scene.key = JSON.stringify([scene.key, sourceDay]);
     return scene;
   };
-  return { formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, shiftDayKey, currentSeqIdx, currentSlot };
+  // 两个人的同一件事：A 排了「和 B 一起……」，B 那天早排好了却没这一段（B 先排、看不见 A 后来写的）。
+  //   把这一段抄进 B 那天：标题里 B 的名字换成 A，时间地点照原样；B 原来跟它撞上的那几段裁掉或让开。
+  //   B 那天本来就有一段点到 A、时间也搭得上，就当已经对上了，不动。
+  const toMin = t => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+  const toHM = n => pad2(Math.floor(n / 60)) + ":" + pad2(n % 60);
+  const mirrorJoint = (peerSeqs, row, myName, peerName) => {
+    const a = toMin(row && row.time), b = toMin(row && row.end);
+    if (a == null || b == null || b <= a || !myName || !peerName) return null;
+    const list = Array.isArray(peerSeqs) ? peerSeqs : [];
+    const hit = list.some(q => { const s = toMin(q && q.time), e = toMin(q && q.end); return String((q && q.title) || "").indexOf(myName) >= 0 && s != null && e != null && s < b && e > a; });
+    if (hit) return null;
+    const out = [];
+    list.forEach(q => {
+      const s = toMin(q && q.time), e = toMin(q && q.end);
+      if (s == null || e == null || e <= a || s >= b) { out.push(q); return; }
+      if (s < a) out.push({ ...q, end: toHM(a) });
+      if (e > b) out.push({ ...q, time: toHM(b) });
+    });
+    out.push({ ...row, title: String(row.title || "").split(peerName).join(myName), location: String(row.location || "").split(peerName).join(myName), deviation: null, mirroredFrom: myName });
+    out.sort((x, y) => (toMin(x.time) || 0) - (toMin(y.time) || 0));
+    return out.map((q, i) => ({ ...q, seq: i + 1 }));
+  };
+  return { mirrorJoint, formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, shiftDayKey, currentSeqIdx, currentSlot };
 });

@@ -46,7 +46,7 @@ test("界面只有一段，四处共用", () => {
 
 test("小剧场三处接齐：设置 → 存档 → 提示词", () => {
   assert.match(th, /title: "每拍最少写多少字"/);
-  assert.match(th, /minWords: e2\.minWords \|\| 0, rounds:/, "存不进这条 if 线就是白设");
-  assert.match(th, /minWords: line\.minWords \|\| 0, goal: round\.goal/, "打开编辑时要带现值");
+  assert.match(th, /onChange: v => update\(list => list\.map\(l => l\.id !== line\.id \? l : \{ \.\.\.l, minWords: v \}\)\)/, "存不进这条线就是白设");
+  assert.match(th, /value: line\.minWords \|\| 0/, "拉条要带现值");
   assert.match(th, /window\.StylePresets\.wordRule\(window\.StylePresets\.clampWordFloor\(line\.minWords\)\)/, "发进提示词那一句要走公共那份");
 });
