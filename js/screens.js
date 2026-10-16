@@ -6873,7 +6873,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -7027,7 +7027,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   if (partner && cp[view] && cp[view].status === "together" && sub === "studio") {
     return h(PhotoStudio, { partner, myCloset: myCloset, charCloset: charClosetOf ? charClosetOf(partner.id) : null,
       shots: studioShots, busy: studioBusy, fitBusy: fitBusy, canShoot: !!(studioCanShoot && studioCanShoot(partner)),
-      onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o), onRollStyles: onRollStyles,
+      onGenFit: hint => onGenDateFit(partner, hint), onShoot: o => onStudioShoot(partner, o), onRollStyles: onRollStyles, onRollThemes: onRollThemes,
       onShare: shot => onShareShot(partner, shot), onBack: () => setSub(null),
       onDelete: onDeletePhoto ? shot => onDeletePhoto(partner.id, { ...shot, src: "studio" }) : null });
   }
@@ -17731,7 +17731,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }
-function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onRollStyles, onBack }) {
+function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canShoot, onGenFit, onShoot, onShare, onDelete, onRollStyles, onRollThemes, onBack }) {
   const t = useTheme();
   // 「补一句」写了一大段，退出照相馆再进来就没了（群友 2026-10-17：「我刚写了那么多，一下子全没」）：
   //   跟聊天输入框同一个做法，没拍出去的那段留在本机，拍完也不清（下一张常常还想照着改）
@@ -17756,7 +17756,9 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   // 自己写的画风可以带一段描述（关键词、像谁的画、什么质感），拍和重画时跟着名字一起送去
   const [styleDesc, setStyleDescRaw] = useState(() => { try { return loadJSON("x_studioStyleDesc", {}) || {}; } catch (e) { return {}; } });
   const [styleDescDraft, setStyleDescDraft] = useState("");
-  const [rolled, setRolled] = useState([]);       // 模型想出来、还没收下的那几种
+  const [rolled, setRolled] = useState([]);
+  const [rolledT, setRolledT] = useState([]);    // 模型想出来的题材，还没收下
+  const [rollingT, setRollingT] = useState(false);       // 模型想出来、还没收下的那几种
   const [rolling, setRolling] = useState(false);
   const [editOld, setEditOld] = useState("");      // 正在改的是哪一种（改名时把旧的拿掉）
   const keepStyle = (nm, desc) => { if (!myStyles.includes(nm) && !STYLES.includes(nm)) saveStyles(myStyles.concat(nm).slice(-20));
@@ -17900,6 +17902,17 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 themeEdit.k ? h("button", { onClick: () => { window.__studioThemeDel(themeEdit.k); if (theme === themeEdit.k) setTheme(""); setThemeEdit(null); setThemeTick(n => n + 1); }, style: { fontFamily: F_BODY, fontSize: 12, color: "#c25a4a" } }, "删掉") : null,
                 h("button", { onClick: () => setThemeEdit(null), style: { fontFamily: F_BODY, fontSize: 12, color: "#8a76a0" } }, "取消"),
                 h("button", { onClick: () => { const k = window.__studioThemeSave(themeEdit.zh, themeEdit.line, themeEdit.k); if (k) { setTheme(k); setThemeEdit(null); setThemeTick(n => n + 1); } }, disabled: !themeEdit.zh.trim(), className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下"))) : null,
+            onRollThemes ? h("div", { "data-wk": "studiothemeroll", style: { marginBottom: 10 } },
+              h("button", { disabled: rollingT, onClick: async () => { setRollingT(true); const r = await onRollThemes(themes.map(x => x.zh), themeEdit && themeEdit.zh); setRolledT(r || []); setRollingT(false); },
+                className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px dashed #b9a6cc", background: "transparent", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } },
+                rollingT ? "在想…" : rolledT.length ? "再想几个题材" : "让 AI 想几个题材"),
+              rolledT.map((x, k) => h("div", { key: x.zh + k, className: "flex items-start", style: { gap: 8, padding: "6px 0", borderBottom: "1px dashed #e2d9ea" } },
+                h("div", { className: "flex-1 min-w-0" },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#5a4670" } }, x.zh),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a76a0", lineHeight: 1.5, marginTop: 2 } }, x.line)),
+                h("button", { onClick: () => { const k2 = window.__studioThemeSave && window.__studioThemeSave(x.zh, x.line); if (k2) { setThemeTick(n => n + 1); } setRolledT(rolledT.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "收下"),
+                h("button", { onClick: () => { setThemeEdit({ zh: x.zh, line: x.line }); setRolledT(rolledT.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a76a0" } }, "改了再收"),
+                h("button", { onClick: () => setRolledT(rolledT.filter((_, i2) => i2 !== k)), "aria-label": "不要", className: "shrink-0 active:opacity-60", style: { fontSize: 13, color: "#b9a6cc", padding: "0 4px" } }, "✕")))) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, theme === "magazine" ? "封面大标题（会排在封面上）" : theme === "movie" ? "片名（会排在海报上）" : theme ? "补一句（可空：在哪儿、什么表情）" : "这张要拍什么"),
             h("textarea", {
               value: scene, onChange: e => setScene(e.target.value), rows: 2,
