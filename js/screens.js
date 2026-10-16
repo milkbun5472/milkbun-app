@@ -13650,8 +13650,6 @@ function fmtClockShort(d) {
 function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, onOpenList, onEditStyle, onCompose }) {
   const t = useTheme();
   const tp = useRef(null);
-  const [, setPaperTick] = useState(0);
-  const [pickPaper, setPickPaper] = useState(false);
   const idx = Math.max(0, characters.findIndex(c => c.id === curId));
   const char = characters[idx] || characters[0];
   if (!char) return null;
@@ -13674,17 +13672,14 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   //   那是照着别人的来的，她 2026-08-30 明说要我们自己的东西。
   const paper = diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
-  const paperRow = pickPaper ? h("div", { "data-wk": "dipaper", className: "flex flex-wrap justify-center", style: { gap: 10, marginTop: 14 } },
-    DIARY_PAPERS.map(k => h("button", { key: k, "data-on": k === paper ? "1" : "0", onClick: () => { setDiaryPaper(char, false, k); setPaperTick(x => x + 1); },
-      className: "flex flex-col items-center active:opacity-70", style: { gap: 4 } },
-      h("span", { style: Object.assign({}, pageSkin(k, t, { corner: false }), { display: "block", width: 40, height: 40, borderRadius: 8, border: (k === paper ? "2px solid " + t.ink : "1px solid " + t.line) }) }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: k === paper ? t.ink : t.fog } }, DIARY_PAPER_ZH[k])))) : null;
   const lastStr = last ? (new Date(last.ts).getMonth() + 1) + "月" + new Date(last.ts).getDate() + "日" : "";
   return h("div", { "data-wk": "dicover", "data-paper": paper, className: "h-full flex flex-col", style: Object.assign({}, pageSkin(paper, t, { corner: false }), { touchAction: "pan-y" }), onTouchStart: onTS, onTouchEnd: onTE },
     h(Head, { zh: "日记", sub: characters.length > 1 ? "第 " + (idx + 1) + " / " + characters.length + " 本" : "",
       bg: "transparent", noLine: true, onBack,
       right: h("div", { className: "flex items-center", style: { gap: 12 } },
         h("button", { onClick: () => char.isMe ? onCompose() : onEditStyle(char.id), "aria-label": char.isMe ? "写一篇" : "改文风", className: "active:opacity-50" }, h(IPencil, { size: 17, color: t.ink })),
+        // 我自己那本没有文风可改，顶上单给一颗进去换纸（TA们的在铅笔那页里）
+        char.isMe ? h("button", { "data-wk": "dipaperbtn", onClick: () => onEditStyle(char.id), "aria-label": "换纸", className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "纸") : null,
         h("button", { onClick: onOpenList, "aria-label": "换一本", className: "active:opacity-50" }, h(IChevR, { size: 18, color: t.fog }))) }),
     h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-4", style: { position: "relative" } },
       h("button", { "data-wk": "dibook", onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: "clamp(280px, calc(100vh - 362px), 350px)" } },
@@ -13704,10 +13699,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
           char.avatarImage ? h("div", { style: { position: "absolute", right: "9%", bottom: "7%", width: 74, height: 74, borderRadius: 4, overflow: "hidden", transform: "rotate(3deg)", border: "3px solid rgba(255,255,255,.8)", boxShadow: "0 4px 12px rgba(0,0,0,.16)" } },
             h("img", { src: (typeof resolveImg === "function" ? resolveImg(char.avatarImage) : char.avatarImage), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
           char.motto ? h("div", { style: { position: "absolute", left: "16%", right: "36%", bottom: "9%", fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.8, color: t.fog } }, "「" + char.motto + "」") : null)),
-      h("div", { className: "flex items-center", style: { gap: 18, marginTop: 22 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, letterSpacing: ".1em" } }, "翻开"),
-        h("button", { "data-wk": "dipaperbtn", onClick: () => setPickPaper(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line } }, pickPaper ? "收起" : "换纸")),
-      paperRow,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 26, letterSpacing: ".1em" } }, "翻开"),
       characters.length > 1 ? h("div", { className: "flex items-center justify-center", style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) * .4 + 18px)", gap: 20 } },
         h("button", { onClick: () => go(-1), disabled: idx === 0, "aria-label": "上一本", className: "active:opacity-50", style: { opacity: idx === 0 ? .25 : .65, padding: 9 } }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex", style: { gap: 7 } }, characters.map((c, i2) => h("span", { key: c.id, style: { width: i2 === idx ? 16 : 6, height: 6, borderRadius: 999, background: t.ink, opacity: i2 === idx ? .7 : .22, transition: "width .2s" } }))),
@@ -13721,6 +13713,8 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
 // 灰字按 prompt-no-content-samples 换成【说明】，不给能被照抄的样例内容。
 function DiaryStylePage({ char, onSave, onClose }) {
   const t = useTheme();
+  // 这本用哪张纸（她 2026-10-16：「换纸放进上面的设置里」）——点了就存，不用等「保存」
+  const [paperNow, setPaperNow] = useState(() => diaryPaperOf(char));
   const [motto, setMotto] = useState(char.motto || "");
   const [style, setStyle] = useState(char.diaryStyle || "");
   const field = (label, hint, node) => h("div", { style: { marginBottom: 22 } },
@@ -13728,16 +13722,25 @@ function DiaryStylePage({ char, onSave, onClose }) {
     hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, hint) : null,
     node);
   const inputStyle = { width: "100%", outline: "none", background: t.bg2, border: `1px solid ${t.line}`, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14, color: t.ink };
-  return h("div", { className: "h-full flex flex-col", style: pageSkin(diaryPaperOf(char), t, { corner: false }) },
-    h(Head, { zh: "日记档案", sub: char.remark || char.name, bg: "transparent", onBack: onClose }),
+  const paperField = field("这本用哪张纸", "封面、目录和每一篇都铺这张纸；点了就换好",
+    h("div", { "data-wk": "dipaper", className: "flex flex-wrap", style: { gap: 10 } },
+      DIARY_PAPERS.map(k => h("button", { key: k, "data-on": k === paperNow ? "1" : "0", onClick: () => { setDiaryPaper(char, char.isMe, k); setPaperNow(k); },
+        className: "flex flex-col items-center active:opacity-70", style: { gap: 4 } },
+        h("span", { style: Object.assign({}, pageSkin(k, t, { corner: false }), { display: "block", width: 44, height: 44, borderRadius: 8, border: (k === paperNow ? "2px solid " + t.ink : "1px solid " + t.line) }) }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: k === paperNow ? t.ink : t.fog } }, DIARY_PAPER_ZH[k])))));
+  return h("div", { className: "h-full flex flex-col", style: pageSkin(paperNow, t, { corner: false }) },
+    h(Head, { zh: char.isMe ? "我的日记本" : "日记档案", sub: char.remark || char.name, bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
+      char.isMe ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
         "只影响 TA 的日记：签名会印在日记封面上、也会让写日记的 TA 知道；文风直接进写日记的笔。留空就从人设自己长。"),
+      char.isMe ? h("div", { style: { height: 12 } }) : null,
+      paperField,
+      char.isMe ? null : h(React.Fragment, null,
       field("一句话签名", "TA 会写给自己的那一句——不是网名简介，是 TA 自己的话",
         h("input", { value: motto, onChange: e => setMotto(e.target.value), placeholder: "选填", style: inputStyle })),
       field("日记文风", "写 TA 写日记时是什么样：句子长短、脾气收不收、爱写什么、绝不写什么、会不会取标题落款。判据一句话：换个人还成立的描述，等于没写。",
         h("textarea", { value: style, onChange: e => setStyle(e.target.value), rows: 6, placeholder: "选填", style: { ...inputStyle, resize: "none", lineHeight: 1.7 } })),
-      h("button", { onClick: () => { onSave(char.id, { motto: motto.trim(), diaryStyle: style.trim() }); onClose(); }, className: "w-full active:opacity-70", style: { marginTop: 4, background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_DISPLAY, fontSize: 15 } }, "保存")));
+      h("button", { onClick: () => { onSave(char.id, { motto: motto.trim(), diaryStyle: style.trim() }); onClose(); }, className: "w-full active:opacity-70", style: { marginTop: 4, background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_DISPLAY, fontSize: 15 } }, "保存"))));
 }
 
 // 我自己写日记（全屏），时间/天气/城市自动抓本地
@@ -13929,7 +13932,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
 
   // ---- 日记档案：整页盖上来（v62.18，no-half-sheet），关掉回到原视图、位置不丢 ----
   if (styleEdit) {
-    const sc = characters.find(c => c.id === styleEdit);
+    const sc = styleEdit === meAuthor.id ? meAuthor : characters.find(c => c.id === styleEdit);   // 我那本只进来换纸
     if (sc) return h(DiaryStylePage, { char: sc, onSave: onSaveFields, onClose: () => setStyleEdit(null) });
   }
 
