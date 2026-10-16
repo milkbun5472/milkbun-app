@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.778";
+const APP_VERSION = "v75.784";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -607,6 +607,10 @@ function App() {
   const [forumPosts, setForumPosts] = useState([]);
   const [forumComments, setForumComments] = useState({}); // { [postId]: [comment] }
   const [forumFollows, setForumFollows] = useState([]);    // 关注的角色 id
+  // 回关（群友 2026-10-16 许愿「贴吧 char 回关 user」）：{ [charId]: { on, at 回关那一刻, pendingAt 打算什么时候回关, offWhy, checkAt } }
+  const [forumBack, setForumBack] = useState(() => loadJSON("x_forumBack", {}) || {});
+  const forumBackRef = useRef(forumBack); forumBackRef.current = forumBack;
+  const forumFollowsRef = useRef(forumFollows); forumFollowsRef.current = forumFollows;
   const [forumPMs, setForumPMs] = useState([]);            // 与 NPC 的私信会话
   const [forumMe, setForumMe] = useState({ handle: "", bio: "", joinTs: 0, followers: 0 });
   const [forumCharMeta, setForumCharMeta] = useState({});  // { [charId]: {handle,bio,joinTs,following,followers} }（AI 生成一次）
@@ -1569,7 +1573,10 @@ function App() {
   const BODY_NO_LIFE = { phone: 1, schedule: 1 };
   // 后台线路选了「无」：自己跑的一律不跑（她 2026-10-10「后台 api 能不能选个无，强制不刷新」）
   const bgOff = () => loadJSON("x_bgApi", null) === "__off__";
-  const autoRefreshOn = (feature, charId) => !bgOff() && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
+  // 面具「先歇着」（群友 2026-10-15：「能不能根据面具分组启用，不用时那边时间可以选择暂停」）：
+  //   跟这张面具聊的人（群＝群挑的那张面具）后台什么都不自己动，时间那只钟也停着（停钟在 VClockMasks 里一起拨）。
+  const maskRested = id => { try { if (!id) return false; const k = String(maskKeyOf(id) || "") || "main"; const c = (((prefsRef.current || {}).vclocks) || {})[k]; return !!(c && c.rest); } catch (e) { return false; } };
+  const autoRefreshOn = (feature, charId) => !bgOff() && !maskRested(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
     && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
   const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
   // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
@@ -5504,7 +5511,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!after) { toast("点数还不够。和 " + (char.remark || char.name) + " 好好待一会儿就有了"); return; }
     const cp = (couplesRef.current || {})[char.id];
     const res = K.pull(n, gachaLuckRef.current[char.id] || { pulls: 0, sinceSSR: 0 },
-      { couple: !!(cp && cp.status === "together"), have: gachaHave(char) });
+      { couple: spaceLover(cp), have: gachaHave(char) });   // 恋人卡只给恋人空间
     if (!res.cards.length) { toast("这一抽没抽出东西，点数没扣"); return; }
     const now = Date.now();
     const made = res.cards.map((c, i) => ({
@@ -6122,6 +6129,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️没有和用户的情侣关系时不能直接 return ""——那个空白正是病根。
     //   先问一句「那TA是不是和别人在一起了」。
     if (!cp || !cp.status || cp.status === "none") return takenLineFor(charId, uName);
+    if (cp.status === "together" && !spaceLover(cp)) return spaceRelLine(cp, uName, cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null);
+    if (cp.status === "pending" && spaceRelKey(cp) !== "lover") return "你和 " + uName + " 之间有一个还没回应的" + spaceRel(cp).space + "邀请（" + spaceRel(cp).zh + "那种，不是恋人）。";
     if (cp.status === "together") {
       const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
       return "你和 " + uName + " 已经在一起了" + (days ? "（约 " + days + " 天）" : "") + "——这是你俩【当前真实的关系】，就算上面关系网里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】相处。";
@@ -8563,7 +8572,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const wRef = worldRefFor(char, scene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
+      const _cpS = (couplesRef.current || {})[char.id];
+      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, notLover: !!(_cpS && _cpS.status === "together" && !spaceLover(_cpS)), closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(sub, { kind: drawKind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -11481,7 +11491,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // 她撤回的那条留在原位、变成一行提示（recallStub，单聊群聊共用，定义在 groupContextRows 上面）
     // 他写过的申请信留在历史原位：信是他说过的话，她怎么回的也一起记着（不然下一轮他不知道她答没答应）
-    const _letterRow = m => ({ ...m, content: "〔你写给她的情侣申请信" + (m.state === "accepted" ? "，她答应了" : m.state === "declined" ? "，她说再想想" : m.state === "open" ? "，她拆开了还没回" : "，她还没拆") + "〕" + String(m.content || "") });
+    const _letterRow = m => ({ ...m, content: "〔你写给她的" + spaceRel(m.rel).space + "申请信" + (m.state === "accepted" ? "，她答应了" : m.state === "declined" ? "，她说再想想" : m.state === "open" ? "，她拆开了还没回" : "，她还没拆") + "〕" + String(m.content || "") });
     // 她回信那一下（系统小纸条「你答应了X ♥」／「你说再想想」）原来跟别的系统纸条一起被滤掉——
     //   TA 只在很早那封信上看到「她答应了」，后面接着聊就又不知道了（她 2026-10-03 截图：「泥系答应惹吗」）。按发生的位置交给 TA 一句。
     const _letterAns = m => m && m.kind === "system" && (m.sub === "letter" || /^你答应了.*♥$|^你说再想想$/.test(String(m.content || "")));
@@ -11736,7 +11746,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
-      const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——你们现在在一起了。怎么接这一下，全看你这个人。"
+      const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
@@ -12193,7 +12203,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
       if (!_peekTurn && !(room && !room.main) && !_body && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
         openCaps.push("loveLetter");
-        capState.push("loveLetter：你们还不是恋人。如果你【自己】已经想跟她在一起、而且这一刻就想说出口，可以给她写一封申请信——填信的全文，用你自己的口吻和长短。"
+        capState.push("loveLetter：你们还没开「我们的空间」。如果你【自己】已经想跟她在一起、而且这一刻就想说出口，可以给她写一封申请信——填信的全文，用你自己的口吻和长短。"
+          + "不一定是恋人（她 2026-10-16）：你要是想跟她做最铁的朋友、一辈子的挚友、或者像家人一样，也可以写，填成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}（bestie＝闺蜜/死党，friend＝挚友，family＝家人）；想在一起就照旧只填信的全文。"
           + "她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就别写；这不是每轮都该有的东西。");
       }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
@@ -12460,7 +12471,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _bodyFill = _bodyOnly && _s.bodyFillState === true;
       // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
       const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
-        ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
+        ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短（想做闺蜜、挚友、家人那种而不是恋人，就写成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}）；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格，别只停在心里。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
@@ -13588,9 +13599,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { const a = loadJSON("x_peekAsk", {}) || {}; a[charId] = Date.now(); saveJSON("x_peekAsk", a); } catch (e) {}
         delivered = true;
       }
-      const _letter = typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
+      // 信可以是恋人那种（一段字），也可以是别的关系（{rel,text}）——她 2026-10-16「别的关系角色也可以发邀请信」
+      const _llObj = parsed.loveLetter && typeof parsed.loveLetter === "object" ? parsed.loveLetter : null;
+      const _letter = _llObj ? String(_llObj.text || "").trim() : typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
+      const _letterRel = _llObj ? spaceRelKey(_llObj.rel) : "lover";
       if (_letter && _letter.toLowerCase() !== "null" && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
-        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
+        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", rel: _letterRel, content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
         markLoveLetter(charId, { ts: Date.now() });
         delivered = true;
       }
@@ -14821,7 +14835,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + (() => {
             // 她 2026-10-02「重roll了」：还是围着她那句话打转（发错群、撤回），没人说「你也是她男朋友？」——
             //   关系散在前面五六段里，模型没把它摆到眼前。在这儿点名摆一遍。
-            const tog = members.filter(c => couples[c.id] && couples[c.id].status === "together").map(c => c.name);
+            const tog = members.filter(c => spaceLover(couples[c.id])).map(c => c.name);
             return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + userName(profile) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
           })()
           + "这件事在你心里是什么分量、你打算怎么对待它，按你自己那张卡来——你平时怎么说话，这会儿还是那个人在说话。"
@@ -22619,6 +22633,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "回帖就聊帖子本身，或者说说你自己；说到你身边的人，那是你自己的日子，不是跟楼主打趣一个你们都认识的人。"
       + "\n";
   };
+  // 互关的那几位（回关过的、她也还关注着）：她发的帖他们一定刷到，还没来过就来一楼
+  const forumMutualRule = (meOwn, knowers) => {
+    const mutuals = meOwn ? (knowers || []).filter(c => ((forumBackRef.current || {})[c.id] || {}).on && (forumFollowsRef.current || []).includes(c.id)) : [];
+    return mutuals.length ? "\n【互相关注】" + mutuals.map(c => "「" + c.name + "」").join("、") + " 跟她在论坛上互关，她一发帖他们就刷到了：这一轮里他们要是还没在这帖出现过，至少来一位，用大号。\n" : "";
+  };
   const forumCommentProbe = (post, n, opts = {}) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
     const opChar = isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
@@ -22662,7 +22681,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "")
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "") + forumMutualRule(meOwn, opKnowers)
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
@@ -22885,10 +22904,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } finally { setGen(g => ({ ...g, forum: null })); }
   };
   const toggleForumFollow = charId => setForumFollows(prev => {
-    const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId];
+    const adding = !prev.includes(charId);
+    const n = adding ? [...prev, charId] : prev.filter(x => x !== charId);
     saveJSON("x_forumFollows", n);
+    if (adding) setTimeout(() => forumBackDecide(charId), 0);
     return n;
   });
+  // ── 回关 / 取关 ───────────────────────────────────────────
+  //   回不回、多久回，照你俩的关系定，不花调用：在一起的几分钟内就回；好感高的多半过一阵回；一般的看缘分；
+  //   没回的过两天再掂量一次。闹别扭（和好间那个信号亮着）的时候他会取关你，缓过来了你还关注着他，就关回来。
+  //   回关、取关都记进他的记忆，聊天里会自己提。
+  const forumBackSave = n => { forumBackRef.current = n; setForumBack(n); saveJSON("x_forumBack", n); };
+  const forumBackDecide = charId => {
+    const cur = (forumBackRef.current || {})[charId] || {};
+    if (cur.on || cur.pendingAt) return;
+    const now = Date.now(), together = ((couplesRef.current || {})[charId] || {}).status === "together";
+    const aff = typeof affOf === "function" ? Number(affOf(charId)) || 0 : 50;
+    const p = together ? 1 : aff >= 70 ? 0.85 : aff >= 45 ? 0.55 : aff >= 20 ? 0.25 : 0.08;
+    const yes = Math.random() < p;
+    const wait = together ? (2 + Math.random() * 13) * 60000 : (30 + Math.random() * 330) * 60000;
+    forumBackSave({ ...(forumBackRef.current || {}), [charId]: yes ? { ...cur, pendingAt: now + wait } : { ...cur, checkAt: now + 2 * 86400000 } });
+  };
+  const forumBackTick = () => {
+    const all = { ...(forumBackRef.current || {}) }, flwNow = forumFollowsRef.current || [], now = Date.now();
+    let changed = false;
+    const remember = (cid, text) => { try { addMemEntry({ text, tags: ["论坛"], charIds: [cid], knownBy: [cid], source: "auto" }); } catch (e) {} };
+    for (const c of (charactersRef.current || characters || [])) {
+      const cid = c.id, b = all[cid] || {}, iFollow = flwNow.includes(cid);
+      const sulky = typeof makeupSignalFor === "function" && (makeupSignalFor(cid) || {}).on;
+      if (b.on && sulky && !b.offWhy) {
+        all[cid] = { ...b, on: false, offWhy: "sulk", offAt: now }; changed = true;
+        toast(c.name + " 取消关注了你", 5000);
+        remember(cid, "在论坛上，因为跟" + (profile.name || "她") + "闹别扭，取消关注了她的号");
+        continue;
+      }
+      if (b.offWhy === "sulk" && !sulky && iFollow) { all[cid] = { ...b, offWhy: null, pendingAt: now + (20 + Math.random() * 100) * 60000 }; changed = true; continue; }
+      if (!b.on && b.pendingAt && b.pendingAt <= now && iFollow && !sulky) {
+        all[cid] = { on: true, at: now }; changed = true;
+        toast(c.name + " 回关了你", 5000);
+        remember(cid, "在论坛上回关了" + (profile.name || "她") + "的号，现在是互相关注");
+        continue;
+      }
+      if (!b.on && !b.pendingAt && b.checkAt && b.checkAt <= now && iFollow) { delete all[cid]; changed = true; setTimeout(() => forumBackDecide(cid), 0); }
+    }
+    if (changed) forumBackSave(all);
+  };
+  useEffect(() => {
+    if (!loaded) return;
+    const first = setTimeout(forumBackTick, 15000);
+    const iv = setInterval(forumBackTick, 120000);
+    return () => { clearTimeout(first); clearInterval(iv); };
+  }, [loaded]);
   // 转发帖子到私聊：只 push 卡片，【不自动回复】——她要转完接着说自己的话，说完按「回复」TA 再一起反应。
   // 帖子内容写进 content：回复走正常 replyNow 历史，TA 能一直记得这条帖（含自己匿名发的帖，认不认在正常回复里演）。
   // 「这帖是你自己发的 / 你本人在这帖里回过」——转发时让 TA 认得出自己。
@@ -24115,11 +24181,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 「在一起」那一刻要做的事只写这一份：她邀请他答应、他写信她答应，两条路都走这里。
-  const beginCouple = charId => {
+  const beginCouple = (charId, relOverride) => {
     const char = characters.find(c => c.id === charId);
     setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
     const now = new Date();
-    const rk0 = typeof spaceRelKey === "function" ? spaceRelKey((couplesRef.current || {})[charId]) : "lover";
+    const rk0 = spaceRelKey(relOverride || (couplesRef.current || {})[charId]);
     setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0 });
     // 在一起纪念日写进日历（该角色视角）
     if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
@@ -24163,8 +24229,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!m || (m.state !== "sealed" && m.state !== "open")) return;
     const char = characters.find(c => c.id === charId);
     pChat(charId, p => [...p.map(x => x.id === m.id ? { ...x, state: yes ? "accepted" : "declined" } : x),
-      { role: "system", kind: "system", sub: "letter", content: yes ? "你答应了" + (char ? char.name : "TA") + " ♥" : "你说再想想", ts: Date.now() }]);
-    if (yes) { beginCouple(charId); toast("你们在一起了 ♥"); }
+      { role: "system", kind: "system", sub: "letter", content: yes ? "你答应了" + (char ? char.name : "TA") + (spaceRelKey(m.rel) === "lover" ? " ♥" : "，开了" + spaceRel(m.rel).space) : "你说再想想", ts: Date.now() }]);
+    if (yes) { beginCouple(charId, m.rel); toast(spaceRel(m.rel).together + (spaceRelKey(m.rel) === "lover" ? " ♥" : "")); }
     else markLoveLetter(charId, { declinedTs: Date.now() });
     // 不当场开口（她 2026-10-06：「我拒绝了就直接说话了，我还没打完字」）：她点完多半还要说几句，
     //   所以只记下「她刚回了信」，等她自己发消息或按回复，那一轮再带上【此刻】那一句（答应、再想想两边一样）。
@@ -25016,7 +25082,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return characterText(char, "【他是谁】") + char.name + "\n" + String(char.persona || "").slice(0, 6000)
       + (profile.persona ? characterText(char, "\n\n【和他在一起的人 · ") + uName + "】\n" + String(profile.persona).slice(0, 2000) : "")
       + "\n\n【他俩是什么关系】"
-      + (cp.status === "together" ? "已经在一起的恋人" + (days ? "，到今天第 " + days + " 天" : "") : "还没在一起")
+      + (spaceLover(cp) ? "已经在一起的恋人" + (days ? "，到今天第 " + days + " 天" : "") : cp.status === "together" ? spaceRel(cp).zh + "（开着" + spaceRel(cp).space + "，不是恋人）" : "还没在一起")
       + (relLine ? "。关系网上写着：" + relLine : "")
       + "\n\n【她叫】" + uName;
   };
@@ -25479,8 +25545,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const STUDIO_THEMES = {
     school:   { zh: "校服", line: "【题材·校服】你们俩穿着同一所学校的校服，在教室、走廊或操场，像高中时的一张合照。" },
     ancient:  { zh: "古装", line: "【题材·古装】你们俩换上古装（衣冠发式照同一个朝代），在庭院、街市或灯下，像古装剧里的一张定妆照。" },
-    wedding:  { zh: "婚纱照", line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
-    marriage: { zh: "结婚登记照", line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
+    wedding:  { zh: "婚纱照", lover: true, line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
+    marriage: { zh: "结婚登记照", lover: true, line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
     grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
     band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
     magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图，打光讲究；是摄影棚里摄影师拍的时尚大片，两人摆杂志感的姿势、看镜头或看彼此，不是手机自拍；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
@@ -25489,7 +25555,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
   const customThemes = () => { const a = loadJSON("x_studioThemes", []); return Array.isArray(a) ? a.filter(x => x && x.k && x.zh) : []; };
   const studioThemeOf = k => STUDIO_THEMES[k] || (() => { const c = customThemes().find(x => x.k === k); return c ? { zh: c.zh, line: "【题材·" + c.zh + "】" + (c.line || "你们俩在「" + c.zh + "」这个设定里") + "。" } : null; })();
-  window.__studioThemes = () => [...Object.keys(STUDIO_THEMES).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
+  // 婚纱照、结婚登记照只给恋人空间（她 2026-10-16：闺蜜 / 挚友 / 家人空间撤掉恋人专属的）
+  window.__studioThemes = charId => [...Object.keys(STUDIO_THEMES).filter(k => !STUDIO_THEMES[k].lover || !charId || spaceLover((couplesRef.current || {})[charId])).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
   window.__studioThemeSave = (zh, line, k) => {
     const name = String(zh || "").trim().slice(0, 12); if (!name) return null;
     const key = k || "c_" + Date.now();
@@ -25655,7 +25722,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const studioShoot = async (char, opt) => {
     const profile = meOf(char && char.id);   // 照片里的我照他认的那张面具（她 2026-10-16）
-    const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
+    const theme0 = opt && opt.theme ? studioThemeOf(opt.theme) : null;
+    const notLover = !spaceLover((couplesRef.current || {})[char && char.id]);
+    const theme = theme0 && theme0.lover && notLover ? null : theme0;
     const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "") || (opt && opt.polaroid ? "随手用拍立得拍的一张合照，就在此刻你们在的地方" : "") || (opt && opt.grid ? "在大头贴机里拍的一组四宫格" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
@@ -25762,7 +25831,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
       const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
@@ -30119,6 +30188,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     posts: forumPosts,
     comments: forumComments,
     follows: forumFollows,
+    followBack: forumBack,
+    // 他关注了谁（互关的第 3 条）：回关了你就有你；再加上跟他有关系的那几个角色（有号的才算），只列名字
+    followingOf: cid => ((characters || []).filter(x => x.id !== cid && !x.npc && (rels[cid + "->" + x.id] || rels[x.id + "->" + cid])).map(x => x.name)).slice(0, 12),
     pms: forumPMs,
     groups: groups,
     gen: gen,
@@ -30627,7 +30699,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
       return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
         + Object.values(groupNowSegs(c, { interop: true })).join("")
-        + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
+        + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
         + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
     },
     pay: (delta, label) => changeWallet(delta, label, "live", { where: "直播间" }),

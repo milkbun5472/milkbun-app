@@ -3584,15 +3584,22 @@ const SPACE_RELS = {
 };
 function spaceRelKey(v) { const k = v && typeof v === "object" ? v.rel : v; return SPACE_RELS[k] ? k : "lover"; }
 function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }
-if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; }
+// 是不是「恋人那种、已经在一起」——各处判断恋爱向的东西（恋人称谓、在一起几天、抽卡的恋人卡……）都问这一个
+function spaceLover(cp) { return !!(cp && cp.status === "together" && spaceRelKey(cp) === "lover"); }
+// 不是恋人的空间，给模型的那一句（单聊 bundle、群聊、梦都用这一份）
+function spaceRelLine(rk, uName, days) {
+  const rl = SPACE_RELS[spaceRelKey(rk)], fam = spaceRelKey(rk) === "family";
+  return "【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (days ? "（约 " + days + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
+    + (fam ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (fam ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。";
+}
+if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; window.spaceLover = spaceLover; window.spaceRelLine = spaceRelLine; }
 function coupleStatusLines(ctx, uName) {
   const out = [], char = ctx.char, rels = ctx.rels, chars = ctx.chars;
   // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
   // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
   if (!ctx.notRoleplay && ctx.coupleStatus) {
     const cs = String(ctx.coupleStatus).split("|"), rk = spaceRelKey(cs[2]), rl = SPACE_RELS[rk];
-    if (cs[0] === "together" && rk !== "lover") out.push("【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
-      + (rk === "family" ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (rk === "family" ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。");
+    if (cs[0] === "together" && rk !== "lover") out.push(spaceRelLine(rk, uName, cs[1]));
     else if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending" && rk !== "lover") out.push("【" + rl.space + "邀请待定】" + uName + " 想跟你开一个" + rl.space + "（" + rl.zh + "那种关系，不是恋人），你还没回应。");
     else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
@@ -4977,8 +4984,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "两个人都看着镜头，但隔着一点点距离，像在路边随手一拍",
     "一个人看镜头，另一个人正侧过脸看着对方",
     "两个人都没看镜头，正在说话或笑，被抓到的一瞬",
-    "一个人从背后环住另一个人，下巴搁在对方肩上",
-    "并肩坐着，只拍到肩膀以上，头微微挨在一起",
+    "♥一个人从背后环住另一个人，下巴搁在对方肩上",
+    "♥并肩坐着，只拍到肩膀以上，头微微挨在一起",
     "一个人在闹，另一个人一脸无奈或躲镜头",
     "两个人面对面，镜头从侧面拍到两张侧脸",
     "一个人低头在做什么，另一个人凑过来看",
@@ -4992,15 +4999,17 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "这一张两个人怎么待在一起你自己定：挑一个跟上面这些都不一样、又合这个时刻的样子"
   ];
   function photoDuoPoseLine(seed) {
+    // ♥ 开头的那几格是恋人才摆的（环抱、头挨着）：闺蜜 / 挚友 / 家人空间不抽它（她 2026-10-16）
+    const pool = PHOTO_DUO_POSES.filter(x => !opts.notLover || x.charAt(0) !== "♥").map(x => x.replace(/^♥/, ""));
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
-    let idx = n % PHOTO_DUO_POSES.length;
-    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (PHOTO_DUO_POSES.length - 1))) % PHOTO_DUO_POSES.length;
+    let idx = n % pool.length;
+    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
     buildPhotoPrompt._lastDuoPose = idx;
     // ⚠️这一格只是【没人指定时】的默认（她 2026-09-24：「如果我说让他特定姿势或者我俩特定姿势，
     //   能 override 这个轴吗」）。画面描述里点名了姿势——不管是她要的还是他自己写的——就照那个拍，
     //   这一格让路。原来末尾那句「别又回到贴着脸那一张」删掉：她真要贴脸时它会跟她对着干。
     return "【两个人的姿势·只在画面描述没写的时候用】如果上面「场景/正在做什么」那一句已经写明了两个人怎么站、怎么抱、看不看镜头，一律照那一句来，这一条不用管。"
-      + "没写的话，这张就是：" + PHOTO_DUO_POSES[idx] + "。谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来。";
+      + "没写的话，这张就是：" + pool[idx] + "。谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来。";
   }
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。

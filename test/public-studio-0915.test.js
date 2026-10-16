@@ -14,6 +14,8 @@ test('实际照相馆调用带两边选中单品描述、不带未选衣柜且�
  // v69.01：出图时的「我」收成了公共的 photoMe（带固定服装锁和我的衣柜）。
  // 这儿故意让它返回一个哨兵衣柜——照相馆必须把它清掉，否则会跟她刚挑的那身打架。
  // v75.685：「我」改成照这个角色认的那张面具取；这儿只有一张脸，meOf 原样给 profile
+ // v75.782：照相馆问一句是不是恋人空间（婚纱结婚题材、亲密姿势只给恋人）；照 engine 的 spaceLover 写
+ couplesRef:{current:{}}, spaceLover:cp=>!!(cp&&cp.status==="together"&&(cp.rel||"lover")==="lover"),
  meOf:()=>c.profile,
  photoMe:(n,who)=>({name:(c.profile&&c.profile.name)||n,appearance:c.profile&&c.profile.appearance,
    refPhoto:c.profile&&c.profile.refPhoto,outfit:(c.profile&&c.profile.photoOutfit)||'',closet:'哨兵·整柜不该进来'})};

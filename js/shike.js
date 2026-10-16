@@ -207,7 +207,7 @@
     };
     marks(first, "认识");
     const cp = (ctx.couples || {})[c.id];
-    if (cp && cp.status === "together" && cp.since) marks(cp.since, "在一起");
+    if (cp && cp.status === "together" && cp.since) marks(cp.since, window.spaceLover && !window.spaceLover(cp) ? "开了" + window.spaceRel(cp).space : "在一起");
     const y0 = new Date(now).getFullYear();
     [[monthDay(c.birthday), (c.remark || c.name) + " 的生日"], [monthDay(ctx.profile && ctx.profile.birthday), "你的生日"]].forEach(([md, t]) => {
       if (md) [y0, y0 + 1].forEach(y => cands.push({ ts: new Date(y, md.mo - 1, md.d).getTime(), title: t }));
@@ -224,7 +224,7 @@
     const cp = (ctx.couples || {})[c.id];
     const bits = [];
     if (first) bits.push("认识 " + (Math.round((now - startOf(first)) / DAY) + 1) + " 天");
-    if (cp && cp.status === "together" && cp.since) bits.push("在一起 " + (Math.round((now - startOf(cp.since)) / DAY) + 1) + " 天");
+    if (cp && cp.status === "together" && cp.since) bits.push((window.spaceLover && !window.spaceLover(cp) ? window.spaceRel(cp).space + " " : "在一起 ") + (Math.round((now - startOf(cp.since)) / DAY) + 1) + " 天");
     return bits.join(" · ");
   }
 
