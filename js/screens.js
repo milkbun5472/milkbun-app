@@ -17144,10 +17144,12 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
   // 每本摆在它自己的地方（她 2026-10-16「但是背景都还是这种纸张」）：卷宗摊在深色木办公桌上、诉状在木墙板的小法庭里、
   //   对照卡钉在软木板上、车票在夜里的站台上。字色跟着底走（Head 的 ink 口子）。
   const SCENE = {
-    blackcase: { ink: "#f1e4cc", sub: "rgba(241,228,204,.62)", page: { background: "repeating-linear-gradient(92deg, rgba(0,0,0,.05) 0 3px, transparent 3px 11px), linear-gradient(180deg,#5a3d29,#3b271a)" } },
-    complain: { ink: "#f4ead9", sub: "rgba(244,234,217,.62)", page: { background: "linear-gradient(180deg, rgba(0,0,0,.18), transparent 120px), repeating-linear-gradient(90deg,#7a5238 0 46px,#6e4931 46px 48px), #7a5238" } },
-    mouth: { ink: "#3a2a16", sub: "rgba(58,42,22,.62)", page: { background: "radial-gradient(circle at 20% 30%, rgba(90,60,25,.25) 0 1.2px, transparent 1.6px) 0 0/9px 11px, radial-gradient(circle at 70% 60%, rgba(255,240,210,.35) 0 1px, transparent 1.4px) 0 0/7px 8px, #c99d66" } },
-    safe: { ink: "#e9eef0", sub: "rgba(233,238,240,.6)", page: { background: "linear-gradient(180deg, transparent 0 calc(100% - 64px), #e6c24a calc(100% - 64px) calc(100% - 58px), #2b3238 calc(100% - 58px)), linear-gradient(180deg,#1f2a33,#2c3842)" } }
+    // 第一版照字面铺了木桌、法庭木墙、软木板、夜站台——她：「这又是个极端，它不好看」。
+    //   收成浅底：只从那样东西里借一点颜色和极淡的纹理，跟 app 其余的纸感站在一起；东西本身（档案袋、诉状、卡、车票）才是主角。
+    blackcase: { ink: "#3d2f1f", sub: "rgba(61,47,31,.55)", page: { background: "radial-gradient(120% 80% at 50% 0%, #f6efe2 0%, #ece0c9 100%)" } },
+    complain: { ink: "#3d2a22", sub: "rgba(61,42,34,.55)", page: { background: "linear-gradient(180deg, #f5ece6 0%, #ecdfd5 100%)" } },
+    mouth: { ink: "#3a3048", sub: "rgba(58,48,72,.55)", page: { background: "radial-gradient(circle, rgba(122,106,160,.10) 1px, transparent 1.3px) 0 0/16px 16px, linear-gradient(180deg,#f4f1f8,#ebe6f2)" } },
+    safe: { ink: "#2c3a44", sub: "rgba(44,58,68,.55)", page: { background: "linear-gradient(180deg, #eef2f4 0%, #e1e8ec 100%)" } }
   };
   const sc = SCENE[book.key] || null;
   // 顶上那两颗也照那样东西说话：立案、递诉状、拍卡、报平安
@@ -17281,7 +17283,7 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sc ? sc.sub : t.fog, margin: "2px 2px 12px" } }, book.say),
       !form ? h("div", { className: "flex", style: { gap: 8, marginBottom: 14 } },
         h("button", { "data-wk": "spacebooknew", onClick: startForm, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: 0, background: book.band, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, VERB[0]),
-        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + (sc ? sc.sub : book.band), background: sc ? "rgba(0,0,0,.18)" : "transparent", color: sc ? sc.ink : book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : VERB[1].replace("{n}", nm)) : null) :
+        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + (sc ? sc.sub : book.band), background: sc ? "rgba(255,255,255,.55)" : "transparent", color: sc ? sc.ink : book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : VERB[1].replace("{n}", nm)) : null) :
       h("div", { "data-wk": "spacebookform", style: { marginBottom: 14, padding: "12px 13px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         book.fields.map(f => field(f, form[f.k], v => setForm(o => Object.assign({}, o, { [f.k]: v })))),
         h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
