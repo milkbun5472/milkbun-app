@@ -1327,7 +1327,7 @@
     const t = useTheme();
     const uName = (props.profile && props.profile.name) || "你";
     const [camps, setCamps] = useState(load);
-    const [view, setView] = useState("list"); // list | create | play
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("trpg", ["create"])) || "list"); // list | create | play
     const [playId, setPlayId] = useState(null);
     // 不用系统的 confirm()。她 2026-08-30:「.55 根本没有确认框」——
     // iOS 上系统弹窗会被吞掉(Safari 连着弹几次之后可以「阻止此页面的对话框」,

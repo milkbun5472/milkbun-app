@@ -5424,7 +5424,7 @@
     const [cps, setCps] = useState(loadCPs);
     const [me, setMe] = useState(function () { return meProfile(loadMe(), props.profile); });
     const [activeTab, setActiveTab] = useState(tabs[0] && tabs[0].id);
-    const [view, setView] = useState("feed"); // feed / shelf / publish / rp / authors / mine
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("fanfic", ["feed", "shelf", "publish", "rp", "authors", "mine"])) || "feed"); // feed / shelf / publish / rp / authors / mine
     const [rpStart, setRpStart] = useState(null); // 从作者主页点「加笔」带过来的那一篇
     const [openId, setOpenId] = useState(null);
     // ── 从房间里那张「TA写好了」直接翻到这一章（她 2026-09-12：

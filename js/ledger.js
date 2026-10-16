@@ -1033,7 +1033,7 @@
     const t = useTheme();
     window.__ledgerTheme = t;
     const [data, setData] = useState(loadData);
-    const [tab, setTab] = useState("wallet");      // wallet | stats | cal | me
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("ledger", ["wallet", "stats", "cal", "me"])) || "wallet");      // wallet | stats | cal | me
     const [stack, setStack] = useState([]);        // 叠在上面的页：{k:"bills"} | {k:"txn",id}
     const [addState, setAddState] = useState(null); // null | {edit?:txn, type?}
     const [showSet, setShowSet] = useState(null);

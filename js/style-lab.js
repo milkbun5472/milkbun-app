@@ -19,7 +19,7 @@
   function StyleLabApp(props) {
     const t = useTheme();
     const SP = window.StylePresets;
-    const [tab, setTab] = useState("build");             // build | test
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("stylelab", ["build", "test"])) || "build");             // build | test
     const [presets, setPresets] = useState(() => SP.list());
     const [curId, setCurId] = useState(() => { const l = SP.list(); return l.length ? l[0].id : ""; });
     const [openCat, setOpenCat] = useState({});

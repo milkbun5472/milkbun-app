@@ -3964,7 +3964,7 @@
   //  home(tab: teach/costudy/nv1) → console(课程) / newCourse / newCostudy → thread
   function StudyApp(props) {
     const [view, setView] = useState("home");
-    const [tab, setTab] = useState("teach");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("study", ["teach", "costudy", "nv1", "tb"])) || "teach");
     const [tick, setTick] = useState(0); // 强制从库重读
     const [openId, setOpenId] = useState(null);   // session id（thread）
     const [curId, setCurId] = useState(null);      // curriculum id（console）

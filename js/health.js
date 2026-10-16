@@ -886,7 +886,7 @@
     // 网关在后台拉到了新的一份：页面跟着刷新
     React.useEffect(() => { const f = () => setD(load()); g.addEventListener && g.addEventListener("qq-health-updated", f); pullGateway(false);
       return () => g.removeEventListener && g.removeEventListener("qq-health-updated", f); }, []);
-    const [tab, setTab] = useState("today");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("health", ["today", "body"])) || "today");
     const [page, setPage] = useState(null);          // { kind: "add", meal } | { kind: "watch" }
     const [kg, setKg] = useState("");
     const [sp, setSp] = useState(null), [spMin, setSpMin] = useState(30), [stepIn, setStepIn] = useState("");

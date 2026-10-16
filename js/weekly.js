@@ -2145,7 +2145,7 @@
     const t = useTheme();
     const userName = (props.profile && props.profile.name) || "我";
     const [issues, setIssues] = useState(function () { return loadIssues(); });
-    const [view, setView] = useState("cover"); // cover | issue | shelf
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("weekly", ["cover", "issue", "shelf"])) || "cover"); // cover | issue | shelf
     const [openId, setOpenId] = useState(null);
     const [, force] = useState(0); // 订阅后台出刊状态用（busy/prog 变化时重渲染）
     const win = window.Weekly.reportWindow();

@@ -386,7 +386,7 @@
   function Memo(props) {
     const t = useTheme();
     const [data, setData] = useState(loadData);
-    const [tab, setTab] = useState("reminders");   // reminders | notes
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("memo", ["reminders", "notes"])) || "reminders");   // reminders | notes
     const [form, setForm] = useState(null);        // {kind:'reminder'|'note', item?}
     const [detail, setDetail] = useState(null);    // {kind, id}
     // 从日历点某条提醒进来：memoOpenReminder 把 id 放在 __memoOpenId，这里接住并打开详情。

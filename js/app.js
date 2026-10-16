@@ -28810,6 +28810,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!hit) return false;
         openChatById(hit.id, entryId === "group" ? "group" : "char"); return true;
       }
+      // 情侣空间：couple/那个人/哪一块（照相馆、情书、抽卡……），照「从聊天里点进唱片架」那条现成的落点走
+      if (app === "couple" && parts.length) {
+        const key = parts[0], list = charactersRef.current || [];
+        const hit = list.find(x => String(x.id) === key) || list.find(x => x.name === key || x.remark === key);
+        if (!hit) return false;
+        setUsLand({ view: hit.id, sub: parts[1] || null }); setScreen("us"); return true;
+      }
+      // 别的 app 里面那一格：先挂上 window.__openSub，那个 app 头一次画的时候自己取（engine.js 的 takeOpenSub）。
+      //   已经开着这一页的话先退回主屏再进，让它重新画一遍才取得到
+      const DEEP = ["fanfic", "study", "ledger", "memo", "weekly", "dreamjournal", "stylelab", "health", "astro", "debate", "dream", "theater", "trpg"];
+      if (parts.length && DEEP.indexOf(app) >= 0) {
+        window.__openSub = { screen: app, sub: parts[0] };
+        if (screen === app) { setScreen("home"); setTimeout(() => setScreen(app), 0); } else setScreen(app);
+        return true;
+      }
       const ALIAS = { chat: "messages", couple: "us", lounge: "loungeapp" };
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };

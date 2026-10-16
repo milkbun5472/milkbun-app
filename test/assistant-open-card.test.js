@@ -32,3 +32,19 @@ test("open 卡：照攻略那一条的 app 开页面，不认得的就报错，�
   const as = fs.readFileSync(path.join(root, "js/assistant.js"), "utf8");
   assert.match(as, /p\.target === "open" \? \(String\(p\.text/);
 });
+
+// 她 2026-10-16：「别的 app 不能都搞具体跳转吗」「我的 xx app 在哪儿，她可以说在第几页」
+test("别的 app 里那一格：app.js 挂 __openSub，各 app 头一次画时取一次；秋秋看得见桌面布局", () => {
+  const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+  assert.match(eng, /function takeOpenSub\(screen, allowed\)/);
+  const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+  assert.match(app, /window\.__openSub = \{ screen: app, sub: parts\[0\] \};/);
+  assert.match(app, /setUsLand\(\{ view: hit\.id, sub: parts\[1\] \|\| null \}\)/);
+  [["fanfic.js", "fanfic"], ["study.js", "study"], ["ledger.js", "ledger"], ["memo.js", "memo"], ["weekly.js", "weekly"], ["dreamjournal.js", "dreamjournal"],
+   ["style-lab.js", "stylelab"], ["health.js", "health"], ["astro.js", "astro"], ["debate.js", "debate"], ["dream.js", "dream"], ["theater.js", "theater"], ["trpg.js", "trpg"]]
+    .forEach(([f, sc]) => assert.match(fs.readFileSync(path.join(root, "js", f), "utf8"), new RegExp('takeOpenSub\\("' + sc + '"'), f + " 没接"));
+  const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
+  assert.match(comp, /window\.__homeNow = function \(\)/);
+  const ex = fs.readFileSync(path.join(root, "js/assistant-extras.js"), "utf8");
+  assert.match(ex, /o\.桌面布局 = rows/);
+});
