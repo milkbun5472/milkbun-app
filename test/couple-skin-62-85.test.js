@@ -82,7 +82,7 @@ test("底纹铺在外壳上，顶栏透上来——顶上不许横一条没盖�
   const ci = src.indexOf('style: cpSkin(t, "corridor")');
   assert.ok(ci > 0, "名册那一页的底没了");
   const bar = src.slice(ci, src.indexOf("overflow-y-auto", ci));
-  assert.match(bar, /h\(Head, \{ zh: "情侣"/, "名册顶栏没走共用 Head");
+  assert.match(bar, /h\(Head, \{ zh: entries\.some\(/, "名册顶栏没走共用 Head");
   assert.match(bar, /bg: "transparent"/, "名册顶栏又刷回平色了");
 });
 
