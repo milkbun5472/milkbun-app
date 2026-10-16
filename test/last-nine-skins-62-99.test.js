@@ -35,7 +35,9 @@ test("能搬的都搬了，没有为这九页新发明四张材质", () => {
   // 导卡归档案馆那一族
   assert.match(src, /className: "absolute inset-0 z-50 h-full flex flex-col", style: DESK\(t\.accent \|\| t\.tint\)/);
   // 日记文风页跟日记正文同一张纸——跟着那个人的纸走，不是随便挑一张
-  assert.match(src, /style: pageSkin\(diaryPaperOf\(char\), t, \{ corner: false \}\) \},\s*\n\s*h\(Head, \{ zh: "日记档案"/);
+  // 现在这页能当场换纸（paperNow），起点仍是这个人自己的那张 diaryPaperOf(char)；标题也管「我的日记本」
+  assert.match(src, /const \[paperNow, setPaperNow\] = useState\(\(\) => diaryPaperOf\(char\)\);/);
+  assert.match(src, /style: pageSkin\(paperNow, t, \{ corner: false \}\) \},\s*\n\s*h\(Head, \{ zh: char\.isMe \? "我的日记本" : "日记档案"/);
   // 随身物两个柜子页跟主页同一块布、同一个 tint
   // v64.24 多了第四处：一个角色都没有时的那一屏。原来它是纯米白，
   // 跟有内容时完全是两个 app——空状态也得站在同一块布上。

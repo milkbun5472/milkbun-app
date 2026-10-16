@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.762";
+const APP_VERSION = "v75.766";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25686,7 +25686,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const COMIC_LINE = opt && opt.comic ? "【版式·四格漫画】整张图是一张 2×2 四格漫画，四格大小一样、格子之间留白边，" + (opt.comicStyle === "photo" ? "四格都是写实的真人照片质感（照片漫画），" : "漫画画风：清晰的黑色勾线、平涂或网点上色，是画出来的漫画，不是照片，" ) + "每一格里" + char.name + "都在画面左边、" + (me.name || "我") + "都在右边，人别顶满格子、上方留一点空给对话气泡；四格都是你们俩，四格的景别、机位和人物动作各不相同，别画成同一个姿势换表情；按顺序依次是：" + opt.comic.map((c, i) => "第" + (i + 1) + "格（左上、右上、左下、右下依次）" + c.scene).join("；") + "。画面里不要任何文字、不要对话气泡、不要拟声字。" : "";
       // 挑了衣服就照挑的穿，题材也一样（她 2026-10-13：选了杂志封面，挑好的衣服没穿上）
       const picked = !!(String((opt && opt.mine) || "").trim() || String((opt && opt.theirs) || "").trim());
-      const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !(opt && opt.restyle) && (!theme || picked) ? "。" + (theme ? "衣服照下面挑好的穿，不用题材默认的那身：" : "") + fits : "");
+      // 照相馆的「场景加成」开关（她 2026-10-16：群里说线下生图比照相馆好看 → 「做个开关吧」）：
+      //   线下那张好看，是因为画面描述是 TA 在戏里写的一整段，还带着此刻在哪和地图那张场景图；
+      //   照相馆原来只有她写的那一句。开着：先花一次文字调用把这一句写成一段画面（光、环境、两个人在做什么），
+      //   并带上 TA 此刻在哪和那个地点的场景图。只补画面，不改她写的意思和挑的衣服。
+      //   题材、换画风、四格漫画各有自己那一套画面，不加。
+      const boost = !!(opt && opt.expand) && !theme && !(opt && (opt.restyle || opt.comic));
+      const herePlace = boost ? freshLiveStateValue(st, "place") : "";
+      const wRefS = boost && typeof worldRefFor === "function" ? worldRefFor(char, scene + " " + (herePlace || "")) : null;
+      let sceneShot = scene;
+      if (boost) {
+        try {
+          const d = await runProbe(apiFor(char.id), ctxFor(char), {
+            instruction: "你们俩要拍一张合照，她写的是：「" + scene + "」。" + (herePlace ? "你此刻人在：" + herePlace + "。" : "")
+              + "把这一句写成拍照那一刻的画面，给出图的人看：在哪、什么光、周围有什么、你们俩在做什么、离得多近、什么表情。照你们俩的关系和你自己的样子来想；"
+              + "她这一句里写到的地点、动作、心情都照着来，不改意思，只补她没写的；不写衣服（衣服另有一行），不写镜头参数和画质词。一段话，150 字以内。",
+            schemaHint: "{\"scene\":\"\"}", maxTokens: 65000
+          });
+          const x = String((d && d.scene) || "").trim();
+          if (x) sceneShot = scene + "。画面：" + x;
+        } catch (e) {}
+        if (herePlace && sceneShot === scene) sceneShot = "（此刻人在：" + herePlace + "）" + scene;
+      }
+      const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + sceneShot + (fits && !(opt && opt.restyle) && (!theme || picked) ? "。" + (theme ? "衣服照下面挑好的穿，不用题材默认的那身：" : "") + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       // 换画风只发原图＋一句「原样转画风」（她 2026-10-13：重画成了另一张照片）：
@@ -25709,10 +25731,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
       const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
+      if (wRefS && !firstRef) refs.push(wRefS.img);   // 地图上那个地点的场景图跟在两张脸后面
       const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
