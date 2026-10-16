@@ -7204,6 +7204,16 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
     // 变成一道没来由的橙线。这一版尺寸全由 A/RING/GAP/OVER 算出来，不再手填：
     //   环外径 D = A + 2*(RING+GAP)，右边那枚往左压 OVER，
     //   交叠带的起点就是 (D-OVER)/D，弧只取上半圈 → 上半左压右、下半右压左＝扣住了。
+    // 首页那几句跟着关系走（她 2026-10-16「改改吧让每种都有点不一样」）：数日子的说法、那颗值叫什么、打卡怎么说、颜色。
+    //   甜蜜值底下是同一份数据，只是换个叫法；恋人那套原样不动。
+    const HOME_REL = {
+      lover: null,
+      bestie: { days: ["做死党", "天"], val: "默契值", act: "碰一下", glyph: "✦", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
+      friend: { days: ["做挚友", "天"], val: "交情", act: "报个到", glyph: "◆", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
+      family: { days: ["做家人", "天"], val: "暖度", act: "回家", glyph: "⌂", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
+    };
+    const hr = HOME_REL[window.spaceRelKey ? window.spaceRelKey(cp[view]) : "lover"] || null;
+    const relMark = (sz, col) => hr ? h("span", { style: { fontSize: sz, color: col, lineHeight: 1 } }, hr.glyph) : h(IHeart, { size: sz, color: col, filled: true });
     const A = 62, RING = 3, GAP = 2, OVER = 18;
     const D = A + 2 * (RING + GAP);
     const ringA = t.accent || "#c26b7a", ringB = t.tint || "#6f7fb0";
@@ -7238,16 +7248,16 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "usdays", className: "flex items-baseline gap-2" },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "在一起"),
-                h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, color: t.accent, lineHeight: 1 } }, days),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "天")),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, hr ? hr.days[0] + " 第" : "在一起"),
+                h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, color: hr ? hr.fg : t.accent, lineHeight: 1 } }, days),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, hr ? hr.days[1] : "天")),
               h("div", { className: "flex items-center gap-2.5", style: { marginTop: 8 } },
-                h("span", { className: "flex items-center gap-1", style: { background: "#ffe1ea", color: "#c02a52", borderRadius: 999, padding: "3px 12px" } },
-                  h(IHeart, { size: 12, color: "#e0528a", filled: true }),
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5 } }, "甜蜜值 " + (Math.round((sweet.value || 0) * 10) / 10))),
+                h("span", { className: "flex items-center gap-1", style: { background: hr ? hr.bg : "#ffe1ea", color: hr ? hr.fg : "#c02a52", borderRadius: 999, padding: "3px 12px" } },
+                  relMark(12, hr ? hr.fg : "#e0528a"),
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5 } }, (hr ? hr.val : "甜蜜值") + " " + (Math.round((sweet.value || 0) * 10) / 10))),
                 onSetSince ? h("button", { onClick: () => { const d = new Date(cp[view].since || Date.now()); setSinceVal(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); setSinceEdit(v => !v); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, sinceEdit ? "收起" : h("span", { className: "flex items-center", style: { gap: 4 } }, h(IPencil, { size: 11, color: t.tint }), "起始日")) : null)),
-            h("button", { onClick: () => onCheckinSweet(partner), disabled: sweetDone, className: "active:opacity-70 disabled:opacity-100", style: { background: sweetDone ? t.line : "#ffd0dc", color: sweetDone ? t.fog : "#c02a52", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 20px", borderRadius: 999, flexShrink: 0 } },
-              sweetDone ? "已打卡" : h("span", { className: "flex items-center", style: { gap: 5 } }, h(IHeart, { size: 13, color: "#c02a52", filled: true }), "打卡"))),
+            h("button", { onClick: () => onCheckinSweet(partner), disabled: sweetDone, className: "active:opacity-70 disabled:opacity-100", style: { background: sweetDone ? t.line : hr ? hr.btn : "#ffd0dc", color: sweetDone ? t.fog : hr ? hr.fg : "#c02a52", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 20px", borderRadius: 999, flexShrink: 0 } },
+              sweetDone ? (hr ? "今天" + hr.act + "过了" : "已打卡") : h("span", { className: "flex items-center", style: { gap: 5 } }, relMark(13, hr ? hr.fg : "#c02a52"), hr ? hr.act : "打卡"))),
           // 同「我们说好的」那两处：日期框缩不下去，挤一排会把最右边顶出屏幕。
           // 日期＋保存一行（日期 minWidth:0 才真让得动），那句说明自己一行。
           sinceEdit ? h("div", { style: { marginTop: 10 } },
