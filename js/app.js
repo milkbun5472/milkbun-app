@@ -23456,6 +23456,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const gapZh = !prev ? "" : gap < 3 * 60000 ? "，接着上一句没停" : gap < 3600000 ? "，离上一条隔了 " + Math.round(gap / 60000) + " 分钟" : gap < 86400000 ? "，离上一条隔了 " + Math.round(gap / 3600000) + " 小时" : "，离上一条隔了 " + Math.round(gap / 86400000) + " 天";
     return "\n【现在】" + now.toLocaleString("zh-CN", { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }) + gapZh + "。\n";
   };
+  // 私信记录写给网友那一方看时，两边都标清是谁（她 2026-10-16：加微信后的简介把她的话安到了对方头上——
+  //   「我是潜水党」「是我先私信的」都成了他的。原来记录里她那一边写的是「我」，网友读来就是在说他自己）
+  const pmConvo = (th, msgs) => {
+    const her = th.alt ? (th.altName || myAltName()) : (forumMe.handle || userName(profile));
+    return msgs.map(m => (m.from === "me" ? "对方「" + her + "」" : "你「" + th.npcName + "」") + "：" + m.text).join("\n");
+  };
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -23463,7 +23469,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!active) return;
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
-      const convo = [...th.messages, { from: "me", text }].map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      const convo = pmConvo(th, [...th.messages, { from: "me", text }]);
       const tl = pmTimeLine([...th.messages, { from: "me", text, ts: Date.now() }]);
       // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
       // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
@@ -23522,12 +23528,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: asked, updatedTs: Date.now() } : t); saveJSON("x_forumPMs", n); return n; });
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
-      const convo = asked.map(m => (m.from === "me" ? "我" : th.npcName) + "：" + m.text).join("\n");
+      const convo = pmConvo(th, asked);
+      const firstBy = (asked[0] || {}).from === "me" ? "对方先私信的你" : "是你先私信的对方";
       const d = await runProbeRetry(active, forumWorldCtx(convo), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
           + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + pmTimeLine(asked)
           + "这是你和对方的私信记录：\n" + convo + "\n\n对方想加你微信。照你的脾气和你俩聊得怎么样决定加不加（accept），回 1-2 个气泡（say）。"
-          + "加的话再给 brief：用第三人称写一段这个人的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。",
+          + "加的话再给 brief：用第三人称写一段【你自己（「" + th.npcName + "」）】的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。"
+          + "⚠️记录里「对方」说的她自己的事（她是什么样的人、她的习惯）是她的，不许写成你的；你俩是怎么聊起来的照记录来：" + firstBy + "。",
         schemaHint: "{\"accept\":true,\"say\":[\"气泡\"],\"brief\":\"\"}",
         maxTokens: FTOK.pm
       });
