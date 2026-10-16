@@ -6863,7 +6863,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const REL_NOTE = { lover: "TA 接了就当你们在一起了，信是情书。", bestie: "最铁的那种朋友，什么都能说，不往恋爱那头走。", friend: "一辈子的朋友，信写的是交情。", family: "家里人那一层，TA 是你的谁、怎么相处照人设。" };
   // 家人再细分（她 2026-10-16）：点「家人」先展开一排「TA 是你的谁」，挑了才算数；不细分也行
   const FAM_ROLES = ["哥哥", "姐姐", "弟弟", "妹妹", "爸妈", "长辈", "孩子"];
-  const famPick = (nowRole, onPick) => h("div", { "data-wk": "usfamrole", style: { margin: "-2px 0 10px 14px" } },
+  const famPick = (nowRole, onPick) => h("div", { "data-wk": "usfamrole", style: { margin: "2px 0 4px 4px" } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "TA 是你的谁"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } },
       FAM_ROLES.concat([""]).map(r => h("button", { key: r || "_none", "data-on": (nowRole || "") === r ? "1" : "0", onClick: () => onPick("family", r), className: "active:opacity-70",
@@ -6871,11 +6871,21 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
       h("input", { placeholder: "自己写…", defaultValue: FAM_ROLES.indexOf(nowRole || "") < 0 ? (nowRole || "") : "", onKeyDown: e => { if (e.key === "Enter" && e.target.value.trim()) onPick("family", e.target.value.trim()); }, onBlur: e => { const v = e.target.value.trim(); if (v && v !== nowRole) onPick("family", v); },
         style: { width: 86, padding: "4px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 12, outline: "none" } })));
   const [famOpen, setFamOpen] = useState(false);
-  const relRows = (now, onPick, nowRole) => Object.keys(window.SPACE_RELS || { lover: 1 }).map(k => h(React.Fragment, { key: k }, h("button", { key: k, "data-wk": "usrel", "data-on": now === k ? "1" : "0", onClick: () => k === "family" ? setFamOpen(true) : (setFamOpen(false), onPick(k)), className: "w-full text-left active:opacity-60",
-    style: { padding: "10px 12px", marginBottom: 6, borderRadius: 12, border: "1px solid " + (now === k ? t.ink : t.line), background: now === k ? t.bg2 : "transparent" } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (window.SPACE_RELS ? window.SPACE_RELS[k].space : "情侣空间") + " · " + (window.SPACE_RELS ? window.SPACE_RELS[k].zh : "恋人")),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, REL_NOTE[k] || "")),
-    k === "family" && (famOpen || now === "family") ? famPick(now === "family" ? nowRole : null, onPick) : null));
+  // 挑关系是四枚火漆（她 2026-10-16「每个 ui 都弄好看点」）：一层关系一个封口、一个颜色，跟 TA 寄来的申请信封口是同一枚
+  const relSeal = (r, size) => h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: size, height: size, borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center",
+    background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 45%), " + r.tone, boxShadow: "0 1px 0 rgba(255,255,255,.25) inset, 0 2px 5px rgba(0,0,0,.18)",
+    color: "rgba(255,255,255,.95)", fontFamily: "'Noto Serif SC','Songti SC',serif", fontSize: Math.round(size * .42) } }, r.seal);
+  const relRows = (now, onPick, nowRole) => { const R = window.SPACE_RELS || { lover: { zh: "恋人", space: "情侣空间", seal: "♥", tone: "#a8505f" } };
+    return h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, Object.keys(R).map(k => { const r = R[k], on = now === k;
+      return h(React.Fragment, { key: k },
+        h("button", { "data-wk": "usrel", "data-on": on ? "1" : "0", "data-kind": k, onClick: () => k === "family" ? setFamOpen(true) : (setFamOpen(false), onPick(k)), className: "text-left active:scale-[.98]",
+          style: { position: "relative", padding: "12px 12px 11px", borderRadius: 14, border: "1.5px solid " + (on ? r.tone : t.line), background: on ? "color-mix(in srgb, " + r.tone + " 9%, " + t.bg2 + ")" : t.bg2, transition: "all .15s", display: "flex", flexDirection: "column", gap: 8 } },
+          h("div", { className: "flex items-center", style: { gap: 9 } }, relSeal(r, 30),
+            h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: on ? r.tone : t.ink } }, r.zh), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.space))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.5 } }, REL_NOTE[k] || "")),
+        k === "family" && (famOpen || now === "family") ? h("div", { style: { gridColumn: "1 / -1" } }, famPick(now === "family" ? nowRole : null, onPick)) : null);
+    }));
+  };
   const pickSheet = pickWho ? h(Sheet, { onClose: () => setPickWho(null) },
     h(Eyebrow, { style: { marginBottom: 12 } }, "跟 " + pickWho.name + " 开一个什么样的空间"),
     relRows("", (k, role) => { const c = pickWho; setPickWho(null); setFamOpen(false); onInvite(c, k, role); })) : pick && h(Sheet, { onClose: () => setPick(false) },
