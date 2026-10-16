@@ -10,7 +10,7 @@ const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 const note = comp.slice(comp.indexOf("function SysNote("), comp.indexOf("// 气泡角落贴纸"));
 
 test("只有一个长相：五处全走 SysNote，没有第二份实现", () => {
-  assert.match(comp, /function SysNote\(\{ label, text, tone, onClose, title(, kind)? \}\)/);
+  assert.match(comp, /function SysNote\(\{ label, text, tone, onClose, title(, kind)?(, copyable)? \}\)/);
   // v74.054 起第六处：单聊里「一起看」回来的交接条；v74.294 第七处「一起听」，走的也是这一个长相
   assert.equal((comp.match(/h\(SysNote, \{/g) || []).length, 7,
     "七处：单聊 system / 单聊 OOC / 单聊一起看交接 / 单聊一起听交接 / 群聊 system / 群聊 OOC / 线下 OOC");
