@@ -28789,7 +28789,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 秋秋多管的几样要的读写口（她 2026-10-14「都做吧」）：整页和悬浮屏是同一个秋秋，两处都 spread 这一份，别各写各的
   const assistExtraCtx = () => ({
     // 跳转卡（她 2026-10-16）：攻略那条的 app 键大多就是屏幕名，几个对不上的在这儿换一下；认不得的就不跳
-    onOpenPage: (app, entryId) => {
+    onOpenPage: (app, entryId, sub) => {
+      // 进到那一格（她 2026-10-16「搞能进那一格吧」）：sub 是卡上 id 斜杠后面那一截
+      //   设置：页名[/数据里那一块]；地图：real/story；单聊、群聊：那个人／那个群的 id 或名字
+      const parts = String(sub || "").split("/").filter(Boolean);
+      if (app === "config" && parts.length) {
+        const PAGES = ["api", "apiText", "apiImage", "apiTts", "apiVideo", "apiEmbed", "apiStt", "apiEars", "apiMouth", "apiCache", "sense", "cot", "look", "theme", "themeStudio", "bubble", "write", "auto", "data", "debug"];
+        if (PAGES.indexOf(parts[0]) < 0) return false;
+        if (parts[0] === "data" && parts[1]) window.__dataPart = parts[1];
+        setConfigPage(parts[0]); setScreen("config"); return true;
+      }
+      if (app === "map" && parts.length) {
+        if (parts[0] !== "real" && parts[0] !== "story") return false;
+        setMapMode(parts[0]); saveJSON("x_mapMode", parts[0]); setScreen("map"); return true;
+      }
+      if ((entryId === "chat" || entryId === "group") && parts.length) {
+        const key = parts.join("/");
+        const list = entryId === "group" ? (groupsRef.current || []) : (charactersRef.current || []);
+        const hit = list.find(x => String(x.id) === key) || list.find(x => x.name === key || x.remark === key);
+        if (!hit) return false;
+        openChatById(hit.id, entryId === "group" ? "group" : "char"); return true;
+      }
       const ALIAS = { chat: "messages", couple: "us", lounge: "loungeapp" };
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };

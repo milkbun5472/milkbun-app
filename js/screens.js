@@ -12000,7 +12000,8 @@ function DataConfig({
 }) {
   const t = useTheme();
   const [c, setC] = useState(false);
-  const [part, setPart] = useState("");
+  // 秋秋的跳转卡点名了「数据」里哪一块（她 2026-10-16「搞能进那一格吧」）：进来就落在那一块，用完就清
+  const [part, setPart] = useState(() => { const w = typeof window !== "undefined" ? window : {}; const p0 = w.__dataPart || ""; w.__dataPart = ""; return p0; });
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
   const ref = useRef(null);
   const items = [
