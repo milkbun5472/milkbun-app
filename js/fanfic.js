@@ -669,8 +669,10 @@
   // 光 system 就先去掉一两万字，正文反而被模型自己的输出上限挤短。
   const FIC_PERSONA_CAP = 6000;
   function personaOf(c) { return String((c && c.persona) || "").trim().slice(0, FIC_PERSONA_CAP); }
+  // 外貌单独一行发：人设里没写长相的，续写时模型就会自己编一副（她 2026-10-16 群友：「把 U 的外貌全写错了」）
+  function lookOf(c) { const a = String((c && c.appearance) || "").trim().slice(0, 400); return a ? "\n外貌（务必贴合，别自己另编发色、长相）：" + a : ""; }
   function sideDesc(c) {
-    const p = personaOf(c);
+    const p = personaOf(c) + lookOf(c);
     if (c.isMe) return "「" + c.name + "」是读者本人（我）" + (p ? "，按这份面具人设来写：\n" + p : "，没有填写人设——可自由发挥其性格，别硬套设定");
     return "「" + c.name + "」严格贴合角色卡：\n" + (p || "（暂无设定，可据名字合理发挥）");
   }
@@ -2772,7 +2774,7 @@
   // 书架上有一半的文是写你们俩的，那一半该一眼看得出来。
   function ficHasMe(f) { return ((f && f.cp) || []).indexOf("me") >= 0; }
   // cp token：charId | "me"（我·面具人设）；空数组=原创向。
-  function meChar(profile) { return { id: "me", name: (profile && profile.name) || "我", persona: (profile && profile.persona) || "", isMe: true }; }
+  function meChar(profile) { return { id: "me", name: (profile && profile.name) || "我", persona: (profile && profile.persona) || "", appearance: (profile && profile.appearance) || "", isMe: true }; }
   function cpLabel(cp, characters, userName) {
     if (!cp || !cp.length) return "原创向";
     const nameOf = function (tok) { if (tok === "me") return userName || "我"; const c = characters.find(function (x) { return x.id === tok; }); return c ? c.name : "原创"; };
@@ -3346,6 +3348,8 @@
     const [busyChap, setBusyChap] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(chapterTaskKey).busy); }); // 追更（离开阅读页仍继续）
     // 改这一章：写完了也能回头改字（她 2026-10-16 群里许愿）。哪一章在改、改成什么，只活在这一页。
     const [editIdx, setEditIdx] = useState(-1), [editTxt, setEditTxt] = useState("");
+    // 改这一篇的 CP：点「改」摆出所有人，按点的先后排左右位；存下以后续写照新的写
+    const [cpEdit, setCpEdit] = useState(null);
     const [busyMore, setBusyMore] = useState(false); // 「让TA接着写」那一枪：她按了才发
     const [busyBack, setBusyBack] = useState(false); // 「去请她回来」那一枪
     const [fileIdx, setFileIdx] = useState(-1);      // 正在挑「拿给谁看」的那一章
@@ -3633,6 +3637,20 @@
           h("div", null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
               cpLabel(f.cp, props.characters, props.userName) + (String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : "")),
+            cpEdit ? null : h("button", { onClick: function () { setCpEdit((f.cp || []).slice()); }, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "none", padding: "0 10px", minHeight: 40 }, "data-wk": "ficreaderbtn", "data-part": "15" }, "改"),
+            cpEdit ? h("div", { style: { marginTop: 6 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6, lineHeight: 1.6 } }, "按点的先后排：先点的是左位。一个不点＝原创向。存下以后，接下来的章照新的写，写好的不动。"),
+              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+                [{ id: "me", name: props.userName || "我" }].concat((props.characters || []).filter(function (c) { return c && !c.npc; })).map(function (c) {
+                  const at = cpEdit.indexOf(c.id);
+                  return h("button", { key: c.id, onClick: function () { setCpEdit(at >= 0 ? cpEdit.filter(function (x) { return x !== c.id; }) : cpEdit.concat([c.id])); }, className: "active:opacity-60",
+                    style: { fontFamily: F_BODY, fontSize: 12, minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + (at >= 0 ? t.accent : t.line), color: at >= 0 ? t.accent : t.sub, background: "transparent" }, "data-wk": "ficreaderbtn", "data-part": "16" },
+                    (at >= 0 ? (at + 1) + " · " : "") + (c.remark || c.name));
+                })),
+              h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+                h("button", { onClick: function () { setCpEdit(null); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.sub }, "data-wk": "ficreaderbtn", "data-part": "17" }, "不改了"),
+                h("button", { onClick: function () { const next = cpEdit.slice(); props.onUpdate(f.id, function (fic) { fic.cp = next; fic.updatedAt = Date.now(); return fic; }); setCpEdit(null); props.toast && props.toast("CP 改好了"); }, className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 }, "data-wk": "ficreaderbtn", "data-part": "18" }, "存下"))) : null,
             (function () {
               const gone = absentLeads(f, props.characters, props.userName);
               return gone.length ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: "#a8392f", marginTop: 3, lineHeight: 1.6 } },

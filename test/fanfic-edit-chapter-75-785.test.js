@@ -7,3 +7,8 @@ test('同人文每一章都能改字，改完只换这一章的 content',()=>{
   assert.match(fn,/Object\.assign\(\{\}, chs\[i\]/);
   assert.doesNotMatch(fn,/endHook/);
 });
+test('同人文给模型的人带外貌（我那份也带），CP 能在读文页改',()=>{
+  assert.match(src,/function meChar\(profile\)[^\n]*appearance: \(profile && profile\.appearance\)/);
+  assert.match(src,/const p = personaOf\(c\) \+ lookOf\(c\);/);
+  assert.match(src,/fic\.cp = next;/);
+});
