@@ -115,3 +115,18 @@ test("德州真心话：开着的话，一手打完记下谁问谁答", () => {
   let n = 0; while (s.street !== "done" && n++ < 200) g.pkAct(s, s.players[s.turn].isUser ? { kind: "allin" } : { kind: "call" });
   if (s.truth) { assert.notEqual(s.truth.asker, s.truth.answerer); assert.equal(s.truth.stage, "ask"); }
 });
+
+// 她 2026-10-16 截图：一位农民整局 17 张原封不动——队友出牌他一律不接
+test("斗地主：两位农民都真的出过牌（队友出小牌会顺掉）", () => {
+  let silent = 0, rounds = 0;
+  for (let k = 0; k < 40; k++) {
+    const s = g.ddzNewGame(P(3));
+    let n = 0;
+    while (s.status === "playing" && n++ < 5000) {
+      if (s.phase === "bid") g.ddzBid(s, g.ddzNpcBid(s, s.bidTurn));
+      else if (s.phase === "play") g.ddzPlay(s, g.ddzNpcPlay(s, s.turn));
+      else { rounds++; if (s.players.some(p => p.role === "farmer" && p.hand.length === 17)) silent++; g.ddzNewRound(s); }
+    }
+  }
+  assert.ok(silent / rounds < 0.08, "一张没出的农民太多：" + silent + "/" + rounds);
+});
