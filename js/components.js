@@ -2134,6 +2134,23 @@ function VClockMasks({ masks, primaryId, clocks, onChange }) {
         style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (cur.key === x.key ? t.ink : t.line), background: cur.key === x.key ? t.ink : "transparent",
           color: cur.key === x.key ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } },
         x.name + ((all[x.key] && all[x.key].on) ? " · 虚拟" : " · 现实"))))) : null,
+    // 先歇着（群友 2026-10-15）：这张面具那一群人暂时不用——后台都不自己动、不花钱，时间也停在这一刻；
+    //   拨回来接着走（原来是现实时间的，回来就照现实时间，中间过去的那段照算）。
+    list.length > 1 ? (function () {
+      const v0 = all[cur.key] || {}, rest = !!v0.rest;
+      const flip = () => {
+        const now = Date.now();
+        if (!rest) onChange({ ...all, [cur.key]: { ...v0, rest: true, restWas: { on: !!v0.on, speed: isFinite(Number(v0.speed)) ? Number(v0.speed) : 1 }, on: true, base: vclockRead(v0), at: now, speed: 0 } });
+        else { const w = v0.restWas || { on: false, speed: 1 }; const n = { ...v0, rest: false, on: w.on, speed: w.speed, base: vclockRead(v0), at: now }; delete n.restWas; onChange({ ...all, [cur.key]: n }); }
+      };
+      return h("div", { "data-wk": "maskrest", className: "flex items-center", style: { gap: 10, paddingTop: 10 } },
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "「" + cur.name + "」先歇着"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, rest
+            ? "歇着呢：跟这张面具聊的人后台都不自己动、不花钱，他们的时间停在歇下那一刻。关掉就接着走。"
+            : "这张面具那一群人暂时不玩时打开：主动消息、日记、朋友圈这些后台的都停，时间也停住。你自己去找他们聊照常能聊。")),
+        h(Toggle, { on: rest, onChange: flip }));
+    })() : null,
     h(VClockEditor, { key: cur.key, v: all[cur.key], title: list.length > 1 ? "「" + cur.name + "」的时间" : "虚拟时间", onChange: v => onChange({ ...all, [cur.key]: v }) }));
 }
 // 生日那一格底下的一行（她 2026-10-11：「生日那里也写一个吧，不支持的格式就标红提示」）：

@@ -1569,7 +1569,10 @@ function App() {
   const BODY_NO_LIFE = { phone: 1, schedule: 1 };
   // 后台线路选了「无」：自己跑的一律不跑（她 2026-10-10「后台 api 能不能选个无，强制不刷新」）
   const bgOff = () => loadJSON("x_bgApi", null) === "__off__";
-  const autoRefreshOn = (feature, charId) => !bgOff() && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
+  // 面具「先歇着」（群友 2026-10-15：「能不能根据面具分组启用，不用时那边时间可以选择暂停」）：
+  //   跟这张面具聊的人（群＝群挑的那张面具）后台什么都不自己动，时间那只钟也停着（停钟在 VClockMasks 里一起拨）。
+  const maskRested = id => { try { if (!id) return false; const k = String(maskKeyOf(id) || "") || "main"; const c = (((prefsRef.current || {}).vclocks) || {})[k]; return !!(c && c.rest); } catch (e) { return false; } };
+  const autoRefreshOn = (feature, charId) => !bgOff() && !maskRested(charId) && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
     && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
   const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
   // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
