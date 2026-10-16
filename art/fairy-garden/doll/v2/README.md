@@ -100,7 +100,10 @@
   - `side_lining()`：腋下补一片夹克色的身体侧面复制层（外推 4 mm、绑躯干），抬手时这里不再是洞。
   - 皮肤遮挡：`torsoAbove 0`（长裤到脚）、`coversFeetBelow .12`。
 - ⚠️Blender 5（pip `bpy`）里新建颜色属性会让之前拿到的 UV 层失效，`round_sleeves.py` 现在两个都建好再按名字取。
-- 验图：`scripts/checks/shared-cloth-browser.cjs` 591 格（默认/最小/最大/改色，十种动作四个方向）。已知：抬手时夹克侧边还有一点细毛边；衬衫在减面后略有棱角。
+- 领口：`refine_jacket_collar.py` 仅替换原碎裂领片与衬衫领根，白衬衫领、外套翻领各为连续厚度曲面，沿原六体型形态键与 body 骨绑定。保留原肩膀、袖子、口袋、裤子、鞋及贴图；新增领片用 `dyeSlot` 明确归属内搭或夹克，原衬衫缩短后的 UV 岛仍归内搭。`add_outfit()` 在侧缝修补后调用同一入口，版本标记避免重复加工。
+  - 原完整母版在场时直接运行脚本；仅迁移现役按需资产时：`Blender -b --python-exit-code 1 --python refine_jacket_collar.py -- before.glb jacket.glb`。不要重组其他衣服。
+  - `scripts/checks/jacket-collar-assets.py` 验原纹理、下方衣物和袖子、192 个领片体型端点、封闭厚边及幂等；`jacket-collar-browser.cjs` 验实际陪伴入口、正侧背、体型、动作及三片独立染色。`outfit-dye-browser.cjs` 验七套原配色与复位。
+- 其余验图：`scripts/checks/shared-cloth-browser.cjs`。已知的原侧边细毛边、口袋和衣身减面细节不由领口修补覆盖。
 
 ## C06 小西装短裤（`suit`，2026-09-26）
 
