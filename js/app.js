@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.782";
+const APP_VERSION = "v75.783";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22633,6 +22633,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "回帖就聊帖子本身，或者说说你自己；说到你身边的人，那是你自己的日子，不是跟楼主打趣一个你们都认识的人。"
       + "\n";
   };
+  // 互关的那几位（回关过的、她也还关注着）：她发的帖他们一定刷到，还没来过就来一楼
+  const forumMutualRule = (meOwn, knowers) => {
+    const mutuals = meOwn ? (knowers || []).filter(c => ((forumBackRef.current || {})[c.id] || {}).on && (forumFollowsRef.current || []).includes(c.id)) : [];
+    return mutuals.length ? "\n【互相关注】" + mutuals.map(c => "「" + c.name + "」").join("、") + " 跟她在论坛上互关，她一发帖他们就刷到了：这一轮里他们要是还没在这帖出现过，至少来一位，用大号。\n" : "";
+  };
   const forumCommentProbe = (post, n, opts = {}) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
     const opChar = isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
@@ -22676,10 +22681,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    // 互关的那几位（回关过的、她也还关注着）：她发的帖他们一定刷到，还没来过就来一楼
-    const mutuals = meOwn ? opKnowers.filter(c => ((forumBackRef.current || {})[c.id] || {}).on && (forumFollowsRef.current || []).includes(c.id)) : [];
-    const mutualRule = mutuals.length ? "\n【互相关注】" + mutuals.map(c => "「" + c.name + "」").join("、") + " 跟她在论坛上互关，她一发帖他们就刷到了：这一轮里他们要是还没在这帖出现过，至少来一位，用大号。\n" : "";
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + mutualRule + (meOwn ? forumMaskNote(post, poolChars) : "")
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + forumMutualRule(meOwn, opKnowers) + (meOwn ? forumMaskNote(post, poolChars) : "")
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
