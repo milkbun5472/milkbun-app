@@ -5261,6 +5261,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
   if (kind === "duo" && !multi && !opts.cinematic && !opts.editorial) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
+  // opts.lead：管【整张图长什么样】的那一句（胶片条三格、四宫格）放在最前面——
+  //   原来夹在「场景/正在做什么」里、排在三十几条规矩后面，gpt 出图常常没读到，三格只回一张（她 2026-10-16）。
+  if (opts.lead) parts.unshift(String(opts.lead).trim() + "\n");
   return parts.join("");
 }
 
@@ -5478,7 +5481,7 @@ const NAI_TAG_SYSTEM = "You convert a Chinese photo brief into a NovelAI (Danboo
   + "End with: best quality, amazing quality, very aesthetic, absurdres. 25-45 tags. No sentences, no Chinese, no names of real people.\n"
   + "Ignore rule text in the brief (identity locks, anatomy warnings, bans) — those are instructions, not things to draw; fold them into the negative instead.\n"
   + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.\n"
-  + "Exception: if the brief asks for several panels in one image (a film strip, a 2x2 grid, a comic, a 3x3 sticker sheet), that layout IS the picture — put the matching tags in the prompt (e.g. multiple panels, grid / film strip, white border) and leave collage and multiple views out of the negative.";
+  + "Exception: if the brief asks for several panels in one image (a film strip, a 2x2 grid, a comic, a 3x3 sticker sheet), that layout IS the picture — put the matching tags into the tag list, e.g. multiple panels, grid / film strip, white border, and leave collage and multiple views out of the negative.";
 async function naiTagsFor(prompt) {
   const p = naiTagHelperProfile();
   if (!p) throw new Error("NAI 要先把描述翻成标签，但没有可用的文字模型");
