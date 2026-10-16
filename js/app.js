@@ -22681,7 +22681,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + forumMutualRule(meOwn, opKnowers) + (meOwn ? forumMaskNote(post, poolChars) : "")
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "") + forumMutualRule(meOwn, opKnowers)
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
