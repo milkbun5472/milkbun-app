@@ -326,6 +326,9 @@
           display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: big ? 14 : 12, fontWeight: 700, transform: "rotate(-8deg)" } }, K.seal),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (KZH[it.kind] || "") + " · " + fmtDay(it.created))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: big ? 20 : 15, lineHeight: 1.35, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, it.title),
+      // 墙上那张：有小图就别一张拍立得（白边、反着歪一点），没有就只有字
+      !big && it.thumb ? h("div", { "data-wk": "nestpolaroid", style: { margin: "8px 2px 2px", padding: "5px 5px 14px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)", transform: "rotate(" + (-tilt(it.id) * 1.6) + "deg)" } },
+        h("img", { src: NEST + "/img/" + it.id + "/t", alt: "", loading: "lazy", style: { display: "block", width: "100%", height: "auto", background: t.bg } })) : null,
       big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub || t.ink, lineHeight: 1.75, marginTop: 8, whiteSpace: "pre-wrap" } }, it.intro) : null,
       !big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.intro) : null,
       big && foot ? h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line } }, foot) : null,
@@ -426,7 +429,8 @@
             h("button", { "data-wk": "nestsign", onClick: () => it.uid && onUser(it.uid), className: "active:opacity-60 min-w-0 truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, textAlign: "left" } }, "— " + (it.nick || "无名")),
             h("div", { className: "flex items-center", style: { gap: 10, flexShrink: 0 } },
               it.uid && (!me || me.id !== it.uid) ? h("button", { "data-wk": "nestfollow", "data-on": follow ? "1" : "0", onClick: doFollow, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: follow ? t.fog : (t.tint || t.ink) } }, follow ? "已关注" : "＋关注") : null,
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "导入 " + (it.imports || 0) + " 次"))) }),
+              // 导入次数只给作者本人看（她 2026-10-16）：后端只在是你的东西时才带这个数，没带就不显示
+              it.imports != null ? h("span", { "data-wk": "nestimports", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "被导入 " + it.imports + " 次 · 只有你看得到") : null)) }),
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
             h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
@@ -437,10 +441,33 @@
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
           placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : ["chat", "group"],
             onPick: placeOne, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
+          h(Shots, { t, it }),
           preview ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
             h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.7,
               whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 14, maxHeight: "46vh", overflowY: "auto" }, card(t)) }, preview.slice(0, 6000))) : null,
           h(Guestbook, { t, item: it, me, props, onUser, onLogin, onCount: n => setIt(x => Object.assign({}, x, { comments: n })) }))));
+  }
+
+  // ── 预览截图：详情里那一排小相片，点开整屏看，左右翻 ─────────────────
+  function Shots({ t, it }) {
+    const [at, setAt] = useState(-1);
+    if (!it.pics) return null;
+    const src = k => NEST + "/img/" + it.id + "/" + k;
+    const ks = Array.from({ length: it.pics }, (_, k) => k);
+    return h("div", { "data-wk": "nestshots", style: { marginTop: 18 } },
+      label(t, "长这样"),
+      h("div", { className: "flex", style: { gap: 10, overflowX: "auto", paddingBottom: 6 } },
+        ks.map(k => h("button", { key: k, onClick: () => setAt(k), className: "active:opacity-70", style: { flexShrink: 0, padding: "6px 6px 18px", background: "#fff",
+            boxShadow: "0 3px 8px -5px rgba(0,0,0,.4)", transform: "rotate(" + ((k % 2 ? 1 : -1) * 1.2) + "deg)" } },
+          h("img", { src: src(k), alt: "预览 " + (k + 1), loading: "lazy", style: { display: "block", height: 190, width: "auto", maxWidth: 260, objectFit: "cover", background: t.bg } })))),
+      at >= 0 ? h("div", { "data-wk": "nestshotbig", onClick: () => setAt(-1), className: "flex flex-col items-center justify-center",
+          style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,10,10,.92)", padding: "calc(" + safeTop(16) + ") 12px calc(16px + " + COMPOSER_PAD_BOTTOM + ")" } },
+        h("img", { src: src(at), alt: "", style: { maxWidth: "100%", maxHeight: "82%", objectFit: "contain" } }),
+        ks.length > 1 ? h("div", { className: "flex items-center", style: { gap: 22, marginTop: 14, color: "#eee", fontFamily: F_BODY, fontSize: 14 } },
+          h("button", { onClick: e => { e.stopPropagation(); setAt((at + ks.length - 1) % ks.length); }, style: { minWidth: 44, minHeight: 44, color: "#eee" } }, "‹"),
+          h("span", null, (at + 1) + " / " + ks.length),
+          h("button", { onClick: e => { e.stopPropagation(); setAt((at + 1) % ks.length); }, style: { minWidth: 44, minHeight: 44, color: "#eee" } }, "›")) : null,
+        h("div", { style: { marginTop: 8, color: "#aaa", fontFamily: F_BODY, fontSize: 12 } }, "点一下关掉")) : null);
   }
 
   // ── 留言簿：横格纸；一条留言写在格子上，回某一条是一张别着回形针的小便签 ──────────
@@ -620,6 +647,8 @@
     const [file, setFile] = useState(null);       // { payload, title, note, name }：选了文件就用它
     const [text, setText] = useState("");          // 主题 / 美化 / CSS：贴一份
     const [title, setTitle] = useState(""), [intro, setIntro] = useState("");
+    const [shots, setShots] = useState([]);        // [{ full, thumb }]：已经压好的 dataURL；第一张顺手做墙上那张小图
+    const shotRef = useRef(null);
     const [busy, setBusy] = useState(false);
     const fileRef = useRef(null);
     useEffect(() => { setPick({}); setText(""); setFile(null); }, [kind]);
@@ -646,6 +675,24 @@
         if (!title && got.title) setTitle(got.title);
       } catch (err) { props.toast((err && err.message) || "这份文件读不出来"); }
     };
+    // 截图：一张一张压，压完还太大的（极少数，比如带透明的 PNG）就说一声跳过
+    const dataBytes = u => Math.round((String(u).length - String(u).indexOf(",") - 1) * 3 / 4);
+    const pickShots = async e => {
+      const files = [...(e.target.files || [])]; e.target.value = "";
+      const room = 3 - shots.length; if (!files.length) return;
+      if (files.length > room) props.toast("预览图最多 3 张，多的先没放");
+      const got = [];
+      for (const f of files.slice(0, Math.max(0, room))) {
+        try {
+          let full = await resizeImageFile(f, 900, 0.78);
+          if (dataBytes(full) > 250 * 1024) full = await resizeImageFile(f, 720, 0.62);
+          const thumb = await resizeImageFile(f, 320, 0.7);
+          if (dataBytes(full) > 250 * 1024 || dataBytes(thumb) > 46 * 1024) { props.toast("有一张图压完还是太大，换一张试试"); continue; }
+          got.push({ full, thumb });
+        } catch (err) { props.toast("有一张图读不出来"); }
+      }
+      if (got.length) setShots(x => x.concat(got).slice(0, 3));
+    };
     const pasteKind = kind === "theme" || kind === "look" || kind === "css";
     const build = () => {
       if (file) return file.payload;
@@ -665,7 +712,8 @@
       try { payload = build(); } catch (e) { props.toast(e.message); return; }
       if (!title.trim()) { props.toast("起个名字吧"); return; }
       setBusy(true);
-      try { const d = await api("/upload", { method: "POST", body: { kind, title: title.trim(), intro: intro.trim(), payload } }); props.toast("传上去了"); onDone(d.id, kind); }
+      try { const d = await api("/upload", { method: "POST", body: { kind, title: title.trim(), intro: intro.trim(), payload,
+          images: shots.map(x => x.full), thumb: shots.length ? shots[0].thumb : undefined } }); props.toast("传上去了"); onDone(d.id, kind); }
       catch (e) { props.toast("没传上去：" + e.message); setBusy(false); }
     };
     const inputStyle = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", resize: "none" };
@@ -683,7 +731,7 @@
       h(Head, { zh: "传一个上去", onBack: onClose, bg: "transparent" }),
       h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, k.hint + "。不带图、不带记忆和聊天，署名就是你的小窝昵称，随时能删。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, k.hint + "。东西本身不带图、不带记忆和聊天（想让人看看长什么样，底下放截图）；署名就是你的小窝昵称，随时能删。"),
         // ① 从手机文件选
         h("div", { style: Object.assign({ padding: 14 }, card(t)) },
           h("div", { className: "flex items-center", style: { gap: 10 } },
@@ -710,7 +758,17 @@
               : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))),
         // ③ 名字、简介、署名
         h("div", { style: { marginTop: 18 } }, label(t, "名字"), field(title, setTitle, "别人在列表里看到的名字", 40)),
-        h("div", { style: { marginTop: 12 } }, label(t, "说两句（可不填）"), field(intro, setIntro, "适合什么、怎么用", 200, true))),
+        h("div", { style: { marginTop: 12 } }, label(t, "说两句（可不填）"), field(intro, setIntro, "适合什么、怎么用", 200, true)),
+        // ④ 预览截图：别人逛的时候先看个大概再决定要不要
+        h("div", { "data-wk": "nestshotpick", style: { marginTop: 14 } }, label(t, "预览截图（可不放，最多 3 张；第一张会贴在墙上那张纸条上）"),
+          h("div", { className: "flex flex-wrap", style: { gap: 10 } },
+            shots.map((x, k) => h("div", { key: k, style: { position: "relative", padding: "4px 4px 12px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)" } },
+              h("img", { src: x.thumb, alt: "", style: { display: "block", width: 76, height: 100, objectFit: "cover" } }),
+              h("button", { "aria-label": "拿掉这张", onClick: () => setShots(a => a.filter((_, i) => i !== k)), className: "active:opacity-60",
+                style: { position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: t.bg, fontSize: 13, lineHeight: "24px" } }, "×"))),
+            shots.length < 3 ? h("button", { "data-wk": "nestshotadd", onClick: () => shotRef.current && shotRef.current.click(), className: "active:opacity-60",
+              style: { width: 84, height: 116, border: "1.5px dashed " + t.line, borderRadius: 4, background: t.bg2, color: t.fog, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-line" } }, "＋\n加截图") : null),
+          h("input", { ref: shotRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onChange: pickShots }))),
       h("div", { className: "shrink-0 flex px-4 pt-3", style: { paddingBottom: "calc(12px + " + COMPOSER_PAD_BOTTOM + ")", borderTop: "1px solid " + t.line, background: tint(t.bg, "f2") } },
         h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: send, wk: "nestsend" }, busy ? "在传……" : "传上去")));
   }

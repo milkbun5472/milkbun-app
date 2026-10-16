@@ -97,3 +97,22 @@ test("纸条歪的角度照 id 算：同一张每次一样，不会一刷新就�
   assert.equal(N.tilt("abc123"), N.tilt("abc123"));
   for (const id of ["a", "b", "zz9", "0f3c", "item-77"]) assert.ok(Math.abs(N.tilt(id)) <= 1.1, id);
 });
+
+test("预览截图：上传带上压好的图和第一张做的小图；纸条和详情按 /img/<id>/<n> 去取", () => {
+  const up = nest.slice(nest.indexOf("function Upload("), nest.indexOf("function NestApp("));
+  assert.match(up, /resizeImageFile\(f, 900, 0\.78\)/, "预览图没在手机这头压小");
+  assert.match(up, /resizeImageFile\(f, 320, 0\.7\)/, "墙上那张小图没单独压");
+  assert.match(up, /images: shots\.map\(x => x\.full\), thumb: shots\.length \? shots\[0\]\.thumb : undefined/);
+  assert.match(up, /accept: "image\/\*", multiple: true/);
+  const slip = nest.slice(nest.indexOf("function Slip("), nest.indexOf("const Wall ="));
+  assert.match(slip, /!big && it\.thumb \? h\("div", \{ "data-wk": "nestpolaroid"/);
+  assert.match(slip, /NEST \+ "\/img\/" \+ it\.id \+ "\/t"/);
+  const shots = nest.slice(nest.indexOf("function Shots("), nest.indexOf("function Guestbook("));
+  assert.match(shots, /NEST \+ "\/img\/" \+ it\.id \+ "\/" \+ k/);
+});
+
+test("导入次数只给作者本人：后端没带这个数就整句不显示，不显示成「导入 0 次」", () => {
+  const det = nest.slice(nest.indexOf("function Detail("), nest.indexOf("function Shots("));
+  assert.match(det, /it\.imports != null \? h\("span", \{ "data-wk": "nestimports"/);
+  assert.ok(!/"导入 " \+ \(it\.imports \|\| 0\)/.test(nest), "还会给别人显示成导入 0 次");
+});
