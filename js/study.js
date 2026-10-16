@@ -1863,7 +1863,8 @@
   const STUDY_MODE_SKIN = {};
   Object.keys(STUDY_MODE_BASE).forEach(function (mode) {
     const base = STUDY_MODE_BASE[mode], o = { label: base.label, code: base.code };
-    const tint = function () { return ((window.ThemeStudio && window.ThemeStudio.tokensFor) ? window.ThemeStudio.tokensFor("study") : {}).tint; };
+    // 只给了 accent 没给 tint 也跟着走（她 2026-10-16：秋秋给一起学配了一整套粉，四个 tab 还是绿紫蓝棕）
+    const tint = function () { const tk = (window.ThemeStudio && window.ThemeStudio.tokensFor) ? window.ThemeStudio.tokensFor("study") : {}; return tk.tint || tk.accent; };
     const mine = function () { const c = tint(); return c ? studyTurnHue(c, STUDY_MODE_TURN[mode] || 0) : ""; };
     Object.defineProperty(o, "accent", { enumerable: true, get: function () { return mine() || base.accent; } });
     Object.defineProperty(o, "soft", { enumerable: true, get: function () { const c = mine(); return c && typeof paletteAlpha === "function" ? paletteAlpha(c, "24") : base.soft; } });
@@ -4139,7 +4140,7 @@
       h("div", { className: "flex px-4 shrink-0", style: { gap: 5, alignItems: "flex-end", paddingTop: 7, borderBottom: "1px solid " + STUDY_SKIN.line } }, tabs.map(function (tb) {
         const on = tab === tb[0];
         const skin = studyModeSkin(tb[0]);
-        return h("button", { key: tb[0], onClick: function () { setTab(tb[0]); homeScrollTopRef.current = 0; }, className: "flex-1 outline-none active:opacity-70",
+        return h("button", { key: tb[0], "data-wk": "studytab", "data-on": on ? "1" : "0", "data-mode": tb[0], onClick: function () { setTab(tb[0]); homeScrollTopRef.current = 0; }, className: "flex-1 outline-none active:opacity-70",
           style: { minWidth: 0, minHeight: on ? 58 : 49, position: "relative", bottom: -1, marginTop: on ? 0 : 9, padding: "7px 3px 6px", fontFamily: F_BODY, fontSize: 12.5, borderRadius: "12px 12px 0 0", background: on ? STUDY_SKIN.paper : skin.soft, color: on ? STUDY_SKIN.ink : STUDY_SKIN.sub, border: "1px solid " + (on ? STUDY_SKIN.line : skin.accent + "44"), borderTop: "4px solid " + skin.accent, borderBottomColor: on ? STUDY_SKIN.paper : skin.accent + "44", boxShadow: on ? "0 -5px 12px " + STUDY_SKIN.shadow : "none", opacity: on ? 1 : .84, transform: on ? "none" : "translateY(1px)", zIndex: on ? 2 : 1 } },
           h("span", { style: { display: "block", fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".12em", color: skin.accent, marginBottom: 2 } }, skin.code), tb[1]);
       })),
