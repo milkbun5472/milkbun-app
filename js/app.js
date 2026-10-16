@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.749";
+const APP_VERSION = "v75.752";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17322,6 +17322,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
     finally { setPhotoDiaryBusy(""); }
   };
+  // 删掉照片日记那张图（她 2026-10-16「能不能搞删除」）：日记还在，只拿掉这张、连图库里那份一起清
+  const delPhotoDiary = (charId, entry) => {
+    const key = entry && entry.photoStrip && entry.photoStrip.imgKey;
+    setDiaries(p => {
+      const n = { ...p, [charId]: (p[charId] || []).map(e => { if (e.id !== entry.id) return e; const { photoStrip, ...rest } = e; return rest; }) };
+      saveJSON("x_diaries", n); return n;
+    });
+    if (key && typeof idbImgDel === "function") idbImgDel(key).catch(() => {});
+    toast("这张照片删掉了");
+  };
   // 用户自己写日记（存 x_diaries["__me"]），时间/天气/城市由 compose 组件抓本地后传进来
   const addMyDiaryEntry = data => {
     const paras = (data.body || "").split(/\n+/).map(s => s.trim()).filter(Boolean).map(text => ({ text, secret: false }));
@@ -31421,7 +31431,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
     onSaveFields: saveDiaryFields,
-    onPhotoDiary: genPhotoDiary, photoDiaryBusy: photoDiaryBusy,
+    onPhotoDiary: genPhotoDiary, onDelPhotoDiary: delPhotoDiary, photoDiaryBusy: photoDiaryBusy,
     onAddMyEntry: addMyDiaryEntry,
     onGenComments: genDiaryCommentsFor,
     toast: toast

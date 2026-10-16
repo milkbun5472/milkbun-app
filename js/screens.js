@@ -13597,7 +13597,7 @@ function diaryPreview(e) {
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
 // ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
-function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting, onPhotoDiary, photoBusy }) {
+function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
   const t = useTheme();
   // 虚拟时间开着时，TA 那篇上的日子按 TA 那只钟（她 2026-10-11：「日记显示的日期要跟随虚拟时间」）
   const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
@@ -13656,7 +13656,9 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 }),
           // 添加到主屏幕的网页版里长按图片没有「存储图像」（群里 2026-10-16）——给一颗明着存的键，走公共那条 saveImgOriginal
           entry.photoStrip.imgKey ? h("button", { onClick: () => { if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图"); window.saveImgOriginal(entry.photoStrip.imgKey, "照片日记").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); }); },
-            className: "w-full mt-3 flex items-center justify-center gap-2 active:opacity-70", style: { border: "1px solid rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "transparent" } }, "保存这张照片") : null) : null,
+            className: "w-full mt-3 flex items-center justify-center gap-2 active:opacity-70", style: { border: "1px solid rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "transparent" } }, "保存这张照片") : null,
+          onDelPhoto ? h("button", { "data-wk": "photodiarydel", onClick: () => requestAppConfirm("删掉这张照片？", "日记留着，只删这张图；删了想要得再拍一次（再花一次生图）。", () => onDelPhoto(entry), "删掉"), disabled: !!photoBusy, className: "w-full mt-2 active:opacity-70 disabled:opacity-50",
+            style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: 12.5, color: "#c0503f", background: "transparent" } }, "删掉这张照片（日记留着）") : null) : null,
         h("button", { onClick: () => onPhotoDiary(entry), disabled: !!photoBusy, className: "w-full mt-4 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50",
           style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub, background: "transparent" } },
           photoBusy ? "在冲洗这一天…" : entry.photoStrip ? "重拍这一天（再生成一次图）" : "把这一天拍成照片日记（生成一次图）")) : null));
@@ -13828,7 +13830,7 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, photoDiaryBusy, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
@@ -13911,7 +13913,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         onComment: isMe ? () => setCommentPick(entry.id) : null,
         onBack: () => { setCurEntry(null); setView("entries"); },
         onDelete: () => { onDelEntry(curId, entry.id); setCurEntry(null); setView("entries"); },
-        onPhotoDiary: onPhotoDiary ? en => onPhotoDiary(curId, en) : null, photoBusy: photoDiaryBusy === entry.id
+        onPhotoDiary: onPhotoDiary ? en => onPhotoDiary(curId, en) : null, onDelPhoto: onDelPhotoDiary ? en => onDelPhotoDiary(curId, en) : null, photoBusy: photoDiaryBusy === entry.id
       }));
     return h(Fragment, null,
       h("div", { className: "h-full relative", style: { perspective: 1500, perspectiveOrigin: "0% 50%", overflow: "hidden", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },

@@ -61,3 +61,12 @@ test("选了 NAI 原生就走它，不掉回别的门；设置里有这一项", 
   if (!/\[1536, 1024\] : r < 0\.83 \? \[1024, 1536\] : \[1472, 1472\]/.test(f)) throw new Error("参考图没垫画布");
   if (!/toB64\(await naiCanvas\(b\)\)/.test(f)) throw new Error("垫好的画布没发出去");
 }
+
+// 被审核拦的不往「不锁脸」上指（她 2026-10-16 转来：blocked by moderation (sexual=0.74)）
+{
+  const e = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const i = e.indexOf("async function generateSelfieImage("), j = e.indexOf("const naiFetch = async", i);
+  if (!(i > 0 && j > i)) throw new Error("抠不出 generateSelfieImage");
+  const f = e.slice(i, j), mod = f.indexOf("/moderation|content[_ ]?policy|safety|sexual|nsfw/i.test(m)"), site = f.indexOf("/参考照|锁脸|不收图片|image/i.test(m)");
+  if (!(mod > 0 && site > mod)) throw new Error("审核拦截要先认出来，排在「站子不收图」之前");
+}
