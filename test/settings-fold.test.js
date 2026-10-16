@@ -64,7 +64,7 @@ test("隐藏配件暗门放在不会跳页的设置首页标题上", () => {
 });
 
 test("数据页把空间、照片、云同步、备份和危险操作分别做成入口盒子", () => {
-  assert.match(screens, /const \[part, setPart\] = useState\(""\)/);
+  assert.match(screens, /const \[part, setPart\] = useState\((?:""|\(\) => \{[^\n]*__dataPart[^\n]*\})\)/);
   assert.match(screens, /!part \? h\(ConfigTileGrid/);
   assert.match(screens, /返回数据管理/);
   for (const title of ["本地空间", "本机照片库", "云同步", "导入与导出", "危险操作"])
