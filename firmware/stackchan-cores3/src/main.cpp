@@ -301,6 +301,10 @@ bool beginHttps(HTTPClient& http, WiFiClientSecure& client, const String& url) {
 
 bool syncClock() {
   if (clockReady) return true;
+  // Winnipeg wall time: night-quiet decisions must follow the bedroom clock,
+  // not UTC. POSIX rule keeps CDT/CST switches automatic.
+  setenv("TZ", "CST6CDT,M3.2.0,M11.1.0", 1);
+  tzset();
   configTime(0, 0, "time.cloudflare.com", "pool.ntp.org");
   const unsigned long deadline = millis() + 12000;
   time_t now = time(nullptr);
@@ -312,6 +316,19 @@ bool syncClock() {
   clockReady = now >= 1704067200;
   Serial.printf("[clock] %s\n", clockReady ? "synced" : "timeout");
   return clockReady;
+}
+
+bool nightQuiet() {
+  // 23:00–07:00 bedroom hours: the head sensor acquires phantom holds from
+  // ambient noise (confirmed all-night recording loop on 2026-10-16), so the
+  // physical mic gate stays shut. speak+listen_after still works, meaning a
+  // real nighttime message from Yanqiu can still open one listening turn.
+  // An unsynced clock fails open to daytime behaviour.
+  if (!clockReady) return false;
+  time_t now = time(nullptr);
+  struct tm local;
+  if (!localtime_r(&now, &local)) return false;
+  return local.tm_hour >= 23 || local.tm_hour < 7;
 }
 
 bool postEvent(const char* eventType, JsonDocument* details = nullptr) {
@@ -1158,8 +1175,13 @@ void loop() {
       now - topPressedAt >= TOP_VOICE_HOLD_MS && !voiceRecording) {
     // The head sensor is capacitive and can acquire short phantom presses from
     // nearby movement/USB noise. A deliberate hold is the closed→listening
-    // gate; ambient sound alone can no longer open the microphone.
-    if (startVoiceRecording(true, false)) topVoiceArmed = false;
+    // gate; ambient sound alone can no longer open the microphone. At night
+    // the gate stays shut entirely — see nightQuiet().
+    if (nightQuiet()) {
+      topVoiceArmed = false;
+    } else if (startVoiceRecording(true, false)) {
+      topVoiceArmed = false;
+    }
   }
   if (voiceRecording && voiceChunkInFlight && !M5.Mic.isRecording()) {
     const uint32_t meanAbs =
