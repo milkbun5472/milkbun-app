@@ -4984,8 +4984,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "两个人都看着镜头，但隔着一点点距离，像在路边随手一拍",
     "一个人看镜头，另一个人正侧过脸看着对方",
     "两个人都没看镜头，正在说话或笑，被抓到的一瞬",
-    "一个人从背后环住另一个人，下巴搁在对方肩上",
-    "并肩坐着，只拍到肩膀以上，头微微挨在一起",
+    "♥一个人从背后环住另一个人，下巴搁在对方肩上",
+    "♥并肩坐着，只拍到肩膀以上，头微微挨在一起",
     "一个人在闹，另一个人一脸无奈或躲镜头",
     "两个人面对面，镜头从侧面拍到两张侧脸",
     "一个人低头在做什么，另一个人凑过来看",
@@ -4999,15 +4999,17 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "这一张两个人怎么待在一起你自己定：挑一个跟上面这些都不一样、又合这个时刻的样子"
   ];
   function photoDuoPoseLine(seed) {
+    // ♥ 开头的那几格是恋人才摆的（环抱、头挨着）：闺蜜 / 挚友 / 家人空间不抽它（她 2026-10-16）
+    const pool = PHOTO_DUO_POSES.filter(x => !opts.notLover || x.charAt(0) !== "♥").map(x => x.replace(/^♥/, ""));
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
-    let idx = n % PHOTO_DUO_POSES.length;
-    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (PHOTO_DUO_POSES.length - 1))) % PHOTO_DUO_POSES.length;
+    let idx = n % pool.length;
+    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
     buildPhotoPrompt._lastDuoPose = idx;
     // ⚠️这一格只是【没人指定时】的默认（她 2026-09-24：「如果我说让他特定姿势或者我俩特定姿势，
     //   能 override 这个轴吗」）。画面描述里点名了姿势——不管是她要的还是他自己写的——就照那个拍，
     //   这一格让路。原来末尾那句「别又回到贴着脸那一张」删掉：她真要贴脸时它会跟她对着干。
     return "【两个人的姿势·只在画面描述没写的时候用】如果上面「场景/正在做什么」那一句已经写明了两个人怎么站、怎么抱、看不看镜头，一律照那一句来，这一条不用管。"
-      + "没写的话，这张就是：" + PHOTO_DUO_POSES[idx] + "。谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来。";
+      + "没写的话，这张就是：" + pool[idx] + "。谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来。";
   }
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。

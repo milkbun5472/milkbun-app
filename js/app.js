@@ -8568,7 +8568,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const wRef = worldRefFor(char, scene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
+      const _cpS = (couplesRef.current || {})[char.id];
+      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, notLover: !!(_cpS && _cpS.status === "together" && !spaceLover(_cpS)), closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(sub, { kind: drawKind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -25488,8 +25489,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const STUDIO_THEMES = {
     school:   { zh: "校服", line: "【题材·校服】你们俩穿着同一所学校的校服，在教室、走廊或操场，像高中时的一张合照。" },
     ancient:  { zh: "古装", line: "【题材·古装】你们俩换上古装（衣冠发式照同一个朝代），在庭院、街市或灯下，像古装剧里的一张定妆照。" },
-    wedding:  { zh: "婚纱照", line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
-    marriage: { zh: "结婚登记照", line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
+    wedding:  { zh: "婚纱照", lover: true, line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
+    marriage: { zh: "结婚登记照", lover: true, line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
     grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
     band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
     magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图，打光讲究；是摄影棚里摄影师拍的时尚大片，两人摆杂志感的姿势、看镜头或看彼此，不是手机自拍；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
@@ -25498,7 +25499,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
   const customThemes = () => { const a = loadJSON("x_studioThemes", []); return Array.isArray(a) ? a.filter(x => x && x.k && x.zh) : []; };
   const studioThemeOf = k => STUDIO_THEMES[k] || (() => { const c = customThemes().find(x => x.k === k); return c ? { zh: c.zh, line: "【题材·" + c.zh + "】" + (c.line || "你们俩在「" + c.zh + "」这个设定里") + "。" } : null; })();
-  window.__studioThemes = () => [...Object.keys(STUDIO_THEMES).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
+  // 婚纱照、结婚登记照只给恋人空间（她 2026-10-16：闺蜜 / 挚友 / 家人空间撤掉恋人专属的）
+  window.__studioThemes = charId => [...Object.keys(STUDIO_THEMES).filter(k => !STUDIO_THEMES[k].lover || !charId || spaceLover((couplesRef.current || {})[charId])).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
   window.__studioThemeSave = (zh, line, k) => {
     const name = String(zh || "").trim().slice(0, 12); if (!name) return null;
     const key = k || "c_" + Date.now();
@@ -25664,7 +25666,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const studioShoot = async (char, opt) => {
     const profile = meOf(char && char.id);   // 照片里的我照他认的那张面具（她 2026-10-16）
-    const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
+    const theme0 = opt && opt.theme ? studioThemeOf(opt.theme) : null;
+    const notLover = !spaceLover((couplesRef.current || {})[char && char.id]);
+    const theme = theme0 && theme0.lover && notLover ? null : theme0;
     const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "") || (opt && opt.polaroid ? "随手用拍立得拍的一张合照，就在此刻你们在的地方" : "") || (opt && opt.grid ? "在大头贴机里拍的一组四宫格" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
@@ -25771,7 +25775,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
       const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。" + (STYLE_BODY[PAINT] || "") + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];

@@ -43,3 +43,14 @@ test("恋人向的地方只认恋人空间：群聊那句、梦、抽卡、旁�
   assert.match(app, /const tog = members\.filter\(c => spaceLover\(couples\[c\.id\]\)\)/);
   assert.match(dream, /window\.spaceLover\(cp\)/); assert.match(dj, /window\.spaceLover\(cp\)/);
 });
+
+// 她 2026-10-16「可以就这样」：闺蜜 / 挚友 / 家人空间撤掉恋人专属的——婚纱结婚题材、亲密合照姿势、恋爱向的问答题
+test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小本翻不到 love 题", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  assert.match(app, /wedding:  \{ zh: "婚纱照", lover: true,/);
+  assert.match(app, /marriage: \{ zh: "结婚登记照", lover: true,/);
+  assert.match(app, /const theme = theme0 && theme0\.lover && notLover \? null : theme0;/);
+  assert.match(eng, /const pool = PHOTO_DUO_POSES\.filter\(x => !opts\.notLover \|\| x\.charAt\(0\) !== "♥"\)/);
+  assert.match(scr, /COUPLE_QA_BANK\.filter\(x => !x\.love\)/);
+  assert.ok((scr.match(/love: 1, cat:/g) || []).length >= 10);
+});
