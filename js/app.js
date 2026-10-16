@@ -11480,7 +11480,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // 她撤回的那条留在原位、变成一行提示（recallStub，单聊群聊共用，定义在 groupContextRows 上面）
     // 他写过的申请信留在历史原位：信是他说过的话，她怎么回的也一起记着（不然下一轮他不知道她答没答应）
-    const _letterRow = m => ({ ...m, content: "〔你写给她的情侣申请信" + (m.state === "accepted" ? "，她答应了" : m.state === "declined" ? "，她说再想想" : m.state === "open" ? "，她拆开了还没回" : "，她还没拆") + "〕" + String(m.content || "") });
+    const _letterRow = m => ({ ...m, content: "〔你写给她的" + spaceRel(m.rel).space + "申请信" + (m.state === "accepted" ? "，她答应了" : m.state === "declined" ? "，她说再想想" : m.state === "open" ? "，她拆开了还没回" : "，她还没拆") + "〕" + String(m.content || "") });
     // 她回信那一下（系统小纸条「你答应了X ♥」／「你说再想想」）原来跟别的系统纸条一起被滤掉——
     //   TA 只在很早那封信上看到「她答应了」，后面接着聊就又不知道了（她 2026-10-03 截图：「泥系答应惹吗」）。按发生的位置交给 TA 一句。
     const _letterAns = m => m && m.kind === "system" && (m.sub === "letter" || /^你答应了.*♥$|^你说再想想$/.test(String(m.content || "")));
@@ -11735,7 +11735,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
-      const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——你们现在在一起了。怎么接这一下，全看你这个人。"
+      const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
@@ -12192,7 +12192,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
       if (!_peekTurn && !(room && !room.main) && !_body && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
         openCaps.push("loveLetter");
-        capState.push("loveLetter：你们还不是恋人。如果你【自己】已经想跟她在一起、而且这一刻就想说出口，可以给她写一封申请信——填信的全文，用你自己的口吻和长短。"
+        capState.push("loveLetter：你们还没开「我们的空间」。如果你【自己】已经想跟她在一起、而且这一刻就想说出口，可以给她写一封申请信——填信的全文，用你自己的口吻和长短。"
+          + "不一定是恋人（她 2026-10-16）：你要是想跟她做最铁的朋友、一辈子的挚友、或者像家人一样，也可以写，填成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}（bestie＝闺蜜/死党，friend＝挚友，family＝家人）；想在一起就照旧只填信的全文。"
           + "她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就别写；这不是每轮都该有的东西。");
       }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
@@ -12459,7 +12460,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _bodyFill = _bodyOnly && _s.bodyFillState === true;
       // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
       const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
-        ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
+        ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短（想做闺蜜、挚友、家人那种而不是恋人，就写成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}）；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格，别只停在心里。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
@@ -13587,9 +13588,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { const a = loadJSON("x_peekAsk", {}) || {}; a[charId] = Date.now(); saveJSON("x_peekAsk", a); } catch (e) {}
         delivered = true;
       }
-      const _letter = typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
+      // 信可以是恋人那种（一段字），也可以是别的关系（{rel,text}）——她 2026-10-16「别的关系角色也可以发邀请信」
+      const _llObj = parsed.loveLetter && typeof parsed.loveLetter === "object" ? parsed.loveLetter : null;
+      const _letter = _llObj ? String(_llObj.text || "").trim() : typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
+      const _letterRel = _llObj ? spaceRelKey(_llObj.rel) : "lover";
       if (_letter && _letter.toLowerCase() !== "null" && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
-        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
+        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", rel: _letterRel, content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
         markLoveLetter(charId, { ts: Date.now() });
         delivered = true;
       }
@@ -24102,11 +24106,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 「在一起」那一刻要做的事只写这一份：她邀请他答应、他写信她答应，两条路都走这里。
-  const beginCouple = charId => {
+  const beginCouple = (charId, relOverride) => {
     const char = characters.find(c => c.id === charId);
     setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
     const now = new Date();
-    const rk0 = typeof spaceRelKey === "function" ? spaceRelKey((couplesRef.current || {})[charId]) : "lover";
+    const rk0 = spaceRelKey(relOverride || (couplesRef.current || {})[charId]);
     setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0 });
     // 在一起纪念日写进日历（该角色视角）
     if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
@@ -24150,8 +24154,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!m || (m.state !== "sealed" && m.state !== "open")) return;
     const char = characters.find(c => c.id === charId);
     pChat(charId, p => [...p.map(x => x.id === m.id ? { ...x, state: yes ? "accepted" : "declined" } : x),
-      { role: "system", kind: "system", sub: "letter", content: yes ? "你答应了" + (char ? char.name : "TA") + " ♥" : "你说再想想", ts: Date.now() }]);
-    if (yes) { beginCouple(charId); toast("你们在一起了 ♥"); }
+      { role: "system", kind: "system", sub: "letter", content: yes ? "你答应了" + (char ? char.name : "TA") + (spaceRelKey(m.rel) === "lover" ? " ♥" : "，开了" + spaceRel(m.rel).space) : "你说再想想", ts: Date.now() }]);
+    if (yes) { beginCouple(charId, m.rel); toast(spaceRel(m.rel).together + (spaceRelKey(m.rel) === "lover" ? " ♥" : "")); }
     else markLoveLetter(charId, { declinedTs: Date.now() });
     // 不当场开口（她 2026-10-06：「我拒绝了就直接说话了，我还没打完字」）：她点完多半还要说几句，
     //   所以只记下「她刚回了信」，等她自己发消息或按回复，那一轮再带上【此刻】那一句（答应、再想想两边一样）。

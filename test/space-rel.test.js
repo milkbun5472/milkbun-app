@@ -23,3 +23,12 @@ test("各处 instruction 不再手写「你们是恋人」，都问 relSay", () 
   assert.ok((app.match(/instruction: relSay\(char\)/g) || []).length >= 13);
   assert.match(app, /return "together\|" \+ \(days \|\| ""\) \+ "\|" \+ rk;/);
 });
+
+// 她 2026-10-16：「别的关系角色也可以发邀请信」
+test("TA 的申请信可以带关系：{rel,text} 落成带 rel 的信，答应了按那层关系开空间", () => {
+  assert.match(app, /const _letterRel = _llObj \? spaceRelKey\(_llObj\.rel\) : "lover";/);
+  assert.match(app, /kind: "loveletter", rel: _letterRel,/);
+  assert.match(app, /beginCouple\(charId, m\.rel\)/);
+  assert.match(app, /const rk0 = spaceRelKey\(relOverride \|\| \(couplesRef\.current \|\| \{\}\)\[charId\]\);/);
+  assert.match(app, /\\"rel\\":\\"bestie\|friend\|family\\"/);
+});
