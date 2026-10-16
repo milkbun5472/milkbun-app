@@ -40,9 +40,17 @@ test("标签无英文、灰字无内容示范", () => {
 test("整页，不是半窗（no-half-sheet）；旧的 DiaryStyleSheet 不留", () => {
   assert.ok(page.indexOf("h(Sheet") < 0, "还是半窗");
   assert.match(page, /className: "h-full flex flex-col"/, "不是整页外壳");
-  assert.match(page, /h\(Head, \{ zh: "日记档案"/, "没用紧凑标题栏");
+  assert.match(page, /h\(Head, \{ zh: char\.isMe \? "我的日记本" : "日记档案"/, "没用紧凑标题栏");   // 2026-10-16 我那本也进这页（只换纸）
   assert.match(page, /className: "flex-1 min-h-0 overflow-y-auto/, "正文不是主滚动容器");
   assert.ok(screens.indexOf("DiaryStyleSheet") < 0, "旧半窗组件还有引用");
   // 两个入口都走提前 return 的整页，不再叠在原视图后面
-  assert.match(screens, /if \(styleEdit\) \{\s*\n\s*const sc = characters\.find/, "没有整页入口");
+  assert.match(screens, /if \(styleEdit\) \{\s*\n\s*const sc = styleEdit === meAuthor\.id \? meAuthor : characters\.find/, "没有整页入口");
+});
+
+// 换纸放进这页（她 2026-10-16：「换纸改成放进上面的设置里」）；封面上不再有那颗
+test("换纸在日记档案页里，点了就存；我那本顶上一颗「纸」进来，只有换纸", () => {
+  assert.match(page, /setDiaryPaper\(char, char\.isMe, k\); setPaperNow\(k\);/);
+  assert.match(page, /char\.isMe \? null : h\(React\.Fragment/);
+  assert.match(screens, /char\.isMe \? h\("button", \{ "data-wk": "dipaperbtn", onClick: \(\) => onEditStyle\(char\.id\)/);
+  assert.ok(!/setPickPaper/.test(screens), "封面上的换纸还在");
 });
