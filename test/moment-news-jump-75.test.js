@@ -12,3 +12,14 @@ assert.match(app, /let n = flagMomentNews\(p,/);
 assert.match(c, /"data-wk": "momnewsbadge"/); assert.match(c, /"data-wk": "momnewsclear"/);
 assert.equal((c.match(/h\(ChatJumpArrows, \{/g) || []).length, 4, "单聊、群聊、线下、群线下各一处");
 console.log("ok");
+
+// 跳转箭头：停下来不滑就淡掉，一滑又出来，按着不淡（群友 2026-10-16）
+{
+  const i = c.indexOf("function ChatJumpArrows("), j = c.indexOf("\n}\n", i);
+  assert.ok(i > 0 && j > i, "抠不出 ChatJumpArrows");
+  const f = c.slice(i, j);
+  assert.match(f, /setTimeout\(\(\) => setAwake\(false\), CHAT_JUMP_IDLE_MS\)/);
+  assert.match(f, /const onScroll = \(\) => \{ upd\(\); wake\(\); \}/);
+  assert.match(f, /onPointerDown: hold/);
+  assert.match(f, /pointerEvents: awake \? "auto" : "none"/);
+}

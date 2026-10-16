@@ -6750,7 +6750,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6884,7 +6884,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer,
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer, onForward: onForwardDrawer ? x => onForwardDrawer(partner.id, x) : null,
       ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
   }
   // 情侣空间子模块：我们的唱片
@@ -16892,7 +16892,7 @@ const DRAWER_KIND = {
   // 那是路上拾的，这是TA一直带在身上的。
   drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
-function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, ledger, kinds, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledger, kinds, onBack }) {
   const t = useTheme();
   // 拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
   // ⚠️不做成长按：她 2026-09-19 为论坛删帖定过同一件事——「算了长按删除去掉不要了，就留叉」。
@@ -17016,8 +17016,10 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, ledger, kinds, o
                   style: { display: "block", width: "100%", maxWidth: 300, margin: "8px auto 2px", background: "#fffdf7", borderRadius: 4, border: "1px solid rgba(91,76,58,.15)" } }) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#5b4c3a", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
                 // 改字（她 2026-10-05）：拆开的那张纸可以改；跟 ✕ 一样一直看得见，不藏在长按里
-                onEdit ? h("div", { className: "flex justify-end", style: { marginTop: 4 } },
-                  h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了", { multiline: true }),
+                (onEdit || onForward) ? h("div", { className: "flex justify-end", style: { marginTop: 4, gap: 10 } },
+                  onForward ? h("button", { "data-wk": "drawerforward", onClick: () => requestAppConfirm("发给" + partner.name + "？", "这一张会作为你发的一条消息落进你们的聊天，" + (x.kind === "draw" ? "画也带上，" : "") + "他等你说话了再回。", () => onForward(x), "发过去"),
+                    className: "active:opacity-60", style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 11, color: "rgba(122,99,56,.65)" } }, "发给他") : null,
+                  onEdit && h("button", { onClick: () => requestAppPrompt("改这一张", "改完就照新的留着。", x.text || "", v => { if (String(v || "").trim()) onEdit(x.id, v); }, "改好了", { multiline: true }),
                     "aria-label": "改这一样的字", className: "active:opacity-60",
                     style: { minHeight: 32, padding: "0 4px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 11, color: "rgba(122,99,56,.65)" } }, x.edited ? "改过 · 再改" : "改一改")) : null);
             }))
