@@ -373,7 +373,7 @@
   //   于是自己发明了 `.theme-xxx [data-page="xxx"]` 这种选择器，写完一点不生效
   //   （她 2026-09-06：「秋秋这个能改 css 是假的，应用了也不改」）。
   // 全 App 每一页都有的那几个（挂在共用组件上，所以九十来页一起有）
-  const WK_COMMON = Object.freeze([["imgviewer", "看大图那一层（全库共用：聊天照片、通话照片、时刻、小剧场、跑团、小世界、去处、小窝）"], ["imgviewerbtns", "看大图底下那一排按钮（存相册、删除这些；里面的 button 就是一颗颗按钮）"], 
+  const WK_COMMON = Object.freeze([["imgviewer", "看大图那一层（全库共用：聊天照片、通话照片、时刻、小剧场、跑团、小世界、去处、小窝）"], ["imgviewerbtns", "看大图底下那一排按钮（存相册、删除这些；里面的 button 就是一颗颗按钮）"],
     ["app", "这一页的底（最外那层）"],
     ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["lookundo", "美化「回到上一版／换回来」那一行"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
@@ -1027,7 +1027,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.829",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.830",changed: "看大图九处并成一份：新增 imgviewer（整层）/ imgviewerbtns（按钮那一排）；撤掉 thrviewer、thrviewerbtn、trpgviewer、shikebig、nestshotbig、dwellpagetap；小窝加 nestshotsave、nestshotavatar。",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
