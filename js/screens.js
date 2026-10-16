@@ -5779,7 +5779,13 @@ function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
         h("img", { src: x.u, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))),
     zoom >= 0 ? h("div", { "data-wk": "gridcellzoom", onClick: () => setZoom(-1), className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
       h("img", { src: cells[zoom].u, alt: "", style: { maxWidth: "94%", maxHeight: "70%", borderRadius: 10 } }),
-      h("div", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "第 " + (zoom + 1) + " 格 · 长按能存到手机"),
+      h("div", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "第 " + (zoom + 1) + " 格"),
+      // 长按存图在「添加到主屏幕」的网页版里不出（她 2026-10-16 截图）——给一颗明着存的键，走公共那条 saveFile
+      h("button", { onClick: async e => { e.stopPropagation();
+          try { const b = dataUrlToBlob(cells[zoom].u); const via = await saveFile(new File([b], "photo-" + (zoom + 1) + "-" + Date.now() + ".jpg", { type: "image/jpeg" }));
+            if (window.__toast) window.__toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "已经存下来了"); }
+          catch (er) { if (window.__toast) window.__toast("没存成，再试一次"); } },
+        className: "active:opacity-70", style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "保存这一格"),
       onSharpen ? h("button", { onClick: e => { e.stopPropagation(); if (!sharpBusy) onSharpen(cells[zoom].u, zoom); }, disabled: !!sharpBusy, className: "active:opacity-70",
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } },
         sharpBusy ? "在拍了…" : "把这格拍清楚（再拍一张，花一次生图）") : null) : null);
@@ -6750,7 +6756,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6784,6 +6790,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
     if (sub === null && bodyRef.current && subScrollRef.current > 0) bodyRef.current.scrollTop = subScrollRef.current;
   }, [sub]);
   const [pick, setPick] = useState(false);
+  const [pickWho, setPickWho] = useState(null);   // 选好了人，正在挑这个空间是什么关系
   const [annOpen, setAnnOpen] = useState(false);
   const [annName, setAnnName] = useState("");
   const [annMo, setAnnMo] = useState("");
@@ -6828,12 +6835,20 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const invitable = characters.filter(c => !cp[c.id]);
   const daysWith = since => since ? Math.max(1, Math.floor((Date.now() - since) / 86400000) + 1) : 1;
 
-  const pickSheet = pick && h(Sheet, { onClose: () => setPick(false) },
-    h(Eyebrow, { style: { marginBottom: 12 } }, "向谁发送情侣邀请"),
+  // 挑关系（她 2026-10-16）：恋人 / 闺蜜 / 挚友 / 家人，一行说清开了以后 TA 会怎么当
+  const REL_NOTE = { lover: "TA 接了就当你们在一起了，信是情书。", bestie: "最铁的那种朋友，什么都能说，不往恋爱那头走。", friend: "一辈子的朋友，信写的是交情。", family: "像家人一样，惦记、唠叨、护着。" };
+  const relRows = (now, onPick) => Object.keys(window.SPACE_RELS || { lover: 1 }).map(k => h("button", { key: k, "data-wk": "usrel", "data-on": now === k ? "1" : "0", onClick: () => onPick(k), className: "w-full text-left active:opacity-60",
+    style: { padding: "10px 12px", marginBottom: 6, borderRadius: 12, border: "1px solid " + (now === k ? t.ink : t.line), background: now === k ? t.bg2 : "transparent" } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (window.SPACE_RELS ? window.SPACE_RELS[k].space : "情侣空间") + " · " + (window.SPACE_RELS ? window.SPACE_RELS[k].zh : "恋人")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, REL_NOTE[k] || "")));
+  const pickSheet = pickWho ? h(Sheet, { onClose: () => setPickWho(null) },
+    h(Eyebrow, { style: { marginBottom: 12 } }, "跟 " + pickWho.name + " 开一个什么样的空间"),
+    relRows("", k => { const c = pickWho; setPickWho(null); onInvite(c, k); })) : pick && h(Sheet, { onClose: () => setPick(false) },
+    h(Eyebrow, { style: { marginBottom: 12 } }, "邀请谁"),
     invitable.length === 0
       ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingBottom: 8 } }, "没有可邀请的对象了。")
       : h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
-          invitable.map(c => h("button", { key: c.id, onClick: () => { setPick(false); onInvite(c); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+          invitable.map(c => h("button", { key: c.id, onClick: () => { setPick(false); setPickWho(c); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
             h(Avatar, { character: c, size: 34, radius: 8 }),
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name)))));
 
@@ -7590,7 +7605,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
               h("div", { style: { borderTop: "1px solid " + PLINE } },
                 // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「TA记得的」那行同一个病：
                 //   原来读 content/text——两个都不存在，没标题的信在书脊上永远是空白。
-                spine("letters", { zh: "情书", band: "#b08d52", dot: bUnread > 0,
+                spine("letters", { zh: window.spaceRel ? window.spaceRel(cp[bCid]).letter : "情书", band: "#b08d52", dot: bUnread > 0,
                   say: bLetterLast ? one(bLetterLast.title || bLetterLast.body, 22) : "写给彼此" }),
                 (function () {
                   const ex = (coupleExDiary || []).filter(e => e.characterId === bCid);
@@ -7617,7 +7632,11 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 })(),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14 } }, "只属于你俩的私密层。"))),
       cpEdit && h(PageSheet, { onClose: () => setCpEdit(false), tall: true },
-        h(Eyebrow, { style: { marginBottom: 16 } }, "自定义情侣空间"),
+        h(Eyebrow, { style: { marginBottom: 16 } }, "自定义" + (window.spaceRel ? window.spaceRel(cp[partner.id]).space : "情侣空间")),
+        onSetRel ? h("div", { "data-wk": "usrelbox", style: { marginBottom: 16 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, marginBottom: 8 } }, "你们是什么关系"),
+          relRows(window.spaceRelKey ? window.spaceRelKey(cp[partner.id]) : "lover", k => onSetRel(partner.id, k)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, "开错了在这儿改就行，不用解除。改了以后 TA 下一句就照新的关系来，信、悄悄话、纪念日也跟着变；以前写过的不动。")) : null,
         imgRow("背景图", bgRef, "bg", !!cprof.bg),
         imgRow("我的头像", myAvRef, "myAvatar", !!cprof.myAvatar),
         imgRow("TA 的头像", chAvRef, "charAvatar", !!cprof.charAvatar),
@@ -17195,6 +17214,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [big, setBig] = useState(null);
   const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
   const [polaroid, setPolaroid] = useState(false);   // 拍立得：白边相框＋他写一行，两小时后才显影（她 2026-10-13）
+  const [expand, setExpand] = useState(() => !!loadJSON("x_studioExpand", false));   // 场景加成开关：记住上次怎么选的
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
   const [themeTick, setThemeTick] = useState(0);
   const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
@@ -17337,10 +17357,15 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: grid ? "#6d4d8f" : "transparent", color: grid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "四宫格"),
               h("button", { "data-wk": "studiopolaroid", "data-on": polaroid ? "1" : "0", onClick: () => { setPolaroid(true); setGrid(false); }, className: "flex-1 active:opacity-70",
                 style: { borderRadius: 10, padding: "8px 0", whiteSpace: "nowrap", background: polaroid ? "#6d4d8f" : "transparent", color: polaroid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "拍立得")),
+            h("button", { "data-wk": "studioexpand", "data-on": expand ? "1" : "0", onClick: () => { const v = !expand; setExpand(v); saveJSON("x_studioExpand", v); }, className: "w-full flex items-center gap-2 active:opacity-70",
+                style: { marginTop: 10, padding: "8px 2px", textAlign: "left", background: "transparent" } },
+              h("span", { style: { width: 16, height: 16, borderRadius: 5, flexShrink: 0, border: "1.5px solid " + (expand ? "#6d4d8f" : "#cbbfd8"), background: expand ? "#6d4d8f" : "transparent", color: "#fff", fontSize: 11, lineHeight: "13px", textAlign: "center" } }, expand ? "✓" : ""),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.5 } }, "让他先把这一句写成画面",
+                h("span", { style: { color: t.fog, fontSize: 11 } }, "（补上光、环境、你们在做什么和他此刻在哪，像线下那样；每张多一次文字调用。题材、换画风不管这个）"))),
             h("div", { className: "flex gap-2", style: { marginTop: 10 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "11px 14px", whiteSpace: "nowrap", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid, paint, expand }), disabled: !!busy || !(scene.trim() || theme || polaroid || grid), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "11px 0", whiteSpace: "nowrap", background: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme || polaroid || grid)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : polaroid ? "咔嚓" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
