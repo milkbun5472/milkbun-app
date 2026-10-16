@@ -54,7 +54,7 @@ test("挑好的两身要显式写进画面描述里", () => {
   assert.match(shoot, /\.slice\(0, PIECE_NOTE\)/);
   // 挑定了就别再发整柜清单：合照要装两个人，那份清单正是把提示词撑爆的一段
   assert.match(shoot, /closet: hisPicked \? "" : closetTextFor\(char\.id, 320\)/, "挑好了还在发整柜清单");
-  assert.match(shoot, /const sceneFull = [^\n]*scene \+ \(fits[^\n]*\? "。" \+ [^\n]*fits : ""\);/, "拼了却没交给出图");
+  assert.match(shoot, /const sceneFull = [^\n]*scene(?:Shot)? \+ \(fits[^\n]*\? "。" \+ [^\n]*fits : ""\);/, "拼了却没交给出图");
   assert.match(shoot, /buildPhotoPrompt\(char, sceneFull, st, \{ kind: "duo"/, "没走已有那条出图链");
   // 走的是【已有的】那条链，不是另造一套
   ["buildPhotoPrompt", "generateSelfieImage", "buildMinimalPhotoPrompt", "idbImgPut"].forEach(f =>
