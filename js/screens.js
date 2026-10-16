@@ -17660,6 +17660,11 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "手办", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];
   const [myStyles, setMyStyles] = useState(() => { try { const a = loadJSON("x_studioStyles", []); return Array.isArray(a) ? a.filter(x => typeof x === "string" && x.trim()) : []; } catch (e) { return []; } });
   const saveStyles = a => { setMyStyles(a); saveJSON("x_studioStyles", a); };
+  // 自己写的画风可以带一段描述（关键词、像谁的画、什么质感），拍和重画时跟着名字一起送去
+  const [styleDesc, setStyleDescRaw] = useState(() => { try { return loadJSON("x_studioStyleDesc", {}) || {}; } catch (e) { return {}; } });
+  const [styleDescDraft, setStyleDescDraft] = useState("");
+  const keepStyle = (nm, desc) => { if (!myStyles.includes(nm) && !STYLES.includes(nm)) saveStyles(myStyles.concat(nm).slice(-20));
+    const n = { ...styleDesc }; if (String(desc || "").trim()) n[nm] = String(desc).trim().slice(0, 300); else delete n[nm]; setStyleDescRaw(n); saveJSON("x_studioStyleDesc", n); };
   const [styleDraft, setStyleDraft] = useState(null);
   const [paint, setPaint] = useState("");   // 拍之前就挑画风（空＝照片），一次出图，不用先拍再转
   const [reText, setReText] = useState(true);   // 杂志封面／电影海报换画风后把字照原样印回去
@@ -17737,17 +17742,20 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1.5px solid " + t.ink, background: reText ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "13px", textAlign: "center" } }, reText ? "✓" : ""),
             (bigStack.find(y => !y.style) || big).comicPanels ? "重画后把四格台词照原样排回去" : "重画后把封面上的字照原样印回去") : null,
           styleDraft !== null ? h("div", { "data-wk": "studiostyleedit", className: "flex items-center", style: { gap: 8, marginTop: 8, border: "1px solid " + t.line, borderRadius: 12, padding: "6px 10px" } },
-            h("input", { value: styleDraft, onChange: e => setStyleDraft(e.target.value), maxLength: 40, placeholder: "想要什么画风（如：赛博朋克插画、老式明信片）",
-              style: { flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
-            h("button", { onClick: () => setStyleDraft(null), style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("input", { value: styleDraft, onChange: e => { setStyleDraft(e.target.value); if (styleDesc[e.target.value.trim()]) setStyleDescDraft(styleDesc[e.target.value.trim()]); }, maxLength: 40, placeholder: "画风名（如：赛博朋克插画、老式明信片）",
+                style: { width: "100%", border: "none", outline: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }),
+              h("textarea", { "data-wk": "studiostyledesc", value: styleDescDraft, onChange: e => setStyleDescDraft(e.target.value), rows: 2, maxLength: 300, placeholder: "描述/关键词（可空）：像谁的画、线条、上色、质感、配色……写得越具体越像",
+                style: { width: "100%", border: "none", borderTop: "1px dashed " + t.line, outline: "none", resize: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, paddingTop: 4 } })),
+            h("button", { onClick: () => { setStyleDraft(null); setStyleDescDraft(""); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
             // 只存下、先不画（群友 2026-10-17：「必须重画一张才能保存画风名，好浪费」）
-            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); if (!myStyles.includes(v) && !STYLES.includes(v)) saveStyles(myStyles.concat(v).slice(-20)); setStyleDraft(null); },
+            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); },
               className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#8a76a0" } }, "只存下"),
-            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); if (!myStyles.includes(v) && !STYLES.includes(v)) saveStyles(myStyles.concat(v).slice(-20)); setStyleDraft(null); doRestyle(v); },
+            h("button", { disabled: !styleDraft.trim(), onClick: () => { const v = styleDraft.trim(); keepStyle(v, styleDescDraft); setStyleDraft(null); setStyleDescDraft(""); doRestyle(v); },
               className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下并重画")) : null,
           styleDraft !== null && myStyles.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, alignSelf: "center" } }, "自己写过的，点 ✕ 拿掉："),
-            myStyles.map(st => h("button", { key: st, onClick: () => saveStyles(myStyles.filter(x => x !== st)), className: "active:opacity-70",
+            myStyles.map(st => h("button", { key: st, onClick: () => saveStyles(myStyles.filter(x => x !== st)), title: styleDesc[st] || "", className: "active:opacity-70",
               style: { padding: "3px 9px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, st + " ✕"))) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
