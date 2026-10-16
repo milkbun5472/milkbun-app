@@ -96,3 +96,13 @@ test("本子长成那样东西：档案袋、庭审两边、翻面卡、车票",
   assert.match(f, /"← 合上卷宗"/); assert.match(f, /"原告席 · "/); assert.match(f, /rotateY\(180deg\)/); assert.match(f, /\["出门", "路上", "到了"\]/);
   assert.match(f, /OBJ\[book\.key\] && list\.length \? objView\(\)/);
 });
+
+// 她：「但是背景都还是这种纸张」——四本各有自己的布景，不铺那张纸
+test("本子布景：木桌、小法庭、软木板、站台", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
+  const f = scr.slice(i, j);
+  ["blackcase", "complain", "mouth", "safe"].forEach(k => assert.match(f, new RegExp("    " + k + ": \\{ ink: ")));
+  assert.match(f, /style: sc \? sc\.page : cpSkin\(t, "page"\)/);
+  assert.match(f, /ink: sc \? sc\.ink : undefined/);
+});

@@ -17141,6 +17141,15 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
   //   卷宗是一叠档案袋、点开是夹着纸的卷宗；诉状点开是原告席被告席分两边；对照卡是一张张能翻面的卡；报平安是一张张车票。
   //   不是同一张卡换配色——摆法、点法、接话的方式都跟着那样东西走。
   const OBJ = { blackcase: 1, complain: 1, mouth: 1, safe: 1 };
+  // 每本摆在它自己的地方（她 2026-10-16「但是背景都还是这种纸张」）：卷宗摊在深色木办公桌上、诉状在木墙板的小法庭里、
+  //   对照卡钉在软木板上、车票在夜里的站台上。字色跟着底走（Head 的 ink 口子）。
+  const SCENE = {
+    blackcase: { ink: "#f1e4cc", sub: "rgba(241,228,204,.62)", page: { background: "repeating-linear-gradient(92deg, rgba(0,0,0,.05) 0 3px, transparent 3px 11px), linear-gradient(180deg,#5a3d29,#3b271a)" } },
+    complain: { ink: "#f4ead9", sub: "rgba(244,234,217,.62)", page: { background: "linear-gradient(180deg, rgba(0,0,0,.18), transparent 120px), repeating-linear-gradient(90deg,#7a5238 0 46px,#6e4931 46px 48px), #7a5238" } },
+    mouth: { ink: "#3a2a16", sub: "rgba(58,42,22,.62)", page: { background: "radial-gradient(circle at 20% 30%, rgba(90,60,25,.25) 0 1.2px, transparent 1.6px) 0 0/9px 11px, radial-gradient(circle at 70% 60%, rgba(255,240,210,.35) 0 1px, transparent 1.4px) 0 0/7px 8px, #c99d66" } },
+    safe: { ink: "#e9eef0", sub: "rgba(233,238,240,.6)", page: { background: "linear-gradient(180deg, transparent 0 calc(100% - 64px), #e6c24a calc(100% - 64px) calc(100% - 58px), #2b3238 calc(100% - 58px)), linear-gradient(180deg,#1f2a33,#2c3842)" } }
+  };
+  const sc = SCENE[book.key] || null;
   // 顶上那两颗也照那样东西说话：立案、递诉状、拍卡、报平安
   const VERB = { blackcase: ["立一桩案", "让 {n} 举报一桩"], complain: ["递一份诉状", "让 {n} 告你一状"], mouth: ["拍一张卡", "让 {n} 拍一张"], safe: ["报个平安", "让 {n} 报个平安"] }[book.key] || ["记一条", "让 {n} 开一条"];
   const INK = "#2f2a24", RED = "#b23a2e";
@@ -17226,7 +17235,10 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
     // ── 嘴硬对照卡：一张张卡，正面是当时的狠话，点一下翻过来是后来 ──
     if (book.key === "mouth") {
       return h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, list.map(e => { const f = !!flip[e.id], ws = whoTxtOf(e), wide = f;
-        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-kind": "mouth", "data-flip": f ? "1" : "0", style: { gridColumn: wide ? "1 / -1" : "auto", perspective: 900 } },
+        const tilt = f ? 0 : ((list.indexOf(e) % 3) - 1) * 1.6;
+        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-kind": "mouth", "data-flip": f ? "1" : "0", style: { position: "relative", gridColumn: wide ? "1 / -1" : "auto", perspective: 900, transform: "rotate(" + tilt + "deg)", marginTop: 6 } },
+          // 钉在软木板上的那颗图钉
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -6, zIndex: 2, width: 14, height: 14, marginLeft: -7, borderRadius: 999, background: "radial-gradient(circle at 35% 30%, #f08a7e, #b3372b 70%)", boxShadow: "0 2px 3px rgba(0,0,0,.35)" } }),
           h("div", { style: { position: "relative", transition: "transform .5s", transformStyle: "preserve-3d", transform: f ? "rotateY(180deg)" : "none", minHeight: wide ? 300 : 170 } },
             h("button", { onClick: () => setFlip(o => Object.assign({}, o, { [e.id]: true })), className: "text-left", style: { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", background: "#fff", border: "1px solid #ddd5ea", borderRadius: 12, padding: "14px 12px", boxShadow: "0 3px 8px rgba(60,40,90,.1)", display: "flex", flexDirection: "column" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: book.band } }, (ws || "谁") + " 说过"),
@@ -17263,13 +17275,13 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
     }
     return null;
   };
-  return h("div", { "data-wk": "spacebook", "data-kind": book.key, className: "h-full flex flex-col", style: cpSkin(t, "page") },
-    h(Head, { zh: book.zh, bg: "transparent", noLine: true, onBack }),
+  return h("div", { "data-wk": "spacebook", "data-kind": book.key, "data-scene": sc ? "1" : "0", className: "h-full flex flex-col", style: sc ? sc.page : cpSkin(t, "page") },
+    h(Head, { zh: book.zh, bg: "transparent", noLine: true, onBack, ink: sc ? sc.ink : undefined }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "2px 2px 12px" } }, book.say),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sc ? sc.sub : t.fog, margin: "2px 2px 12px" } }, book.say),
       !form ? h("div", { className: "flex", style: { gap: 8, marginBottom: 14 } },
         h("button", { "data-wk": "spacebooknew", onClick: startForm, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: 0, background: book.band, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, VERB[0]),
-        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : VERB[1].replace("{n}", nm)) : null) :
+        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + (sc ? sc.sub : book.band), background: sc ? "rgba(0,0,0,.18)" : "transparent", color: sc ? sc.ink : book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : VERB[1].replace("{n}", nm)) : null) :
       h("div", { "data-wk": "spacebookform", style: { marginBottom: 14, padding: "12px 13px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
         book.fields.map(f => field(f, form[f.k], v => setForm(o => Object.assign({}, o, { [f.k]: v })))),
         h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
