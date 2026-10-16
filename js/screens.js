@@ -6967,8 +6967,8 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   // 挑关系是四枚火漆（她 2026-10-16「每个 ui 都弄好看点」）：一层关系一个封口、一个颜色，跟 TA 寄来的申请信封口是同一枚
   const relSeal = (r, size) => h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: size, height: size, borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center",
     background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 45%), " + r.tone, boxShadow: "0 1px 0 rgba(255,255,255,.25) inset, 0 2px 5px rgba(0,0,0,.18)",
-    color: "rgba(255,255,255,.95)", fontFamily: "'Noto Serif SC','Songti SC',serif", fontSize: Math.round(size * .42) } }, r.seal);
-  const relRows = (now, onPick, nowRole) => { const R = window.SPACE_RELS || { lover: { zh: "恋人", space: "情侣空间", seal: "♥", tone: "#a8505f" } };
+    color: "rgba(255,255,255,.95)", fontFamily: "'Noto Serif SC','Songti SC',serif", fontSize: Math.round(size * .42) } }, r === window.SPACE_RELS.lover ? h(IHeart, { size: Math.round(size * .42), color: "#fff", filled: true }) : r.seal);
+  const relRows = (now, onPick, nowRole) => { const R = window.SPACE_RELS;
     return h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, Object.keys(R).map(k => { const r = R[k], on = now === k;
       return h(React.Fragment, { key: k },
         h("button", { "data-wk": "usrel", "data-on": on ? "1" : "0", "data-kind": k, onClick: () => k === "family" ? setFamOpen(true) : (setFamOpen(false), onPick(k)), className: "text-left active:scale-[.98]",
@@ -7295,12 +7295,13 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
     //   家人不数「做家人第几天」——家人不是哪天开始做的（她：「什么叫做家人第n天」），只数这个空间开了几天。
     const HOME_REL = {
       lover: null,
-      bestie: { days: ["闺蜜盖章", "天"], val: "默契值", act: "碰一下", glyph: "✦", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
-      friend: { days: ["交情续费", "天"], val: "交情", act: "报个到", glyph: "◆", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
-      family: { days: ["空间开了", "天"], val: "暖度", act: "回家", glyph: "⌂", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
+      bestie: { days: ["闺蜜盖章", "天"], val: "默契值", act: "碰一下", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
+      friend: { days: ["知己认证", "天"], val: "交情", act: "报个到", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
+      family: { days: ["空间开了", "天"], val: "暖度", act: "回家", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
     };
     const hr = HOME_REL[window.spaceRelKey ? window.spaceRelKey(cp[view]) : "lover"] || null;
-    const relMark = (sz, col) => hr ? h("span", { style: { fontSize: sz, color: col, lineHeight: 1 } }, hr.glyph) : h(IHeart, { size: sz, color: col, filled: true });
+    // 这一页不许拿字符当图标（couple-home-icons）：恋人用 IHeart，别的关系不放图标，只靠颜色和字
+    const relMark = (sz, col) => hr ? null : h(IHeart, { size: sz, color: col, filled: true });
     const A = 62, RING = 3, GAP = 2, OVER = 18;
     const D = A + 2 * (RING + GAP);
     const ringA = t.accent || "#c26b7a", ringB = t.tint || "#6f7fb0";
@@ -7344,7 +7345,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5 } }, (hr ? hr.val : "甜蜜值") + " " + (Math.round((sweet.value || 0) * 10) / 10))),
                 onSetSince ? h("button", { onClick: () => { const d = new Date(cp[view].since || Date.now()); setSinceVal(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); setSinceEdit(v => !v); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, sinceEdit ? "收起" : h("span", { className: "flex items-center", style: { gap: 4 } }, h(IPencil, { size: 11, color: t.tint }), "起始日")) : null)),
             h("button", { onClick: () => onCheckinSweet(partner), disabled: sweetDone, className: "active:opacity-70 disabled:opacity-100", style: { background: sweetDone ? t.line : hr ? hr.btn : "#ffd0dc", color: sweetDone ? t.fog : hr ? hr.fg : "#c02a52", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 20px", borderRadius: 999, flexShrink: 0 } },
-              sweetDone ? (hr ? "今天" + hr.act + "过了" : "已打卡") : h("span", { className: "flex items-center", style: { gap: 5 } }, relMark(13, hr ? hr.fg : "#c02a52"), hr ? hr.act : "打卡"))),
+              sweetDone ? (hr ? "今天" + hr.act + "过了" : "已打卡") : h("span", { className: "flex items-center", style: { gap: 5 } }, ...(hr ? [hr.act] : [h(IHeart, { size: 13, color: "#c02a52", filled: true }), "打卡"])))),
           // 同「我们说好的」那两处：日期框缩不下去，挤一排会把最右边顶出屏幕。
           // 日期＋保存一行（日期 minWidth:0 才真让得动），那句说明自己一行。
           sinceEdit ? h("div", { style: { marginTop: 10 } },
