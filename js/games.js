@@ -7554,7 +7554,7 @@
     const d = ddzDeck(rnd);
     state.players.forEach(function (p, i) { p.hand = ddzSort(d.slice(i * 17, i * 17 + 17)); p.role = ""; p.played = 0; });
     state.bottom = d.slice(51); state.phase = "bid"; state.bid = { n: 0, by: -1 }; state.bidCount = 0;
-    state.bidTurn = (state.round - 1) % 3; state.turn = -1; state.last = null; state.passes = 0; state.mult = 1; state.bombs = 0; state.result = null;
+    state.bidTurn = (state.round - 1) % 3; state.turn = -1; state.last = null; state.passes = 0; state.mult = 1; state.bombs = 0; state.result = null; state.out = [];
     state.log.push({ kind: "sys", text: "—— 第 " + state.round + " / " + DDZ_ROUNDS + " 局，发好牌了，" + state.players[state.bidTurn].name + " 先叫分 ——" });
     return state;
   }
@@ -7598,6 +7598,7 @@
     if (!lead && !state.last.cleared && !ddzBeats(combo, state.last.combo)) throw new Error("压不过上家的" + DDZ_TYPE_ZH[state.last.combo.type]);
     p.hand = p.hand.filter(function (c) { return uids.indexOf(c.uid) < 0; });
     p.played += 1;
+    state.out = (state.out || []).concat(cards);   // 这一局桌上已经出掉的牌：TA 们说话前照这份记牌，不凭印象
     if (combo.type === "bomb" || combo.type === "rocket") { state.mult *= 2; state.bombs += 1; }
     state.last = { by: i, cards: ddzSort(cards), combo: combo };
     state.passes = 0;
@@ -7700,6 +7701,17 @@
         const lord = state.players.find(function (q) { return q.role === "lord"; });
         return "第 " + state.round + " / " + DDZ_ROUNDS + " 局；" + (lord ? "地主是 " + lord.name + "（" + state.bid.n + " 分" + (state.mult > 1 ? "，翻了 " + state.mult + " 倍" : "") + "），另外两个是农民，一伙的" : "还在叫分")
           + "\n" + state.players.map(function (q) { return q.name + "：手里还剩 " + q.hand.length + " 张，总分 " + q.pts; }).join("；")
+          // 记牌（她 2026-10-16 截图：大王早出过了，TA 还说「大王还没见」）——只看最近几手是记不住的，把这一局出掉的大牌整份递过去
+          + (function () {
+            if (state.phase !== "play" && state.phase !== "done") return "";
+            if (!Array.isArray(state.out)) return "";
+            const cnt = {}; state.out.forEach(function (c) { if (c.v >= 14) cnt[c.v] = (cnt[c.v] || 0) + 1; });
+            const TOTAL = { 17: 1, 16: 1, 15: 4, 14: 4 };
+            const gone = [17, 16, 15, 14].filter(function (v) { return cnt[v]; }).map(function (v) { return ddzRankName(v) + (TOTAL[v] > 1 ? "×" + cnt[v] : ""); });
+            const left = [17, 16, 15, 14].filter(function (v) { return (cnt[v] || 0) < TOTAL[v]; }).map(function (v) { return ddzRankName(v) + (TOTAL[v] > 1 ? "×" + (TOTAL[v] - (cnt[v] || 0)) : ""); });
+            return "\n【记牌·这一局桌上已经出掉的大牌】" + (gone.length ? gone.join("、") : "还没有") + "；还没出现过的大牌：" + (left.length ? left.join("、") : "都出完了")
+              + "（不知道在谁手里）。" + ((state.bottom || []).length ? "底牌是大家都看见了的：" + state.bottom.map(cardName).join(" ") + "，归了地主。" : "") + "说到哪张牌出没出过，照这一行说，别凭印象。";
+          })()
           + (state.last && !state.last.cleared ? "\n桌上最后一手：" + state.players[state.last.by].name + " 出的 " + DDZ_TYPE_ZH[state.last.combo.type] + " " + state.last.cards.map(cardName).join(" ") : "")
           + "\n最近：\n" + cardPublicLog(state);
       } });

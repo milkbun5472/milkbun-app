@@ -130,3 +130,15 @@ test("斗地主：两位农民都真的出过牌（队友出小牌会顺掉）",
   }
   assert.ok(silent / rounds < 0.08, "一张没出的农民太多：" + silent + "/" + rounds);
 });
+
+// 她 2026-10-16 截图：大王早出过了，TA 还说「大王还没见」——这一局出掉的牌记在 state.out，桌上话照它说
+test("斗地主：出掉的牌记进 state.out，新一局清空", () => {
+  const s = g.ddzNewGame(P(3)); let n = 0;
+  while (s.phase !== "play" && n++ < 50) g.ddzBid(s, g.ddzNpcBid(s, s.bidTurn));
+  const before = s.players.reduce((a, p) => a + p.hand.length, 0);
+  g.ddzPlay(s, g.ddzNpcPlay(s, s.turn));
+  assert.equal(s.out.length, before - s.players.reduce((a, p) => a + p.hand.length, 0));
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "games.js"), "utf8");
+  assert.match(src, /【记牌·这一局桌上已经出掉的大牌】/);
+  assert.match(src, /state\.result = null; state\.out = \[\];/);
+});
