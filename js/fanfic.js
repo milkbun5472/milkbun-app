@@ -2865,8 +2865,14 @@
       .map(function (c) { return c && (c.isMe ? (userName || "我") : c.name); })
       .filter(function (nm) { return nm && String(body).indexOf(nm) < 0; });
   }
+  // 「我」按面具写（她 2026-10-16：「搞按面具吧」）：这篇 CP 里第一位角色认我哪张面具，人设和外貌就取那张；
+  //   名字仍用资料里的那个，跟书架、CP 标签、「谁没出场」那几处对得上。没有角色（我 × 原创）就用资料本身。
+  let ficMeOf = null;
   function cpChars(cp, characters, profile) {
-    return (cp || []).map(function (tok) { return tok === "me" ? meChar(profile) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
+    const lead = (cp || []).find(function (tok) { return tok !== "me"; });
+    const mask = lead && typeof ficMeOf === "function" ? ficMeOf(lead) : null;
+    const me = mask && mask !== profile ? Object.assign({}, profile || {}, { persona: mask.persona || "", appearance: mask.appearance || "" }) : profile;
+    return (cp || []).map(function (tok) { return tok === "me" ? meChar(me) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
   }
 
   // ---------- feed 卡片（AO3 那套信息架构）----------
@@ -5297,6 +5303,7 @@
     // 光读 loadCfg() 不会触发渲染。
     const [paperId, setPaperId] = useState(function () { return (loadCfg() || {}).paper || FIC_PAPER_DEFAULT; });
     const t = ficPaperTheme(appTheme, ficPaper({ paper: paperId }));
+    ficMeOf = props.meOf || null;
     const [tabs, setTabs] = useState(loadTabs);
     const [fics, setFics] = useState(loadFics);
     const [cps, setCps] = useState(loadCPs);

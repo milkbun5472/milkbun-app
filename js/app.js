@@ -31468,7 +31468,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onNotifyChapter: notifyChapterToChars,
     // 让角色来写（她 2026-09-11）：立场由同人文那边算，料由这儿给。
     // ⚠️算法在上面 relOfChar 那一处，只许有一份——房里那一枪走的是同一个。
-    relOf: relOfChar,
+    meOf: meOf, relOf: relOfChar,
     // TA替你写的那一章落在哪儿（她 2026-09-11 改的口）。
     // ⚠️原来这儿是**自动往主线记忆库写一条**——她当场指出：「有时候我也只是想测试一下，
     //   但是不想让他们记得」。她是对的：「不记」事后能补，「记了」得手动去删，
