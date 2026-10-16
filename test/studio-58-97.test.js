@@ -64,7 +64,7 @@ test("挑好的两身要显式写进画面描述里", () => {
 // 照相馆拍的就是【合照】：两张参考照缺一张就锁不住脸。
 // 线下那条会降级成「她替他拍的单人照」，这儿不行——这一页的全部意义就是合照。
 test("参考照不齐就明说，不偷偷降级成单人照", () => {
-  assert.match(shoot, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\)\) \{ toast\([\s\S]*?\); return false; \}/,
+  assert.match(shoot, /if \(!\(char\.refPhoto && profile && profile\.refPhoto\) && !\(typeof loadImgApi === "function" && loadImgApi\(\)\.noRef\)\) \{ toast\([\s\S]*?\); return false; \}/,
     "参考照不齐还往下拍");
   assert.ok(shoot.indexOf('kind = "other"') < 0, "偷偷降级成单人照了");
   assert.match(shoot, /imgApiReady\(\)\)\) \{ toast\([\s\S]*?\); return false; \}/, "没配图像 API 也往下走");
