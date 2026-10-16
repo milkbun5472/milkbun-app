@@ -14574,12 +14574,14 @@ function LoveLetterCard({ m, character, onOpen, onAnswer }) {
           userSelect: "text", WebkitUserSelect: "text",
           backgroundImage: "linear-gradient(to bottom, transparent 27px, " + paperLine + " 27px, " + paperLine + " 28px)", backgroundSize: "100% 28px" } }, m.content || ""),
         h("div", { style: { fontFamily: serif, fontSize: 13, color: "#6b5a4c", textAlign: "right", marginTop: 10 } }, "—— " + nm),
+        // 不是恋人那种的申请信（她 2026-10-16）：信底下写清 TA 想开的是什么空间，答应了开的就是它
+        m.rel && m.rel !== "lover" && window.spaceRel ? h("div", { "data-wk": "letterrel", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a7560", textAlign: "right", marginTop: 4 } }, "想跟你开一个" + window.spaceRel(m.rel).space) : null,
         st === "open"
           ? h("div", { "data-wk": "letterbtns", className: "flex gap-2", style: { marginTop: 14 } },
               h("button", { onClick: () => onAnswer(false), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 999, border: "1px solid rgba(120,90,60,.25)", background: "transparent", fontFamily: F_BODY, fontSize: 14, color: "#5b4a3d" } }, "再想想"),
               h("button", { onClick: () => onAnswer(true), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, border: "none", background: ink, color: "#fff", fontFamily: F_BODY, fontSize: 14 } }, "答应"))
           : h("div", { "data-wk": "letterbtns", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(120,90,60,.22)", fontFamily: F_BODY, fontSize: 12, color: st === "accepted" ? ink : "#9a8a7c", textAlign: "center" } },
-              st === "accepted" ? "你答应了 ♥" : "你说再想想"))));
+              st === "accepted" ? (m.rel && m.rel !== "lover" && window.spaceRel ? "你答应了 · " + window.spaceRel(m.rel).space : "你答应了 ♥") : "你说再想想"))));
 }
 function PhoneAskCard({ m, character, onGive, onRefuse }) {
   const t = useTheme();

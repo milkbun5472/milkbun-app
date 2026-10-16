@@ -4628,15 +4628,16 @@ function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
 // ============================================================
 // 情侣空间·问答小本预置题库（60 条，五类+深题+日常温度）。
 // id 是稳定主键：已答记录靠它对齐；以后只往后加题、不改/不复用旧 id。
+// love: 1＝恋人才问的题（心动、想抱、确定是认真的……）：闺蜜 / 挚友 / 家人空间翻不到
 const COUPLE_QA_BANK = [
   { id: "q01", cat: "回忆", q: "你还记得第一次见到我时，脑子里冒出的第一个念头吗？" },
   { id: "q02", cat: "回忆", q: "我们相处到现在，哪个瞬间你偷偷记了很久？" },
   { id: "q03", cat: "回忆", q: "有没有哪次我以为很普通的对话，其实被你放在心上？" },
-  { id: "q04", cat: "回忆", q: "第一次觉得「就是这个人了」是什么时候？" },
+  { id: "q04", love: 1, cat: "回忆", q: "第一次觉得「就是这个人了」是什么时候？" },
   { id: "q05", cat: "回忆", q: "我做过最让你意外的一件事是什么？" },
   { id: "q06", cat: "回忆", q: "你印象里我笑得最好看的一次是在做什么？" },
   { id: "q07", cat: "回忆", q: "有没有哪句我随口说的话，你到现在还记得？" },
-  { id: "q08", cat: "回忆", q: "我们之间第一次有点心动的时刻，你觉得是哪次？" },
+  { id: "q08", love: 1, cat: "回忆", q: "我们之间第一次有点心动的时刻，你觉得是哪次？" },
   { id: "q09", cat: "假设", q: "如果明天可以一起去任何地方，你想去哪？" },
   { id: "q10", cat: "假设", q: "如果我们能养一只宠物，你想养什么、叫什么名字？" },
   { id: "q11", cat: "假设", q: "如果周末只能一起做一件事，你选什么？" },
@@ -4655,26 +4656,26 @@ const COUPLE_QA_BANK = [
   { id: "q24", cat: "关系", q: "我们吵架的时候，你其实心里在想什么？" },
   { id: "q25", cat: "关系", q: "你希望我们十年后是什么样子？" },
   { id: "q26", cat: "关系", q: "我身上哪一点，是你一开始没注意、后来越来越喜欢的？" },
-  { id: "q27", cat: "私密", q: "睡前最后一个念头，最近常常是什么？" },
+  { id: "q27", love: 1, cat: "私密", q: "睡前最后一个念头，最近常常是什么？" },
   { id: "q28", cat: "私密", q: "有没有什么话，想对我说却一直没说出口？" },
   { id: "q29", cat: "私密", q: "你最近一次因为我偷偷高兴，是为了什么？" },
-  { id: "q30", cat: "私密", q: "有没有哪个瞬间，你突然很想抱住我？" },
-  { id: "q31", cat: "私密", q: "你会在什么时候特别想我？" },
+  { id: "q30", love: 1, cat: "私密", q: "有没有哪个瞬间，你突然很想抱住我？" },
+  { id: "q31", love: 1, cat: "私密", q: "你会在什么时候特别想我？" },
   { id: "q32", cat: "私密", q: "有什么是你从没告诉过别人、却想让我知道的？" },
   { id: "q33", cat: "私密", q: "你觉得自己在我面前，最放松的是什么时候？" },
   { id: "q34", cat: "私密", q: "我不在的时候，你会做什么和我有关的小事吗？" },
-  { id: "q35", cat: "私密", q: "你有没有偷偷幻想过我们以后的某个画面？是什么样的？" },
+  { id: "q35", love: 1, cat: "私密", q: "你有没有偷偷幻想过我们以后的某个画面？是什么样的？" },
   { id: "q36", cat: "轻松", q: "我做的哪件蠢事让你笑到现在？" },
   { id: "q37", cat: "轻松", q: "如果用一种食物形容我，你觉得我是什么？" },
   { id: "q38", cat: "轻松", q: "我有没有什么口头禅是你已经被传染了的？" },
-  { id: "q39", cat: "轻松", q: "你觉得我睡着的样子怎么样，能打几分？" },
+  { id: "q39", love: 1, cat: "轻松", q: "你觉得我睡着的样子怎么样，能打几分？" },
   { id: "q40", cat: "轻松", q: "如果给我起个只有你能叫的外号，你想叫我什么？" },
   { id: "q41", cat: "轻松", q: "我最近让你无语的一个瞬间是什么？" },
   { id: "q42", cat: "轻松", q: "你觉得我们俩谁做饭更能吃、谁更能睡？" },
   { id: "q43", cat: "轻松", q: "如果我们组队打游戏，你觉得谁会先坑对方？" },
   { id: "q44", cat: "轻松", q: "我有没有哪个表情或动作，你觉得特别好笑又特别可爱？" },
   { id: "q45", cat: "轻松", q: "假如我突然变成一只动物，你猜会是什么？" },
-  { id: "q46", cat: "走心", q: "你害怕失去我吗？这种感觉是什么时候开始的？" },
+  { id: "q46", love: 1, cat: "走心", q: "你害怕失去我吗？这种感觉是什么时候开始的？" },
   { id: "q47", cat: "走心", q: "在我面前，你有没有过想逞强、其实很累的时候？" },
   { id: "q48", cat: "走心", q: "你觉得我给你带来的最大的变化是什么？" },
   { id: "q49", cat: "走心", q: "有没有哪个瞬间，你觉得「有这个人真好」？" },
@@ -4682,13 +4683,13 @@ const COUPLE_QA_BANK = [
   { id: "q51", cat: "走心", q: "我们之间，你最想守护住的是什么？" },
   { id: "q52", cat: "走心", q: "如果有一天我们必须分开一阵子，你会怎么熬过去？" },
   { id: "q53", cat: "走心", q: "你觉得我们之间，还有什么是彼此没说透的？" },
-  { id: "q54", cat: "走心", q: "什么样的时刻，会让你特别确定「我们是认真的」？" },
-  { id: "q55", cat: "走心", q: "你有没有想过，我们最后会变成什么样子？" },
+  { id: "q54", love: 1, cat: "走心", q: "什么样的时刻，会让你特别确定「我们是认真的」？" },
+  { id: "q55", love: 1, cat: "走心", q: "你有没有想过，我们最后会变成什么样子？" },
   { id: "q56", cat: "日常", q: "今天有没有哪个瞬间突然想到我？" },
   { id: "q57", cat: "日常", q: "最近有什么开心的小事想第一个告诉我？" },
-  { id: "q58", cat: "日常", q: "这一周你最累的是什么？有没有想让我抱抱？" },
-  { id: "q59", cat: "日常", q: "如果现在我在你身边，你最想做的第一件事是什么？" },
-  { id: "q60", cat: "日常", q: "今天的你，想被我用哪种方式宠一下？" }
+  { id: "q58", love: 1, cat: "日常", q: "这一周你最累的是什么？有没有想让我抱抱？" },
+  { id: "q59", love: 1, cat: "日常", q: "如果现在我在你身边，你最想做的第一件事是什么？" },
+  { id: "q60", love: 1, cat: "日常", q: "今天的你，想被我用哪种方式宠一下？" }
 ];
 
 // 字符串稳定哈希（自定义题给个稳定 id，用于已答判重）
@@ -6868,7 +6869,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onEditReply: onEditQAReply, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: window.spaceLover && cp[partner.id] && !window.spaceLover(cp[partner.id]) ? COUPLE_QA_BANK.filter(x => !x.love) : COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onEditReply: onEditQAReply, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
@@ -17229,7 +17230,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [expand, setExpand] = useState(() => !!loadJSON("x_studioExpand", false));   // 场景加成开关：记住上次怎么选的
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
   const [themeTick, setThemeTick] = useState(0);
-  const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
+  const themes = typeof window.__studioThemes === "function" ? window.__studioThemes(partner && partner.id) : [];
   const [themeEdit, setThemeEdit] = useState(null);   // { k?, zh, line } 正在写的自定义题材
   // 预设画风（她 2026-10-13：「还有啥有意思的画风」）＋她自己写的（存 x_studioStyles）
   const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "手办", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];

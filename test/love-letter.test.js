@@ -11,12 +11,12 @@ const rooms = fs.readFileSync(path.join(root, "js/chat-rooms.js"), "utf8");
 // ①说了再想想隔 3 天 ②聊天设置里能关。
 
 test("在一起那一刻只写一份：她邀请他答应、他写信她答应都走 beginCouple", () => {
-  assert.match(app, /const beginCouple = charId => \{/);
+  assert.match(app, /const beginCouple = \(charId, relOverride\) => \{/);   // v75.775：TA 的信可以带关系，答应时按信上的关系开
   const resp = app.slice(app.indexOf("const respondCoupleInvite"), app.indexOf("const beginCouple"));
   assert.match(resp, /beginCouple\(charId\);/);
   assert.ok(!/setCoupleFor\(charId, \{ status: "together"/.test(resp), "又在邀请那头另写了一份");
   const ans = app.slice(app.indexOf("const answerLoveLetter"), app.indexOf("const genWhisper"));
-  assert.match(ans, /if \(yes\) \{ beginCouple\(charId\);/);
+  assert.match(ans, /if \(yes\) \{ beginCouple\(charId, m\.rel\);/);
   assert.match(ans, /markLoveLetter\(charId, \{ declinedTs: Date\.now\(\) \}\)/, "再想想要记下来，冷却才算得出来");
   // 她 2026-10-06：「我拒绝了就直接说话了，我还没打完字」——点完不当场开口，等她按回复那一轮再接（答应、再想想一样）
   assert.doesNotMatch(ans, /replyNow\(/, "点完答应／再想想不许当场让他开口");
@@ -38,7 +38,7 @@ test("能力只在闸开着时给，落地时再过一遍闸；侧房、言秋�
   assert.match(app, /!_peekTurn && !\(room && !room\.main\) && !_body && !\(opts && opts\.loveLetterAnswer\) && loveLetterReady\(charId\)\) \{\n\s*openCaps\.push\("loveLetter"\);/);
   assert.match(app, /loveLetter:"信的全文"=写给她的情侣申请信；/);
   assert.match(app, /if \(_letter && _letter\.toLowerCase\(\) !== "null" && !_peekTurn && !\(room && !room\.main\) && loveLetterReady\(charId\)\)/);
-  assert.match(app, /kind: "loveletter", content: _letter\.slice\(0, 6000\), state: "sealed"/);
+  assert.match(app, /kind: "loveletter", rel: _letterRel, content: _letter\.slice\(0, 6000\), state: "sealed"/);
   assert.match(app, /parsed\.block = false; parsed\.loveLetter = null;/, "决定不回她的那一轮也别塞一封信");
   assert.match(rooms, /"coupleInvite", "loveLetter", "whisper"/);
 });

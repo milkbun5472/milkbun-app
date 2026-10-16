@@ -158,7 +158,7 @@
           // 取材只写一处（v62.99）：梦境 app 闯进这场梦时用的是同一把勺子
           const excerpts = window.DreamLoop.excerptsFor(row, 12);
           const cp = props.couples && props.couples[char.id];
-          const relationship = cp && cp.status === "together" ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
+          const relationship = (window.spaceLover ? window.spaceLover(cp) : cp && cp.status === "together") ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" && (!window.spaceRelKey || window.spaceRelKey(cp) === "lover") ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
           const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
           const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }), [{ role: "user", content: "开始做梦。" }], { maxTokens: 14400 });
           const gen = parseDreamJSON(raw);
