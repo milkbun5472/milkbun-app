@@ -1683,6 +1683,46 @@ function fitFont(text, base, fits, min) {
   return Math.max(min == null ? Math.round(base * 0.55) : min, Math.round(base * fits / n * 10) / 10);
 }
 
+// ── 看大图：全库只有这一份（她 2026-10-16「搞公共的吧」）────────────────────
+//   原来九处各写各的：小剧场、跑团两处、聊天照片、通话照片、时刻、小世界相框、去处、小窝——
+//   背景深浅、关法、按钮各不一样，只有小窝能翻页，哪儿都不能手指划。现在都走这一个，能力长在它身上：
+//     items：[{ src, caption }]，一张也包成一项；at：先看第几张；
+//     actions(item, i)：底下那排按钮 [{ label, onClick, danger, wk }]——各处要哪颗传哪颗（存相册、删、在上面画…）；
+//     zoomable：点图在「整屏」和「原尺寸（能拖着看）」之间切（小世界相框要）；不开就点图也是关。
+//   好几张时：手指左右划、‹ ›、「2 / 3」。点黑底关。挂在 body 上、层级最高，不会被页面里别的浮层盖住。
+function ImageViewer({ items, at, onClose, actions, zoomable }) {
+  const list = (items || []).filter(x => x && x.src);
+  const [i, setI] = useState(Math.min(Math.max(0, at || 0), Math.max(0, list.length - 1)));
+  const [full, setFull] = useState(false);
+  const touch = useRef(null);
+  if (!list.length) return null;
+  const n = list.length, cur = list[i] || list[0];
+  const go = d => { setFull(false); setI(k => (k + d + n) % n); };
+  const stop = e => { if (e && e.stopPropagation) e.stopPropagation(); };
+  const btns = typeof actions === "function" ? (actions(cur, i) || []).filter(Boolean) : [];
+  const navBtn = (txt, d, aria) => h("button", { "aria-label": aria, onClick: e => { stop(e); go(d); }, className: "active:opacity-60",
+    style: { minWidth: 44, minHeight: 44, color: "#eee", fontSize: 22, fontFamily: F_BODY } }, txt);
+  return ReactDOM.createPortal(h("div", { "data-wk": "imgviewer", role: "dialog", "aria-modal": "true", onClick: onClose,
+      onTouchStart: e => { const p = e.touches && e.touches[0]; touch.current = p ? { x: p.clientX, y: p.clientY } : null; },
+      onTouchEnd: e => { const s = touch.current, p = e.changedTouches && e.changedTouches[0]; touch.current = null;
+        if (!s || !p || n < 2 || full) return; const dx = p.clientX - s.x, dy = p.clientY - s.y;
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) { e.preventDefault(); go(dx < 0 ? 1 : -1); } },
+      className: "flex flex-col items-center justify-center",
+      style: { position: "fixed", inset: 0, zIndex: 2147483000, background: "rgba(12,11,9,.94)", overflow: full ? "auto" : "hidden",
+        padding: safeTop(12) + " 12px calc(12px + " + COMPOSER_PAD_BOTTOM + ")" } },
+    h("img", { src: cur.src, alt: cur.caption || "", onClick: e => { if (zoomable) { stop(e); setFull(f => !f); } },
+      style: full ? { maxWidth: "none", maxHeight: "none" } : { maxWidth: "100%", maxHeight: btns.length || cur.caption || n > 1 ? "74%" : "88%", objectFit: "contain" } }),
+    cur.caption ? h("div", { onClick: stop, style: { marginTop: 10, maxWidth: 420, color: "#ddd", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, textAlign: "center", whiteSpace: "pre-wrap" } }, cur.caption) : null,
+    n > 1 ? h("div", { className: "flex items-center", style: { gap: 18, marginTop: 6, color: "#eee", fontFamily: F_BODY, fontSize: 13.5 } },
+      navBtn("‹", -1, "上一张"), h("span", null, (i + 1) + " / " + n), navBtn("›", 1, "下一张")) : null,
+    // 按钮那一排挂 imgviewerbtns；每颗按钮的挂点由调用的那一处写死传进来（wk），这里原样放上去（theme-hooks 的转交写法）
+    btns.length ? h("div", { "data-wk": "imgviewerbtns", className: "flex flex-wrap justify-center", style: { gap: 10, marginTop: 10 } },
+      btns.map((b, k) => { const wk = b.wk; return h("button", { key: k, "data-wk": wk || undefined, onClick: e => { stop(e); b.onClick && b.onClick(cur, i); }, className: "active:opacity-70",
+        style: { minHeight: 40, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13.5,
+          color: b.danger ? "#ffb4a8" : "#f3efe6", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.22)" } }, b.label); })) : null,
+    h("div", { style: { marginTop: 10, color: "#8d877c", fontFamily: F_BODY, fontSize: 11.5 } },
+      (n > 1 ? "左右划着翻 · " : "") + (zoomable ? "点图看原尺寸 · " : "") + "点黑的地方关掉")), document.body);
+}
 function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts) {
   if (typeof onConfirm !== "function") return false;
   const open = typeof window !== "undefined" && window.__appConfirmOpen;
@@ -13429,14 +13469,9 @@ function CallShotThumb({ imgKey }) {
       className: "active:opacity-80",
       style: { width: 76, height: 76, objectFit: "cover", borderRadius: 10, border: "1px solid " + t.line, display: "block", cursor: "pointer" }
     }),
-    zoom && ReactDOM.createPortal(
-      h("div", {
-        onClick: () => setZoom(false),
-        style: { position: "fixed", inset: 0, zIndex: 300, background: "rgba(12,11,9,.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
-      }, h("img", { src: url, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } }),
-      h("button", { "aria-label": "保存通话照片", onClick: e => { e.stopPropagation(); saveCallPhoto(imgKey); },
-        style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 14px)", right: 16, padding: "10px 16px", borderRadius: 999, border: "none", background: "#fff", color: "#222", fontFamily: F_BODY } }, "保存照片")),
-      document.body));
+    // 点开看：全库那一份 ImageViewer（2026-10-16 九处并一处）；「保存照片」照旧
+    zoom && h(ImageViewer, { onClose: () => setZoom(false), items: [{ src: url }],
+      actions: () => [{ label: "保存照片", onClick: () => saveCallPhoto(imgKey) }] }));
 }
 // 通话记录中心（+面板入口）：这个聊天里所有语音/视频通话按时间列出，点一通回看整通转录——不用回聊天里翻楼
 function CallLogSheet({ calls, chars, onClose }) {
@@ -16868,16 +16903,14 @@ function SelfieBubble({ m }) {
     // ⚠️存图走公共那一条 window.saveImgOriginal（engine.js）——它认 img_ 键，
     //   而自拍存的正是 "img_"+charId+"_"+sid（app.js 那处 idbImgPut）。别在这儿另写一条。
     // ⚠️按钮自己要 stopPropagation：外面那层点哪儿都关，不拦住就是点了就关、存不成。
-    zoom && h("div", { onClick: () => setZoom(false), className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,0.85)", gap: 16, padding: 16 } },
-      h("img", { src: shown, style: { maxWidth: "94%", maxHeight: "76%", borderRadius: 10 } }),
-      m.imgKey ? h("button", { onClick: e => {
-          e.stopPropagation();
+    // 2026-10-16 起点开这一层走全库那一份 ImageViewer；存原图、在上面画两颗照旧
+    zoom && h(ImageViewer, { onClose: () => setZoom(false), items: [{ src: shown }],
+      actions: () => [
+        m.imgKey ? { label: "⬇ 保存到手机（原图）", onClick: () => {
           if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图");
           window.saveImgOriginal(m.imgKey, "照片").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
-        }, className: "active:opacity-70",
-        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "⬇ 保存到手机（原图）") : null,
-      h("button", { "data-wk": "doodlebtn", onClick: e => { e.stopPropagation(); setZoom(false); setDoodle(true); }, className: "active:opacity-70",
-        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "✎ 在上面画，发回去")),
+        } } : null,
+        { label: "✎ 在上面画，发回去", wk: "doodlebtn", onClick: () => { setZoom(false); setDoodle(true); } }] }),
     doodle && h(DoodleEditor, { src: shown, charId: m.senderId || m.charId || (window.__activeCharId || ""), onClose: () => setDoodle(false) }));
   if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
   if (m.imgKey) return note("图加载中…还看不到就是没存住");

@@ -153,7 +153,7 @@
 
   // ── 导进来：每一类落进它本来住的那个库 ──────────────────────
   //   CSS 和整套聊天美化要先问放哪儿，不走这一条（见 Detail 的 placing）。
-  function importInto(kind, payload, title, props) {
+  function importInto(kind, payload, title, props, opts) {
     const d = kind === "css" ? null : JSON.parse(payload);
     if (kind === "theme" || kind === "look" || kind === "css") {
       // 交给主题工作台：它打开时接过这一份，跟手动导入同一条路（先预览、确认才落盘）
@@ -184,7 +184,8 @@
       return "已放进预设台：" + r.presets + " 份预设" + (r.modules ? "、" + r.modules + " 个模块" : "");
     }
     if (kind === "persona") {
-      props.onAddChar({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: String(d.persona || d.description || "") });
+      props.onAddChar(Object.assign({ name: String(d.name || title).slice(0, 20), tagline: String(d.tagline || "").slice(0, 40), persona: String(d.persona || d.description || "") },
+        opts && opts.avatarImage ? { avatarImage: opts.avatarImage } : {}));
       return "";
     }
     throw new Error("不认得的类别");
@@ -441,7 +442,7 @@
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
           placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : ["chat", "group"],
             onPick: placeOne, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
-          h(Shots, { t, it }),
+          h(Shots, { t, it, props }),
           preview ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
             h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.7,
               whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 14, maxHeight: "46vh", overflowY: "auto" }, card(t)) }, preview.slice(0, 6000))) : null,
@@ -449,25 +450,33 @@
   }
 
   // ── 预览截图：详情里那一排小相片，点开整屏看，左右翻 ─────────────────
-  function Shots({ t, it }) {
+  function Shots({ t, it, props }) {
     const [at, setAt] = useState(-1);
     if (!it.pics) return null;
     const src = k => NEST + "/img/" + it.id + "/" + k;
     const ks = Array.from({ length: it.pics }, (_, k) => k);
+    // 存：小窝的图是后端地址，saveImgOriginal 也认网址了（engine.js）
+    const save = item => window.saveImgOriginal ? window.saveImgOriginal(item.src, it.title || "小窝").then(ok => props.toast(ok ? "存下来了" : "这张没存成，再试一次")) : props.toast("这台设备存不了图");
+    // 人设配套的头像（她 2026-10-16「写人设把配套人设头像放上去之类的可以选择保存使用」）：
+    //   这张拉下来进图库（iv_ 门牌），跟人设一起建成新角色——跟手动导入是同一条路，只多带一张头像
+    const asAvatar = async item => {
+      try {
+        const r = await fetch(item.src); if (!r.ok) throw new Error("取不到图");
+        const key = await imgToVault(await blobToDataUrl(await r.blob()));
+        const d = await api("/item/" + it.id + "?import=1");
+        const msg = importInto(d.kind, d.payload, d.title, props, { avatarImage: key });
+        setAt(-1); if (msg) props.toast(msg);
+      } catch (e) { props.toast("没导进去：" + e.message); }
+    };
     return h("div", { "data-wk": "nestshots", style: { marginTop: 18 } },
       label(t, "长这样"),
       h("div", { className: "flex", style: { gap: 10, overflowX: "auto", paddingBottom: 6 } },
         ks.map(k => h("button", { key: k, onClick: () => setAt(k), className: "active:opacity-70", style: { flexShrink: 0, padding: "6px 6px 18px", background: "#fff",
             boxShadow: "0 3px 8px -5px rgba(0,0,0,.4)", transform: "rotate(" + ((k % 2 ? 1 : -1) * 1.2) + "deg)" } },
           h("img", { src: src(k), alt: "预览 " + (k + 1), loading: "lazy", style: { display: "block", height: 190, width: "auto", maxWidth: 260, objectFit: "cover", background: t.bg } })))),
-      at >= 0 ? h("div", { "data-wk": "nestshotbig", onClick: () => setAt(-1), className: "flex flex-col items-center justify-center",
-          style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10,10,10,.92)", padding: "calc(" + safeTop(16) + ") 12px calc(16px + " + COMPOSER_PAD_BOTTOM + ")" } },
-        h("img", { src: src(at), alt: "", style: { maxWidth: "100%", maxHeight: "82%", objectFit: "contain" } }),
-        ks.length > 1 ? h("div", { className: "flex items-center", style: { gap: 22, marginTop: 14, color: "#eee", fontFamily: F_BODY, fontSize: 14 } },
-          h("button", { onClick: e => { e.stopPropagation(); setAt((at + ks.length - 1) % ks.length); }, style: { minWidth: 44, minHeight: 44, color: "#eee" } }, "‹"),
-          h("span", null, (at + 1) + " / " + ks.length),
-          h("button", { onClick: e => { e.stopPropagation(); setAt((at + 1) % ks.length); }, style: { minWidth: 44, minHeight: 44, color: "#eee" } }, "›")) : null,
-        h("div", { style: { marginTop: 8, color: "#aaa", fontFamily: F_BODY, fontSize: 12 } }, "点一下关掉")) : null);
+      at >= 0 ? h(ImageViewer, { at, onClose: () => setAt(-1), items: ks.map(k => ({ src: src(k) })),
+        actions: () => [{ label: "存到手机", wk: "nestshotsave", onClick: save },
+          it.kind === "persona" ? { label: "用这张当头像，导入这个人设", wk: "nestshotavatar", onClick: asAvatar } : null] }) : null);
   }
 
   // ── 留言簿：横格纸；一条留言写在格子上，回某一条是一张别着回形针的小便签 ──────────

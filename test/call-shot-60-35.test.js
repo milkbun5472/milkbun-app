@@ -49,7 +49,9 @@ test("聊天里那条通话记录把画面端出来，点开看整张", () => {
   const th = comp.slice(comp.indexOf("function CallShotThumb("), comp.indexOf("// 通话记录中心"));
   assert.match(th, /useIdbImgUrl\(imgKey\)/);
   assert.match(th, /onClick: \(\) => setZoom\(true\)/, "点开看整张");
-  assert.match(th, /ReactDOM\.createPortal/, "放大层要挂到 body，别被卡片的 transform 锚住");
+  // 2026-10-16 起点开走全库那一份 ImageViewer；挂到 body 这件事由它负责
+  assert.match(th, /h\(ImageViewer, \{ onClose: \(\) => setZoom\(false\)/);
+  assert.match((() => { const c0 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8"); const a0 = c0.indexOf("function ImageViewer("); return c0.slice(a0, c0.indexOf("function requestAppConfirm(", a0)); })(), /ReactDOM\.createPortal/, "放大层要挂到 body，别被卡片的 transform 锚住");
 });
 
 test("通话页把画面铺成底，字还读得清", () => {

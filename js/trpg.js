@@ -2911,11 +2911,10 @@
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
            ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       // 大图查看器(objectFit:contain 看整张,可存相册)
-      const bigViewer = bigView && h("div", { onClick: () => setBigView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
-        h("img", { src: imgSrc(bigView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, bigView.title || camp.title),
-        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
-          h("button", { onClick: () => saveToAlbum(bigView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册")));
+      // 看大图走全库那一份 ImageViewer（2026-10-16 九处并一处）
+      const bigViewer = bigView && h(ImageViewer, { onClose: () => setBigView(null),
+        items: [{ src: imgSrc(bigView.img), caption: bigView.title || camp.title }],
+        actions: () => [{ label: "保存到手机相册", onClick: () => saveToAlbum(bigView.img) }] });
       // 待重试:最后一拍是玩家宣言/检定(守密人还没接话,多半是上次生成失败)——
       // 出「继续这一拍」沿用原有骰点重跑叙事;没掷过骰子才允许「撤回重写」
       const lastGmIdx2 = camp.msgs.map(m => m.role).lastIndexOf("gm");
@@ -3321,12 +3320,9 @@
     // ---- 图库(和小剧场一样:出过的图永久归档,删团不删图) ----
     if (view === "gallery") {
       const gal = loadGal();
-      const viewer = galView && h("div", { "data-wk": "trpgviewer", onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
-        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
-        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
-          h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
-          h("button", { onClick: () => { const id = galView.id, img = galView.img; askConfirm("从图库删掉这张?", () => { setGalView(null); galTomb(img); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+      const viewer = galView && h(ImageViewer, { onClose: () => setGalView(null),
+        items: [{ src: imgSrc(galView.img), caption: (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + new Date(galView.ts).toLocaleDateString("zh-CN") }],
+        actions: () => [{ label: "保存到手机相册", onClick: () => saveToAlbum(galView.img) }, { label: "删除", danger: true, onClick: () => { const id = galView.id, img = galView.img; askConfirm("从图库删掉这张?", () => { setGalView(null); galTomb(img); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }); } }] });
       return h("div", { "data-wk": "trpggallery", style: S.wrap }, badges(), askSheet, header("跑团图库"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
           gal.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },

@@ -877,12 +877,11 @@
     // 大图查看器（objectFit:contain，看的是整张不是裁过的）。
     // v54.46 从图库分支里搬出来：演出页刚出完封面就该能点开看整张，
     // 而不是先退到图库再点进角色再点缩略图。
-    const bigViewer = () => galView && h("div", { "data-wk": "thrviewer", onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
-        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
-        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
-          h("button", { "data-wk": "thrviewerbtn", "data-part": "save", onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
-          h("button", { "data-wk": "thrviewerbtn", "data-part": "del", onClick: () => { const id = galView.id, item = galView; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); requestAppConfirm("从图库删掉这张？", "剧情里的那张不受影响；图库也不会再自动补回。", () => { if (!galTomb(item.img)) return props.toast("这次没删成功，原图还在"); const next = gal.filter(x => x.id !== id && x.img !== item.img); saveJSON("x_theaterGallery", next); setGal(next); setGalView(null); props.toast("已从小剧场图库删除"); }, "删除"); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+    // 看大图走全库那一份 ImageViewer（2026-10-16 九处并一处）：存相册、删照旧
+    const bigViewer = () => galView && h(ImageViewer, { onClose: () => setGalView(null),
+      items: [{ src: imgSrc(galView.img), caption: (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN") }],
+      actions: () => [{ label: "保存到手机相册", onClick: () => saveToAlbum(galView.img) },
+        { label: "删除", danger: true, onClick: () => { const id = galView.id, item = galView; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); requestAppConfirm("从图库删掉这张？", "剧情里的那张不受影响；图库也不会再自动补回。", () => { if (!galTomb(item.img)) return props.toast("这次没删成功，原图还在"); const next = gal.filter(x => x.id !== id && x.img !== item.img); saveJSON("x_theaterGallery", next); setGal(next); setGalView(null); props.toast("已从小剧场图库删除"); }, "删除"); } }] });
     const deleteLineNow = (id, after) => {
       const next = lines.filter(l => l.id !== id);
       if (!persist(next)) { props.toast("这次没删成功，原 if 线还在"); return false; }

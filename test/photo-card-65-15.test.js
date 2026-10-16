@@ -40,7 +40,8 @@ test("存到手机走公共那一条 saveImgOriginal，不另写一条下载", (
   const selfie = cut("function SelfieBubble({ m })", "// ---- 线下这一层的纸与光");
   assert.match(selfie, /window\.saveImgOriginal\(m\.imgKey, "照片"\)/);
   // ⚠️外面那层点哪儿都关，按钮不拦住就是点了就关、存不成
-  assert.match(selfie, /e\.stopPropagation\(\);/);
+  assert.match(selfie, /h\(ImageViewer, \{ onClose: \(\) => setZoom\(false\)/);
+  assert.match((() => { const c0 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8"); const a0 = c0.indexOf("function ImageViewer("); return c0.slice(a0, c0.indexOf("function requestAppConfirm(", a0)); })(), /onClick: e => \{ stop\(e\); b\.onClick && b\.onClick\(cur, i\); \}/);   // 拦冒泡改由 ImageViewer 统一做
   // 自拍存的确实是 img_ 开头的键（照着写存档那段：app.js 的 idbImgPut）
   const app = fs.readFileSync("js/app.js", "utf8");
   assert.match(app, /const key = "img_" \+ char\.id \+ "_" \+ sid\b/);
