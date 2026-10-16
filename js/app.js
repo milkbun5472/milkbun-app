@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.741";
+const APP_VERSION = "v75.743";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13036,10 +13036,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // \u8868\u60c5\u88ab\u5199\u8fdb\u6587\u5b57\u6c14\u6ce1\u7684\u515c\u5e95\uff08\u5979\u53cd\u9988\u300c\u8868\u60c5\u5076\u5c14\u8fd8\u662f\u53d1\u51fa\u6587\u5b57\u300d\uff09\uff1aword \u91cc\u82e5\u6709\u4e00\u6761\u3010\u53bb\u62ec\u53f7\u6807\u70b9\u540e\u6b63\u597d\u7b49\u4e8e\u3011\u67d0\u4e2a\u53ef\u7528\u8868\u60c5\u5173\u952e\u8bcd\uff0c
       // \u5c31\u628a\u5b83\u5f53\u8868\u60c5\u53d1\u3001\u522b\u5f53\u6587\u5b57\uff08\u7cbe\u786e\u76f8\u7b49\u3001\u4e0d\u505a\u5b50\u4e32\uff0c\u514d\u5f97\u300c\u6211\u597d\u5f00\u5fc3\u300d\u88ab\u8bef\u5f53\u300c\u5f00\u5fc3\u300d\u8868\u60c5\uff09\uff1b\u7eaf\u300c[\u8868\u60c5]\u300d\u8fd9\u7c7b\u7a7a\u6807\u8bb0\u76f4\u63a5\u4e22\u3002
       const emoteWordKws = [];
-      // ⚠️这一段不再看 emotes.length（群友 2026-10-16 截图：一连六条「[表情] 老公伤心的流泪」当文字发出来）——
-      //   这个角色此刻一张能用的表情都没有（包没挂给他、或改成只给自己用）时，原来整段兜底都跳过，
-      //   他照着聊天记录里的样子写「[表情] xxx」，就原样落成文字。标记形态的一律收走；有图就发图，没图就不发。
-      {
+      if (emotes.length) {
         const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
         // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
         const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
@@ -13056,6 +13053,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
         }
         words = _joined;
+        // 一个气泡里换行写了好几张（「[表情] 老公伤心的流泪\n[表情] 白色小狗委屈哭泣\n…」，群友 2026-10-16 截图）：
+        //   下面那几道正则只认【整个气泡】是一个标记，这种多行的一个都认不出，后面按换行切开就成了一串文字气泡。
+        //   先按行看：是标记的那几行抽走当表情，剩下的行照旧留在这个气泡里。
+        words = words.reduce((acc, w) => {
+          if (typeof w !== "string" || w.indexOf("\n") < 0) { acc.push(w); return acc; }
+          const keep = [];
+          w.split("\n").forEach(ln => {
+            const m1 = ln.match(TAG_RE) || ln.match(WRAP_RE);
+            if (m1 && m1[1].trim()) emoteWordKws.push(m1[1].trim()); else keep.push(ln);
+          });
+          const rest = keep.join("\n").trim();
+          if (rest) acc.push(rest);
+          return acc;
+        }, []);
         // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
         //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
         const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
