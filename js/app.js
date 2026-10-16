@@ -31261,6 +31261,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const scene = (m.what && m.what.lines && m.what.lines.length ? m.what.lines.join(" ") : m.title).slice(0, 300);
         const prompt = "A cinematic visual-novel CG illustration, a memory scene: " + m.title + ". What happened that day: " + scene + ". "
           + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
+          // 机位也掷一个（群里 2026-10-16「还用那个角度」）：带着参考照不点名机位，就照搬参考照那个角度
+          + (typeof photoShotPick === "function" ? " Camera / framing for this shot (do NOT copy the reference photo's angle): " + photoShotPick("other") + "." : "")
           + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark."
           // 多手多脚是这类图最常见的翻车（她 2026-10-03：「他这是生成了两条手吗」）——说清楚，并且少画手
           + " Correct human anatomy: exactly two arms and two hands, natural hand poses, no extra or duplicated limbs; prefer a composition where hands are relaxed or out of frame.";
