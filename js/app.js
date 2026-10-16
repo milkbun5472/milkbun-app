@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.758";
+const APP_VERSION = "v75.760";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8405,7 +8405,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       ? "TA 的【外貌 · 发自拍用】那一栏是空的、也没传参考照——人设正文里写的外貌不算，要填进编辑角色里那一栏"
       : "";
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
-  const offlinePhotoCanDuo = char => !!(char && char.refPhoto && (meOf(char.id) || {}).refPhoto);
+  // 合照能不能拍只问这一处（群友 2026-10-15「站子开了不锁脸，合照还是放不出来」）：
+  //   平时要你俩都有参考照，两张脸都锁住；图像站开了「这个站不锁脸」，本来就一张参考照都不带，照外貌文字画，
+  //   这时再要求两张参考照就是把合照整个关掉了。「你」认的是跟他用的那张面具（meOf）。
+  const imgSiteNoRef = () => { try { return typeof loadImgApi === "function" && !!loadImgApi().noRef; } catch (e) { return false; } };
+  const duoFacesOk = char => !!(char && ((char.refPhoto && (meOf(char.id) || {}).refPhoto) || imgSiteNoRef()));
+  const offlinePhotoCanDuo = char => duoFacesOk(char);
   // 一份出图，两处线下（单人 / 群）共用。arg：
   //   char    这张照片是谁的（拿TA的参考照锁脸、读TA的状态卡）
   //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
@@ -11855,7 +11860,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const canSelfie = !photoCooldown.cooling;
       const canFace = canSelfieImg ? !!(char.appearance || char.refPhoto) : true;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
-      const canDuo = canSelfieImg ? !!(char.refPhoto && (meOf(char.id) || {}).refPhoto) : true;
+      const canDuo = canSelfieImg ? duoFacesOk(char) : true;
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
       //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
       const _canCarve = !sideRoom && !!(isCouple && musicReady);
@@ -14620,11 +14625,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gSelfieMembers = gPhotoOn ? members.filter(c => !photoCooldownState(gchat, c.id).cooling) : [];
       const gFaceMembers = gSelfieMembers.filter(c => c.appearance || c.refPhoto);
       // 合照只在【用户传了参考照 且 该成员也传了参考照】时才开放——两张脸都拿真照片喂，绝不一张真一张编
-      const gDuoMembers = (meOfGroup(groupId) || {}).refPhoto ? gFaceMembers.filter(c => c.refPhoto) : [];
+      const gDuoMembers = imgSiteNoRef() ? gFaceMembers.slice() : (meOfGroup(groupId) || {}).refPhoto ? gFaceMembers.filter(c => c.refPhoto) : [];
       const gUName = (profile && profile.name) || "用户";
-      // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票
-      const gGroupShotOk = members.filter(c => c && c.refPhoto).length + ((meOfGroup(groupId) || {}).refPhoto ? 1 : 0) >= 2
-        && members.filter(c => c && c.refPhoto).length >= 1;
+      // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票（不锁脸的站照外貌画，不要参考照）
+      const gGroupShotOk = (imgSiteNoRef() ? members.filter(Boolean).length + 1 : members.filter(c => c && c.refPhoto).length + ((meOfGroup(groupId) || {}).refPhoto ? 1 : 0)) >= 2
+        && (imgSiteNoRef() || members.filter(c => c && c.refPhoto).length >= 1);
       // 群里她转给某位成员、还挂着没点的那几笔（v56.88，同单聊）：收不收由那个人自己按人设和情形定
       const gPendingTf = (groupChatsRef.current[groupId] || []).filter(m =>
         m && m.kind === "transfer" && m.dir === "toChar" && m.status === "pending" && m.toId
@@ -25623,7 +25628,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "") || (opt && opt.polaroid ? "随手用拍立得拍的一张合照，就在此刻你们在的地方" : "") || (opt && opt.grid ? "在大头贴机里拍的一组四宫格" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
-    if (!(char.refPhoto && profile && profile.refPhoto)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张"); return false; }
+    if (!(char.refPhoto && profile && profile.refPhoto) && !(typeof loadImgApi === "function" && loadImgApi().noRef)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像站不收参考照的话，在「设置 → 图像 API」打开「这个站不锁脸」"); return false; }
     setGen(g => ({ ...g, studio: true }));
     try {
       const st = statesRef.current[char.id] || {};
@@ -30317,23 +30322,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenDrawer: openDrawerItem,
     onDropDrawer: dropDrawerItem,
     onEditDrawer: editDrawerItem,
-    // 抽屉里拆开的那一样发给他（群友 2026-10-16：「他画的画好傻，想发给他打趣他一下」）：
-    //   落成你发的一条消息、带上那张画，打开聊天；不叫他当场开口，等你自己说两句再让他回（跟别处转发同一个做法）
-    onForwardDrawer: (charId, x) => {
-      if (!x || !(characters || []).some(c => c.id === charId)) return;
-      const kz = { thing: "你捡到放进抽屉的", word: "你放进抽屉的半句话", draw: "你画了放进抽屉的那张", whisper: "你放进抽屉的悄悄话", drop: "你放进抽屉的" }[x.kind] || "你放进抽屉的";
-      const body = "【翻出" + kz + "】" + (x.title && x.kind !== "whisper" ? "「" + x.title + "」" : "") + "\n" + String(x.text || "").trim();
-      pChat(charId, p => [...p, x.kind === "draw" && x.svg
-        ? { role: "user", kind: "photo", imageRef: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: body, content: body, ts: Date.now() }
-        : { role: "user", content: body, ts: Date.now() }]);
-      // 不跳走：情侣空间那头会在这页上打开聊天半窗（ChatPeekSheet）接着说
-    },
-    chatPeek: {
-      msgsOf: id => chats[id] || [],
-      send: (id, txt) => pushUser(id, txt, id),
-      reply: id => replyNow(id, null, null, { chatKey: id }),
-      open: id => openChatById(id)
-    },
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,
@@ -30682,7 +30670,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       drawDuo: async (charId, desc) => {
         const char = characters.find(c => c.id === charId);
         const _me = char ? meOf(char.id) || {} : {};
-        if (!char || !char.refPhoto || !_me.refPhoto) return drawFromDesc(char || null, desc, "self");
+        if (!char || !duoFacesOk(char)) return drawFromDesc(char || null, desc, "self");
         const prompt = buildPhotoPrompt(char, desc, (statesRef.current || {})[char.id] || null, { kind: "duo", me: photoMe("她", char.id), closet: closetTextFor(char.id) });
         const out = await generateSelfieImage(prompt, [char.refPhoto, _me.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
         let ref = null;
