@@ -23868,6 +23868,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
+    // 大号发帖会涨一点粉（群友 2026-10-16「我个人的粉丝数量会变化吗」）：按现有粉丝的千分之几起步，最少几个，匿名吧不算
+    if (!anonB && !maskB) { const f0 = Math.max(0, Number(forumMe.followers) || 0); editForumMe({ followers: f0 + Math.max(1, Math.round(f0 * (0.002 + Math.random() * 0.006) + Math.random() * 6)) }); }
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
   };
   // 搜索：随机刷到四版块之外的吧（据全局聊天/世界话题），board 由 AI 起名
