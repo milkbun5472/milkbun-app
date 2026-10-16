@@ -6,6 +6,6 @@ assert.match(seg, /\["复制这一拍", async \(\) => \{[^]*?copyText\(m\.conten
 assert.match(seg, /\["复制这一幕全文", async \(\) => \{[^]*?copyText\(txt\)/);
 assert.match(seg, /\["⑂ 从这里分支", \(\) => branchFrom\(msgMenu\)\]/);
 // 字数早就有：编辑设定里走公共 WordFloorSection，并发进提示词
-assert.match(src, /h\(window\.WordFloorSection, \{ value: edit\.minWords \|\| 0/);
+assert.match(src, /h\(window\.WordFloorSection, \{ value: line\.minWords \|\| 0/);
 assert.match(src, /window\.StylePresets\.wordRule\(window\.StylePresets\.clampWordFloor\(line\.minWords\)\)/);
 console.log("theater-copy ok");
