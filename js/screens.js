@@ -6750,9 +6750,10 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, chatPeek, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
+  const [peekChat, setPeekChat] = useState(false);   // 聊天半窗（抽屉里「发给他」之后直接在这页上接着聊）
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
   // 从别处直接落到某个人的某一扇门（她 2026-09-14：「叫他刻歌然后从聊天点进去是
   // 全部已有情侣空间汇总那一页，而不是他自己的情侣空间」）。
@@ -6884,8 +6885,12 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   }
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
-    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer, onForward: onForwardDrawer ? x => onForwardDrawer(partner.id, x) : null,
-      ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => setSub(null) });
+    return h(Fragment, null,
+      h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onDrop: onDropDrawer, onEdit: onEditDrawer,
+        onForward: onForwardDrawer ? x => { onForwardDrawer(partner.id, x); if (chatPeek) setPeekChat(true); } : null,
+        onPeek: chatPeek ? () => setPeekChat(true) : null,
+        ledger: (outletLedger || {})[partner.id] || {}, kinds: outletKinds || [], onBack: () => { setPeekChat(false); setSub(null); } }),
+      peekChat && chatPeek ? h(ChatPeekSheet, { character: partner, peek: chatPeek, onClose: () => setPeekChat(false) }) : null);
   }
   // 情侣空间子模块：我们的唱片
   if (partner && cp[view] && cp[view].status === "together" && sub === "disc") {
@@ -16889,7 +16894,7 @@ const DRAWER_KIND = {
   // 那是路上拾的，这是TA一直带在身上的。
   drop:    { zh: "TA身上带的", ch: "带", band: "#6e7f8a" }
 };
-function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledger, kinds, onBack }) {
+function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, onPeek, ledger, kinds, onBack }) {
   const t = useTheme();
   // 拿掉一样（她 2026-09-20：「抽屉里的能不能单个删除，有些不想要的」）。
   // ⚠️不做成长按：她 2026-09-19 为论坛删帖定过同一件事——「算了长按删除去掉不要了，就留叉」。
@@ -16926,7 +16931,8 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
     backgroundImage: "repeating-linear-gradient(102deg,rgba(140,116,74,.035) 0 2px,transparent 2px 16px),"
       + "radial-gradient(120% 80% at 50% -10%,rgba(255,250,238,.75),transparent 60%)",
     boxShadow: "inset 0 0 46px rgba(96,72,40,.26), inset 0 2px 0 rgba(255,255,255,.35)" } },
-    h(Head, { zh: "抽屉", bg: "transparent", noLine: true, ink: "#5d4c31", onBack }),
+    h(Head, { zh: "抽屉", bg: "transparent", noLine: true, ink: "#5d4c31", onBack,
+      right: onPeek ? h("button", { "data-wk": "drawerpeek", onClick: onPeek, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#7a6338", padding: "6px 4px" } }, "聊两句") : null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       // 抽屉里侧那张标签：贴在衬纸上，不是一张圆角卡
       h("div", { style: { position: "relative", background: "#fbf5e6", padding: "14px 15px 13px",

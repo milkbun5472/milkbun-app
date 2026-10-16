@@ -30252,7 +30252,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(charId, p => [...p, x.kind === "draw" && x.svg
         ? { role: "user", kind: "photo", imageRef: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: body, content: body, ts: Date.now() }
         : { role: "user", content: body, ts: Date.now() }]);
-      openChatById(charId);
+      // 不跳走：情侣空间那头会在这页上打开聊天半窗（ChatPeekSheet）接着说
+    },
+    chatPeek: {
+      msgsOf: id => chats[id] || [],
+      send: (id, txt) => pushUser(id, txt, id),
+      reply: id => replyNow(id, null, null, { chatKey: id }),
+      open: id => openChatById(id)
     },
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
