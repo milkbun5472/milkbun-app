@@ -7206,11 +7206,12 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
     //   交叠带的起点就是 (D-OVER)/D，弧只取上半圈 → 上半左压右、下半右压左＝扣住了。
     // 首页那几句跟着关系走（她 2026-10-16「改改吧让每种都有点不一样」）：数日子的说法、那颗值叫什么、打卡怎么说、颜色。
     //   甜蜜值底下是同一份数据，只是换个叫法；恋人那套原样不动。
+    //   家人不数「做家人第几天」——家人不是哪天开始做的（她：「什么叫做家人第n天」），只数这个空间开了几天。
     const HOME_REL = {
       lover: null,
       bestie: { days: ["做死党", "天"], val: "默契值", act: "碰一下", glyph: "✦", fg: "#6d4f91", bg: "#efe6f7", btn: "#e3d5f1" },
       friend: { days: ["做挚友", "天"], val: "交情", act: "报个到", glyph: "◆", fg: "#3d6656", bg: "#e3efe8", btn: "#d2e6da" },
-      family: { days: ["做家人", "天"], val: "暖度", act: "回家", glyph: "⌂", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
+      family: { days: ["空间开了", "天"], val: "暖度", act: "回家", glyph: "⌂", fg: "#7d5a2e", bg: "#f4ead9", btn: "#ecdcc0" }
     };
     const hr = HOME_REL[window.spaceRelKey ? window.spaceRelKey(cp[view]) : "lover"] || null;
     const relMark = (sz, col) => hr ? h("span", { style: { fontSize: sz, color: col, lineHeight: 1 } }, hr.glyph) : h(IHeart, { size: sz, color: col, filled: true });
@@ -7248,7 +7249,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "usdays", className: "flex items-baseline gap-2" },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, hr ? hr.days[0] + " 第" : "在一起"),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, hr ? hr.days[0] + (hr.days[0] === "空间开了" ? "" : " 第") : "在一起"),
                 h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, color: hr ? hr.fg : t.accent, lineHeight: 1 } }, days),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, hr ? hr.days[1] : "天")),
               h("div", { className: "flex items-center gap-2.5", style: { marginTop: 8 } },
