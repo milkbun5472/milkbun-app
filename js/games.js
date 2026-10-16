@@ -93,6 +93,10 @@
   }
   // 能力≠性格：所有游戏共用的反刻板铁律，焊进每次生成
   const SKILL_RULE ="【能力与性格分开·非常重要】把「性格风格」和「真实水平」当成两件事：性格只决定 TA 怎么说话、什么语气；真实水平由 TA 的职业、背景、受过的训练、人生经历决定，和性格无关。绝不能因为性格开朗 / 单纯 / 憨 / 软就把 TA 演成脑子不好、推理拉垮——一个性格像小太阳但职业是程序员的人，逻辑和推理其实很强、玩推理游戏心里门儿清，只是嘴上仍旧暖乎乎的。按真实水平决定「玩得多好」，按性格决定「怎么表达」。";
+  // 能力小传说人话（她 2026-10-16：「这些评估是不是可以说人话一点，包括全部游戏的」）：
+  //   原来写出来像武侠小说的人物志——「天衣无缝」「悄无声息下了套」，个个是高手。真人不是个个会记牌、会算。
+  const SKILL_TALK = "\n【能力小传怎么写】这段是写给她看的，像朋友随口跟她介绍「这人玩这个什么样」：大白话、短句，说具体的习惯——会不会算、记不记牌、爱不爱冒险、容易在哪儿犯迷糊。"
+    + "不堆成语、不用「天衣无缝」「运筹帷幄」「滴水不漏」这类书面夸张词，不写成小说里的人物介绍。别把人吹成高手：照人设实话实说，大多数人就是普通水平，有长处也有毛病，该菜就说菜。60~100 字。";
 
   // 说人话、是这个人在说（她 2026-10-11：「之前修过擂台说人话、一起学贴人设，小游戏也看看」）：
   //   牌桌上那些让人开口的生成（描述、发言、投票理由、遗言、嘴仗、接话）原来只递「真实水平」，不递人设——
@@ -947,7 +951,7 @@
   // 开局：出词 + 生成 NPC + 给每个玩家写「牌桌能力小传」（能力≠性格）
   async function setupSpy(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n你是「谁是卧底」的裁判 + 能力评估器。\n" +
+    const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「谁是卧底」的裁判 + 能力评估器。\n" +
       "1. 出一对词 pair：civ 平民词、spy 卧底词——两词【相关但不同】、都能描述、难度适中、别太生僻，别用明显包含关系的（如「苹果 / 苹果手机」不行；「咖啡 / 奶茶」「钢琴 / 吉他」这种才好）。\n" +
       "2. 生成 " + npcCount + " 个 NPC 玩家：name 中文名 + persona 一句人设（含【职业】与性格，尽量多样、别都是学生、别一个味）。\n" +
       "3. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按上面的能力与性格分开原则，点出 TA 玩这种推理游戏时——藏词、听别人描述抓破绽、被怀疑时嘴硬博弈——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也一并给。\n\n" +
@@ -1584,7 +1588,7 @@
   // 开局：生成 NPC + 每人「牌桌能力小传」（狼人杀相关：悍跳/伪装/逻辑/带节奏）
   async function setupWolf(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n你是「狼人杀」的能力评估器 + NPC 生成器。\n" +
+    const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「狼人杀」的能力评估器 + NPC 生成器。\n" +
       "1. 生成 " + npcCount + " 个 NPC 玩家：name 中文名 + persona 一句人设（含【职业】与性格，尽量多样、别都是学生）。\n" +
       "2. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按能力与性格分开的原则，点出 TA 玩狼人杀时——伪装/悍跳、听发言抓逻辑漏洞、带节奏说服人、被架时嘴硬翻盘——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也给。\n\n" +
       "【真实玩家】\n" + (lines || "（无）") +
@@ -2870,7 +2874,7 @@
     const t = props.t, s = props.seat, ev = props.evalOf || {}, host = ev.host || {};
     const id = (s.char && s.char.id) || s.key;
     const persona = String((s.char && s.char.persona) || s.persona || "").trim();
-    const stamp = persona.length;
+    const stamp = persona.length + ":v2";   // v2：说人话那版（旧的那批文绉绉的不再用）
     const [skill, setSkill] = useState(function () { const all = loadJSON(GAME_SKILL_KEY, {}) || {}; const x = ((all[ev.key] || {})[id]) || null; return x && x.n === stamp ? x.text : ""; });
     const [busy, setBusy] = useState(false), [err, setErr] = useState("");
     useEffect(function () {
@@ -2878,8 +2882,8 @@
       const api = host.active;
       if (!api) { setErr("没有可用的线路，评不了"); return; }
       setBusy(true);
-      const sys = AC + SKILL_RULE + "\n\n你是「" + (ev.zh || "这个小游戏") + "」的能力评估器。照这个人的人设，判断 TA 玩这个游戏的真实水平：会不会算、敢不敢冒险、爱怎么打、容易在哪儿栽跟头。"
-        + "写一段 60~120 字的「牌桌能力小传」，第三人称、说人话，不写分数。只输出 JSON：{\"skill\":\"……\"}";
+      const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「" + (ev.zh || "这个小游戏") + "」的能力评估器。照这个人的人设，判断 TA 玩这个游戏的真实水平：会不会算、敢不敢冒险、爱怎么打、容易在哪儿栽跟头。"
+        + "写一段「牌桌能力小传」，第三人称，不写分数。只输出 JSON：{\"skill\":\"……\"}";
       callRetry(api, sys, [{ role: "user", content: "【这个人】" + s.name + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 6000, tag: (ev.zh || "小游戏") + "·能力评估" })
         .then(function (raw) {
           const d = extractJSON(raw) || {}; const text = String(d.skill || "").trim();
@@ -4042,7 +4046,7 @@
 
   async function setupMonopoly(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i+1)+". "+p.name+"："+(p.persona||"（没写人设）"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n你是大富翁桌游的 NPC 生成器与玩家风格评估器。生成 "+npcCount+" 个职业、性格各异的 NPC；并给每个真实玩家和 NPC 一句 skill，明确其风险偏好、现金安全线、谈判/读人能力。不要把内向等同于笨，也不要写胜负结果。\n【真实玩家】\n"+(lines||"（只有NPC）")+"\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"\",\"skill\":\"\"}]}";
+    const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是大富翁桌游的 NPC 生成器与玩家风格评估器。生成 "+npcCount+" 个职业、性格各异的 NPC；并给每个真实玩家和 NPC 一句 skill，明确其风险偏好、现金安全线、谈判/读人能力。不要把内向等同于笨，也不要写胜负结果。\n【真实玩家】\n"+(lines||"（只有NPC）")+"\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"\",\"skill\":\"\"}]}";
     const raw = await callRetry(api, sys, [{role:"user",content:"生成本桌玩家。"}], {maxTokens:11200}); return extractJSON(raw)||{};
   }
   async function monoTalk(api, players, event, standings, recent) {
@@ -4266,7 +4270,7 @@
   }
   async function setupAvalon(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n你是「阿瓦隆」的 NPC 生成器 + 能力评估器。\n" +
+    const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「阿瓦隆」的 NPC 生成器 + 能力评估器。\n" +
       "1. 生成 " + npcCount + " 个 NPC：name 中文名 + persona 一句人设（含【职业】与性格，多样别雷同）。\n" +
       "2. 给【每个真实玩家】和每个 NPC 各写一句 skill「牌桌能力小传」：点出 TA 玩阿瓦隆时——从组队与投票里读心找坏人、伪装隐身份、带节奏说服人——的【真实强弱】（由职业背景推，别被性格带偏）。\n\n" +
       "【真实玩家】\n" + (lines || "（只有 NPC）") +
@@ -7710,7 +7714,7 @@
             const gone = [17, 16, 15, 14].filter(function (v) { return cnt[v]; }).map(function (v) { return ddzRankName(v) + (TOTAL[v] > 1 ? "×" + cnt[v] : ""); });
             const left = [17, 16, 15, 14].filter(function (v) { return (cnt[v] || 0) < TOTAL[v]; }).map(function (v) { return ddzRankName(v) + (TOTAL[v] > 1 ? "×" + (TOTAL[v] - (cnt[v] || 0)) : ""); });
             return "\n【记牌·这一局桌上已经出掉的大牌】" + (gone.length ? gone.join("、") : "还没有") + "；还没出现过的大牌：" + (left.length ? left.join("、") : "都出完了")
-              + "（不知道在谁手里）。" + ((state.bottom || []).length ? "底牌是大家都看见了的：" + state.bottom.map(cardName).join(" ") + "，归了地主。" : "") + "说到哪张牌出没出过，照这一行说，别凭印象。";
+              + "（不知道在谁手里）。" + ((state.bottom || []).length ? "底牌是大家都看见了的：" + state.bottom.map(cardName).join(" ") + "，归了地主。" : "") + "这是桌上真实出过的牌，【不是每个人都记得住】：会记牌的人照这一行说；不怎么记牌的人可以记不清、说「好像出过了吧」、干脆不提——照各自的牌技和性子来，但别把出过的说成肯定没出。";
           })()
           + (state.last && !state.last.cleared ? "\n桌上最后一手：" + state.players[state.last.by].name + " 出的 " + DDZ_TYPE_ZH[state.last.combo.type] + " " + state.last.cards.map(cardName).join(" ") : "")
           + "\n最近：\n" + cardPublicLog(state);
