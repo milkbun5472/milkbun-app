@@ -670,9 +670,9 @@
   const FIC_PERSONA_CAP = 6000;
   function personaOf(c) { return String((c && c.persona) || "").trim().slice(0, FIC_PERSONA_CAP); }
   // 外貌单独一行发：人设里没写长相的，续写时模型就会自己编一副（她 2026-10-16 群友：「把 U 的外貌全写错了」）
-  function lookOf(c) { const a = String((c && c.appearance) || "").trim().slice(0, 400); return a ? "\n外貌（务必贴合，别自己另编发色、长相）：" + a : ""; }
   function sideDesc(c) {
-    const p = personaOf(c) + lookOf(c);
+    const look = String((c && c.appearance) || "").trim().slice(0, 400);
+    const p = personaOf(c) + (look ? "\n外貌（务必贴合，别自己另编发色、长相）：" + look : "");
     if (c.isMe) return "「" + c.name + "」是读者本人（我）" + (p ? "，按这份面具人设来写：\n" + p : "，没有填写人设——可自由发挥其性格，别硬套设定");
     return "「" + c.name + "」严格贴合角色卡：\n" + (p || "（暂无设定，可据名字合理发挥）");
   }
