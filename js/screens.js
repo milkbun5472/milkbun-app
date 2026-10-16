@@ -13637,7 +13637,10 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
         entry.photoStrip ? h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 8 } }, "这一天的照片"),
           h("div", { style: { borderRadius: 8, overflow: "hidden", border: "1px solid rgba(" + iRGB + ",.14)" } }, h(AlbumPhoto, { photo: entry.photoStrip })),
-          h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 })) : null,
+          h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 }),
+          // 添加到主屏幕的网页版里长按图片没有「存储图像」（群里 2026-10-16）——给一颗明着存的键，走公共那条 saveImgOriginal
+          entry.photoStrip.imgKey ? h("button", { onClick: () => { if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图"); window.saveImgOriginal(entry.photoStrip.imgKey, "照片日记").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); }); },
+            className: "w-full mt-3 flex items-center justify-center gap-2 active:opacity-70", style: { border: "1px solid rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "transparent" } }, "保存这张照片") : null) : null,
         h("button", { onClick: () => onPhotoDiary(entry), disabled: !!photoBusy, className: "w-full mt-4 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50",
           style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub, background: "transparent" } },
           photoBusy ? "在冲洗这一天…" : entry.photoStrip ? "重拍这一天（再生成一次图）" : "把这一天拍成照片日记（生成一次图）")) : null));
