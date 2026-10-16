@@ -3584,6 +3584,35 @@ const SPACE_RELS = {
 };
 function spaceRelKey(v) { const k = v && typeof v === "object" ? v.rel : v; return SPACE_RELS[k] ? k : "lover"; }
 function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }
+// 「我们的空间」里的本子（她 2026-10-16：Codex「有一本东西可以长期翻、双方往里添」→「本子的 1234 可以做」）。
+//   一本＝一条条记录，每条下面你一句、TA 一句往后接；TA 也会自己开一条。形状只有这一份，每种关系配自己的几本，
+//   以后再加一本只是在这张表里加一项（施工规则/one-public-mechanism.md）。
+//   fields：开一条时要填的几格；kinds：往下接的那句是什么（你挑、TA 照它的意思选）；closeKind：接了这种就算收尾。
+//   taNew / taReply：TA 开一条、接一句时的那段说明——只写这一本是干什么的、TA 站在哪，不写例句。
+const SPACE_BOOKS = {
+  blackcase: { rel: "bestie", zh: "黑历史案卷", band: "#8d5a7a", say: "一桩一桩记着，谁也别想抵赖",
+    fields: [{ k: "title", zh: "案名", ph: "给这桩糗事起个名" }, { k: "body", zh: "经过", ph: "那天到底发生了什么", long: true }, { k: "who", zh: "谁的糗事", pick: [["me", "我的"], ["ta", "TA 的"]] }],
+    kinds: ["解释", "补刀", "证据", "翻案"], autoAsk: true,
+    taNew: "你们有一本「黑历史案卷」，专门记对方或自己干过的糗事。你来开一桩：可以是你自己的（照你的人设和经历），也可以是她的——她的只能是你们真聊过、记得的事，别编。写个案名、一段经过，标明是谁的。",
+    taReply: "这是你们「黑历史案卷」里的一桩，你往下接一句：是你的糗事就解释、嘴硬或者认了；是她的就补刀、拿证据、或者在她申请翻案时驳回。口语，像闺蜜互损，别太长。" },
+  advisor: { rel: "bestie", zh: "军师观察簿", band: "#b0607a", say: "你递细节，TA 下判断，后来再对账",
+    fields: [{ k: "title", zh: "关于", ph: "关于谁、什么事" }, { k: "body", zh: "细节", ph: "TA 说了什么、做了什么、你怎么想", long: true }],
+    kinds: ["我说", "后来"], autoAsk: true,
+    taNew: "",
+    taReply: "这是你们「军师观察簿」里的一条：她拿来一件跟别人相处的事，你当她的军师下判断。第一次就给判断（直说你怎么看、她该怎么办）；她补了「后来」以后，对照后来的事：判断对了就坚持，看走眼了就直说「这次我看走眼了」再给新判断。站她这边，但别光哄。" },
+  choices: { rel: "friend", zh: "人生选择册", band: "#5d7a8a", say: "要紧的决定，当时怎么想、后来怎样",
+    fields: [{ k: "title", zh: "要决定的事", ph: "比如：要不要换工作" }, { k: "body", zh: "几个选项", ph: "能怎么选，各自担心什么", long: true }, { k: "lean", zh: "我现在倾向", ph: "可空" }],
+    kinds: ["我说", "结果", "回看"], closeKind: "结果", autoAsk: true,
+    taNew: "你们有一本「人生选择册」，专门收两个人各自要做的重要决定。你来放一件你自己眼下要拿主意的事（照你的人设、你现在的生活来）：写清要决定什么、有哪几条路、你现在倾向哪条。",
+    taReply: "这是你们「人生选择册」里的一件事。往下接一句：还没决定时给你真实的看法（可以跟对方的倾向不一样）；对方补了「结果」以后，回头对一对当时谁想对了、担心的事发生没有。是你自己的事，就照你现在的想法往下说。像挚友那样认真，但说人话。" },
+  safe: { rel: "family", zh: "报平安簿", band: "#a07a4a", say: "出门了、在路上、到了",
+    fields: [{ k: "body", zh: "报个平安", ph: "出门了 / 去哪 / 大概几点到" }],
+    kinds: ["看到了", "路上", "到了"], closeKind: "到了", autoAsk: false,
+    taNew: "你们有一本「报平安簿」，家里人出门、在路上、到了都在上面报一声。照你现在真在做的事（看日程和此刻的状态）报一条：出门去哪、大概什么时候到。没出门就说在哪、在干嘛。一两句。",
+    taReply: "这是你们「报平安簿」里的一条。往下接一句：是对方在报平安，就回一句牵挂（看到了、路上小心、到了说一声）；是你自己那条，就照你此刻的情况报个进展，到了就说到了。家里人那种口气，一两句。" }
+};
+function spaceBooksFor(cp) { const rk = spaceRelKey(cp); return Object.keys(SPACE_BOOKS).filter(k => SPACE_BOOKS[k].rel === rk).map(k => Object.assign({ key: k }, SPACE_BOOKS[k])); }
+if (typeof window !== "undefined") { window.SPACE_BOOKS = SPACE_BOOKS; window.spaceBooksFor = spaceBooksFor; }
 // 是不是「恋人那种、已经在一起」——各处判断恋爱向的东西（恋人称谓、在一起几天、抽卡的恋人卡……）都问这一个
 function spaceLover(cp) { return !!(cp && cp.status === "together" && spaceRelKey(cp) === "lover"); }
 // 不是恋人的空间，给模型的那一句（单聊 bundle、群聊、梦都用这一份）
@@ -6353,7 +6382,7 @@ const DURABLE_TEXT_KEYS = new Set([
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
   "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_coupleTrips", "x_coupleGarden", "x_studio", "x_coupleShots", "x_makeup", "x_openers", "x_myCloset", "x_phoneLastAll", "x_ifLines",
-  "x_coupleLetterCfg", "x_coupleSweet",
+  "x_coupleLetterCfg", "x_coupleSweet", "x_spaceBooks",
   // v72.19（她 2026-09-20：「全都带进 indexdb 取消上限」）：这一批同样是【会一直长大的她的东西】，
   // 却还留在 5MB 那个池子里，于是各自被一个上限挤着——而那些上限本来就是为 localStorage 定的。
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。

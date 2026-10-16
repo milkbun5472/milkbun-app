@@ -54,3 +54,18 @@ test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小
   assert.match(scr, /COUPLE_QA_BANK\.filter\(x => !x\.love\)/);
   assert.ok((scr.match(/love: 1, cat:/g) || []).length >= 10);
 });
+
+// 她 2026-10-16「本子的 1234 可以做」：黑历史案卷、军师观察簿（闺蜜）、人生选择册（挚友）、报平安簿（家人）
+test("空间本子：一张表管四本，按关系各拿各的；TA 接话走 runProbe + relSay；存进 IDB 大仓", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = eng.indexOf("const SPACE_BOOKS = {"), j = eng.indexOf("function spaceBooksFor(", i);
+  assert.ok(i > 0 && j > i, "抠不出 SPACE_BOOKS");
+  const B = new Function(eng.slice(i, j) + "; return SPACE_BOOKS;")();
+  assert.deepEqual(Object.keys(B).map(k => k + ":" + B[k].rel).sort(), ["advisor:bestie", "blackcase:bestie", "choices:friend", "safe:family"]);
+  assert.equal(B.safe.closeKind, "到了"); assert.equal(B.choices.closeKind, "结果");
+  assert.match(eng, /"x_coupleSweet", "x_spaceBooks",/);
+  assert.match(app, /const spaceBookTa = async \(char, key, id\) =>/);
+  assert.match(app, /instruction: relSay\(char\) \+ "。" \+ bk\.taReply/);
+  assert.match(scr, /function SpaceBook\(\{ partner, book, entries/);
+  assert.match(scr, /sub\.indexOf\("book:"\) === 0/);
+});

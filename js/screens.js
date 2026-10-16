@@ -6762,7 +6762,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6982,6 +6982,12 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   //   Us 整个重挂：view 和 sub 全归零，人直接被扔回情侣名册
   //  （她 2026-09-04：「时光胶囊点进去退出会整个页面退出」）。
   //   跟这一页别的十几扇门做成同一个形状就好了——退一层就是退一层，滚动位置也跟着回来。
+  if (partner && cp[view] && cp[view].status === "together" && typeof sub === "string" && sub.indexOf("book:") === 0 && window.SPACE_BOOKS && window.SPACE_BOOKS[sub.slice(5)] && onBookAdd) {
+    const bk = sub.slice(5), book = Object.assign({ key: bk }, window.SPACE_BOOKS[bk]);
+    return h(SpaceBook, { partner, book, entries: ((spaceBooks || {})[partner.id] || {})[bk] || [], busy: spaceBookBusy,
+      onAdd: entry => onBookAdd(partner.id, bk, entry), onReply: (id, line) => onBookReply(partner.id, bk, id, line), onRemove: id => onBookRemove(partner.id, bk, id),
+      onTa: id => onBookTa(partner.id, bk, id), onBack: () => setSub(null) });
+  }
   if (partner && cp[view] && cp[view].status === "together" && sub === "capsule" && typeof window !== "undefined" && window.CapsuleApp) {
     return h(window.CapsuleApp, Object.assign({}, capsuleProps || {}, {
       characters: characters, characterId: partner.id, profile: ((typeof profileFor === "function" && profileFor(partner.id)) || profile), onBack: () => setSub(null) }));
@@ -7609,6 +7615,13 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
               // ── ③ 收着的：一列书脊 ─────────────────────────────
               eyebrow("收着的", "一本一本翻"),
               h("div", { style: { borderTop: "1px solid " + PLINE } },
+                // 这层关系自己的几本（闺蜜：黑历史案卷、军师观察簿；挚友：人生选择册；家人：报平安簿）排在最前
+                (window.spaceBooksFor ? window.spaceBooksFor(cp[bCid]) : []).map(bk => {
+                  const l = ((spaceBooks || {})[bCid] || {})[bk.key] || [], last = l[0];
+                  const open = bk.closeKind ? l.filter(e => !e.closed).length : 0;
+                  return spine("book:" + bk.key, { zh: bk.zh.length > 4 ? bk.zh.slice(0, 4) : bk.zh, band: bk.band, dot: false,
+                    say: last ? (open ? open + " 条还没收尾 · " : "") + one(last.title || last.body, 18) : bk.say });
+                }),
                 // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「TA记得的」那行同一个病：
                 //   原来读 content/text——两个都不存在，没标题的信在书脊上永远是空白。
                 spine("letters", { zh: window.spaceRel ? window.spaceRel(cp[bCid]).letter : "情书", band: "#b08d52", dot: bUnread > 0,
@@ -17073,6 +17086,60 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
 // ═══ 情侣空间·里程碑册（言秋提，她 2026-08-31 拍板）═══
 // 全部从已有数据【推】出来，一个钩子都不挂，零调用（理由见 js/couple-firsts.js 顶上那段）。
 // 每一条底下那句注是【引原物】——第一封信就引信的标题，不是现编一句角色口吻的话。
+// 「我们的空间」里的一本本子（她 2026-10-16「本子的 1234 可以做」）：黑历史案卷、军师观察簿、人生选择册、报平安簿……
+//   本子长什么样只有这一份；哪本记什么、TA 怎么接，全在 engine.js 的 SPACE_BOOKS 里。
+function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onTa, onBack }) {
+  const t = useTheme();
+  const [form, setForm] = useState(null);          // 正在记的那一条
+  const [draft, setDraft] = useState({});           // 每条下面那一行：{ [entryId]: { kind, text } }
+  const nm = (partner && (partner.remark || partner.name)) || "TA";
+  const list = entries || [];
+  const startForm = () => { const f = {}; book.fields.forEach(x => { if (x.pick) f[x.k] = x.pick[0][0]; }); setForm(f); };
+  const submit = async () => {
+    if (!String(form.body || "").trim()) return;
+    const e = await onAdd(form); setForm(null);
+    if (book.autoAsk && e && e.id) onTa(e.id);
+  };
+  const who = by => by === "ta" ? nm : "我";
+  const field = (f, val, set) => f.pick
+    ? h("div", { key: f.k, className: "flex", style: { gap: 6, marginTop: 8 } }, h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, alignSelf: "center", marginRight: 4 } }, f.zh),
+        f.pick.map(o => h("button", { key: o[0], onClick: () => set(o[0]), className: "active:opacity-70", style: { padding: "4px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (val === o[0] ? book.band : t.line), background: val === o[0] ? book.band : "transparent", color: val === o[0] ? "#fff" : t.sub } }, o[1] === "TA 的" ? nm + " 的" : o[1])))
+    : h(f.long ? "textarea" : "input", { key: f.k, value: val || "", onChange: e => set(e.target.value), placeholder: f.zh + (f.ph ? "：" + f.ph : ""), rows: f.long ? 3 : undefined,
+        style: { width: "100%", boxSizing: "border-box", marginTop: 8, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, outline: "none", resize: "none" } });
+  return h("div", { "data-wk": "spacebook", "data-kind": book.key, className: "h-full flex flex-col", style: cpSkin(t, "page") },
+    h(Head, { zh: book.zh, bg: "transparent", noLine: true, onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "2px 2px 12px" } }, book.say),
+      !form ? h("div", { className: "flex", style: { gap: 8, marginBottom: 14 } },
+        h("button", { "data-wk": "spacebooknew", onClick: startForm, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: 0, background: book.band, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "记一条"),
+        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : "让 " + nm + " 开一条") : null) :
+      h("div", { "data-wk": "spacebookform", style: { marginBottom: 14, padding: "12px 13px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+        book.fields.map(f => field(f, form[f.k], v => setForm(o => Object.assign({}, o, { [f.k]: v })))),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+          h("button", { onClick: () => setForm(null), className: "active:opacity-70", style: { padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
+          h("button", { onClick: submit, disabled: !String(form.body || "").trim(), className: "flex-1 active:opacity-70", style: { padding: "9px 0", borderRadius: 999, border: 0, background: String(form.body || "").trim() ? book.band : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, book.autoAsk ? "记下，让 " + nm + " 看看" : "记下"))),
+      list.length ? list.map(e => {
+        const d = draft[e.id] || { kind: book.kinds[0], text: "" };
+        const setD = v => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, d, v) }));
+        const send = () => { if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setD({ text: "" }); };
+        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-closed": e.closed ? "1" : "0", style: { marginBottom: 12, padding: "13px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, borderLeft: "3px solid " + book.band, opacity: e.closed ? .85 : 1 } },
+          h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.title || (e.closed ? "收好了" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, who(e.by) + " 记 · " + (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts)) + (e.who ? " · " + (e.who === "ta" ? nm : "我") + "的糗事" : "") + (e.closed ? " · 已收尾" : ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginTop: 6, whiteSpace: "pre-wrap" } }, e.body),
+          e.lean ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4 } }, "当时倾向：" + e.lean) : null,
+          (e.thread || []).map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } },
+            h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, who(x.by) + " · " + x.kind), x.text)),
+          h("div", { className: "flex", style: { gap: 5, marginTop: 10, flexWrap: "wrap" } },
+            book.kinds.map(k => h("button", { key: k, onClick: () => setD({ kind: k }), className: "active:opacity-70", style: { padding: "3px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (d.kind === k ? book.band : t.line), background: d.kind === k ? book.band : "transparent", color: d.kind === k ? "#fff" : t.fog } }, k))),
+          h("div", { className: "flex", style: { gap: 6, marginTop: 6 } },
+            h("input", { value: d.text, onChange: ev => setD({ text: ev.target.value }), placeholder: "接一句…", style: { flex: 1, minWidth: 0, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 12px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+            h("button", { onClick: send, disabled: !d.text.trim(), style: { padding: "8px 12px", borderRadius: 999, border: 0, background: d.text.trim() ? book.band : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "写上"),
+            h("button", { "data-wk": "spacebookask", onClick: () => onTa(e.id), disabled: !!busy, style: { padding: "8px 10px", borderRadius: 999, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, busy === book.key + ":" + e.id ? "在写…" : "让 " + nm + " 接")),
+          h("button", { onClick: () => requestAppConfirm("撕掉这一条？", "这一条和底下接过的话都没了。", () => onRemove(e.id), "撕掉"), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, background: "transparent" } }, "撕掉这一条"));
+      }) : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "30px 0" } }, "还是空的。")));
+}
+
 function CoupleFirstsBook({ partner, items, onBack }) {
   const t = useTheme();
   const rows = items || [];

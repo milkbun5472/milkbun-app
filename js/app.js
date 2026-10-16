@@ -618,6 +618,8 @@ function App() {
   const forumCharMetaRef = useRef({}); forumCharMetaRef.current = forumCharMeta;
   // 情侣空间·问答小本：已答条目流（各角色各一份，按 characterId 过滤）
   const [coupleQA, setCoupleQA] = useState([]);
+  // 「我们的空间」里的本子（黑历史案卷、军师观察簿、人生选择册、报平安簿……）：{ [charId]: { [bookKey]: [条目] } }
+  const [spaceBooks, setSpaceBooks] = useState({});
   // 问答小本封面标题：{ [charId]: title }
   const [coupleQATitle, setCoupleQATitle] = useState({});
   // 情侣空间·双向便签：贴纸墙（authorId='user' 或角色 id）
@@ -1970,6 +1972,7 @@ function App() {
       saveJSON("x_whispersMigrated", true);
     }
     setCoupleQA(loadJSON("x_coupleQA", []));
+    setSpaceBooks(loadJSON("x_spaceBooks", {}) || {});
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
     // 便签墙 v59.23 撤掉了（她 2026-08-31：「有点鸡肋」）。存量不许丢：
     // 一次性搬进抽屉，标成【已经拆过的】——那些她本来就看过了，不该冒充新东西。
@@ -24141,6 +24144,54 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return rk === "lover" ? "你们是恋人" : "你们是" + r.zh.replace(" / ", "、") + "，不是恋人（照" + (rk === "family" ? "家人" : "朋友") + "之间来写，不往恋爱、暧昧那头走）";
   };
   const letterWord = c => spaceRel((couplesRef.current || {})[c && c.id]).letter;
+  // ── 空间里的本子：一条＝{ id, ts, by:"me"|"ta", title, body, who, lean, thread:[{by,kind,text,ts}], closed } ──
+  const spaceBookPut = (charId, key, fn) => setSpaceBooks(p => {
+    const mine = (p[charId] || {})[key] || [];
+    const n = { ...p, [charId]: { ...(p[charId] || {}), [key]: fn(mine) } };
+    saveJSON("x_spaceBooks", n); return n;
+  });
+  const spaceBookAdd = (charId, key, entry) => {
+    const e = { id: "sb_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), ts: Date.now(), thread: [], closed: false, ...entry };
+    spaceBookPut(charId, key, l => [e, ...l]);
+    return e;
+  };
+  const spaceBookReply = (charId, key, id, line) => {
+    const bk = window.SPACE_BOOKS[key];
+    spaceBookPut(charId, key, l => l.map(e => e.id !== id ? e : { ...e, thread: [...(e.thread || []), { ts: Date.now(), ...line }], closed: e.closed || (!!bk.closeKind && line.kind === bk.closeKind) }));
+  };
+  const spaceBookRemove = (charId, key, id) => spaceBookPut(charId, key, l => l.filter(e => e.id !== id));
+  // TA 动笔：id 给了＝接这一条往下说；没给＝自己开一条。走 runProbe：人设、记忆、你俩什么关系（relSay）都白得
+  const spaceBookTa = async (char, key, id) => {
+    const bk = window.SPACE_BOOKS[key];
+    if (!bk || !char) return false;
+    if (gen.spaceBook) return false;
+    setGen(g => ({ ...g, spaceBook: key + ":" + (id || "new") }));
+    const uN = (meOf(char.id) || {}).name || "她";
+    try {
+      if (id) {
+        const e = ((spaceBooks[char.id] || {})[key] || []).find(x => x.id === id);
+        if (!e) return false;
+        const whoSide = x => x === "ta" ? char.name : uN;
+        const text = (e.title ? "【" + e.title + "】" : "") + (e.who ? "（这是" + (e.who === "ta" ? "你" : uN) + "的糗事）" : "") + "\n" + whoSide(e.by) + " 写的：" + (e.body || "") + (e.lean ? "\n" + whoSide(e.by) + " 当时倾向：" + e.lean : "")
+          + ((e.thread || []).length ? "\n往下接过的：\n" + e.thread.map(t => whoSide(t.by) + "（" + t.kind + "）：" + t.text).join("\n") : "");
+        const d = await runProbe(apiFor(char.id), ctxFor(char), { maxTokens: 65000, schemaHint: "{\"kind\":\"" + bk.kinds.join("|") + "\",\"text\":\"你接的那一句\"}",
+          instruction: relSay(char) + "。" + bk.taReply + "\n" + text + "\nkind 从「" + bk.kinds.join("、") + "」里挑最贴的那个。" });
+        const t = String((d && d.text) || "").trim();
+        if (!t) throw new Error("TA 这回没写出来，再点一次");
+        spaceBookReply(char.id, key, id, { by: "ta", kind: bk.kinds.indexOf(d.kind) >= 0 ? d.kind : bk.kinds[0], text: t.slice(0, 1200) });
+      } else {
+        if (!bk.taNew) return false;
+        const fieldHint = bk.fields.map(f => "\"" + f.k + "\":\"" + (f.pick ? f.pick.map(x => x[0]).join("|") : f.zh) + "\"").join(",");
+        const d = await runProbe(apiFor(char.id), ctxFor(char), { maxTokens: 65000, schemaHint: "{" + fieldHint + "}",
+          instruction: relSay(char) + "。" + bk.taNew + (bk.fields.some(f => f.k === "who") ? "who 填 me＝她的、ta＝你自己的。" : "") });
+        const body = String((d && d.body) || "").trim();
+        if (!body) throw new Error("TA 这回没写出来，再点一次");
+        spaceBookAdd(char.id, key, { by: "ta", title: String(d.title || "").trim().slice(0, 60), body: body.slice(0, 2000), who: d.who === "me" || d.who === "ta" ? d.who : undefined, lean: String(d.lean || "").trim().slice(0, 300) || undefined });
+      }
+      return true;
+    } catch (e) { toast("没写成：" + String((e && e.message) || e).slice(0, 120)); return false; }
+    finally { setGen(g => ({ ...g, spaceBook: null })); }
+  };
   // 换这个空间的关系（她 2026-10-16）：开错了不用解除重来，改了以后 TA 那边下一句就照新关系来
   const setCoupleRel = (charId, rel) => {
     const rk = spaceRelKey(rel);
@@ -30263,6 +30314,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     discPlaying: !!player.playing,
     onBack: goHome,
     onInvite: sendCoupleInvite, onSetRel: setCoupleRel,
+    spaceBooks: spaceBooks, spaceBookBusy: gen.spaceBook || null,
+    onBookAdd: (cid, key, entry) => spaceBookAdd(cid, key, { by: "me", ...entry }), onBookReply: (cid, key, id, line) => spaceBookReply(cid, key, id, { by: "me", ...line }),
+    onBookRemove: spaceBookRemove, onBookTa: (cid, key, id) => spaceBookTa(characters.find(c => c.id === cid), key, id),
     onUnlink: unlinkCouple,
     onSetSince: setCoupleSince,
     profile: profile,
