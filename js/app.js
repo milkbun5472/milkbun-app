@@ -607,6 +607,10 @@ function App() {
   const [forumPosts, setForumPosts] = useState([]);
   const [forumComments, setForumComments] = useState({}); // { [postId]: [comment] }
   const [forumFollows, setForumFollows] = useState([]);    // 关注的角色 id
+  // 回关（群友 2026-10-16 许愿「贴吧 char 回关 user」）：{ [charId]: { on, at 回关那一刻, pendingAt 打算什么时候回关, offWhy, checkAt } }
+  const [forumBack, setForumBack] = useState(() => loadJSON("x_forumBack", {}) || {});
+  const forumBackRef = useRef(forumBack); forumBackRef.current = forumBack;
+  const forumFollowsRef = useRef(forumFollows); forumFollowsRef.current = forumFollows;
   const [forumPMs, setForumPMs] = useState([]);            // 与 NPC 的私信会话
   const [forumMe, setForumMe] = useState({ handle: "", bio: "", joinTs: 0, followers: 0 });
   const [forumCharMeta, setForumCharMeta] = useState({});  // { [charId]: {handle,bio,joinTs,following,followers} }（AI 生成一次）
@@ -22665,7 +22669,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "")
+    // 互关的那几位（回关过的、她也还关注着）：她发的帖他们一定刷到，还没来过就来一楼
+    const mutuals = meOwn ? opKnowers.filter(c => ((forumBackRef.current || {})[c.id] || {}).on && (forumFollowsRef.current || []).includes(c.id)) : [];
+    const mutualRule = mutuals.length ? "\n【互相关注】" + mutuals.map(c => "「" + c.name + "」").join("、") + " 跟她在论坛上互关，她一发帖他们就刷到了：这一轮里他们要是还没在这帖出现过，至少来一位，用大号。\n" : "";
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + mutualRule + (meOwn ? forumMaskNote(post, poolChars) : "")
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
@@ -22888,10 +22895,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } finally { setGen(g => ({ ...g, forum: null })); }
   };
   const toggleForumFollow = charId => setForumFollows(prev => {
-    const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId];
+    const adding = !prev.includes(charId);
+    const n = adding ? [...prev, charId] : prev.filter(x => x !== charId);
     saveJSON("x_forumFollows", n);
+    if (adding) setTimeout(() => forumBackDecide(charId), 0);
     return n;
   });
+  // ── 回关 / 取关 ───────────────────────────────────────────
+  //   回不回、多久回，照你俩的关系定，不花调用：在一起的几分钟内就回；好感高的多半过一阵回；一般的看缘分；
+  //   没回的过两天再掂量一次。闹别扭（和好间那个信号亮着）的时候他会取关你，缓过来了你还关注着他，就关回来。
+  //   回关、取关都记进他的记忆，聊天里会自己提。
+  const forumBackSave = n => { forumBackRef.current = n; setForumBack(n); saveJSON("x_forumBack", n); };
+  const forumBackDecide = charId => {
+    const cur = (forumBackRef.current || {})[charId] || {};
+    if (cur.on || cur.pendingAt) return;
+    const now = Date.now(), together = ((couplesRef.current || {})[charId] || {}).status === "together";
+    const aff = typeof affOf === "function" ? Number(affOf(charId)) || 0 : 50;
+    const p = together ? 1 : aff >= 70 ? 0.85 : aff >= 45 ? 0.55 : aff >= 20 ? 0.25 : 0.08;
+    const yes = Math.random() < p;
+    const wait = together ? (2 + Math.random() * 13) * 60000 : (30 + Math.random() * 330) * 60000;
+    forumBackSave({ ...(forumBackRef.current || {}), [charId]: yes ? { ...cur, pendingAt: now + wait } : { ...cur, checkAt: now + 2 * 86400000 } });
+  };
+  const forumBackTick = () => {
+    const all = { ...(forumBackRef.current || {}) }, flwNow = forumFollowsRef.current || [], now = Date.now();
+    let changed = false;
+    const remember = (cid, text) => { try { addMemEntry({ text, tags: ["论坛"], charIds: [cid], knownBy: [cid], source: "auto" }); } catch (e) {} };
+    for (const c of (charactersRef.current || characters || [])) {
+      const cid = c.id, b = all[cid] || {}, iFollow = flwNow.includes(cid);
+      const sulky = typeof makeupSignalFor === "function" && (makeupSignalFor(cid) || {}).on;
+      if (b.on && sulky && !b.offWhy) {
+        all[cid] = { ...b, on: false, offWhy: "sulk", offAt: now }; changed = true;
+        toast(c.name + " 取消关注了你", 5000);
+        remember(cid, "在论坛上，因为跟" + (profile.name || "她") + "闹别扭，取消关注了她的号");
+        continue;
+      }
+      if (b.offWhy === "sulk" && !sulky && iFollow) { all[cid] = { ...b, offWhy: null, pendingAt: now + (20 + Math.random() * 100) * 60000 }; changed = true; continue; }
+      if (!b.on && b.pendingAt && b.pendingAt <= now && iFollow && !sulky) {
+        all[cid] = { on: true, at: now }; changed = true;
+        toast(c.name + " 回关了你", 5000);
+        remember(cid, "在论坛上回关了" + (profile.name || "她") + "的号，现在是互相关注");
+        continue;
+      }
+      if (!b.on && !b.pendingAt && b.checkAt && b.checkAt <= now && iFollow) { delete all[cid]; changed = true; setTimeout(() => forumBackDecide(cid), 0); }
+    }
+    if (changed) forumBackSave(all);
+  };
+  useEffect(() => {
+    if (!loaded) return;
+    const first = setTimeout(forumBackTick, 15000);
+    const iv = setInterval(forumBackTick, 120000);
+    return () => { clearTimeout(first); clearInterval(iv); };
+  }, [loaded]);
   // 转发帖子到私聊：只 push 卡片，【不自动回复】——她要转完接着说自己的话，说完按「回复」TA 再一起反应。
   // 帖子内容写进 content：回复走正常 replyNow 历史，TA 能一直记得这条帖（含自己匿名发的帖，认不认在正常回复里演）。
   // 「这帖是你自己发的 / 你本人在这帖里回过」——转发时让 TA 认得出自己。
@@ -30122,6 +30176,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     posts: forumPosts,
     comments: forumComments,
     follows: forumFollows,
+    followBack: forumBack,
+    // 他关注了谁（互关的第 3 条）：回关了你就有你；再加上跟他有关系的那几个角色（有号的才算），只列名字
+    followingOf: cid => ((characters || []).filter(x => x.id !== cid && !x.npc && (rels[cid + "->" + x.id] || rels[x.id + "->" + cid])).map(x => x.name)).slice(0, 12),
     pms: forumPMs,
     groups: groups,
     gen: gen,
