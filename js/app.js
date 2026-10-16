@@ -30559,6 +30559,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     studioCanShoot: ch => !!(typeof imgApiReady === "function" && imgApiReady() && ch && ch.refPhoto && (meOf(ch.id) || {}).refPhoto),
     onGenDateFit: genDateOutfits,
     onStudioShoot: studioShoot,
+    // 题材也让模型想（她 2026-10-17：「题材也要 ai 写」）：一次 6 个，名字＋一句「这个世界里你们是什么样」
+    onRollThemes: async (have, hint) => {
+      const p = bgActiveRef.current || active;
+      if (!p) { toast("请先到设置配置 API"); return []; }
+      try {
+        const ins = "给一个双人合照照相馆想 6 个拍照题材，彼此差得开、好看、好玩。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
+          + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
+          + "每个给 zh（题材名，2~6 个字）和 line（一两句：这个题材里两个人在哪、穿什么、什么身份、什么氛围，给生图模型看的，60~120 字）。";
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"themes\":[{\"zh\":\"\",\"line\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const d = extractJSON(raw);
+        return (d && Array.isArray(d.themes) ? d.themes : []).filter(x => x && String(x.zh || "").trim()).slice(0, 8)
+          .map(x => ({ zh: String(x.zh).trim().slice(0, 12), line: String(x.line || "").trim().slice(0, 300) }));
+      } catch (e) { toast("没想出来：" + (e.message || "再试一次")); return []; }
+    },
     // 让模型想几种画风（群友 2026-10-17：「可以自己 roll 多几种自定义画风和相应的描述」）：一次文字调用，6 种，名字＋一段描述
     onRollStyles: async (have, hint) => {
       const p = bgActiveRef.current || active;
