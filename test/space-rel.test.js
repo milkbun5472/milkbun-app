@@ -21,7 +21,7 @@ test("闺蜜空间：给模型的那句说清不是恋人；恋人照旧；老�
 test("各处 instruction 不再手写「你们是恋人」，都问 relSay", () => {
   assert.equal((app.match(/instruction: "你们是恋人/g) || []).length, 0);
   assert.ok((app.match(/instruction: relSay\(char\)/g) || []).length >= 13);
-  assert.match(app, /return "together\|" \+ \(days \|\| ""\) \+ "\|" \+ rk;/);
+  assert.match(app, /return "together\|" \+ \(days \|\| ""\) \+ "\|" \+ rk \+ "\|" \+ String\(cp\.role/);
 });
 
 // 她 2026-10-16：「别的关系角色也可以发邀请信」
@@ -53,4 +53,56 @@ test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小
   assert.match(eng, /const pool = PHOTO_DUO_POSES\.filter\(x => !opts\.notLover \|\| x\.charAt\(0\) !== "♥"\)/);
   assert.match(scr, /COUPLE_QA_BANK\.filter\(x => !x\.love\)/);
   assert.ok((scr.match(/love: 1, cat:/g) || []).length >= 10);
+});
+
+// 她 2026-10-16「本子的 1234 可以做」：黑历史案卷、军师观察簿（闺蜜）、人生选择册（挚友）、报平安簿（家人）
+test("空间本子：一张表管四本，按关系各拿各的；TA 接话走 runProbe + relSay；存进 IDB 大仓", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = eng.indexOf("const SPACE_BOOKS = {"), j = eng.indexOf("function spaceBooksFor(", i);
+  assert.ok(i > 0 && j > i, "抠不出 SPACE_BOOKS");
+  const B = new Function(eng.slice(i, j) + "; return SPACE_BOOKS;")();
+  assert.deepEqual(Object.keys(B).map(k => k + ":" + B[k].rel).sort(), ["advisor:bestie", "blackcase:bestie", "choices:friend", "complain:family", "credit:friend", "favor:family", "mouth:bestie", "safe:family"]);
+  assert.equal(B.safe.closeKind, "到了"); assert.equal(B.choices.closeKind, "结果");
+  assert.match(eng, /"x_coupleSweet", "x_spaceBooks",/);
+  assert.match(app, /const spaceBookTa = async \(char, key, id\) =>/);
+  assert.match(app, /instruction: relSay\(char\) \+ "。" \+ bk\.taReply/);
+  assert.match(scr, /function SpaceBook\(\{ partner, book, entries/);
+  assert.match(scr, /sub\.indexOf\("book:"\) === 0/);
+});
+
+// 她 2026-10-16「一起」：家人细分（哥哥姐姐弟弟妹妹爸妈……）——手足别演成操心长辈
+test("家人细分：role 进关系那句，只说身份、不写怎么当", () => {
+  const g = load();
+  const b = g.lines({ coupleStatus: "together|5|family|哥哥" }, "她").join("");
+  assert.match(b, /你是 她 的哥哥/); assert.match(b, /照你的人设和你们一起过来的经历/);
+  // 只给身份不给剧本（她：「这也是八股限制吧，每个兄弟姐妹都不一样」）
+  assert.doesNotMatch(b, /互损|护短|操心的长辈|抢东西/);
+});
+
+// 她 2026-10-16「每个 ui 都弄好看点，判据是如果在别的 app 成立那就是做坏了」：八本各长各的
+test("本子各长各的：卷宗、诉状、批注、对照卡、岔路、签名页、一路的站、账本", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
+  assert.ok(i > 0 && j > i);
+  const f = scr.slice(i, j);
+  ["blackcase", "complain", "advisor", "mouth", "choices", "credit", "safe", "favor"].forEach(k => assert.match(f, new RegExp('book\\.key === "' + k + '"'), k + " 没有自己的长相"));
+});
+
+// 她：「你这只是换了个颜色喂」——四本换的是形状：档案袋点开成卷宗、诉状点开分原告被告席、卡片能翻面、车票带一条路
+test("本子长成那样东西：档案袋、庭审两边、翻面卡、车票", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
+  const f = scr.slice(i, j);
+  assert.match(f, /"← 合上卷宗"/); assert.match(f, /"原告席 · "/); assert.match(f, /rotateY\(180deg\)/); assert.match(f, /\["出门", "路上", "到了"\]/);
+  assert.match(f, /OBJ\[book\.key\] && list\.length \? objView\(\)/);
+});
+
+// 她：「但是背景都还是这种纸张」——四本各有自己的布景，不铺那张纸
+test("本子布景：木桌、小法庭、软木板、站台", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
+  const f = scr.slice(i, j);
+  ["blackcase", "complain", "mouth", "safe"].forEach(k => assert.match(f, new RegExp("    " + k + ": \\{ ink: ")));
+  assert.match(f, /style: sc \? sc\.page : cpSkin\(t, "page"\)/);
+  assert.match(f, /ink: sc \? sc\.ink : undefined/);
 });

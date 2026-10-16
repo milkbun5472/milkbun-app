@@ -17,6 +17,8 @@ const KINDS = ["page", "wall", "album", "sill", "lining", "velvet", "corridor"];
 test("一个 cpSkin 管这一片，不是一页一份 style", () => {
   assert.equal((src.match(/const cpSkin = /g) || []).length, 1);
   // v62.99 起第九处：第一次们也是【一本册子】，直接搬这本本子的内页，不新画一张
+  // 空间本子 v75.797 起不铺这张纸：卷宗在木桌上、诉状在小法庭、对照卡在软木板、车票在站台（她「背景都还是这种纸张」），
+  //   没布景的那几本才退回 cpSkin，写法是 `sc ? sc.page : cpSkin(t, "page")`，不算进这九处
   assert.equal((src.match(/style: cpSkin\(t, "/g) || []).length, 9,
     "铺到的页数变了：问答小本两页 / 我们的日子 / 合照 / 花房 / 旅行 / 唱片 / 情侣名册 / 第一次们，共九处");
   KINDS.forEach(k => assert.ok(src.includes('cpSkin(t, "' + k + '")'), k + " 这一档没人用，等于白写"));
