@@ -6418,7 +6418,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const cp = !char.npc && couples[char.id];
       if (!cp) return "";
       const rk = typeof spaceRelKey === "function" ? spaceRelKey(cp) : "lover";
-      if (cp.status === "together") { const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null; return "together|" + (days || "") + "|" + rk; }
+      if (cp.status === "together") { const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null; return "together|" + (days || "") + "|" + rk + "|" + String(cp.role || "").replace(/\|/g, ""); }
       if (cp.status === "pending") return "pending||" + rk;
       return "";
     })(),
@@ -24139,7 +24139,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setCoupleBreakup(p => { const n = { ...p, [cid]: { ts: Date.now(), deducted: deduct, affAfter: after } }; saveJSON("x_coupleBreakup", n); return n; });
     toast("已解除情侣关系 · 好感 −" + deduct);
   };
-  const sendCoupleInvite = async (char, rel) => {
+  const sendCoupleInvite = async (char, rel, role) => {
     const rk = typeof spaceRelKey === "function" ? spaceRelKey(rel) : "lover", rl = typeof spaceRel === "function" ? spaceRel(rk) : { space: "情侣空间", invite: "想和你在一起" };
     if (!active) { toast("请先到设置配置 API"); return; }
     if (couples[char.id]) { toast(couples[char.id].status === "together" ? "你们已经在一起了" : "邀请已发出，等 TA 回应"); return; }
@@ -24152,7 +24152,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (affOf(char.id) < need) { toast("TA 还没准备好复合——好感要至少加回被扣的一半（当前 " + Math.round(affOf(char.id)) + " / 需 " + Math.ceil(need) + "）"); return; }
     }
     const cid = "ci_" + Date.now();
-    setCoupleFor(char.id, { status: "pending", since: null, rel: rk });
+    setCoupleFor(char.id, { status: "pending", since: null, rel: rk, ...(rk === "family" && String(role || "").trim() ? { role: String(role).trim().slice(0, 12) } : {}) });
     // 往聊天里发一张邀请卡（关系写在卡上：TA 看得到这是哪一种）
     pChat(char.id, p => [...p, { role: "user", kind: "couple_invite", cid, status: "pending", rel: rk, content: "[" + rl.space + "邀请] " + rl.invite, ts: Date.now(), read: true }]);
     toast("邀请已送到和 " + char.name + " 的聊天——说完你想说的，再点卡片上「让 TA 回应」");
@@ -24211,7 +24211,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
     const now = new Date();
     const rk0 = spaceRelKey(relOverride || (couplesRef.current || {})[charId]);
-    setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0 });
+    const role0 = rk0 === "family" ? ((couplesRef.current || {})[charId] || {}).role : "";
+    setCoupleFor(charId, { status: "together", since: now.getTime(), rel: rk0, ...(role0 ? { role: role0 } : {}) });
     // 在一起纪念日写进日历（该角色视角）
     if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
     else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");
@@ -24219,7 +24220,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
   const relSay = c => {
     const rk = spaceRelKey((couplesRef.current || {})[c && c.id]), r = spaceRel(rk);
-    return rk === "lover" ? "你们是恋人" : "你们是" + r.zh.replace(" / ", "、") + "，不是恋人（照" + (rk === "family" ? "家人" : "朋友") + "之间来写，不往恋爱、暧昧那头走）";
+    const cp = (couplesRef.current || {})[c && c.id], role = spaceRoleLine(cp, (meOf(c && c.id) || {}).name || "她");
+    return rk === "lover" ? "你们是恋人" : role + "你们是" + r.zh.replace(" / ", "、") + "，不是恋人（照" + (rk === "family" ? "家人" : "朋友") + "之间来写，不往恋爱、暧昧那头走）";
   };
   const letterWord = c => spaceRel((couplesRef.current || {})[c && c.id]).letter;
   // ── 空间里的本子：一条＝{ id, ts, by:"me"|"ta", title, body, who, lean, thread:[{by,kind,text,ts}], closed } ──
@@ -24250,7 +24252,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const e = ((spaceBooks[char.id] || {})[key] || []).find(x => x.id === id);
         if (!e) return false;
         const whoSide = x => x === "ta" ? char.name : uN;
-        const text = (e.title ? "【" + e.title + "】" : "") + (e.who ? "（这是" + (e.who === "ta" ? "你" : uN) + "的糗事）" : "") + "\n" + whoSide(e.by) + " 写的：" + (e.body || "") + (e.lean ? "\n" + whoSide(e.by) + " 当时倾向：" + e.lean : "")
+        // 这一条每一格照本子自己的格子名念给 TA（谁的糗事、被告是谁、后来做的……都在 fields 里）
+        const fieldTxt = bk.fields.filter(f => f.k !== "title" && f.k !== "body" && e[f.k]).map(f => f.pick ? f.zh + "：" + (e[f.k] === "ta" ? "你" : uN) : f.zh + "：" + e[f.k]).join("；");
+        const text = (e.title ? "【" + e.title + "】" : "") + (fieldTxt ? "（" + fieldTxt + "）" : "") + "\n" + whoSide(e.by) + " 写的：" + (e.body || "")
+          + ((e.thread || []).length ? "\n往下接过的：\n" + e.thread.map(t => whoSide(t.by) + "（" + t.kind + "）：" + t.text).join("\n") : "");
           + ((e.thread || []).length ? "\n往下接过的：\n" + e.thread.map(t => whoSide(t.by) + "（" + t.kind + "）：" + t.text).join("\n") : "");
         const d = await runProbe(apiFor(char.id), ctxFor(char), { maxTokens: 65000, schemaHint: "{\"kind\":\"" + bk.kinds.join("|") + "\",\"text\":\"你接的那一句\"}",
           instruction: relSay(char) + "。" + bk.taReply + "\n" + text + "\nkind 从「" + bk.kinds.join("、") + "」里挑最贴的那个。" });
@@ -24261,19 +24266,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!bk.taNew) return false;
         const fieldHint = bk.fields.map(f => "\"" + f.k + "\":\"" + (f.pick ? f.pick.map(x => x[0]).join("|") : f.zh) + "\"").join(",");
         const d = await runProbe(apiFor(char.id), ctxFor(char), { maxTokens: 65000, schemaHint: "{" + fieldHint + "}",
-          instruction: relSay(char) + "。" + bk.taNew + (bk.fields.some(f => f.k === "who") ? "who 填 me＝她的、ta＝你自己的。" : "") });
+          instruction: relSay(char) + "。" + bk.taNew });
         const body = String((d && d.body) || "").trim();
         if (!body) throw new Error("TA 这回没写出来，再点一次");
-        spaceBookAdd(char.id, key, { by: "ta", title: String(d.title || "").trim().slice(0, 60), body: body.slice(0, 2000), who: d.who === "me" || d.who === "ta" ? d.who : undefined, lean: String(d.lean || "").trim().slice(0, 300) || undefined });
+        const extra = {};
+        bk.fields.forEach(f => { if (f.k === "title" || f.k === "body") return; const v = d[f.k]; if (f.pick) { if (f.pick.some(o => o[0] === v)) extra[f.k] = v; } else if (String(v || "").trim()) extra[f.k] = String(v).trim().slice(0, 300); });
+        spaceBookAdd(char.id, key, { by: "ta", title: String(d.title || "").trim().slice(0, 60), body: body.slice(0, 2000), ...extra });
       }
       return true;
     } catch (e) { toast("没写成：" + String((e && e.message) || e).slice(0, 120)); return false; }
     finally { setGen(g => ({ ...g, spaceBook: null })); }
   };
   // 换这个空间的关系（她 2026-10-16）：开错了不用解除重来，改了以后 TA 那边下一句就照新关系来
-  const setCoupleRel = (charId, rel) => {
-    const rk = spaceRelKey(rel);
-    setCouples(p => { const cur = p[charId]; if (!cur) return p; const n = { ...p, [charId]: { ...cur, rel: rk } }; saveJSON("x_couples", n); return n; });
+  const setCoupleRel = (charId, rel, role) => {
+    const rk = spaceRelKey(rel), r = rk === "family" ? String(role || "").trim().slice(0, 12) : "";
+    setCouples(p => { const cur = p[charId]; if (!cur) return p; const { role: _old, ...rest } = cur; const n = { ...p, [charId]: { ...rest, rel: rk, ...(r ? { role: r } : {}) } }; saveJSON("x_couples", n); return n; });
     toast("改好了：这里现在是" + spaceRel(rk).space);
   };
   // ── TA写给她的申请信（v74.732，群里 2026-10-02：「char 可以反过来向 user 提出情侣申请让 user 拆开看吗」）──

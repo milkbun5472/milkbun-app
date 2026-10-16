@@ -6861,13 +6861,24 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 
   // 挑关系（她 2026-10-16）：恋人 / 闺蜜 / 挚友 / 家人，一行说清开了以后 TA 会怎么当
   const REL_NOTE = { lover: "TA 接了就当你们在一起了，信是情书。", bestie: "最铁的那种朋友，什么都能说，不往恋爱那头走。", friend: "一辈子的朋友，信写的是交情。", family: "像家人一样，惦记、唠叨、护着。" };
-  const relRows = (now, onPick) => Object.keys(window.SPACE_RELS || { lover: 1 }).map(k => h("button", { key: k, "data-wk": "usrel", "data-on": now === k ? "1" : "0", onClick: () => onPick(k), className: "w-full text-left active:opacity-60",
+  // 家人再细分（她 2026-10-16）：点「家人」先展开一排「TA 是你的谁」，挑了才算数；不细分也行
+  const FAM_ROLES = ["哥哥", "姐姐", "弟弟", "妹妹", "爸妈", "长辈", "孩子"];
+  const famPick = (nowRole, onPick) => h("div", { "data-wk": "usfamrole", style: { margin: "-2px 0 10px 14px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "TA 是你的谁"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+      FAM_ROLES.concat([""]).map(r => h("button", { key: r || "_none", "data-on": (nowRole || "") === r ? "1" : "0", onClick: () => onPick("family", r), className: "active:opacity-70",
+        style: { padding: "4px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + ((nowRole || "") === r ? t.ink : t.line), background: (nowRole || "") === r ? t.ink : "transparent", color: (nowRole || "") === r ? t.bg2 : t.sub } }, r || "不细分")),
+      h("input", { placeholder: "自己写…", defaultValue: FAM_ROLES.indexOf(nowRole || "") < 0 ? (nowRole || "") : "", onKeyDown: e => { if (e.key === "Enter" && e.target.value.trim()) onPick("family", e.target.value.trim()); }, onBlur: e => { const v = e.target.value.trim(); if (v && v !== nowRole) onPick("family", v); },
+        style: { width: 86, padding: "4px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 12, outline: "none" } })));
+  const [famOpen, setFamOpen] = useState(false);
+  const relRows = (now, onPick, nowRole) => Object.keys(window.SPACE_RELS || { lover: 1 }).map(k => h(React.Fragment, { key: k }, h("button", { key: k, "data-wk": "usrel", "data-on": now === k ? "1" : "0", onClick: () => k === "family" ? setFamOpen(true) : (setFamOpen(false), onPick(k)), className: "w-full text-left active:opacity-60",
     style: { padding: "10px 12px", marginBottom: 6, borderRadius: 12, border: "1px solid " + (now === k ? t.ink : t.line), background: now === k ? t.bg2 : "transparent" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (window.SPACE_RELS ? window.SPACE_RELS[k].space : "情侣空间") + " · " + (window.SPACE_RELS ? window.SPACE_RELS[k].zh : "恋人")),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, REL_NOTE[k] || "")));
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, REL_NOTE[k] || "")),
+    k === "family" && (famOpen || now === "family") ? famPick(now === "family" ? nowRole : null, onPick) : null));
   const pickSheet = pickWho ? h(Sheet, { onClose: () => setPickWho(null) },
     h(Eyebrow, { style: { marginBottom: 12 } }, "跟 " + pickWho.name + " 开一个什么样的空间"),
-    relRows("", k => { const c = pickWho; setPickWho(null); onInvite(c, k); })) : pick && h(Sheet, { onClose: () => setPick(false) },
+    relRows("", (k, role) => { const c = pickWho; setPickWho(null); setFamOpen(false); onInvite(c, k, role); })) : pick && h(Sheet, { onClose: () => setPick(false) },
     h(Eyebrow, { style: { marginBottom: 12 } }, "邀请谁"),
     invitable.length === 0
       ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingBottom: 8 } }, "没有可邀请的对象了。")
@@ -7672,7 +7683,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
         h(Eyebrow, { style: { marginBottom: 16 } }, "自定义" + (window.spaceRel ? window.spaceRel(cp[partner.id]).space : "情侣空间")),
         onSetRel ? h("div", { "data-wk": "usrelbox", style: { marginBottom: 16 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, marginBottom: 8 } }, "你们是什么关系"),
-          relRows(window.spaceRelKey ? window.spaceRelKey(cp[partner.id]) : "lover", k => onSetRel(partner.id, k)),
+          relRows(window.spaceRelKey ? window.spaceRelKey(cp[partner.id]) : "lover", (k, role) => onSetRel(partner.id, k, role), (cp[partner.id] || {}).role || ""),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, "开错了在这儿改就行，不用解除。改了以后 TA 下一句就照新的关系来，信、悄悄话、纪念日也跟着变；以前写过的不动。")) : null,
         imgRow("背景图", bgRef, "bg", !!cprof.bg),
         imgRow("我的头像", myAvRef, "myAvatar", !!cprof.myAvatar),
@@ -17143,9 +17154,9 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
         return h("div", { key: e.id, "data-wk": "spacebookitem", "data-closed": e.closed ? "1" : "0", style: { marginBottom: 12, padding: "13px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, borderLeft: "3px solid " + book.band, opacity: e.closed ? .85 : 1 } },
           h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.title || (e.closed ? "收好了" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, who(e.by) + " 记 · " + (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts)) + (e.who ? " · " + (e.who === "ta" ? nm : "我") + "的糗事" : "") + (e.closed ? " · 已收尾" : ""))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, who(e.by) + " 记 · " + (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts)) + book.fields.filter(f => f.pick && f.tag && e[f.k]).map(f => " · " + f.tag.replace("{who}", e[f.k] === "ta" ? nm : "我")).join("") + (e.closed ? " · 已收尾" : ""))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginTop: 6, whiteSpace: "pre-wrap" } }, e.body),
-          e.lean ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4 } }, "当时倾向：" + e.lean) : null,
+          book.fields.filter(f => !f.pick && f.k !== "title" && f.k !== "body" && e[f.k]).map(f => h("div", { key: f.k, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 4 } }, f.zh + "：" + e[f.k])),
           (e.thread || []).map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } },
             h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, who(x.by) + " · " + x.kind), x.text)),
           h("div", { className: "flex", style: { gap: 5, marginTop: 10, flexWrap: "wrap" } },

@@ -21,7 +21,7 @@ test("闺蜜空间：给模型的那句说清不是恋人；恋人照旧；老�
 test("各处 instruction 不再手写「你们是恋人」，都问 relSay", () => {
   assert.equal((app.match(/instruction: "你们是恋人/g) || []).length, 0);
   assert.ok((app.match(/instruction: relSay\(char\)/g) || []).length >= 13);
-  assert.match(app, /return "together\|" \+ \(days \|\| ""\) \+ "\|" \+ rk;/);
+  assert.match(app, /return "together\|" \+ \(days \|\| ""\) \+ "\|" \+ rk \+ "\|" \+ String\(cp\.role/);
 });
 
 // 她 2026-10-16：「别的关系角色也可以发邀请信」
@@ -61,11 +61,19 @@ test("空间本子：一张表管四本，按关系各拿各的；TA 接话走 r
   const i = eng.indexOf("const SPACE_BOOKS = {"), j = eng.indexOf("function spaceBooksFor(", i);
   assert.ok(i > 0 && j > i, "抠不出 SPACE_BOOKS");
   const B = new Function(eng.slice(i, j) + "; return SPACE_BOOKS;")();
-  assert.deepEqual(Object.keys(B).map(k => k + ":" + B[k].rel).sort(), ["advisor:bestie", "blackcase:bestie", "choices:friend", "safe:family"]);
+  assert.deepEqual(Object.keys(B).map(k => k + ":" + B[k].rel).sort(), ["advisor:bestie", "blackcase:bestie", "choices:friend", "complain:family", "credit:friend", "favor:family", "mouth:bestie", "safe:family"]);
   assert.equal(B.safe.closeKind, "到了"); assert.equal(B.choices.closeKind, "结果");
   assert.match(eng, /"x_coupleSweet", "x_spaceBooks",/);
   assert.match(app, /const spaceBookTa = async \(char, key, id\) =>/);
   assert.match(app, /instruction: relSay\(char\) \+ "。" \+ bk\.taReply/);
   assert.match(scr, /function SpaceBook\(\{ partner, book, entries/);
   assert.match(scr, /sub\.indexOf\("book:"\) === 0/);
+});
+
+// 她 2026-10-16「一起」：家人细分（哥哥姐姐弟弟妹妹爸妈……）——手足别演成操心长辈
+test("家人细分：role 进关系那句；手足那种写明互损护短", () => {
+  const g = load();
+  const b = g.lines({ coupleStatus: "together|5|family|哥哥" }, "她").join("");
+  assert.match(b, /你是 她 的哥哥/); assert.match(b, /别演成操心的长辈/);
+  assert.doesNotMatch(g.lines({ coupleStatus: "together|5|family|妈妈" }, "她").join(""), /手足/);
 });
