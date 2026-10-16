@@ -13053,6 +13053,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
         }
         words = _joined;
+        // 一个气泡里换行写了好几张（「[表情] 老公伤心的流泪\n[表情] 白色小狗委屈哭泣\n…」，群友 2026-10-16 截图）：
+        //   下面那几道正则只认【整个气泡】是一个标记，这种多行的一个都认不出，后面按换行切开就成了一串文字气泡。
+        //   先按行看：是标记的那几行抽走当表情，剩下的行照旧留在这个气泡里。
+        words = words.reduce((acc, w) => {
+          if (typeof w !== "string" || w.indexOf("\n") < 0) { acc.push(w); return acc; }
+          const keep = [];
+          w.split("\n").forEach(ln => {
+            const m1 = ln.match(TAG_RE) || ln.match(WRAP_RE);
+            if (m1 && m1[1].trim()) emoteWordKws.push(m1[1].trim()); else keep.push(ln);
+          });
+          const rest = keep.join("\n").trim();
+          if (rest) acc.push(rest);
+          return acc;
+        }, []);
         // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
         //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
         const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
