@@ -624,6 +624,9 @@ function App() {
   const [coupleQA, setCoupleQA] = useState([]);
   // 「我们的空间」里的本子（黑历史案卷、军师观察簿、人生选择册、报平安簿……）：{ [charId]: { [bookKey]: [条目] } }
   const [spaceBooks, setSpaceBooks] = useState({});
+  // 空间门口那三样（她 2026-10-16「567 也做了」）：门牌、东西在谁那儿、留灯。{charId:{plaque, things:[], light:{me,ta}}}
+  const [spaceHome, setSpaceHome] = useState({});
+  const spaceHomeRef = useRef({});
   // 问答小本封面标题：{ [charId]: title }
   const [coupleQATitle, setCoupleQATitle] = useState({});
   // 情侣空间·双向便签：贴纸墙（authorId='user' 或角色 id）
@@ -1977,6 +1980,7 @@ function App() {
     }
     setCoupleQA(loadJSON("x_coupleQA", []));
     setSpaceBooks(loadJSON("x_spaceBooks", {}) || {});
+    { const sh = loadJSON("x_spaceHome", {}) || {}; spaceHomeRef.current = sh; setSpaceHome(sh); }
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
     // 便签墙 v59.23 撤掉了（她 2026-08-31：「有点鸡肋」）。存量不许丢：
     // 一次性搬进抽屉，标成【已经拆过的】——那些她本来就看过了，不该冒充新东西。
@@ -6422,6 +6426,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (cp.status === "pending") return "pending||" + rk;
       return "";
     })(),
+    // 空间门口的门牌、谁的东西在谁那儿、今晚留没留灯——只是事实，照常聊天时 TA 心里有数
+    spaceDoor: (() => { const cp = !char.npc && couples[char.id]; return cp && cp.status === "together" ? spaceDoorLine(char, userName(profile)) : ""; })(),
     // 他给她起的那个称呼（抽卡 s_title，她点了「收下」才有）。
     // ⚠️走 ctx → buildBundle 这条【白送的】路：单聊线上/线下、通话、穿书、匿名箱、
     //   解梦馆换个入口自然就有。群聊那两处不走 buildBundle，另外接（见 nickLineFor）。
@@ -10281,6 +10287,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_blocks: v => typeof setBlocks === "function" && setBlocks(v),
       x_calEvents: v => typeof setCalEvents === "function" && setCalEvents(v),
       x_carry: v => typeof setCarry === "function" && setCarry(v),
+      x_spaceHome: v => { spaceHomeRef.current = v || {}; setSpaceHome(v || {}); },
       x_carryGifts: v => typeof setCarryGifts === "function" && setCarryGifts(v),
       x_carryPins: v => typeof setCarryPins === "function" && setCarryPins(v),
       x_shopCart: v => typeof setCart === "function" && setCart(v),
@@ -24233,6 +24240,54 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cp = (couplesRef.current || {})[c && c.id], role = spaceRoleLine(cp, (meOf(c && c.id) || {}).name || "她");
     return rk === "lover" ? "你们是恋人" : role + "你们是" + r.zh.replace(" / ", "、") + "，不是恋人（照" + (rk === "family" ? "家人" : "朋友") + "之间来写，不往恋爱、暧昧那头走）";
   };
+  // ── 空间门口：门牌 / 东西在谁那儿 / 留灯 ──
+  const spaceHomePut = (charId, fn) => setSpaceHome(p => {
+    const n = { ...p, [charId]: fn(p[charId] || {}) };
+    spaceHomeRef.current = n; saveJSON("x_spaceHome", n); return n;
+  });
+  // 留灯只管今晚：过了早上 6 点就算熄了
+  const lightLit = x => { if (!x || !x.on) return false; const d = new Date(); if (d.getHours() < 6) d.setDate(d.getDate() - 1); d.setHours(6, 0, 0, 0); return x.ts >= d.getTime(); };
+  const PLAQUE_ZH = { title: "称号", boss: "谁说了算", guard: "护短", edit: "门牌谁能改" };
+  const spaceDoorLine = (char, uN) => {
+    const hm = (spaceHomeRef.current || {})[char.id] || {}, out = [], pl = hm.plaque || {};
+    const plq = ["title", "boss", "guard"].filter(k => String(pl[k] || "").trim()).map(k => PLAQUE_ZH[k] + "：" + pl[k]);
+    if (plq.length) out.push("【你们空间门口的门牌】" + plq.join("；") + (pl.edit === "me" ? "（门牌只有" + uN + "能改）" : pl.edit === "ta" ? "（门牌只有你能改）" : ""));
+    const th = (hm.things || []).slice(0, 12).map(x => (x.owner === "me" ? uN + "的" : "你的") + x.name + "在" + (x.at === "me" ? uN + "那儿" : "你那儿") + (x.note ? "（" + x.note + "）" : ""));
+    if (th.length) out.push("【东西在谁那儿】" + th.join("；"));
+    const L = hm.light || {};
+    if (lightLit(L.me)) out.push("【留灯】" + uN + "今晚给你留了灯" + (L.me.note ? "：" + L.me.note : ""));
+    if (lightLit(L.ta)) out.push("【留灯】你今晚给" + uN + "留了灯" + (L.ta.say ? "，你说过：" + L.ta.say : ""));
+    return out.join("\n");
+  };
+  const spaceHomeTa = async (char, kind) => {
+    if (!char || gen.spaceHome) return false;
+    const uN = (meOf(char.id) || {}).name || "她", hm = (spaceHomeRef.current || {})[char.id] || {}, pl = hm.plaque || {};
+    setGen(g => ({ ...g, spaceHome: kind }));
+    try {
+      if (kind === "plaque") {
+        if (pl.edit === "me") throw new Error("门牌现在只有你能改");
+        const now = ["title", "boss", "guard"].map(k => PLAQUE_ZH[k] + "（" + k + "）：" + (String(pl[k] || "").trim() || "空着")).join("\n");
+        const d = await runProbe(apiFor(char.id), ctxFor(char), { maxTokens: 65000, schemaHint: "{\"field\":\"title|boss|guard|（不想改就空）\",\"value\":\"改成什么\",\"say\":\"你顺口说的一句\"}",
+          instruction: relSay(char) + "。你们空间门口挂着一块门牌，现在写着：\n" + now + "\n你可以拿笔涂改其中一格，照你自己的意思写；不想改也行，field 留空。say 是你改的时候顺口说的一句。" });
+        const f = ["title", "boss", "guard"].indexOf(d && d.field) >= 0 ? d.field : "", v = String((d && d.value) || "").trim().slice(0, 40), say = String((d && d.say) || "").trim().slice(0, 200);
+        if (!f && !say) throw new Error("TA 这回没动笔，再点一次");
+        spaceHomePut(char.id, h0 => { const p0 = h0.plaque || {};
+          return { ...h0, plaque: { ...p0, ...(f && v ? { [f]: v } : {}), marks: [{ by: "ta", field: f, from: f ? (p0[f] || "") : "", to: f ? v : "", say, ts: Date.now() }, ...(p0.marks || [])].slice(0, 20) } }; });
+      } else if (kind === "light") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), { maxTokens: 65000, schemaHint: "{\"leave\":true,\"say\":\"你回她的一句\"}",
+          instruction: relSay(char) + "。" + uN + " 问你：今晚给不给她留灯。照你现在真实的情况（日程、此刻在哪、在做什么）回答，leave 填 true 或 false，say 是你回她的那一句。" });
+        const say = String((d && d.say) || "").trim().slice(0, 200);
+        if (!say) throw new Error("TA 这回没回，再点一次");
+        spaceHomePut(char.id, h0 => ({ ...h0, light: { ...(h0.light || {}), ta: { on: !!(d && (d.leave === true || d.leave === "true")), say, ts: Date.now() } } }));
+      }
+      return true;
+    } catch (e) { toast("没成：" + String((e && e.message) || e).slice(0, 120)); return false; }
+    finally { setGen(g => ({ ...g, spaceHome: null })); }
+  };
+  // TA 随身带着的那几样的名字（东西在谁那儿可以直接从里头挑）
+  const carryNamesOf = charId => { const c = (carry || {})[charId] || {}, out = [];
+    Object.keys(c).forEach(k => { const d = c[k] || {}; (Array.isArray(d.items) ? d.items : []).forEach(x => out.push(carryItemName(x))); (Array.isArray(d.closet) ? d.closet : []).forEach(g => ((g && g.sets) || []).forEach(x => out.push(carryItemName(x)))); });
+    return [...new Set(out.filter(Boolean))].slice(0, 16); };
   const letterWord = c => spaceRel((couplesRef.current || {})[c && c.id]).letter;
   // ── 空间里的本子：一条＝{ id, ts, by:"me"|"ta", title, body, who, lean, thread:[{by,kind,text,ts}], closed } ──
   const spaceBookPut = (charId, key, fn) => setSpaceBooks(p => {
@@ -30449,6 +30504,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: goHome,
     onInvite: sendCoupleInvite, onSetRel: setCoupleRel,
     spaceBooks: spaceBooks, spaceBookBusy: gen.spaceBook || null,
+    spaceHome: spaceHome, spaceHomeBusy: gen.spaceHome || null, lightLit: lightLit, carryNamesOf: carryNamesOf,
+    onSpaceHome: (cid, fn) => spaceHomePut(cid, fn), onSpaceHomeTa: (cid, kind) => spaceHomeTa(characters.find(c => c.id === cid), kind),
     onBookAdd: (cid, key, entry) => spaceBookAdd(cid, key, { by: "me", ...entry }), onBookReply: (cid, key, id, line) => spaceBookReply(cid, key, id, { by: "me", ...line }),
     onBookRemove: spaceBookRemove, onBookTa: (cid, key, id) => spaceBookTa(characters.find(c => c.id === cid), key, id),
     onUnlink: unlinkCouple,

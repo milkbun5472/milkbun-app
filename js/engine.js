@@ -3662,6 +3662,7 @@ function coupleStatusLines(ctx, uName) {
     else if (cs[0] === "pending" && rk !== "lover") out.push("【" + rl.space + "邀请待定】" + uName + " 想跟你开一个" + rl.space + "（" + rl.zh + "那种关系，不是恋人），你还没回应。");
     else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
   }
+  if (!ctx.notRoleplay && ctx.spaceDoor) out.push(ctx.spaceDoor);
   // ⚠️和用户【不是】恋人时不能就此留白——那个空白正是病根。补上另一半：TA是不是和别人在一起了。
   //   （notRoleplay＝言秋那种不被扮演的，照旧不发扮演类的层）
   if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together" && spaceRelKey(String(ctx.coupleStatus).split("|")[2]) === "lover")) {
@@ -6411,7 +6412,7 @@ const DURABLE_TEXT_KEYS = new Set([
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
   "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_coupleTrips", "x_coupleGarden", "x_studio", "x_coupleShots", "x_makeup", "x_openers", "x_myCloset", "x_phoneLastAll", "x_ifLines",
-  "x_coupleLetterCfg", "x_coupleSweet", "x_spaceBooks",
+  "x_coupleLetterCfg", "x_coupleSweet", "x_spaceBooks", "x_spaceHome",
   // v72.19（她 2026-09-20：「全都带进 indexdb 取消上限」）：这一批同样是【会一直长大的她的东西】，
   // 却还留在 5MB 那个池子里，于是各自被一个上限挤着——而那些上限本来就是为 localStorage 定的。
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
