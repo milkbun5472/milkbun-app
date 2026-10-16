@@ -51,3 +51,13 @@ test("选了 NAI 原生就走它，不掉回别的门；设置里有这一项", 
   assert.ok(/const isNative = isMinimax \|\| a\.apiFormat === "nai";/.test(eng));
   assert.ok(/value: "nai" \}, "NAI 原生/.test(scr));
 });
+
+// 参考图要先垫进 NovelAI 认的三种画布，不然上游 500（她 2026-10-16 截图）
+{
+  const e = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const i = e.indexOf("const naiFetch = async"), j = e.indexOf("const isMinimax =", i);
+  if (!(i > 0 && j > i)) throw new Error("抠不出 naiFetch");
+  const f = e.slice(i, j);
+  if (!/\[1536, 1024\] : r < 0\.83 \? \[1024, 1536\] : \[1472, 1472\]/.test(f)) throw new Error("参考图没垫画布");
+  if (!/toB64\(await naiCanvas\(b\)\)/.test(f)) throw new Error("垫好的画布没发出去");
+}
