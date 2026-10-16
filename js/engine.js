@@ -3576,11 +3576,12 @@ function herStableLines(ctx, uName) {
 // 「我们」这个空间是什么关系（她 2026-10-16：群友跟闺蜜开了情侣空间，收到的情书越看越不对劲 →「做吧」）。
 //   原来只有恋人一种：邀请卡写「想和你在一起」、接了就当在一起，情书悄悄话纪念日全按恋人写。
 //   现在开空间时挑关系；老存档没写的一律当恋人。名字、邀请那句、信叫什么、给模型的那句关系都从这一张表拿，别处不另写。
+// seal / tone：这层关系自己那枚火漆和颜色——挑关系的卡、申请信的封口都用它（她 2026-10-16「每个 ui 都弄好看点」）
 const SPACE_RELS = {
-  lover:  { zh: "恋人", space: "情侣空间", letter: "情书", invite: "想和你在一起", together: "你们在一起了" },
-  bestie: { zh: "闺蜜 / 死党", space: "闺蜜空间", letter: "信", invite: "想和你做最铁的那种朋友", together: "你们成了最铁的朋友" },
-  friend: { zh: "挚友", space: "挚友空间", letter: "信", invite: "想把你当作一辈子的朋友", together: "你们是挚友了" },
-  family: { zh: "家人", space: "家人空间", letter: "家书", invite: "想和你像家人一样", together: "你们成了家人" }
+  lover:  { seal: "♥", tone: "#a8505f", zh: "恋人", space: "情侣空间", letter: "情书", invite: "想和你在一起", together: "你们在一起了" },
+  bestie: { seal: "闺", tone: "#8a6aa8", zh: "闺蜜 / 死党", space: "闺蜜空间", letter: "信", invite: "想和你做最铁的那种朋友", together: "你们成了最铁的朋友" },
+  friend: { seal: "友", tone: "#4f7a6a", zh: "挚友", space: "挚友空间", letter: "信", invite: "想把你当作一辈子的朋友", together: "你们是挚友了" },
+  family: { seal: "家", tone: "#a07a4a", zh: "家人", space: "家人空间", letter: "家书", invite: "想和你像家人一样", together: "你们成了家人" }
 };
 function spaceRelKey(v) { const k = v && typeof v === "object" ? v.rel : v; return SPACE_RELS[k] ? k : "lover"; }
 function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }

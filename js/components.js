@@ -14564,9 +14564,10 @@ function LoveLetterCard({ m, character, onOpen, onAnswer }) {
         h("div", { "data-wk": "letterstamp", style: { position: "absolute", left: "50%", top: 84, transform: "translate(-50%,-50%)", width: 34, height: 34, borderRadius: 999,
           background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 45%), " + ink,
           boxShadow: "0 1px 0 rgba(255,255,255,.25) inset, 0 2px 5px rgba(0,0,0,.22)", display: "flex", alignItems: "center", justifyContent: "center",
-          color: "rgba(255,255,255,.92)", fontSize: 14, fontFamily: serif } }, "♥")),
+          color: "rgba(255,255,255,.92)", fontSize: 14, fontFamily: serif } }, (window.spaceRel && m.rel ? window.spaceRel(m.rel).seal : "") || "♥")),
       h("div", { "data-wk": "lettercover", style: { padding: "8px 2px 0" } },
         h("div", { style: { fontFamily: serif, fontSize: 13.5, color: t.ink, letterSpacing: ".02em" } }, "致你 · " + nm + " 寄"),
+        m.rel && m.rel !== "lover" && window.spaceRel ? h("div", { "data-wk": "letterrel", style: { fontFamily: F_BODY, fontSize: 11, color: window.spaceRel(m.rel).tone, marginTop: 2 } }, "一封" + window.spaceRel(m.rel).space + "的申请") : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "轻点拆开"))));
   return h("div", { className: "py-1 flex justify-start" },
     h("div", { "data-wk": "letter", "data-state": st, style: { width: 272, borderRadius: 6, overflow: "hidden",
