@@ -47,3 +47,27 @@ test("21 点：A 软硬算，打完一手庄家结算", () => {
   assert.equal(s.phase, "done");
   s.players.forEach(p => assert.ok(["输", "赢", "平", "黑杰克", "爆"].includes(p.result)));
 });
+
+// 她 2026-10-16 选「开局页做个开关」：手机出牌、一圈说一次 / 每人自己想
+test("谁来出牌：默认手机出牌，抽鬼牌一律手机；只有选了「每人自己想」才逐手问", () => {
+  assert.equal(g.cardLocal({}), true);
+  assert.equal(g.cardLocal({ cardBrain: "self" }), false);
+  assert.equal(g.cardLocal({ cardBrain: "self" }, "oldmaid"), true);
+});
+
+test("一圈说一次：只数别人出的手，她自己的和桌上话不算", () => {
+  const log = [{ kind: "move", player: "user", text: "我：过牌" }, { kind: "move", player: "c1", text: "角色1：跟 20" }, { kind: "chat", player: "c1", text: "角色1：“来啊”" }, { kind: "sys", text: "翻牌" }, { kind: "play", player: "c2", text: "角色2 出 红5" }];
+  assert.equal(g.cardMovesSince(log, 0), 2);
+  assert.equal(g.cardMovesSince(log, 2), 1);
+  assert.equal(g.cardSayOf({ text: "角色1：跟 20　“你诈我？”" }), "你诈我？");
+  assert.equal(g.cardSayOf({ text: "角色1：跟 20" }), "");
+});
+
+test("UNO 手机出牌：整局打完不报错，一手都是合规的", () => {
+  const U = require("../js/uno-core.js"); global.UnoCore = U;
+  for (let k = 0; k < 10; k++) {
+    const s = U.newGame(P(4), undefined, { stackD2: k % 2 === 0 });
+    let n = 0; while (s.status === "playing" && n++ < 3000) U.act(s, g.unoLocalMove(s));
+    assert.equal(s.status, "finished", "打了三千手还没完");
+  }
+});

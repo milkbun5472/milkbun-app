@@ -61,13 +61,15 @@ test("座位是席位牌：出局翻倒盖章，圈人靠牌框不靠淡出", ()
 });
 
 test("UNO 和大富翁：轮到谁，谁的牌抬起来——不靠一个色差认", () => {
-  // UNO：席位牌上摊一小叠牌背，轮次＝整张牌抬起（transform+阴影+粗框，三样一起变）
-  // ⚠️终点锚要从起点之后找：同一句话在这一屏之前就出现过一次，不带 fromIndex 会切出空段
+  // UNO：v75.745 起跟德州、21 点、抽鬼牌坐同一圈座位（CardSeats）：轮到谁，谁的头像外圈一闪一闪，座位上摊着 TA 那一小叠牌背
   const unoAt = src.indexOf('gameTable("uno", t)');
   const uno = src.slice(unoAt, src.indexOf('state.status === "finished"', unoAt));
-  assert.match(uno, /transform: on \? "translateY\(-2px\)" : "none"/, "UNO 轮次牌不抬了");
-  assert.match(uno, /\[0, 1, 2\]\.map\(function \(j\)/, "UNO 席位牌上那叠牌背没了");
-  assert.ok(uno.indexOf('borderRadius: 999, padding: "6px 10px"') < 0, "UNO 又回到药丸了");
+  assert.match(uno, /h\(CardSeats, \{/, "UNO 的座位不是牌桌那一圈了");
+  const seatsAt = src.indexOf("function CardSeats("), seatsEnd = src.indexOf("function CardLog(", seatsAt);
+  assert.ok(seatsAt > 0 && seatsEnd > seatsAt, "抠不出 CardSeats");
+  const seats = src.slice(seatsAt, seatsEnd);
+  assert.match(seats, /animation: s\.on \? "gcardPulse/, "轮到谁不闪了");
+  assert.match(seats, /h\(CardBacks, \{/, "座位上那叠牌背没了");
   // 大富翁同款抬起
   assert.match(src, /transform:i===turn&&!p\.bankrupt\?"translateY\(-2px\)":"none"/, "大富翁轮次牌不抬了");
 });
