@@ -74,5 +74,3 @@ def loft(name, template, slot, profiles, start=0, end=2 * math.pi, count=96, lig
         block.value = 0
         block.data.foreach_set('co', (positions + DEFORM(positions, np.zeros(len(positions)), key, True)).ravel())
     return obj
-
-
