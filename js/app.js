@@ -30243,6 +30243,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenDrawer: openDrawerItem,
     onDropDrawer: dropDrawerItem,
     onEditDrawer: editDrawerItem,
+    // 抽屉里拆开的那一样发给他（群友 2026-10-16：「他画的画好傻，想发给他打趣他一下」）：
+    //   落成你发的一条消息、带上那张画，打开聊天；不叫他当场开口，等你自己说两句再让他回（跟别处转发同一个做法）
+    onForwardDrawer: (charId, x) => {
+      if (!x || !(characters || []).some(c => c.id === charId)) return;
+      const kz = { thing: "你捡到放进抽屉的", word: "你放进抽屉的半句话", draw: "你画了放进抽屉的那张", whisper: "你放进抽屉的悄悄话", drop: "你放进抽屉的" }[x.kind] || "你放进抽屉的";
+      const body = "【翻出" + kz + "】" + (x.title && x.kind !== "whisper" ? "「" + x.title + "」" : "") + "\n" + String(x.text || "").trim();
+      pChat(charId, p => [...p, x.kind === "draw" && x.svg
+        ? { role: "user", kind: "photo", imageRef: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg), desc: body, content: body, ts: Date.now() }
+        : { role: "user", content: body, ts: Date.now() }]);
+      openChatById(charId);
+    },
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,
