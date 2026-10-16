@@ -1526,7 +1526,10 @@
         p.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, lineHeight: 1.6 } }, p.why) : null),
       // 只改一小段的时候，摆的就是那一小段——不许把整份原文和整份新文摆出来让她自己找。
       // 那是这个改法的意义所在：她一眼看得清动了哪儿，也一眼看得出别处没动。
-      p.find
+      // 跳转卡没有改前改后：只说要去哪儿（她 2026-10-16）
+      p.target === "open"
+        ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px", fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7 } }, was || "带你去那一页")
+      : p.find
         ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "原文这一段"),
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.fog, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .8 } }, p.find),
@@ -1554,14 +1557,15 @@
                 ? h("button", { "data-wk": "qqpatchbtn", "data-part": "undo", onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, "撤回")
                 : null,
               // 撤回了又想要回来、或者上次没应用成：再点一下（群里 2026-10-10：「应用了以后再撤回就没办法应用了」）
-              (state === "已撤回" || /^没应用/.test(state)) && props.onApply
-                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, state === "已撤回" ? "重新应用" : "再试一次")
+              // 跳转卡（open）按过了也能再按：它不改东西，只是再开一次那一页
+              (state === "已撤回" || /^没应用/.test(state) || (p.target === "open" && state === "已应用")) && props.onApply
+                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, p.target === "open" && state === "已应用" ? "再去一次" : state === "已撤回" ? "重新应用" : "再试一次")
                 : null,
               state === "已应用" && !A.undoable(p)
-                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : p.target === "undo" ? "" : "（新建的，退不了）")
+                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : (p.target === "undo" || p.target === "open") ? "" : "（新建的，退不了）")
                 : null)
           : h(React.Fragment, null,
-              h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "应用这条"),
+              h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, p.target === "open" ? (String(p.text || "").trim().slice(0, 16) || "带我去") : "应用这条"),
               h("button", { "data-wk": "qqpatchbtn", "data-part": "skip", onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过")),
         // 不管应用没应用、撤没撤，原文都能拷走（她自己贴到别处、存一份都行）
         p.text ? h("button", { "data-wk": "qqpatchbtn", "data-part": "copy", onClick: async () => { const ok = typeof copyText === "function" && await copyText(String(p.text)); props.toast && props.toast(ok ? "复制好了" : "没复制上"); }, style: { marginLeft: "auto", background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: 0 } }, "复制") : null));

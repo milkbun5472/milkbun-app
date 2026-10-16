@@ -2701,7 +2701,7 @@
       + "scene＝要画的画面（中文，80~160 字）：谁在哪儿、在做什么、几个人之间什么距离和姿态、光和天气、这一刻的情绪。只写画面里看得见的，不写心理活动，不写对白。画面里的人只用 CP 里的名字。\n"
       + "只输出 JSON：" + (kind === "fanart" ? "{\"name\":\"\",\"style\":\"\",\"say\":\"\",\"scene\":\"\"}" : kind === "book" ? "{\"scene\":\"\",\"tagline\":\"\",\"genre\":\"\",\"mood\":\"\"}" : "{\"scene\":\"\"}");
     const user = "《" + (fic.title || "") + "》\nCP：" + cpText + (tags ? "\n标签：" + tags : "") + (fic.groupWay ? "\n关系：" + fic.groupWay : "") + "\n\n" + ficArtText(fic, chapIdx);
-    const raw = await callAI(active, sys, [{ role: "user", content: user }], { maxTokens: 6000, timeout: 120000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: user }], { maxTokens: 8000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
     if (!String(d.scene || "").trim()) throw new Error("没想好画什么，再点一次");
     return d;
@@ -5424,7 +5424,7 @@
     const [cps, setCps] = useState(loadCPs);
     const [me, setMe] = useState(function () { return meProfile(loadMe(), props.profile); });
     const [activeTab, setActiveTab] = useState(tabs[0] && tabs[0].id);
-    const [view, setView] = useState("feed"); // feed / shelf / publish / rp / authors / mine
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("fanfic", ["feed", "shelf", "publish", "rp", "authors", "mine"])) || "feed"); // feed / shelf / publish / rp / authors / mine
     const [rpStart, setRpStart] = useState(null); // 从作者主页点「加笔」带过来的那一篇
     const [openId, setOpenId] = useState(null);
     // ── 从房间里那张「TA写好了」直接翻到这一章（她 2026-09-12：

@@ -518,7 +518,7 @@
   function Debate(props) {
     const t = useTheme();
     const [saves, setSaves] = useState(loadSaves);
-    const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("debate", ["setup"])) || "home"); // "home" | "setup" | <sessionId>
     const persist = list => { if (saveSaves(list)) { setSaves(list); return true; } props.toast && props.toast("这次没保存成功，原存档还在"); return false; };
     const patchSession = (id, patch) => {
       const list = loadSaves().map(s => s.id === id ? Object.assign({}, s, typeof patch === "function" ? patch(s) : patch) : s);

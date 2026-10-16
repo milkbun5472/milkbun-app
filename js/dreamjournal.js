@@ -134,7 +134,7 @@
     // 展开的是哪一条（一次只开一条）：一条梦加上三个人的解法能有一屏那么长，
     // 全摊着的话翻半天才见到下一条（她 2026-09-04 报的）。
     const [openId, setOpenId] = useState(null);
-    const [view, setView] = useState("hers");     // hers=她的梦 | theirs=TA们的梦
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("dreamjournal", ["hers", "theirs"])) || "hers");     // hers=她的梦 | theirs=TA们的梦
     const [theirs, setTheirs] = useState([]);
     const [genBusy, setGenBusy] = useState(null); // 正在生成的 dream key
     const chars = props.characters || [];

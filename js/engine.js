@@ -10402,6 +10402,18 @@ function fmtStamp(ts, id) {
 //   ⚠️喂给模型的「现在几点」、历史上的〔今天14:32〕、记忆的「记于」、日记日程上的日子，都从这几个函数走——
 //   只换一处、另一处还是现实，TA 就对不上。日记、日程照现实的一天一回去生成，只是写出来、摆出来的日子换成这只钟的。
 //   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群传 "g:"+群id，照群挑的那张面具。
+// 秋秋的跳转卡要进到某个 app 里面那一格（她 2026-10-16「别的 app 不能都搞具体跳转吗」）：
+//   app.js 先把 { screen, sub } 挂在 window.__openSub 上再切屏，那个 app 头一次画的时候来这儿取一次、取完就清。
+//   allowed 给了就只认那几个值，认不得的当没说（照常落在默认那一格）。
+function takeOpenSub(screen, allowed) {
+  try {
+    const w = typeof window !== "undefined" ? window.__openSub : null;
+    if (!w || w.screen !== screen) return "";
+    window.__openSub = null;
+    const s = String(w.sub || "");
+    return !allowed || allowed.indexOf(s) >= 0 ? s : "";
+  } catch (e) { return ""; }
+}
 function vclockState() { try { return typeof window !== "undefined" ? window.__vclock || null : null; } catch (e) { return null; } }
 function vclockUse(id) { const W = vclockState(); if (W) W.active = id == null ? null : String(id); }
 function vclockCfg(id, ts) {

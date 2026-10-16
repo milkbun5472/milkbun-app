@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.820";
+const APP_VERSION = "v75.825";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28788,6 +28788,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
 
   // 秋秋多管的几样要的读写口（她 2026-10-14「都做吧」）：整页和悬浮屏是同一个秋秋，两处都 spread 这一份，别各写各的
   const assistExtraCtx = () => ({
+    // 跳转卡（她 2026-10-16）：攻略那条的 app 键大多就是屏幕名，几个对不上的在这儿换一下；认不得的就不跳
+    onOpenPage: (app, entryId, sub) => {
+      // 进到那一格（她 2026-10-16「搞能进那一格吧」）：sub 是卡上 id 斜杠后面那一截
+      //   设置：页名[/数据里那一块]；地图：real/story；单聊、群聊：那个人／那个群的 id 或名字
+      const parts = String(sub || "").split("/").filter(Boolean);
+      if (app === "config" && parts.length) {
+        const PAGES = ["api", "apiText", "apiImage", "apiTts", "apiVideo", "apiEmbed", "apiStt", "apiEars", "apiMouth", "apiCache", "sense", "cot", "look", "theme", "themeStudio", "bubble", "write", "auto", "data", "debug"];
+        if (PAGES.indexOf(parts[0]) < 0) return false;
+        if (parts[0] === "data" && parts[1]) window.__dataPart = parts[1];
+        setConfigPage(parts[0]); setScreen("config"); return true;
+      }
+      if (app === "map" && parts.length) {
+        if (parts[0] !== "real" && parts[0] !== "story") return false;
+        setMapMode(parts[0]); saveJSON("x_mapMode", parts[0]); setScreen("map"); return true;
+      }
+      if ((entryId === "chat" || entryId === "group") && parts.length) {
+        const key = parts.join("/");
+        const list = entryId === "group" ? (groupsRef.current || []) : (charactersRef.current || []);
+        const hit = list.find(x => String(x.id) === key) || list.find(x => x.name === key || x.remark === key);
+        if (!hit) return false;
+        openChatById(hit.id, entryId === "group" ? "group" : "char"); return true;
+      }
+      // 情侣空间：couple/那个人/哪一块（照相馆、情书、抽卡……），照「从聊天里点进唱片架」那条现成的落点走
+      if (app === "couple" && parts.length) {
+        const key = parts[0], list = charactersRef.current || [];
+        const hit = list.find(x => String(x.id) === key) || list.find(x => x.name === key || x.remark === key);
+        if (!hit) return false;
+        setUsLand({ view: hit.id, sub: parts[1] || null }); setScreen("us"); return true;
+      }
+      // 别的 app 里面那一格：先挂上 window.__openSub，那个 app 头一次画的时候自己取（engine.js 的 takeOpenSub）。
+      //   已经开着这一页的话先退回主屏再进，让它重新画一遍才取得到
+      const DEEP = ["fanfic", "study", "ledger", "memo", "weekly", "dreamjournal", "stylelab", "health", "astro", "debate", "dream", "theater", "trpg"];
+      if (parts.length && DEEP.indexOf(app) >= 0) {
+        window.__openSub = { screen: app, sub: parts[0] };
+        if (screen === app) { setScreen("home"); setTimeout(() => setScreen(app), 0); } else setScreen(app);
+        return true;
+      }
+      const ALIAS = { chat: "messages", couple: "us", lounge: "loungeapp" };
+      // 有自己整页的那几条，直接去那一页，不停在信息首页
+      const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
+      const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
+      const OK = ["anon", "astro", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      if (OK.indexOf(sc) < 0) return false;
+      setScreen(sc);
+      return true;
+    },
     memList: () => memLibRef.current || [],
     onSaveMemLib: list => saveMemLib(list),
     closetOf: id => ((carryRef && carryRef.current ? carryRef.current : carry)[id] || {}).outfit || {},

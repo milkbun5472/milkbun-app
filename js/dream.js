@@ -422,7 +422,7 @@
   function Dream(props) {
     const t = nightNow();
     const [saves, setSaves] = useState(loadSaves);
-    const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("dream", ["setup"])) || "home"); // "home" | "setup" | <sessionId>
     const lpTimer = useRef(null), lpFired = useRef(false);
 
     const persist = list => { if (saveSaves(list)) { setSaves(list); return true; } props.toast && props.toast("这次没保存成功，原梦境还在"); return false; };

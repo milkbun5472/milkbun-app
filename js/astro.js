@@ -704,7 +704,7 @@
     const chars = (props.characters || []).filter(c => c && !c.isGroup);
     const profile = props.profile || {};
     const meName = profile.name || "我";
-    const [tab, setTab] = useState("today");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("astro", ["today", "chart", "pair", "group"])) || "today");
     const [notes, setNotes] = useState(loadNotes);
     const [busy, setBusy] = useState("");
     const today = dayKeyOf();

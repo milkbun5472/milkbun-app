@@ -245,7 +245,7 @@
     // 收藏只留【长期为真】的那一层:身份 + 世界。此刻的处境(hook)故意不存——
     // 存了它,用基线开新局就变成把同一个时刻重演一遍,那正是它没意思的原因。
     const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, world: src.world || src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线(只存身份与世界,每次开局重新起情境)"); };
-    const [view, setView] = useState("list"); // list | create | play
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("theater", ["create"])) || "list"); // list | create | play
     const [playId, setPlayId] = useState(null);
     const [busy, setBusy] = useState(false);
     // busy 只说"忙着"，说不出在忙什么。出图要等半分钟，界面却写着「Ta 在演…」，

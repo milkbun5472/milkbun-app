@@ -6206,6 +6206,12 @@ function Home({
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty },
     nest: { kind: "app", zh: "小窝", G: window.GNest || GDuty }
   };
+  // 秋秋要看得见桌面（她 2026-10-16：「我说诶我的 xx app 在哪儿，她可以说在第几页」）：把这份表挂出去，名字照这儿认
+  if (typeof window !== "undefined") {
+    window.__homeReg = REG;
+    // 没存过布局（刚装、没拖过）的时候盘上是空的，主屏照默认那三页画——秋秋也得看这一份，不能只读盘
+    window.__homeNow = function () { try { return { pages: buildLayout(layout), folders: folders }; } catch (e) { return null; } };
+  }
   // 装饰也是主屏注册项，但不进入安全网：用户删掉后不会被系统当成“丢失组件”补回来。
   decorations.forEach(function (d) { if (d && d.id) REG[d.id] = { kind: "decor", which: d.type, decor: d }; });
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
