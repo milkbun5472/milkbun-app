@@ -3591,44 +3591,72 @@ function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }
 //   taNew / taReply：TA 开一条、接一句时的那段说明——只写这一本是干什么的、TA 站在哪，不写例句。
 const SPACE_BOOKS = {
   blackcase: { rel: "bestie", zh: "黑历史案卷", band: "#8d5a7a", say: "一桩一桩记着，谁也别想抵赖",
-    fields: [{ k: "title", zh: "案名", ph: "给这桩糗事起个名" }, { k: "body", zh: "经过", ph: "那天到底发生了什么", long: true }, { k: "who", zh: "谁的糗事", pick: [["me", "我的"], ["ta", "TA 的"]] }],
+    fields: [{ k: "title", zh: "案名", ph: "给这桩糗事起个名" }, { k: "body", zh: "经过", ph: "那天到底发生了什么", long: true }, { k: "who", zh: "谁的糗事", pick: [["me", "我的"], ["ta", "TA 的"]], tag: "{who}的糗事" }],
     kinds: ["解释", "补刀", "证据", "翻案"], autoAsk: true,
     taNew: "你们有一本「黑历史案卷」，专门记对方或自己干过的糗事。你来开一桩：可以是你自己的（照你的人设和经历），也可以是她的——她的只能是你们真聊过、记得的事，别编。写个案名、一段经过，标明是谁的。",
-    taReply: "这是你们「黑历史案卷」里的一桩，你往下接一句：是你的糗事就解释、嘴硬或者认了；是她的就补刀、拿证据、或者在她申请翻案时驳回。口语，像闺蜜互损，别太长。" },
+    taReply: "这是你们「黑历史案卷」里的一桩，你往下接一句：是你的糗事就解释、嘴硬或者认了；是她的就补刀、拿证据、或者在她申请翻案时驳回。口气照你们俩平时说话的样子，别太长。" },
   advisor: { rel: "bestie", zh: "军师观察簿", band: "#b0607a", say: "你递细节，TA 下判断，后来再对账",
     fields: [{ k: "title", zh: "关于", ph: "关于谁、什么事" }, { k: "body", zh: "细节", ph: "TA 说了什么、做了什么、你怎么想", long: true }],
     kinds: ["我说", "后来"], autoAsk: true,
     taNew: "",
     taReply: "这是你们「军师观察簿」里的一条：她拿来一件跟别人相处的事，你当她的军师下判断。第一次就给判断（直说你怎么看、她该怎么办）；她补了「后来」以后，对照后来的事：判断对了就坚持，看走眼了就直说「这次我看走眼了」再给新判断。站她这边，但别光哄。" },
   choices: { rel: "friend", zh: "人生选择册", band: "#5d7a8a", say: "要紧的决定，当时怎么想、后来怎样",
-    fields: [{ k: "title", zh: "要决定的事", ph: "比如：要不要换工作" }, { k: "body", zh: "几个选项", ph: "能怎么选，各自担心什么", long: true }, { k: "lean", zh: "我现在倾向", ph: "可空" }],
+    fields: [{ k: "title", zh: "要决定的事", ph: "比如：要不要换工作" }, { k: "body", zh: "几个选项", ph: "能怎么选，各自担心什么", long: true }, { k: "lean", zh: "当时倾向", ph: "可空" }],
     kinds: ["我说", "结果", "回看"], closeKind: "结果", autoAsk: true,
     taNew: "你们有一本「人生选择册」，专门收两个人各自要做的重要决定。你来放一件你自己眼下要拿主意的事（照你的人设、你现在的生活来）：写清要决定什么、有哪几条路、你现在倾向哪条。",
-    taReply: "这是你们「人生选择册」里的一件事。往下接一句：还没决定时给你真实的看法（可以跟对方的倾向不一样）；对方补了「结果」以后，回头对一对当时谁想对了、担心的事发生没有。是你自己的事，就照你现在的想法往下说。像挚友那样认真，但说人话。" },
+    taReply: "这是你们「人生选择册」里的一件事。往下接一句：还没决定时给你真实的看法（可以跟对方的倾向不一样）；对方补了「结果」以后，回头对一对当时谁想对了、担心的事发生没有。是你自己的事，就照你现在的想法往下说。口气照你们俩平时说话的样子，说人话。" },
   safe: { rel: "family", zh: "报平安簿", band: "#a07a4a", say: "出门了、在路上、到了",
     fields: [{ k: "body", zh: "报个平安", ph: "出门了 / 去哪 / 大概几点到" }],
     kinds: ["看到了", "路上", "到了"], closeKind: "到了", autoAsk: false,
     taNew: "你们有一本「报平安簿」，家里人出门、在路上、到了都在上面报一声。照你现在真在做的事（看日程和此刻的状态）报一条：出门去哪、大概什么时候到。没出门就说在哪、在干嘛。一两句。",
-    taReply: "这是你们「报平安簿」里的一条。往下接一句：是对方在报平安，就回一句牵挂（看到了、路上小心、到了说一声）；是你自己那条，就照你此刻的情况报个进展，到了就说到了。家里人那种口气，一两句。" }
+    taReply: "这是你们「报平安簿」里的一条。往下接一句：是对方在报平安，就回一句牵挂（看到了、路上小心、到了说一声）；是你自己那条，就照你此刻的情况报个进展，到了就说到了。口气照你们俩平时说话的样子，一两句。" },
+  // 她 2026-10-16「一起」：Codex 第二批里本子形状的四样
+  complain: { rel: "family", zh: "家里告状台", band: "#9a6a52", say: "谁又拿了谁的东西，摆上来评理",
+    fields: [{ k: "title", zh: "告什么", ph: "比如：又偷吃我留的蛋糕" }, { k: "body", zh: "经过", ph: "怎么回事", long: true }, { k: "who", zh: "被告", pick: [["ta", "TA"], ["me", "我"]], tag: "被告：{who}" }],
+    kinds: ["认账", "反驳", "证据", "反告", "和解"], closeKind: "和解", autoAsk: true,
+    taNew: "你们有一个「家里告状台」，谁被对方气到了就来告一状。你来告她一状：只能是你们真聊过、真发生过的事，口气照你们俩平时说话的样子，别编没发生的事。告什么写进 title，经过写进 body，who 填 me（被告是她）。",
+    taReply: "这是你们「家里告状台」上的一状。往下接一句：你是被告就认账、嘴硬反驳、拿证据，或者反告她一状；你是原告就追着说、补证据，或者看她态度可以了就和解。口气照你们俩平时说话的样子，一两句。" },
+  favor: { rel: "family", zh: "偏心小账", band: "#b08a4e", say: "嘴上嫌弃，偷偷给你留了一份",
+    fields: [{ k: "title", zh: "那件事", ph: "比如：给我留了最后一块排骨" }, { k: "body", zh: "怎么偷偷偏心的", ph: "可空", long: true }, { k: "who", zh: "记的是", pick: [["ta", "TA 偏心我"], ["me", "我偏心 TA"]], tag: "{who}偷偷偏心" }],
+    kinds: ["认领", "嘴硬", "又一笔"], autoAsk: true,
+    taNew: "你们有一本「偏心小账」，记那些嘴上嫌弃、手上却偷偷照顾对方的事。你来记一笔她偷偷对你好的事——只能是你们真聊过、真发生过的。写那件事和她怎么偏心的，who 填 me（偏心的人是她）。",
+    taReply: "这是你们「偏心小账」里的一笔。往下接一句：被记的是你，就认领或者嘴硬说「顺手而已」；被记的是她，就揭穿她的嘴硬、再补一笔类似的事（只能是真发生过的）。口气照你们俩平时说话的样子，一两句。" },
+  mouth: { rel: "bestie", zh: "嘴硬对照卡", band: "#7a6aa0", say: "当时说的 vs 后来做的",
+    fields: [{ k: "title", zh: "关于", ph: "比如：说好不再联系前任" }, { k: "body", zh: "当时说的", ph: "原话", long: true }, { k: "after", zh: "后来做的", ph: "可空，后面再补" }, { k: "who", zh: "谁嘴硬", pick: [["ta", "TA"], ["me", "我"]], tag: "{who}嘴硬" }],
+    kinds: ["认领", "申诉", "补一条"], autoAsk: true,
+    taNew: "你们有一叠「嘴硬对照卡」，一面是当时说的话，一面是后来真做了什么。你来拍一张：她说过一句硬话、后来却没做到的（只能是你们真聊过的），或者你自己的。title 写关于什么，body 写当时说的原话，after 写后来做的，who 填 me（嘴硬的是她）或 ta（是你自己）。",
+    taReply: "这是你们「嘴硬对照卡」里的一张。往下接一句：嘴硬的是你，就认领、或者申诉她断章取义；是她，就把后来的事钉回来、补一条新的对照。口气照你们俩平时说话的样子，一两句。" },
+  credit: { rel: "friend", zh: "共同署名", band: "#4f7a6a", say: "一起做成的事，各自出了什么力",
+    fields: [{ k: "title", zh: "做成了什么", ph: "比如：搬完家了" }, { k: "body", zh: "怎么做成的", ph: "过程", long: true }, { k: "share", zh: "我出的力", ph: "可空" }],
+    kinds: ["认领", "推回去", "署名"], closeKind: "署名", autoAsk: true,
+    taNew: "你们有一本「共同署名」，收那些两个人一起做成、或者互相帮着做成的事。你来记一件：只能是你们真聊过、真一起经历过的，或者你人设里真做成、而她帮过你的。写做成了什么、怎么做成的、她出了什么力（share 里写你自己出的力）。",
+    taReply: "这是你们「共同署名」里的一件事。往下接一句：说清你觉得自己出了什么力、对方出了什么力——可以认领，也可以把功劳推回给对方；两个人都认了，就签上名（署名）。口气照你们俩平时说话的样子，一两句。" }
 };
 function spaceBooksFor(cp) { const rk = spaceRelKey(cp); return Object.keys(SPACE_BOOKS).filter(k => SPACE_BOOKS[k].rel === rk).map(k => Object.assign({ key: k }, SPACE_BOOKS[k])); }
 if (typeof window !== "undefined") { window.SPACE_BOOKS = SPACE_BOOKS; window.spaceBooksFor = spaceBooksFor; }
 // 是不是「恋人那种、已经在一起」——各处判断恋爱向的东西（恋人称谓、在一起几天、抽卡的恋人卡……）都问这一个
 function spaceLover(cp) { return !!(cp && cp.status === "together" && spaceRelKey(cp) === "lover"); }
 // 不是恋人的空间，给模型的那一句（单聊 bundle、群聊、梦都用这一份）
+// 家人细分（她 2026-10-16）：只给身份，不给怎么当——「每个兄弟姐妹都不一样」，写死成互损护短就是另一种八股：
+//   cp.role 写的是「TA 是你的谁」：哥哥 / 姐姐 / 弟弟 / 妹妹 / 爸妈 / 长辈 / 孩子，或者她自己写的
+function spaceRoleLine(cp, uName) {
+  const r = String((cp && typeof cp === "object" && cp.role) || "").trim();
+  if (!r || spaceRelKey(cp) !== "family") return "";
+  // 只说身份，不规定怎么当（她 2026-10-16：「这也是八股限制吧，每个兄弟姐妹都不一样」）——怎么当这个哥哥/妈妈，人设和你们的经历说了算
+  return "你是 " + uName + " 的" + r + "。怎么当这个" + r + "，照你的人设和你们一起过来的经历，不照别人家的样子。";
+}
 function spaceRelLine(rk, uName, days) {
   const rl = SPACE_RELS[spaceRelKey(rk)], fam = spaceRelKey(rk) === "family";
-  return "【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (days ? "（约 " + days + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
-    + (fam ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (fam ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。";
+  return spaceRoleLine(rk, uName) + "【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (days ? "（约 " + days + " 天）" : "") + "】这是你俩【当前真实的关系】：写信、说悄悄话、过纪念日、一起做的事，都照你们这层" + (fam ? "家人" : "朋友") + "关系来，不往恋爱、暧昧那头写；亲到什么程度、怎么相处，照你的人设和你们的经历。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。";
 }
-if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; window.spaceLover = spaceLover; window.spaceRelLine = spaceRelLine; }
+if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; window.spaceLover = spaceLover; window.spaceRelLine = spaceRelLine; window.spaceRoleLine = spaceRoleLine; }
 function coupleStatusLines(ctx, uName) {
   const out = [], char = ctx.char, rels = ctx.rels, chars = ctx.chars;
   // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
   // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
   if (!ctx.notRoleplay && ctx.coupleStatus) {
     const cs = String(ctx.coupleStatus).split("|"), rk = spaceRelKey(cs[2]), rl = SPACE_RELS[rk];
-    if (cs[0] === "together" && rk !== "lover") out.push(spaceRelLine(rk, uName, cs[1]));
+    if (cs[0] === "together" && rk !== "lover") out.push(spaceRelLine({ rel: rk, role: cs[3] || "" }, uName, cs[1]));
     else if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending" && rk !== "lover") out.push("【" + rl.space + "邀请待定】" + uName + " 想跟你开一个" + rl.space + "（" + rl.zh + "那种关系，不是恋人），你还没回应。");
     else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");

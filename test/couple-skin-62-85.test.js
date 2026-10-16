@@ -17,9 +17,10 @@ const KINDS = ["page", "wall", "album", "sill", "lining", "velvet", "corridor"];
 test("一个 cpSkin 管这一片，不是一页一份 style", () => {
   assert.equal((src.match(/const cpSkin = /g) || []).length, 1);
   // v62.99 起第九处：第一次们也是【一本册子】，直接搬这本本子的内页，不新画一张
-  // v75.785 第十处：空间本子（黑历史案卷、人生选择册……）也是一本册子，同一张内页
-  assert.equal((src.match(/style: cpSkin\(t, "/g) || []).length, 10,
-    "铺到的页数变了：问答小本两页 / 我们的日子 / 合照 / 花房 / 旅行 / 唱片 / 情侣名册 / 第一次们 / 空间本子，共十处");
+  // 空间本子 v75.797 起不铺这张纸：卷宗在木桌上、诉状在小法庭、对照卡在软木板、车票在站台（她「背景都还是这种纸张」），
+  //   没布景的那几本才退回 cpSkin，写法是 `sc ? sc.page : cpSkin(t, "page")`，不算进这九处
+  assert.equal((src.match(/style: cpSkin\(t, "/g) || []).length, 9,
+    "铺到的页数变了：问答小本两页 / 我们的日子 / 合照 / 花房 / 旅行 / 唱片 / 情侣名册 / 第一次们，共九处");
   KINDS.forEach(k => assert.ok(src.includes('cpSkin(t, "' + k + '")'), k + " 这一档没人用，等于白写"));
 });
 
@@ -90,7 +91,7 @@ test("铺了底的这几页，正文照旧是唯一那个滚动容器", () => {
   const idxs = [];
   let k = -1;
   while ((k = src.indexOf('style: cpSkin(t, "', k + 1)) >= 0) idxs.push(k);
-  assert.equal(idxs.length, 10);
+  assert.equal(idxs.length, 9);
   idxs.forEach(i => {
     const near = src.slice(i, i + 2000);
     assert.match(near, /className: "flex-1 min-h-0 overflow-y-auto/, "这一处的正文没有 min-h-0：" + src.slice(i, i + 60));
