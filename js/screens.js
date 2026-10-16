@@ -2792,9 +2792,20 @@ function Forum({
     });
   }));
   forumNotices.sort((a, b) => b.ts - a.ts);
-  const unreadNoticeCount = forumNotices.filter(n => !forumNoticeRead[n.id]).length;
+  // 「全部标为已读」记一道水位线（群友 2026-10-16：标完还剩 97 条）——原来一条一条记键、最多留 800 个，
+  //   一口气标几百条时它们的时间戳全一样，裁到 800 是随手裁，剩下那截又成了没读。水位线以下的一律算读过。
+  const [noticeReadAll, setNoticeReadAll] = useState(() => { try { return Number(localStorage.getItem("x_forumNoticeReadAll") || 0) || 0; } catch (e) { return 0; } });
+  const noticeIsRead = n => !!forumNoticeRead[n.id] || Number(n.ts || 0) <= noticeReadAll;
+  const unreadNoticeCount = forumNotices.filter(n => !noticeIsRead(n)).length;
   const markNoticesRead = ids => {
     const fresh = (ids || []).filter(id => id && !forumNoticeRead[id]);
+    if (!fresh.length && (ids || []).length < forumNotices.length) return;
+    // 标的是全部：直接把水位线提到最新那条，不再逐条记
+    if (forumNotices.length && (ids || []).length >= forumNotices.length) {
+      const top = forumNotices.reduce((m, n) => Math.max(m, Number(n.ts || 0)), 0);
+      setNoticeReadAll(top); try { localStorage.setItem("x_forumNoticeReadAll", String(top)); } catch (e) {}
+      return;
+    }
     if (!fresh.length) return;
     setForumNoticeRead(prev => {
       const next = { ...prev }; fresh.forEach(id => { next[id] = Date.now(); });
@@ -3380,14 +3391,14 @@ function Forum({
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, unreadNoticeCount + " 条没看"),
         h("button", { "data-wk": "forumnoticeallread", onClick: () => markNoticesRead(forumNotices.map(n => n.id)), className: "ml-auto active:opacity-60",
           style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12.5, color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
-      forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: forumNoticeRead[n.id] ? "transparent" : t.bg2 } },
+      forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: noticeIsRead(n) ? "transparent" : t.bg2 } },
         h("button", { onClick: () => openNotice(n), className: "flex-1 min-w-0 text-left flex gap-3 active:opacity-70" },
           avatarFor(n.author, 38, n.author && n.author.anon),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-1.5" },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.authorName),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, n.kind + " · " + timeAgo(n.ts)),
-              !forumNoticeRead[n.id] && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
+              !noticeIsRead(n) && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 3 } }, n.content),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "来自《" + (n.post.title || "帖子") + "》"))),
         h("button", { onClick: () => replyFromNotice(n), className: "shrink-0 self-center active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent + "66", borderRadius: 999, padding: "5px 11px" } }, "回复"))));
