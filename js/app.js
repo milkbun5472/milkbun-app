@@ -8352,7 +8352,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       ? "TA 的【外貌 · 发自拍用】那一栏是空的、也没传参考照——人设正文里写的外貌不算，要填进编辑角色里那一栏"
       : "";
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
-  const offlinePhotoCanDuo = char => !!(char && char.refPhoto && profile && profile.refPhoto);
+  // 合照能不能拍只问这一处（群友 2026-10-15「站子开了不锁脸，合照还是放不出来」）：
+  //   平时要你俩都有参考照，两张脸都锁住；图像站开了「这个站不锁脸」，本来就一张参考照都不带，照外貌文字画，
+  //   这时再要求两张参考照就是把合照整个关掉了。
+  const imgSiteNoRef = () => { try { return typeof loadImgApi === "function" && !!loadImgApi().noRef; } catch (e) { return false; } };
+  const duoFacesOk = char => !!(char && ((char.refPhoto && profile && profile.refPhoto) || imgSiteNoRef()));
+  const offlinePhotoCanDuo = char => duoFacesOk(char);
   // 一份出图，两处线下（单人 / 群）共用。arg：
   //   char    这张照片是谁的（拿TA的参考照锁脸、读TA的状态卡）
   //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
@@ -11728,7 +11733,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const canSelfie = !photoCooldown.cooling;
       const canFace = canSelfieImg ? !!(char.appearance || char.refPhoto) : true;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
-      const canDuo = canSelfieImg ? !!(char.refPhoto && profile && profile.refPhoto) : true;
+      const canDuo = canSelfieImg ? duoFacesOk(char) : true;
       // ⚠️这两个必须定义在【所有用到它的地方之前】：言秋那条 hint 排在 openCaps 之前，
       //   写在下面会 TDZ 白屏（今天已经在别处踩到两次同一个坑了）。
       const _canCarve = !sideRoom && !!(isCouple && musicReady);
@@ -14477,10 +14482,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gSelfieMembers = gPhotoOn ? members.filter(c => !photoCooldownState(gchat, c.id).cooling) : [];
       const gFaceMembers = gSelfieMembers.filter(c => c.appearance || c.refPhoto);
       // 合照只在【用户传了参考照 且 该成员也传了参考照】时才开放——两张脸都拿真照片喂，绝不一张真一张编
-      const gDuoMembers = (profile && profile.refPhoto) ? gFaceMembers.filter(c => c.refPhoto) : [];
+      const gDuoMembers = imgSiteNoRef() ? gFaceMembers.slice() : (profile && profile.refPhoto) ? gFaceMembers.filter(c => c.refPhoto) : [];
       const gUName = (profile && profile.name) || "用户";
       // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票
-      const gGroupShotOk = members.filter(c => c && c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2
+      const gGroupShotOk = (imgSiteNoRef() ? members.filter(Boolean).length + 1 : members.filter(c => c && c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0)) >= 2
         && members.filter(c => c && c.refPhoto).length >= 1;
       // 群里她转给某位成员、还挂着没点的那几笔（v56.88，同单聊）：收不收由那个人自己按人设和情形定
       const gPendingTf = (groupChatsRef.current[groupId] || []).filter(m =>
@@ -25326,7 +25331,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
-    if (!(char.refPhoto && profile && profile.refPhoto)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张"); return false; }
+    if (!duoFacesOk(char)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像站不收参考照的话，在「设置 → 图像 API」打开「这个站不锁脸」"); return false; }
     setGen(g => ({ ...g, studio: true }));
     try {
       const st = statesRef.current[char.id] || {};
@@ -30138,7 +30143,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 合拍那张（第 4 条）：你俩都有参考照就锁两张脸，缺一张就退回只画TA
       drawDuo: async (charId, desc) => {
         const char = characters.find(c => c.id === charId);
-        if (!char || !char.refPhoto || !(profile && profile.refPhoto)) return drawFromDesc(char || null, desc, "self");
+        if (!char || !duoFacesOk(char)) return drawFromDesc(char || null, desc, "self");
         const prompt = buildPhotoPrompt(char, desc, (statesRef.current || {})[char.id] || null, { kind: "duo", me: photoMe("她"), closet: closetTextFor(char.id) });
         const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
         let ref = null;
