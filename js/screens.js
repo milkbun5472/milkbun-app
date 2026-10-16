@@ -6936,7 +6936,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const pactDueSoonFor = cid => { const p2 = couplePactsOf ? couplePactsOf(cid) : null; return !!(p2 && (p2.due || []).some(x => x.dueTs && Date.now() >= x.dueTs - 86400000)); };
   const unreadTagsFor = cid => {
     const a = [];
-    if (unreadLettersFor(cid)) a.push("情书");
+    if (unreadLettersFor(cid)) a.push(window.spaceRel ? window.spaceRel(cp[cid]).letter : "情书");
     if (unreadExDiaryFor(cid)) a.push("交换日记");
     if ((coupleQA || []).some(e => e.characterId === cid && e.sealed && e.byCharacter && !e.myAnswer)) a.push("问答小本");
     if ((coupleRecall || []).some(x => x.characterId === cid && x.unread)) a.push(characterText(characters.find(c => c.id === cid), "他记得的"));
@@ -7854,7 +7854,8 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   };
   return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "corridor") },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：原来那个 30px 大标题 + US/COUPLE 占掉小半屏
-    h(Head, { zh: "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
+    // 列表里不全是恋人时，标题不叫「情侣」（她 2026-10-16 截图「这里还是显示情侣」）
+    h(Head, { zh: entries.some(e => window.spaceRelKey && window.spaceRelKey(e.st) !== "lover") ? "我们的空间" : "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
       bg: "transparent", noLine: true, onBack,
       right: characters.length > 0 ? h("button", { onClick: () => setPick(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IHeart, { size: 19, color: t.ink })) : null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
@@ -7878,21 +7879,25 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
                 h("button", { onClick: () => tog && setView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
                   h("div", { className: "flex items-baseline", style: { gap: 8 } },
                     h("div", { "data-wk": "usname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, e.char.name),
+                    // 不是恋人的那几行，名字边上一枚小火漆写着是什么空间
+                    window.spaceRel && window.spaceRelKey(e.st) !== "lover" ? h("span", { "data-wk": "usrelchip", className: "shrink-0 flex items-center", style: { gap: 4, fontFamily: F_BODY, fontSize: 10.5, color: window.spaceRel(e.st).tone } },
+                      h("span", { style: { width: 15, height: 15, borderRadius: 999, background: window.spaceRel(e.st).tone, color: "#fff", fontSize: 9, display: "inline-flex", alignItems: "center", justifyContent: "center" } }, window.spaceRel(e.st).seal),
+                      window.spaceRel(e.st).space) : null,
                     // 项目多了别把名字挤没：最多点两样，剩下的归成「等」
                     tags.length ? h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: "#c02a52" } }, "新的" + tags.slice(0, 2).join("、") + (tags.length > 2 ? "等" : "")) : null),
                   tog
                     ? h(Fragment, null,
                         h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 3 } },
-                          h("span", { "data-wk": "uscount", style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: "#d16a86" } }, String(n)),
+                          h("span", { "data-wk": "uscount", style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: window.spaceRelKey && window.spaceRelKey(e.st) !== "lover" ? window.spaceRel(e.st).tone : "#d16a86" } }, String(n)),
                           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "天 · 从 " + dayFmt(e.st.since) + " 起")),
                         trail(n))
                     : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, "邀请还没有回应")),
                 tog && onUnlink ? h("button", { onClick: ev => { ev.stopPropagation(); setUnlinkChar(e.char); },
-                  "aria-label": "解除情侣关系", className: "shrink-0 active:opacity-60 flex items-start justify-center",
+                  "aria-label": "解除" + (window.spaceRel ? window.spaceRel(e.st).space : "情侣关系"), className: "shrink-0 active:opacity-60 flex items-start justify-center",
                   style: { width: 34, height: 34, marginTop: -2 } }, h(CGlyph, { k: "heartbreak", size: 17, color: t.fog })) : null);
             }))),
     unlinkChar && onUnlink ? h(Sheet, { onClose: () => setUnlinkChar(null) },
-      h(Eyebrow, { style: { marginBottom: 10 } }, "解除和 " + unlinkChar.name + " 的情侣关系"),
+      h(Eyebrow, { style: { marginBottom: 10 } }, "解除和 " + unlinkChar.name + " 的" + (window.spaceRel ? window.spaceRel(cp[unlinkChar.id]).space : "情侣关系")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog, marginBottom: 14 } }, "情侣空间的记录会全部保留（复合后还在）。解除会降低好感，且至少一周后、好感回到一定程度，TA 才可能同意复合。你想怎么解除？"),
       h("button", { onClick: () => { onUnlink(unlinkChar, "sudden"); setUnlinkChar(null); }, className: "w-full text-left active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px", marginBottom: 10 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "直接解除"),
