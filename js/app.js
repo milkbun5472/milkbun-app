@@ -28788,6 +28788,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
 
   // 秋秋多管的几样要的读写口（她 2026-10-14「都做吧」）：整页和悬浮屏是同一个秋秋，两处都 spread 这一份，别各写各的
   const assistExtraCtx = () => ({
+    // 跳转卡（她 2026-10-16）：攻略那条的 app 键大多就是屏幕名，几个对不上的在这儿换一下；认不得的就不跳
+    onOpenPage: (app, entryId) => {
+      const ALIAS = { chat: "messages", couple: "us", lounge: "loungeapp" };
+      // 有自己整页的那几条，直接去那一页，不停在信息首页
+      const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
+      const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
+      const OK = ["anon", "astro", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      if (OK.indexOf(sc) < 0) return false;
+      setScreen(sc);
+      return true;
+    },
     memList: () => memLibRef.current || [],
     onSaveMemLib: list => saveMemLib(list),
     closetOf: id => ((carryRef && carryRef.current ? carryRef.current : carry)[id] || {}).outfit || {},

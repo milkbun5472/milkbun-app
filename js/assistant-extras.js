@@ -686,6 +686,27 @@
     + "  gardenpartner 某一档换同行者：id＝快照【小世界存档】里的存档id，text＝角色名，或「一个人」。从小房间开的庭院房绑死那个人，不能换。\n"
     + "  她问小世界怎么玩，照攻略「小世界」那条讲；快照里看得到她开了哪几档、各是哪个世界、跟谁。\n";
 
+  // ── 带她去那一页（她 2026-10-16：「不止知道东西在哪里，还可以出一个跳转卡，按了就能带到那个页面」）──
+  //   id＝攻略里那一条的 id（目录里每条都有）；按了就开那条所在的 app。不改任何东西，所以不进撤回本。
+  TARGETS.open = {
+    zh: "带你去那一页",
+    read: ctx => [],
+    before: (p, ctx) => { const M = typeof window !== "undefined" && window.AssistantManual; const e = M && M.byId ? M.byId(S(p.id)) : null; return e ? "去「" + e.zh + "」" + (e.where ? "（" + e.where + "）" : "") : ""; },
+    write: (id, patch, ctx) => {
+      const M = typeof window !== "undefined" && window.AssistantManual;
+      const e = M && M.byId ? M.byId(S(id)) : null;
+      if (!e) throw new Error("攻略里没有「" + S(id) + "」这一条");
+      if (!ctx.onOpenPage) throw new Error("这个页面没接跳转的入口");
+      if (!ctx.onOpenPage(e.app, e.id)) throw new Error("「" + e.zh + "」这一页没法直接跳过去，照「" + (e.where || e.zh) + "」走");
+      return 1;
+    }
+  };
+  const _ok4 = okWithoutText;
+  okWithoutText = x => _ok4(x) || (x.target === "open" && S(x.id).trim());
+  const _doc4 = docLines;
+  docLines = () => _doc4() + "  open 带她去那一页：她说想去做某件事、找某个功能（「我想搞个新世界地图」「表情包在哪」），除了告诉她在哪，再出一张 open 卡，她按一下就开到那一页。"
+    + "id＝目录里那一条的 id，text 写按钮上那句话（比如「去架空地图」）。只是开页面，不改任何东西；一轮最多两张，别每句话都出。\n";
+
   const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;
   if (typeof module === "object" && module.exports) module.exports = api;
