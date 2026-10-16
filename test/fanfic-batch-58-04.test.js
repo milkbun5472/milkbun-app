@@ -165,6 +165,6 @@ test("人设每人封顶 6000，和跑团那条链同一个额度", () => {
   assert.match(fic, /function personaOf\(c\) \{ return String\(\(c && c\.persona\) \|\| ""\)\.trim\(\)\.slice\(0, FIC_PERSONA_CAP\); \}/);
   const i = fic.indexOf("  function sideDesc(c) {");
   const seg = fic.slice(i, i + 500);
-  assert.match(seg, /const p = personaOf\(c\);/);
+  assert.match(seg, /const p = personaOf\(c\)( \+ \(look \?[^;]*)?;/);
   assert.doesNotMatch(seg, /c\.persona\.trim\(\)/, "还有一处直接用了未截断的人设");
 });

@@ -5432,7 +5432,10 @@
         h("div", { style: { marginTop: 10 } },
           h(GameTalkLog, { t: t, lines: lines, busy: talking, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: 110, empty: cName + " 在旁边" }))),
       h("div", { "data-wk": "tetbar", className: "shrink-0 px-4 pt-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line, background: t.bg } },
-        status === "play" ? h("div", { className: "flex gap-2", style: { padding: "4px 0 6px", opacity: coop && me && me.owner === "ta" ? .4 : 1 } }, pad("l", "←"), pad("rot", "↻"), pad("r", "→"), pad("down", "↓"), pad("drop", "⤓"))
+        // 暂停（她 2026-10-16 转群友）：停的是主循环那一跳，TA 那块和掉落一起停；回来从停下那一刻接着算，不补跳
+        status === "pause" ? h("button", { "data-wk": "tetstart", "data-part": "resume", onClick: function () { setStatus("play"); }, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 14, border: "none" } }, "暂停中 · 点这里接着玩")
+        : status === "play" ? h("div", { className: "flex gap-2", style: { padding: "4px 0 6px", opacity: coop && me && me.owner === "ta" ? .4 : 1 } }, pad("l", "←"), pad("rot", "↻"), pad("r", "→"), pad("down", "↓"), pad("drop", "⤓"),
+            h("button", { key: "pause", "data-wk": "tetpad", "data-part": "pause", onClick: function () { release(); setStatus("pause"); }, className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 }, "aria-label": "暂停" }, "Ⅱ"))
           : h("button", { "data-wk": "tetstart", onClick: start, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 14, border: "none" } },
               status === "done" ? (coop ? "你俩 " + (me ? me.score : 0) + " 分 · 再来一局" : versus ? (ta && ta.over && me && !me.over ? "你赢了 · 再来一局" : cName + " 赢了 · 再来一局") : "这局 " + (me ? me.score : 0) + " 分 · 再来一局") : "开始"),
         h("div", { className: "flex gap-2", style: { paddingBottom: 4 } },

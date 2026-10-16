@@ -2617,7 +2617,7 @@ function ForumAnonWrap(props) {
   return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
 }
 function Forum({
-  characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
+  characters, profile, posts, comments, follows, followBack, followingOf, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
@@ -2792,9 +2792,20 @@ function Forum({
     });
   }));
   forumNotices.sort((a, b) => b.ts - a.ts);
-  const unreadNoticeCount = forumNotices.filter(n => !forumNoticeRead[n.id]).length;
+  // 「全部标为已读」记一道水位线（群友 2026-10-16：标完还剩 97 条）——原来一条一条记键、最多留 800 个，
+  //   一口气标几百条时它们的时间戳全一样，裁到 800 是随手裁，剩下那截又成了没读。水位线以下的一律算读过。
+  const [noticeReadAll, setNoticeReadAll] = useState(() => { try { return Number(localStorage.getItem("x_forumNoticeReadAll") || 0) || 0; } catch (e) { return 0; } });
+  const noticeIsRead = n => !!forumNoticeRead[n.id] || Number(n.ts || 0) <= noticeReadAll;
+  const unreadNoticeCount = forumNotices.filter(n => !noticeIsRead(n)).length;
   const markNoticesRead = ids => {
     const fresh = (ids || []).filter(id => id && !forumNoticeRead[id]);
+    if (!fresh.length && (ids || []).length < forumNotices.length) return;
+    // 标的是全部：直接把水位线提到最新那条，不再逐条记
+    if (forumNotices.length && (ids || []).length >= forumNotices.length) {
+      const top = forumNotices.reduce((m, n) => Math.max(m, Number(n.ts || 0)), 0);
+      setNoticeReadAll(top); try { localStorage.setItem("x_forumNoticeReadAll", String(top)); } catch (e) {}
+      return;
+    }
     if (!fresh.length) return;
     setForumNoticeRead(prev => {
       const next = { ...prev }; fresh.forEach(id => { next[id] = Date.now(); });
@@ -3196,7 +3207,7 @@ function Forum({
           isMe
             ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
             : h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
-              h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注"),
+              h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? (((followBack || {})[c.id] || {}).on ? "互相关注" : "已关注") : (((followBack || {})[c.id] || {}).on ? "回关" : "关注")),
               // 私信TA【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
               // ⚠️小号主页（altProfileView）上故意【没有】这个按钮：小号私信一旦喂回聊天，
               //   「TA知道两边是同一个人、她不知道」这个玩法当场塌掉，TA迟早说漏。
@@ -3206,6 +3217,13 @@ function Forum({
                 style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent }
               }, "私信 TA") : null)),
         meta.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 10, lineHeight: 1.5 } }, meta.bio),
+        // 互关（群友 2026-10-16）：他回关了你就亮出来；他还关注了谁也摊开给你看（有你就把你排第一个）
+        !isMe && ((followBack || {})[c.id] || {}).on ? h("div", { "data-wk": "forummutual", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, marginTop: 8 } },
+          flw.includes(c.id) ? "你们互相关注 · TA " + timeAgo(((followBack || {})[c.id] || {}).at) + "回关的" : "TA 关注了你") : null,
+        !isMe && followingOf ? (function () {
+          const names = (((followBack || {})[c.id] || {}).on ? ["你"] : []).concat(followingOf(c.id));
+          return names.length ? h("div", { "data-wk": "forumfollowing", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "TA 关注了：" + names.join("、")) : null;
+        })() : null,
         !isMe && Array.isArray(meta.boardPrefs) && meta.boardPrefs.length > 0 && h("div", { className: "flex items-center gap-1.5 flex-wrap", style: { marginTop: 9 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "常逛"),
           meta.boardPrefs.map(b => h("span", { key: b, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, border: `1px solid ${t.line}`, borderRadius: 999, padding: "2px 7px" } }, b)),
@@ -3373,14 +3391,14 @@ function Forum({
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, unreadNoticeCount + " 条没看"),
         h("button", { "data-wk": "forumnoticeallread", onClick: () => markNoticesRead(forumNotices.map(n => n.id)), className: "ml-auto active:opacity-60",
           style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12.5, color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
-      forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: forumNoticeRead[n.id] ? "transparent" : t.bg2 } },
+      forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: noticeIsRead(n) ? "transparent" : t.bg2 } },
         h("button", { onClick: () => openNotice(n), className: "flex-1 min-w-0 text-left flex gap-3 active:opacity-70" },
           avatarFor(n.author, 38, n.author && n.author.anon),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-1.5" },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.authorName),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, n.kind + " · " + timeAgo(n.ts)),
-              !forumNoticeRead[n.id] && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
+              !noticeIsRead(n) && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 3 } }, n.content),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "来自《" + (n.post.title || "帖子") + "》"))),
         h("button", { onClick: () => replyFromNotice(n), className: "shrink-0 self-center active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent + "66", borderRadius: 999, padding: "5px 11px" } }, "回复"))));
