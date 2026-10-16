@@ -22,7 +22,7 @@ test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
   assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/,
     "没接图像通道时还卡着「有没有脸可锁」");
   // v75.685：「我」改从这个角色认的那张面具取（meOf）
-  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && \(meOf\(char\.id\) \|\| \{\}\)\.refPhoto\) : true;/,
+  assert.match(app, /const canDuo = canSelfieImg \? duoFacesOk\(char\) : true;/,
     "合照那一档同理");
   // ⚠️顺序：canSelfieImg 必须排在这两个前面，写反了就是 TDZ 白屏
   const i = app.indexOf("const canSelfieImg ="), f = app.indexOf("const canFace ="), d = app.indexOf("const canDuo =");
@@ -35,7 +35,7 @@ test("没像素可画的时候，拍人那几档也别跟着锁死", () => {
   assert.match(app, /const canFace = canSelfieImg \? !!\(char\.appearance \|\| char\.refPhoto\) : true;/,
     "没接图像通道时还卡着「有没有脸可锁」");
   // v75.685：「我」改从这个角色认的那张面具取（meOf）
-  assert.match(app, /const canDuo = canSelfieImg \? !!\(char\.refPhoto && \(meOf\(char\.id\) \|\| \{\}\)\.refPhoto\) : true;/,
+  assert.match(app, /const canDuo = canSelfieImg \? duoFacesOk\(char\) : true;/,
     "合照那一档同理");
   // ⚠️顺序：canSelfieImg 必须排在这两个前面，写反了就是 TDZ 白屏
   const i = app.indexOf("const canSelfieImg ="), f = app.indexOf("const canFace ="), d = app.indexOf("const canDuo =");
