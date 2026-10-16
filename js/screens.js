@@ -5779,7 +5779,13 @@ function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
         h("img", { src: x.u, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))),
     zoom >= 0 ? h("div", { "data-wk": "gridcellzoom", onClick: () => setZoom(-1), className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
       h("img", { src: cells[zoom].u, alt: "", style: { maxWidth: "94%", maxHeight: "70%", borderRadius: 10 } }),
-      h("div", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "第 " + (zoom + 1) + " 格 · 长按能存到手机"),
+      h("div", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "第 " + (zoom + 1) + " 格"),
+      // 长按存图在「添加到主屏幕」的网页版里不出（她 2026-10-16 截图）——给一颗明着存的键，走公共那条 saveFile
+      h("button", { onClick: async e => { e.stopPropagation();
+          try { const b = dataUrlToBlob(cells[zoom].u); const via = await saveFile(new File([b], "photo-" + (zoom + 1) + "-" + Date.now() + ".jpg", { type: "image/jpeg" }));
+            if (window.__toast) window.__toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "已经存下来了"); }
+          catch (er) { if (window.__toast) window.__toast("没存成，再试一次"); } },
+        className: "active:opacity-70", style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "保存这一格"),
       onSharpen ? h("button", { onClick: e => { e.stopPropagation(); if (!sharpBusy) onSharpen(cells[zoom].u, zoom); }, disabled: !!sharpBusy, className: "active:opacity-70",
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } },
         sharpBusy ? "在拍了…" : "把这格拍清楚（再拍一张，花一次生图）") : null) : null);
