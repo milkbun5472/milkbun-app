@@ -10224,7 +10224,7 @@ function Config(props) {
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
-      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }
@@ -11794,6 +11794,8 @@ function HomeLayoutProbe({ toast }) {
 function DataConfig({
   characters,
   onExport,
+  mediaParts,
+  onExportMedia,
   onCopyExport,
   copyParts,
   onImportText,
@@ -11837,12 +11839,26 @@ function DataConfig({
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
+    // 图片和视频另按包存（群里 2026-10-16「备份不下来了」）：文字那份存好后这儿才冒出来
+    mediaParts && mediaParts.n
+      ? h("div", { style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.ink } },
+            "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时每一包都用「导入备份恢复」导一次，先导哪份都行。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+            Array.from({ length: mediaParts.n }, (_, k) => h("button", {
+              key: k, onClick: () => onExportMedia(k + 1), className: "active:opacity-70",
+              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12,
+                border: "1px solid " + (mediaParts.done[k + 1] ? t.ink : t.line),
+                background: mediaParts.done[k + 1] ? t.ink : "transparent",
+                color: mediaParts.done[k + 1] ? t.bg2 : t.ink }
+            }, (mediaParts.done[k + 1] ? "✓ " : "") + "图片第 " + (k + 1) + " 包"))))
+      : null,
     // ⚠️「导出全部数据」这个名字是句半真话：有五个 IndexedDB 库根本不在里面（审计 P1）。
     //   以前唯一提到这件事的地方，是【导入失败之后】那个 alert——那时候已经晚了。
     //   固定摆在按钮旁边，按之前就看得见。
     h("div", { style: { margin: "8px 0 4px", padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub } },
-        "这份文件带走的是：角色、聊天、记忆、手机、情侣空间这些正文，加上图库、自拍和照片说明。"),
+        "先存一份文字（角色、聊天、记忆、手机、情侣空间这些正文），再按包存图库、自拍、照片说明和动态形象视频——图多也导得出来。"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f", marginTop: 5 } },
         "⚠️ 不含：API 密钥 · 一起读的书正文 · 语音音频 · 一起听的本地歌 · 网易云 Cookie。换设备之后这几样要重来一次。")),
     // ── 下载落不下来的那条退路（她 2026-09-22 转来的截图：QQ 内置浏览器把下载
