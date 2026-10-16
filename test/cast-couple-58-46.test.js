@@ -142,7 +142,7 @@ test("邀请卡跟别的自己发的卡一样带头像", () => {
 });
 
 test("发出邀请不再自动开口，等她点了才回应", () => {
-  const i = app.indexOf("const sendCoupleInvite = async (char, rel) =>");
+  const i = app.indexOf("const sendCoupleInvite = async (char, rel, role) =>");
   const j = app.indexOf("const askCoupleInvite", i);
   assert.ok(i > 0 && j > i && j - i < 2200, "抠不出 sendCoupleInvite");
   const send = app.slice(i, j);
