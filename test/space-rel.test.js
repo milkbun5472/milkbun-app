@@ -23,3 +23,49 @@ test("各处 instruction 不再手写「你们是恋人」，都问 relSay", () 
   assert.ok((app.match(/instruction: relSay\(char\)/g) || []).length >= 13);
   assert.match(app, /return "together\|" \+ \(days \|\| ""\) \+ "\|" \+ rk;/);
 });
+
+// 她 2026-10-16：「别的关系角色也可以发邀请信」
+test("TA 的申请信可以带关系：{rel,text} 落成带 rel 的信，答应了按那层关系开空间", () => {
+  assert.match(app, /const _letterRel = _llObj \? spaceRelKey\(_llObj\.rel\) : "lover";/);
+  assert.match(app, /kind: "loveletter", rel: _letterRel,/);
+  assert.match(app, /beginCouple\(charId, m\.rel\)/);
+  assert.match(app, /const rk0 = spaceRelKey\(relOverride \|\| \(couplesRef\.current \|\| \{\}\)\[charId\]\);/);
+  assert.match(app, /\\"rel\\":\\"bestie\|friend\|family\\"/);
+});
+
+// 「改成闺蜜空间就不会当成情侣了吧」——查出来群聊、梦、抽卡、他俩关系那句还在按恋人走，一并接上
+test("恋人向的地方只认恋人空间：群聊那句、梦、抽卡、旁观关系都问 spaceLover", () => {
+  const dream = fs.readFileSync(path.join(__dirname, "..", "js", "dream.js"), "utf8");
+  const dj = fs.readFileSync(path.join(__dirname, "..", "js", "dreamjournal.js"), "utf8");
+  assert.match(eng, /function spaceLover\(cp\) \{ return !!\(cp && cp\.status === "together" && spaceRelKey\(cp\) === "lover"\); \}/);
+  assert.match(app, /if \(cp\.status === "together" && !spaceLover\(cp\)\) return spaceRelLine\(/);
+  assert.match(app, /\{ couple: spaceLover\(cp\), have: gachaHave\(char\) \}/);
+  assert.match(app, /const tog = members\.filter\(c => spaceLover\(couples\[c\.id\]\)\)/);
+  assert.match(dream, /window\.spaceLover\(cp\)/); assert.match(dj, /window\.spaceLover\(cp\)/);
+});
+
+// 她 2026-10-16「可以就这样」：闺蜜 / 挚友 / 家人空间撤掉恋人专属的——婚纱结婚题材、亲密合照姿势、恋爱向的问答题
+test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小本翻不到 love 题", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  assert.match(app, /wedding:  \{ zh: "婚纱照", lover: true,/);
+  assert.match(app, /marriage: \{ zh: "结婚登记照", lover: true,/);
+  assert.match(app, /const theme = theme0 && theme0\.lover && notLover \? null : theme0;/);
+  assert.match(eng, /const pool = PHOTO_DUO_POSES\.filter\(x => !opts\.notLover \|\| x\.charAt\(0\) !== "♥"\)/);
+  assert.match(scr, /COUPLE_QA_BANK\.filter\(x => !x\.love\)/);
+  assert.ok((scr.match(/love: 1, cat:/g) || []).length >= 10);
+});
+
+// 她 2026-10-16「本子的 1234 可以做」：黑历史案卷、军师观察簿（闺蜜）、人生选择册（挚友）、报平安簿（家人）
+test("空间本子：一张表管四本，按关系各拿各的；TA 接话走 runProbe + relSay；存进 IDB 大仓", () => {
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const i = eng.indexOf("const SPACE_BOOKS = {"), j = eng.indexOf("function spaceBooksFor(", i);
+  assert.ok(i > 0 && j > i, "抠不出 SPACE_BOOKS");
+  const B = new Function(eng.slice(i, j) + "; return SPACE_BOOKS;")();
+  assert.deepEqual(Object.keys(B).map(k => k + ":" + B[k].rel).sort(), ["advisor:bestie", "blackcase:bestie", "choices:friend", "safe:family"]);
+  assert.equal(B.safe.closeKind, "到了"); assert.equal(B.choices.closeKind, "结果");
+  assert.match(eng, /"x_coupleSweet", "x_spaceBooks",/);
+  assert.match(app, /const spaceBookTa = async \(char, key, id\) =>/);
+  assert.match(app, /instruction: relSay\(char\) \+ "。" \+ bk\.taReply/);
+  assert.match(scr, /function SpaceBook\(\{ partner, book, entries/);
+  assert.match(scr, /sub\.indexOf\("book:"\) === 0/);
+});

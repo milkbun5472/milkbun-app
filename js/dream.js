@@ -188,8 +188,8 @@
     const c = (props.characters || []).find(x => x.id === row.charId); if (!c) return null;
     const uName = profOf(props, c.id).name || "我";
     const cp = props.couples && props.couples[c.id];
-    const relationship = cp && cp.status === "together" ? "Ta 和你现实中已正式在一起，可以使用现实已有的恋人称谓"
-      : cp && cp.status === "pending" ? "Ta 向你表达过关系意愿，但现实中尚未确认成为恋人"
+    const relationship = (window.spaceLover ? window.spaceLover(cp) : cp && cp.status === "together") ? "Ta 和你现实中已正式在一起，可以使用现实已有的恋人称谓"
+      : cp && cp.status === "pending" && (!window.spaceRelKey || window.spaceRelKey(cp) === "lover") ? "Ta 向你表达过关系意愿，但现实中尚未确认成为恋人"
       : "Ta 和你现实中没有已确认的恋人关系：梦里可以渴望、暧昧、欲言又止，但不得出现现实中未发生的关系事实";
     const allowedNames = [c.name, c.remark, profOf(props, c.id).name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
     // 回来的梦（v63.09）：找到上次碎掉的那场，从碎之前那一幕接着做——碎的那一幕整个丢掉，重新给选项

@@ -3584,15 +3584,51 @@ const SPACE_RELS = {
 };
 function spaceRelKey(v) { const k = v && typeof v === "object" ? v.rel : v; return SPACE_RELS[k] ? k : "lover"; }
 function spaceRel(v) { return SPACE_RELS[spaceRelKey(v)]; }
-if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; }
+// 「我们的空间」里的本子（她 2026-10-16：Codex「有一本东西可以长期翻、双方往里添」→「本子的 1234 可以做」）。
+//   一本＝一条条记录，每条下面你一句、TA 一句往后接；TA 也会自己开一条。形状只有这一份，每种关系配自己的几本，
+//   以后再加一本只是在这张表里加一项（施工规则/one-public-mechanism.md）。
+//   fields：开一条时要填的几格；kinds：往下接的那句是什么（你挑、TA 照它的意思选）；closeKind：接了这种就算收尾。
+//   taNew / taReply：TA 开一条、接一句时的那段说明——只写这一本是干什么的、TA 站在哪，不写例句。
+const SPACE_BOOKS = {
+  blackcase: { rel: "bestie", zh: "黑历史案卷", band: "#8d5a7a", say: "一桩一桩记着，谁也别想抵赖",
+    fields: [{ k: "title", zh: "案名", ph: "给这桩糗事起个名" }, { k: "body", zh: "经过", ph: "那天到底发生了什么", long: true }, { k: "who", zh: "谁的糗事", pick: [["me", "我的"], ["ta", "TA 的"]] }],
+    kinds: ["解释", "补刀", "证据", "翻案"], autoAsk: true,
+    taNew: "你们有一本「黑历史案卷」，专门记对方或自己干过的糗事。你来开一桩：可以是你自己的（照你的人设和经历），也可以是她的——她的只能是你们真聊过、记得的事，别编。写个案名、一段经过，标明是谁的。",
+    taReply: "这是你们「黑历史案卷」里的一桩，你往下接一句：是你的糗事就解释、嘴硬或者认了；是她的就补刀、拿证据、或者在她申请翻案时驳回。口语，像闺蜜互损，别太长。" },
+  advisor: { rel: "bestie", zh: "军师观察簿", band: "#b0607a", say: "你递细节，TA 下判断，后来再对账",
+    fields: [{ k: "title", zh: "关于", ph: "关于谁、什么事" }, { k: "body", zh: "细节", ph: "TA 说了什么、做了什么、你怎么想", long: true }],
+    kinds: ["我说", "后来"], autoAsk: true,
+    taNew: "",
+    taReply: "这是你们「军师观察簿」里的一条：她拿来一件跟别人相处的事，你当她的军师下判断。第一次就给判断（直说你怎么看、她该怎么办）；她补了「后来」以后，对照后来的事：判断对了就坚持，看走眼了就直说「这次我看走眼了」再给新判断。站她这边，但别光哄。" },
+  choices: { rel: "friend", zh: "人生选择册", band: "#5d7a8a", say: "要紧的决定，当时怎么想、后来怎样",
+    fields: [{ k: "title", zh: "要决定的事", ph: "比如：要不要换工作" }, { k: "body", zh: "几个选项", ph: "能怎么选，各自担心什么", long: true }, { k: "lean", zh: "我现在倾向", ph: "可空" }],
+    kinds: ["我说", "结果", "回看"], closeKind: "结果", autoAsk: true,
+    taNew: "你们有一本「人生选择册」，专门收两个人各自要做的重要决定。你来放一件你自己眼下要拿主意的事（照你的人设、你现在的生活来）：写清要决定什么、有哪几条路、你现在倾向哪条。",
+    taReply: "这是你们「人生选择册」里的一件事。往下接一句：还没决定时给你真实的看法（可以跟对方的倾向不一样）；对方补了「结果」以后，回头对一对当时谁想对了、担心的事发生没有。是你自己的事，就照你现在的想法往下说。像挚友那样认真，但说人话。" },
+  safe: { rel: "family", zh: "报平安簿", band: "#a07a4a", say: "出门了、在路上、到了",
+    fields: [{ k: "body", zh: "报个平安", ph: "出门了 / 去哪 / 大概几点到" }],
+    kinds: ["看到了", "路上", "到了"], closeKind: "到了", autoAsk: false,
+    taNew: "你们有一本「报平安簿」，家里人出门、在路上、到了都在上面报一声。照你现在真在做的事（看日程和此刻的状态）报一条：出门去哪、大概什么时候到。没出门就说在哪、在干嘛。一两句。",
+    taReply: "这是你们「报平安簿」里的一条。往下接一句：是对方在报平安，就回一句牵挂（看到了、路上小心、到了说一声）；是你自己那条，就照你此刻的情况报个进展，到了就说到了。家里人那种口气，一两句。" }
+};
+function spaceBooksFor(cp) { const rk = spaceRelKey(cp); return Object.keys(SPACE_BOOKS).filter(k => SPACE_BOOKS[k].rel === rk).map(k => Object.assign({ key: k }, SPACE_BOOKS[k])); }
+if (typeof window !== "undefined") { window.SPACE_BOOKS = SPACE_BOOKS; window.spaceBooksFor = spaceBooksFor; }
+// 是不是「恋人那种、已经在一起」——各处判断恋爱向的东西（恋人称谓、在一起几天、抽卡的恋人卡……）都问这一个
+function spaceLover(cp) { return !!(cp && cp.status === "together" && spaceRelKey(cp) === "lover"); }
+// 不是恋人的空间，给模型的那一句（单聊 bundle、群聊、梦都用这一份）
+function spaceRelLine(rk, uName, days) {
+  const rl = SPACE_RELS[spaceRelKey(rk)], fam = spaceRelKey(rk) === "family";
+  return "【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (days ? "（约 " + days + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
+    + (fam ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (fam ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。";
+}
+if (typeof window !== "undefined") { window.SPACE_RELS = SPACE_RELS; window.spaceRel = spaceRel; window.spaceRelKey = spaceRelKey; window.spaceLover = spaceLover; window.spaceRelLine = spaceRelLine; }
 function coupleStatusLines(ctx, uName) {
   const out = [], char = ctx.char, rels = ctx.rels, chars = ctx.chars;
   // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
   // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
   if (!ctx.notRoleplay && ctx.coupleStatus) {
     const cs = String(ctx.coupleStatus).split("|"), rk = spaceRelKey(cs[2]), rl = SPACE_RELS[rk];
-    if (cs[0] === "together" && rk !== "lover") out.push("【你和 " + uName + " 是" + rl.zh.replace(" / ", "、") + "，不是恋人 · 你俩开着一个" + rl.space + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】：很亲、什么都能说，但这份亲是"
-      + (rk === "family" ? "家人" : "朋友") + "之间的那种——写信、说悄悄话、过纪念日、一起做的事，都照" + (rk === "family" ? "家人" : "朋友") + "之间来，不往恋爱、暧昧那头写。人设里本来就有别的心思就照人设，但别因为开了这个空间就当成在一起了。");
+    if (cs[0] === "together" && rk !== "lover") out.push(spaceRelLine(rk, uName, cs[1]));
     else if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending" && rk !== "lover") out.push("【" + rl.space + "邀请待定】" + uName + " 想跟你开一个" + rl.space + "（" + rl.zh + "那种关系，不是恋人），你还没回应。");
     else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
@@ -4977,8 +5013,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "两个人都看着镜头，但隔着一点点距离，像在路边随手一拍",
     "一个人看镜头，另一个人正侧过脸看着对方",
     "两个人都没看镜头，正在说话或笑，被抓到的一瞬",
-    "一个人从背后环住另一个人，下巴搁在对方肩上",
-    "并肩坐着，只拍到肩膀以上，头微微挨在一起",
+    "♥一个人从背后环住另一个人，下巴搁在对方肩上",
+    "♥并肩坐着，只拍到肩膀以上，头微微挨在一起",
     "一个人在闹，另一个人一脸无奈或躲镜头",
     "两个人面对面，镜头从侧面拍到两张侧脸",
     "一个人低头在做什么，另一个人凑过来看",
@@ -4992,15 +5028,17 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "这一张两个人怎么待在一起你自己定：挑一个跟上面这些都不一样、又合这个时刻的样子"
   ];
   function photoDuoPoseLine(seed) {
+    // ♥ 开头的那几格是恋人才摆的（环抱、头挨着）：闺蜜 / 挚友 / 家人空间不抽它（她 2026-10-16）
+    const pool = PHOTO_DUO_POSES.filter(x => !opts.notLover || x.charAt(0) !== "♥").map(x => x.replace(/^♥/, ""));
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed / 7)) : Math.floor(Math.random() * 100000);
-    let idx = n % PHOTO_DUO_POSES.length;
-    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (PHOTO_DUO_POSES.length - 1))) % PHOTO_DUO_POSES.length;
+    let idx = n % pool.length;
+    if (idx === buildPhotoPrompt._lastDuoPose) idx = (idx + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
     buildPhotoPrompt._lastDuoPose = idx;
     // ⚠️这一格只是【没人指定时】的默认（她 2026-09-24：「如果我说让他特定姿势或者我俩特定姿势，
     //   能 override 这个轴吗」）。画面描述里点名了姿势——不管是她要的还是他自己写的——就照那个拍，
     //   这一格让路。原来末尾那句「别又回到贴着脸那一张」删掉：她真要贴脸时它会跟她对着干。
     return "【两个人的姿势·只在画面描述没写的时候用】如果上面「场景/正在做什么」那一句已经写明了两个人怎么站、怎么抱、看不看镜头，一律照那一句来，这一条不用管。"
-      + "没写的话，这张就是：" + PHOTO_DUO_POSES[idx] + "。谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来。";
+      + "没写的话，这张就是：" + pool[idx] + "。谁在左谁在右、表情怎么样，按此刻的场景和这两个人自己来。";
   }
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。
@@ -6344,7 +6382,7 @@ const DURABLE_TEXT_KEYS = new Set([
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
   "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_coupleTrips", "x_coupleGarden", "x_studio", "x_coupleShots", "x_makeup", "x_openers", "x_myCloset", "x_phoneLastAll", "x_ifLines",
-  "x_coupleLetterCfg", "x_coupleSweet",
+  "x_coupleLetterCfg", "x_coupleSweet", "x_spaceBooks",
   // v72.19（她 2026-09-20：「全都带进 indexdb 取消上限」）：这一批同样是【会一直长大的她的东西】，
   // 却还留在 5MB 那个池子里，于是各自被一个上限挤着——而那些上限本来就是为 localStorage 定的。
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
@@ -8204,6 +8242,8 @@ async function generateOffline(p, ctx, session) {
       + ((!isDigital && session.listenOn) ? "\n【songSwitch 格式】你正和 " + userName + " 一起听歌（放着的是哪首见【此刻正放着的歌】）。Ta 让你切歌、点歌，或者你自己此刻想放某首时，songSwitch 填那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换就 songSwitch:null，别频繁乱切。"
         + ((session.listenSongs || []).length ? "歌单里现成的有：" + session.listenSongs.join(" / ") + "。" : "") + "不在歌单里的照样能放，写歌名就会去搜；按你自己的品味来。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
+      // 回应选项（群友 2026-10-16）：她开了才写。这三条是给【她】挑的，不进正文、不算你替她说话。
+      + ((!isDigital && session.replyOpts) ? "\n【replyOpts·上面输出形状的追加项】再写 replyOpts：三条 " + userName + " 接下来可能的回应（字符串数组），用她的口吻、第一人称，每条一两句，可以带一个括号里的小动作。三条要走不同方向：一条顺着你这一拍、一条反着或逗你、一条把事情往别处带。只是给她挑的，正文 scene 里照旧不写她的话。" : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx, { offline: true }) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
@@ -8473,6 +8513,7 @@ async function generateOffline(p, ctx, session) {
     // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
     // 线下切歌：app 侧只在她正跟这个人一起听时给 listenOn，换歌走 app 的 taSwitchSong。
     songSwitch: (session.listenOn && parsed.songSwitch && String(parsed.songSwitch).trim().toLowerCase() !== "null") ? String(parsed.songSwitch).trim() : null,
+    replyOpts: (session.replyOpts && Array.isArray(parsed.replyOpts)) ? parsed.replyOpts.map(x => String(x == null ? "" : x).trim()).filter(x => x && x.toLowerCase() !== "null").slice(0, 3).map(x => x.slice(0, 120)) : null,
     photo: (session.photoOn && parsed.photo && typeof parsed.photo === "object" && String(parsed.photo.scene || "").trim())
       ? { kind: String(parsed.photo.kind || "self"), scene: String(parsed.photo.scene).trim() } : null
   };

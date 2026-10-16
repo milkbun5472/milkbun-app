@@ -2617,7 +2617,7 @@ function ForumAnonWrap(props) {
   return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
 }
 function Forum({
-  characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
+  characters, profile, posts, comments, follows, followBack, followingOf, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
@@ -2709,6 +2709,7 @@ function Forum({
   const [emHandle, setEmHandle] = useState("");
   const [emBio, setEmBio] = useState("");
   const [emAlt, setEmAlt] = useState("");             // 她的小号叫什么（群友 2026-10-06）
+  const [emFans, setEmFans] = useState("");           // 大号粉丝数，自己能改（群友 2026-10-16：设定是大作家，几百个粉丝太可怜）
   const [cbAs, setCbAs] = useState("main");           // 这一帖用哪个号发：main 大号 / alt 小号
   const [searchQ, setSearchQ] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -2791,9 +2792,20 @@ function Forum({
     });
   }));
   forumNotices.sort((a, b) => b.ts - a.ts);
-  const unreadNoticeCount = forumNotices.filter(n => !forumNoticeRead[n.id]).length;
+  // 「全部标为已读」记一道水位线（群友 2026-10-16：标完还剩 97 条）——原来一条一条记键、最多留 800 个，
+  //   一口气标几百条时它们的时间戳全一样，裁到 800 是随手裁，剩下那截又成了没读。水位线以下的一律算读过。
+  const [noticeReadAll, setNoticeReadAll] = useState(() => { try { return Number(localStorage.getItem("x_forumNoticeReadAll") || 0) || 0; } catch (e) { return 0; } });
+  const noticeIsRead = n => !!forumNoticeRead[n.id] || Number(n.ts || 0) <= noticeReadAll;
+  const unreadNoticeCount = forumNotices.filter(n => !noticeIsRead(n)).length;
   const markNoticesRead = ids => {
     const fresh = (ids || []).filter(id => id && !forumNoticeRead[id]);
+    if (!fresh.length && (ids || []).length < forumNotices.length) return;
+    // 标的是全部：直接把水位线提到最新那条，不再逐条记
+    if (forumNotices.length && (ids || []).length >= forumNotices.length) {
+      const top = forumNotices.reduce((m, n) => Math.max(m, Number(n.ts || 0)), 0);
+      setNoticeReadAll(top); try { localStorage.setItem("x_forumNoticeReadAll", String(top)); } catch (e) {}
+      return;
+    }
     if (!fresh.length) return;
     setForumNoticeRead(prev => {
       const next = { ...prev }; fresh.forEach(id => { next[id] = Date.now(); });
@@ -3193,9 +3205,9 @@ function Forum({
                   m.name + (m.label ? "（" + m.label + "）" : "")); })) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + meta.handle)),
           isMe
-            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
+            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
             : h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
-              h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注"),
+              h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? (((followBack || {})[c.id] || {}).on ? "互相关注" : "已关注") : (((followBack || {})[c.id] || {}).on ? "回关" : "关注")),
               // 私信TA【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
               // ⚠️小号主页（altProfileView）上故意【没有】这个按钮：小号私信一旦喂回聊天，
               //   「TA知道两边是同一个人、她不知道」这个玩法当场塌掉，TA迟早说漏。
@@ -3205,6 +3217,13 @@ function Forum({
                 style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent }
               }, "私信 TA") : null)),
         meta.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 10, lineHeight: 1.5 } }, meta.bio),
+        // 互关（群友 2026-10-16）：他回关了你就亮出来；他还关注了谁也摊开给你看（有你就把你排第一个）
+        !isMe && ((followBack || {})[c.id] || {}).on ? h("div", { "data-wk": "forummutual", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, marginTop: 8 } },
+          flw.includes(c.id) ? "你们互相关注 · TA " + timeAgo(((followBack || {})[c.id] || {}).at) + "回关的" : "TA 关注了你") : null,
+        !isMe && followingOf ? (function () {
+          const names = (((followBack || {})[c.id] || {}).on ? ["你"] : []).concat(followingOf(c.id));
+          return names.length ? h("div", { "data-wk": "forumfollowing", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "TA 关注了：" + names.join("、")) : null;
+        })() : null,
         !isMe && Array.isArray(meta.boardPrefs) && meta.boardPrefs.length > 0 && h("div", { className: "flex items-center gap-1.5 flex-wrap", style: { marginTop: 9 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "常逛"),
           meta.boardPrefs.map(b => h("span", { key: b, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, border: `1px solid ${t.line}`, borderRadius: 999, padding: "2px 7px" } }, b)),
@@ -3372,14 +3391,14 @@ function Forum({
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, unreadNoticeCount + " 条没看"),
         h("button", { "data-wk": "forumnoticeallread", onClick: () => markNoticesRead(forumNotices.map(n => n.id)), className: "ml-auto active:opacity-60",
           style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12.5, color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
-      forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: forumNoticeRead[n.id] ? "transparent" : t.bg2 } },
+      forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: noticeIsRead(n) ? "transparent" : t.bg2 } },
         h("button", { onClick: () => openNotice(n), className: "flex-1 min-w-0 text-left flex gap-3 active:opacity-70" },
           avatarFor(n.author, 38, n.author && n.author.anon),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-1.5" },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.authorName),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, n.kind + " · " + timeAgo(n.ts)),
-              !forumNoticeRead[n.id] && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
+              !noticeIsRead(n) && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 3 } }, n.content),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "来自《" + (n.post.title || "帖子") + "》"))),
         h("button", { onClick: () => replyFromNotice(n), className: "shrink-0 self-center active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent + "66", borderRadius: 999, padding: "5px 11px" } }, "回复"))));
@@ -3610,7 +3629,11 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, "小号叫什么"),
       h("input", { value: emAlt, onChange: e => setEmAlt(e.target.value.slice(0, 20)), placeholder: "另一个网名，发帖时可以选用它", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "用小号发的帖，楼里谁都认不出是你，认识你的角色也不知道；只有他翻你手机的时候才可能发现。"),
-      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim() }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, "大号粉丝数"),
+      h("input", { "data-wk": "forumfans", value: emFans, onChange: e => setEmFans(e.target.value.replace(/[^\d]/g, "").slice(0, 10)), inputMode: "numeric", placeholder: "比如 120000",
+        className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "照你的设定填就行；之后用大号发帖还会自己慢慢涨。"),
+      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim(), ...(emFans !== "" ? { followers: Math.max(0, parseInt(emFans, 10) || 0) } : {}) }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
     // 谁在逛论坛
     settingsOpen && h(PageSheet, { onClose: () => setSettingsOpen(false) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),
@@ -4616,15 +4639,16 @@ function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
 // ============================================================
 // 情侣空间·问答小本预置题库（60 条，五类+深题+日常温度）。
 // id 是稳定主键：已答记录靠它对齐；以后只往后加题、不改/不复用旧 id。
+// love: 1＝恋人才问的题（心动、想抱、确定是认真的……）：闺蜜 / 挚友 / 家人空间翻不到
 const COUPLE_QA_BANK = [
   { id: "q01", cat: "回忆", q: "你还记得第一次见到我时，脑子里冒出的第一个念头吗？" },
   { id: "q02", cat: "回忆", q: "我们相处到现在，哪个瞬间你偷偷记了很久？" },
   { id: "q03", cat: "回忆", q: "有没有哪次我以为很普通的对话，其实被你放在心上？" },
-  { id: "q04", cat: "回忆", q: "第一次觉得「就是这个人了」是什么时候？" },
+  { id: "q04", love: 1, cat: "回忆", q: "第一次觉得「就是这个人了」是什么时候？" },
   { id: "q05", cat: "回忆", q: "我做过最让你意外的一件事是什么？" },
   { id: "q06", cat: "回忆", q: "你印象里我笑得最好看的一次是在做什么？" },
   { id: "q07", cat: "回忆", q: "有没有哪句我随口说的话，你到现在还记得？" },
-  { id: "q08", cat: "回忆", q: "我们之间第一次有点心动的时刻，你觉得是哪次？" },
+  { id: "q08", love: 1, cat: "回忆", q: "我们之间第一次有点心动的时刻，你觉得是哪次？" },
   { id: "q09", cat: "假设", q: "如果明天可以一起去任何地方，你想去哪？" },
   { id: "q10", cat: "假设", q: "如果我们能养一只宠物，你想养什么、叫什么名字？" },
   { id: "q11", cat: "假设", q: "如果周末只能一起做一件事，你选什么？" },
@@ -4643,26 +4667,26 @@ const COUPLE_QA_BANK = [
   { id: "q24", cat: "关系", q: "我们吵架的时候，你其实心里在想什么？" },
   { id: "q25", cat: "关系", q: "你希望我们十年后是什么样子？" },
   { id: "q26", cat: "关系", q: "我身上哪一点，是你一开始没注意、后来越来越喜欢的？" },
-  { id: "q27", cat: "私密", q: "睡前最后一个念头，最近常常是什么？" },
+  { id: "q27", love: 1, cat: "私密", q: "睡前最后一个念头，最近常常是什么？" },
   { id: "q28", cat: "私密", q: "有没有什么话，想对我说却一直没说出口？" },
   { id: "q29", cat: "私密", q: "你最近一次因为我偷偷高兴，是为了什么？" },
-  { id: "q30", cat: "私密", q: "有没有哪个瞬间，你突然很想抱住我？" },
-  { id: "q31", cat: "私密", q: "你会在什么时候特别想我？" },
+  { id: "q30", love: 1, cat: "私密", q: "有没有哪个瞬间，你突然很想抱住我？" },
+  { id: "q31", love: 1, cat: "私密", q: "你会在什么时候特别想我？" },
   { id: "q32", cat: "私密", q: "有什么是你从没告诉过别人、却想让我知道的？" },
   { id: "q33", cat: "私密", q: "你觉得自己在我面前，最放松的是什么时候？" },
   { id: "q34", cat: "私密", q: "我不在的时候，你会做什么和我有关的小事吗？" },
-  { id: "q35", cat: "私密", q: "你有没有偷偷幻想过我们以后的某个画面？是什么样的？" },
+  { id: "q35", love: 1, cat: "私密", q: "你有没有偷偷幻想过我们以后的某个画面？是什么样的？" },
   { id: "q36", cat: "轻松", q: "我做的哪件蠢事让你笑到现在？" },
   { id: "q37", cat: "轻松", q: "如果用一种食物形容我，你觉得我是什么？" },
   { id: "q38", cat: "轻松", q: "我有没有什么口头禅是你已经被传染了的？" },
-  { id: "q39", cat: "轻松", q: "你觉得我睡着的样子怎么样，能打几分？" },
+  { id: "q39", love: 1, cat: "轻松", q: "你觉得我睡着的样子怎么样，能打几分？" },
   { id: "q40", cat: "轻松", q: "如果给我起个只有你能叫的外号，你想叫我什么？" },
   { id: "q41", cat: "轻松", q: "我最近让你无语的一个瞬间是什么？" },
   { id: "q42", cat: "轻松", q: "你觉得我们俩谁做饭更能吃、谁更能睡？" },
   { id: "q43", cat: "轻松", q: "如果我们组队打游戏，你觉得谁会先坑对方？" },
   { id: "q44", cat: "轻松", q: "我有没有哪个表情或动作，你觉得特别好笑又特别可爱？" },
   { id: "q45", cat: "轻松", q: "假如我突然变成一只动物，你猜会是什么？" },
-  { id: "q46", cat: "走心", q: "你害怕失去我吗？这种感觉是什么时候开始的？" },
+  { id: "q46", love: 1, cat: "走心", q: "你害怕失去我吗？这种感觉是什么时候开始的？" },
   { id: "q47", cat: "走心", q: "在我面前，你有没有过想逞强、其实很累的时候？" },
   { id: "q48", cat: "走心", q: "你觉得我给你带来的最大的变化是什么？" },
   { id: "q49", cat: "走心", q: "有没有哪个瞬间，你觉得「有这个人真好」？" },
@@ -4670,13 +4694,13 @@ const COUPLE_QA_BANK = [
   { id: "q51", cat: "走心", q: "我们之间，你最想守护住的是什么？" },
   { id: "q52", cat: "走心", q: "如果有一天我们必须分开一阵子，你会怎么熬过去？" },
   { id: "q53", cat: "走心", q: "你觉得我们之间，还有什么是彼此没说透的？" },
-  { id: "q54", cat: "走心", q: "什么样的时刻，会让你特别确定「我们是认真的」？" },
-  { id: "q55", cat: "走心", q: "你有没有想过，我们最后会变成什么样子？" },
+  { id: "q54", love: 1, cat: "走心", q: "什么样的时刻，会让你特别确定「我们是认真的」？" },
+  { id: "q55", love: 1, cat: "走心", q: "你有没有想过，我们最后会变成什么样子？" },
   { id: "q56", cat: "日常", q: "今天有没有哪个瞬间突然想到我？" },
   { id: "q57", cat: "日常", q: "最近有什么开心的小事想第一个告诉我？" },
-  { id: "q58", cat: "日常", q: "这一周你最累的是什么？有没有想让我抱抱？" },
-  { id: "q59", cat: "日常", q: "如果现在我在你身边，你最想做的第一件事是什么？" },
-  { id: "q60", cat: "日常", q: "今天的你，想被我用哪种方式宠一下？" }
+  { id: "q58", love: 1, cat: "日常", q: "这一周你最累的是什么？有没有想让我抱抱？" },
+  { id: "q59", love: 1, cat: "日常", q: "如果现在我在你身边，你最想做的第一件事是什么？" },
+  { id: "q60", love: 1, cat: "日常", q: "今天的你，想被我用哪种方式宠一下？" }
 ];
 
 // 字符串稳定哈希（自定义题给个稳定 id，用于已答判重）
@@ -6756,7 +6780,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6856,7 +6880,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onEditReply: onEditQAReply, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: window.spaceLover && cp[partner.id] && !window.spaceLover(cp[partner.id]) ? COUPLE_QA_BANK.filter(x => !x.love) : COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onEditReply: onEditQAReply, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
@@ -6976,6 +7000,12 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
   //   Us 整个重挂：view 和 sub 全归零，人直接被扔回情侣名册
   //  （她 2026-09-04：「时光胶囊点进去退出会整个页面退出」）。
   //   跟这一页别的十几扇门做成同一个形状就好了——退一层就是退一层，滚动位置也跟着回来。
+  if (partner && cp[view] && cp[view].status === "together" && typeof sub === "string" && sub.indexOf("book:") === 0 && window.SPACE_BOOKS && window.SPACE_BOOKS[sub.slice(5)] && onBookAdd) {
+    const bk = sub.slice(5), book = Object.assign({ key: bk }, window.SPACE_BOOKS[bk]);
+    return h(SpaceBook, { partner, book, entries: ((spaceBooks || {})[partner.id] || {})[bk] || [], busy: spaceBookBusy,
+      onAdd: entry => onBookAdd(partner.id, bk, entry), onReply: (id, line) => onBookReply(partner.id, bk, id, line), onRemove: id => onBookRemove(partner.id, bk, id),
+      onTa: id => onBookTa(partner.id, bk, id), onBack: () => setSub(null) });
+  }
   if (partner && cp[view] && cp[view].status === "together" && sub === "capsule" && typeof window !== "undefined" && window.CapsuleApp) {
     return h(window.CapsuleApp, Object.assign({}, capsuleProps || {}, {
       characters: characters, characterId: partner.id, profile: ((typeof profileFor === "function" && profileFor(partner.id)) || profile), onBack: () => setSub(null) }));
@@ -7603,6 +7633,13 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
               // ── ③ 收着的：一列书脊 ─────────────────────────────
               eyebrow("收着的", "一本一本翻"),
               h("div", { style: { borderTop: "1px solid " + PLINE } },
+                // 这层关系自己的几本（闺蜜：黑历史案卷、军师观察簿；挚友：人生选择册；家人：报平安簿）排在最前
+                (window.spaceBooksFor ? window.spaceBooksFor(cp[bCid]) : []).map(bk => {
+                  const l = ((spaceBooks || {})[bCid] || {})[bk.key] || [], last = l[0];
+                  const open = bk.closeKind ? l.filter(e => !e.closed).length : 0;
+                  return spine("book:" + bk.key, { zh: bk.zh.length > 4 ? bk.zh.slice(0, 4) : bk.zh, band: bk.band, dot: false,
+                    say: last ? (open ? open + " 条还没收尾 · " : "") + one(last.title || last.body, 18) : bk.say });
+                }),
                 // ⚠️信这条记录的正文叫 body（title 可空）。跟底下「TA记得的」那行同一个病：
                 //   原来读 content/text——两个都不存在，没标题的信在书脊上永远是空白。
                 spine("letters", { zh: window.spaceRel ? window.spaceRel(cp[bCid]).letter : "情书", band: "#b08d52", dot: bUnread > 0,
@@ -17067,6 +17104,60 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
 // ═══ 情侣空间·里程碑册（言秋提，她 2026-08-31 拍板）═══
 // 全部从已有数据【推】出来，一个钩子都不挂，零调用（理由见 js/couple-firsts.js 顶上那段）。
 // 每一条底下那句注是【引原物】——第一封信就引信的标题，不是现编一句角色口吻的话。
+// 「我们的空间」里的一本本子（她 2026-10-16「本子的 1234 可以做」）：黑历史案卷、军师观察簿、人生选择册、报平安簿……
+//   本子长什么样只有这一份；哪本记什么、TA 怎么接，全在 engine.js 的 SPACE_BOOKS 里。
+function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onTa, onBack }) {
+  const t = useTheme();
+  const [form, setForm] = useState(null);          // 正在记的那一条
+  const [draft, setDraft] = useState({});           // 每条下面那一行：{ [entryId]: { kind, text } }
+  const nm = (partner && (partner.remark || partner.name)) || "TA";
+  const list = entries || [];
+  const startForm = () => { const f = {}; book.fields.forEach(x => { if (x.pick) f[x.k] = x.pick[0][0]; }); setForm(f); };
+  const submit = async () => {
+    if (!String(form.body || "").trim()) return;
+    const e = await onAdd(form); setForm(null);
+    if (book.autoAsk && e && e.id) onTa(e.id);
+  };
+  const who = by => by === "ta" ? nm : "我";
+  const field = (f, val, set) => f.pick
+    ? h("div", { key: f.k, className: "flex", style: { gap: 6, marginTop: 8 } }, h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, alignSelf: "center", marginRight: 4 } }, f.zh),
+        f.pick.map(o => h("button", { key: o[0], onClick: () => set(o[0]), className: "active:opacity-70", style: { padding: "4px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (val === o[0] ? book.band : t.line), background: val === o[0] ? book.band : "transparent", color: val === o[0] ? "#fff" : t.sub } }, o[1] === "TA 的" ? nm + " 的" : o[1])))
+    : h(f.long ? "textarea" : "input", { key: f.k, value: val || "", onChange: e => set(e.target.value), placeholder: f.zh + (f.ph ? "：" + f.ph : ""), rows: f.long ? 3 : undefined,
+        style: { width: "100%", boxSizing: "border-box", marginTop: 8, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, outline: "none", resize: "none" } });
+  return h("div", { "data-wk": "spacebook", "data-kind": book.key, className: "h-full flex flex-col", style: cpSkin(t, "page") },
+    h(Head, { zh: book.zh, bg: "transparent", noLine: true, onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "2px 2px 12px" } }, book.say),
+      !form ? h("div", { className: "flex", style: { gap: 8, marginBottom: 14 } },
+        h("button", { "data-wk": "spacebooknew", onClick: startForm, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: 0, background: book.band, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "记一条"),
+        book.taNew ? h("button", { "data-wk": "spacebookta", onClick: () => onTa(null), disabled: !!busy, className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 12, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 13.5 } }, busy === book.key + ":new" ? nm + " 在写…" : "让 " + nm + " 开一条") : null) :
+      h("div", { "data-wk": "spacebookform", style: { marginBottom: 14, padding: "12px 13px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+        book.fields.map(f => field(f, form[f.k], v => setForm(o => Object.assign({}, o, { [f.k]: v })))),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+          h("button", { onClick: () => setForm(null), className: "active:opacity-70", style: { padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
+          h("button", { onClick: submit, disabled: !String(form.body || "").trim(), className: "flex-1 active:opacity-70", style: { padding: "9px 0", borderRadius: 999, border: 0, background: String(form.body || "").trim() ? book.band : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, book.autoAsk ? "记下，让 " + nm + " 看看" : "记下"))),
+      list.length ? list.map(e => {
+        const d = draft[e.id] || { kind: book.kinds[0], text: "" };
+        const setD = v => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, d, v) }));
+        const send = () => { if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setD({ text: "" }); };
+        return h("div", { key: e.id, "data-wk": "spacebookitem", "data-closed": e.closed ? "1" : "0", style: { marginBottom: 12, padding: "13px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, borderLeft: "3px solid " + book.band, opacity: e.closed ? .85 : 1 } },
+          h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.title || (e.closed ? "收好了" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, who(e.by) + " 记 · " + (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts)) + (e.who ? " · " + (e.who === "ta" ? nm : "我") + "的糗事" : "") + (e.closed ? " · 已收尾" : ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginTop: 6, whiteSpace: "pre-wrap" } }, e.body),
+          e.lean ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4 } }, "当时倾向：" + e.lean) : null,
+          (e.thread || []).map((x, i) => h("div", { key: i, "data-wk": "spacebookline", "data-me": x.by === "me" ? "1" : "0", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } },
+            h("span", { style: { fontSize: 11, color: book.band, marginRight: 6 } }, who(x.by) + " · " + x.kind), x.text)),
+          h("div", { className: "flex", style: { gap: 5, marginTop: 10, flexWrap: "wrap" } },
+            book.kinds.map(k => h("button", { key: k, onClick: () => setD({ kind: k }), className: "active:opacity-70", style: { padding: "3px 9px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (d.kind === k ? book.band : t.line), background: d.kind === k ? book.band : "transparent", color: d.kind === k ? "#fff" : t.fog } }, k))),
+          h("div", { className: "flex", style: { gap: 6, marginTop: 6 } },
+            h("input", { value: d.text, onChange: ev => setD({ text: ev.target.value }), placeholder: "接一句…", style: { flex: 1, minWidth: 0, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 12px", background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+            h("button", { onClick: send, disabled: !d.text.trim(), style: { padding: "8px 12px", borderRadius: 999, border: 0, background: d.text.trim() ? book.band : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "写上"),
+            h("button", { "data-wk": "spacebookask", onClick: () => onTa(e.id), disabled: !!busy, style: { padding: "8px 10px", borderRadius: 999, border: "1px solid " + book.band, background: "transparent", color: book.band, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, busy === book.key + ":" + e.id ? "在写…" : "让 " + nm + " 接")),
+          h("button", { onClick: () => requestAppConfirm("撕掉这一条？", "这一条和底下接过的话都没了。", () => onRemove(e.id), "撕掉"), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, background: "transparent" } }, "撕掉这一条"));
+      }) : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "30px 0" } }, "还是空的。")));
+}
+
 function CoupleFirstsBook({ partner, items, onBack }) {
   const t = useTheme();
   const rows = items || [];
@@ -17217,7 +17308,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [expand, setExpand] = useState(() => !!loadJSON("x_studioExpand", false));   // 场景加成开关：记住上次怎么选的
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
   const [themeTick, setThemeTick] = useState(0);
-  const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
+  const themes = typeof window.__studioThemes === "function" ? window.__studioThemes(partner && partner.id) : [];
   const [themeEdit, setThemeEdit] = useState(null);   // { k?, zh, line } 正在写的自定义题材
   // 预设画风（她 2026-10-13：「还有啥有意思的画风」）＋她自己写的（存 x_studioStyles）
   const STYLES = ["漫画", "日系动画", "3D 动画", "水彩", "油画", "铅笔素描", "彩铅绘本", "蜡笔涂鸦", "水墨", "浮世绘", "像素", "Q版", "手办", "黏土", "毛毡", "剪纸", "美式漫画", "复古港风", "蒸汽波"];
