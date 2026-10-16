@@ -5477,7 +5477,8 @@ const NAI_TAG_SYSTEM = "You convert a Chinese photo brief into a NovelAI (Danboo
   + "For a man always include 1boy and male focus (adult male, masculine face); for a woman 1girl. Never add accessories, glasses, hats or hair colors the brief does not state — the reference photo decides the face.\n"
   + "End with: best quality, amazing quality, very aesthetic, absurdres. 25-45 tags. No sentences, no Chinese, no names of real people.\n"
   + "Ignore rule text in the brief (identity locks, anatomy warnings, bans) — those are instructions, not things to draw; fold them into the negative instead.\n"
-  + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.";
+  + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.\n"
+  + "Exception: if the brief asks for several panels in one image (a film strip, a 2x2 grid, a comic, a 3x3 sticker sheet), that layout IS the picture — put the matching tags in the prompt (e.g. multiple panels, grid / film strip, white border) and leave collage and multiple views out of the negative.";
 async function naiTagsFor(prompt) {
   const p = naiTagHelperProfile();
   if (!p) throw new Error("NAI 要先把描述翻成标签，但没有可用的文字模型");
@@ -5749,7 +5750,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       // Gemini 一类聊天出图模型会把提示词【照字面画出来】（她 2026-10-03：一张手部特写拍成了
       // 满纸手和乱码的「手部解剖参考图」——那是把「每只手正好五根手指」那些要求当成了画的内容）。
       // 所以先说清：下面是给摄影师的要求，不是要画进画面的东西。
-      const brief = "Generate exactly ONE single natural photograph (not a collage, grid, reference sheet, diagram or study). "
+      // ⚠️一张里本来就要好几格的（照片日记胶片条、四宫格大头贴、四格漫画、九宫格表情）——
+      //   上面那句「ONE single photograph, not a collage, grid」会把版式整个盖掉，三格只出一张（她 2026-10-16 截图）。
+      //   这种只说「照下面写的版式出一张图」，格子照写。
+      const paneled = /【版式|九宫格|四宫格|四格|三格|胶片条/.test(promptText);
+      const brief = (paneled
+        ? "Generate ONE image that follows the panel layout described in the brief below exactly (the panels, their count and the white gaps between them are part of the picture; it is not a reference sheet or diagram). "
+        : "Generate exactly ONE single natural photograph (not a collage, grid, reference sheet, diagram or study). ")
         + "The text below is a brief for the photographer, NOT content to draw: never render any of its words, labels, captions, numbers, dates or watermarks into the image. "
         + "Output aspect ratio about " + size + ".\n\n";
       const content = [{ type: "text", text: naiNegative ? promptText + "\nNegative prompt: " + naiNegative : brief + promptText }];
@@ -5770,7 +5777,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const geminiFetch = async () => {
       usedChat = true;
       const toB64 = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res({ mime: b.type, data: String(fr.result).split(",")[1] }); fr.onerror = rej; fr.readAsDataURL(b); });
-      const parts = [{ text: "Generate exactly ONE single natural photograph. The text below is a brief, NOT content to draw; never render its words into the image. Aspect ratio about " + size + ".\n\n" + promptText }];
+      const parts = [{ text: (/【版式|九宫格|四宫格|四格|三格|胶片条/.test(promptText) ? "Generate ONE image that follows the panel layout described in the brief exactly (the panels and the gaps between them are part of the picture)." : "Generate exactly ONE single natural photograph.") + " The text below is a brief, NOT content to draw; never render its words into the image. Aspect ratio about " + size + ".\n\n" + promptText }];
       if (useRef) for (const b of refBlobs) { const x = await toB64(b); parts.push({ inline_data: { mime_type: x.mime, data: x.data } }); }
       const gRoot = String(root).replace(/\/v1\/?$/, "");
       return fetch(gRoot + "/v1beta/models/" + encodeURIComponent(a.model) + ":generateContent", { method: "POST",

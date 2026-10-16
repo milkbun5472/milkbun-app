@@ -7034,7 +7034,7 @@
     const u = state.players.find(function (p) { return p.isUser; });
     const o = me ? pkOptions(state, state.turn) : null;
     const show = function (p) { return p.isUser || spectate || (state.showdown && state.showdown.some(function (s) { return s.key === p.key; })) || state.status === "finished"; };
-    const btn = function (label, onClick, color, dis, wk) { return h("button", { "data-wk": wk, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
+    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
     const talking = useCardTableTalk(props, state, setState, { on: cardLocal(cfg), zh: "德州扑克", ready: !!me || state.street === "done" || state.status === "finished", every: spectate ? state.players.length * 2 : 0,
       view: function () { return "第 " + state.hand + " / " + PK_HANDS + " 手；公共牌：" + (state.board.map(cardName).join(" ") || "还没发") + "；底池 " + pkPot(state)
         + "\n" + state.players.map(function (q) { return q.name + "：" + (q.folded ? "已弃" : q.allin ? "全押" : "剩 " + q.chips); }).join("，") + "\n最近：\n" + cardPublicLog(state); } });
@@ -7114,10 +7114,10 @@
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, minWidth: 44, textAlign: "right" } }, Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)))) : null,
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 } },
-          btn("弃牌", function () { userAct({ kind: "fold" }); }, "#7a6f66", false, "gamepokerfold"),
-          btn(o.canCheck ? "过牌" : "跟 " + o.toCall, function () { userAct({ kind: o.canCheck ? "check" : "call" }); }, t.ink, false, "gamepokercall"),
-          btn("加注", function () { userAct({ kind: "raise", to: Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)) }); }, t.tint, !o.canRaise, "gamepokerraise"),
-          btn("全押", function () { userAct({ kind: "allin" }); }, "#c0553f", false, "gamepokerallin"))) :
+          btn("弃牌", function () { userAct({ kind: "fold" }); }, "#7a6f66", false, { wk: "gamepokerfold" }),
+          btn(o.canCheck ? "过牌" : "跟 " + o.toCall, function () { userAct({ kind: o.canCheck ? "check" : "call" }); }, t.ink, false, { wk: "gamepokercall" }),
+          btn("加注", function () { userAct({ kind: "raise", to: Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)) }); }, t.tint, !o.canRaise, { wk: "gamepokerraise" }),
+          btn("全押", function () { userAct({ kind: "allin" }); }, "#c0553f", false, { wk: "gamepokerallin" }))) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在看牌…") : null);
   }
 
@@ -7355,7 +7355,7 @@
     function userAct(a) { try { const n = JSON.parse(JSON.stringify(state)); bjAct(n, Object.assign({}, a, { say: say })); setState(n); setSay(""); setError(""); } catch (e) { setError(e.message); } }
     function nextHand() { const n = JSON.parse(JSON.stringify(state)); bjNewHand(n); setState(n); }
     const u = state.players.find(function (p) { return p.isUser; });
-    const btn = function (label, onClick, color, dis, wk) { return h("button", { "data-wk": wk, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 14 } }, label); };
+    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 14 } }, label); };
     const showDealer = state.phase === "done";
     const talking = useCardTableTalk(props, state, setState, { on: cardLocal(cfg), zh: "21 点", ready: !!me || state.phase === "done" || state.status === "finished", every: 0,
       view: function () { const dl = state.players.find(function (q) { return q.isDealer; }); return "第 " + state.hand + " / " + BJ_HANDS + " 手；" + (dl ? dl.name + " 坐庄，大家都跟 TA 比，赢的从 TA 筹码里出" : "庄家是手机") + "；庄家" + (showDealer ? "：" + state.dealer.map(cardName).join(" ") + "，" + bjValue(state.dealer) + " 点" : "亮着 " + cardName(state.dealer[0]))
@@ -7388,9 +7388,9 @@
       me ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "play", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } },
-          btn("要牌", function () { userAct({ kind: "hit" }); }, t.tint, false, "gamebjhit"),
-          btn("停牌", function () { userAct({ kind: "stand" }); }, t.ink, false, "gamebjstand"),
-          btn("加倍", function () { userAct({ kind: "double" }); }, "#c0553f", !(current.cards.length === 2 && current.chips >= current.bet), "gamebjdouble"))) :
+          btn("要牌", function () { userAct({ kind: "hit" }); }, t.tint, false, { wk: "gamebjhit" }),
+          btn("停牌", function () { userAct({ kind: "stand" }); }, t.ink, false, { wk: "gamebjstand" }),
+          btn("加倍", function () { userAct({ kind: "double" }); }, "#c0553f", !(current.cards.length === 2 && current.chips >= current.bet), { wk: "gamebjdouble" }))) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在想要不要再来一张…") : null);
   }
 
