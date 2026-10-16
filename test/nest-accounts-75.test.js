@@ -116,3 +116,11 @@ test("导入次数只给作者本人：后端没带这个数就整句不显示�
   assert.match(det, /it\.imports != null \? h\("span", \{ "data-wk": "nestimports"/);
   assert.ok(!/"导入 " \+ \(it\.imports \|\| 0\)/.test(nest), "还会给别人显示成导入 0 次");
 });
+
+test("自己的页切「我收藏的／我关注的」：只认这一格自己拿回来的那份，不拿上一格的去画（她 2026-10-16 截图白页）", () => {
+  const pf = nest.slice(nest.indexOf("function Profile("), nest.indexOf("function Notices("));
+  assert.match(pf, /setExtra\(Object\.assign\(\{ tab \}, x\)\)/, "拿回来的那份没记着是哪一格的");
+  assert.match(pf, /const got = extra && extra\.tab === tab \? extra : null;/);
+  assert.ok(!/extra\.(users|items)/.test(pf), "还在直接读 extra.users / extra.items——切格子那一下会读到上一格的");
+  assert.match(pf, /\(got\.users \|\| \[\]\)\.length/);
+});

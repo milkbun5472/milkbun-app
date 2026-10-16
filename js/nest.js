@@ -527,8 +527,11 @@
     const [d, setD] = useState(null), [err, setErr] = useState(""), [tab, setTab] = useState("mine"), [extra, setExtra] = useState(null);
     const self = !!(me && me.id === uid);
     useEffect(() => { let live = true; setD(null); api("/user/" + uid).then(x => { if (live) setD(x); }).catch(e => { if (live) setErr(e.message); }); return () => { live = false; }; }, [uid]);
+    // 拿回来的那份记着是哪一格的：切格子那一下，画面会先拿着上一格的数据画一遍（effect 晚一拍才清），
+    //   「我收藏的」那份里没有人的名单，拿去画「我关注的」就炸了（她 2026-10-16 截图：extra.users.length）
     useEffect(() => { if (!self || tab === "mine") { setExtra(null); return; } let live = true; setExtra(null);
-      api("/me/" + (tab === "favs" ? "favs" : "following")).then(x => { if (live) setExtra(x); }).catch(e => { if (live) setExtra({ error: e.message }); }); return () => { live = false; }; }, [tab, self]);
+      api("/me/" + (tab === "favs" ? "favs" : "following")).then(x => { if (live) setExtra(Object.assign({ tab }, x)); }).catch(e => { if (live) setExtra({ tab, error: e.message }); }); return () => { live = false; }; }, [tab, self]);
+    const got = extra && extra.tab === tab ? extra : null;
     const doFollow = async () => {
       if (!me) { onLogin(); return; }
       try { await api("/user/" + uid + "/follow", { method: d.followed ? "DELETE" : "POST" }); setD(x => Object.assign({}, x, { followed: !x.followed, followers: x.followers + (x.followed ? -1 : 1) })); }
@@ -566,10 +569,10 @@
           self ? h("div", { style: { marginTop: 16 } }, h(Cubbies, { t, kind: tab, onPick: setTab, cols: 3, flush: true,
             items: [{ key: "mine", zh: "我贴的" }, { key: "favs", zh: "我收藏的" }, { key: "following", zh: "我关注的" }] })) : null,
           tab === "mine" || !self ? (d.items.length ? h(Wall, { t, items: d.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, self ? "还没贴过，回首页右上角「＋ 传一个」。" : "她还没贴过东西。"))
-          : !extra ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, "在拿……")
-          : extra.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, extra.error)
-          : tab === "favs" ? (extra.items.length ? h(Wall, { t, items: extra.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没收藏过。"))
-          : h("div", { style: { marginTop: 10 } }, extra.users.length ? extra.users.map(u => h("button", { key: u.id, "data-wk": "nestperson", onClick: () => onUser(u.id), className: "w-full flex items-center justify-between active:opacity-70",
+          : !got ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, "在拿……")
+          : got.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, got.error)
+          : tab === "favs" ? ((got.items || []).length ? h(Wall, { t, items: got.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没收藏过。"))
+          : h("div", { style: { marginTop: 10 } }, (got.users || []).length ? got.users.map(u => h("button", { key: u.id, "data-wk": "nestperson", onClick: () => onUser(u.id), className: "w-full flex items-center justify-between active:opacity-70",
               style: { minHeight: 46, padding: "0 4px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, h("span", { className: "truncate" }, u.name), h("span", { style: { color: t.fog, fontSize: 12 } }, "›")))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没关注谁。")))));
   }
