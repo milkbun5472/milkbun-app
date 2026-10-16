@@ -15,12 +15,11 @@ const eng = fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8
 
 test("这一族靠判据认人，不是靠例句", () => {
   const seg = eng.slice(eng.indexOf("const INTIMATE_CHAT_ANTI_CLICHE = "), eng.indexOf("// 隐私围栏一直只挡"));
-  assert.match(seg, /认这一族靠判据，不是靠上面那三个例句/);
   assert.match(seg, /这句话是不是在为等下要发生的事先立个据/, "判据那一句没写出来");
-  assert.match(seg, /骨架拆开说、换个词说，照样是同一族/, "没说清拆开说也算");
-  // 原来那三个例句一个都不许删——判据是补上去的，不是替换
-  ["等你X了看我怎么收拾你", "回头有你好受的", "我看你怎么Y"].forEach(x =>
-    assert.ok(seg.indexOf(x) > 0, "原来那个例句没了：" + x));
+  assert.match(seg, /只有前半截（把责任推给她）或只有后半截（预告惩罚）也算/, "没说清拆开说也算");
+  // 她 2026-10-16「为啥模型这么爱威胁八股」：例句念给它听就是在教它——这一族只讲骨架
+  ["等你X了看我怎么收拾你", "回头有你好受的", "我看你怎么Y", "是你自找的", "有你受的"].forEach(x =>
+    assert.ok(seg.indexOf(x) < 0, "又在念原句：" + x));
   assert.match(seg, /反问式表功／翻旧账/, "另一族被顺手删了");
 });
 
