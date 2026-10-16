@@ -8204,6 +8204,8 @@ async function generateOffline(p, ctx, session) {
       + ((!isDigital && session.listenOn) ? "\n【songSwitch 格式】你正和 " + userName + " 一起听歌（放着的是哪首见【此刻正放着的歌】）。Ta 让你切歌、点歌，或者你自己此刻想放某首时，songSwitch 填那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换就 songSwitch:null，别频繁乱切。"
         + ((session.listenSongs || []).length ? "歌单里现成的有：" + session.listenSongs.join(" / ") + "。" : "") + "不在歌单里的照样能放，写歌名就会去搜；按你自己的品味来。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
+      // 回应选项（群友 2026-10-16）：她开了才写。这三条是给【她】挑的，不进正文、不算你替她说话。
+      + ((!isDigital && session.replyOpts) ? "\n【replyOpts·上面输出形状的追加项】再写 replyOpts：三条 " + userName + " 接下来可能的回应（字符串数组），用她的口吻、第一人称，每条一两句，可以带一个括号里的小动作。三条要走不同方向：一条顺着你这一拍、一条反着或逗你、一条把事情往别处带。只是给她挑的，正文 scene 里照旧不写她的话。" : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx, { offline: true }) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
@@ -8473,6 +8475,7 @@ async function generateOffline(p, ctx, session) {
     // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
     // 线下切歌：app 侧只在她正跟这个人一起听时给 listenOn，换歌走 app 的 taSwitchSong。
     songSwitch: (session.listenOn && parsed.songSwitch && String(parsed.songSwitch).trim().toLowerCase() !== "null") ? String(parsed.songSwitch).trim() : null,
+    replyOpts: (session.replyOpts && Array.isArray(parsed.replyOpts)) ? parsed.replyOpts.map(x => String(x == null ? "" : x).trim()).filter(x => x && x.toLowerCase() !== "null").slice(0, 3).map(x => x.slice(0, 120)) : null,
     photo: (session.photoOn && parsed.photo && typeof parsed.photo === "object" && String(parsed.photo.scene || "").trim())
       ? { kind: String(parsed.photo.kind || "self"), scene: String(parsed.photo.scene).trim() } : null
   };

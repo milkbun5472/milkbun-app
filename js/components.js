@@ -2134,6 +2134,23 @@ function VClockMasks({ masks, primaryId, clocks, onChange }) {
         style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (cur.key === x.key ? t.ink : t.line), background: cur.key === x.key ? t.ink : "transparent",
           color: cur.key === x.key ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } },
         x.name + ((all[x.key] && all[x.key].on) ? " · 虚拟" : " · 现实"))))) : null,
+    // 先歇着（群友 2026-10-15）：这张面具那一群人暂时不用——后台都不自己动、不花钱，时间也停在这一刻；
+    //   拨回来接着走（原来是现实时间的，回来就照现实时间，中间过去的那段照算）。
+    list.length > 1 ? (function () {
+      const v0 = all[cur.key] || {}, rest = !!v0.rest;
+      const flip = () => {
+        const now = Date.now();
+        if (!rest) onChange({ ...all, [cur.key]: { ...v0, rest: true, restWas: { on: !!v0.on, speed: isFinite(Number(v0.speed)) ? Number(v0.speed) : 1 }, on: true, base: vclockRead(v0), at: now, speed: 0 } });
+        else { const w = v0.restWas || { on: false, speed: 1 }; const n = { ...v0, rest: false, on: w.on, speed: w.speed, base: vclockRead(v0), at: now }; delete n.restWas; onChange({ ...all, [cur.key]: n }); }
+      };
+      return h("div", { "data-wk": "maskrest", className: "flex items-center", style: { gap: 10, paddingTop: 10 } },
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "「" + cur.name + "」先歇着"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, rest
+            ? "歇着呢：跟这张面具聊的人后台都不自己动、不花钱，他们的时间停在歇下那一刻。关掉就接着走。"
+            : "这张面具那一群人暂时不玩时打开：主动消息、日记、朋友圈这些后台的都停，时间也停住。你自己去找他们聊照常能聊。")),
+        h(Toggle, { on: rest, onChange: flip }));
+    })() : null,
     h(VClockEditor, { key: cur.key, v: all[cur.key], title: list.length > 1 ? "「" + cur.name + "」的时间" : "虚拟时间", onChange: v => onChange({ ...all, [cur.key]: v }) }));
 }
 // 生日那一格底下的一行（她 2026-10-11：「生日那里也写一个吧，不支持的格式就标红提示」）：
@@ -16260,6 +16277,7 @@ function OfflineMode({
   const [sCss, setSCss] = useState(os.customCSS || "");
   // 正文字号（群友 2026-10-11：「线下能给单独角色调字的大小吗」）：0＝原样；只管这个人线下的正文和旁白
   const [sFont, setSFont] = useState(Number(os.fontSize) || 0);
+  const [sOpts, setSOpts] = useState(!!os.replyOpts);   // 每一拍后给几个回应选项（群友 2026-10-16「懒人从选项里选，勤劳人关掉自己写」）
   // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
   const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
   // ── 线下设置（v74.713 照着线上那一套重做）────────────────────────────
@@ -16303,7 +16321,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -16343,6 +16361,12 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：角色会替你写动作、推动走向（如「你摇了摇头说…」）；关：只写它自己。")),
       h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) }))),
+      offShow("pers", "opts", "每一拍后给我几个回应选项",
+    h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "每一拍后给我几个回应选项"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：TA 写完这一拍，底下出三条你可以怎么接，点一条就照它发出去；不想用就照常自己打。跟这一拍一起写出来，不另外花钱。关：不出。")),
+      h(Toggle, { on: sOpts, onChange: () => setSOpts(v => !v) }))),
       offShow("bring", "mem", "关联记忆条数",
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
@@ -16549,6 +16573,11 @@ function OfflineMode({
       h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
+      // 回应选项：最后一拍是 TA 的、而且带着选项才出（开关关了模型就不写，旧的那几拍本来就没有）
+      (() => { const lm = msgs[msgs.length - 1]; const ops = !sending && !pick && !oocMode && !narrMode && lm && lm.role === "char" && Array.isArray(lm.replyOpts) ? lm.replyOpts : [];
+        return ops.length ? h("div", { "data-wk": "offreplyopts", className: "flex flex-col", style: { gap: 6, margin: "4px 0 10px" } },
+          ops.map((o, k) => h("button", { key: k, "data-wk": "offreplyopt", onClick: () => send(o), className: "active:opacity-70 text-left",
+            style: { minHeight: 40, padding: "8px 12px", borderRadius: 12, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, o))) : null; })(),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
