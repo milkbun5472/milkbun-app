@@ -5507,7 +5507,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!after) { toast("点数还不够。和 " + (char.remark || char.name) + " 好好待一会儿就有了"); return; }
     const cp = (couplesRef.current || {})[char.id];
     const res = K.pull(n, gachaLuckRef.current[char.id] || { pulls: 0, sinceSSR: 0 },
-      { couple: !!(cp && cp.status === "together"), have: gachaHave(char) });
+      { couple: spaceLover(cp), have: gachaHave(char) });   // 恋人卡只给恋人空间
     if (!res.cards.length) { toast("这一抽没抽出东西，点数没扣"); return; }
     const now = Date.now();
     const made = res.cards.map((c, i) => ({
@@ -6125,6 +6125,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️没有和用户的情侣关系时不能直接 return ""——那个空白正是病根。
     //   先问一句「那TA是不是和别人在一起了」。
     if (!cp || !cp.status || cp.status === "none") return takenLineFor(charId, uName);
+    if (cp.status === "together" && !spaceLover(cp)) return spaceRelLine(cp, uName, cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null);
+    if (cp.status === "pending" && spaceRelKey(cp) !== "lover") return "你和 " + uName + " 之间有一个还没回应的" + spaceRel(cp).space + "邀请（" + spaceRel(cp).zh + "那种，不是恋人）。";
     if (cp.status === "together") {
       const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
       return "你和 " + uName + " 已经在一起了" + (days ? "（约 " + days + " 天）" : "") + "——这是你俩【当前真实的关系】，就算上面关系网里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】相处。";
@@ -14828,7 +14830,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + (() => {
             // 她 2026-10-02「重roll了」：还是围着她那句话打转（发错群、撤回），没人说「你也是她男朋友？」——
             //   关系散在前面五六段里，模型没把它摆到眼前。在这儿点名摆一遍。
-            const tog = members.filter(c => couples[c.id] && couples[c.id].status === "together").map(c => c.name);
+            const tog = members.filter(c => spaceLover(couples[c.id])).map(c => c.name);
             return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + userName(profile) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
           })()
           + "这件事在你心里是什么分量、你打算怎么对待它，按你自己那张卡来——你平时怎么说话，这会儿还是那个人在说话。"
@@ -25023,7 +25025,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return characterText(char, "【他是谁】") + char.name + "\n" + String(char.persona || "").slice(0, 6000)
       + (profile.persona ? characterText(char, "\n\n【和他在一起的人 · ") + uName + "】\n" + String(profile.persona).slice(0, 2000) : "")
       + "\n\n【他俩是什么关系】"
-      + (cp.status === "together" ? "已经在一起的恋人" + (days ? "，到今天第 " + days + " 天" : "") : "还没在一起")
+      + (spaceLover(cp) ? "已经在一起的恋人" + (days ? "，到今天第 " + days + " 天" : "") : cp.status === "together" ? spaceRel(cp).zh + "（开着" + spaceRel(cp).space + "，不是恋人）" : "还没在一起")
       + (relLine ? "。关系网上写着：" + relLine : "")
       + "\n\n【她叫】" + uName;
   };
@@ -30634,7 +30636,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
       return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
         + Object.values(groupNowSegs(c, { interop: true })).join("")
-        + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
+        + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
         + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
     },
     pay: (delta, label) => changeWallet(delta, label, "live", { where: "直播间" }),

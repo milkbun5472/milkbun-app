@@ -32,3 +32,14 @@ test("TA 的申请信可以带关系：{rel,text} 落成带 rel 的信，答应�
   assert.match(app, /const rk0 = spaceRelKey\(relOverride \|\| \(couplesRef\.current \|\| \{\}\)\[charId\]\);/);
   assert.match(app, /\\"rel\\":\\"bestie\|friend\|family\\"/);
 });
+
+// 「改成闺蜜空间就不会当成情侣了吧」——查出来群聊、梦、抽卡、他俩关系那句还在按恋人走，一并接上
+test("恋人向的地方只认恋人空间：群聊那句、梦、抽卡、旁观关系都问 spaceLover", () => {
+  const dream = fs.readFileSync(path.join(__dirname, "..", "js", "dream.js"), "utf8");
+  const dj = fs.readFileSync(path.join(__dirname, "..", "js", "dreamjournal.js"), "utf8");
+  assert.match(eng, /function spaceLover\(cp\) \{ return !!\(cp && cp\.status === "together" && spaceRelKey\(cp\) === "lover"\); \}/);
+  assert.match(app, /if \(cp\.status === "together" && !spaceLover\(cp\)\) return spaceRelLine\(/);
+  assert.match(app, /\{ couple: spaceLover\(cp\), have: gachaHave\(char\) \}/);
+  assert.match(app, /const tog = members\.filter\(c => spaceLover\(couples\[c\.id\]\)\)/);
+  assert.match(dream, /window\.spaceLover\(cp\)/); assert.match(dj, /window\.spaceLover\(cp\)/);
+});
