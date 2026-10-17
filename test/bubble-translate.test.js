@@ -50,12 +50,16 @@ test("免费优先：Google → MyMemory → 模型兜底", () => {
   // MyMemory 额度用尽时会把错误话塞进 translatedText 当正文回来（跟中转站一个毛病）
   assert.match(mm, /MYMEMORY WARNING\|QUERY LENGTH LIMIT/);
   // 三级都挂要把三条原因都报出来，不能只报最后一条
-  assert.match(fn, /三条都没翻成/);
+  assert.match(fn, /都没翻成 · /);
   assert.match(fn, /errs\.join\("；"\)/);
 });
 
 test("免费接口不许要 key，也不许把她的文字送去没写明的地方", () => {
-  const g = engine.slice(engine.indexOf("async function _transGoogle"), engine.indexOf("async function _transModel"));
+  // 微软那一家（2026-10-17）要先拿一张临时票再翻，带的 Authorization 是那张票、不是谁的密钥，单独看
+  const ms0 = engine.indexOf("async function _transMicrosoft"), ms1 = engine.indexOf("async function _transMyMemory");
+  const g = engine.slice(engine.indexOf("async function _transGoogle"), engine.indexOf("async function _transModel")).replace(engine.slice(ms0, ms1), "");
+  assert.match(engine.slice(ms0, ms1), /edge\.microsoft\.com\/translate\/auth/);
+  assert.doesNotMatch(engine.slice(ms0, ms1), /apiKey|key=|Ocp-Apim/, "微软那家不该出现任何密钥");
   assert.match(g, /translate\.googleapis\.com/);
   assert.match(g, /api\.mymemory\.translated\.net/);
   assert.doesNotMatch(g, /apiKey|Authorization|key=/, "免费引擎不该出现任何密钥");
