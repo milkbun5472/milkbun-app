@@ -8286,7 +8286,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     // 静音保活：像一首歌，点播放=放段无声音频占住后台，让 TA 能后台发消息来；暂停就关、想听真歌直接换
     (() => {
       const kaOn = !!(player && player.songId === KEEPALIVE_ID && player.playing);
-      return h("button", { onClick: () => (player && player.songId === KEEPALIVE_ID) ? onTogglePlay() : onPlaySong(KEEPALIVE_ID), className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ marginTop: 12, padding: "11px 13px", textAlign: "left" }, kaOn) },
+      return h("button", { "data-wk": "listenkeepalive", "data-on": kaOn ? "1" : "0", onClick: () => (player && player.songId === KEEPALIVE_ID) ? onTogglePlay() : onPlaySong(KEEPALIVE_ID), className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ marginTop: 12, padding: "11px 13px", textAlign: "left" }, kaOn) },
         h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #3a3a42 0 34%, #23232a 35%)", display: "flex", alignItems: "center", justifyContent: "center", animation: kaOn ? "wk-spin 9s linear infinite" : "none" } }, ic("moon", "#e6dcc4", 17)),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "静音保活"),
@@ -8303,7 +8303,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     // 不铺纹理（她 2026-09-05 否过一次），靠形状：板是直角的、上沿一道刻线、
     // 四角各一枚螺丝（程序画的），里面的输入框是刻进去的槽。
     // 判据同 tabs-not-plain-pills：一张 16 圆角的白卡搬到哪个 app 都成立，那就是没设计。
-    h("div", { style: { position: "relative", background: t.bg2, border: "1px solid " + t.line,
+    h("div", { "data-wk": "listenboard", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line,
         borderRadius: 4, borderTop: "2px solid " + (hex6(t.ink) ? t.ink + "2e" : t.line),
         padding: "12px 14px", marginTop: 18,
         boxShadow: hex6(t.ink) ? "inset 0 1px 0 rgba(255,255,255,.5)" : "none" } },
