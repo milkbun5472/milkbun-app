@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.914";
+const APP_VERSION = "v75.915";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22696,6 +22696,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️光给记忆库不够：记忆是【抽取】出来的，今天刚在聊天里说的「今天调班」多半还没进库。
   //   所以同时带一段最近相处——口子用发帖那处用的同一个 ambientMaterialFor，不另写一份。
   // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
+  const forumCharGrounding = (ch, post, role, extraQuery) => {
+    if (!ch) return "";
+    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
+    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
+      + charLivedGrounding(ch, { title: post && post.title, body: (post && post.body || "") + " " + String(extraQuery || "") });
+  };
   // 他本人真经历过的：按这件事检索的记忆＋聊天那一份真上下文＋「只有他本人知道」的边界。
   //   论坛楼里回帖、片刻、直播、一起听广场都拿这一份（她 2026-10-17：「能公共的就不要自己单独弄了」）。
   //   人设那一段各处拼法不同（论坛单人 600 字，多人场合走群聊那套按人数分预算），所以不在这儿。
@@ -22728,12 +22734,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "\n别人帖子或楼里说到的那个「她／对象／某个人」，在「" + ch.name + "」看来是陌生网友身边的人，不知道是谁，也不会是" + userName(profile) + "（帖子里写明了是她、或者你们在关系网里本来就认识的除外）。"
         + "回帖就聊帖子本身，或者说说你自己；说到你身边的人，那是你自己的日子，不是跟楼主打趣一个你们都认识的人。"
       + "\n";
-  };
-  const forumCharGrounding = (ch, post, role, extraQuery) => {
-    if (!ch) return "";
-    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
-    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
-      + charLivedGrounding(ch, { title: post && post.title, body: (post && post.body || "") + " " + String(extraQuery || "") });
   };
   // 互关的那几位（回关过的、她也还关注着）：她发的帖他们一定刷到，还没来过就来一楼
   const forumMutualRule = (meOwn, knowers) => {
