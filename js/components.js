@@ -4110,30 +4110,35 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const blocksOn = dk => {
     const out = [];
     if (isCharView) {
-      const plan = ((schedules || {})[view] || {})[dk];
-      const seqs = plan && Array.isArray(plan.seqs) ? (typeof schedFillEnds === "function" ? schedFillEnds(plan.seqs) : plan.seqs) : [];
-      // 昨晚睡到跨日的那一截，接到今天凌晨（她 2026-08-26：24 点之后第二天不接着显示睡觉）
-      if (typeof schedSleepCarry === "function") {
-        const prevKey = typeof schedShiftDayKey === "function" ? schedShiftDayKey(dk, -1) : null;
-        const carry = prevKey ? schedSleepCarry(((schedules || {})[view] || {})[prevKey], plan) : null;
-        if (carry) {
-          const st = toMyMin(carry.from), en = st + (carry.to - carry.from);
-          if (st < 1440) out.push({ key: "carry", from: st, to: Math.min(1440, en), title: carry.title, location: carry.location,
-            glyph: CAL_SEQ_GLYPH.sleep, color: CAL_SEQ_TINT.sleep, ai: true, dev: null, carry: true,
-            charFrom: tzShift ? "00:00" : "", charTo: tzShift ? calHM(carry.to) : "" });
+      // 异地时一列（你的一天）横跨 TA 的两天（她 2026-10-17 转群友：「行程删不掉，日历上 0:00–8:00，点进去又是 23:00–24:00」）：
+      //   TA 比你快 1 小时，你这一列最后那一小时是 TA【明天】的凌晨，不是 TA 今天的凌晨。
+      //   原来按 %1440 绕回来，把 TA 今天 0 点那一截画到了你这一列的最末尾——画在错的一天，
+      //   点开删的又是这一天，那一截是从另一天来的，所以怎么删都还在。
+      //   现在：TA 每一天按「带符号的偏移」摆，落在这一列里的那部分才画；每一块记住它是 TA 哪一天的（srcDk），删、改都去那一天。
+      const offs = tzShift > 0 ? [0, 1] : tzShift < 0 ? [-1, 0] : [0];
+      offs.forEach(dd => {
+        const cdk = dd && typeof schedShiftDayKey === "function" ? schedShiftDayKey(dk, dd) : dk;
+        if (!cdk) return;
+        const base = dd * 1440 - tzShift;   // TA 那一天的 0 点，落在你这一列的第几分钟（可以是负的、可以超过 1440）
+        const plan = ((schedules || {})[view] || {})[cdk];
+        const seqs = plan && Array.isArray(plan.seqs) ? (typeof schedFillEnds === "function" ? schedFillEnds(plan.seqs) : plan.seqs) : [];
+        const put = (from, to, blk) => { const st = Math.max(0, from), en = Math.min(1440, to); if (en > st) out.push(Object.assign(blk, { from: st, to: en, srcDk: cdk })); };
+        // 昨晚睡到跨日的那一截，接到 TA 这一天凌晨（她 2026-08-26：24 点之后第二天不接着显示睡觉）
+        if (typeof schedSleepCarry === "function") {
+          const prevKey = typeof schedShiftDayKey === "function" ? schedShiftDayKey(cdk, -1) : null;
+          const carry = prevKey ? schedSleepCarry(((schedules || {})[view] || {})[prevKey], plan) : null;
+          if (carry) put(base + carry.from, base + carry.to, { key: "carry" + dd, title: carry.title, location: carry.location,
+            glyph: CAL_SEQ_GLYPH.sleep, color: CAL_SEQ_TINT.sleep, ai: true, dev: null, carry: true, carryFrom: prevKey,
+            charFrom: tzShift ? calHM(carry.from) : "", charTo: tzShift ? calHM(carry.to) : "" });
         }
-      }
-      seqs.forEach((s, i) => {
-        const cst = calMinOf(s.time); if (cst == null) return;
-        let cen = calMinOf(s.end); if (cen == null || cen <= cst) cen = Math.min(1440, cst + 60);
-        let st = toMyMin(cst), en = st + (cen - cst);
-        // 换算后跨到你这边的前一天/后一天：截在这一天里画，别画成负高度或溢出
-        if (en > 1440) en = 1440;
-        if (st >= 1440) return;
-        out.push({ key: "s" + i, from: st, to: en, title: s.title || "", location: s.location || "",
-          glyph: CAL_SEQ_GLYPH[s.type] || IPin, color: CAL_SEQ_TINT[s.type] || "#e6e2da", ai: true, dev: s.deviation || null, raw: s,
-          // 块上仍写 TA 当地时刻——TA嘴里说的是这个
-          charFrom: tzShift ? s.time : "", charTo: tzShift ? (s.end || "") : "" });
+        seqs.forEach((sq, i) => {
+          const cst = calMinOf(sq.time); if (cst == null) return;
+          let cen = calMinOf(sq.end); if (cen == null || cen <= cst) cen = Math.min(1440, cst + 60);
+          put(base + cst, base + cen, { key: "s" + dd + "_" + i, title: sq.title || "", location: sq.location || "",
+            glyph: CAL_SEQ_GLYPH[sq.type] || IPin, color: CAL_SEQ_TINT[sq.type] || "#e6e2da", ai: true, dev: sq.deviation || null, raw: sq,
+            // 块上仍写 TA 当地时刻——TA嘴里说的是这个
+            charFrom: tzShift ? sq.time : "", charTo: tzShift ? (sq.end || "") : "" });
+        });
       });
     }
     calEventsOnDay(calEvents, evOwner, dk).filter(e => !e._allDay).forEach(e => {
@@ -4228,7 +4233,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
 
   const blockNode = (b, dk) => {
     const top = yOf(b.from), hgt = Math.max(26, (b.to - b.from) * CAL_PX_PER_MIN - 3);
-    return h("button", { "data-wk": "calblock", "data-done": b.done ? "1" : "0", key: b.key, onClick: () => { if (b.memo && typeof window.memoOpenReminder === "function") window.memoOpenReminder(b.memo.id); else setDayEv({ b, dk }); },
+    return h("button", { "data-wk": "calblock", "data-done": b.done ? "1" : "0", key: b.key, onClick: () => { if (b.memo && typeof window.memoOpenReminder === "function") window.memoOpenReminder(b.memo.id); else setDayEv({ b, dk: b.srcDk || dk }); },
       className: "absolute active:opacity-70 text-left",
       style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
@@ -4377,7 +4382,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       h("div", { "data-wk": "calevdetail", className: "px-1 pb-2" },
         h("div", { "data-wk": "calevtitle", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, (dayEv.b.icon ? dayEv.b.icon + " " : "") + dayEv.b.title),
         h("div", { "data-wk": "calevtime", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4 } },
-          calHM(dayEv.b.from) + "–" + (dayEv.b.to >= 1440 ? "24:00" : calHM(dayEv.b.to)) + (dayEv.b.location ? " · " + dayEv.b.location : "") + (dayEv.b.ai ? " · AI 排的" : "")),
+          // 异地时写 TA 当地时刻，跟块上写的是同一个数（原来这儿写你这边的，两处对不上）
+          (dayEv.b.charFrom ? dayEv.b.charFrom + "–" + (dayEv.b.charTo || "") + "（TA 当地）" : calHM(dayEv.b.from) + "–" + (dayEv.b.to >= 1440 ? "24:00" : calHM(dayEv.b.to))) + (dayEv.b.location ? " · " + dayEv.b.location : "") + (dayEv.b.ai ? " · AI 排的" : "")),
         dayEv.b.dev && h("div", { "data-wk": "calevdev", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#c25a4a11", border: "1px solid #c25a4a44", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
           "原本要：" + (dayEv.b.dev.plan || "—") + "\n后来：" + (dayEv.b.dev.actual || "—") + "\n因为：" + (dayEv.b.dev.reason || "—")),
         (() => {
@@ -4406,7 +4412,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         }, "改这一段"),
         dayEv.b.ai && isCharView && h("button", { "data-wk": "calbtn", "data-part": "delday",
           onClick: () => {
-            const dk = dayEv.dk, a = String(dk).split("-");
+            // 昨晚睡过来的那一截是【前一天】那份日程里的：删就删那一天
+            const dk = dayEv.b.carry && dayEv.b.carryFrom ? dayEv.b.carryFrom : dayEv.dk, a = String(dk).split("-");
             requestAppConfirm("删掉 " + Number(a[1]) + "月" + Number(a[2]) + "日 AI 排的日程？",
               "这一整天 AI 排的时间线和碎碎念都会删掉，手填的日程不动。删完不会自动再排。",
               () => { onDelSchedDay && onDelSchedDay(curChar, dk); setDayEv(null); }, "删掉");

@@ -127,9 +127,10 @@ test("异地角色的块按她的时间摆位，块上写 TA 当地时刻", () =
   assert.match(comp2, /const tzShift = isCharView && typeof schedTzShiftMin === "function" \? schedTzShiftMin\(curChar\) : 0/);
   assert.match(comp2, /const toMyMin = m => \(m == null \? null : \(\(\(m - tzShift\) % 1440\) \+ 1440\) % 1440\)/);
   const seg = comp2.slice(comp2.indexOf("const blocksOn = dk =>"), comp2.indexOf("const dayHasAnything"));
-  assert.match(seg, /let st = toMyMin\(cst\), en = st \+ \(cen - cst\)/, "块长度不变，只是整体挪位");
-  assert.match(seg, /if \(en > 1440\) en = 1440;/, "换算后跨天的截在这一天里，别画成溢出");
-  assert.match(seg, /charFrom: tzShift \? s\.time : ""/, "块上仍写 TA 当地时刻——他嘴里说的是这个");
+  // v75.921：一列横跨 TA 两天，按带符号偏移摆（原来 %1440 会把 TA 凌晨那截画到错的一天）
+  assert.match(seg, /put\(base \+ cst, base \+ cen,/, "块长度不变，只是整体挪位");
+  assert.match(seg, /const st = Math\.max\(0, from\), en = Math\.min\(1440, to\)/, "换算后跨天的截在这一天里，别画成溢出");
+  assert.match(seg, /charFrom: tzShift \? sq\.time : ""/, "块上仍写 TA 当地时刻——他嘴里说的是这个");
   assert.match(comp2, /b\.charFrom \? b\.charFrom \+ "–"/);
   assert.match(comp2, /格子按你的时间，块上写的是 TA 当地时刻/, "得在界面上说清楚，不然更糊涂");
 });
