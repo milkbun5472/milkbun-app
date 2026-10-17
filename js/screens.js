@@ -9224,6 +9224,11 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax / ElevenLabs / Fish Audio 语音合成。选了音色的角色语音能点 ▶ 真听；点开才生成，生成过的存在本机。按服务商规则计费。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才生成）" : "已关闭"); } })),
     c.enabled ? h("div", { className: "pt-3" },
+      h("div", { className: "flex items-center justify-between mb-3" },
+        h("div", { style: { paddingRight: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "气泡底下的「听一下」"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "关掉后普通文字气泡底下不再挂「听一下」；语音条照样能点开听。")),
+        h(Toggle, { on: !c.noListen, onChange: v => set({ noListen: !v }) })),
       row("声音从哪来（角色档案填对应的音色 ID）", h("div", { style: { display: "flex", gap: 6 } },
         [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"]].map(pair =>
           h("button", { key: pair[0], onClick: () => set({ provider: pair[0] }), className: "active:opacity-70",
