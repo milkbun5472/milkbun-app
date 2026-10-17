@@ -9137,7 +9137,7 @@ function MomentsFeed({
     style: {
       marginBottom: 8
     }
-  }, "图片"), isImgRef(imgView) && h(MomentReshootButton, { momentId: imgMid, hasDesc: !!((moments || []).find(x => x && x.id === imgMid) || {}).imageDesc, onDone: nextRef => { if (nextRef) setImgView(nextRef); } }), isImgRef(imgView) && h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")), !isImgRef(imgView) && h("div", {
+  }, "图片"), isImgRef(imgView) && h(MomentReshootButton, { momentId: imgMid, hasDesc: !!((moments || []).find(x => x && x.id === imgMid) || {}).imageDesc, onDone: nextRef => { if (nextRef) setImgView(nextRef); } }), isImgRef(imgView) && h(MomentDescEdit, { momentId: imgMid, onDone: nextRef => { if (nextRef && isImgRef(nextRef)) setImgView(nextRef); } }), isImgRef(imgView) && h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")), !isImgRef(imgView) && h("div", {
     style: {
       width: "100%",
       height: 150,
@@ -9160,7 +9160,7 @@ function MomentsFeed({
       color: t.ink,
       whiteSpace: "pre-wrap"
     }
-  }, imgView), !isImgRef(imgView) && h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) })), /*#__PURE__*/React.createElement("div", {
+  }, imgView), !isImgRef(imgView) && h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) }), h(MomentDescEdit, { momentId: imgMid, onDone: nextRef => { if (nextRef && isImgRef(nextRef)) setImgView(nextRef); } })), /*#__PURE__*/React.createElement("div", {
     // 这一行只剩两个动作键（no-english-titles：原来左边那行英文眉标是装饰，
     // 这一页叫什么顶栏已经写了）
     className: "px-5 py-3 flex items-center justify-end",
@@ -9459,6 +9459,23 @@ function MomentGenImageButton({ momentId, onDone }) {
 // 已经画出来的那一张：再画一遍（她 2026-10-03「朋友圈图可以重 roll」）。
 // 只有【留着当初那段画面描述】的才给这颗键——手贴进来的图没得重拍。
 // ⚠️重拍完别关掉大图：她多半要连按几次挑一张，关掉等于每次都得重新点开。
+// 改画面描述再画（她 2026-10-17）：没画出来、或者画歪了，照单聊照片那样改一句描述重画
+function MomentDescEdit({ momentId, onDone }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const [txt, setTxt] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!momentId || typeof window.momentGenImage !== "function") return null;
+  if (!open) return h("button", { "data-wk": "momdescedit", onClick: () => { setTxt(typeof window.__momentDesc === "function" ? window.__momentDesc(momentId) : ""); setOpen(true); }, className: "active:opacity-70",
+    style: { marginTop: 8, width: "100%", minHeight: 40, borderRadius: 10, border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "改画面描述再画");
+  return h("div", { "data-wk": "momdescedit", style: { marginTop: 10 } },
+    h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 3, autoFocus: true, className: "w-full outline-none p-2.5 rounded-lg",
+      style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
+    h("div", { className: "flex gap-4 mt-2 justify-end" },
+      h("button", { onClick: () => setOpen(false), style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "算了"),
+      h("button", { disabled: busy || !txt.trim(), onClick: async () => { setBusy(true); const ok = await Promise.resolve().then(() => window.momentGenImage(momentId, false, true, txt.trim())).catch(() => false); setBusy(false); if (ok) { setOpen(false); onDone && onDone(ok); } },
+        className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, busy ? "正在画…" : "照这个画")));
+}
 function MomentReshootButton({ momentId, hasDesc, onDone }) {
   if (!momentId || !hasDesc || typeof window.momentGenImage !== "function") return null;
   return h(DescGenImageButton, { mark: "reshoot-" + momentId, label: "再画一张", busyLabel: "重画中…",
@@ -9570,7 +9587,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
       list.map(momentRow)),
     delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelMoment(delId); setDelId(null); }, onCancel: () => setDelId(null) }),
-    imgView && h(Sheet, { onClose: () => setImgView(null), tall: true }, h(Eyebrow, { style: { marginBottom: 8 } }, "图片"), isImgRef(imgView) && h(MomentReshootButton, { momentId: imgMid, hasDesc: !!((moments || []).find(x => x && x.id === imgMid) || {}).imageDesc, onDone: nextRef => { if (nextRef) setImgView(nextRef); } }), isImgRef(imgView) ? h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")) : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, imgView), h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) })),
+    imgView && h(Sheet, { onClose: () => setImgView(null), tall: true }, h(Eyebrow, { style: { marginBottom: 8 } }, "图片"), isImgRef(imgView) && h(MomentReshootButton, { momentId: imgMid, hasDesc: !!((moments || []).find(x => x && x.id === imgMid) || {}).imageDesc, onDone: nextRef => { if (nextRef) setImgView(nextRef); } }), isImgRef(imgView) && h(MomentDescEdit, { momentId: imgMid, onDone: nextRef => { if (nextRef && isImgRef(nextRef)) setImgView(nextRef); } }), isImgRef(imgView) ? h("div", null, h("img", { src: resolveImg(imgView), style: { width: "100%", borderRadius: 12, display: "block" } }), h("button", { onClick: () => { window.saveImgOriginal && window.saveImgOriginal(imgView, "小手机原图").then(ok => { if (!ok && typeof toast === "function") toast("这张取不到原图"); }); }, className: "active:opacity-70", style: { marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存原图（无损）")) : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, imgView), h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) }), h(MomentDescEdit, { momentId: imgMid, onDone: nextRef => { if (nextRef && isImgRef(nextRef)) setImgView(nextRef); } })),
     compose && h(MomentCompose, { friendGroups, characters, onPost: payload => { onPostMoment(payload); setCompose(false); }, onClose: () => setCompose(false) }));
 }
 

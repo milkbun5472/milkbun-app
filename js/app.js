@@ -21699,16 +21699,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️原来一看见已经是图就 return false——那正是「重不了」的原因。
   //   重拍要用【当初那段描述】，它在第一次生成时存进了 imageDesc；
   //   没存的（手贴的图、老数据）就没得重拍，按钮也不该出现。
-  const momentGenImage = async (momentId, quiet, force) => {
+  // newDesc：她改过的画面描述（她 2026-10-17：朋友圈配图没画出来，也要能改描述再画）
+  const momentGenImage = async (momentId, quiet, force, newDesc) => {
     const mom = (momentsRef.current || []).find(m => m && m.id === momentId);
     if (!mom || !mom.image) return false;
     const already = isImgRef(mom.image);
     if (already && !force) return false;
-    if (already && !String(mom.imageDesc || "").trim()) { if (!quiet) toast("这张没留着画面描述，重拍不了"); return false; }
+    const nd = String(newDesc || "").trim();
+    if (already && !nd && !String(mom.imageDesc || "").trim()) { if (!quiet) toast("这张没留着画面描述，重拍不了"); return false; }
     if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
     const char = characters.find(c => c.id === mom.characterId);
     if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
-    const desc = already ? String(mom.imageDesc) : String(mom.image);
+    const desc = nd || (already ? String(mom.imageDesc) : String(mom.image));
     try {
       const ref = await drawFromDesc(char, desc, mom.imageWho);
       pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
@@ -21745,6 +21747,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   window.forumGenImage = forumGenImage;
   window.momentGenImage = momentGenImage;
+  window.__momentDesc = id => { const m = (momentsRef.current || []).find(x => x && x.id === id); return m ? String(isImgRef(m.image) ? (m.imageDesc || "") : (m.image || "")) : ""; };
   const likeMoment = id => pMom(p => p.map(m => m.id === id ? {
     ...m,
     liked: !m.liked,
@@ -26241,6 +26244,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return row;
     } catch (e) {
       toast("这张没拍成：" + (e.message || "重试"), 9000);
+      // 没拍成留一张卡（她 2026-10-17）：原来只弹一句，填的场景、挑的画风全没了。照相馆墙上那张能改描述重拍、能原样重拍
+      try {
+        const keepOpt = {}; Object.keys(opt || {}).forEach(k => { const v = opt[k]; if (v == null || typeof v === "function") return; try { JSON.stringify(v); keepOpt[k] = v; } catch (er) {} });
+        const all = (loadJSON("x_studioFailed", []) || []).filter(Boolean);
+        saveJSON("x_studioFailed", [{ id: "sf_" + Date.now(), charId: char.id, ts: Date.now(), err: String((e && e.message) || "没拿到图").slice(0, 160), opt: keepOpt }].concat(all).slice(0, 12));
+        try { window.dispatchEvent(new Event("lisa-studiofailed")); } catch (er) {}
+      } catch (er) {}
       return false;
     } finally { setGen(g => ({ ...g, studio: false })); }
   };

@@ -11,7 +11,7 @@ const app = fs.readFileSync("js/app.js", "utf8");
 const comp = fs.readFileSync("js/components.js", "utf8");
 
 const fn = (() => {
-  const i = app.indexOf("  const momentGenImage = async (momentId, quiet, force) =>");
+  const i = app.indexOf("  const momentGenImage = async (momentId, quiet, force, newDesc) =>");
   const j = app.indexOf("  window.momentGenImage", i);  // 不含那一行赋值
   assert.ok(i > 0 && j > i, "抠不出 momentGenImage");
   return app.slice(i, j);
@@ -20,12 +20,12 @@ const fn = (() => {
 test("① 已经是图时：不给 force 照旧不画，给了 force 才用 imageDesc 重画", () => {
   assert.match(fn, /const already = isImgRef\(mom\.image\);/);
   assert.match(fn, /if \(already && !force\) return false;/, "没有 force 时要维持原样");
-  assert.match(fn, /const desc = already \? String\(mom\.imageDesc\) : String\(mom\.image\);/,
+  assert.match(fn, /const desc = nd \|\| \(already \? String\(mom\.imageDesc\) : String\(mom\.image\)\);/,
     "重拍必须用当初那段描述，不是把图当描述");
 });
 
 test("② 没留描述的（手贴图/老数据）说清重拍不了，不许拿图当描述去画", () => {
-  assert.match(fn, /if \(already && !String\(mom\.imageDesc \|\| ""\)\.trim\(\)\)/);
+  assert.match(fn, /if \(already && !nd && !String\(mom\.imageDesc \|\| ""\)\.trim\(\)\)/);   // 她自己改了描述（nd）就能画
   assert.match(fn, /重拍不了/);
 });
 

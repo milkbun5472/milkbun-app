@@ -18003,6 +18003,13 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const mySets = closetGroups(myCloset);
   const hisSets = closetGroups(charCloset && charCloset.outfit);
   const allRows = (shots || []).filter(x => x.charId === partner.id);
+  // 没拍成的那几张（她 2026-10-17）：留在墙上一张卡，能改描述重拍、原样重拍、不要了就删
+  const [failTick, setFailTick] = useState(0);
+  useEffect(() => { const f = () => setFailTick(x => x + 1); window.addEventListener("lisa-studiofailed", f); return () => window.removeEventListener("lisa-studiofailed", f); }, []);
+  const failed = (() => { void failTick; return (loadJSON("x_studioFailed", []) || []).filter(x => x && x.charId === partner.id); })();
+  const dropFailed = id => { saveJSON("x_studioFailed", (loadJSON("x_studioFailed", []) || []).filter(x => x && x.id !== id)); setFailTick(x => x + 1); };
+  const [failEdit, setFailEdit] = useState(null);   // { id, txt }
+  const retryFailed = (f, scene) => { dropFailed(f.id); setFailEdit(null); onShoot(Object.assign({}, f.opt || {}, scene != null ? { scene: scene } : {})); };
   // 一摞（她 2026-10-13）：换画风出来的挂在原图名下。新的带 parentId；旧的没有，就找同一句场景、在它之前、不是换画风的那张
   const stackKey = x => {
     if (x.parentId) return x.parentId;
@@ -18166,6 +18173,20 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : polaroid ? "咔嚓" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
+          failed.length ? h("div", { "data-wk": "studiofailed", style: { marginTop: 16, display: "flex", flexDirection: "column", gap: 8 } },
+            failed.map(f => h("div", { key: f.id, "data-wk": "studiofailcard", style: { borderRadius: 14, border: "1px dashed #c9a0b4", background: "rgba(255,255,255,.55)", padding: "11px 13px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#7a4a62" } }, "这张没拍成"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 3, lineHeight: 1.6 } }, "原因：" + (f.err || "没拿到图")),
+              failEdit && failEdit.id === f.id
+                ? h("div", { style: { marginTop: 8 } },
+                    h("textarea", { "data-wk": "textarea", value: failEdit.txt, onChange: e => setFailEdit({ id: f.id, txt: e.target.value }), rows: 3, autoFocus: true, className: "w-full outline-none p-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#4a3040", background: "#fff", border: "1px solid #e6d3dc" } }),
+                    h("div", { className: "flex gap-4 mt-2 justify-end" },
+                      h("button", { onClick: () => setFailEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a0708a" } }, "算了"),
+                      h("button", { disabled: !!busy, onClick: () => retryFailed(f, failEdit.txt), className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a8505f" } }, "照这个重拍")))
+                : h("div", { className: "flex gap-4 mt-2 justify-end" },
+                    h("button", { onClick: () => dropFailed(f.id), style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a0708a" } }, "不要了"),
+                    h("button", { onClick: () => setFailEdit({ id: f.id, txt: String((f.opt && f.opt.scene) || "") }), style: { fontFamily: F_BODY, fontSize: 12.5, color: "#7a4a62" } }, "改描述再拍"),
+                    h("button", { disabled: !!busy, onClick: () => retryFailed(f), className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a8505f" } }, "原样重拍"))))) : null,
           covers.length ? h("div", { "data-wk": "studiokinds", className: "flex flex-wrap", style: { gap: 6, marginTop: 16 } },
             KINDS.filter(([k]) => k === "all" || covers.some(x => kindOf(x) === k)).map(([k, zh]) => h("button", { key: k, "data-on": kind === k ? "1" : "0", onClick: () => { setKind(k); setThemeF(""); }, className: "active:opacity-70",
               style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (kind === k ? "#6d4d8f" : t.line), background: kind === k ? "#6d4d8f" : "transparent", color: kind === k ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12 } },
