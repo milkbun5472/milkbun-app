@@ -28804,7 +28804,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     settingsOf: id => settingsFor(id),
     // 查毛病：只给名字、模型、填没填密钥，密钥本身一个字都不给
     routeInfo: id => { const r = apiFor(id); return r ? { name: r.name || "", model: r.model || "", hasKey: !!(r.apiKey || r.proxyRef), own: routePicked((chatSettings[id] || {}).apiId) } : null; },
-    autoInfo: id => { try { return (window.AutoRefreshPolicy.FEATURES || []).map(f => f.title + "：" + (autoRefreshOn(f.id, id) ? "开" : "关")).join("、") + (loadJSON("x_bgApi", null) === "__off__" ? "（后台线路选了「无」，自己跑的一律不跑）" : ""); } catch (e) { return "（看不到）"; } },
+    autoInfo: id => { try { return (window.AutoRefreshPolicy.FEATURES || []).map(f => f.title + "：" + (autoRefreshOn(f.id, id) ? "开" : "关") + (f.id === "letter" && !((couplesRef.current || {})[id] && (couplesRef.current || {})[id].status === "together") ? "（这是在一起以后空间里的信；你们还没开空间，用不上。没开空间时他写不写申请信看聊天设置「允许 Ta 主动表白」）" : "")).join("、") + (loadJSON("x_bgApi", null) === "__off__" ? "（后台线路选了「无」，自己跑的一律不跑）" : ""); } catch (e) { return "（看不到）"; } },
     onRoomsChanged: () => setChatSettings(p => ({ ...p })),
     apiProfiles: apiProfiles,
     masks: () => masksRef.current || [],
@@ -28828,6 +28828,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     schedOf: id => (schedulesRef.current || {})[id] || {},
     onEditSchedSeq: (id, dayKey, seq, patch) => editSchedSeq(id, dayKey, seq, patch),
     coupleHomeOf: id => (coupleHomeRef.current || {})[id] || {},
+    coupleOf: id => (couplesRef.current || {})[id] || null,
     onSaveCoupleHome: (id, fn) => saveCoupleHome(id, fn),
     annivList: () => coupleAnniv || [],
     onAddAnniv: (char, name, m, d, yearly, linkCal, year) => addAnniv(char, name, m, d, yearly, linkCal, year),

@@ -29,6 +29,9 @@
       what: "聊天攒到这么多条，就把早的那些压成长期记忆。" },
     { key: "sumBuffer", zh: "总结后留几条原文", where: "记 · 他知道什么", type: "num", min: 5, max: 100, def: 20,
       what: "压成总结的时候，最近这么多条保留原样不压。" },
+    // 存档里存的是反的（noLoveLetter＝不许）：inv 让秋秋看到、改的都是界面上那一格「允许 Ta 主动表白」
+    { key: "noLoveLetter", inv: true, zh: "允许 Ta 主动表白（申请信）", where: "动 · 主动消息 / 朋友圈 / 主动找你", type: "bool", def: true,
+      what: "你们还没开空间时，他想跟你更进一步了会自己写一封申请信（聊天里一个封着的信封，拆开选答应或再想想）。关了就不会写。跟自动功能里的「情书」不是一回事：那个是已经在一起以后，空间里按频率写的信。他什么时候写由他自己定：开着也要满足这几样——你们还没开空间、也没有一封在等你回；上次写过隔了一天以上；你上次说「再想想」后过了三天；刚分开不满七天不写。" },
     { key: "autoMoment", zh: "自己发朋友圈", where: "动 · 他会主动做什么", type: "bool", def: false,
       what: "开了他会时不时自己发一条朋友圈。" },
     { key: "defaultOffline", zh: "点进来先进线下", where: "窗 · 这个聊天窗", type: "bool", def: false,
@@ -73,6 +76,7 @@
     if (def.type === "route") { const r = ((ctx && ctx.apiProfiles) || []).find(p => p && p.id === v); return r ? (r.name || "（没起名的线路）") : "跟随全局"; }
     if (def.type === "mask") { const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && x.id === v); return m ? m.name : "主面具"; }
     if (v == null) return def.type === "bool" ? (def.def == null ? "跟着总开关" : (def.def ? "开" : "关")) : def.type === "pick" ? def.opts[def.def] : String(def.def);
+    if (def.inv && def.type === "bool") v = !v;
     return def.type === "bool" ? (v ? "开" : "关") : def.type === "pick" ? (def.opts[v] || String(v)) : String(v);
   };
   // 她说的值 → 存进去的值；认不出就报错（不猜）
@@ -90,7 +94,7 @@
       if (!m) throw new Error("没有叫「" + t + "」的面具；现有的：" + (((ctx && ctx.masks && ctx.masks()) || []).map(x => x.name).filter(Boolean).join("、") || "只有主面具"));
       return m.id;
     }
-    if (def.type === "bool") { if (yes(t)) return true; if (no(t)) return false; throw new Error("「" + def.zh + "」只能是开或关"); }
+    if (def.type === "bool") { if (yes(t)) return !def.inv; if (no(t)) return !!def.inv; throw new Error("「" + def.zh + "」只能是开或关"); }
     if (def.type === "num") {
       const n = Math.round(Number(t.replace(/[^\d.]/g, "")));
       if (!isFinite(n) || !t) throw new Error("「" + def.zh + "」要填一个数");
@@ -520,7 +524,9 @@
       return { 谁: c.name, id: c.id, 天: days.map(d => ({ 日期: d, 段: ((book[d] || {}).seqs || []).filter(Boolean).map(r => r.seq + ". " + (r.time || "") + " " + clip(r.title, 30) + (r.location ? " @ " + clip(r.location, 20) : "")) })) }; });
     const ann = (ctx.annivList && ctx.annivList()) || [];
     out.情侣空间 = chars.map(c => { const h = (ctx.coupleHomeOf && ctx.coupleHomeOf(c.id)) || {}; const a = h.archive || {};
-      return { 谁: c.name, id: c.id, 档案: COUPLE_FIELDS.map(([k, zh]) => k + "（" + zh + "）=" + (clip(a[k], 120) || "空")),
+      // 先说开没开：没开的人，底下那些档案、愿望都是空的，别当成「已经在一起了」
+      const cp = ctx.coupleOf ? ctx.coupleOf(c.id) : null, rl = cp && window.spaceRel ? window.spaceRel(cp) : null;
+      return { 谁: c.name, id: c.id, 空间: !cp ? "没开（你们还不是恋人，也没有别的关系空间）" : cp.status === "together" ? "开着 · " + (rl ? rl.space + "（" + rl.zh + "）" : "情侣空间") : cp.status === "pending" ? "邀请还没回应" : "没开", 档案: COUPLE_FIELDS.map(([k, zh]) => k + "（" + zh + "）=" + (clip(a[k], 120) || "空")),
         愿望板: (h.wishes || []).filter(Boolean).slice(0, 20).map(w => ({ id: w.id, 愿望: clip(w.title, 40), 类: w.type, 状态: w.status === "done" ? "做到了" : "还没" })),
         纪念日: ann.filter(x => x && x.characterId === c.id).map(x => ({ id: x.id, 名字: x.name, 日期: (x.year ? x.year + "-" : "") + x.month + "-" + x.day })) }; });
     out.表情包 = ((ctx.emotePacks && ctx.emotePacks()) || []).slice(0, 30).map(k => ({ id: k.id, 名字: k.name, 几张: (k.emotes || []).length, 给谁: k.global ? "全局" : whoNames(ctx, k.charIds) }));
