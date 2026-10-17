@@ -22,8 +22,8 @@
     + "每条带一个赞数 likes：多数是个位数或零，少数说中了大家心事的几百上千——赞多赞少由这条写得戳不戳人决定，不是按顺序给。";
   // 熟人（她的角色）：在这儿发言的就是他本人，用他自己的名字，说话照他平时那样
   const castBlock = cast => (cast || []).length ? "\n\n【你认识的这几位也在用这个 app】\n"
-    + cast.map(c => "· " + S(c.name) + "（id：" + c.id + "）\n" + S(c.persona || "（没写人设）").slice(0, 600)).join("\n")
-    + "\n他们在这儿发言用的就是自己的名字。听什么、怎么说都得是他本人：照人设、口味、此刻的心事来。他们不知道这儿谁是谁、谁跟她什么关系，除非下面写明了。" : "";
+    + cast.map(c => "· " + S(c.name) + "（id：" + c.id + "）\n" + (c.brief ? S(c.brief) : S(c.persona || "（没写人设）").slice(0, 600))).join("\n\n")
+    + "\n他们在这儿发言用的就是自己的名字。听什么、怎么说都得是他本人：照人设、口味、此刻在过的日子和心事来（最近跟她聊过的事可以是由头，但这是公开的地方，私聊里的事他不会摊开说）。他们不知道这儿谁是谁、谁跟她什么关系，除非下面写明了。" : "";
   const regsBlock = o => (window.ShuaKit && window.ShuaKit.regularsBlock && o.regs) ? window.ShuaKit.regularsBlock(o.regs, o.pairs || [], o.me || "她", "听歌、写歌评") : "";
   const ITEM_SCHEMA = "{\"by\":\"熟人填他的 id；熟面孔、路人填 npc\",\"name\":\"名字或网名（熟面孔照抄上面的网名）\",\"text\":\"说的话\",\"to\":\"回的是谁——照抄那个人的名字，不是回人就留空\",\"tone\":\"熟面孔才填：warm 或 spar，其余留空\",\"likes\":\"赞数，整数\"}";
 

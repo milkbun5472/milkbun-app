@@ -27461,13 +27461,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, coupleDisc: null })); }
   };
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
+  // 你的人在公开场合（直播、片刻、一起听广场）露面时带的那一份：人设、此刻在干嘛、跟她什么关系、最近私聊十句（只他自己知道）
+  //   原来写在 liveProps 里；广场也要用（她 2026-10-17：「广场认识的角色是不是没带最近聊天」），提到这儿一份共用
+  const charPublicBrief = (c, _i, all) => {
+    const uN = userName(profile);
+    const present = Array.isArray(all) && all.length ? all : [c];
+    if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
+    const cp = (couplesRef.current || {})[c.id] || {};
+    // 最近十句：片刻里TA回你、刷到你的视频，要照你俩平时怎么说话来（她 2026-10-15），六句看不出口气
+    const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
+      .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
+    return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
+      + Object.values(groupNowSegs(c, { interop: true })).join("")
+      + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
+      + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
+  };
   // ── 音乐广场与歌评（她 2026-10-17）：提示词和数据形状在 js/listen-square.js，这儿只管打枪和存档 ──
   //   全都是她点了才打（不进后台）。熟面孔＝论坛那批人在这儿的网名（music 那一栏），碰面账是论坛那一份。
   const LQ = () => window.ListenSquare;
   const sqRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.music).map(n => ({ id: n.id, name: n.music.name, voice: n.music.habit, forum: n.name, tie: book.items[n.id] || null })); };
   const sqPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b);
     return a && b && a.music && b.music ? { a: a.id, b: b.id, line: "「" + a.music.name + "」↔「" + b.music.name + "」：" + r.tone.split(a.name).join(a.music.name).split(b.name).join(b.music.name) } : null; }).filter(Boolean);
-  const sqCast = (must, n) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); return must ? [must, ...rest] : rest; };
+  const sqCast = (must, n) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); const cast = must ? [must, ...rest] : rest;
+    return cast.map(c => ({ ...c, brief: charPublicBrief(c, 0, cast) })); };
   const sqMe = () => userName(profile);
   // 模型报上来的一条 → 存下来的一条：熟人认 id、熟面孔认网名、其余都是路人
   const sqItem = (x, cast) => {
@@ -31170,19 +31186,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️原来是这里自拼的一套：人设硬切 2500、只有在没在一起和六句聊天，心情、长出来的自我、住哪、身上带着什么一概没有。
     //   跟群聊／群通话走同一份：groupPersonaText 按在场人数分额度，groupNowSegs 给【此刻】那几层（私事带本人围栏）。
     //   调用处都是 list.map(briefFor)，第三个参数就是在场的这一拨人。
-    briefFor: (c, _i, all) => {
-      const uN = userName(profile);
-      const present = Array.isArray(all) && all.length ? all : [c];
-      if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
-      const cp = (couplesRef.current || {})[c.id] || {};
-      // 最近十句：片刻里TA回你、刷到你的视频，要照你俩平时怎么说话来（她 2026-10-15），六句看不出口气
-      const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
-        .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
-      return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
-        + Object.values(groupNowSegs(c, { interop: true })).join("")
-        + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
-        + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
-    },
+    briefFor: charPublicBrief,
     pay: (delta, label) => changeWallet(delta, label, "live", { where: "直播间" }),
     charPay: (charId, delta, label) => adjustCharBalance(charId, delta, label, "live"),
     remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
