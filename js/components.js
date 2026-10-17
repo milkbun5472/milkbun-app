@@ -14041,6 +14041,7 @@ function shareCardOf(kind) {
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;
   if (kind === "gachashare") return GachaShareCard;   // TA替她扳的那一发（抽卡）
+  if (kind === "xhsshare") return window.XhsCard || null;   // 她贴进来的小红书分享（js/xhs-card.js）
   if (kind === "listenshare") return window.ListenShareCard || null;   // 一起听广场转来的一帖（js/listen-square.js）
   if (kind === "shuashare") return window.ShuaShareCard || null;   // 片刻的视频（js/shua.js）   // 直播回放（js/live.js，2026-10-07）
   return null;

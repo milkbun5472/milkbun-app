@@ -10663,10 +10663,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 
   // ---- single chat ----
   // 只把用户消息放进对话，不触发 AI（可连发多条）
+  // 她贴进来的小红书分享（js/xhs-card.js）：发出去就是一张小红书卡；接了 MCP 就在后台补封面和正文，补好了TA也读得到
+  const xhsOf = text => (window.XhsLink && window.XhsLink.parse(text)) || null;
+  const xhsFill = (text, xid, patch) => {
+    if (!window.XhsLink) return;
+    window.XhsLink.enrich(xhsOf(text).url).then(d => {
+      if (!d) return;
+      patch(m => {
+        const x = { ...m.xhs, cover: d.cover || m.xhs.cover || "", desc: d.desc || m.xhs.desc || "", title: m.xhs.title || d.title };
+        return { ...m, xhs: x, content: window.XhsLink.modelText(text, x) };
+      }, xid);
+    }).catch(() => {});
+  };
   const pushUser = (charId, text, chatKey) => {
     const b = blocksRef.current[chatKey || charId] || {};
+    const xhs = xhsOf(text), xid = xhs ? "xhs_" + Date.now() : "";
+    if (xhs) xhsFill(text, xid, (f, id) => pChat(chatKey || charId, p => p.map(m => m.xid === id ? f(m) : m)));
     pChat(chatKey || charId, p => [...p, {
       role: "user",
+      ...(xhs ? { kind: "xhsshare", xhs: xhs, xid: xid } : {}),
       content: text,
       // 只有【他拉黑了她】时她的话才送不到（红感叹号）；她拉黑他时她照样发得出去、他看得到
       blocked: !!b.theyBlocked,
@@ -14452,6 +14467,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (text == null || text === "") return;
     gachaEarnGroup(groupId, "group");
     const gs = gsFor(groupId);
+    const xhs = !gs.spectate && xhsOf(text), xid = xhs ? "xhs_" + Date.now() : "";
+    if (xhs) xhsFill(text, xid, (f, id) => pGChat(groupId, p => p.map(m => m.xid === id ? f(m) : m)));
     pGChat(groupId, p => [...p, gs.spectate ? {
       role: "narration",
       content: text,
@@ -14459,6 +14476,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ts: Date.now()
     } : {
       role: "user",
+      ...(xhs ? { kind: "xhsshare", xhs: xhs, xid: xid } : {}),
       content: text,
       mid: "gm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
       ts: Date.now()
