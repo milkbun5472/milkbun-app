@@ -74,3 +74,9 @@ test('the clinic remains the same room for a colleague leaving after the meeting
 test('changing an unaccompanied rest into sharing actually walks to the company space before the new sitting timer',()=>{
  const f=fixture();f.setup();f.complete();f.drive(()=>f.state.life.after.phase==='doing');const old={...f.body.position};assert.ok(f.engine.request('after-response',{kind:'listen'}).accepted);f.drive(()=>f.state.life.after.phase==='doing');assert.ok(Math.hypot(old.x-f.body.position.x,old.z-f.body.position.z)>.4);assert.ok(!f.state.notes.some(n=>n.kind==='afterwork'));f.drive(()=>f.state.life.after.phase==='done');assert.equal(f.state.notes.filter(n=>n.kind==='afterwork').length,1);
 });
+
+test('the arriving work partner turns toward the worker smoothly before the actual conversation finishes',()=>{
+ const f=fixture({people:true});f.setup('doctor');f.engine.request('trial');f.drive(()=>f.state.shift?.phase==='work');assert.ok(f.engine.request('invite-colleague',{peer:'regular'}).accepted);const t=f.neighborhood.state.neighbors.regular.town;let checked=0;
+ for(let i=0;i<4000&&f.state.life.contact?.phase!=='done';i++){const old=t.heading,place=t.place;f.step();if(place===t.place){const delta=Math.abs(Math.atan2(Math.sin(t.heading-old),Math.cos(t.heading-old)));assert.ok(delta<=.300001,'colleague yaw jumped '+delta);}if(f.state.life.contact?.phase==='talking'&&f.state.life.contact.time>2){const heading=Math.atan2(f.body.position.x-t.position.x,f.body.position.z-t.position.z);assert.ok(Math.abs(Math.atan2(Math.sin(heading-t.heading),Math.cos(heading-t.heading)))<.3);checked++;}}
+ assert.ok(checked>0);assert.equal(f.state.life.bonds.regular.meets,1);
+});
