@@ -687,6 +687,7 @@
   //   不然那一处又会是「一层写在四处、第四处没跟上」的那一处。
   function ficOpts(fic, opts) {
     const o = Object.assign({}, opts || {}, { groupWay: groupWayOf(fic, opts) });
+    if ((opts && opts.noCP) || (fic && fic.noCP)) o.noCP = true;   // 无 CP 跟着这篇文走，续写也不长出感情线
     // 「他俩 × 我」那种三人文（她 2026-10-17 群友：续写时 U 的外貌又丢了）：原来只有新写那一枪知道要带上「我」，
     //   文上没记，续写、写长一点、请原作者回来都照「只写他俩」写——「我」整个被挤出去，外貌更不用说。现在记在文上（withMe），这几枪都跟着带
     if (fic && fic.withMe && o.includeMe == null) {
@@ -761,6 +762,15 @@
     //   在里头指定了一对——她选「无 CP」的时候尤其荒唐。
     // ⚠️三个人以上，模型的默认写法是【点名册】：一人一段轮流发言、每人都得有戏。
     //   所以得明说不是每个人都要出场——这一条不写，群像就写成了通讯录。
+    // 无 CP（她 2026-10-17）：挑了人、不要感情线——就是这几个人（挑了「我」也有我）的故事。不发左右位、不发爱情向。
+    if (opts.noCP) {
+      return "【无 CP：" + cpChars.map(function (c) { return c.name; }).join("、") + "】"
+        + "这一篇写这几个人的故事，**不是 CP 文，默认没有感情线**：他们之间是什么关系照各自的设定和这一篇的剧情来，"
+        + "不许写成恋爱、不许往暧昧上带，也别在里头挑两个配成一对。\n"
+        + cpChars.map(function (c) { return "· " + sideDesc(c); }).join("\n")
+        + (cpChars.length >= 2 ? "\n⚠️几个人说话的调子、在意的事、动手的方式都得分得开，不许共用一种语气。" : "")
+        + worldIdentityLine(cpChars) + evenSidesLine(cpChars);
+    }
     if (cpChars.length >= 3) {
       const way = String((opts.groupWay || "")).trim();
       return "【群像：" + cpChars.map(function (c) { return c.name; }).join("、") + "】"
@@ -3231,6 +3241,7 @@
     const [includeMe, setIncludeMe] = useState(false); // 俩角色 CP 时：带上「我」写成 A×我×B
     // 这一篇「我」用哪张面具（她 2026-10-17）：空＝跟着那位角色认的那张
     const [meMask, setMeMask] = useState("");
+    const [noCP, setNoCP] = useState(false);   // 无 CP：挑的人都在，默认不写感情线
     const allMasks = (function () { try { return (loadJSON("x_masks", []) || []).filter(function (m) { return m && m.id; }); } catch (e) { return []; } })();
     // 群像：点进去的那几个人（点的先后＝顺序），和这几个人之间是什么关系
     const [cast, setCast] = useState([]);
@@ -3347,7 +3358,13 @@
               allMasks.map(function (m) { return h("option", { key: m.id, value: m.id }, m.name || "未命名面具"); }))) : null,
 
           // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
-          (!isGroup && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+          (chosenCP().length && !isGroup) ? h("button", { "data-wk": "ficnocp", "data-on": noCP ? "1" : "0", onClick: function () { setNoCP(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: noCP ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (noCP ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 10 } },
+            h("div", { style: { textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, noCP ? "无 CP：只写他们的故事" : "写成 CP"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, noCP ? "挑的人都在（挑了「我」也有你），默认不写感情线" : "点一下改成无 CP：不写感情线")),
+            h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (noCP ? t.ink : t.line), background: noCP ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, noCP ? "✓" : "")) : null,
+          (!isGroup && !noCP && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
             style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 }, "data-wk": "ficgensheetbtn", "data-part": "2" },
             h("div", { style: { textAlign: "left" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, includeMe ? "带上我（他俩 × 我 的三人）" : "只写他俩的 CP"),
@@ -3405,7 +3422,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -3794,7 +3811,7 @@
         metaRow((f.cp || []).length >= 3 ? "这几个" : "这一对",
           h("div", null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
-              cpLabel(f.cp, props.characters, props.userName) + (String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : "")),
+              cpLabel(f.cp, props.characters, props.userName) + (f.noCP ? " · 无CP" : String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : "")),
             cpEdit ? null : h("button", { onClick: function () { setCpEdit((f.cp || []).slice()); }, className: "active:opacity-60",
               style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "none", padding: "0 10px", minHeight: 40 }, "data-wk": "ficreaderbtn", "data-part": "15" }, "改"),
             cpEdit ? h("div", { style: { marginTop: 6 } },
@@ -5568,7 +5585,7 @@
     function chapterShared(fic, ch, chapNo) { props.onNotifyChapter && props.onNotifyChapter(fic, ch, chapNo, fic.sharedTo || []); }
 
     // 生成
-    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask) {
+    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask, noCP) {
       // ⚠️**用 cast 不是 characters**（她 2026-09-11 那三篇的病根就在这一行）：
       //   characters 是【真人角色】那一份，不含配角；cast 才是含配角的全量。
       //   挑人那一格用的是 cast（所以她挑得到「萧成烨」），可这一枪用的是 characters，
@@ -5609,9 +5626,9 @@
         const briefList = Array.isArray(briefs) ? briefs : [];
         const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
-          includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我",
+          includeMe: !!includeMe && !noCP, meName: (props.profile && props.profile.name) || userName || "我",
           mePersona: ((ficMeProfile(cp, props.profile, meMask) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile, meMask) || {}).appearance) || "",
-          groupWay: String(groupWay || "").trim() };
+          groupWay: String(groupWay || "").trim(), noCP: !!noCP };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
         // 每篇完成立刻落库；中途失败也不赔掉已经写好的篇目。普通文风仍是一批一次调用。
@@ -5623,7 +5640,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset
