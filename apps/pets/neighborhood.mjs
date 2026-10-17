@@ -1,11 +1,12 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-a6d34eed07f6ef97';
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-a6d34eed07f6ef97';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-a6d34eed07f6ef97';
-import {careSummary} from './care.mjs?v=fg-a6d34eed07f6ef97';
+import {turnPet} from './movement.mjs?v=fg-88cac7af3e4d62b4';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-88cac7af3e4d62b4';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-88cac7af3e4d62b4';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-88cac7af3e4d62b4';
+import {careSummary} from './care.mjs?v=fg-88cac7af3e4d62b4';
 
-import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-a6d34eed07f6ef97';
+import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-88cac7af3e4d62b4';
 
-import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-a6d34eed07f6ef97';
+import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-88cac7af3e4d62b4';
 export const NEIGHBORS=TOWN_RESIDENTS.concat(PET_NEIGHBORS);
 const rainPoint=()=>{const d=roomDoor('cafe');return {x:d.x+1.2,z:d.z};};
 const profile=id=>NEIGHBORS.find(n=>n.id===id),num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
@@ -70,7 +71,7 @@ export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime
   if(t.place!==plan.place){if(!t.goal||t.target!==plan.place)go(id,plan.place,plan.point);return;}
   const distance=Math.hypot(t.position.x-plan.point.x,t.position.z-plan.point.z);
   if(plan.awake&&plan.gesture==='rest'&&distance<2.2){if(t.goal&&t.phase==='stroll'&&t.target===plan.place&&Math.hypot(t.goal.x-plan.point.x,t.goal.z-plan.point.z)<2.2)return;if(!t.goal){t.idle+=dt;if(t.idle>=18){const r=routes.get(id),next=localRoute(r.nav(),t.position,()=>nextRandom(t),{radius:1.5,minDistance:.6,clear:q=>Math.hypot(q.x-plan.point.x,q.z-plan.point.z)<2});t.idle=0;if(next)go(id,plan.place,next.goal);}return;}}
-  if(distance<.15){if(t.goal){t.goal=null;t.stop=null;t.phase='visit';t.target=plan.place;changed=true;}return;}
+  if(distance<.15){if(plan.face&&!t.goal)t.heading=turnPet(t.heading,Math.atan2(plan.face.x-t.position.x,plan.face.z-t.position.z),dt).heading;if(t.goal){t.goal=null;t.stop=null;t.phase='visit';t.target=plan.place;changed=true;}return;}
   if(!t.goal||t.target!==plan.place||t.phase==='stroll'&&Math.hypot(t.goal.x-plan.point.x,t.goal.z-plan.point.z)>.15)go(id,plan.place,plan.point);
  }
  function appearance(id){if(state.petVisit?.neighborId===id)return {gesture:'rest',activity:guests.facts(state.petVisit.petId).label,awake:true,hours:''};const plan=schedule(id),t=state.neighbors[id].town,m=state.meeting;
