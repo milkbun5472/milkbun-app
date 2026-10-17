@@ -25979,12 +25979,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 拍之前就挑好画风（她 2026-10-13：「重画的画风要不要拍之前就可以选，这样省钱不用拍两张」）：一次直接出那种画法
       const PAINT = !RESTYLE_ONLY && opt && opt.paint ? String(opt.paint).slice(0, 40) : "";
       const PAINT_LINE = PAINT ? "【画风】这一张不是照片，整张直接画成「" + PAINT + "」的画风：人物比例、轮廓线条、上色方式、背景的画法都按这种画风来，别出现真人身体顶着一张画风脸；两个人的长相照参考照，认得出是谁。⚠️参考照只拿来认长相（五官、发型、发色、脸型），它本身是照片还是画都别照着它的质感来：这一张通篇是「" + PAINT + "」，不许画成真人照片、不许写实摄影质感。" + (STYLE_BODY[PAINT] || studioStyleDesc(PAINT)) + "画面里不要加任何文字。" : "";
-      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(char, sceneFull, st, { kind: "duo", paint: PAINT || "", me: me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
+      const prompt = RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildPhotoPrompt(
+        // 挑了衣服就只认挑的（她 2026-10-17：「我让我和言秋穿的不是这个衣服」）——原来他此刻那身「必须忠实照此生成」、
+        //   固定服装锁、我的固定服装和整柜清单还照样发，排在挑的那一句前面，出图那头当然照那几句穿
+        hisPicked ? Object.assign({}, char, { photoOutfit: "" }) : char, sceneFull,
+        hisPicked && st ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
+        { kind: "duo", paint: PAINT || "", me: String((opt && opt.mine) || "").trim() ? Object.assign({}, me, { outfit: "", closet: "" }) : me, notLover: notLover, lead: (opt && opt.comic) ? "【最重要·整张图的版式】这一张是 2×2 四格漫画，四格一样大、格子之间留白边，必须画成四格。" : (opt && opt.grid) ? "【最重要·整张图的版式】这一张是 2×2 四格大头贴，四格一样大、格子之间留一道粗白边，必须画成四格，不许只画一张。" : "", closet: hisPicked ? "" : closetTextFor(char.id, 320), ...(wRefS && !(opt && opt.cellRef) ? { worldRefIndex: 3, worldRefLabel: wRefS.label } : {}), ...(theme && theme.overlay ? { editorial: theme.overlay, editorialSpace: (coverPlan ? window.PosterLayout.spaceLine(coverPlan) : "") + (picked ? "两个人身上穿的一律照上面挑好的那身，不要照片名、剧情或这一句里的任何描写另换衣服。" : "") } : {}) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
       const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
       const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
       if (wRefS && !firstRef) refs.push(wRefS.img);   // 地图上那个地点的场景图跟在两张脸后面
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: RESTYLE_ONLY || (PAINT_LINE ? PAINT_LINE + "\n" : "") + buildMinimalPhotoPrompt(picked && fits ? Object.assign({}, char, { photoOutfit: fits }) : char, { kind: "duo", paint: PAINT || "" }), ...(opt && (opt.grid || opt.comic || (opt.restyle && opt.restyle.comic)) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null, pol = null, ovl = null;
       if (out && out.blob) {

@@ -55,7 +55,8 @@ test("挑好的两身要显式写进画面描述里", () => {
   // 挑定了就别再发整柜清单：合照要装两个人，那份清单正是把提示词撑爆的一段
   assert.match(shoot, /closet: hisPicked \? "" : closetTextFor\(char\.id, 320\)/, "挑好了还在发整柜清单");
   assert.match(shoot, /const sceneFull = [^\n]*scene(?:Shot)? \+ \(fits[^\n]*\? "。" \+ [^\n]*fits : ""\);/, "拼了却没交给出图");
-  assert.match(shoot, /buildPhotoPrompt\(char, sceneFull, st, \{ kind: "duo"/, "没走已有那条出图链");
+  // v75.85x：挑了衣服时传进去的是去掉固定服装／此刻穿着的那一份（她 2026-10-17：挑的衣服没穿上），链还是这一条
+  assert.match(shoot, /buildPhotoPrompt\([\s\S]{0,400}char, sceneFull,[\s\S]{0,200}\{ kind: "duo"/, "没走已有那条出图链");
   // 走的是【已有的】那条链，不是另造一套
   ["buildPhotoPrompt", "generateSelfieImage", "buildMinimalPhotoPrompt", "idbImgPut"].forEach(f =>
     assert.ok(shoot.indexOf(f) > 0, "没复用已有的：" + f));
