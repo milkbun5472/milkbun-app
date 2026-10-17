@@ -15117,6 +15117,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const gRoundTs = Date.now();
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
+          // 这一条的话写成了 {"voice":"…","emo":"…"} 一串字：拆回来当语音发（跟单聊同一支 unwrapVoiceJson）
+          if (item && typeof item.text === "string" && typeof unwrapVoiceJson === "function") {
+            const _uj = unwrapVoiceJson(item.text);
+            if (_uj && typeof _uj === "object" && typeof _uj.voice === "string" && _uj.voice.trim()) { item.text = _uj.voice.trim(); item.voice = true; if (_uj.emo && !item.voiceEmo) item.voiceEmo = String(_uj.emo); }
+            else if (_uj && typeof _uj === "object" && typeof _uj.text === "string") item.text = _uj.text;
+          }
           // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
           if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasPause === "function" && ttsHasPause(item.text)) item.text = stripPauseMarks(item.text);
           // 带声音标签的那句是要说出口的（单聊同一条判据，见 markPauseVoice）
