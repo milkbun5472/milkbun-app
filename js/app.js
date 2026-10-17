@@ -12083,7 +12083,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const rest = emotes.filter(e => !ownIds.has(e.id));
             return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
               + own.map(pk => "「" + (pk.name || "未命名") + "」" + (pk.fromCharFace === charId ? faceSetNote(pk) : "") + "：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
-              + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "");
+              + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "")
+              // 她 2026-10-17：「他们太过于强调用的是他们的表情包了，基本上每次都要提」——上面那几句是让你认得出哪几张是你、挑得准，
+              //   不是叫你说出来。真人发自己的表情包就是直接甩，不会每次配一句
+              + "。⚠️上面这些只是让你知道哪几张是你、挑得准——发的时候直接发，跟发别的表情一样；别在话里提「这是我的表情包」「我自己画的」「用我的脸」「Q 版的我」这类话，她问起或者正聊到这件事才说。";
           })());
       }
       if (_s.autoMoment) openCaps.push("moment");
