@@ -70,3 +70,13 @@ test("禁令给出口，不给判决（施工规则/bans-make-it-dumber.md）", 
     .forEach(k => assert.ok(rule.indexOf(k) > 0, "规则里少了：" + k));
   assert.match(ruleText("README"), /bans-make-it-dumber\.md/, "没登记进 README，施工窗口不会读到它");
 });
+
+// 她 2026-10-17「害羞嘴硬还是这样八股」：被撩到时扣帽子＋下战书——只讲骨架，不念原句
+test("被撩到时的现成反击：只讲骨架", () => {
+  const fs2 = require("fs"), p2 = require("path");
+  const e2 = fs2.readFileSync(p2.join(__dirname, "..", "js", "engine.js"), "utf8");
+  const c = e2.slice(e2.indexOf("const INTIMATE_CHAT_ANTI_CLICHE = `")); const body = c.slice(0, c.indexOf("`;"));
+  assert.ok(body.includes("被撩到时的现成反击"));
+  assert.ok(body.includes("你此刻是不是在躲那一下"));
+  ["黄色废料", "谁怕谁", "有本事你别", "看谁先求饶"].forEach(w => assert.ok(!body.includes(w), "又在念原句：" + w));
+});
