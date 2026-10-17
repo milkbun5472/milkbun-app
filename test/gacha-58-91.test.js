@@ -261,3 +261,12 @@ test("印象卡那张改的是真卡，不是自己另存一份", () => {
   assert.match(ask, /整块盖掉旧的那版/, "没说清是整块重写，模型会写成补丁");
   assert.match(ask, /换个角色照样成立的就是写坏了/, "没立那条判据");
 });
+
+// 每十抽至少一张 SR，单抽也数（她 2026-10-17：「单抽十次不也应该算吗」）
+test("单抽十次也保底一张 SR", () => {
+  for (let k = 0; k < 30; k++) {
+    let st = { pulls: 0, sinceSSR: 0 }, got = false;
+    for (let i = 0; i < 10; i++) { const r = G.pull(1, st, {}, () => 0.999); st = r.state; if (r.cards.some(c => G.RANK[c.r] >= 1)) got = true; }
+    assert.ok(got, "单抽十次一张 SR 都没有");
+  }
+});

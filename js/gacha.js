@@ -369,22 +369,25 @@
     const rnd = rand || Math.random;
     let pulls = Number((state || {}).pulls) || 0;
     let sinceSSR = Number((state || {}).sinceSSR) || 0;
+    // 每十抽至少一张 SR（她 2026-10-17：「单抽十次不也应该算吗，跟抽卡游戏一样」）：
+    //   原来只管一次十连里那十张，单抽点十次没保底。现在跨单抽、十连一起数，连着九张 R 第十张顶成 SR。
+    let sinceSR = Number((state || {}).sinceSR) || 0;
     const out = [];
     // 十连之内也要避重：每抽一张就把它加进 recent，下一张接着躲。
     let recent = Array.isArray((state || {}).recent) ? (state || {}).recent.slice() : [];
     for (let i = 0; i < n; i++) {
       // 十连保底：前九张都是 R 的话，最后一张顶成 SR
-      const lastOfTen = n >= TEN && i === n - 1 && !out.some(function (c) { return RANK[c.r] >= 1; });
       let rarity = rollRarity(rnd, sinceSSR, !!(opts && opts.lucky));
-      if (lastOfTen && rarity === "R") rarity = "SR";
+      if (sinceSR >= TEN - 1 && rarity === "R") rarity = "SR";
       const card = pickCard(rarity, rnd, Object.assign({}, opts, { recent: recent }));
       if (!card) continue;
       pulls++;
       sinceSSR = card.r === "SSR" ? 0 : sinceSSR + 1;
+      sinceSR = RANK[card.r] >= 1 ? 0 : sinceSR + 1;
       recent = [card.poolId].concat(recent.filter(function (x) { return x !== card.poolId; })).slice(0, RECENT_KEEP);
       out.push(card);
     }
-    return { cards: out, state: { pulls: pulls, sinceSSR: sinceSSR, recent: recent } };
+    return { cards: out, state: { pulls: pulls, sinceSSR: sinceSSR, sinceSR: sinceSR, recent: recent } };
   }
 
   // 两道闸都在这一处：① 隔够了才算新的一段 ② 一天封顶。

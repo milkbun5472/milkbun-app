@@ -17225,7 +17225,8 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
           h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", lineHeight: 1.6 } },
             (() => { const lk2 = (luck || {})[byTa ? partner.id + "|ta" : partner.id] || { pulls: 0, sinceSSR: 0 };
               return [h("div", { key: "a" }, (byTa ? "TA 已抽 " : "已抽 ") + (lk2.pulls || 0) + " 次"),
-                h("div", { key: "b" }, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk2.sinceSSR || 0)) + " 抽保底 SSR")]; })())),
+                h("div", { key: "b" }, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk2.sinceSSR || 0)) + " 抽保底 SSR"),
+                h("div", { key: "c" }, "还有 " + Math.max(1, 10 - (lk2.sinceSR || 0)) + " 抽保底 SR")]; })())),
         h("div", { "data-wk": "gachawho", className: "flex items-center", style: { gap: 6, margin: "8px 0 2px", fontFamily: F_BODY, fontSize: 11.5, color: "#a1808e" } }, "谁来扳拉杆",
           [[false, "我"], [true, partner.remark || partner.name]].map(([v, zh]) => h("button", { key: zh, onClick: () => !spin && setByTa(v), className: "active:opacity-70",
             style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + (byTa === v ? "#a74d70" : "#eadde3"), background: byTa === v ? "#a74d7014" : "transparent", color: byTa === v ? "#a74d70" : "#a1808e", fontFamily: F_BODY, fontSize: 12 } }, zh))),
