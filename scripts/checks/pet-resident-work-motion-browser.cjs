@@ -14,7 +14,7 @@ module.exports=async({p,r,f,out,result})=>{
   if(role==='designer'){await f.evaluate(()=>PetGame.watch('companion'));await f.waitForFunction(()=>!petCareerPreview.snapshot().busy);await action('after-response',{kind:'listen'});await drive(()=>PetGame.residentWork().life.after.phase==='doing');await f.evaluate(()=>{for(let i=0;i<35;i++)PetGame.step(.05);});await shot('afterwork-listen');const after=await f.evaluate(inspect);assert.equal(after.tool,false);result.physics.after=after;await drive(()=>PetGame.residentWork().life.after.phase==='done');}
   result.physics.jobs.push({role,...data});console.log('Physics job:',role);fs.writeFileSync(out+'/physics-progress.json',JSON.stringify(result.physics,null,2));
  }
- 
+
  if(roles.length>=3){await install({at:'2026-11-03T10:00:00-06:00'});await action('configure',{slot:'primary',role:'designer',days:[0,1,2,3,4,5,6],start:540,end:720});await action('care-style',{kind:'flowers'});await action('trial');await drive(()=>!PetGame.residentWork().shift,1000,60);await f.evaluate(()=>PetGame.watch('companion'));await drive(()=>PetGame.residentWork().life.after?.purchased&&PetGame.companion().town.goal,1000,30);await f.waitForFunction(()=>!petCareerPreview.snapshot().busy);await f.evaluate(()=>{for(let i=0;i<8;i++)PetGame.step(.05);});result.physics.carry=await f.evaluate(inspect);await shot('carry-flowers-walking');assert.equal(result.physics.carry.action.kind,'carry');assert.equal(result.physics.carry.tool,true);await drive(()=>PetGame.residentWork().life.after.phase==='done',1000,40);assert.equal(await f.evaluate(()=>PetGame.companion().place),'home');result.physics.realGiftRoute=true;}
  assert.equal(await p.evaluate(()=>physicsCalls),0);
 };
