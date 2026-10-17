@@ -117,7 +117,7 @@ test("清空那颗长在吧规横杠上，不在滚动列表里", () => {
   //   「关注」「收藏」既不在吧规表里、也开不成吧（吧名一律以「吧」结尾），所以照旧不出现
   assert.ok(/nav === "home" && boardRules\) && h\("div"/.test(screens),
     "横杠的渲染条件变了——清空那颗可能漏到「关注」「收藏」上");
-  assert.match(screens, /const boardRules = FORUM_BOARD_RULES\[tab\] \|\| \(myBoardNow \? \[/);
+  assert.match(screens, /const boardRules = FORUM_BOARD_RULES\[tab\] \|\| \(myBoardNow \? /);
   assert.ok(!/FORUM_BOARD_RULES = \{[^}]*关注/.test(screens), "吧规表里多了「关注」，清空会跟着漏出去");
   // 吧规和清空是两颗并排的兄弟按钮：套在一起点哪儿都会展开吧规
   assert.ok(/onClick: \(\) => setRulesOpen\(!rulesOpen\), className: "flex-1 min-w-0/.test(screens),
