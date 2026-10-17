@@ -7028,6 +7028,13 @@ function voiceDescHead(w) {
     : /笑|开心|高兴|雀跃|轻快/.test(d) ? "happy" : /怕|慌|紧张/.test(d) ? "fearful" : /惊|愣/.test(d) ? "surprised" : "neutral";
   return { rest, emo };
 }
+// 单聊（markPauseVoice）和群聊每一条都走这一份。模型把 {"voice":"…","emo":"…"} 写成了一串字（她 2026-10-17 截图：语音条下面的字幕就是那一整串）：拆回对象再认
+function unwrapVoiceJson(w) {
+  if (typeof w !== "string" || !/^\s*[{｛][\s\S]*[}｝]\s*$/.test(w)) return w;
+  try { const o = JSON.parse(w.trim().replace(/^｛/, "{").replace(/｝$/, "}")); return o && typeof o === "object" && !Array.isArray(o) ? o : w; } catch (e) {}
+  const m = /["“”']\s*(?:voice|语音)\s*["“”']\s*[:：]\s*["“”']([\s\S]*?)["“”']\s*(?:[,，]\s*["“”']\s*emo\s*["“”']\s*[:：]\s*["“”']([^"“”']*)["“”'])?\s*[}｝]\s*$/i.exec(w);
+  return m ? (m[2] ? { voice: m[1], emo: m[2] } : { voice: m[1] }) : w;
+}
 function markPauseVoice(words) {
   // word 里还认两种【明着写的语音】：{"voice":"内容","emo":"…"} 那一项（提示词教的写法），
   //   和「[语音] 内容」这种字面写法。它们各自一条，不跟前后的停顿句合并。
@@ -7043,14 +7050,7 @@ function markPauseVoice(words) {
     }
     raw.push(a);
   }
-  // 模型把 {"voice":"…","emo":"…"} 写成了一串字（她 2026-10-17 截图：语音条下面的字幕就是那一整串）：拆回对象再认
-  const unJson = w => {
-    if (typeof w !== "string" || !/^\s*[{｛][\s\S]*[}｝]\s*$/.test(w)) return w;
-    try { const o = JSON.parse(w.trim().replace(/^｛/, "{").replace(/｝$/, "}")); return o && typeof o === "object" && !Array.isArray(o) ? o : w; } catch (e) {}
-    const m = /["“”']\s*(?:voice|语音)\s*["“”']\s*[:：]\s*["“”']([\s\S]*?)["“”']\s*(?:[,，]\s*["“”']\s*emo\s*["“”']\s*[:：]\s*["“”']([^"“”']*)["“”'])?\s*[}｝]\s*$/i.exec(w);
-    return m ? (m[2] ? { voice: m[1], emo: m[2] } : { voice: m[1] }) : w;
-  };
-  const list = raw.map(unJson).map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
+  const list = raw.map(unwrapVoiceJson).map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;
   const flush = () => { if (run != null) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(run); run = null; } };

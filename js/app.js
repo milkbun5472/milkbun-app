@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.917";
+const APP_VERSION = "v75.923";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -224,6 +224,8 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   // 浮窗可拖动（她 2026-08-16 点名固定位置挡手）：拖完贴边吸附，位置存 x_modelFloatPos，重开 App 记得住。
   // 自己的图（群友 2026-10-17）：设置里换了就当场跟着变
   const [floatImg, setFloatImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
+  const floatSrc = floatImg ? (typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg) : "";
+  const floatCut = typeof window.useImgCutout === "function" ? window.useImgCutout(floatSrc) : false;
   useEffect(() => { const f = () => setFloatImg(loadJSON("x_modelFloatImg", "") || ""); window.addEventListener("lisa-modelfloatimg", f); return () => window.removeEventListener("lisa-modelfloatimg", f); }, []);
   const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
@@ -368,12 +370,12 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
     h("button", { onClick: () => { if (justDragged.current) { justDragged.current = false; return; } setOpen(v => !v); },
       onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: () => { dragStart.current = null; setDrag(null); },
       "aria-label": "快速切换模型", className: "active:scale-95",
-      style: floatImg ? { width: 46, height: 46, flexShrink: 0, padding: 0, touchAction: "none", background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center" } : { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
+      style: floatImg ? { width: 46, height: 46, borderRadius: floatCut ? 0 : 23, overflow: floatCut ? "visible" : "hidden", flexShrink: 0, padding: 0, touchAction: "none", background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center" } : { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
         background: "conic-gradient(from 210deg, #efe7d9, #cbbfa9 25%, #f3ecdf 52%, #c6b9a2 78%, #efe7d9)",
         border: "1px solid rgba(74,62,44,.45)",
         boxShadow: "0 6px 16px rgba(0,0,0,.24), inset 0 1px 2px rgba(255,255,255,.75), inset 0 -2px 4px rgba(90,74,52,.28)",
         display: "flex", alignItems: "center", justifyContent: "center" } },
-      floatImg ? h("img", { src: typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } }) :
+      floatImg ? h("img", { src: floatSrc, alt: "", draggable: false, style: floatCut ? { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } : { width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", pointerEvents: "none" } }) :
       h("svg", { width: 46, height: 46, viewBox: "0 0 46 46", "aria-hidden": "true" },
         // 面上的细放射纹（拉丝），淡到只在光下看得出
         h("circle", { cx: 23, cy: 23, r: 15.5, fill: "rgba(255,253,246,.5)", stroke: "rgba(74,62,44,.28)", strokeWidth: 1 }),
@@ -13379,9 +13381,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 一条语音条落地：夹在文字中间的（就地）和 voice 栏的（最后）走同一个口子
       const pushVoiceMsg = raw => {
-        const vt = stripEchoedMeta((raw && (raw.t || raw.text)) || "");
+        let vt = stripEchoedMeta((raw && (raw.t || raw.text)) || "");
+        // 不管走的是哪种写法（「[语音] …」、【voice】…【/voice】、停顿句），剥完外壳里面还是一串 {"voice":…} 的：在落地这一处再拆一次
+        let _ujEmo = null;
+        if (typeof unwrapVoiceJson === "function") { const _u = unwrapVoiceJson(String(vt).trim()); if (_u && typeof _u === "object" && typeof _u.voice === "string") { vt = _u.voice.trim(); _ujEmo = _u.emo || null; } }
         if (!vt) return;
-        const vEmo = raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
+        const _emo0 = (raw && raw.emo) || _ujEmo;
+        const vEmo = _emo0 && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(_emo0)) ? String(_emo0) : undefined;
         pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
@@ -15117,6 +15123,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const gRoundTs = Date.now();
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
+          // 这一条的话写成了 {"voice":"…","emo":"…"} 一串字：拆回来当语音发（跟单聊同一支 unwrapVoiceJson）
+          if (item && typeof item.text === "string" && typeof unwrapVoiceJson === "function") {
+            const _uj = unwrapVoiceJson(item.text);
+            if (_uj && typeof _uj === "object" && typeof _uj.voice === "string" && _uj.voice.trim()) { item.text = _uj.voice.trim(); item.voice = true; if (_uj.emo && !item.voiceEmo) item.voiceEmo = String(_uj.emo); }
+            else if (_uj && typeof _uj === "object" && typeof _uj.text === "string") item.text = _uj.text;
+          }
           // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
           if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasPause === "function" && ttsHasPause(item.text)) item.text = stripPauseMarks(item.text);
           // 带声音标签的那句是要说出口的（单聊同一条判据，见 markPauseVoice）
@@ -32755,6 +32767,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             userP: s.userP,
             describeMe: s.describeMe,
             chatBg: s.chatBg,
+            chatBgFx: s.chatBgFx,   // 背景面纱、虚化（v75.888）：不接的话点了保存又变回去
             callBg: s.callBg || "",
             skin: s.skin || "",
             layout: s.layout && typeof s.layout === "object" ? s.layout : undefined,

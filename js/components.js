@@ -13005,6 +13005,28 @@ function MomentCommentText({ cm }) {
 // 「这段是谁写的」（她 2026-10-17「人格档案里面的语言和翻译不是应该覆盖到所有他说话的地方吗」）：
 //   论坛、朋友圈、日记、查手机、情侣空间这些页在外面包一层 TransWho，写上是哪个角色；
 //   那个人开着「外语消息自带中译」，他写的字在这些地方也直接摆中文，不用再点「译」。
+// 这张图是不是「抠好的透明图」（她 2026-10-17：许愿透明 png 无框显示，可普通方头像去了框就变方块）：
+//   四个角都是透明的才算——那种图本来就有自己的形状，再套圆框反而难看；普通照片四角是实的，照旧放进圆里。
+const _alphaSeen = {};
+function useImgCutout(src) {
+  const [cut, setCut] = useState(() => (src && _alphaSeen[src] != null) ? _alphaSeen[src] : false);
+  useEffect(() => {
+    if (!src) { setCut(false); return; }
+    if (_alphaSeen[src] != null) { setCut(_alphaSeen[src]); return; }
+    let dead = false; const im = new Image();
+    im.onload = () => { try {
+      const W = 24, H = 24, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const g = cv.getContext("2d"); g.drawImage(im, 0, 0, W, H);
+      const a = (x, y) => g.getImageData(x, y, 1, 1).data[3];
+      const v = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
+      _alphaSeen[src] = v; if (!dead) setCut(v);
+    } catch (e) { _alphaSeen[src] = false; } };
+    im.src = src;
+    return () => { dead = true; };
+  }, [src]);
+  return cut;
+}
+if (typeof window !== "undefined") window.useImgCutout = useImgCutout;
 const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.createContext(null) : null;
 function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
 function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
@@ -13233,7 +13255,9 @@ function VoiceMsg({ m, isU, speaker }) {
   useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
   // 转录、波形、时长都按剥干净的那一份算（标记会跟着显示，还会把秒数算长）。
   // 合成仍走 m.content 原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 一处说了算。
-  const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(m.content) : String(m.content || "");
+  // 存下来的那条要是一整串 {"voice":"…","emo":"…"}（旧版本落下的）：字幕和念的都只取里面那句话
+  const vText = (() => { const raw = String(m.content || ""), u = typeof unwrapVoiceJson === "function" ? unwrapVoiceJson(raw) : raw; return u && typeof u === "object" && typeof u.voice === "string" ? u.voice : raw; })();
+  const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(vText) : String(vText || "");
   const dur = m.dur || Math.max(1, Math.round(say.replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
   // ⚠️原来这里写死 `isU ? "#16330a" : t.ink`——她把气泡文字色改成别的，
@@ -13244,7 +13268,7 @@ function VoiceMsg({ m, isU, speaker }) {
   const bars = voiceBars(say, dur);
   const emoZh = VOICE_EMO_ZH[m.emo] || "";
   // 有配语音 API + 这个角色选了音色 → 才显示播放按钮（懒生成：点了才合成收费，缓存后重播免费）
-  const canTts = !isU && speaker && speaker.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
+  const canTts = !isU && speaker && speaker.voiceId && vText && typeof ttsReady === "function" && ttsReady();
   const playTts = async e => {
     e.stopPropagation();
     if (pSt === "gen") return;
@@ -13254,7 +13278,7 @@ function VoiceMsg({ m, isU, speaker }) {
     aud.play().catch(() => {}); // 在用户手势里先解锁 iOS 音频，真数据到了才播
     setPErr(null); setPSt("gen");
     try {
-      const blob = await ttsSpeak(m.content, speaker.voiceId, { emo: m.emo }); // v48.31 作者标注的语气优先
+      const blob = await ttsSpeak(vText, speaker.voiceId, { emo: m.emo }); // v48.31 作者标注的语气优先
       const url = URL.createObjectURL(blob);
       aud.src = url;
       aud.onended = () => { setPSt("idle"); URL.revokeObjectURL(url); };
