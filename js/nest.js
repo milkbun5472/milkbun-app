@@ -726,6 +726,29 @@
   // ── 传一个上去 ─────────────────────────────────────────────
   //   两条路：从手机里选一份文件（每一类都行），或者从 app 里现成的挑（世界书、文风、预设、人设）。
   //   主题、聊天美化、CSS 在 app 里没有「挑一个」这回事，就是文件或者贴一份。
+  // 嵌进去的图（data:image）：跟后端 embeddedImages 同一把尺子——矢量小图（svg，8KB 以内）放行，别的都不收。
+  //   传之前先在这儿找出来，告诉她是哪一段，免得只看到后端一句「不收图片」不知道去哪儿找（群里 2026-10-17）
+  const SVG_MAX = 8192;
+  function embeddedImages(text) {
+    const out = [], re = /data:image\/([a-z0-9.+-]+)/gi; let m;
+    while ((m = re.exec(text))) {
+      const st = m.index, q = text[st - 1];
+      let end = (q === '"' || q === "'") ? text.indexOf(q, st) : text.indexOf(")", st);
+      if (end < 0) end = text.length;
+      const type = m[1].toLowerCase(), len = end - st;
+      out.push({ type, len, ok: type === "svg+xml" && len <= SVG_MAX, near: text.slice(Math.max(0, st - 60), st).replace(/\\"/g, '"').split(/[{};]/).pop().trim().slice(-40) });
+      re.lastIndex = Math.max(re.lastIndex, end);
+    }
+    return out;
+  }
+  function imgProblem(payload) {
+    const bad = embeddedImages(String(payload || "")).filter(x => !x.ok);
+    if (!bad.length) return "";
+    const b = bad[0];
+    return "里面嵌着 " + bad.length + " 张小窝不收的图：" + (b.type === "svg+xml" ? "一张 " + Math.ceil(b.len / 1024) + "KB 的矢量图（超过 8KB）" : "一张 " + b.type + " 图片")
+      + (b.near ? "，第一张在「" + b.near + "」后面" : "") + "。CSS 里搜 data:image，把那段 url(…) 删掉或换成颜色再传；想给人看效果，放预览截图。小的矢量图标（svg）能传。";
+  }
+
   // ── 不用先导出：主题、聊天美化直接拿手机上正用着的那套（她 2026-10-16：老师们传之前还得先弄成文件）──
   //   主题走主题工作台导出那一支 exportPackage，只是不出文件；图标图片、壁纸、自己传的字体不带（小窝不收图）。
   async function packCurrentTheme() {
@@ -862,6 +885,7 @@
     const send = async () => {
       let payload;
       try { payload = await build(); } catch (e) { props.toast(e.message); return; }
+      const ip = payload != null ? imgProblem(payload) : ""; if (ip) { props.toast(ip, 8000); return; }
       if (!title.trim()) { props.toast("起个名字吧"); return; }
       setBusy(true);
       if (edit) {
@@ -1040,5 +1064,5 @@
   }
 
   window.NestApp = NestApp;
-  window.Nest = { KINDS, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
+  window.Nest = { KINDS, embeddedImages, imgProblem, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
 })();

@@ -97,3 +97,15 @@ test("退回和称号：管理模式才有退回键、要写原因；作者改�
   assert.match(nest, /self && adminToken\(\) \? h\(BadgeSet/);
   ["\"by \" + (it.nick || \"无名\"), h(Badge, { b: it.badge })", "c.name, h(Badge, { b: c.badge })", "d.user.name, h(Badge, { b: d.user.badge })"].forEach(x => assert.ok(nest.includes(x), x));
 });
+
+test("嵌进去的图：小 SVG 能传；位图、大 SVG 传之前就拦下，说是哪种、在哪段后面", () => {
+  const N = load({});
+  const svg = 'url("data:image/svg+xml;utf8,<svg/>")';
+  assert.equal(N.imgProblem('[data-wk="bubble"]::after{background:' + svg + '}'), "");
+  const msg = N.imgProblem('.tail{width:8px;background:url(data:image/png;base64,iVBOR=)}');
+  assert.match(msg, /1 张小窝不收的图：一张 png 图片/);
+  assert.match(msg, /「background:url\(」后面/);
+  assert.match(N.imgProblem('a{b:url("data:image/svg+xml,' + "x".repeat(9000) + '")}'), /KB 的矢量图（超过 8KB）/);
+  // JSON 包里（主题、整套美化）引号是转义过的，也认得出
+  assert.match(N.imgProblem(JSON.stringify({ look: { customCSS: 'a{b:url("data:image/jpeg;base64,AAA=")}' } })), /jpeg 图片/);
+});
