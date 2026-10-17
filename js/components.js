@@ -20757,11 +20757,12 @@ function ChatSettings({
         const F = window.FontChoice, cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
         setFont(F ? F.clean(L.font, cus) : (L.font || { body: "", display: "" }));
         setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
-  // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还不是恋人时，TA自己想表白就能写一封；关掉就不会
+  // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还没开空间时，TA自己想更进一步就能写一封；关掉就不会
+  //   名字不叫「主动表白」了（她 2026-10-17：「现在空间不止是情侣」）
   h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "允许 Ta 主动表白"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "允许 Ta 主动发空间邀请"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还没开空间时，" + cNm + " 想跟你更进一步了会写一封申请信（恋人、闺蜜、挚友、家人都可能），聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
     h("div", { className: "shrink-0" }, h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) }))),
   // 忙的时候晚点回（v74.713）：默认关——秒回型、黏人的、本来就闲着的人设开了会走样
   h("div", { className: "flex items-center justify-between pt-5" },
