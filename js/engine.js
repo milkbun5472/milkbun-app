@@ -4707,10 +4707,20 @@ function pullToolCallMarkup(words) {
   }
   return { words: out, fields: hit ? fields : null };
 }
+// 单独一泡「照片内容：江边步道上」（她 2026-10-17 群里截图「为啥生图老是生成文字」）：
+//   模型照着历史里那句给它看的旁注学，想发照片却写成了一句话。它本来就是要发照片——当成照片发出去。
+//   同一轮里还抄了整段【…】旁注的不算：那是 dropEchoedNotes 管的「这轮发不了还硬写一张」，照旧摘掉。
+function pullPhotoEcho(list) {
+  if (list.some(w => /【/.test(w))) return { words: list, photo: null };
+  const i = list.findIndex(w => /^\s*照片内容\s*[:：]\s*\S/.test(w));
+  if (i < 0) return { words: list, photo: null };
+  const scene = list[i].replace(/^\s*照片内容\s*[:：]\s*/, "").trim().slice(0, 300);
+  return { words: list.slice(0, i).concat(list.slice(i + 1)), photo: { kind: "none", scene } };
+}
 function pullPhotoMarker(words) {
   const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
   const start = list.findIndex(w => /\[\s*photo\s*[:：]/i.test(w));
-  if (start < 0) return { words: list, photo: null };
+  if (start < 0) return typeof pullPhotoEcho === "function" ? pullPhotoEcho(list) : { words: list, photo: null };
   let end = start, text = list[start];
   if (!/\]/.test(text.slice(text.search(/\[\s*photo/i)))) {
     for (let i = start + 1; i < list.length; i++) {
