@@ -10561,6 +10561,20 @@ function McpConfig({ toast }) {
       "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给TA。默认谁都不发。") : null);
 }
 
+function ModelFloatImgRow({ t, toast }) {
+  const [img, setImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
+  const put = v => { setImg(v); saveJSON("x_modelFloatImg", v); try { window.dispatchEvent(new Event("lisa-modelfloatimg")); } catch (e) {} };
+  return h("div", { "data-wk": "modelfloatimg", style: { display: "flex", gap: 12, marginTop: 6, alignItems: "center" } },
+    h("label", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, img ? "换一张图" : "换成自己的图",
+      h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
+        const f = e.target.files && e.target.files[0]; if (!f) return;
+        try {
+          const b64 = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
+          put(typeof imgToVault === "function" ? await imgToVault(b64) : b64); toast && toast("浮窗换好了");
+        } catch (err) { toast && toast("这张存不下：" + (err.message || err)); }
+      } })),
+    img ? h("button", { onClick: () => put(""), style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "换回旋钮") : null);
+}
 function ApiConfig({
   profiles = [],
   activeId,
@@ -10696,7 +10710,9 @@ function ApiConfig({
           modelFloatOn && !(profiles || []).length
             ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 4, lineHeight: 1.5 } },
                 "现在还没有存好的线路，所以浮窗还不会出来——在下面填好一条、点保存就有了。")
-            : null),
+            : null,
+          // 浮窗换成自己的图（群友 2026-10-17）：换了就没有圆底、边框和阴影，透明 png 原样显示
+          modelFloatOn ? h(ModelFloatImgRow, { t, toast }) : null),
         h("button", { onClick: () => onSetModelFloat(!modelFloatOn), style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
           h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
     h("div", { className: "flex items-center justify-between", style: { marginTop: 18, marginBottom: 10 } },
