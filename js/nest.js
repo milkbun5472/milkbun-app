@@ -653,6 +653,36 @@
   // ── 传一个上去 ─────────────────────────────────────────────
   //   两条路：从手机里选一份文件（每一类都行），或者从 app 里现成的挑（世界书、文风、预设、人设）。
   //   主题、聊天美化、CSS 在 app 里没有「挑一个」这回事，就是文件或者贴一份。
+  // ── 不用先导出：主题、聊天美化直接拿手机上正用着的那套（她 2026-10-16：老师们传之前还得先弄成文件）──
+  //   主题走主题工作台导出那一支 exportPackage，只是不出文件；图标图片、壁纸、自己传的字体不带（小窝不收图）。
+  async function packCurrentTheme() {
+    const S = window.ThemeStudio; if (!S) throw new Error("主题工作台没加载出来，退出再进来试试");
+    const p = S.normalize(S.load());
+    const pick = { css: true, base: true, bubble: true, wall: false,
+      icons: !Object.keys(p.icons || {}).length, fonts: !(p.customFonts || []).length };
+    const text = await S.exportPackage({ profile: p, baseTheme: loadJSON("x_theme", null) || undefined,
+      bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick });
+    if (Object.keys((JSON.parse(text).assets) || {}).length) throw new Error("你现在这套 CSS 里用了自己传的图，小窝先不收图：去主题工作台导出时把带图的那几样去掉，再选那份文件");
+    return text;
+  }
+  // 聊天美化能挑的：「我存的美化」那一架、每个人的聊天窗、每个群，正用着的那一套
+  function lookSources(chars) {
+    const out = [], cs = loadJSON("x_chatSettings", {}) || {};
+    (typeof chatLookShelf === "function" ? chatLookShelf() : []).forEach(x => out.push({ id: "s:" + x.id, name: x.name, sub: "我存的美化", look: chatLookClean(x.look) }));
+    chars.forEach(c => { const L = chatLookClean(cs[c.id]); if (Object.keys(L).length) out.push({ id: "c:" + c.id, name: (cs[c.id].remark || c.name) + "的聊天窗", sub: "这个聊天窗现在用着的那一套", look: L }); });
+    (loadJSON("x_groups", []) || []).forEach(g => { const L = g && chatLookClean({ chatBg: g.chatBg, layout: g.layout, customCSS: g.customCSS });
+      if (L && Object.keys(L).length) out.push({ id: "g:" + g.id, name: (g.name || "群聊") + "（群）", sub: "群里只有背景、排版和 CSS", look: L }); });
+    return out;
+  }
+  // 背景是自己传的图就不带（其余照带）；CSS 里还引用着自己的图就不收
+  function packLook(src) {
+    const look = Object.assign({}, src.look); let dropped = false;
+    if (/iv_|^data:/.test(String(look.chatBg || ""))) { delete look.chatBg; dropped = true; }
+    if (/iv_[A-Za-z0-9_-]+/.test(JSON.stringify(look))) throw new Error("这套的 CSS 或气泡里用了自己传的图，小窝先不收图：把图去掉再传");
+    if (!Object.keys(look).length) throw new Error("这套里只有一张背景图，小窝不收图，没有别的可传");
+    return { payload: JSON.stringify({ kind: "chat-look", v: 1, name: src.name, look, assets: {} }), dropped };
+  }
+
   function Upload({ t, props, initialKind, onClose, onDone }) {
     const [kind, setKind] = useState(initialKind || "theme");
     const [pick, setPick] = useState({});        // 世界书可多选；其余单选（存 id → true）
@@ -668,15 +698,18 @@
     const presets = window.StylePresets ? window.StylePresets.list() : [];
     const chars = (props.characters || []).filter(c => c && !c.npc && c.persona);
     const lore = props.loreEntries || [];
-    const rows = kind === "lore" ? lore.map(e => ({ id: e.id, name: e.title || "未命名", sub: String(e.payload || "").slice(0, 40) }))
+    const looks = kind === "look" ? lookSources((props.characters || []).filter(c => c && !c.npc)) : [];
+    const rows = kind === "theme" ? [{ id: "cur", name: "我现在用的这套主题", sub: "页面 CSS、配色、气泡一起；图标图片、壁纸、自己传的字体不带" }]
+      : kind === "look" ? looks.map(x => ({ id: x.id, name: x.name, sub: x.sub }))
+      : kind === "lore" ? lore.map(e => ({ id: e.id, name: e.title || "未命名", sub: String(e.payload || "").slice(0, 40) }))
       : kind === "style" ? styles.map(s => ({ id: s.key, name: s.name, sub: String(s.prompt).slice(0, 40) }))
       : kind === "preset" ? presets.map(p => ({ id: p.id, name: p.name, sub: (p.mods || []).length + " 个模块" }))
       : kind === "persona" ? chars.map(c => ({ id: c.id, name: c.name, sub: c.tagline || "" })) : null;
     const multi = kind === "lore";
-    const toggle = id => { setFile(null); setPick(p => multi ? Object.assign({}, p, { [id]: !p[id] }) : { [id]: true }); };
+    const toggle = id => { setFile(null); setText(""); setPick(p => multi ? Object.assign({}, p, { [id]: !p[id] }) : { [id]: true }); };
     const chosen = Object.keys(pick).filter(k => pick[k]);
     useEffect(() => {   // 选了一样就顺手把名字填上（她还能改）
-      if (!rows || title || multi) return;
+      if (!rows || title || multi || kind === "theme") return;
       const r = rows.find(x => x.id === chosen[0]); if (r) setTitle(String(r.name || "").slice(0, 40));
     }, [chosen.join(",")]);
     const readFile = async e => {
@@ -706,8 +739,14 @@
       if (got.length) setShots(x => x.concat(got).slice(0, 3));
     };
     const pasteKind = kind === "theme" || kind === "look" || kind === "css";
-    const build = () => {
+    const build = async () => {
       if (file) return file.payload;
+      if (kind === "theme" && chosen.length) return await packCurrentTheme();
+      if (kind === "look" && chosen.length) {
+        const r = packLook(looks.find(x => x.id === chosen[0]));
+        if (r.dropped) props.toast("背景是自己传的图，没带上；其余照传");
+        return r.payload;
+      }
       if (pasteKind) {
         const s = String(text || "").replace(/^﻿/, "").trim();
         if (!s) throw new Error(kind === "css" ? "先选一份文件，或者把 CSS 贴进来" : "先选导出的那份文件，或者整份贴进来");
@@ -721,7 +760,7 @@
     };
     const send = async () => {
       let payload;
-      try { payload = build(); } catch (e) { props.toast(e.message); return; }
+      try { payload = await build(); } catch (e) { props.toast(e.message); return; }
       if (!title.trim()) { props.toast("起个名字吧"); return; }
       setBusy(true);
       try { const d = await api("/upload", { method: "POST", body: { kind, title: title.trim(), intro: intro.trim(), payload,
@@ -756,10 +795,8 @@
             h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: readFile })),
           file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
             "已选 " + file.name + " · 读到" + file.note) : null),
-        // ② 贴一份（主题／美化／CSS）或者从 app 里挑（其余四类）
-        pasteKind ? h("div", { style: { marginTop: 14 } }, label(t, kind === "css" ? "或者直接把 CSS 贴在这儿" : "或者把那份文件的内容整份贴进来"),
-          field(text, v => { setText(v); if (v) setFile(null); }, kind === "css" ? "[data-wk=\"bubble\"] { … }" : "{ \"kind\": … }", 262144, true))
-        : h("div", { style: { marginTop: 14 } }, label(t, "或者从 app 里挑" + (multi ? "（可以挑好几条）" : "")),
+        // ② 从 app 里直接挑（CSS 没有可挑的）；主题／美化／CSS 还能整份贴
+        rows ? h("div", { style: { marginTop: 14 } }, label(t, (kind === "theme" ? "或者直接用手机上正用着的" : kind === "look" ? "或者直接挑一套正用着的、存过的" : "或者从 app 里挑") + (multi ? "（可以挑好几条）" : "")),
           h("div", { style: Object.assign({ padding: "2px 12px" }, card(t)) },
             rows.length ? rows.map((r, i) => h("button", { key: r.id, onClick: () => toggle(r.id), className: "w-full flex items-start active:opacity-70",
               style: { gap: 10, minHeight: 46, padding: "10px 0", textAlign: "left", borderTop: i ? "1px solid " + t.line : "none" } },
@@ -767,7 +804,9 @@
               h("span", { className: "min-w-0" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, r.name),
                 r.sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, r.sub) : null)))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))),
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))) : null,
+        pasteKind ? h("div", { style: { marginTop: 14 } }, label(t, kind === "css" ? "或者直接把 CSS 贴在这儿" : "也可以把导出的那份文件内容整份贴进来"),
+          field(text, v => { setText(v); if (v) { setFile(null); setPick({}); } }, kind === "css" ? "[data-wk=\"bubble\"] { … }" : "{ \"kind\": … }", 262144, true)) : null,
         // ③ 名字、简介、署名
         h("div", { style: { marginTop: 18 } }, label(t, "名字"), field(title, setTitle, "别人在列表里看到的名字", 40)),
         h("div", { style: { marginTop: 12 } }, label(t, "说两句（可不填）"), field(intro, setIntro, "适合什么、怎么用", 200, true)),
@@ -878,5 +917,5 @@
   }
 
   window.NestApp = NestApp;
-  window.Nest = { KINDS, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
+  window.Nest = { KINDS, packCurrentTheme, lookSources, packLook, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
 })();

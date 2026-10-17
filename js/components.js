@@ -281,9 +281,15 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
 //   皮肤、气泡、字、背景、排版、头像框、自己写的 CSS 装进一个 .json；里面用到的保险箱图片（iv_…）一起装进去，
 //   对方导进来时存进自己的保险箱、门牌换成新的。单聊、群聊两处共用；群里用不上的几栏（皮肤/气泡/字）导进来就跳过。
 const CHAT_LOOK_KIND = "chat-look";
-async function exportChatLook(look, fileBase) {
+// 一套美化里算数的那几格：导出、存进「我存的美化」、小窝直接传，三处都问这一份要
+const CHAT_LOOK_KEYS = ["skin", "bubble", "font", "chatBg", "layout", "customCSS"];
+function chatLookClean(look) {
   const clean = {};
-  ["skin", "bubble", "font", "chatBg", "layout", "customCSS"].forEach(k => { if (look[k] != null && look[k] !== "") clean[k] = look[k]; });
+  CHAT_LOOK_KEYS.forEach(k => { const v = look && look[k]; if (v != null && v !== "" && !(typeof v === "object" && !Object.keys(v).length)) clean[k] = v; });
+  return clean;
+}
+async function exportChatLook(look, fileBase) {
+  const clean = chatLookClean(look);
   const refs = [...new Set(JSON.stringify(clean).match(/iv_[A-Za-z0-9_-]+/g) || [])];
   const assets = {};
   for (const ref of refs) {
@@ -317,8 +323,7 @@ async function importChatLook(text) {
 const CHAT_LOOK_SHELF_MAX = 30;
 const chatLookShelf = () => { const a = loadJSON("x_chatLooks", []); return Array.isArray(a) ? a.filter(x => x && x.id && x.look) : []; };
 function saveChatLookToShelf(look, name) {
-  const clean = {};
-  ["skin", "bubble", "font", "chatBg", "layout", "customCSS"].forEach(k => { if (look[k] != null && look[k] !== "") clean[k] = look[k]; });
+  const clean = chatLookClean(look);
   const item = { id: "lk" + Date.now().toString(36), name: String(name || "").trim().slice(0, 30) || "未命名", look: clean, at: Date.now() };
   saveJSON("x_chatLooks", [item].concat(chatLookShelf()).slice(0, CHAT_LOOK_SHELF_MAX));
   return item;
