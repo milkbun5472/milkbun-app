@@ -10254,15 +10254,9 @@ function ChatThread({
     className: "h-full flex flex-col",
     ref: kbPadRef,
     "data-wk": "chat",
-    style: dsp.chatBg ? {
-      backgroundImage: "url(\"" + resolveImg(dsp.chatBg) + "\")",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
-    } : {
-      background: BUBBLE_SKIN.chatBg || t.bg // 皮肤的全局聊天背景；单聊自己设过图的优先
-    }
-  }, !sceneMode && /*#__PURE__*/React.createElement("div", {
+    // 皮肤的全局聊天背景；单聊自己设过图的优先。调过面纱/虚化的话，图铺在 ChatBgLayer 那一层
+    style: chatBgStyle(dsp.chatBg ? resolveImg(dsp.chatBg) : "", dsp.chatBgFx, BUBBLE_SKIN.chatBg || t.bg)
+  }, h(ChatBgLayer, { img: dsp.chatBg ? resolveImg(dsp.chatBg) : "", fx: dsp.chatBgFx }), !sceneMode && /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     "data-wk": "chathead",
     style: {
@@ -15155,6 +15149,38 @@ function TransferCard({
 // 现实里这是什么？是【递过去的那张字条】。而这个 app 里本来就有「情书」这条线，
 // 邀请就是第一封——所以按信来做：纸色、一道折痕、话写在折痕上头，
 // 右上角一枚封蜡：还没回应＝虚线空印，接受＝按实了，婉拒＝印是破的。
+// 背景图上压的那一层：面纱＋虚化（主屏 v61.38；单聊／群聊背景 她 2026-10-17 群里许愿「和主屏那样可以虚化」）。
+//   滑杆和铺图都只写这一份，三处共用。fx = { veil: 0~60, blur: 0~20 }
+function WallFxRows({ t, fx, onMove, onCommit, veilHint, blurHint, rec }) {
+  const f = fx || {}, row = (k, zh, max, hint) => h("div", { key: k, style: { marginTop: 12 } },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, zh),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (Number(f[k]) || 0) + (k === "blur" ? " px" : " %"))),
+    h("input", { type: "range", min: 0, max: max, step: 1, value: Number(f[k]) || 0,
+      onChange: e => onMove(Object.assign({}, f, { [k]: Number(e.target.value) })),
+      onMouseUp: () => onCommit && onCommit(), onTouchEnd: () => onCommit && onCommit(),
+      style: { width: "100%", accentColor: t.ink } }),
+    hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } }, hint) : null);
+  return h("div", null,
+    row("veil", "面纱", 60, veilHint),
+    row("blur", "虚化", 20, blurHint),
+    h("button", { onClick: () => { const n = rec || { veil: 0, blur: 0 }; onMove(n); onCommit && onCommit(n); },
+      className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, rec ? "恢复推荐值" : "恢复原图"));
+}
+// 聊天背景铺图：没调过面纱/虚化就跟原来一样直接铺；调过了就在最底下垫一层（虚化要单独一层才不糊到字）
+function chatBgFxOn(fx) { return !!(fx && (Number(fx.veil) > 0 || Number(fx.blur) > 0)); }
+function ChatBgLayer({ img, fx }) {
+  if (!img || !chatBgFxOn(fx)) return null;
+  const b = Math.max(0, Math.min(20, Number(fx.blur) || 0)), v = Math.max(0, Math.min(60, Number(fx.veil) || 0)) / 100;
+  return h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, zIndex: -1, overflow: "hidden", pointerEvents: "none" } },
+    h("div", { style: { position: "absolute", inset: -(b * 2 + 2), background: "center/cover no-repeat url(\"" + img + "\")", filter: b ? "blur(" + b + "px)" : "none" } }),
+    v ? h("div", { style: { position: "absolute", inset: 0, background: "rgba(255,252,247," + v + ")" } }) : null);
+}
+function chatBgStyle(img, fx, fallback) {
+  if (!img) return { background: fallback };
+  if (chatBgFxOn(fx)) return { position: "relative", isolation: "isolate", background: fallback };
+  return { backgroundImage: "url(\"" + img + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+}
 function CoupleInviteCard({
   m,
   character,
@@ -17883,15 +17909,8 @@ function GroupThread({
     "data-wk": "chat",
     ref: kbPadRef,
     className: "h-full flex flex-col",
-    style: gChatBg ? {
-      backgroundImage: "url(\"" + resolveImg(gChatBg) + "\")",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
-    } : {
-      background: BUBBLE_SKIN.chatBg || t.bg // 群聊也吃皮肤的全局聊天背景
-    }
-  }, h("div", {
+    style: chatBgStyle(gChatBg ? resolveImg(gChatBg) : "", settings && settings.chatBgFx, BUBBLE_SKIN.chatBg || t.bg) // 群聊也吃皮肤的全局聊天背景
+  }, h(ChatBgLayer, { img: gChatBg ? resolveImg(gChatBg) : "", fx: settings && settings.chatBgFx }), h("div", {
     "data-wk": "chathead",
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     style: {
@@ -18786,6 +18805,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [timeSec, setTimeSec] = useState(!!gs.timeSec);
   const [showRead, setShowRead] = useState(!!gs.showRead);
   const [chatBg, setChatBg] = useState(gs.chatBg || "");
+  const [chatBgFx, setChatBgFx] = useState(gs.chatBgFx || { veil: 0, blur: 0 });
   const [autoChat, setAutoChat] = useState(gs.autoChat !== false);
   const [autoChatMin, setAutoChatMin] = useState(gs.autoChatMin || 8);
   const [autoChatRounds, setAutoChatRounds] = useState(gs.autoChatRounds || 5);
@@ -18894,7 +18914,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -19017,6 +19037,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
+    chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
@@ -20056,6 +20077,7 @@ function ChatSettings({
   // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
   const [maskId, setMaskId] = useState(settings.maskId || "");
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
+  const [chatBgFx, setChatBgFx] = useState(settings.chatBgFx || { veil: 0, blur: 0 });
   // 跟TA通话时的背景（她 2026-10-05：「聊天设置里可以改通话背景」）：只管这一个人的单人通话，群通话不吃
   const [callBg, setCallBg] = useState(settings.callBg || "");
   const callBgFileRef = useRef(null);
@@ -20391,6 +20413,7 @@ function ChatSettings({
       userP,
       describeMe,
       chatBg,
+      chatBgFx,
       callBg,
       skin,
       customCSS,
@@ -20771,6 +20794,7 @@ function ChatSettings({
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
+    chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     // 通话背景跟聊天背景放同一节（「装扮」一类最多四节，见 test/chat-settings-recut）
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,

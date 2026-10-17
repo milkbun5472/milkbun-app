@@ -39,9 +39,12 @@ test("blur 要往外扩一圈，否则四边一圈淡边", () => {
 });
 
 test("设置页有两个滑杆，滑的时候不落盘，松手才写", () => {
-  assert.match(scr, /fxRow\("veil", "面纱", 60,/);
-  assert.match(scr, /fxRow\("blur", "虚化", 20,/);
-  assert.match(scr, /onMouseUp: \(\) => commitFx\(\), onTouchEnd: \(\) => commitFx\(\)/);
+  // 滑杆搬进公共的 WallFxRows（她 2026-10-17：聊天背景也要），主屏照旧传 commitFx 松手才写
+  const comp = require("fs").readFileSync(require("path").join(__dirname, "../js/components.js"), "utf8");
+  assert.match(comp, /row\("veil", "面纱", 60,/);
+  assert.match(comp, /row\("blur", "虚化", 20,/);
+  assert.match(comp, /onMouseUp: \(\) => onCommit && onCommit\(\), onTouchEnd: \(\) => onCommit && onCommit\(\)/);
+  assert.match(scr, /h\(WallFxRows, \{ t, fx, onMove: setFx, onCommit: commitFx/);
   // 缩略图上照着主屏画一遍，滑一格就看得见
   assert.match(scr, /inset: -\(fx\.blur \* 2 \+ 2\)/);
   // 没壁纸时不摆这两个滑杆（摆了也什么都改不了）

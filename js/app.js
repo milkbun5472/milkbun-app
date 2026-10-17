@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.887";
+const APP_VERSION = "v75.888";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21921,7 +21921,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️规矩本身那份表在 js/screens.js（挨着 FORUM_BOARDS），因为置顶那块牌子也要照着它渲染——
   //   一层写在两处，第二处永远跟不上（施工规则/one-public-mechanism.md）。
   const forumBoardRuleLines = b => {
-    const rules = FORUM_BOARD_RULES[b];
+    const rules = typeof forumBoardRulesOf === "function" ? forumBoardRulesOf(b) : FORUM_BOARD_RULES[b];
     if (!rules || !rules.length) return "";
     return "\n【这个吧的吧规（常年挂在置顶）】\n" + rules.map((r, i) => (i + 1) + ". " + r).join("\n")
       // ⚠️给出口不给判决（施工规则/bans-make-it-dumber.md）：写成「要监督违规」会出来
@@ -29502,7 +29502,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 小号房里「我」显示小号那张（小号没头像就不显示头像图，只换名字）
     meProfile: (() => { const rm = window.ChatRooms && window.ChatRooms.altOf ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
       return rm && window.ChatRooms.altShowsMe(rm) ? { ...profileFor(activeChar.id), avatarImage: undefined, ...window.ChatRooms.altProfile(rm) } : profileFor(activeChar.id); })(),
-    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, autoTts: !!settingsFor(activeChar.id).autoTts, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
+    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, autoTts: !!settingsFor(activeChar.id).autoTts, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "", chatBgFx: settingsFor(activeChar.id).chatBgFx || null },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
     onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
