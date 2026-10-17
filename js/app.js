@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.862";
+const APP_VERSION = "v75.864";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7621,6 +7621,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           }
         }
       } catch (e) {}
+      // —— 一起学·该复习了（群里 2026-10-17：「能不能加一个 char 提醒我学习」）：她在那门课里打开了「到点让 TA 催我复习」，
+      //   艾宾浩斯那条线上有到点的，那门课的老师来聊天里说一句。一门课一天最多一次；跟备忘录提醒同一套作息（8~23 点）和发法
+      try {
+        const S = window.Study, curs = loadJSON("x_curricula", []);
+        if (S && S.dueReviewItems && Array.isArray(curs)) {
+          const slog = loadJSON("x_studyRemindLog", {});
+          for (const cu of curs) {
+            if (!cu || cu.remindReview !== true || slog[cu.id] === dayKey) continue;
+            const n = S.dueReviewItems(cu).length; if (!n) continue;
+            const tid = cu.teacher_id || (cu.character_ids || [])[0];
+            const cand = characters.find(c => c.id === tid);
+            if (!cand || hist(cand).length < 2 || viewRef.current.charId === cand.id || laneBusy("c:" + cand.id)) continue;
+            const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
+            if (pSkip("study:" + cu.id)) continue;
+            pOnce("study:" + cu.id, "studyReview:" + dayKey,
+              () => replyNow(cand.id, "", null, { proactive: true, remind: { title: "复习「" + (cu.subject || cu.title || "这门课") + "」", note: n + " 道到点该复习了", src: "study" } }),
+              () => { const l2 = loadJSON("x_studyRemindLog", {}); l2[cu.id] = dayKey; saveJSON("x_studyRemindLog", l2); });
+            return;                                               // 一次一个，错峰
+          }
+        }
+      } catch (e) {}
       // —— 忙的时候晚点回：那段忙完了，TA 自己回一次（一枪看完这期间她发的全部）——
       try {
         const holds = busyHolds();
@@ -11611,6 +11632,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道，别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，别说教、别指责式翻旧账、别粘人。"
+        : opts.remind.src === "study"
+          ? "\n\n【此刻·该复习了】你在「一起学」里教 " + uName + " 的那门课，" + opts.remind.title.replace(/^复习/, "") + " 到点该复习了（" + opts.remind.note + "，照艾宾浩斯那条线排的）。" + uName + " 自己打开了「到点让你来催」。你【主动】发消息催 Ta 一句——照你这个人和你们的关系，像真的记着 Ta 学到哪儿那样，别像闹钟报数、别说教。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短，像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
       // 健康·饭点来问（v74.732）／手机电量低、下雨还在外面（v74.732）：只给事实那一行，管不管、怎么开口是TA自己的事
       const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"

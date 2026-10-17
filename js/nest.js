@@ -345,11 +345,11 @@
       h("div", { className: "flex items-center justify-between" },
         h("span", { "aria-hidden": true, style: { width: big ? 32 : 26, height: big ? 32 : 26, borderRadius: 999, border: "1.5px solid " + K.color, color: K.color,
           display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: big ? 14 : 12, fontWeight: 700, transform: "rotate(-8deg)" } }, K.seal),
-        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, h(StatusChip, { st: it.status, big }), (KZH[it.kind] || "") + " · " + fmtDay(it.created))),
+        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, h(StatusChip, { st: it.status, big }), (KZH[it.kind] || "") + " · " + fmtDay(it.created) + (it.edited ? " · 改于 " + fmtDay(it.edited) : ""))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: big ? 20 : 15, lineHeight: 1.35, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, it.title),
       // 墙上那张：有小图就别一张拍立得（白边、反着歪一点），没有就只有字
       !big && it.thumb ? h("div", { "data-wk": "nestpolaroid", style: { margin: "8px 2px 2px", padding: "5px 5px 14px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)", transform: "rotate(" + (-tilt(it.id) * 1.6) + "deg)" } },
-        h("img", { src: NEST + "/img/" + it.id + "/t", alt: "", loading: "lazy", style: { display: "block", width: "100%", height: "auto", background: t.bg } })) : null,
+        h("img", { src: NEST + "/img/" + it.id + "/t" + (it.edited ? "?v=" + it.edited : ""), alt: "", loading: "lazy", style: { display: "block", width: "100%", height: "auto", background: t.bg } })) : null,
       big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub || t.ink, lineHeight: 1.75, marginTop: 8, whiteSpace: "pre-wrap" } }, it.intro) : null,
       !big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.intro) : null,
       big && foot ? h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line } }, foot) : null,
@@ -366,7 +366,7 @@
       items.filter((_, i) => i % 2 === col).map(it => h(Slip, { key: it.id, t, it, onOpen })))));
 
   // ── 一条东西点进去（她 2026-10-16 定的 B：揭下来的那张纸条 + 一本留言簿）──────────
-  function Detail({ t, id, props, me, onClose, onGone, onUser, onLogin }) {
+  function Detail({ t, id, props, me, onClose, onGone, onUser, onLogin, onEdit }) {
     const [it, setIt] = useState(null), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
     const [armed, setArmed] = useState(false);
     const [placing, setPlacing] = useState(false);   // CSS／整套聊天美化：先问放哪儿
@@ -467,6 +467,7 @@
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
             isPost ? null : h(Btn, { t, onClick: doCopy, wk: "nestcopy" }, "复制"),
+            (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: () => onEdit(it), wk: "nestedit" }, "编辑") : null,
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
           // 她（管理口令）给帖子打标：别人只看得到标记，看不到这一排
           isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
@@ -484,7 +485,7 @@
   function Shots({ t, it, props }) {
     const [at, setAt] = useState(-1);
     if (!it.pics) return null;
-    const src = k => NEST + "/img/" + it.id + "/" + k;
+    const src = k => NEST + "/img/" + it.id + "/" + k + (it.edited ? "?v=" + it.edited : "");
     const ks = Array.from({ length: it.pics }, (_, k) => k);
     // 存：小窝的图是后端地址，saveImgOriginal 也认网址了（engine.js）
     const save = item => window.saveImgOriginal ? window.saveImgOriginal(item.src, it.title || "小窝").then(ok => props.toast(ok ? "存下来了" : "这张没存成，再试一次")) : props.toast("这台设备存不了图");
@@ -732,17 +733,21 @@
     return { payload: JSON.stringify({ kind: "chat-look", v: 1, name: src.name, look, assets: {} }), dropped };
   }
 
-  function Upload({ t, props, initialKind, onClose, onDone }) {
-    const [kind, setKind] = useState(initialKind || "theme");
+  // 改一件（群友 2026-10-17「仓库上传可不可以加一个再编辑」）：同一页，edit＝点进去那件（带 payload）。
+  //   类别不能换；内容不碰就不发、后端原样留着；截图一张张留或换，原来的那几张用 { keep: 第几张 }。
+  function Upload({ t, props, initialKind, onClose, onDone, edit }) {
+    const [kind, setKind] = useState(edit ? edit.kind : (initialKind || "theme"));
     const [pick, setPick] = useState({});        // 世界书可多选；其余单选（存 id → true）
     const [file, setFile] = useState(null);       // { payload, title, note, name }：选了文件就用它
-    const [text, setText] = useState("");          // 主题 / 美化 / CSS：贴一份
-    const [title, setTitle] = useState(""), [intro, setIntro] = useState("");
-    const [shots, setShots] = useState([]);        // [{ full, thumb }]：已经压好的 dataURL；第一张顺手做墙上那张小图
+    const [text, setText] = useState(edit && edit.kind === "post" ? String(edit.payload || "") : "");   // 主题 / 美化 / CSS：贴一份；帖子：正文
+    const [title, setTitle] = useState(edit ? edit.title || "" : ""), [intro, setIntro] = useState(edit ? edit.intro || "" : "");
+    const oldShots = edit ? Array.from({ length: edit.pics || 0 }, (_, k) => ({ keep: k, thumb: NEST + "/img/" + edit.id + "/" + k + (edit.edited ? "?v=" + edit.edited : "") })) : [];
+    const [shots, setShots] = useState(oldShots);  // [{ full, thumb }]：新压好的 dataURL；改的时候原来那几张是 { keep, thumb: 地址 }
     const shotRef = useRef(null);
     const [busy, setBusy] = useState(false);
     const fileRef = useRef(null);
-    useEffect(() => { setPick({}); setText(""); setFile(null); }, [kind]);
+    const first = useRef(true);
+    useEffect(() => { if (first.current) { first.current = false; return; } setPick({}); setText(""); setFile(null); }, [kind]);
     const styles = (loadJSON("x_offlineStyles", []) || []).filter(s => s && s.prompt);
     const presets = window.StylePresets ? window.StylePresets.list() : [];
     const chars = (props.characters || []).filter(c => c && !c.npc && c.persona);
@@ -793,6 +798,7 @@
     const isPost = kind === "post";
     const build = async () => {
       if (isPost) { const s = String(text || "").trim(); if (!s) throw new Error("写两句想说的吧"); return s; }
+      if (edit && !file && !chosen.length && !String(text || "").trim()) return null;   // 改的时候没碰内容：不发，后端留着原来的
       if (file) return file.payload;
       if (kind === "theme" && chosen.length) return await packCurrentTheme();
       if (kind === "css" && chosen.length) return packCss(csses.find(x => x.id === chosen[0]));
@@ -817,6 +823,23 @@
       try { payload = await build(); } catch (e) { props.toast(e.message); return; }
       if (!title.trim()) { props.toast("起个名字吧"); return; }
       setBusy(true);
+      if (edit) {
+        try {
+          const same = shots.length === oldShots.length && shots.every((x, i) => x.keep === i);
+          let thumb;
+          if (!same && shots.length) {
+            const f0 = shots[0];
+            if (f0.keep === 0 && oldShots.length) thumb = "keep";
+            else if (f0.keep != null) thumb = await resizeImageFile(await (await fetch(f0.thumb)).blob(), 320, 0.7);   // 原来的第几张挪到了第一：现做一张小图
+            else thumb = f0.thumb;
+          }
+          const d = await api("/item/" + edit.id, { method: "PUT", body: { title: title.trim(), intro: intro.trim(),
+            payload: payload == null ? undefined : payload,
+            images: same ? undefined : shots.map(x => x.keep != null ? { keep: x.keep } : x.full), thumb } });
+          props.toast("改好了"); onDone(edit.id, kind, { title: title.trim(), intro: intro.trim(), edited: d.edited, pics: shots.length, thumb: !!shots.length });
+        } catch (e) { props.toast("没改成：" + e.message); setBusy(false); }
+        return;
+      }
       try { const d = await api("/upload", { method: "POST", body: { kind, title: title.trim(), intro: intro.trim(), payload,
           images: shots.map(x => x.full), thumb: shots.length ? shots[0].thumb : undefined } }); props.toast("传上去了"); onDone(d.id, kind); }
       catch (e) { props.toast("没传上去：" + e.message); setBusy(false); }
@@ -833,10 +856,10 @@
       : kind === "preset" ? "文风台导出的预设 json"
       : "角色卡 json，或者一份 txt／docx（名字、简介、人设照档案馆导入角色卡那样认）";
     return h("div", { "data-wk": "nestupload", className: "h-full flex flex-col", style: shell(t) },
-      h(Head, { zh: "传一个上去", onBack: onClose, bg: "transparent" }),
-      h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
+      h(Head, { zh: edit ? "改一改" : "传一个上去", onBack: onClose, bg: "transparent" }),
+      edit ? null : h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。东西本身不带图、不带记忆和聊天（想让人看看长什么样，底下放截图）；署名就是你的小窝昵称，随时能删。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, edit ? (isPost ? "标题、正文、截图都能改；底下的留言和赞都留着。" : "名字、简介、截图都能改。内容不想换就别动下面这几格，原来的留着；换了以后，已经导进别人手机的那份不会跟着变，想要新的得再导一次。留言、赞、收藏都留着。") : k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。东西本身不带图、不带记忆和聊天（想让人看看长什么样，底下放截图）；署名就是你的小窝昵称，随时能删。")),
         // ① 从手机文件选（帖子没有文件）
         isPost ? null : h("div", { style: Object.assign({ padding: 14 }, card(t)) },
           h("div", { className: "flex items-center", style: { gap: 10 } },
@@ -878,7 +901,7 @@
               style: { width: 84, height: 116, border: "1.5px dashed " + t.line, borderRadius: 4, background: t.bg2, color: t.fog, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-line" } }, "＋\n加截图") : null),
           h("input", { ref: shotRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onChange: pickShots }))),
       h("div", { className: "shrink-0 flex px-4 pt-3", style: { paddingBottom: "calc(12px + " + COMPOSER_PAD_BOTTOM + ")", borderTop: "1px solid " + t.line, background: tint(t.bg, "f2") } },
-        h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: send, wk: "nestsend" }, busy ? "在传……" : isPost ? "贴上去" : "传上去")));
+        h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: send, wk: "nestsend" }, busy ? "在传……" : edit ? "改好了" : isPost ? "贴上去" : "传上去")));
   }
 
   // ── 小窝首页：一面贴满纸条的墙 ────────────────────────────────
@@ -932,7 +955,9 @@
     };
     const openItem = id => push({ v: "item", id }), openUser = id => push({ v: "user", id });
     const logout = async () => { try { await api("/auth/logout", { method: "POST" }); } catch (e) {} clearSession(); setMe(null); setUnread(0); setStack([]); props.toast("退出了"); };
-    if (top && top.v === "item") return h(Detail, { key: top.id, t, id: top.id, props, me, onClose: pop, onUser: openUser, onLogin: () => needLogin(),
+    if (top && top.v === "edit") return h(Upload, { t, props, edit: top.item, onClose: pop,
+      onDone: (id, k, patch) => { setItems(l => l.map(x => x.id === id ? Object.assign({}, x, patch) : x)); pop(); } });
+    if (top && top.v === "item") return h(Detail, { key: top.id, t, id: top.id, props, me, onClose: pop, onUser: openUser, onLogin: () => needLogin(), onEdit: it => push({ v: "edit", item: it }),
       onGone: id => { setItems(l => l.filter(x => x.id !== id)); pop(); } });
     if (top && top.v === "user") return h(Profile, { key: top.id, t, uid: top.id, me, props, onClose: pop, onOpen: openItem, onUser: openUser, onLogin: () => needLogin(), onLogout: logout });
     if (top && top.v === "notices") return h(Notices, { t, props, onClose: pop, onOpen: openItem, onUser: openUser });

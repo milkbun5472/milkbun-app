@@ -81,3 +81,11 @@ test("首页格子柜收着：只剩一行，挑完自己收回去；传东西�
   assert.match(nest, /onPick = fold \? \(k => \{ setOpen\(false\); pick0\(k\); \}\)/);
   assert.match(nest, /h\(Cubbies, \{ t, kind, noAll: true, onPick: setKind \}\)/);
 });
+
+test("编辑：同一页改；没碰内容就不发；截图原来的用 keep；图地址带改过的时间不吃旧缓存", () => {
+  assert.match(nest, /if \(edit && !file && !chosen\.length && !String\(text \|\| ""\)\.trim\(\)\) return null;/);
+  assert.match(nest, /api\("\/item\/" \+ edit\.id, \{ method: "PUT"/);
+  assert.match(nest, /x\.keep != null \? \{ keep: x\.keep \} : x\.full/);
+  assert.match(nest, /\(it\.edited \? "\?v=" \+ it\.edited : ""\)/);
+  assert.match(nest, /top\.v === "edit"\) return h\(Upload, \{ t, props, edit: top\.item/);
+});

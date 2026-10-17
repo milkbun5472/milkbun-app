@@ -2944,6 +2944,19 @@
           style: { minHeight: 48, marginTop: 14, padding: "10px 14px", gap: 8, background: dueNow ? accent : STUDY_SKIN.paper, border: "1px solid " + (dueNow ? accent : STUDY_SKIN.line), borderRadius: "4px 12px 12px 4px", textAlign: "left" } },
           h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14.5, color: dueNow ? STUDY_SKIN.paper : STUDY_SKIN.ink } }, "该复习了"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dueNow ? STUDY_SKIN.paper : STUDY_SKIN.fog } }, dueNow ? dueNow + " 道到点了 ›" : "现在没有到点的 ›")),
+        // 到点让老师来聊天里催（群里 2026-10-17：「能不能加一个 char 提醒我学习」——说的就是这儿的该复习了）：
+        //   默认关，她打开才会催；一门课一天最多一次，App 那头的主动巡检照这一格判断（remindReview）
+        (function () {
+          const tid = cur.teacher_id || (cur.character_ids || [])[0];
+          const tc = (props.characters || []).find(function (c) { return c.id === tid; });
+          if (!tc) return null;
+          const on = cur.remindReview === true;
+          return h("button", { onClick: function () { saveCurriculum(Object.assign({}, cur, { remindReview: !on, updated_at: Date.now() })); props.onRefresh && props.onRefresh(); props.toast && props.toast(on ? "不催了" : "到点了 TA 会来聊天里催你"); },
+            className: "w-full flex items-center active:opacity-70", style: { marginTop: 6, padding: "6px 4px", gap: 8, background: "transparent", border: "none", textAlign: "left" } },
+            h("span", { style: { width: 30, height: 18, borderRadius: 999, background: on ? accent : STUDY_SKIN.line, position: "relative", flexShrink: 0, transition: "background .2s" } },
+              h("span", { style: { position: "absolute", top: 2, left: on ? 14 : 2, width: 14, height: 14, borderRadius: 999, background: STUDY_SKIN.paper, transition: "left .2s" } })),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, lineHeight: 1.5 } }, "到点了让 " + (tc.remark || tc.name) + " 在聊天里催我复习（一天最多一次）"));
+        })(),
         // 知识地图 / 单元测（她 2026-09-28）：并排两格，跟下面那几条入口同一种纸
         (function () {
           const nTests = ((cur.memory && cur.memory.tests) || []).length;
