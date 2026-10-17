@@ -3,7 +3,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+// 2026-10-16 认表情那一段挪进 engine 的 emoteSlotWords（单聊群聊共用），两个文件一起看
+const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8") + fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
 
 test("夹在句子后面的 [表情] 标记拆成文字＋表情", () => {
   const line = app.split("\n").find(l => l.includes("const MID_TAG ="));

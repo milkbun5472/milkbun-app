@@ -6900,6 +6900,72 @@ function ttsHasPause(text) {
 //   发气泡那一圈走到它就地发成语音条。占位符是私用区字符包着的编号，后面那几道
 //   拆句／去标点／过滤都碰不到它；万一被哪一道弄丢了，发送那头会把没发出去的补在最后。
 // ⚠️占位符原来是私用区字符包着 V0——真机上中间有一道把私用区字符洗掉了，气泡里冒出「。V0」「V1」
+// 认出写进文字气泡里的表情（「[表情] xx」「【emote：xx】」、夹在句尾、多行、整泡就是关键词），
+//   在【原位置】换成一个 emoteslotN 占位，发气泡那一圈走到它就地发表情。
+//   单聊和群聊共用这一个（她 2026-10-16「不是跟群聊做公共的吗」）。kws[n] = { kw, sent }。
+const EMOTE_SLOT_RE = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u;
+function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+function emoteSlotWords(words, emotes, emoteNorm) {
+  let w0 = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+  const kws = [];
+  const EMOTE_SLOT = kw => { kws.push({ kw, sent: false }); return "emoteslot" + (kws.length - 1); };
+  if (!(emotes && emotes.length)) return { words: w0, kws };
+  words = w0;
+  const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
+  // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
+  const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+  // 「【emote：小仓鼠举起两个大拇指】」这种把字段名连同括号写进气泡的（她 2026-10-05 转群里截图，
+  //   还常被切成两个气泡：「【emote：白色小狗……」「……摸头夸夸】」）。先把没合上的那半拼回去，再认。
+  const WRAP_OPEN = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]/i;
+  const WRAP_RE = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]\s*([\s\S]+?)\s*[\u3011\]\uff3d]?\s*$/i;
+  const _joined = [];
+  for (let wi = 0; wi < words.length; wi++) {
+    let cur = String(words[wi] == null ? "" : words[wi]);
+    if (WRAP_OPEN.test(cur) && !/[\u3011\]\uff3d]\s*$/.test(cur)) {
+      while (wi + 1 < words.length && typeof words[wi + 1] === "string" && !/[\u3011\]\uff3d]\s*$/.test(cur) && cur.length < 60) cur += words[++wi];
+    }
+    _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
+  }
+  words = _joined;
+  // 一个气泡里换行写了好几张（「[表情] 老公伤心的流泪\n[表情] 白色小狗委屈哭泣\n…」，群友 2026-10-16 截图）：
+  //   下面那几道正则只认【整个气泡】是一个标记，这种多行的一个都认不出，后面按换行切开就成了一串文字气泡。
+  //   先按行看：是标记的那几行抽走当表情，剩下的行照旧留在这个气泡里。
+  words = words.reduce((acc, w) => {
+    if (typeof w !== "string" || w.indexOf("\n") < 0) { acc.push(w); return acc; }
+    const keep = [];
+    w.split("\n").forEach(ln => {
+      const m1 = ln.match(TAG_RE) || ln.match(WRAP_RE);
+      if (m1 && m1[1].trim()) { const r0 = keep.join("\n").trim(); if (r0) acc.push(r0); keep.length = 0; acc.push(EMOTE_SLOT(m1[1].trim())); } else keep.push(ln);
+    });
+    const rest = keep.join("\n").trim();
+    if (rest) acc.push(rest);
+    return acc;
+  }, []);
+  // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
+  //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
+  const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+  words = words.reduce((acc, w) => {
+    const mMid = typeof w === "string" ? w.match(MID_TAG) : null;
+    if (mMid && mMid[2].trim()) { acc.push(mMid[1].trim()); acc.push(EMOTE_SLOT(mMid[2].trim())); }
+    else acc.push(w);
+    return acc;
+  }, []);
+  words = words.map(w => {
+    const s = String(w == null ? "" : w);
+    if (emoteSlotOf(s) != null) return w;
+    const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
+    if (mWrap && mWrap[1].trim()) return EMOTE_SLOT(mWrap[1].trim());
+    const mTag = s.match(TAG_RE);
+    if (mTag && mTag[1].trim()) return EMOTE_SLOT(mTag[1].trim());
+    const n = emoteNorm(w);
+    if (!n) return w;
+    if (/^(\u8868\u60c5|\u8868\u60c5\u5305|emoji|sticker|\u56fe\u7247|\u8d34\u56fe|gif)$/.test(n)) return null; // \u7a7a\u8868\u60c5\u6807\u8bb0\uff0c\u4e22
+    const hit = emoNormMap.get(n);
+    if (hit) return EMOTE_SLOT(hit);
+    return w;
+  }).filter(w => w != null);
+  return { words, kws };
+}
 //   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
 const VOICE_SLOT_TOKEN = n => "voiceslot" + n;
 const VOICE_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*voiceslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;

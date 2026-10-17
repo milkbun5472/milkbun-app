@@ -1,7 +1,7 @@
 // 她 2026-10-05 转群里截图：气泡里出现「【emote：小仓鼠举起两个大拇指】」，还被切成两个气泡
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8") + require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");   // 认表情挪进 engine 的 emoteSlotWords 了
 const grab = name => { const m = app.match(new RegExp("const " + name + " = (/.+/[a-z]*);")); assert.ok(m, name); return eval(m[1]); };
 test("【emote：…】整条认成表情，切成两半的先拼回去", () => {
   const OPEN = grab("WRAP_OPEN"), RE = grab("WRAP_RE");

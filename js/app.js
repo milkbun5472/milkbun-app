@@ -13066,10 +13066,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // \u8868\u60c5\u88ab\u5199\u8fdb\u6587\u5b57\u6c14\u6ce1\u7684\u515c\u5e95\uff08\u5979\u53cd\u9988\u300c\u8868\u60c5\u5076\u5c14\u8fd8\u662f\u53d1\u51fa\u6587\u5b57\u300d\uff09\uff1aword \u91cc\u82e5\u6709\u4e00\u6761\u3010\u53bb\u62ec\u53f7\u6807\u70b9\u540e\u6b63\u597d\u7b49\u4e8e\u3011\u67d0\u4e2a\u53ef\u7528\u8868\u60c5\u5173\u952e\u8bcd\uff0c
       // \u5c31\u628a\u5b83\u5f53\u8868\u60c5\u53d1\u3001\u522b\u5f53\u6587\u5b57\uff08\u7cbe\u786e\u76f8\u7b49\u3001\u4e0d\u505a\u5b50\u4e32\uff0c\u514d\u5f97\u300c\u6211\u597d\u5f00\u5fc3\u300d\u88ab\u8bef\u5f53\u300c\u5f00\u5fc3\u300d\u8868\u60c5\uff09\uff1b\u7eaf\u300c[\u8868\u60c5]\u300d\u8fd9\u7c7b\u7a7a\u6807\u8bb0\u76f4\u63a5\u4e22\u3002
-      const emoteWordKws = [];
-      // 表情留在原位置：气泡数组里放一个 emoteslotN（跟语音的 voiceslotN 同一个办法），发到它就地发
-      const EMOTE_SLOT = kw => { emoteWordKws.push({ kw, sent: false }); return "emoteslot" + (emoteWordKws.length - 1); };
-      const emoteSlotOf = w => { const m = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; };
+      // 认表情、在原位置留 emoteslot：跟群聊同一个 emoteSlotWords（engine.js），一处写、两处用
+      const _es = emoteSlotWords(words, emotes, emoteNorm);
+      words = _es.words;
+      const emoteWordKws = _es.kws;
       const _emoteSeen = new Set();
       const sendEmoteKw = async kw => {
         const match = emotes.length ? emoteMatch(emotes, kw) : null;
@@ -13079,61 +13079,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         delivered = true;
         notifyBubble("[表情] " + match.keyword, "emote-" + (match.id || match.keyword));
       };
-      if (emotes.length) {
-        const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
-        // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
-        const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
-        // 「【emote：小仓鼠举起两个大拇指】」这种把字段名连同括号写进气泡的（她 2026-10-05 转群里截图，
-        //   还常被切成两个气泡：「【emote：白色小狗……」「……摸头夸夸】」）。先把没合上的那半拼回去，再认。
-        const WRAP_OPEN = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]/i;
-        const WRAP_RE = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]\s*([\s\S]+?)\s*[\u3011\]\uff3d]?\s*$/i;
-        const _joined = [];
-        for (let wi = 0; wi < words.length; wi++) {
-          let cur = String(words[wi] == null ? "" : words[wi]);
-          if (WRAP_OPEN.test(cur) && !/[\u3011\]\uff3d]\s*$/.test(cur)) {
-            while (wi + 1 < words.length && typeof words[wi + 1] === "string" && !/[\u3011\]\uff3d]\s*$/.test(cur) && cur.length < 60) cur += words[++wi];
-          }
-          _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
-        }
-        words = _joined;
-        // 一个气泡里换行写了好几张（「[表情] 老公伤心的流泪\n[表情] 白色小狗委屈哭泣\n…」，群友 2026-10-16 截图）：
-        //   下面那几道正则只认【整个气泡】是一个标记，这种多行的一个都认不出，后面按换行切开就成了一串文字气泡。
-        //   先按行看：是标记的那几行抽走当表情，剩下的行照旧留在这个气泡里。
-        words = words.reduce((acc, w) => {
-          if (typeof w !== "string" || w.indexOf("\n") < 0) { acc.push(w); return acc; }
-          const keep = [];
-          w.split("\n").forEach(ln => {
-            const m1 = ln.match(TAG_RE) || ln.match(WRAP_RE);
-            if (m1 && m1[1].trim()) { const r0 = keep.join("\n").trim(); if (r0) acc.push(r0); keep.length = 0; acc.push(EMOTE_SLOT(m1[1].trim())); } else keep.push(ln);
-          });
-          const rest = keep.join("\n").trim();
-          if (rest) acc.push(rest);
-          return acc;
-        }, []);
-        // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
-        //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
-        const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
-        words = words.reduce((acc, w) => {
-          const mMid = typeof w === "string" ? w.match(MID_TAG) : null;
-          if (mMid && mMid[2].trim()) { acc.push(mMid[1].trim()); acc.push(EMOTE_SLOT(mMid[2].trim())); }
-          else acc.push(w);
-          return acc;
-        }, []);
-        words = words.map(w => {
-          const s = String(w == null ? "" : w);
-          if (emoteSlotOf(s) != null) return w;
-          const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
-          if (mWrap && mWrap[1].trim()) return EMOTE_SLOT(mWrap[1].trim());
-          const mTag = s.match(TAG_RE);
-          if (mTag && mTag[1].trim()) return EMOTE_SLOT(mTag[1].trim());
-          const n = emoteNorm(w);
-          if (!n) return w;
-          if (/^(\u8868\u60c5|\u8868\u60c5\u5305|emoji|sticker|\u56fe\u7247|\u8d34\u56fe|gif)$/.test(n)) return null; // \u7a7a\u8868\u60c5\u6807\u8bb0\uff0c\u4e22
-          const hit = emoNormMap.get(n);
-          if (hit) return EMOTE_SLOT(hit);
-          return w;
-        }).filter(w => w != null);
-      }
       // 掉格式兜底（她 2026-09-22 给的读者样张）：整整一轮全是身体动作描写、
       //   一句话都没说，四条白气泡条条带已读——那不是消息，是一段线下正文被塞进了聊天框。
       //   提示词里那条（ONLINE_CHAT_RULE_V2「不写旁白、动作、神态」）早就发到了还漏，
@@ -13361,7 +13306,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   ⚠️只认双语开关（她 2026-10-12：「不开翻译就是不想要这个功能」）——没开就一泡都不补、不合。
       //   粤语这类认字靠 hanLineLang，别的语言照「译」那颗按钮同一个判据（translatableLang）。
       const _yueFill = _bilingualOn && typeof translateToZh === "function"
-        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
+        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" && emoteSlotOf(w) == null && voiceSlotOf(w) == null ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
       for (let i = 0; i < words.length; i++) {
@@ -15195,6 +15140,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 默认就是第二人称。
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
+            // 写进气泡里的表情就地发（跟单聊同一个 emoteSlotWords）：气泡里留 emoteslotN，下面那一圈走到它发表情
+            const _gEs = emoteSlotWords(gBubbles, emotesForChar(spk.id), emoteNorm);
+            gBubbles = _gEs.words;
             const gRescuedActs = _gGuard.acts;
             // 动描里写的其实是台词 → 挪回气泡、这一拍不摆动描（BubbleActGuard.spokenAction）。
             //   挪的是【原文】：normalizeAction 会把开头的名字改成「我」，台词不该被改。
@@ -15256,6 +15204,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             for (let j = 0; j < gBubbles.length; j++) {
               if (autoRoomLeft() <= 0) break;   // 拆出来的气泡也一泡一条，超了就不再往下冒
               if (j > 0) await new Promise(r => setTimeout(r, 620));
+              const _gE = emoteSlotOf(gBubbles[j]);
+              if (_gE != null) {
+                const _ek = _gEs.kws[_gE], _mt = _ek && !_ek.sent ? emoteMatch(emotesForChar(spk.id), _ek.kw) : null;
+                if (_ek) _ek.sent = true;
+                if (_mt) pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "emote", url: _mt.url, keyword: _mt.keyword, content: "[表情] " + _mt.keyword, ts: Date.now(), turnId: gTurnId }]);
+                continue;
+              }
               if (_gYueFill[j]) {
                 const _z = await Promise.race([_gYueFill[j], new Promise(r => setTimeout(() => r(""), 2500))]);
                 if (_z) gBiZh.set(bilingualKey(gBubbles[j]), _z);
@@ -15270,7 +15225,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 ...(gBiZh.get(bilingualKey(gBubbles[j])) ? { zh: gBiZh.get(bilingualKey(gBubbles[j])) } : {}),
                 ..._gTakeReason(),
                 ...(j === 0 ? gResolvedQuote : { replyTo: null }),
-                thought: j === gBubbles.length - 1 ? gThought : null,
+                thought: j === gBubbles.map(b => emoteSlotOf(b) == null).lastIndexOf(true) ? gThought : null,
                 mid: "gm_" + Date.now() + "_" + i + "_" + j,
                 ts: Date.now(),
                 turnId: gTurnId
