@@ -15034,6 +15034,8 @@ function KinshipRaiseCard({ m, character, inRow }) {
 //   最多长到 6 行左右（130px），再多就在框里上下滚。回车照旧是发送，Shift+回车换行；
 //   中文输入法选词时按的回车（isComposing）不算发送。
 const DRAFT_MAX_H = 130;
+// 回车换行那个开关（设置 → 外观）：四个输入面共用这一份
+function enterNewline() { try { return typeof loadJSON === "function" && loadJSON("x_enterNewline", false) === true; } catch (e) { return false; } }
 // 替身框：跟真框同宽同字体，只用来量「这段字要多高」，量完不留任何痕迹在真框上。
 let _draftMirror = null;
 function draftMeasure(el) {
@@ -15092,7 +15094,9 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
       ref, rows: 1,
       value: draft,
       onChange: e => setDraft(e.target.value),
-      onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); fire(); } },
+      // 回车：默认发送；设置 → 外观里改成「回车换行」的话就只换行，按发送键才发（她 2026-10-17）。
+      //   手机键盘上「长按回车」浏览器认不出来，所以给的是一个开关；接着实体键盘按住回车不放（repeat）也当换行
+      onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.repeat && !e.isComposing && e.keyCode !== 229 && !enterNewline()) { e.preventDefault(); fire(); } },
       placeholder,
       className: "flex-1 outline-none px-4 py-2.5",
       style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
