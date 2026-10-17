@@ -22696,8 +22696,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️光给记忆库不够：记忆是【抽取】出来的，今天刚在聊天里说的「今天调班」多半还没进库。
   //   所以同时带一段最近相处——口子用发帖那处用的同一个 ambientMaterialFor，不另写一份。
   // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
-  const forumCharGrounding = (ch, post, role, extraQuery) => {
+  // 他本人真经历过的：按这件事检索的记忆＋聊天那一份真上下文＋「只有他本人知道」的边界。
+  //   论坛楼里回帖、片刻、直播、一起听广场都拿这一份（她 2026-10-17：「能公共的就不要自己单独弄了」）。
+  //   人设那一段各处拼法不同（论坛单人 600 字，多人场合走群聊那套按人数分预算），所以不在这儿。
+  const charLivedGrounding = (ch, about) => {
     if (!ch) return "";
+    const post = about || {}, extraQuery = "";
     const q = (post.title || "") + " " + (post.body || "") + " " + String(extraQuery || "");
     let mems = [];
     try { mems = retrieveMemories(memLibRef.current, ch.id, q, { limit: 8, touch: false, vec: false }); } catch (e) {}
@@ -22709,8 +22713,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   带 16 行就截断，等于又造了一套只有论坛认的上下文（one-public-mechanism.md）。
     let lived = "";
     try { lived = String((ctxFor(ch) || {}).recentChat || ""); } catch (e) {}
-    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
-    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
+    return ""
       + (memText ? "\n相关真实记忆：\n" + memText : "")
       // 她 2026-09-28：TA 在楼里回另一个角色时，替她编了一句她没说过的话当论据。原来这儿写的是「别照抄原话」——
       //   本意是别把私聊原样搬上公开楼，模型却读成「她说过什么要自己转述一遍」，一转述就走样成她没说过的话。
@@ -22725,6 +22728,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "\n别人帖子或楼里说到的那个「她／对象／某个人」，在「" + ch.name + "」看来是陌生网友身边的人，不知道是谁，也不会是" + userName(profile) + "（帖子里写明了是她、或者你们在关系网里本来就认识的除外）。"
         + "回帖就聊帖子本身，或者说说你自己；说到你身边的人，那是你自己的日子，不是跟楼主打趣一个你们都认识的人。"
       + "\n";
+  };
+  const forumCharGrounding = (ch, post, role, extraQuery) => {
+    if (!ch) return "";
+    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
+    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
+      + charLivedGrounding(ch, { title: post && post.title, body: (post && post.body || "") + " " + String(extraQuery || "") });
   };
   // 互关的那几位（回关过的、她也还关注着）：她发的帖他们一定刷到，还没来过就来一楼
   const forumMutualRule = (meOwn, knowers) => {
@@ -27461,19 +27470,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, coupleDisc: null })); }
   };
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
-  // 你的人在直播、片刻露面时带的那一份：人设、此刻在干嘛、跟她什么关系、最近私聊十句（只他自己知道）
-  const charPublicBrief = (c, _i, all) => {
+  // 你的人在直播、片刻、一起听广场露面时带的那一份（多人场合的人设拼法＋此刻在干嘛＋跟她什么关系＋真经历过的）：人设、此刻在干嘛、跟她什么关系、最近私聊十句（只他自己知道）
+  const charPublicBrief = (c, _i, all, about) => {
     const uN = userName(profile);
     const present = Array.isArray(all) && all.length ? all : [c];
     if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
     const cp = (couplesRef.current || {})[c.id] || {};
-    // 最近十句：片刻里TA回你、刷到你的视频，要照你俩平时怎么说话来（她 2026-10-15），六句看不出口气
-    const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
-      .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
+    // 他真经历过的那一段（记忆、最近聊天、知情边界）跟论坛楼里回帖是同一份：charLivedGrounding
     return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
       + Object.values(groupNowSegs(c, { interop: true })).join("")
       + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
-      + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
+      + charLivedGrounding(c, about && typeof about === "object" ? about : {});
   };
   // ── 音乐广场与歌评（她 2026-10-17）：提示词和数据形状在 js/listen-square.js，这儿只管打枪和存档 ──
   //   全都是她点了才打（不进后台）。熟面孔＝论坛那批人在这儿的网名（music 那一栏），碰面账是论坛那一份。
@@ -27481,10 +27488,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const sqRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.music).map(n => ({ id: n.id, name: n.music.name, voice: n.music.habit, forum: n.name, tie: book.items[n.id] || null })); };
   const sqPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b);
     return a && b && a.music && b.music ? { a: a.id, b: b.id, line: "「" + a.music.name + "」↔「" + b.music.name + "」：" + r.tone.split(a.name).join(a.music.name).split(b.name).join(b.music.name) } : null; }).filter(Boolean);
-  // 你的人在广场上带的料跟论坛楼里回帖那份是同一份（她 2026-10-17：「这种不应该和论坛是共用的吗」）：
-  //   forumCharGrounding＝人设＋按这件事检索的记忆＋聊天那一份真上下文（ctxFor.recentChat）＋「只有他本人知道」的边界
+  // 你的人在广场上带的料：跟直播、片刻同一份 charPublicBrief，里头「真经历过的」那段跟论坛回帖同一份（她 2026-10-17）
   const sqCast = (must, n, about) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); const cast = must ? [must, ...rest] : rest;
-    return cast.map(c => ({ ...c, brief: forumCharGrounding(c, { title: String((about && about.title) || "一起听 · 广场"), body: String((about && about.body) || "") }, "") })); };
+    return cast.map(c => ({ ...c, brief: charPublicBrief(c, 0, cast, { title: String((about && about.title) || "一起听 · 广场"), body: String((about && about.body) || "") }) })); };
   const sqMe = () => userName(profile);
   // 模型报上来的一条 → 存下来的一条：熟人认 id、熟面孔认网名、其余都是路人
   const sqItem = (x, cast) => {
@@ -27605,6 +27611,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("没人接上：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, songTalk: null })); }
   };
+  // 删：自己发的、刷出来的都能删（她 2026-10-17）。整帖先问一句，一条评论直接删
+  const delSquarePost = postId => requestAppConfirm("删掉这一帖？", "底下的评论一起没了，删了找不回来。", () => saveListen(p => ({ ...p, square: (p.square || []).filter(x => x.id !== postId) })));
+  const delSquareComment = (postId, cid) => saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: (x.comments || []).filter(c => c.id !== cid) } : x) }));
+  const delSongTalk = (song, cid) => { const key = LQ().songKey(song); if (!key) return;
+    saveListen(p => { const st = p.songTalk || {}, cur = st[key]; if (!cur) return p; return { ...p, songTalk: { ...st, [key]: { ...cur, items: (cur.items || []).filter(c => c.id !== cid) } } }; }); };
   // 转给TA：落一张卡，跟片刻分享视频同一个形状，不让TA当场开口
   const shareSquare = (post, c) => {
     if (!post || !c) return;
@@ -32139,7 +32150,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenSquare: genSquare,
     genSquare: !!gen.square,
     onPlaySquare: post => post && post.song && playSong(post.song),
-    onPostSquare: postSquare, onReplySquare: replySquare, onMoreSquare: moreSquare, squareBusy: gen.squareReply || null, onShareSquare: shareSquare,
+    onPostSquare: postSquare, onReplySquare: replySquare, onMoreSquare: moreSquare, onDelSquare: delSquarePost, onDelSquareComment: delSquareComment, onDelSongTalk: delSongTalk, squareBusy: gen.squareReply || null, onShareSquare: shareSquare,
     onGenSongTalk: genSongTalk, onReplySongTalk: replySongTalk, songTalkBusy: gen.songTalk || null,
     player: player,
     onTogglePlay: togglePlay,

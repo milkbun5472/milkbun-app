@@ -39,8 +39,17 @@ test('一枪刷得多（跟论坛一样）、网易云评论区的样子：网�
   assert.match(sc,/onMoreSquare && onMoreSquare\(p\.id\)/);
   assert.match(lq,/"data-kind": "listenshare"/);
 });
-test('广场上你的人带的料跟论坛楼里回帖是同一份（forumCharGrounding）',()=>{
-  assert.match(app,/brief: forumCharGrounding\(c, \{ title:/);
+test('广场、直播、片刻共用 charPublicBrief，真经历那段跟论坛共用 charLivedGrounding',()=>{
+  assert.match(app,/brief: charPublicBrief\(c, 0, cast, \{ title:/);
+  assert.match(app,/\+ charLivedGrounding\(c, about/);
+  assert.match(app,/\+ charLivedGrounding\(ch, \{ title: post/);
   assert.equal((app.match(/sqCast\([^\n]*?\{ title:/g)||[]).length,5);
   assert.match(lq,/c\.brief \? S\(c\.brief\)/);
+});
+test('帖子、帖子里的评论、歌评都能删，自己的和刷出来的都行',()=>{
+  assert.match(app,/const delSquarePost = postId => requestAppConfirm\(/);
+  assert.match(app,/const delSquareComment = \(postId, cid\) =>/);
+  assert.match(app,/const delSongTalk = \(song, cid\) =>/);
+  assert.equal((sc.match(/onDelSquareComment\(p\.id, x\.id\)/g)||[]).length,2);
+  assert.equal((sc.match(/onDelSongTalk\(talkSong, y\.id\)/g)||[]).length,2);
 });
