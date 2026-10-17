@@ -89,3 +89,11 @@ test("编辑：同一页改；没碰内容就不发；截图原来的用 keep；
   assert.match(nest, /\(it\.edited \? "\?v=" \+ it\.edited : ""\)/);
   assert.match(nest, /top\.v === "edit"\) return h\(Upload, \{ t, props, edit: top\.item/);
 });
+
+test("退回和称号：管理模式才有退回键、要写原因；作者改好保存就清掉退回；称号印章跟着署名、留言、借书证走", () => {
+  assert.match(nest, /admin && !it\.returned \? \(retOpen/);
+  assert.match(nest, /api\("\/admin\/return", \{ method: "POST", body: \{ item: it\.id, reason \} \}\)/);
+  assert.match(nest, /onDone\(edit\.id, kind, \{ returned: ""/);
+  assert.match(nest, /self && adminToken\(\) \? h\(BadgeSet/);
+  ["\"by \" + (it.nick || \"无名\"), h(Badge, { b: it.badge })", "c.name, h(Badge, { b: c.badge })", "d.user.name, h(Badge, { b: d.user.badge })"].forEach(x => assert.ok(nest.includes(x), x));
+});
