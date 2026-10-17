@@ -10716,7 +10716,7 @@ function ApiConfig({
             ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 4, lineHeight: 1.5 } },
                 "现在还没有存好的线路，所以浮窗还不会出来——在下面填好一条、点保存就有了。")
             : null,
-          // 浮窗换成自己的图（群友 2026-10-17）：换了就没有圆底、边框和阴影，透明 png 原样显示
+          // 浮窗换成自己的图（群友 2026-10-17）：图放在原来那颗圆里
           modelFloatOn ? h(ModelFloatImgRow, { t, toast }) : null),
         h("button", { onClick: () => onSetModelFloat(!modelFloatOn), style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
           h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),

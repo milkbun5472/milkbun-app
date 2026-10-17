@@ -367,12 +367,12 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
     h("button", { onClick: () => { if (justDragged.current) { justDragged.current = false; return; } setOpen(v => !v); },
       onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: () => { dragStart.current = null; setDrag(null); },
       "aria-label": "快速切换模型", className: "active:scale-95",
-      style: floatImg ? { width: 46, height: 46, flexShrink: 0, padding: 0, touchAction: "none", background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center" } : { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
+      style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
         background: "conic-gradient(from 210deg, #efe7d9, #cbbfa9 25%, #f3ecdf 52%, #c6b9a2 78%, #efe7d9)",
         border: "1px solid rgba(74,62,44,.45)",
         boxShadow: "0 6px 16px rgba(0,0,0,.24), inset 0 1px 2px rgba(255,255,255,.75), inset 0 -2px 4px rgba(90,74,52,.28)",
         display: "flex", alignItems: "center", justifyContent: "center" } },
-      floatImg ? h("img", { src: typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } }) :
+      floatImg ? h("img", { src: typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", pointerEvents: "none" } }) :
       h("svg", { width: 46, height: 46, viewBox: "0 0 46 46", "aria-hidden": "true" },
         // 面上的细放射纹（拉丝），淡到只在光下看得出
         h("circle", { cx: 23, cy: 23, r: 15.5, fill: "rgba(255,253,246,.5)", stroke: "rgba(74,62,44,.28)", strokeWidth: 1 }),
