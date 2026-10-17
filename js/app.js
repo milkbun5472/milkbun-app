@@ -10778,8 +10778,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   为了分得清「跑完了但空」和「压根没跑/报错了」，下面那一支把提前退出和 catch
   //   全改成 return null；只有 false 才是「跑完了，什么都没送到」。
   //   主动那一路不重来：没人在等，而且它本来就可能选择不说话。
+  const PROACTIVE_SLEEP_OK = ["dongnian", "bday", "remind", "eyesAlert", "peekCaught", "phoneRefused", "phoneAs"];
   const replyNow = async (charId, extraText, mode, opts) => {
     // 主动私聊那一路（opts.proactive）是后台自己跑的：挂上名字，callAI 那头才会弹「后台 · 主动私聊·谁」
+    // 睡着不开口（她 2026-10-17：「我打开手机 6 点多，他们的主动消息又发过来了，明明都在睡觉」）：
+    //   原来只有「想你了」那一路问过睡没睡，天气、健康、纪念日、约定、开花那几路都没问——收在这一处，谁都绕不过。
+    //   放行的只有：自己已经判过睡眠的（dongnian 有它那条「很想才偶尔发」的窄缝）、她自己定的提醒和生日零点、
+    //   言秋的报错，以及她刚刚亲手做了什么、TA当场接一句的那几种。
+    if (opts && opts.proactive && !opts._bg && !PROACTIVE_SLEEP_OK.some(k => opts[k])) {
+      const _c = characters.find(c => c.id === charId);
+      if (_c && sleepPhaseOf(_c) === "asleep") return false;
+    }
     if (opts && opts.proactive && !opts._bg && typeof bgJob === "function") return bgJob("proactive", characters.find(c => c.id === charId), () => replyNow(charId, extraText, mode, { ...opts, _bg: true }));
     const ok = await _replyTurn(charId, extraText, mode, opts);
     if (ok !== false) return ok;
