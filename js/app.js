@@ -27501,6 +27501,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       text, ...(S0(x && x.to) ? { to: S0(x.to).slice(0, 20) } : {}), tone: x && (x.tone === "warm" || x.tone === "spar") ? x.tone : "", likes: Math.max(0, Math.min(99999, Math.round(Number(x && x.likes) || 0))), ts: Date.now() };
   };
   const S0 = v => String(v == null ? "" : v).trim();
+  // 刷出来的一批不是同一秒写的：在 from 到现在之间撒开，按先后排
+  const sqSpread = (items, from) => { const now = Date.now(), a = Math.min(from || now, now); return items.map(x => ({ ...x, ts: a + Math.round(Math.random() * (now - a)) })).sort((x, y) => x.ts - y.ts); };
   const sqAsk = async (sys, tag) => { const raw = await callAI(active, sys, [{ role: "user", content: "写。" }], { maxTokens: 8000, tag: tag }); return (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {}; };
   const sqReady = () => { if (!active) { toast("请先到设置配置 API"); return false; } return true; };
   // 熟面孔回了她（或者她回了熟面孔）才记一笔；路人、熟人不进这本账
@@ -27521,7 +27523,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       for (const p of (Array.isArray(d.posts) ? d.posts : []).slice(0, 10)) {
         const head = sqItem(p, cast); const title = S0(p && p.title); if (!head || !title) continue;
         const song = await sqResolveSong(title, S0(p.artist)); if (!song) continue;
-        out.push({ ...head, song, comments: (Array.isArray(p.comments) ? p.comments : []).slice(0, 8).map(c => sqItem(c, cast)).filter(Boolean) });
+        // 时间撒开：帖子是这几个小时里陆续发的，评论在发帖之后陆续来（不然一排全是「1分钟前」）
+        const pts = Date.now() - Math.round(Math.random() * 6 * 3600e3);
+        out.push({ ...head, ts: pts, song, comments: sqSpread((Array.isArray(p.comments) ? p.comments : []).slice(0, 8).map(c => sqItem(c, cast)).filter(Boolean), pts) });
       }
       if (!out.length) { toast("这一批歌在网易云一首都没搜到，再刷一次试试"); return; }
       saveListen(p => ({ ...p, square: [...out, ...(p.square || [])].slice(0, LQ().KEEP_POSTS) }));
@@ -27566,7 +27570,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const cast = sqCast(null, 3, { title: LQ().songLine(post.song), body: S0(post.text) });
       const d = await sqAsk(LQ().songSystem({ song: post.song || {}, where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。这是这一帖底下的评论区，像网易云的动态评论。",
         cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), transcript: LQ().transcriptOf(post.comments || []), n: "10-16" }), "音乐广场");
-      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 18);
+      const items = sqSpread((Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 18), Math.max(post.ts || 0, ...(post.comments || []).map(x => x.ts || 0)));
       if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
       saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: [...(x.comments || []), ...items].slice(-LQ().KEEP_TALK) } : x) }));
       sqTouch(items.filter(x => x.to === sqMe()), "theirs");
@@ -27583,7 +27587,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const cast = sqCast(partner, 3, { title: LQ().songLine(song) });
       const d = await sqAsk(LQ().songSystem({ song, cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), partner: partner ? { id: partner.id, name: partner.remark || partner.name } : null, transcript: LQ().transcriptOf(have), n: "12-18" }), "歌评");
-      let items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 20);
+      // 歌评区是攒了很久的：新刷的一批撒在这一个月里（已有的在前面就从最后一条之后撒）
+      const lastTs = have.length ? Math.max(...have.map(x => x.ts || 0)) : Date.now() - 30 * 864e5;
+      let items = sqSpread((Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 20), lastTs);
       if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
       saveListen(p => { const st = p.songTalk || {}, cur = st[key] || {};
         return { ...p, songTalk: { ...st, [key]: { song: { title: song.title, artist: song.artist || "", cover: song.cover || null, neteaseId: song.neteaseId || "" }, items: [...(cur.items || []), ...items].slice(-LQ().KEEP_TALK), ts: Date.now() } } }; });

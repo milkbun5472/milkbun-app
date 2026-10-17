@@ -8011,6 +8011,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const [nav, setNav] = useState(now ? "play" : (canSearch ? "cloud" : "home"));
   // 广场 / 歌评：哪一帖正在回、回的是谁、打的字；歌评页开的是哪首（整页，返回回到原来那格）
   const [sqOpen, setSqOpen] = useState(null), [sqAll, setSqAll] = useState(null), [sqTo, setSqTo] = useState(""), [sqDraft, setSqDraft] = useState(""), [sqShare, setSqShare] = useState(null), [sqPostDraft, setSqPostDraft] = useState("");
+  const [setFrom, setSetFrom] = useState("");   // 设置是从哪一格点进来的：返回回到那一格
   const [talkSong, setTalkSong] = useState(null), [talkBack, setTalkBack] = useState("square"), [talkDraft, setTalkDraft] = useState(""), [talkTo, setTalkTo] = useState("");
   const [addTab, setAddTab] = useState("netease"); // netease | local（搜歌在「发现」，不在这儿）
   const [link, setLink] = useState("");
@@ -8927,7 +8928,11 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     coverField,
     h("div", { style: { position: "relative", zIndex: 1 } }, h(Head, { zh: "一起听", bg: "transparent", noLine: nav === "play" && !!now,
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
-      onBack: () => { if (openPl) setOpenPl(null); else onBack(); } })),
+      onBack: () => { if (nav === "home" && setFrom) { setNav(setFrom); setSetFrom(""); } else if (openPl) setOpenPl(null); else onBack(); },
+      right: nav === "home" ? null : h("button", { "data-wk": "listensetbtn", "aria-label": "设置", onClick: () => { setSetFrom(nav); setNav("home"); }, className: "active:opacity-60 flex items-center justify-center", style: { minWidth: 40, minHeight: 40 } },
+        h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: t.sub, strokeWidth: 1.7 },
+          h("circle", { cx: 12, cy: 12, r: 3.2 }),
+          h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" }))) })),
     h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : nav === "square" ? squareTab : nav === "songtalk" ? (songTalkTab || squareTab) : mineTab),
     cvAddSheet,
     pickerOverlay,
@@ -8954,9 +8959,8 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       navBtn("square", "广场", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "square" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 6h16M4 12h10M4 18h7" }), h("circle", { cx: 18, cy: 16, r: 2.2 }), h("path", { d: "M20.2 16V9.5" }))),
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
       navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" }))),
-      navBtn("home", "设置", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 },
-        h("circle", { cx: 12, cy: 12, r: 3.2 }),
-        h("path", { d: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M17.7 6.3l-1.4 1.4M7.7 16.3l-1.4 1.4" })))),
+      // 设置挪到顶栏右上（她 2026-10-17：「设置可以移到右上角这样底部只有四个」）
+      ),
     h("input", { ref: audioFileRef, type: "file", accept: "audio/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) { setLocalFile(f); setAddTab("local"); setNav("home"); } e.target.value = ""; }, style: { display: "none" } }),
     h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
 }

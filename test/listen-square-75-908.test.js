@@ -56,3 +56,8 @@ test('帖子、帖子里的评论、歌评都能删，自己的和刷出来的�
 test('歌评页的输入框钉在最底下，占底栏那一格',()=>{
   assert.match(sc,/nav === "songtalk" && songTalkBar \? songTalkBar : h\("div", \{ className: "shrink-0 flex items-stretch"/);
 });
+test('设置挪到右上角，底栏四格；刷出来的评论时间撒开',()=>{
+  assert.doesNotMatch(sc,/navBtn\("home", "设置"/);
+  assert.match(sc,/"data-wk": "listensetbtn"/);
+  assert.match(app,/const sqSpread = \(items, from\) =>/);
+});
