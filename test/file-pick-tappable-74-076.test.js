@@ -34,7 +34,8 @@ test("FilePick 把 input 铺满触点，不是藏起来", () => {
 
 test("AvatarPicker 不再靠代码替你点", () => {
   const seg = slice("function AvatarPicker(", "function Sheet(");
-  assert.match(seg, /h\(FilePick, \{/, "没换成 FilePick");
+  // 2026-10-17 起给了 onTap 的那一处（档案封面）点照片弹单子，单子里那一行才是 FilePick；没给 onTap 照旧直接 FilePick
+  assert.match(seg, /h\(onTap \? "button" : FilePick, onTap \? \{/, "没换成 FilePick");
   assert.ok(!/\.current\.click\(\)/.test(seg), "又回到 .current.click() 那条路了");
   assert.ok(!/className: "hidden"/.test(seg), "input 又被 hidden 藏起来了");
   // ⚠️触点那层从 <button> 换成了 <span>，必须显式 inline-flex：

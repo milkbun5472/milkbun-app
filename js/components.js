@@ -1351,6 +1351,7 @@ function AvatarPicker({
   imageMaxDim = 400,
   imageQuality = 0.85,
   noActions,
+  onTap,
   onPick,
   onClear
 }) {
@@ -1365,7 +1366,7 @@ function AvatarPicker({
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col items-center gap-2"
-  }, h(FilePick, { accept: "image/*", onChange: handle, label: "从相册选一张头像",
+  }, h(onTap ? "button" : FilePick, onTap ? { type: "button", onClick: onTap, "aria-label": "这张照片", className: "active:opacity-80", style: { background: "transparent", padding: 0 } } : { accept: "image/*", onChange: handle, label: "从相册选一张头像",
       onPaste: async ev => {
         const items = (ev.clipboardData && ev.clipboardData.items) || [];
         for (let i = 0; i < items.length; i++) {

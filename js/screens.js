@@ -550,6 +550,7 @@ function CastForm({
   // ⚠️这一页从来没收过 toast（原来那句「先填外貌」一点就是 ReferenceError）——用全局那一颗
   const toast = msg => window.__toast && window.__toast(msg);
   const [avBusy, setAvBusy] = useState(false);
+  const [photoMenu, setPhotoMenu] = useState(false);   // 点照片弹出来的那张小单子
   const [name, setName] = useState(initial && initial.name || "");
   const [tagline, setTagline] = useState(initial && initial.tagline || "");
   const [emoji, setEmoji] = useState(initial && initial.avatarEmoji || "");
@@ -706,6 +707,23 @@ function CastForm({
     h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
       bg: "rgba(255,255,255,.32)", barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
       right: h("button", { "data-wk": "castfsave", onClick: save, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档") }),
+    // 照片那几样收成一张小单子（她 2026-10-17「现在看起来很别扭」）：封面上只留照片、名字、标签，点照片才弹出来
+    photoMenu ? h(Sheet, { onClose: () => setPhotoMenu(false) }, (() => {
+      const row = (label, fn, opt) => h("button", { key: label, onClick: () => { setPhotoMenu(false); fn(); }, className: "w-full text-left active:opacity-60",
+        style: { display: "block", padding: "13px 4px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: (opt && opt.color) || t.ink, background: "transparent" } }, label);
+      return h("div", { "data-wk": "castfphotomenu" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".08em", color: t.fog, marginBottom: 8 } }, "这张照片"),
+        h(FilePick, { accept: "image/*", label: "从相册换一张", onChange: async e => { const f = e.target.files && e.target.files[0]; if (!f) return; setPhotoMenu(false); try { setAvatarImage(await resizeImageFile(f, 400, 0.85)); } catch (err) {} e.target.value = ""; } },
+          h("span", { style: { display: "block", padding: "13px 4px", fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "从相册换一张")),
+        row("贴一张图（相册打不开时）", () => requestAppPrompt("贴一张图", "相册打不开时走这儿：把图片地址粘进来（http 开头，或者 data: 开头的那种长串都行）。", "", v => { const u = String(v || "").trim(); if (u && /^(https?:|data:image\/)/i.test(u)) setAvatarImage(u); }, "用这张")),
+        genAvatar ? row(avBusy ? "生成中…" : avatarImage ? "重新生成" : "生成头像", () => { if (!avBusy) genAvatar(); }, { color: t.tint }) : null,
+        avatarImage ? row("存到手机", () => { if (window.saveImgOriginal) window.saveImgOriginal(avatarImage, (name || "头像") + "-头像").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")); }) : null,
+        avatarImage ? row(refPhoto === avatarImage ? "已用来锁脸" : "应用到锁脸（之后生图照这张脸）", () => { setRefPhoto(avatarImage);
+          if (initial && initial.id && onApplyRef) { onApplyRef(initial.id, avatarImage); toast("应用了：之后生图就照这张脸锁"); }
+          else toast("这张头像现在也是参考照了，保存档案后生图就照这张脸"); }) : null,
+        chatAvatarOn ? row("聊天头像是 TA 自己换的 · 用回档案这张", () => setChatAvatarOn(false)) : null,
+        avatarImage ? row("移除照片", () => setAvatarImage(null), { color: "#b4463a" }) : null);
+    })()) : null,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       // 抬头这张跟列表里那张卷宗卡说同一种话：书脊、装订孔、纸纹、贴上去的照片
       h("section", { "data-wk": "castfcover", style: { position: "relative", margin: "18px 0 16px", borderRadius: 17, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 12px 26px -10px rgba(46,38,29,.2), inset 0 1px 0 rgba(255,255,255,.9)" } },
@@ -723,27 +741,12 @@ function CastForm({
             h("div", { "data-wk": "castfavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
               h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3,
                 // ⚠️档案换头像不许顶掉聊天里另设的那张（她 2026-10-13「人格档案馆换的不要 override 聊天的」）
-                onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar, noActions: true }),
+                onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar, noActions: true, onTap: () => setPhotoMenu(true) }),
               null),
             h("div", { className: "flex-1 min-w-0" },
               h("input", { "data-wk": "castfname", value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
               h("span", { style: { display: "block", height: 1, background: t.line, margin: "5px 0 7px" } }),
               h("textarea", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", rows: 2, className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: t.fog, resize: "none" } }))),
-          h("div", { style: { marginTop: 12 } },
-              // 头像那几颗小字（贴图、生成、移除、存、锁脸）摆在头像那一排底下，整行宽（她 2026-10-17「能不能把那几个按钮移到头像下面」）；照片框里只留照片
-              //（她 2026-10-17「这块变大了看起来好别扭」——挂在照片框里把框撑宽撑高了）
-              (() => { const lk = (label, fn, on) => h("button", { key: label, onClick: fn, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.tint : t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, label);
-                return h("div", { className: "flex flex-wrap", style: { columnGap: 10, rowGap: 4, marginTop: 2 } },
-                  lk("贴一张图", () => requestAppPrompt("贴一张图", "相册打不开时走这儿：把图片地址粘进来（http 开头，或者 data: 开头的那种长串都行）。", "", v => { const u = String(v || "").trim(); if (u && /^(https?:|data:image\/)/i.test(u)) setAvatarImage(u); }, "用这张")),
-                  genAvatar ? lk(avBusy ? "生成中…" : avatarImage ? "重新生成" : "生成头像", () => { if (!avBusy) genAvatar(); }, true) : null,
-                  avatarImage ? lk("存到手机", () => { if (window.saveImgOriginal) window.saveImgOriginal(avatarImage, (name || "头像") + "-头像").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")); }) : null,
-                  avatarImage ? lk(refPhoto === avatarImage ? "已用来锁脸" : "应用到锁脸", () => { setRefPhoto(avatarImage);
-                    if (initial && initial.id && onApplyRef) { onApplyRef(initial.id, avatarImage); toast("应用了：之后生图就照这张脸锁"); }
-                    else toast("这张头像现在也是参考照了，保存档案后生图就照这张脸"); }) : null,
-                  avatarImage ? lk("移除照片", () => setAvatarImage(null)) : null); })(),
-              chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
-                h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
-                h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35, whiteSpace: "pre-line" } }, "聊天头像是TA自己换的 · 用回这张"))),
           h("div", { "data-wk": "castfcolor", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),
