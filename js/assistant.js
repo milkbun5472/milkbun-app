@@ -1033,6 +1033,10 @@
       + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
+      // 她 2026-10-17 截图：说「把天气、木鱼都删了」，秋秋写了一份 CSS 去藏，还说「拿不准就长按拖去删除区」——
+      //   主屏本来就有「从桌面移走」。界面上点得出来的事，答案是那一步在哪儿点，不是一张改动稿。
+      + "  ⚠️她要的事界面上本来就能点出来（删/移走/放回一个组件、换图、开关某一样），先翻攻略找到那一步，直接告诉她在哪儿点；"
+      + "别拿 CSS 去藏一个本来就能删的东西（藏起来的还占着位置、也没法放回），攻略里没写的步骤也别猜一个出来。只有界面上真做不到的样子，才出 theme。\n"
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
       + (typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.docLines() : "")

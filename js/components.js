@@ -6721,6 +6721,7 @@ function Home({
   }
   // 「最近聊过」当成功能性装饰（她 2026-09-28）：能从桌面移走，也能从做装饰那一页放回来。
   //   移走的记在 x_homeHiddenWidgets，底下那张安全网就不再把它硬塞回桌面。
+  var HOME_WIDGET_ZH = { w_card: "名片", w_cal: "日历", w_music: "音乐", w_map: "地图", w_us: "我们", w_memo: "备忘录", w_weather: "天气", w_muyu: "木鱼", w_ledger: "记账", w_wheel: "转盘" };
   function hideWidget(key) {
     var hid = loadJSON("x_homeHiddenWidgets", []); if (!Array.isArray(hid)) hid = [];
     if (hid.indexOf(key) < 0) hid = hid.concat([key]);
@@ -7613,6 +7614,11 @@ function Home({
               // 最近聊过：移走了才出现在这里，点一下直接放回桌面（它不是一件新做的装饰，是那个组件本身）
               A.isNew && hiddenWidgets.indexOf("w_recent") >= 0 ? h("button", { key: "__recent", "data-decor-recent": true, onClick: function () { showWidget("w_recent"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, "✎"), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, "最近聊过")) : null,
+              // 别的组件移走了也从这儿放回来（她 2026-10-17：天气、木鱼这些也想能删）
+              A.isNew ? hiddenWidgets.filter(function (k) { return k !== "w_recent" && k !== "w_taday" && HOME_WIDGET_ZH[k]; }).map(function (k) {
+                return h("button", { key: "__hid_" + k, "data-wk": "homewidgetback", onClick: function () { showWidget(k); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, "↩"), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, HOME_WIDGET_ZH[k]));
+              }) : null,
               // TA在干嘛：默认不在桌面上，这里放上去；已经在桌面上就不再出现
               A.isNew && !buildLayout(layout).some(function (pg) { return (pg || []).indexOf("w_taday") >= 0; }) ? h("button", { key: "__taday", "data-decor-taday": true, onClick: function () { showWidget("w_taday"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
                 h("div", { className: "flex justify-center", style: { height: 23, alignItems: "center" } }, h(GWalk, { size: 20, color: t.ink })), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, "TA在干嘛")) : null,
@@ -7703,7 +7709,7 @@ function Home({
             h(HomeStickerEditor, { list: A.stickers, busy: decorBusy, onChange: A.setStickers,
               onPick: function (f, id) { takeStickerPhoto(f, id, A.stickers, A.setStickers); } }))),
         // 已经在桌面上的那一件，才有得移走
-        A.isWidget && (styleKey === "w_recent" || styleKey === "w_taday") ? h("button", { onClick: function () { hideWidget(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b4574a", minHeight: 44 } }, "从桌面移走（以后在「做一件装饰」里放回来）") : null,
+        A.isWidget ? h("button", { "data-wk": "homewidgethide", onClick: function () { hideWidget(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b4574a", minHeight: 44 } }, "从桌面移走（以后在「做一件装饰」里放回来）") : null,
         A.isWidget ? h("button", { onClick: function () { setStyleKey(null); setDecorStep("look"); setEditMode(true); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "去整理位置")
           : !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着
