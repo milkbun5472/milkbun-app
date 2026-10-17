@@ -484,13 +484,12 @@ bool startVoiceRecording(bool autoMode = false, bool continuation = false) {
 
 void restoreSpeakerAfterRecording() {
   // CoreS3's mic and speaker share the codec. Fully release the input task and
-  // restore one idle output task. Playback must reuse it instead of calling
-  // begin() twice, which can deadlock the codec.
+  // leave the output powered down: an idle output task keeps the class-D amp
+  // biased, which whines audibly. playWavUrl brings the speaker up itself with
+  // exactly one clean end()+begin() pair, so no idle task is needed here.
   M5.Mic.end();
   delay(20);
-  if (!M5.Speaker.isRunning() && !M5.Speaker.begin()) {
-    Serial.println("[voice] speaker restore failed");
-  }
+  M5.Speaker.end();
 }
 
 void cancelVoiceRecording(const char* reason) {
@@ -696,6 +695,10 @@ bool playWavUrl(const String& url, int volume) {
   M5.Speaker.setVolume(clampInt(volume, 0, 255));
   const bool ok = playPcmWav(wav, got);
   free(wav);
+  // Power the amp down between utterances. The idle class-D amp emits an
+  // audible high-pitched whine (reported 2026-10-17); playWavUrl always does
+  // its own end()+begin() pair, so nothing relies on an idle output task.
+  M5.Speaker.end();
   return ok;
 }
 
