@@ -1075,6 +1075,7 @@
       + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
+      + "【reply 一定要写话】不管出没出卡，reply 都是你跟" + uName + "说的话：先接住她这句（她在抱怨、在问、在吐槽就先回应那个），出卡的话再用一两句说清这张卡改了什么、为什么这么改。reply 永远不许空着、也不许只写「改动稿在下面」。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
       + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
@@ -1096,7 +1097,10 @@
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
     const img = isFile ? null : pic;
     const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
-    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
+    // 旧记录里只剩一句「改动稿在下面。」的那几条：换成卡上写的改了什么，别让它照着自己学成只发卡
+    const itText = m => m.role !== "me" && /^改动稿在下面。?$/.test(String(m.text || "").trim()) && Array.isArray(m.patches) && m.patches.length
+      ? m.patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n") : String(m.text || "");
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: itText(m) + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
       .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : Array.isArray(img) && img.length > 1 ? "（她发来 " + img.length + " 张图，看看说说）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? (Array.isArray(img) ? img : [img]) : undefined }]);
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
@@ -1211,6 +1215,9 @@
       reply = scrubCode(plain);
     }
     if (!reply && !patches.length && !outFile) throw new Error("线路没有返回可读内容，可以再问一次");
+    // reply 空着只剩卡（她 2026-10-17「秋秋坏了都不说话了只会发卡」）：不拿一句「改动稿在下面」糊过去——
+    //   那句会进对话记录，下一轮它照着自己学，越来越只会发卡。照卡上写的说清这几张改了什么、为什么。
+    if (!reply && patches.length) reply = patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n");
     return { reply: reply || (outFile ? "文件在下面。" : "改动稿在下面。"), patches, file: outFile };
   }
 
