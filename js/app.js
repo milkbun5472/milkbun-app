@@ -27460,6 +27460,46 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, coupleDisc: null })); }
   };
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
+  // ── 音乐广场（她 2026-10-17 转群友：「NPC、char 们分享歌曲感受，类似网易云」）──────────────
+  //   她点「刷一刷」才打一枪（不进后台）：一次写一批帖子，再逐首去网易云搜真歌，搜不到的那帖不要。
+  //   帖子存在一起听自己那份存档里（listen.square），最多留 60 帖。
+  const genSquare = async () => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!musicReady) { toast("先在一起听里选择音乐源"); return; }
+    setGen(g => ({ ...g, square: true }));
+    try {
+      const cast = liveChars.filter(c => c && !c.npc && !isBody(c.id)).sort(() => Math.random() - .5).slice(0, 4);
+      const castTxt = cast.map(c => "· " + c.name + "（id：" + c.id + "）\n" + String(c.persona || "（没写人设）").slice(0, 600)).join("\n");
+      const recent = ((listenRef.current || {}).square || []).slice(0, 20).map(p => p.song && p.song.title).filter(Boolean);
+      const sys = "这是一个像网易云评论区和动态那样的【音乐广场】，人人都在分享自己最近在听的歌和听歌时的感受。写一批新帖子。\n\n"
+        + "【会来发帖的人】\n" + (castTxt || "（这次没有熟人，全是路人）") + "\n上面这几位要发的话，听什么、怎么说都得是他本人：照人设、口味、此刻的心事来，别写成谁都能发的那种。"
+        + "\n另外还有一群路人网友（npc），网名、年纪、口味、说话方式各不相同，自己起。\n\n"
+        + "【要求】一共 8 帖，熟人最多占一半。每帖分享一首【真实存在、在网易云能搜到】的歌（华语、欧美、日韩都行，别编歌），配上发帖人自己的话：为什么此刻在听、想起了什么，长短和语气各不一样。"
+        + "每帖底下 0–3 条评论，评论的人可以是路人，也可以是上面的熟人，互相接话也行。"
+        + (recent.length ? "\n广场上最近已经有人发过这些，别再发：" + recent.join("、") : "")
+        + "\n\n只输出 JSON：{\"posts\":[{\"by\":\"熟人填他的 id，路人填 npc\",\"name\":\"发帖人名字或网名\",\"title\":\"歌名\",\"artist\":\"歌手\",\"text\":\"发帖人自己的话\",\"comments\":[{\"by\":\"同上\",\"name\":\"评论的人\",\"text\":\"评论\"}]}]}";
+      const raw = await callAI(active, sys, [{ role: "user", content: "刷新广场。" }], { maxTokens: 8000, tag: "音乐广场" });
+      const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+      const posts = Array.isArray(d.posts) ? d.posts : [];
+      const nameOf = (by, nm) => { const c = cast.find(x => x.id === by); return c ? { by: c.id, name: c.remark || c.name } : { by: "npc", name: String(nm || "路人").slice(0, 20) }; };
+      const out = [];
+      for (const p of posts.slice(0, 10)) {
+        const title = String((p && p.title) || "").trim(); if (!title) continue;
+        let hit = await neteaseSearchOne((title + " " + String(p.artist || "")).trim());
+        if (!hit) hit = await neteaseSearchOne(title);
+        if (!hit) continue;
+        const info = neteaseTrackInfo(hit), nid = String(hit.id);
+        out.push({ id: "sq_" + Date.now() + "_" + out.length, ...nameOf(p.by, p.name), text: String(p.text || "").slice(0, 400),
+          song: { id: "sg_sq_" + nid, source: "netease", neteaseId: nid, title: hit.name || title, artist: info.artist || String(p.artist || ""), cover: info.cover || null, gdPicId: info.gdPicId, gdLyricId: info.gdLyricId },
+          comments: (Array.isArray(p.comments) ? p.comments : []).slice(0, 3).map(c => ({ ...nameOf(c && c.by, c && c.name), text: String((c && c.text) || "").slice(0, 200) })).filter(c => c.text),
+          ts: Date.now() });
+      }
+      if (!out.length) { toast("这一批歌在网易云一首都没搜到，再刷一次试试"); return; }
+      saveListen(p => ({ ...p, square: [...out, ...(p.square || [])].slice(0, 60) }));
+      toast("广场上来了 " + out.length + " 帖");
+    } catch (e) { toast("没刷出来：" + (e.message || "重试")); }
+    finally { setGen(g => ({ ...g, square: false })); }
+  };
   const genCharPlaylist = async char => {
     if (!char) return;
     if (!active) { toast("请先到设置配置 API"); return; }
@@ -31992,6 +32032,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onRemoveFromPlaylist: removeFromPlaylist,
     onRenameSong: renameSong,
     onGenCharPlaylist: genCharPlaylist,
+    onGenSquare: genSquare,
+    genSquare: !!gen.square,
+    onPlaySquare: post => post && post.song && playSong(post.song),
     player: player,
     onTogglePlay: togglePlay,
     onStep: stepSong,

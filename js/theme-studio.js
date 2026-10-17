@@ -384,7 +384,7 @@
     ["avatar", "头像（全 App 每一颗）"],
     ["field", "一栏设置（标题＋内容＋底下那道细线）"], ["fieldlabel", "那一栏的标题"], ["fieldline", "那一栏底下的细线"],
     ["toggle", "开关（data-on=\"1\" 是开着的）"], ["toggleknob", "开关里那颗圆钮"], ["askqiu", "「问秋秋 ›」那一行（人格档案馆和角色编辑页上）"],
-    ["input", "单行输入框"], ["textarea", "多行输入框"], ["chatcsslen", "自己写 CSS 底下那行字数提醒"], ["quiethours", "API 页「我的作息 · 免打扰」那一块"], ["quiettoggle", "免打扰总开关那一行"], ["quietpro", "免打扰里「不发主动消息」那一行"], ["quietbg", "免打扰里「后台不跑」那一行"], ["slider", "滑杆"]
+    ["input", "单行输入框"], ["textarea", "多行输入框"], ["chatcsslen", "自己写 CSS 底下那行字数提醒"], ["quiethours", "API 页「我的作息 · 免打扰」那一块"], ["quiettoggle", "免打扰总开关那一行"], ["quietpro", "免打扰里「不发主动消息」那一行"], ["quietbg", "免打扰里「后台不跑」那一行"], ["listensquare", "一起听「广场」整页"], ["listensqgen", "广场「刷一刷」按钮"], ["listensqpost", "广场上的一帖"], ["listensqplay", "帖子里那首歌（点了就放）"], ["slider", "滑杆"]
   ]);
   // 底下这几组是【某几页专有】的（气泡、输入栏、主屏那些格子，别处没有）。
   // ⚠️一张表，一行一组【叫什么 · 哪几页 · 有哪些挂点】。第二组进来的时候

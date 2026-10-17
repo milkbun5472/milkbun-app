@@ -7964,7 +7964,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -8732,6 +8732,29 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   // 账号条和搜索坐在一张纸上，不直接压在木纹上（木头上的字会脏）
   const cvPaper = { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14,
     padding: "10px 12px", boxShadow: "0 2px 6px rgba(30,28,24,.07)" };
+  // 音乐广场：熟人和路人分享歌和听歌的话；她点「刷一刷」才来新的一批，点歌就放
+  const square = data.square || [];
+  const sqAv = by => { const c = (characters || []).find(x => x.id === by); return c ? h(Avatar, { character: c, size: 34, radius: 999 })
+    : h("div", { style: { width: 34, height: 34, borderRadius: 999, background: t.line, flexShrink: 0 } }); };
+  const squareTab = h("div", { className: "px-4 py-3", "data-wk": "listensquare" },
+    h("button", { "data-wk": "listensqgen", onClick: () => onGenSquare && onGenSquare(), disabled: !!genSquare || !canSearch, className: "w-full active:opacity-80 disabled:opacity-50",
+      style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5, marginBottom: 6 } }, genSquare ? "大家在挑歌…" : "刷一刷"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginBottom: 12 } },
+      canSearch ? "你的人和路人网友在这儿分享最近在听的歌、听歌时想到的事。点一下「刷一刷」来一批（花一次调用，不会自己刷）；点歌就放。" : "先在「设置」里配好音乐源，广场上的歌才搜得到、放得出来。"),
+    square.length ? square.map(p => h("div", { key: p.id, "data-wk": "listensqpost", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
+      h("div", { className: "flex items-center", style: { gap: 9 } }, sqAv(p.by),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: p.by !== "npc" ? t.ink : t.sub } }, p.name, p.by !== "npc" ? h("span", { style: { fontSize: 10, color: t.tint, marginLeft: 6 } }, "你认识") : null)),
+      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.75, margin: "8px 0" } }, p.text) : null,
+      h("button", { "data-wk": "listensqplay", onClick: () => onPlaySquare && onPlaySquare(p), className: "w-full flex items-center active:opacity-70", style: { gap: 10, padding: 8, borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, textAlign: "left", minHeight: 52 } },
+        p.song && p.song.cover ? h("img", { src: p.song.cover, alt: "", style: { width: 38, height: 38, borderRadius: 6, objectFit: "cover", flexShrink: 0 } }) : h("div", { style: { width: 38, height: 38, borderRadius: 6, background: t.line, flexShrink: 0 } }),
+        h("div", { className: "min-w-0 flex-1" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.title) || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.artist) || "")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0 } }, "▶ 放")),
+      (p.comments || []).length ? h("div", { style: { marginTop: 8, paddingLeft: 10, borderLeft: "2px solid " + t.line } },
+        p.comments.map((c, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
+          h("span", { style: { color: c.by !== "npc" ? t.ink : t.fog } }, c.name + "："), c.text))) : null))
+    : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "30px 0" } }, "还没人发帖"));
   const cloudTab = h("div", { className: "px-4 py-3" },
     cv.open
       ? h("div", null,
@@ -8815,7 +8838,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     h("div", { style: { position: "relative", zIndex: 1 } }, h(Head, { zh: "一起听", bg: "transparent", noLine: nav === "play" && !!now,
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
       onBack: () => { if (openPl) setOpenPl(null); else onBack(); } })),
-    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
+    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : nav === "square" ? squareTab : mineTab),
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的
@@ -8838,6 +8861,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       // 发现：有搜索接口就开（搜歌不要账号；账号只管日推/FM/榜单）。v62.81 前要连了账号才有这一格，
       // 于是没连账号的人只能在设置里搜——搜索因此长了第二份。
       canSearch ? navBtn("cloud", "发现", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
+      navBtn("square", "广场", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "square" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 6h16M4 12h10M4 18h7" }), h("circle", { cx: 18, cy: 16, r: 2.2 }), h("path", { d: "M20.2 16V9.5" }))),
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
       navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" }))),
       navBtn("home", "设置", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 },
