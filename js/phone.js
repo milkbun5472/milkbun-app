@@ -314,22 +314,19 @@ function phoneTimeline(charData, live, nowTs) {
 // 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
 const PHONE_MONEY_KEYS = ["shopping", "takeout"];
 function phoneMoneyBlock(appKey, money) {
-  if (!money) return "";
-  // 他跟她之间真花过的钱：哪个 app 都可能提到（便签里记着要还她多少、备忘录、聊天），金额照实（她 2026-10-17）
-  const withHer = money.withHer ? String(money.withHer) : "";
-  if (PHONE_MONEY_KEYS.indexOf(appKey) < 0) return withHer;
+  if (PHONE_MONEY_KEYS.indexOf(appKey) < 0 || !money) return "";
   const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
   const bits = [];
   if (n(money.balance) != null) bits.push("手头（可动用）约 " + n(money.balance));
   if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
   if (n(money.fixedMonthly)) bits.push("每月固定要出 " + n(money.fixedMonthly));
-  if (!bits.length && !money.spendingNote) return withHer;
+  if (!bits.length && !money.spendingNote) return "";
   let out = "\n\n【TA的钱】" + bits.join("；") + "。";
   if (money.spendingNote) out += "TA对花钱的态度：" + String(money.spendingNote).slice(0, 200);
   out += "\n**金额必须落在这个水平上**：买不起的东西TA就是买不起，别让TA随手下单一笔够TA过半个月的单子。"
     + "手头紧的时候，想买清单会变长、真下单的会变少——那种落差本身就是内容。"
     + (n(money.balance) != null && n(money.balance) <= 0 ? "TA现在已经透支了：这一轮不该有任何非必需的下单。" : "");
-  return out + withHer;
+  return out;
 }
 
 // ═════════════════════════════════════════════════════════════
