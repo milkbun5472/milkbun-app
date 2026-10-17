@@ -114,9 +114,12 @@ test("语音条的波形/时长/转录都用剥过的那一份", () => {
   const i = comp.indexOf("function VoiceMsg(");
   const j = comp.indexOf("function ", i + 10);
   const vm = comp.slice(i, j);
-  assert.match(vm, /const say = typeof ttsMarkStrip === "function" \? ttsMarkStrip\(m\.content\)/);
+  // v75.919 先拆掉旧版本落下的 {"voice":…} 外壳（vText），再剥标记；起点还是 m.content
+  assert.match(vm, /const vText = [^\n]*String\(m\.content \|\| ""\)/);
+  assert.match(vm, /const say = typeof ttsMarkStrip === "function" \? ttsMarkStrip\(vText\)/);
   assert.match(vm, /voiceBars\(say, dur\)/);
   assert.match(vm, /Math\.round\(say\.replace/);
   // ⚠️合成仍旧送原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 那一处统一说了算
-  assert.match(vm, /ttsSpeak\(m\.content, speaker\.voiceId/);
+  //   （vText 只拆了 JSON 外壳，停顿标记都还在）
+  assert.match(vm, /ttsSpeak\(vText, speaker\.voiceId/);
 });

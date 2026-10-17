@@ -53,6 +53,6 @@ test("语音标记后面夹着的旁注也摘掉", () => {
 });
 
 test("语音栏那两路也过一遍", () => {
-  assert.match(app, /const vt = stripEchoedMeta\(\(raw && \(raw\.t \|\| raw\.text\)\) \|\| ""\);/);
+  assert.match(app, /(const|let) vt = stripEchoedMeta\(\(raw && \(raw\.t \|\| raw\.text\)\) \|\| ""\);/);   // v75.919 改成 let：剥完还要再拆一层 {"voice":…}
   assert.match(app, /const vt = stripEchoedMeta\(item\.text\);/);
 });
