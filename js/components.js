@@ -2768,7 +2768,7 @@ function WeatherSubRail({ places, value, onPick }) {
     }));
 }
 // 天气页底下：让他们知道我这边的天气（x_wxShare）。只认真实位置 x_geo，选了架空世界也照真实的走。
-function WxShareBox({ userGeo, characters }) {
+function WxShareBox({ userGeo, characters, worlds }) {
   const t = useTheme();
   const [cfg, setCfg] = useState(function () { try { return JSON.parse(localStorage.getItem("x_wxShare") || "{}") || {}; } catch (e) { return {}; } });
   const save = function (patch) { const n = Object.assign({}, cfg, patch); setCfg(n); try { localStorage.setItem("x_wxShare", JSON.stringify(n)); } catch (e) {} };
@@ -2784,6 +2784,16 @@ function WxShareBox({ userGeo, characters }) {
     row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。想知道天气时问他，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { "data-wk": "wxshareon" }),
     cfg.on ? h("div", null,
       row("会主动提醒", "下雨、降温、特别热这种天，名单里有人会来叮嘱你一句，附一张卡片。一天最多一次", !!cfg.nudge, function () { save({ nudge: !cfg.nudge }); }, { "data-wk": "wxsharenudge" }),
+      // 天气卡按哪边发（她 2026-10-17）：你把自己放进架空世界时，卡上发那个世界的天气、不带现实地名
+      h("div", { style: { padding: "6px 0 10px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "天气卡按哪边发"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, cfg.cardFrom === "world" ? "对谁你在架空世界里，就发那个世界里你在那一处的天气，卡上不出现现实地名；对谁你在现实里，照旧发现实的" : "一律发你现实那边的天气和地名"),
+        h("div", { "data-wk": "wxsharecardfrom", className: "flex", style: { gap: 8, marginTop: 8 } },
+          [["real", "现实那边"], ["world", "我在的架空世界"]].map(function (o) {
+            const on = (cfg.cardFrom === "world" ? "world" : "real") === o[0];
+            return h("button", { key: o[0], "data-on": on ? "1" : "0", onClick: function () { save({ cardFrom: o[0] }); }, className: "active:opacity-70",
+              style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 12.5, color: on ? t.ink : t.sub, background: on ? "rgba(0,0,0,.04)" : "transparent" } }, o[1]);
+          }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 8px" } }, who.length ? "只有勾了的人知道" : "现在是所有人都知道；勾几个就只有他们知道"),
       h("div", { className: "flex flex-wrap", style: { gap: 8 } }, cs.map(function (c) {
         const on = who.includes(c.id);
@@ -2791,6 +2801,36 @@ function WxShareBox({ userGeo, characters }) {
           className: "flex items-center active:opacity-70", style: { gap: 6, padding: "4px 10px 4px 4px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? "rgba(0,0,0,.04)" : "transparent" } },
           h(Avatar, { character: c, size: 22, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, c.remark || c.name));
       }))) : null);
+}
+// 架空世界的天气跟着一座现实城市（x_worldWxFollow：{世界id:{label,lat,lng}}，她 2026-10-17）。
+//   跟上了，这个世界今天的天气就是那座城今天的真实天气；地图、天气页、日程、聊天里说的都跟着变，城市名不告诉任何人。
+function WorldWxFollowBox({ userGeo, characters, worlds }) {
+  const t = useTheme();
+  const ws = (Array.isArray(worlds) ? worlds : []).filter(function (w) { return w && w.id; });
+  const [map, setMap] = useState(function () { return (typeof loadJSON === "function" ? loadJSON("x_worldWxFollow", {}) : {}) || {}; });
+  if (!ws.length) return null;
+  const reals = weatherPlaceList(userGeo, characters, []).filter(function (p) { return p.real && typeof p.lat === "number"; })
+    .map(function (p) { return { key: p.key, label: p.kind === "geo" ? "我这儿" : p.sub, name: p.kind === "geo" ? String(p.label || "我这儿") : p.sub, lat: p.lat, lng: p.lng }; });
+  const setFor = function (wid, p) {
+    const n = Object.assign({}, map);
+    if (p) n[wid] = { label: p.name, lat: p.lat, lng: p.lng }; else delete n[wid];
+    setMap(n); if (typeof saveJSON === "function") saveJSON("x_worldWxFollow", n);
+    if (p && typeof weatherFor === "function") weatherFor(p.lat, p.lng).catch(function () {});
+  };
+  const chip = function (key, label, on, fn) { return h("button", { key: key, "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70",
+    style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 12, color: on ? t.ink : t.sub, background: on ? "rgba(0,0,0,.04)" : "transparent", whiteSpace: "nowrap" } }, label); };
+  return h("div", { "data-wk": "worldwxfollow", style: { marginTop: 18, paddingTop: 12, borderTop: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "架空世界的天气跟着现实城市"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "跟上了，那个世界今天就是那座城今天的真实天气；城市名不会告诉任何人。不跟就照那个世界自己的天气"),
+    reals.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 8 } }, "还没有能跟的现实地方：先在 设置 → 知 定一个位置，或者给角色在好友地图里设个家"),
+    ws.map(function (w) {
+      const cur = map[w.id];
+      return h("div", { key: w.id, style: { marginTop: 12 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6 } }, w.name || "未命名的世界"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+          chip("none", "不跟", !cur, function () { setFor(w.id, null); }),
+          reals.map(function (p) { return chip(p.key, p.label, !!cur && cur.lat === p.lat && cur.lng === p.lng, function () { setFor(w.id, p); }); })));
+    }));
 }
 function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const t = useTheme();
@@ -2893,7 +2933,8 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
       }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
-    h(WxShareBox, { userGeo, characters }))), document.body) : null;
+    h(WxShareBox, { userGeo, characters, worlds }),
+    h(WorldWxFollowBox, { userGeo, characters, worlds }))), document.body) : null;
   return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },

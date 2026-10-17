@@ -8,9 +8,12 @@ const path = require("node:path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const a = src("app.js"), c = src("components.js"), e = src("engine.js");
 test("她这边的天气只认真实位置 x_geo，不走 myRealm（架空世界里照样是真实天气）", () => {
-  const fn = a.slice(a.indexOf("const userWxFor = "), a.indexOf("const userWxFor = ") + 500);
+  // 2026-10-17 起天气卡可以选按架空那边发（cardFrom＝world）；只有那一支走 myRealm，默认照旧只认 x_geo
+  const fn = a.slice(a.indexOf("const userWxFor = "), a.indexOf("const userWxFor = ") + 1200);
   assert.match(fn, /loadJSON\("x_geo", null\)/);
-  assert.ok(!/myRealm|realGeo/.test(fn));
+  const realPart = fn.slice(fn.indexOf("const g = loadJSON"), fn.indexOf("const geoForPrompt"));
+  assert.ok(!/myRealm|realGeo/.test(realPart));
+  assert.match(fn, /if \(wxShareCfg\(\)\.cardFrom === "world"\) \{\n\s*const r = myRealm\(charId\)/);
 });
 test("开了才给、名单里的人才给；能力栏开 weatherCard，卡上数字照缓存填", () => {
   assert.match(a, /wxShareOn = \(charId, cfg\) =>/);
@@ -24,7 +27,7 @@ test("会主动提醒：一天最多一次，走名单", () => {
 });
 test("天气拉降雨概率；天气页底下有开关；聊天里画卡片", () => {
   assert.match(e, /precipitation_probability_max/);
-  assert.match(c, /h\(WxShareBox, \{ userGeo, characters \}\)/);
+  assert.match(c, /h\(WxShareBox, \{ userGeo, characters, worlds \}\)/);
   assert.match(c, /m\.kind === "weathercard" && m\.wx/);
   assert.match(c, /function WeatherChatCard/);
 });
