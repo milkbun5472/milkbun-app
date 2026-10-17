@@ -7,7 +7,7 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const A = R("app.js"), C = R("components.js"), E = R("engine.js");
 
 test("动描一小段：ACT_MEANING 不动，开了才补一句", () => {
-  assert.match(E, /const ACTLINE_LONG_RULE = "【动描写多长】/);
+  assert.match(E, /const ACTLINE_LONG_RULE = "【动描写多长 · 这个聊天里压过/);
   assert.match(A, /\(_actDesc && _s\.actLong \? "\\n\\n" \+ ACTLINE_LONG_RULE : ""\)/);
   assert.match(A, /\(_gActDesc && gs\.actLong \? "\\n\\n" \+ ACTLINE_LONG_RULE : ""\)/);
   assert.match(A, /actLong: !!s\.actLong,/);
