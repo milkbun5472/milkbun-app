@@ -60,7 +60,7 @@ test("三张都在管长相的卡合成一格，进去再分", () => {
 test("返回一层一层退，不会一步跳回首页", () => {
   // api* → api、长相三兄弟 → look、小稿 → write，其余 → home
   assert.match(CFG, /if \(\/\^api\[A-Z\]\/\.test\(page\)\) return setPage\("api"\);/);
-  assert.match(CFG, /if \(page === "theme" \|\| page === "themeStudio" \|\| page === "bubble"\) return setPage\("look"\);/);
+  assert.match(CFG, /if \(page === "theme" \|\| page === "themeStudio" \|\| page === "bubble"( \|\| page === "chatCss")?\) return setPage\("look"\);/);
   // v70.84：「情侣问答」那一格搬去问答小本右上角了，设置里没有 qa 这一层了
   assert.match(CFG, /if \(page === "cot"\) return setPage\("write"\);/);
   assert.ok(!/page === "qa"/.test(CFG), "设置里还留着问答那一层——那就是两处都有了");

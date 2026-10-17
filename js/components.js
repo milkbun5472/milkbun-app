@@ -553,7 +553,7 @@ function applyChatLook(next) {
   //   它是这一个窗口里最具体的一层。App 那头已经用主题工作台同一支 scopeCSS 限死到这个人这一页。
   // ⑤.5 排版开关编出来的那几条：排在自己写的 CSS 前面——开关是起手，自己写的最具体
   // 安全模式（地址后面加 ?safe-theme=1）：主题工作台那份不挂，各聊天窗自己写的那几层也不挂——写坏了能先进去清
-  const _safe = !!(window.ThemeStudio && window.ThemeStudio.safeMode && window.ThemeStudio.safeMode());
+  const _safe = !!(typeof window !== "undefined" && window.ThemeStudio && window.ThemeStudio.safeMode && window.ThemeStudio.safeMode());
   put("wk-char-layout-css", (scope && L.layoutCSS && !_safe) ? L.layoutCSS : "");
   put("wk-char-custom-css", (scope && L.customCSS && !_safe) ? L.customCSS : "");
 }
