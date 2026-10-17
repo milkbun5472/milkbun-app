@@ -32,3 +32,10 @@ test('界面：广场能发帖评论转发，播放页有「评」进歌评页',
   assert.match(sc,/onPostSquare && onPostSquare\(v, now\)/);
   assert.match(sc,/"data-wk": "listentalkopen"/);
 });
+test('一枪刷得多（跟论坛一样）、网易云评论区的样子：网名、赞数、热评',()=>{
+  assert.match(app,/n: "12-18"/);assert.match(app,/n: "10-16"/);
+  assert.match(lq,/网易云评论区的样子/);assert.match(lq,/likes/);
+  assert.match(sc,/"热门评论"/);assert.match(sc,/"精彩评论"/);
+  assert.match(sc,/onMoreSquare && onMoreSquare\(p\.id\)/);
+  assert.match(lq,/"data-kind": "listenshare"/);
+});

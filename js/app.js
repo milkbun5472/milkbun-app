@@ -27475,7 +27475,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const reg = !c && FORUM_NPC_REGISTRY.find(n => n.music && n.music.name === S0(x && x.name));
     const text = S0(x && x.text).slice(0, 400); if (!text) return null;
     return { id: "lq_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), by: c ? c.id : reg ? reg.id : "npc", name: c ? (c.remark || c.name) : reg ? reg.music.name : (S0(x && x.name) || "路人").slice(0, 20),
-      text, ...(S0(x && x.to) ? { to: S0(x.to).slice(0, 20) } : {}), tone: x && (x.tone === "warm" || x.tone === "spar") ? x.tone : "", ts: Date.now() };
+      text, ...(S0(x && x.to) ? { to: S0(x.to).slice(0, 20) } : {}), tone: x && (x.tone === "warm" || x.tone === "spar") ? x.tone : "", likes: Math.max(0, Math.min(99999, Math.round(Number(x && x.likes) || 0))), ts: Date.now() };
   };
   const S0 = v => String(v == null ? "" : v).trim();
   const sqAsk = async (sys, tag) => { const raw = await callAI(active, sys, [{ role: "user", content: "写。" }], { maxTokens: 8000, tag: tag }); return (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {}; };
@@ -27498,7 +27498,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       for (const p of (Array.isArray(d.posts) ? d.posts : []).slice(0, 10)) {
         const head = sqItem(p, cast); const title = S0(p && p.title); if (!head || !title) continue;
         const song = await sqResolveSong(title, S0(p.artist)); if (!song) continue;
-        out.push({ ...head, song, comments: (Array.isArray(p.comments) ? p.comments : []).slice(0, 3).map(c => sqItem(c, cast)).filter(Boolean) });
+        out.push({ ...head, song, comments: (Array.isArray(p.comments) ? p.comments : []).slice(0, 8).map(c => sqItem(c, cast)).filter(Boolean) });
       }
       if (!out.length) { toast("这一批歌在网易云一首都没搜到，再刷一次试试"); return; }
       saveListen(p => ({ ...p, square: [...out, ...(p.square || [])].slice(0, LQ().KEEP_POSTS) }));
@@ -27526,12 +27526,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const cast = sqCast(target || null, 3);
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。下面是这一帖的评论。",
         transcript: LQ().transcriptOf((post.comments || []).concat(mine ? [mine] : [])), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
-        text: mine ? mine.text : "（她刚发了这一帖）", to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: mine ? 4 : 5 }), "音乐广场");
-      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 6);
+        text: mine ? mine.text : "（她刚发了这一帖）", to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: mine ? "5-8" : "8-12" }), "音乐广场");
+      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
       saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: [...(x.comments || []), ...items] } : x) }));
       sqTouch(items.filter(x => x.to === sqMe() || !mine), "theirs");
       if (to && FORUM_NPC_REGISTRY.some(n => n.music && n.music.name === to)) { const r = FORUM_NPC_REGISTRY.find(n => n.music && n.music.name === to); touchForumPublicTie(r.id, "mine", ""); }
     } catch (e) { toast("没人接上：" + (e.message || "重试")); }
+    finally { setGen(g => ({ ...g, squareReply: null })); }
+  };
+  // 某一帖底下「再刷点评论」：跟论坛刷楼一样一枪 10–16 条，接在已有的后面
+  const moreSquare = async postId => {
+    if (!sqReady()) return;
+    const post = ((listenRef.current || {}).square || []).find(p => p.id === postId); if (!post) return;
+    setGen(g => ({ ...g, squareReply: postId }));
+    try {
+      const cast = sqCast(null, 3);
+      const d = await sqAsk(LQ().songSystem({ song: post.song || {}, where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。这是这一帖底下的评论区，像网易云的动态评论。",
+        cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), transcript: LQ().transcriptOf(post.comments || []), n: "10-16" }), "音乐广场");
+      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 18);
+      if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
+      saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: [...(x.comments || []), ...items].slice(-LQ().KEEP_TALK) } : x) }));
+      sqTouch(items.filter(x => x.to === sqMe()), "theirs");
+    } catch (e) { toast("没刷出来：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, squareReply: null })); }
   };
   // 一首歌一页歌评：刷过的留在 listen.songTalk[门牌]，回来还在
@@ -27543,8 +27559,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, songTalk: key }));
     try {
       const cast = sqCast(partner, 3);
-      const d = await sqAsk(LQ().songSystem({ song, cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), partner: partner ? { id: partner.id, name: partner.remark || partner.name } : null, transcript: LQ().transcriptOf(have), n: 8 }), "歌评");
-      let items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
+      const d = await sqAsk(LQ().songSystem({ song, cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), partner: partner ? { id: partner.id, name: partner.remark || partner.name } : null, transcript: LQ().transcriptOf(have), n: "12-18" }), "歌评");
+      let items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 20);
       if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
       saveListen(p => { const st = p.songTalk || {}, cur = st[key] || {};
         return { ...p, songTalk: { ...st, [key]: { song: { title: song.title, artist: song.artist || "", cover: song.cover || null, neteaseId: song.neteaseId || "" }, items: [...(cur.items || []), ...items].slice(-LQ().KEEP_TALK), ts: Date.now() } } }; });
@@ -27564,8 +27580,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const cast = sqCast(target || (characters || []).find(c => c.id === L.partnerId) || null, 3);
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 里" + LQ().songLine(song) + "这首歌的评论区。", transcript: LQ().transcriptOf(have), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
-        text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: 4 }), "歌评");
-      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 6);
+        text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: "5-8" }), "歌评");
+      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
       put(items);
       sqTouch(items.filter(x => x.to === sqMe()), "theirs");
       const r = to && FORUM_NPC_REGISTRY.find(n => n.music && n.music.name === to); if (r) touchForumPublicTie(r.id, "mine", "");
@@ -32114,7 +32130,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenSquare: genSquare,
     genSquare: !!gen.square,
     onPlaySquare: post => post && post.song && playSong(post.song),
-    onPostSquare: postSquare, onReplySquare: replySquare, squareBusy: gen.squareReply || null, onShareSquare: shareSquare,
+    onPostSquare: postSquare, onReplySquare: replySquare, onMoreSquare: moreSquare, squareBusy: gen.squareReply || null, onShareSquare: shareSquare,
     onGenSongTalk: genSongTalk, onReplySongTalk: replySongTalk, songTalkBusy: gen.songTalk || null,
     player: player,
     onTogglePlay: togglePlay,
