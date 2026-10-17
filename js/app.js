@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.886";
+const APP_VERSION = "v75.887";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2611,7 +2611,13 @@ function App() {
     try {
       // 不安全的 CSS 一律不挂（跟云端导出那道同一个判据，别只在编辑框里提示一句就放过去）
       const raw = os0.customCSS && !window.ThemeStudio.unsafeReason(os0.customCSS) ? os0.customCSS : "";
-      const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, scope)) : "";
+      // 选择器自己就从线下那一层写起（[data-wk="offline"] [data-wk="chathead"]，单独放的时候大家都这么写）：
+      //   原来照样在前面再套一层 offline，变成「offline 里面的 offline」，一条都对不上，顶栏就没了（群里 2026-10-17）。
+      //   先用占位当 scope，再把「占位 + offline」并成一层。
+      const SENT = "html[data-lisa-offscope-x]";
+      const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, SENT)
+        .split(SENT + " [data-wk=\"offline\"]").join(scope).split(SENT + " [data-wk='offline']").join(scope).split(SENT + " [data-wk=offline]").join(scope)
+        .split(SENT).join(scope)) : "";
       applyOfflineLook(css);
     } catch (e) { applyOfflineLook(""); }
   };

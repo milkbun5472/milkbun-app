@@ -37,7 +37,8 @@ test("② 判据是 offlineChar，不是 screen", () => {
 test("③ 不安全的 CSS 不许挂上去", () => {
   assert.match(PAINT, /!window\.ThemeStudio\.unsafeReason\(os0\.customCSS\)/,
     "只在编辑框里提示一句就放过去了");
-  assert.match(PAINT, /scopeCSS\(raw, scope\)/, "没限作用域就挂了");
+  assert.match(PAINT, /scopeCSS\(raw, SENT\)/, "没限作用域就挂了");
+  assert.match(PAINT, /\.split\(SENT\)\.join\(scope\)/, "占位没换回这个人的线下那层");
   assert.match(PAINT, /resolveCSSImages\(/, "图片地址没换，自己图库里的图显示不出来");
 });
 
