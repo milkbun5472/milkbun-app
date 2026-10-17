@@ -536,7 +536,7 @@
         ["chattoollabel", "键底下那行字"],
         // 点头像那张心声卡（她 2026-09-22 转群里读者：「那个卡片不可以美化的嘛？」）
         ["statecard", "点头像那张心声卡整张"], ["statehead", "心声卡抬头（头像·名字·此刻心情）"],
-        ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statevoice", "心声卡「心里想的」那一块"], ["statevoicedel", "心声卡上每条心声旁边的「删」"], ["statevoiceclear", "心声卡翻旧的那页顶上的「清空」"],
+        ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statewear", "心声卡上「穿着」那一行（点一下能改）"], ["statevoice", "心声卡「心里想的」那一块"], ["statevoicedel", "心声卡上每条心声旁边的「删」"], ["statevoiceclear", "心声卡翻旧的那页顶上的「清空」"],
         ["stateaff", "心声卡底下好感那一整行（心＋好感度那几个字）"],
         // 那颗心拆开（她 2026-10-05：「要可以改图案」）：换形状写在 stateheart 上的 --sc-heart-mask，四层一起变
         ["stateheart", "好感那颗心整颗（换图案：--sc-heart-mask: url(图)；颜色 --sc-heart-ink）"], ["stateheartline", "心的描边那一圈"],

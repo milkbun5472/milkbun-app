@@ -3608,6 +3608,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (refresh) patch.conditionUpdatedAt = now;
     }
   };
+  // 穿着不许自己漂（她 2026-10-17「聊着天他自己就变了，明明没有换衣服」）：模型每轮都会交 wearing，
+  //   常常顺手换个说法、换个颜色。卡上已经有一身还新鲜的时候，这一轮的话（她说的、他说的、动作描写）里
+  //   得真有换衣服的动作才认新的；没有就照旧。force＝这一轮本来就要求重新确认（行程换槽）或她手动改的。
+  const WEAR_CHANGE_RE = /换(上|了|好|下|掉|成|身|件|套|衣)|穿(上|好|起)|套上|披上|裹上|脱(了|下|掉)|解(开|下)|更衣|宽衣|换装|洗(完|好)?澡|沐浴|冲(了|个)?凉|起床|起来了|睡(下|觉)|躺下/;
+  const putWearing = (patch, live, value, now, cueText, force) => {
+    const v = String(value == null ? "" : value).trim();
+    if (!v) return;
+    const cv = String((live && live.wearing) || "").trim(), ua = Number(live && live.wearingUpdatedAt);
+    const cur = cv && ua > 0 && now - ua <= (typeof LIVE_STATE_TTL !== "undefined" ? LIVE_STATE_TTL.wearing : 18 * 3600000) ? cv : "";
+    if (cur && !force && !sameStateValue(v, cur) && !WEAR_CHANGE_RE.test(String(cueText || ""))) return;
+    putLiveField(patch, live, "wearing", v, now);
+  };
   const clearWearingOnMove = (patch, live, hasWearing) => {
     if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
       patch.wearing = null; patch.wearingUpdatedAt = 0;
@@ -3624,7 +3636,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!c) return;
     const live = statesRef.current[c.id] || {}, now = Date.now();
     const patch = thoughtTurnPatchFor(c.id, live, data.thought, now, seen);
-    putLiveField(patch, live, "wearing", data.wearing, now);
+    putWearing(patch, live, data.wearing, now, [data.text, data.action, data.narration].filter(x => typeof x === "string").join("\n"));
     putLiveField(patch, live, "action", data.action, now);
     // 群文字的动作是本轮新的一拍；穿着仍只在真正变化时更新时钟。
     if (patch.action) patch.actionUpdatedAt = now;
@@ -8908,7 +8920,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const liveState = liveStateForScope(charId, scopeKey);
       const ost = {};
       const stateNow = Date.now();
-      putLiveField(ost, liveState, "wearing", res.wearing, stateNow);
+      putWearing(ost, liveState, res.wearing, stateNow, [res.text, res.content, res.narration, res.action, ...((workSess && workSess.msgs) || []).slice(-3).map(m => m && (m.content || m.text))].filter(x => typeof x === "string").join("\n"));
       const offlineAction = TVG.normalizeAction(res.action, char && char.name);
       putLiveField(ost, liveState, "action", offlineAction, stateNow);
       // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
@@ -12532,9 +12544,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _missingStateFields = [];
       if (!_liveChatWearing) _missingStateFields.push("wearing（当前穿着）");
       if (!_liveChatAction) _missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
-      const _stateBootstrapHint = _missingStateFields.length
+      // 穿着不自己漂（她 2026-10-17）：卡上有一身、这轮又不用重新确认时，把那身原样给它，没换就抄回
+      const _wearKeepHint = _liveChatWearing && !_body && !_wearRefreshGate.required
+        ? "\n【着装连贯】卡上记着你现在穿：" + _liveChatWearing + "。这一轮没换衣服，wearing 就把这一句原样抄回，别换颜色、换料子、换个说法；真换了才写新的。" : "";
+      const _stateBootstrapHint = _wearKeepHint + (_missingStateFields.length
         ? "\n【一次性状态建档】App 还没有 " + _missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知处境合理建立一次；不要写进 word，也不要为填状态制造剧情。"
-        : "";
+        : "");
       const _wearRefreshHint = _wearRefreshGate.required
         ? "\n【本轮必须重新确认穿着】触发原因：" + _wearRefreshGate.reason + "。"
           + "依据已有上下文，在 wearing 确认此刻实际穿着；不沿用与当前处境冲突的旧值。只记录状态，不为填写字段在 word 中报备或表演换衣。"
@@ -13754,7 +13769,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const st = {};
       const stateNow = Date.now();
       const _live0 = statesRef.current[charId] || {};
-      putLiveField(st, _live0, "wearing", parsed.wearing, stateNow);
+      putWearing(st, _live0, parsed.wearing, stateNow,
+        [...history.slice(-4).filter(m => m && m.role === "user").map(m => String(m.content || "")), String(extraText || ""), ...words.filter(w => typeof w === "string"), parsed.action, parsed.narration].filter(x => typeof x === "string").join("\n"),
+        !_body && _wearRefreshGate.required);
       // 穿着必须确认到具体行程槽。只有模型真的交回了 wearing 才承认本槽已刷新；
       // 漏填则把 pending 留到下一轮，不能提醒一次后继续挂着旧睡衣。
       if (!_body && _wearRefreshGate.required) {
@@ -32346,6 +32363,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       state: roomCard ? (roomStates[stateCardRoomKey] || null) : (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),
       onDelThought: what => delThought(!!roomCard, roomCard ? stateCardRoomKey : scc.id, what),
+      onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast("改好了，下一轮他照这身来"); },
       roomName: roomMeta && roomMeta.name,
       hideWearAction: roomCard,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)

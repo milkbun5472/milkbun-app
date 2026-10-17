@@ -122,3 +122,14 @@ test("空间门口：spaceDoor 进 coupleStatusLines，x_spaceHome 走 IndexedDB
   ["usplaque", "usthing", "uslight", "usplaqueta"].forEach(k => assert.ok(scr.slice(i, j).includes('"data-wk": "' + k + '"'), k));
   assert.match(scr, /bestie: \{ days: \["闺蜜盖章", "天"\]/);
 });
+// 她 2026-10-17「聊着天他自己就变了明明没有换衣服」：卡上的衣服还新鲜时，没换衣服的动作就不认新的；卡上能手改
+test("穿着不自己漂：putWearing 要换衣服的动作才认新的，状态卡能改穿着", () => {
+  assert.match(app, /const putWearing = \(patch, live, value, now, cueText, force\) =>/);
+  assert.match(app, /if \(cur && !force && !sameStateValue\(v, cur\) && !WEAR_CHANGE_RE\.test/);
+  assert.match(app, /putWearing\(st, _live0, parsed\.wearing, stateNow,/);
+  assert.match(app, /putWearing\(ost, liveState, res\.wearing, stateNow,/);
+  assert.match(app, /onSetWearing: roomCard \? null :/);
+  assert.match(app, /【着装连贯】卡上记着你现在穿/);
+  const i = app.indexOf("const WEAR_CHANGE_RE = "), re = new Function("return " + app.slice(i + 23, app.indexOf(";\n", i)))();
+  assert.ok(re.test("我先去换件衣服") && re.test("洗完澡出来") && !re.test("把汤碗推到她手边"));
+});

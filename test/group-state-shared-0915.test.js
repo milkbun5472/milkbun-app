@@ -44,5 +44,7 @@ test('群里反复报告同一套衣服不续时间；换衣刷新，动作保�
  const f=fixture(),c={id:'a'};f.write(c,{wearing:'白衬衫',action:'坐着'});
  const old=f.states.a.wearingUpdatedAt,oldAction=f.states.a.actionUpdatedAt;
  f.tick();f.write(c,{wearing:'白衬衫',action:'坐着'});assert.equal(f.states.a.wearingUpdatedAt,old);assert.ok(f.states.a.actionUpdatedAt>oldAction);
- f.tick();f.write(c,{wearing:'黑外套'});assert.ok(f.states.a.wearingUpdatedAt>old);
+ // 2026-10-17「聊着天他自己就变了」：衣服还新鲜时，这一拍没换衣服的动作就不认新的
+ f.tick();f.write(c,{wearing:'黑外套'});assert.equal(f.states.a.wearing,'白衬衫');
+ f.tick();f.write(c,{wearing:'黑外套',text:'我先去换件外套'});assert.equal(f.states.a.wearing,'黑外套');assert.ok(f.states.a.wearingUpdatedAt>old);
 });

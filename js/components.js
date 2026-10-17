@@ -15648,7 +15648,7 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
 }
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
@@ -15766,7 +15766,11 @@ function StateCard({
           { position: "absolute", width: 13, height: 13, borderColor: t.line, borderStyle: "solid" },
           i === 0 ? { left: 8, bottom: 6, borderWidth: "0 0 1px 1px" } : { right: 8, bottom: 6, borderWidth: "0 1px 1px 0" }) })),
         label("看得见的"),
-        S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
+        // 穿着对不上能直接改（她 2026-10-17「聊着天他自己就变了」）：只改这一格，心声、心情、动作都不碰
+        onSetWearing ? h("button", { "data-wk": "statewear", onClick: () => requestAppPrompt("他现在穿的", "改成对的那身，下一轮他就照这身接着来。", S(state && state.wearing), v => { if (String(v || "").trim()) onSetWearing(String(v).trim()); }, "改好了"),
+            className: "block w-full text-left active:opacity-60", style: { background: "transparent", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } },
+            S(state && state.wearing) || "穿着没记 · 点一下写", h("span", { style: { fontSize: 10.5, color: t.fog, marginLeft: 6 } }, "改"))
+          : S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
         // 动描开成「一小段」以后这一格会长（她 2026-10-07：「留意一下会不会卡被撑爆」）：最多露四行，点一下看全
         S(state && state.action) ? h(ClampText, { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 }, text: S(state.action) }) : null) : null,
       // 没说出口的：跟上面那半明显不是一类

@@ -74,7 +74,7 @@ test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
 
 test("offline null state semantics preserve durable state and clear stale thought", () => {
   // v53.60 起:值没变就不刷新时间戳(模型每轮原样复述会把 TTL 续命到永不过期)
-  assert.match(app, /putLiveField\(ost, liveState, "wearing", res\.wearing, stateNow\)/);
+  assert.match(app, /putWearing\(ost, liveState, res\.wearing, stateNow,/);
   assert.match(app, /putLiveField\(ost, liveState, "action", offlineAction, stateNow\)/);
   assert.match(app, /if \(offlineThought\) \{ ost\.thought = offlineThought; ost\.thoughtUpdatedAt = stateNow; ost\.thoughtSkips = 0; \}/);
   assert.match(app, /else if \(liveState\.thought\) \{ ost\.thought = null; ost\.thoughtUpdatedAt = 0; \}/);
