@@ -1093,7 +1093,7 @@ require("node:test")("看他玩手机：外语心声自带中文，带到屏幕�
   const W = require(path.join(__dirname, "..", "js", "phone-watch.js"));
   const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone-watch.js"), "utf8");
   assert.match(src, /think 里再加一栏 zh/);
-  assert.match(src, /zhReady: p\.zh \|\| undefined/);
+  assert.match(src, /p\.zh \? p\.text \+ "（" \+ p\.zh \+ "）"/);
   const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
   assert.match(ph, /thoughtZh: a\.zh \|\| ""/);
 });

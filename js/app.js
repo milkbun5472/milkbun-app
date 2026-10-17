@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.877";
+const APP_VERSION = "v75.879";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8479,7 +8479,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   我那身：记在这一场上，出图时顶掉我的固定锁和衣柜；勾了「以后都这样」就写进资料里那把固定服装锁。
   //   两边都落一句旁白：模型下一拍就知道换了，不会接着写原来那身。
   const closetSetsOf = box => (typeof closetGroups === "function" ? closetGroups(box && box.outfit) : [])
-    .flatMap(g => (g.sets || []).map(x => ({ name: String(x.name || "").trim(), note: String(x.note || "").trim(), occasion: g.occasion || "" }))).filter(x => x.name).slice(0, 40);
+    .flatMap(g => (g.sets || []).map(x => ({ name: String(x.name || "").trim(), note: String(x.note || "").trim(), occasion: g.occasion || "" }))).filter(x => x.name).slice(0, 120);
   // scope：{ scopeKey } 是单聊那一场，{ groupId } 是群线下那一场；who 是要换的那个人的 id，或 "me"
   const sceneSessOf = scope => scope.groupId ? (groupOfflinesRef.current[scope.groupId] || []).find(x => !x.endTs) : (offlinesRef.current[scope.scopeKey] || []).find(x => !x.endTs);
   const sceneMeOutfit = scope => ((sceneSessOf(scope) || {}).meOutfit) || (profile && profile.photoOutfit) || "";
@@ -32369,6 +32369,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       state: roomCard ? (roomStates[stateCardRoomKey] || null) : (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),
       onDelThought: what => delThought(!!roomCard, roomCard ? stateCardRoomKey : scc.id, what),
+      wearSets: roomCard ? null : closetSetsOf((carryRef.current || {})[scc.id]),
       onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast("改好了，下一轮他照这身来"); },
       roomName: roomMeta && roomMeta.name,
       hideWearAction: roomCard,
