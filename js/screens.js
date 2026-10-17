@@ -541,9 +541,12 @@ function CastForm({
   onBack,
   onSave,
   onDelete,
-  onGenAvatar
+  onGenAvatar,
+  onApplyRef
 }) {
   const t = useTheme();
+  // ⚠️这一页从来没收过 toast（原来那句「先填外貌」一点就是 ReferenceError）——用全局那一颗
+  const toast = msg => window.__toast && window.__toast(msg);
   const [avBusy, setAvBusy] = useState(false);
   const [name, setName] = useState(initial && initial.name || "");
   const [tagline, setTagline] = useState(initial && initial.tagline || "");
@@ -719,6 +722,15 @@ function CastForm({
               h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3,
                 // ⚠️档案换头像不许顶掉聊天里另设的那张（她 2026-10-13「人格档案馆换的不要 override 聊天的」）
                 onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
+              // 头像能存、能直接当参考照（群里 2026-10-17：「头像生成后能不能保存？生太帅，想用来锁脸」）
+              avatarImage ? h("div", { className: "flex", style: { gap: 10, marginTop: 7, justifyContent: "center" } },
+                h("button", { onClick: () => { if (window.saveImgOriginal) window.saveImgOriginal(avatarImage, (name || "头像") + "-头像").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")); },
+                  className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, "存到手机"),
+                // 直接应用到锁脸（她 2026-10-17「再加个应用到锁脸吧直接」）：已经存在的角色当场写进档案，不用再点保存
+                h("button", { onClick: () => { setRefPhoto(avatarImage);
+                    if (initial && initial.id && onApplyRef) { onApplyRef(initial.id, avatarImage); toast("应用了：之后生图就照这张脸锁"); }
+                    else toast("这张头像现在也是参考照了，保存档案后生图就照这张脸"); },
+                  className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, refPhoto === avatarImage ? "已用来锁脸" : "应用到锁脸")) : null,
               chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
                 h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
                 h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35 } }, "聊天里用的是TA自己换的\n点这里用回档案这张"))),

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.855";
+const APP_VERSION = "v75.857";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -29830,6 +29830,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSave: saveChar,
     onDelete: delChar,
     onReset: resetChar,
+    // 头像一键当参考照、当场生效（她 2026-10-17）：只改 refPhoto 这一栏，别的照旧
+    onApplyRef: (id, ref) => { pC(p => p.map(c => c.id === id ? { ...c, refPhoto: ref } : c)); },
     // 生成头像（她 2026-08-25：「为啥别的小手机能生成真的像头像的图，我们只有 emoji」）。
     // 图像 API 早就在跑自拍/合照/剧照，只是从来没接过头像这个字段。有参考照就拿它锁脸
     //（走 images/edits），没有就按【外貌】那栏画。方图 1024，存进图库只留一个 iv_ 键。
