@@ -1086,3 +1086,14 @@ test("点开那一下一定开出一页来（认不出名字就开第一条）",
   assert.match(phone, /const watchFuzzy = \(name, firstIfMiss\) => \{/);
   assert.match(phone, /a\.kind === "openItem" \|\| a\.kind === "look"\);/);
 });
+
+// 她 2026-10-17：「为什么不能让它写的时候顺便交中文上来」——外语心声自带 zh，屏幕上直接用
+require("node:test")("看他玩手机：外语心声自带中文，带到屏幕那一块", () => {
+  const fs = require("node:fs"), path = require("node:path"), assert = require("node:assert/strict");
+  const W = require(path.join(__dirname, "..", "js", "phone-watch.js"));
+  const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone-watch.js"), "utf8");
+  assert.match(src, /think 里再加一栏 zh/);
+  assert.match(src, /zhReady: p\.zh \|\| undefined/);
+  const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+  assert.match(ph, /thoughtZh: a\.zh \|\| ""/);
+});
