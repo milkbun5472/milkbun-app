@@ -200,6 +200,27 @@
       },
       "interior": "alley.glb?v=pet-career-1",
       "layout": "alley.json"
+    },
+    {
+      "id": "workroom",
+      "title": "小镇职业馆",
+      "x": 0,
+      "z": -31,
+      "w": 8,
+      "d": 6,
+      "height": 4,
+      "color": "#d7d9c9",
+      "roof": "#a4b59e",
+      "approach": {
+        "x": 0,
+        "z": -26.75
+      },
+      "door": {
+        "x": 0,
+        "z": -27.96
+      },
+      "interior": "resident-workroom",
+      "layout": "resident-workroom"
     }
   ],
   "trees": [

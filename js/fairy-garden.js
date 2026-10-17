@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-ba8b7ad855ac00e7", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-29f27ae3d09a730b", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -238,7 +238,7 @@
     h('ellipse',{cx:33,cy:77,rx:8,ry:4,fill:'#efc1ac',opacity:.6}),h('ellipse',{cx:87,cy:77,rx:8,ry:4,fill:'#efc1ac',opacity:.6}),
     h('path',{d:dog?'M55 76q5-5 10 0l-5 6Z':'M55 76h10l-5 5Z',fill:dog?'#5d5044':'#ca9386'}),h('path',{d:'M60 80v5m0 0q-4 4-8 0m8 0q4 4 8 0',fill:'none',stroke:'#857267',strokeWidth:1.3,strokeLinecap:'round'}),
     !dog&&h('path',{d:'M13 72l17 2M12 81l18-3M107 72l-17 2M108 81l-18-3',stroke:'#958b7e',strokeWidth:1,opacity:.65}));}
-  const PET_LIVE_PANELS=['chat','care','career','pets','view','neighbors','journal','together','parcel','travel','album','domestic'];
+  const PET_LIVE_PANELS=['chat','care','career','pets','view','neighbors','journal','together','parcel','travel','album','domestic','resident-work'];
   function PetWindow({page,drawer,children}){return h('section',{['data-pet-'+page]:true,className:(page==='chat'?'pet-chat-page':'pet-panel')+' absolute left-0 right-0 bottom-0 flex flex-col'+(drawer?' pet-live-window':' inset-0'),style:drawer?{top:drawer.top+'%',bottom:drawer.lift||0,zIndex:10}:undefined},
     drawer&&h('header',{className:'pet-chat-heading shrink-0'},h('div',{className:'pet-chat-divider',role:'separator',tabIndex:0,'aria-label':drawer.chat?'调整聊天窗口大小':'调整面板窗口大小','aria-orientation':'horizontal','aria-valuemin':28,'aria-valuemax':72,'aria-valuenow':Math.round(drawer.ratio*100),'aria-valuetext':'窗口占 '+Math.round(drawer.ratio*100)+'%','title':'拖动调大小，双击恢复一半',...drawer.controls},h('span',{className:'pet-chat-grip','aria-hidden':true}),h(PetSeal,{kind:drawer.chat?'chat':'paw',size:19}),h('strong',null,drawer.title)),h('button',{type:'button',onClick:drawer.close,'aria-label':drawer.chat?'收起小镇聊天':'收起小镇面板'},'收起')),
     children);}
@@ -283,6 +283,7 @@
     const splitKey=e=>{const values={ArrowUp:chatRatio+.05,ArrowDown:chatRatio-.05,Home:.28,End:.72};if(!Object.hasOwn(values,e.key))return;e.preventDefault();commitSplit(values[e.key]);};
     const showTogether=(mode='shop')=>{rememberScroll();paperReturn.current=panel;const view=game()?.together();setTogetherMode(view?.trip?.mode==='walk'?'walk':view?.trip?'shop':mode==='walk'?'walk':'shop');setTogetherView(view);setTogetherNotice('');setPanel('together');setError('');};
     const showWalk=()=>showTogether('walk');
+    const showResidentWork=()=>{rememberScroll();setPanel('resident-work');setError('');};
     const showDomestic=()=>{rememberScroll();domesticReturn.current=panel;setDomesticView(game()?.domestic());setDomesticNotice('');setPanel('domestic');};
     const domesticAct=(action,options={})=>{try{current();const r=game()?.domesticAction(action,options);setDomesticView(game()?.domestic());setDomesticNotice(r?.text||'先等它空下来。');}catch(e){setDomesticNotice(e.message);}};
     const moveFurniture=(item,dx,dz,turn=0)=>{const q=item.point,r=game()?.careerAction('move-furniture',{item:item.id,point:{x:q.x+dx,z:q.z+dz,yaw:(q.yaw||0)+turn}});setDomesticView(game()?.domestic());setDomesticNotice(r?.text||'这个角落暂时放不下。');};
@@ -357,7 +358,7 @@
     const split=game()?.chatLayout(chatRatio,drawerHeight)||{scenePercent:50};
     const d=current(),c=(props.characters||[]).find(x=>String(x.id)===String(d.partnerId)),petProfileView=game()?.snapshot().profile||profile;
     const drawerControls={onPointerDown:e=>{if(e.button)return;e.preventDefault();dragSplit.current={id:e.pointerId,start:chatRatio};e.currentTarget.setPointerCapture(e.pointerId);},onPointerMove:splitMove,onPointerUp:e=>splitFinish(e),onPointerCancel:e=>splitFinish(e,true),onLostPointerCapture:e=>splitFinish(e,true),onKeyDown:splitKey,onDoubleClick:()=>commitSplit(.5)};
-    const paperDrawer={top:split.scenePercent*(splitHeight?drawerHeight/splitHeight:1),lift:drawerLift,ratio:chatRatio,controls:drawerControls,title:({care:'看看'+petProfileView.name,career:'宠物职业生涯',pets:'家里的宠物',view:'镜头看谁',neighbors:neighborView?.neighbors.find(n=>n.id===neighborId)?.name||'街坊与小约定',journal:'小镇周记',together:togetherMode==='walk'?'两人同行遛宠物':'结伴逛街',parcel:'回家拆袋子',travel:'小镇菜单',album:albumId?'这一张生活照':'小镇生活相册',domestic:'家里的小日子'})[panel]||petProfileView.name+'的小日子',close:()=>{rememberScroll();setPanel('');setError('');}};
+    const paperDrawer={top:split.scenePercent*(splitHeight?drawerHeight/splitHeight:1),lift:drawerLift,ratio:chatRatio,controls:drawerControls,title:({care:'看看'+petProfileView.name,career:'宠物职业生涯',pets:'家里的宠物',view:'镜头看谁',neighbors:neighborView?.neighbors.find(n=>n.id===neighborId)?.name||'街坊与小约定',journal:'小镇周记',together:togetherMode==='walk'?'两人同行遛宠物':'结伴逛街',parcel:'回家拆袋子',travel:'小镇菜单',album:albumId?'这一张生活照':'小镇生活相册','resident-work':'TA的工作',domestic:'家里的小日子'})[panel]||petProfileView.name+'的小日子',close:()=>{rememberScroll();setPanel('');setError('');}};
 
     return h('div',{ "data-wk": "fgpetpage", className:'pet-session h-full flex flex-col '+(panel?'pet-paper-open':''),'data-pet-world':true,style:{color:'var(--pet-ink)' }},
       h('link',{rel:'stylesheet',href:'apps/pets/panels.css?v='+BUILD}),
@@ -535,11 +536,55 @@
             h('button',{className:'pet-family-cover','aria-label':'查看'+p.profile.name,onClick:()=>choosePet(p.id)},h(PetPortrait,{profile:p.profile}),h('span',null,h('strong',null,p.profile.name),h('small',null,(p.profile.species==='dog'?'狗狗':'猫咪')+(p.birth?' · '+p.birth.label:'')),p.birth&&h('small',{'data-pet-family-birthday':true},'生日 '+p.birth.birthdayLabel),h('span',{className:'pet-family-status'},p.summary.activity),h('span',{className:'pet-family-tag'},p.id===petsView.activePetId?'正在陪它':p.place||'住在同一个家里'))),
             h('div',{className:'pet-family-actions'},h('button',{onClick:()=>choosePet(p.id,'pet'),'aria-label':'修改'+p.profile.name+'的外貌'},'名字与外貌'),h('button',{onClick:()=>choosePet(p.id,'career'),'aria-label':'查看'+p.profile.name+'的职业'},'职业生活册'))))),
           h('p',{className:'pet-footnote'},'每只独立记住生日、毛色、体型、脾气、你们的关系和自己的零钱袋。闲时各自出门散步、逛店再回家；这里会显示它们当前的去处。翻名册时大家照常活动，状态、去处和现实年龄都会更新。')),
+        panel==='resident-work'&&h(PetResidentWork,{game,drawer:paperDrawer,scrollRef:panelScroll,onScroll:rememberScroll,onScene:()=>{rememberScroll();setPanel('');}}),
         panel==='travel'&&h(PetPanel,{page:'travel',scrollRef:panelScroll,onScroll:rememberScroll,drawer:paperDrawer},
           h('div',{className:'pet-town-sign'},h(PetSeal,{kind:'home',size:42}),h('div',null,h('h2',null,'今天带它去哪里'),h('p',null,c?'和'+(c.remark||c.name)+'，继续这一档的小日子。':'从小镇出发，继续这一档的旅程。'))),
-          h('div',{className:'pet-town-routes'},...[['home','家里的小日子','它的小心愿、纪念日、亲手做的点心和自己的角落',showDomestic],['book','小镇周记','翻翻每周实际留下的打工、照料、朋友和小收藏',showJournal],['book','小镇生活相册','给TA和宠物拍同框照，挑一张摆在家里',showAlbum],...(c?[['paw','两人同行遛宠物','约TA一起沿街走，停下来玩，再一起回家',showWalk],['paw','结伴逛街','带TA和现在的小家伙一起去店里、边走边聊',showTogether]]:[]),['paw','镜头看谁','跟着宠物、看看TA，或留在这里观察',showView],['chat','街坊与小约定','认识街坊、帮忙送东西，周末一起小聚',showNeighbors],['paw','家里的宠物','每一只都有自己的小档案，也能迎接新家人',showPets],['bread','职业','去小店试工，攒钱并带回小东西',showCareer],['paw','看看它','翻翻照料记录，看它过得好不好',showCare],['paw','宠物名字与外貌','给'+petProfileView.name+'改小名、毛色和体型',edit],...(c?[['chat','TA的外貌','给'+(c.remark||c.name)+'换衣服、发型和配色',editCompanion],['chat','和TA说话','商量今天的小事，也聊聊你们',openChat]]:[])].map(([kind,label,note,action])=>h('button',{key:label,className:'pet-town-route',onClick:action},h('span',{className:'pet-route-icon'},h(PetSeal,{kind,size:25})),h('span',null,h('strong',null,label),h('small',null,note)),h(PetSeal,{kind:'arrow',size:17})))),
+          h('div',{className:'pet-town-routes'},...[['home','家里的小日子','它的小心愿、纪念日、亲手做的点心和自己的角落',showDomestic],['book','小镇周记','翻翻每周实际留下的打工、照料、朋友和小收藏',showJournal],['book','小镇生活相册','给TA和宠物拍同框照，挑一张摆在家里',showAlbum],...(c?[['book','TA的工作','本职与小镇兼职、排班收入，去探班或接下班',showResidentWork],['paw','两人同行遛宠物','约TA一起沿街走，停下来玩，再一起回家',showWalk],['paw','结伴逛街','带TA和现在的小家伙一起去店里、边走边聊',showTogether]]:[]),['paw','镜头看谁','跟着宠物、看看TA，或留在这里观察',showView],['chat','街坊与小约定','认识街坊、帮忙送东西，周末一起小聚',showNeighbors],['paw','家里的宠物','每一只都有自己的小档案，也能迎接新家人',showPets],['bread','职业','去小店试工，攒钱并带回小东西',showCareer],['paw','看看它','翻翻照料记录，看它过得好不好',showCare],['paw','宠物名字与外貌','给'+petProfileView.name+'改小名、毛色和体型',edit],...(c?[['chat','TA的外貌','给'+(c.remark||c.name)+'换衣服、发型和配色',editCompanion],['chat','和TA说话','商量今天的小事，也聊聊你们',openChat]]:[])].map(([kind,label,note,action])=>h('button',{key:label,className:'pet-town-route',onClick:action},h('span',{className:'pet-route-icon'},h(PetSeal,{kind,size:25})),h('span',null,h('strong',null,label),h('small',null,note)),h(PetSeal,{kind:'arrow',size:17})))),
           h(PetNote,{title:'从南边车站出发',kind:'train'},h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');game()?.goStation();}},h(PetSeal,{kind:'train',size:24}),'走到绒绒小镇车站'),h('p',{className:'pet-quiet'},'沿街走到站台，可以上远行列车，或坐到微光庭院南站。')),
           h('button',{className:'pet-text-button pet-save-switch',onClick:()=>leave(()=>props.onChooseSave('pets'))},'选择另一档'))));
+  }
+
+  function PetResidentWork({game,drawer,scrollRef,onScroll,onScene}){
+    const [view,setView]=useState(()=>game()?.residentWork()),[notice,setNotice]=useState(''),[tab,setTab]=useState('today'),[count,setCount]=useState(20);const positions=useRef({}),tabRef=useRef(tab);tabRef.current=tab;
+    useEffect(()=>{const timer=setInterval(()=>setView(game()?.residentWork()),1000);return()=>clearInterval(timer);},[]);
+    const act=(action,options={},scene=false)=>{try{const r=game()?.residentWorkAction(action,options);setView(game()?.residentWork());setNotice(r?.text||'TA还没准备好。');if(r?.accepted&&scene)onScene();return r;}catch(e){setNotice(e.message);return {accepted:false};}};
+    const pick=t=>{positions.current[tab]=scrollRef.current?.scrollTop||0;setTab(t);};useEffect(()=>{if(scrollRef.current)scrollRef.current.scrollTop=positions.current[tab]||0;},[tab]);
+    if(!view)return h(PetPanel,{page:'resident-work',drawer,scrollRef,onScroll},h(PetNote,{title:'先和TA进入小镇',kind:'book'},'这一档有同行者后，就能安排本职和小镇兼职。'));
+    const time=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'),days=['日','一','二','三','四','五','六'],stamp=at=>new Date(at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),shift=view.shift;
+    const button=(label,fn,disabled=false)=>h('button',{type:'button',className:'pet-button',onClick:fn,disabled},label);
+    const schedule=(slot,c)=>h('div',{key:slot,className:'pet-resident-contract'},h('strong',null,slot==='primary'?'本职工作':'小镇兼职'),h('p',null,c?c.title+' · 周'+c.days.map(x=>days[x]).join('、')+' '+time(c.start)+'—'+time(c.end):'还没选，可以去安排一份工作。'),c&&h('small',null,(view.jobs.find(x=>x.id===c.role)?.duties||['准备工作','处理事务','整理交付']).join(' · ')),c&&button('体验'+(slot==='primary'?'本职':'兼职')+'一班',()=>act('trial',{slot},true),!!shift));
+    const tabs=h('div',{className:'pet-book-tabs',role:'tablist','aria-label':'TA的工作页面'},...Object.entries({today:'今天',setup:'职业与排班',ledger:'收入履历',works:'作品与生活'}).map(([id,title])=>h('button',{key:id,type:'button',role:'tab',className:'pet-book-tab'+(tab===id?' pet-book-selected':''),'aria-selected':tab===id,onClick:()=>pick(id)},title)));
+    return h(PetPanel,{page:'resident-work',drawer,scrollRef,onScroll,footer:button('回到小镇',onScene)},
+      h('div',{className:'pet-nameplate'},h(PetSeal,{kind:'book',size:30}),h('div',null,h('h2',null,view.name+'的工作'),h('p',null,'本职与兼职各有安排，赚来的零钱也有自己的账。'))),tabs,
+      notice&&h('p',{role:'status',className:'pet-chat-note'},notice),
+      tab==='today'&&h('div',null,
+        h(PetNote,{title:view.activity,kind:'clock'},shift?h('div',null,h('p',null,shift.decision),h('progress',{'aria-label':'本班实际工作进度',max:100,value:view.progress,style:{width:'100%'}}),h('p',null,'已完成 '+view.progress+'% · '+Math.floor(shift.worked/60)+' 分钟实际工作')):h('p',null,view.automatic?'按现实钟点排班，空下来会自己出门。':'现在是自由安排；可以体验一班，或打开按排班上班。')),
+        h('div',{className:'pet-care-meters'},h('span',null,'工作零钱 '+view.balance),h('span',null,'疲劳 '+Math.round(view.fatigue)+'/100')),
+        schedule('primary',view.primary),schedule('side',view.side),
+        h('div',{className:'pet-resident-actions'},button('看看TA',()=>{game()?.watch('companion');onScene();}),shift&&button('去探班',()=>act('visit',{},true)),shift&&button('带午饭去陪TA',()=>act('lunch',{},true)),shift&&button('约好接下班',()=>act('pickup',{},true)),shift&&button('提前收工',()=>act('stop')),button('今天请假休息',()=>act('leave')),button(view.automatic?'暂停自动出勤':'按排班自己上班',()=>act('automatic',{enabled:!view.automatic}))),
+        h('p',{className:'pet-quiet'},'体验班约两分钟前景活动，到工位后才计时。正式班按手机当地时间；离线最多本地补算最近三天，不调用模型。探班、接下班要实际碰面。'),
+        ...view.notes.slice(-6).reverse().map(x=>h('p',{key:x.id,className:'pet-quiet'},stamp(x.at)+' · '+x.text))),
+      tab==='setup'&&h('div',null,h('p',{className:'pet-quiet'},'保留角色原本的职业，也能选一份镇内兼职。职业只用于这一档的小镇生活；两份排班要错开。'),h(PetWorkContractEditor,{key:'primary',slot:'primary',view,act}),h(PetWorkContractEditor,{key:'side',slot:'side',view,act})),
+      tab==='ledger'&&h('div',null,h(PetNote,{title:'TA自己的小镇收入',kind:'book'},h('p',null,'现有 '+view.balance+' 零钱 · 累计收入 '+view.earned+' 零钱'),h('p',null,'按实际到岗做过的部分结算；提前收工也记真实进度。')),
+        ...Object.entries(view.skills).map(([id,s])=>h('p',{key:id},(view.jobs.find(x=>x.id===id)?.title||'自选职业')+' · '+s.shifts+' 班 · '+(s.shifts>=8?'已经熟练':s.shifts>=3?'慢慢上手':'正在熟悉')+' · 当前项目 '+s.project+'/3')),
+        view.ledger.length?view.ledger.slice().reverse().slice(0,count).map(x=>h('details',{key:x.id,className:'pet-resident-contract'},h('summary',null,x.title+' · '+(x.amount>=0?'+':'')+x.amount+' 零钱'),h('p',null,stamp(x.at)+' · '+x.note),x.seconds!=null&&h('p',null,'实际工作 '+Math.floor(x.seconds/60)+' 分钟'))):h('p',null,'实际完成工作后，这里会留下第一笔记录。'),view.ledger.length>count&&button('再翻二十条',()=>setCount(count+20))),
+      tab==='works'&&h('div',null,h(PetNote,{title:'把工作带回生活里',kind:'home'},h('p',null,'每完成三班会留下这一职业的作品或纪念物，选一件摆在家里。花艺和烘焙收工也会带回一份小东西。')),
+        ...view.works.slice().reverse().map(x=>h('div',{key:x.id,className:'pet-resident-contract'},h('strong',null,x.title),h('p',null,stamp(x.at)+' · '+x.author),button(view.display===x.id?'正在家里展示':'摆到家里',()=>act('display',{id:x.id}),view.display===x.id))),
+        !view.works.length&&h('p',null,'自己的作品还在慢慢积累。'),h('p',null,'用TA的工作零钱添置：'),h('div',{className:'pet-resident-actions'},button('给家里添花 · 12',()=>act('buy',{kind:'flowers'}),view.balance<12),button('两人份晚餐 · 18',()=>act('buy',{kind:'dinner'}),view.balance<18),button('作品相框 · 16',()=>act('buy',{kind:'frame'}),view.balance<16)),...view.gifts.slice(-8).map(x=>h('p',{key:x.id,className:'pet-quiet'},stamp(x.at)+' · '+({flowers:'带回了小花束',dinner:'准备了一份餐篮',frame:'添置了作品相框'})[x.kind]+' · '+x.source))));
+  }
+  function PetWorkContractEditor({slot,view,act}){
+    const defaults=slot==='primary'?{role:view.suggestion||'office',days:[1,2,3,4,5],start:540,end:720}:{role:'barista',days:[6],start:840,end:1020};const [draft,setDraft]=useState(()=>({...defaults,...view[slot]}));
+    const patch=p=>setDraft({...draft,...p}),time=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0'),parse=s=>{const [h,m]=s.split(':').map(Number);return h*60+m;};
+    const selected=view.jobs.find(x=>x.id===draft.role),custom=draft.role==='custom';
+    return h('fieldset',{className:'pet-resident-contract'},h('legend',null,slot==='primary'?'本职工作':'小镇兼职'),
+      h('label',null,'职业',h('select',{'aria-label':slot==='primary'?'本职职业':'兼职职业',value:draft.role,onChange:e=>patch({role:e.target.value,title:'',form:view.jobs.find(x=>x.id===e.target.value)?.form||'office'})},h('optgroup',{label:'本职方向'},...view.jobs.filter(x=>x.form!=='shop').map(x=>h('option',{key:x.id,value:x.id},x.title))),h('optgroup',{label:'小镇岗位'},...view.jobs.filter(x=>x.form==='shop').map(x=>h('option',{key:x.id,value:x.id},x.title))),h('option',{value:'custom'},'自己填写职业'))),
+      custom&&h('label',null,'职业名称',h('input',{'aria-label':slot==='primary'?'自填本职名称':'自填兼职名称',value:draft.title||'',maxLength:80,placeholder:'填写符合TA人设的职业',onChange:e=>patch({title:e.target.value})})),
+      custom&&h('label',null,'实际工作形式',h('select',{'aria-label':slot==='primary'?'本职工作形式':'兼职工作形式',value:draft.form||'office',onChange:e=>patch({form:e.target.value})},...Object.entries(view.forms).map(([id,title])=>h('option',{key:id,value:id},title)))),
+      custom&&draft.form!=='field'&&h('label',null,'工作地点',h('select',{'aria-label':slot==='primary'?'本职工作地点':'兼职工作地点',value:draft.place||'workroom',onChange:e=>patch({place:e.target.value})},h('option',{value:'workroom'},'小镇职业馆'),h('option',{value:'home'},'在家工作'))),
+      selected&&h('p',{className:'pet-quiet'},selected.duties.join(' · ')),
+      h('div',{className:'pet-resident-days',role:'group','aria-label':slot==='primary'?'本职工作日':'兼职工作日'},...['日','一','二','三','四','五','六'].map((d,i)=>h('label',{key:i},h('input',{type:'checkbox',checked:draft.days.includes(i),onChange:e=>patch({days:e.target.checked?[...draft.days,i].sort():draft.days.filter(x=>x!==i)})}),'周'+d))),
+      h('div',{className:'pet-resident-hours'},h('label',null,'上班',h('input',{type:'time','aria-label':slot==='primary'?'本职上班时间':'兼职上班时间',value:time(draft.start),onChange:e=>patch({start:parse(e.target.value)})})),h('label',null,'下班',h('input',{type:'time','aria-label':slot==='primary'?'本职下班时间':'兼职下班时间',value:time(draft.end),onChange:e=>patch({end:parse(e.target.value)})}))),
+      h('div',{className:'pet-resident-actions'},h('button',{type:'button',className:'pet-button pet-button-primary',onClick:()=>act('configure',{...draft,slot})},slot==='primary'?'保存本职排班':'保存兼职排班'),view[slot]&&h('button',{type:'button',className:'pet-button',onClick:()=>act('remove',{slot})},'暂时不做这份')));
   }
 
   function PetCompanionDress({game,character,scrollRef,onScroll,onDone,onError}){
