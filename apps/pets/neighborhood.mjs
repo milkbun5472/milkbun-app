@@ -1,15 +1,12 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-29f27ae3d09a730b';
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-29f27ae3d09a730b';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-29f27ae3d09a730b';
-import {careSummary} from './care.mjs?v=fg-29f27ae3d09a730b';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-3dabc3b4ab63b8df';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-3dabc3b4ab63b8df';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-3dabc3b4ab63b8df';
+import {careSummary} from './care.mjs?v=fg-3dabc3b4ab63b8df';
 
-import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-29f27ae3d09a730b';
+import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-3dabc3b4ab63b8df';
 
-export const NEIGHBORS=[
- {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},
- {id:'florist',name:'青禾',role:'花店主',shop:'florist',spot:{x:-14,z:-13},to:'regular',item:'给咖啡店的一小束花',detail:'说话慢慢的，喜欢记住小动物的习惯。',look:{hair:'longpart',hairColor:'#443d32',outfit:'jacket',wardrobe:{jacket:{cloth:'#7e9b80'}}}},
- {id:'regular',name:'小榆',role:'咖啡店的常客',shop:'cafe',spot:{x:14,z:12},to:'baker',item:'给面包师的手写便条',detail:'爱散步，也爱张罗周末的小聚会。',look:{hair:'pixie',hairColor:'#9a7654',outfit:'suit',wardrobe:{suit:{cloth:'#a18599'}}}}
-].concat(PET_NEIGHBORS);
+import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-3dabc3b4ab63b8df';
+export const NEIGHBORS=TOWN_RESIDENTS.concat(PET_NEIGHBORS);
 const rainPoint=()=>{const d=roomDoor('cafe');return {x:d.x+1.2,z:d.z};};
 const profile=id=>NEIGHBORS.find(n=>n.id===id),num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
 const text=v=>typeof v==='string'?v.slice(0,160):'',same=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z)<1.8;
@@ -48,9 +45,9 @@ export function weekendGathering(time,weather='晴日'){
 export function gatheringSpot(event,who,world){const n=event.place==='outside'?world:createTownNavigation(event.place,1.4),offsets=event.place!=='outside'&&who==='pet'?[[-.9,0]]:who==='companion'?[[1.15,.1],[.8,-.8],[-.8,-.8]]:[[-1,.6],[-1.1,0],[0,1.1]];for(const[x,z]of offsets){const p={x:event.point.x+x,z:event.point.z+z};if(n.walkable(p.x,p.z)&&n.path(event.point,p))return p;}return {...event.point};}
 // Relationships grow only from observed encounters. Route execution is shared
 // with pets and TA; none of this module runs in the offline recovery writer.
-export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime,getWeather=()=> '晴日',save=()=>true}){
+export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime,getWeather=()=> '晴日',getWorkActivity=()=>null,save=()=>true}){
  let routes=new Map(),changed=false;
- const bind=()=>{routes=new Map(NEIGHBORS.map(n=>[n.id,createTownLife(state.neighbors[n.id].town,{world,size:()=>n.pet?n.profile.size:1.4,actor:()=>({id:'neighbor:'+n.id,kind:n.pet?'pet':'person',species:n.species,size:n.pet?n.profile.size:1.4}),actors:getActors,onChange:()=>{changed=true;}})]));};bind();
+ const bind=()=>{routes=new Map(NEIGHBORS.map(n=>[n.id,createTownLife(state.neighbors[n.id].town,{world,roomVariant:()=>getWorkActivity()?.form||'office',size:()=>n.pet?n.profile.size:1.4,actor:()=>({id:'neighbor:'+n.id,kind:n.pet?'pet':'person',species:n.species,size:n.pet?n.profile.size:1.4}),actors:getActors,onChange:()=>{changed=true;}})]));};bind();
  const friends=createPetFriends(state,{rows:getRows,getActors,now:()=>getTime().at,save,onRestore:bind});const guests=createPetVisits(state,{world,rows:getRows,getActors,now:()=>getTime().at,date:()=>getTime().date,save,onRestore:bind});let friendMotion=null;
  const row=id=>getRows().find(x=>x.entry.id===id),near=(id,p)=>!!p&&p.entry.town?.place===state.neighbors[id].town.place&&same(p.entry.town.position,state.neighbors[id].town.position);
  const free=p=>!!p&&!p.career.state.job&&!p.care.state.helper&&!p.care.state.task&&p.care.state.energy>=30&&p.care.state.satiety>=30;
@@ -63,7 +60,7 @@ export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime
  const no=message=>({accepted:false,text:message}),yes=message=>({accepted:true,text:message});
  function go(id,place,point=null){const r=routes.get(id),s=r.state;if(place==='outside'){if(s.place==='outside'&&Math.hypot(s.position.x-point.x,s.position.z-point.z)<.15)return; r.go(place,point);}else if(s.place!==place)r.go(place);else if(point&&r.nav().walkable(point.x,point.z)){s.target=place;s.phase='stroll';s.goal={...point};s.stop=null;s.hold=0;changed=true;}}
  function home(id){go(id,'outside',profile(id).spot);}
- const schedule=id=>neighborSchedule(id,getTime(),getWeather());
+ const schedule=id=>{const w=getWorkActivity();return w?.peer===id?{...w,awake:true,hours:''}:neighborSchedule(id,getTime(),getWeather());};
  const promised=id=>state.visit?.id===id||state.event?.host===id;
  const entrusted=id=>state.quest&&(state.quest.from===id||state.quest.to===id);
  const awake=id=>promised(id)||entrusted(id)||schedule(id).awake;
@@ -117,5 +114,5 @@ export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime
   streetFriendTick(dt);if(changed&&!save()){replace(before);return;}const streetMotion=friendMotion?.friends?.[state.streetVisit?.neighborId]||0;const visiting=guests.tick(dt),idle=friends.tick(dt);friendMotion=visiting?{...idle,...visiting}:idle;if(state.streetVisit)friendMotion={...(friendMotion||{}),friends:{...(friendMotion?.friends||{}),[state.streetVisit.neighborId]:streetMotion}};
  }
  function summary(petId){const p=row(petId),time=getTime(),q=state.quest;return {petVisit:guests.facts(petId),petMeeting:state.petMeeting?.petId===petId?structuredClone(state.petMeeting):null,neighbors:NEIGHBORS.map(n=>{const s=state.neighbors[n.id],m=s.met[petId],friend=n.pet?friends.facts(petId).friends.find(x=>x.id===n.id):null,level=friend?friend.visits+(friend.play+friend.together)*2:score(m);const a=appearance(n.id),title=world.building(s.town.place)?.title||'小镇街区';return {...n,look:undefined,...a,town:structuredClone(s.town),near:near(n.id,p),familiarity:level,friend,relation:friend?friend.label:level>=6?'熟悉的街坊':level>=3?'可以串门的朋友':level?'见过面的街坊':'还没认识',memory:m&&level?{...m,knownName:p?.entry.profile.name||m.knownName}:null,place:s.town.place==='home'?'你家 · '+a.activity:title+' · '+a.activity,canInvite:n.pet?friend.visits>=2&&friend.homeDate<time.date&&!state.petVisit&&!state.streetVisit&&!state.petMeeting&&p?.entry.town.place==='home':a.awake&&level>=3&&(!m?.lastVisit||m.lastVisit<time.date)};}),meeting:state.meeting?structuredClone(state.meeting):null,quest:q?{...q,item:profile(q.from).item,petName:row(q.petId)?.entry.profile.name,toName:profile(q.phase==='returning'?q.from:q.to).name}:null,visit:state.visit?{...state.visit,name:profile(state.visit.id).name}:null,event:{...weekendGathering(time,getWeather()),joined:state.event?structuredClone(state.event):null},recent:structuredClone(state.recent).reverse(),local:true};}
- return {state,tick,request,summary,near,appearance,friends,guests,walkFriend,releaseWalkFriend,restore:replace,get friendMotion(){return friendMotion;},syncWork:()=>syncFriendWork(state,getRows()),reserves:petId=>state.petVisit?.petId===petId&&state.petVisit.phase!=='returning'||state.petMeeting?.petId===petId||state.quest?.petId===petId||state.event?.petId===petId||state.meeting?.petId===petId,target:id=>{const t=state.neighbors[id]?.town;if(state.visit?.id===id&&state.visit.phase!=='returning')return {place:'home',point:roomDoor('home')};if(state.event?.host===id)return {place:state.event.place,point:gatheringSpot(state.event,'pet',world)};return t?{place:t.place,point:t.place==='outside'?gatheringSpot({place:t.place,point:t.position},'pet',world):{...t.position}}:null;},snapshot:()=>structuredClone(state)};
+ return {state,tick,request,summary,near,appearance,canWorkMeet:id=>!!profile(id)&&!profile(id).pet&&!promised(id)&&!entrusted(id)&&state.meeting?.id!==id&&neighborSchedule(id,getTime(),getWeather()).awake,friends,guests,walkFriend,releaseWalkFriend,restore:replace,get friendMotion(){return friendMotion;},syncWork:()=>syncFriendWork(state,getRows()),reserves:petId=>state.petVisit?.petId===petId&&state.petVisit.phase!=='returning'||state.petMeeting?.petId===petId||state.quest?.petId===petId||state.event?.petId===petId||state.meeting?.petId===petId,target:id=>{const t=state.neighbors[id]?.town;if(state.visit?.id===id&&state.visit.phase!=='returning')return {place:'home',point:roomDoor('home')};if(state.event?.host===id)return {place:state.event.place,point:gatheringSpot(state.event,'pet',world)};return t?{place:t.place,point:t.place==='outside'?gatheringSpot({place:t.place,point:t.position},'pet',world):{...t.position}}:null;},snapshot:()=>structuredClone(state)};
 }
