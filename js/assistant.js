@@ -889,7 +889,21 @@
     return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
-      ...(typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.snapshotExtra(ctx, hot) : {}) };
+      ...(typeof window !== "undefined" && window.AssistExtras ? pruneExtra(window.AssistExtras.snapshotExtra(ctx, hot), focus) : {}) };
+  }
+
+  // 快照里那几大块按需带（她 2026-10-17「是不是喂太多东西了回复好慢」）：
+  //   记忆库、衣柜、日历、行程这些，只有这会儿聊到（她这句或前面几句里提了）才放进去；没提就只留一行说这轮没带。
+  const EXTRA_WHEN = {
+    记忆库: /记忆|记得|记住|忘|回忆|memory/i, 衣柜: /衣|穿|外套|裙|裤|鞋|搭配|造型/, 日历: /日历|纪念日|几号|生日|日子|提醒|节日|周年/,
+    行程: /行程|日程|安排|在干嘛|在干什么|去哪|几点|今天.{0,6}(干|做)/, 情侣空间: /空间|情侣|恋人|闺蜜|挚友|家人|愿望|档案|申请信|邀请|情书|在一起/,
+    表情包: /表情/, 小房间: /房间/, 线下设置: /线下|见面/, 桌面布局: /桌面|主屏|组件|图标/
+  };
+  function pruneExtra(o, focus) {
+    const f = String(focus || ""), skipped = [];
+    Object.keys(EXTRA_WHEN).forEach(k => { if (o && k in o && !EXTRA_WHEN[k].test(f)) { delete o[k]; skipped.push(k); } });
+    if (skipped.length) o.这轮没带的 = skipped.join("、") + "（她这会儿没聊到；她一提起，下一轮就带上。别凭空猜里面有什么）";
+    return o;
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
@@ -963,7 +977,11 @@
     // 她开着的那一页：攻略里那一整个 app 都捎上（信息那一页底下有说话、见面、小房间……），
     //   不只是跟页面同名的那一条——她问「这个按钮干嘛的」，答案常常在同一页的别的小节里。
     const here = hereId ? M.byId(hereId) : null;
-    const page = here ? M.appEntries(here.app) : [];
+    // 开着的那一页不再整个 app 全带（「信息」底下十几条、两三万字，每问一句都读一遍）：
+    //   只带这一页里跟她这句最沾边的两条；一条都不沾就带这一页本身那一条。还要别的，目录在、lookup 会翻。
+    const pageAll = here ? M.appEntries(here.app) : [];
+    const pageHit = M.find(question, 40).filter(x => pageAll.some(p => p.id === x.id)).slice(0, 2);
+    const page = pageHit.length ? pageHit : (here ? [here] : []);
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
     (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));
@@ -1085,7 +1103,7 @@
       + (extraIds && extraIds.length ? "【你刚要翻的那几条已经放进上面的详细里了，照着答；这次别再要 lookup】\n\n"
         : "【翻一下攻略】她问的是 App 怎么用，可上面「详细」里没有答案，而目录里看得出答案多半在某一条（看「里面讲」那一行）："
           + "这一轮先别答，只输出 {\"lookup\":[\"那一条方括号里的 id\"]}（最多 3 条），那几条正文会递给你，你再答。详细里已经有答案、或者不是问功能，就别用 lookup。\n\n")
-      + "【App 现状快照】\n" + JSON.stringify(snap, null, 1) + "\n\n"
+      + "【App 现状快照】\n" + JSON.stringify(snap) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
 
