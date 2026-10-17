@@ -27461,8 +27461,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, coupleDisc: null })); }
   };
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
-  // 你的人在公开场合（直播、片刻、一起听广场）露面时带的那一份：人设、此刻在干嘛、跟她什么关系、最近私聊十句（只他自己知道）
-  //   原来写在 liveProps 里；广场也要用（她 2026-10-17：「广场认识的角色是不是没带最近聊天」），提到这儿一份共用
+  // 你的人在直播、片刻露面时带的那一份：人设、此刻在干嘛、跟她什么关系、最近私聊十句（只他自己知道）
   const charPublicBrief = (c, _i, all) => {
     const uN = userName(profile);
     const present = Array.isArray(all) && all.length ? all : [c];
@@ -27482,8 +27481,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const sqRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.music).map(n => ({ id: n.id, name: n.music.name, voice: n.music.habit, forum: n.name, tie: book.items[n.id] || null })); };
   const sqPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b);
     return a && b && a.music && b.music ? { a: a.id, b: b.id, line: "「" + a.music.name + "」↔「" + b.music.name + "」：" + r.tone.split(a.name).join(a.music.name).split(b.name).join(b.music.name) } : null; }).filter(Boolean);
-  const sqCast = (must, n) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); const cast = must ? [must, ...rest] : rest;
-    return cast.map(c => ({ ...c, brief: charPublicBrief(c, 0, cast) })); };
+  // 你的人在广场上带的料跟论坛楼里回帖那份是同一份（她 2026-10-17：「这种不应该和论坛是共用的吗」）：
+  //   forumCharGrounding＝人设＋按这件事检索的记忆＋聊天那一份真上下文（ctxFor.recentChat）＋「只有他本人知道」的边界
+  const sqCast = (must, n, about) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); const cast = must ? [must, ...rest] : rest;
+    return cast.map(c => ({ ...c, brief: forumCharGrounding(c, { title: String((about && about.title) || "一起听 · 广场"), body: String((about && about.body) || "") }, "") })); };
   const sqMe = () => userName(profile);
   // 模型报上来的一条 → 存下来的一条：熟人认 id、熟面孔认网名、其余都是路人
   const sqItem = (x, cast) => {
@@ -27508,7 +27509,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!musicReady) { toast("先在一起听里选择音乐源"); return; }
     setGen(g => ({ ...g, square: true }));
     try {
-      const cast = sqCast(null, 4);
+      const cast = sqCast(null, 4, { title: "分享最近在听的歌" });
       const d = await sqAsk(LQ().feedSystem({ cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), avoid: ((listenRef.current || {}).square || []).slice(0, 20).map(p => p.song && p.song.title).filter(Boolean) }), "音乐广场");
       const out = [];
       for (const p of (Array.isArray(d.posts) ? d.posts : []).slice(0, 10)) {
@@ -27539,7 +27540,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const target = liveChars.find(c => c && ((to && (c.remark || c.name) === to) || (!to && mine && post.by === c.id)));
     setGen(g => ({ ...g, squareReply: postId }));
     try {
-      const cast = sqCast(target || null, 3);
+      const cast = sqCast(target || null, 3, { title: LQ().songLine(post.song), body: S0(post.text) + " " + (mine ? mine.text : "") });
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。下面是这一帖的评论。",
         transcript: LQ().transcriptOf((post.comments || []).concat(mine ? [mine] : [])), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
         text: mine ? mine.text : "（她刚发了这一帖）", to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: mine ? "5-8" : "8-12" }), "音乐广场");
@@ -27556,7 +27557,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const post = ((listenRef.current || {}).square || []).find(p => p.id === postId); if (!post) return;
     setGen(g => ({ ...g, squareReply: postId }));
     try {
-      const cast = sqCast(null, 3);
+      const cast = sqCast(null, 3, { title: LQ().songLine(post.song), body: S0(post.text) });
       const d = await sqAsk(LQ().songSystem({ song: post.song || {}, where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。这是这一帖底下的评论区，像网易云的动态评论。",
         cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), transcript: LQ().transcriptOf(post.comments || []), n: "10-16" }), "音乐广场");
       const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 18);
@@ -27574,7 +27575,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const have = ((L.songTalk || {})[key] || {}).items || [];
     setGen(g => ({ ...g, songTalk: key }));
     try {
-      const cast = sqCast(partner, 3);
+      const cast = sqCast(partner, 3, { title: LQ().songLine(song) });
       const d = await sqAsk(LQ().songSystem({ song, cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), partner: partner ? { id: partner.id, name: partner.remark || partner.name } : null, transcript: LQ().transcriptOf(have), n: "12-18" }), "歌评");
       let items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 20);
       if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
@@ -27594,7 +27595,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const target = liveChars.find(c => c && to && (c.remark || c.name) === to) || null;
     setGen(g => ({ ...g, songTalk: key }));
     try {
-      const cast = sqCast(target || (characters || []).find(c => c.id === L.partnerId) || null, 3);
+      const cast = sqCast(target || (characters || []).find(c => c.id === L.partnerId) || null, 3, { title: LQ().songLine(song), body: mine.text });
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 里" + LQ().songLine(song) + "这首歌的评论区。", transcript: LQ().transcriptOf(have), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
         text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: "5-8" }), "歌评");
       const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);

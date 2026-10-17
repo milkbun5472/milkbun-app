@@ -39,9 +39,8 @@ test('一枪刷得多（跟论坛一样）、网易云评论区的样子：网�
   assert.match(sc,/onMoreSquare && onMoreSquare\(p\.id\)/);
   assert.match(lq,/"data-kind": "listenshare"/);
 });
-test('广场上你的人带着跟直播同一份：此刻在干嘛、跟她什么关系、最近私聊',()=>{
-  assert.match(app,/const charPublicBrief = \(c, _i, all\) =>/);
-  assert.match(app,/briefFor: charPublicBrief,/);
-  assert.match(app,/brief: charPublicBrief\(c, 0, cast\)/);
+test('广场上你的人带的料跟论坛楼里回帖是同一份（forumCharGrounding）',()=>{
+  assert.match(app,/brief: forumCharGrounding\(c, \{ title:/);
+  assert.equal((app.match(/sqCast\([^)]*, \{ title:/g)||[]).length,5);
   assert.match(lq,/c\.brief \? S\(c\.brief\)/);
 });
