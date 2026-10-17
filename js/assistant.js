@@ -2098,6 +2098,8 @@
     const swallowIfDragged = () => { if (movedRef.current) { movedRef.current = false; return true; } return false; };
     const dragProps = { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: endDrag, onPointerCancel: endDrag };
 
+    const ballSrc = cfg.avatarImage ? (typeof resolveImg === "function" ? resolveImg(cfg.avatarImage) : cfg.avatarImage) : "";
+    const ballCut = typeof window.useImgCutout === "function" ? window.useImgCutout(ballSrc) : false;
     if (!cfg.ballOn) return null;
     const base = { position: "fixed", zIndex: 940, touchAction: "none" };
 
@@ -2105,11 +2107,16 @@
     if (!open) return h("div", { "data-wk": "qqdockball", ...dragProps,
       onClick: () => { if (!swallowIfDragged()) setOpen(true); },
       "data-assistant-dock": "1",
-      // ⚠️换了图也保持原来那颗圆（她 2026-10-17：试过「换图就去掉圆底」，大家的秋秋一下子都变方了）
-      style: { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
+      // 普通头像照旧放进圆里（她 2026-10-17：一律去框那版大家的秋秋都变方了）；
+      //   抠好的透明图（四角透明）才不要圆底、边框和阴影，原样站在那儿
+      style: ballCut
+        ? { ...base, left: a.x, top: a.y, width: BALL, height: BALL, display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }
+        : { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
         background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.22)",
         display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "grab" } },
-      h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
+      ballCut
+        ? h("img", { src: ballSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } })
+        : h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
 
     // 展开的样子：一扇能拖的小窗
     return h("div", { "data-wk": "qqdock",

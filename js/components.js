@@ -13005,6 +13005,28 @@ function MomentCommentText({ cm }) {
 // 「这段是谁写的」（她 2026-10-17「人格档案里面的语言和翻译不是应该覆盖到所有他说话的地方吗」）：
 //   论坛、朋友圈、日记、查手机、情侣空间这些页在外面包一层 TransWho，写上是哪个角色；
 //   那个人开着「外语消息自带中译」，他写的字在这些地方也直接摆中文，不用再点「译」。
+// 这张图是不是「抠好的透明图」（她 2026-10-17：许愿透明 png 无框显示，可普通方头像去了框就变方块）：
+//   四个角都是透明的才算——那种图本来就有自己的形状，再套圆框反而难看；普通照片四角是实的，照旧放进圆里。
+const _alphaSeen = {};
+function useImgCutout(src) {
+  const [cut, setCut] = useState(() => (src && _alphaSeen[src] != null) ? _alphaSeen[src] : false);
+  useEffect(() => {
+    if (!src) { setCut(false); return; }
+    if (_alphaSeen[src] != null) { setCut(_alphaSeen[src]); return; }
+    let dead = false; const im = new Image();
+    im.onload = () => { try {
+      const W = 24, H = 24, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const g = cv.getContext("2d"); g.drawImage(im, 0, 0, W, H);
+      const a = (x, y) => g.getImageData(x, y, 1, 1).data[3];
+      const v = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
+      _alphaSeen[src] = v; if (!dead) setCut(v);
+    } catch (e) { _alphaSeen[src] = false; } };
+    im.src = src;
+    return () => { dead = true; };
+  }, [src]);
+  return cut;
+}
+if (typeof window !== "undefined") window.useImgCutout = useImgCutout;
 const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.createContext(null) : null;
 function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
 function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
