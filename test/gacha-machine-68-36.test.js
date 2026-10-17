@@ -78,9 +78,9 @@ test("转完了才把卡摆出来——那一下才叫出货", () => {
   const fn = scr.slice(i, i + 700);
   assert.match(fn, /setSpin\(n\)/);
   assert.match(fn, /setTimeout\(\(\) => \{/);
-  assert.match(fn, /onPull\(partner, n\)/);
+  assert.match(fn, /onPull\(partner, n(, byTa)?\)/);
   // onPull 必须在定时器【里面】，不然卡在动画之前就跳出来了
-  assert.ok(fn.indexOf("setTimeout") < fn.indexOf("onPull(partner, n)"), "抽的结果没等动画");
+  assert.ok(fn.indexOf("setTimeout") < fn.indexOf("onPull(partner, n"), "抽的结果没等动画");
   // 离开这一页要把定时器收掉
   assert.match(scr, /useEffect\(\(\) => \(\) => \{ if \(spinTimer\.current\) clearTimeout\(spinTimer\.current\); \}, \[\]\);/);
 });
@@ -143,7 +143,7 @@ test("选了还没扳的时候，一点都不许扣", () => {
   const d = scr.slice(scr.indexOf("  const doSpin = () => {"), scr.indexOf("  const doSpin = () => {") + 700);
   assert.match(d, /if \(spin \|\| !armed\) return;/);
   assert.match(d, /setArmed\(0\);/);
-  assert.ok(d.indexOf("setTimeout") < d.indexOf("onPull(partner, n)"));
+  assert.ok(d.indexOf("setTimeout") < d.indexOf("onPull(partner, n"));
 });
 
 test("选中的那一档看得出来", () => {

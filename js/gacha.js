@@ -323,10 +323,12 @@
     });
   }
 
-  function rollRarity(rand, sinceSSR) {
+  // TA替她扳的那一发手气好一点（她 2026-10-17：「可以偷偷加一点概率」）——界面上不写，票根上只写「TA 抽的」
+  const TA_RATE_SSR = 0.08, TA_RATE_SR = 0.48;
+  function rollRarity(rand, sinceSSR, lucky) {
     if (sinceSSR >= PITY_SSR - 1) return "SSR";   // 这一抽是第 PITY_SSR 抽
-    const x = rand();
-    return x < RATE_SSR ? "SSR" : x < RATE_SSR + RATE_SR ? "SR" : "R";
+    const x = rand(), ssr = lucky ? TA_RATE_SSR : RATE_SSR, sr = lucky ? TA_RATE_SR : RATE_SR;
+    return x < ssr ? "SSR" : x < ssr + sr ? "SR" : "R";
   }
 
   // 新角色什么都还没有时 R 池会是空的——那就升一档，别发一张空券。
@@ -373,7 +375,7 @@
     for (let i = 0; i < n; i++) {
       // 十连保底：前九张都是 R 的话，最后一张顶成 SR
       const lastOfTen = n >= TEN && i === n - 1 && !out.some(function (c) { return RANK[c.r] >= 1; });
-      let rarity = rollRarity(rnd, sinceSSR);
+      let rarity = rollRarity(rnd, sinceSSR, !!(opts && opts.lucky));
       if (lastOfTen && rarity === "R") rarity = "SR";
       const card = pickCard(rarity, rnd, Object.assign({}, opts, { recent: recent }));
       if (!card) continue;

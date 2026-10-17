@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.957";
+const APP_VERSION = "v75.961";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5540,15 +5540,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!g || gsFor(groupId).spectate) return;
     (g.memberIds || []).forEach(id => { const c = characters.find(x => x.id === id); if (c && !c.npc) { try { gachaEarn(id, kind); } catch (e) {} } });
   };
-  const gachaPull = (char, n) => {
+  // byTa：TA替她扳的那一发——走TA自己那条运气线（luck 键 charId|ta，保底单独算），券照样进她的券夹、盖上「TA 抽的」
+  const gachaPull = (char, n, byTa) => {
     const K = window.GachaKit;
     if (!K || !char) return;
     const cost = n >= K.TEN ? K.COST_TEN : K.COST_ONE;
     const after = K.spend(gachaPtsRef.current || {}, char.id, cost);
     if (!after) { toast("点数还不够。和 " + (char.remark || char.name) + " 好好待一会儿就有了"); return; }
     const cp = (couplesRef.current || {})[char.id];
-    const res = K.pull(n, gachaLuckRef.current[char.id] || { pulls: 0, sinceSSR: 0 },
-      { couple: spaceLover(cp), have: gachaHave(char) });   // 恋人卡只给恋人空间
+    const luckKey = byTa ? char.id + "|ta" : char.id;
+    const res = K.pull(n, gachaLuckRef.current[luckKey] || { pulls: 0, sinceSSR: 0 },
+      { couple: spaceLover(cp), have: gachaHave(char), lucky: !!byTa });   // 恋人卡只给恋人空间；TA扳的手气偷偷好一点
     if (!res.cards.length) { toast("这一抽没抽出东西，点数没扣"); return; }
     const now = Date.now();
     const made = res.cards.map((c, i) => ({
@@ -5556,13 +5558,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       charId: char.id, r: c.r, poolId: c.poolId, act: c.act, kind: c.kind || "",
       name: c.name, hint: c.hint,
       ts: now + i,          // 票根上的时间戳：什么时候抽到的
-      redeemedTs: null, result: null
+      redeemedTs: null, result: null, ...(byTa ? { byTa: true } : {})
     }));
     gachaPtsRef.current = after; setGachaPts(after); saveJSON("x_gachaPts", after);
-    const luck = { ...gachaLuckRef.current, [char.id]: res.state };
+    const luck = { ...gachaLuckRef.current, [luckKey]: res.state };
     gachaLuckRef.current = luck; setGachaLuck(luck); saveJSON("x_gachaLuck", luck);
     const cards = [...made, ...gachaCardsRef.current];
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
+    // TA替她扳的：单聊里落一张小卡（不当场开口，等她回话时TA看得到——施工规则/wait-for-her）
+    if (byTa) {
+      const line = made.map(c => c.r + "「" + characterText(char, c.name) + "」").join("、");
+      pChat(char.id, p => [...p, { role: "assistant", kind: "gachashare", gacha: { n: made.length, cards: made.map(c => ({ r: c.r, name: characterText(char, c.name) })) },
+        content: "[抽卡] 你替她扳了 " + made.length + " 下拉杆，抽到：" + line, ts: Date.now(), read: true }]);
+    }
     return made;
   };
   // 点歌那张券要接上云村（她 2026-09-18：「点歌也没接网易云，应该要可以刻到情侣空间唱片」）。
