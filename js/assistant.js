@@ -889,6 +889,8 @@
     return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
+      ...(/mcp|MCP|转接|工具.{0,4}(连|调|用)不/.test(String(focus || "")) && typeof window !== "undefined" && window.MCP && window.MCP.status ? { MCP现状: window.MCP.status(),
+        MCP怎么看: "对着「这次开机」那栏说哪台卡在哪：提到跨域/CORS 或连不上＝服务端没放行网页，填转接地址绕过去；是旧的sse 又没填转接＝网页直连不了，得先搭转接；HTTP 401/403＝令牌没填或填错；404＝地址路径不对；转接连不上＝Worker 没部署好或地址抄错。还没试过＝让她去设置里那台点「测一下」再来。别编没看到的原因。" } : {}),
       ...(typeof window !== "undefined" && window.AssistExtras ? pruneExtra(window.AssistExtras.snapshotExtra(ctx, hot), focus) : {}) };
   }
 
