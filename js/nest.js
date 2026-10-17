@@ -29,8 +29,15 @@
     { key: "lore", zh: "世界书", seal: "书", color: "#71834f", hint: "一组世界书词条" },
     { key: "style", zh: "文风", seal: "文", color: "#8f72a8", hint: "线下文风库里的一条文风" },
     { key: "preset", zh: "预设", seal: "预", color: "#b38a35", hint: "文风预设台里搭好的一份预设" },
-    { key: "persona", zh: "人设", seal: "人", color: "#4f8e88", hint: "一个角色的名字、一句话简介和人设正文" }
+    { key: "persona", zh: "人设", seal: "人", color: "#4f8e88", hint: "一个角色的名字、一句话简介和人设正文" },
+    // 留言板（她 2026-10-16：「纯发帖子反馈之类的，给不玩 qq 的人也能反馈」）：只有一段字和截图，没有导入；
+    //   不进「全部」那面墙（后端就不给），只在这一格里看
+    { key: "post", zh: "留言板", seal: "言", color: "#7a6f62", hint: "想反馈的、想问的、想聊的，写一帖" }
   ];
+  // 她给一帖标的：收到了／修好了（后端只认管理口令改）
+  const STATUS = { got: { zh: "收到了", color: "#b38a35" }, fixed: { zh: "修好了", color: "#71834f" } };
+  const StatusChip = ({ st, big }) => STATUS[st] ? h("span", { "data-wk": "nestpoststatus", "data-st": st, style: { display: "inline-block", fontFamily: F_BODY, fontSize: big ? 12.5 : 11,
+    color: STATUS[st].color, border: "1px solid " + STATUS[st].color, borderRadius: 4, padding: big ? "1px 7px" : "0 5px", transform: "rotate(-4deg)" } }, STATUS[st].zh) : null;
   const KIND = {}; KINDS.forEach(k => { KIND[k.key] = k; });
   const KZH = {}; KINDS.forEach(k => { KZH[k.key] = k.zh; });
 
@@ -240,7 +247,7 @@
   //   CSS「放哪儿」那三格、上传页挑类别也是这面柜子（items / noAll 传进来）。
   function Cubbies({ t, kind, onPick, noAll, items, cols, flush }) {
     const all = items || (noAll ? [] : [{ key: "", zh: "全部" }]).concat(KINDS);
-    const n = cols || 4;
+    const n = cols || (all.length % 4 && all.length % 3 === 0 ? 3 : 4);   // 「全部」+八格＝九格，排成 3×3
     const frame = hex6(t.ink) ? t.ink + "0d" : t.bg2;
     const grid = h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + n + ", 1fr)", gap: 5, padding: 5, borderRadius: 14, background: frame } },
       all.map(k => {
@@ -325,7 +332,7 @@
       h("div", { className: "flex items-center justify-between" },
         h("span", { "aria-hidden": true, style: { width: big ? 32 : 26, height: big ? 32 : 26, borderRadius: 999, border: "1.5px solid " + K.color, color: K.color,
           display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: big ? 14 : 12, fontWeight: 700, transform: "rotate(-8deg)" } }, K.seal),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (KZH[it.kind] || "") + " · " + fmtDay(it.created))),
+        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, h(StatusChip, { st: it.status, big }), (KZH[it.kind] || "") + " · " + fmtDay(it.created))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: big ? 20 : 15, lineHeight: 1.35, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, it.title),
       // 墙上那张：有小图就别一张拍立得（白边、反着歪一点），没有就只有字
       !big && it.thumb ? h("div", { "data-wk": "nestpolaroid", style: { margin: "8px 2px 2px", padding: "5px 5px 14px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)", transform: "rotate(" + (-tilt(it.id) * 1.6) + "deg)" } },
@@ -379,6 +386,11 @@
       } catch (e) { props.toast("没放进去：" + e.message); }
       setBusy(false);
     };
+    const isPost = !!(it && it.kind === "post");
+    const setStatus = async st => {
+      try { await api("/admin/status", { method: "POST", body: { item: it.id, status: st } }); setIt(x => Object.assign({}, x, { status: st })); props.toast(st ? "标好了" : "标记擦掉了"); }
+      catch (e) { props.toast(e.message); }
+    };
     const doCopy = async () => {
       const ok = await copyText(it.payload);
       props.toast(ok ? (it.kind === "css" ? "CSS 已复制" : "已复制，可以贴进对应那一页的导入框") : "这台手机不让复制，长按预览里的字试试");
@@ -405,7 +417,7 @@
     let preview = "";
     if (it) {
       try {
-        if (it.kind === "css") preview = it.payload;
+        if (it.kind === "css" || it.kind === "post") preview = it.payload;
         else {
           const d = JSON.parse(it.payload);
           if (it.kind === "lore") preview = (d.entries || []).map(e => "【" + (e.title || "未命名") + "】" + String(e.payload || "").slice(0, 140)).join("\n\n");
@@ -432,18 +444,24 @@
               it.uid && (!me || me.id !== it.uid) ? h("button", { "data-wk": "nestfollow", "data-on": follow ? "1" : "0", onClick: doFollow, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: follow ? t.fog : (t.tint || t.ink) } }, follow ? "已关注" : "＋关注") : null,
               // 导入次数只给作者本人看（她 2026-10-16）：后端只在是你的东西时才带这个数，没带就不显示
               it.imports != null ? h("span", { "data-wk": "nestimports", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "被导入 " + it.imports + " 次 · 只有你看得到") : null)) }),
+          // 帖子：正文就摆在纸条底下，整段读，不折叠
+          isPost ? h("div", { "data-wk": "nestpostbody", style: Object.assign({ marginTop: 14, fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.85,
+            whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 16 }, card(t)) }, preview) : null,
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
-            h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
+            isPost ? null : h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
             pill({ on: it.liked, onClick: () => toggle("like"), icon: h(IHeart, { size: 15, color: it.liked ? "#c0717f" : t.ink, filled: it.liked }), txt: it.likes || 0, wk: "nestlike" }),
             pill({ on: it.faved, onClick: () => toggle("fav"), icon: h(IBookmark, { size: 15, color: it.faved ? "#c0717f" : t.ink }), txt: it.faved ? "已收" : "收藏", wk: "nestfav" })),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
-            h(Btn, { t, onClick: doCopy, wk: "nestcopy" }, "复制"),
+            isPost ? null : h(Btn, { t, onClick: doCopy, wk: "nestcopy" }, "复制"),
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
+          // 她（管理口令）给帖子打标：别人只看得到标记，看不到这一排
+          isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
+            ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" + (st || "none") }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
           placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : ["chat", "group"],
             onPick: placeOne, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
           h(Shots, { t, it, props }),
-          preview ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
+          preview && !isPost ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
             h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.7,
               whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 14, maxHeight: "46vh", overflowY: "auto" }, card(t)) }, preview.slice(0, 6000))) : null,
           h(Guestbook, { t, item: it, me, props, onUser, onLogin, onCount: n => setIt(x => Object.assign({}, x, { comments: n })) }))));
@@ -759,7 +777,9 @@
       if (got.length) setShots(x => x.concat(got).slice(0, 3));
     };
     const pasteKind = kind === "theme" || kind === "look" || kind === "css";
+    const isPost = kind === "post";
     const build = async () => {
+      if (isPost) { const s = String(text || "").trim(); if (!s) throw new Error("写两句想说的吧"); return s; }
       if (file) return file.payload;
       if (kind === "theme" && chosen.length) return await packCurrentTheme();
       if (kind === "css" && chosen.length) return packCss(csses.find(x => x.id === chosen[0]));
@@ -803,9 +823,9 @@
       h(Head, { zh: "传一个上去", onBack: onClose, bg: "transparent" }),
       h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, k.hint + "。东西本身不带图、不带记忆和聊天（想让人看看长什么样，底下放截图）；署名就是你的小窝昵称，随时能删。"),
-        // ① 从手机文件选
-        h("div", { style: Object.assign({ padding: 14 }, card(t)) },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。东西本身不带图、不带记忆和聊天（想让人看看长什么样，底下放截图）；署名就是你的小窝昵称，随时能删。")),
+        // ① 从手机文件选（帖子没有文件）
+        isPost ? null : h("div", { style: Object.assign({ padding: 14 }, card(t)) },
           h("div", { className: "flex items-center", style: { gap: 10 } },
             h(Seal, { k: kind, size: 32 }),
             h("div", { className: "min-w-0 flex-1" },
@@ -826,13 +846,16 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, r.name),
                 r.sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, r.sub) : null)))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))) : null,
+        isPost ? h("div", { "data-wk": "nestpostwrite" }, label(t, "想说什么（最多 4000 字）"),
+          h("textarea", { value: text, maxLength: 4000, rows: 8, placeholder: "哪里不好用、想要什么、遇到了什么，都可以写；配一张截图更好懂",
+            onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
         pasteKind ? h("div", { style: { marginTop: 14 } }, label(t, kind === "css" ? "或者直接把 CSS 贴在这儿" : "也可以把导出的那份文件内容整份贴进来"),
           field(text, v => { setText(v); if (v) { setFile(null); setPick({}); } }, kind === "css" ? "[data-wk=\"bubble\"] { … }" : "{ \"kind\": … }", 262144, true)) : null,
         // ③ 名字、简介、署名
-        h("div", { style: { marginTop: 18 } }, label(t, "名字"), field(title, setTitle, "别人在列表里看到的名字", 40)),
-        h("div", { style: { marginTop: 12 } }, label(t, "说两句（可不填）"), field(intro, setIntro, "适合什么、怎么用", 200, true)),
+        h("div", { style: { marginTop: 18 } }, label(t, isPost ? "标题" : "名字"), field(title, setTitle, isPost ? "一句话说是什么事" : "别人在列表里看到的名字", 40)),
+        isPost ? null : h("div", { style: { marginTop: 12 } }, label(t, "说两句（可不填）"), field(intro, setIntro, "适合什么、怎么用", 200, true)),
         // ④ 预览截图：别人逛的时候先看个大概再决定要不要
-        h("div", { "data-wk": "nestshotpick", style: { marginTop: 14 } }, label(t, "预览截图（可不放，最多 3 张；第一张会贴在墙上那张纸条上）"),
+        h("div", { "data-wk": "nestshotpick", style: { marginTop: 14 } }, label(t, isPost ? "截图（可不放，最多 3 张）" : "预览截图（可不放，最多 3 张；第一张会贴在墙上那张纸条上）"),
           h("div", { className: "flex flex-wrap", style: { gap: 10 } },
             shots.map((x, k) => h("div", { key: k, style: { position: "relative", padding: "4px 4px 12px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)" } },
               h("img", { src: x.thumb, alt: "", style: { display: "block", width: 76, height: 100, objectFit: "cover" } }),
@@ -842,7 +865,7 @@
               style: { width: 84, height: 116, border: "1.5px dashed " + t.line, borderRadius: 4, background: t.bg2, color: t.fog, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-line" } }, "＋\n加截图") : null),
           h("input", { ref: shotRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onChange: pickShots }))),
       h("div", { className: "shrink-0 flex px-4 pt-3", style: { paddingBottom: "calc(12px + " + COMPOSER_PAD_BOTTOM + ")", borderTop: "1px solid " + t.line, background: tint(t.bg, "f2") } },
-        h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: send, wk: "nestsend" }, busy ? "在传……" : "传上去")));
+        h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: send, wk: "nestsend" }, busy ? "在传……" : isPost ? "贴上去" : "传上去")));
   }
 
   // ── 小窝首页：一面贴满纸条的墙 ────────────────────────────────
@@ -913,7 +936,7 @@
       h(Head, { zh: "秋秋小窝", sub: adminToken() ? "管理中" : "", onBack: props.onBack, onTitleTap, bg: "transparent",
         right: h("div", { className: "flex items-center", style: { gap: 4 } }, bell,
           h("button", { "data-wk": "nestupbtn", onClick: () => me ? push({ v: "upload" }) : needLogin({ v: "upload" }), className: "active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, "＋ 传一个")) }),
+            style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
       h(Cubbies, { t, kind, onPick: setKind }),
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },

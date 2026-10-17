@@ -22,7 +22,7 @@ function loadNest(store) {
 }
 
 test("接线：主屏有图标、路由进得去、脚本先于 app.js 加载", () => {
-  assert.match(comp, /nest: \{ kind: "app", zh: "小窝", G: window\.GNest/);
+  assert.match(comp, /nest: \{ kind: "app", zh: "秋秋小窝", G: window\.GNest/);
   assert.match(nest, /window\.GNest = /);
   assert.match(app, /screen === "nest"\) body = h\(window\.NestApp, \{/);
   const i = html.indexOf("js/nest.js?v="), j = html.indexOf("js/app.js?v=");
@@ -147,7 +147,7 @@ test("详情页有复制；CSS 和整套美化点导入先问放哪儿", () => {
 // 她 2026-10-08：「为啥不能全部直接从自己手机的文件里面选」
 test("每一类都能从手机文件里选，认 app 自己导出的那种", () => {
   const { N } = loadNest({});
-  N.KINDS.forEach(k => assert.match(nest, new RegExp("    " + k.key + ": \"\\."), k.key + " 没有能选的文件类型"));
+  N.KINDS.filter(k => k.key !== "post").forEach(k => assert.match(nest, new RegExp("    " + k.key + ": \"\\."), k.key + " 没有能选的文件类型"));   // 留言板只写字，没有文件
   assert.match(N.fromFile("theme", JSON.stringify({ kind: "qq-theme", profile: {} }), "a.json").note, /主题包/);
   assert.match(N.fromFile("theme", JSON.stringify({ kind: ["lis", "a-theme"].join(""), profile: {} }), "a.json").note, /主题包/, "老名字的主题包选不进来");
   assert.throws(() => N.fromFile("theme", JSON.stringify({ kind: "qq-theme", assets: { iv_1: "x" } }), "a.json"), /带着图/);

@@ -6249,7 +6249,7 @@ function Home({
     shike: { kind: "app", zh: "时刻", G: window.GShike || GDream },
     assistant: { kind: "app", zh: "秋秋", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty },
-    nest: { kind: "app", zh: "小窝", G: window.GNest || GDuty }
+    nest: { kind: "app", zh: "秋秋小窝", G: window.GNest || GDuty }
   };
   // 秋秋要看得见桌面（她 2026-10-16：「我说诶我的 xx app 在哪儿，她可以说在第几页」）：把这份表挂出去，名字照这儿认
   if (typeof window !== "undefined") {

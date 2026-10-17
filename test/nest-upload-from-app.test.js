@@ -66,3 +66,12 @@ test("CSS 也能直接挑：全 App、每一页、聊天窗、线下、群；空
   assert.equal(N.packCss(rows[2]), ".c{}");
   assert.throws(() => N.packCss({ css: "a{background:url(iv_x)}" }), /不收图/);
 });
+
+test("留言板：第八格、写帖子就是一段字、没有导入和复制、她能盖收到／修好", () => {
+  const N = load({});
+  assert.equal(N.KINDS[N.KINDS.length - 1].key, "post");
+  assert.match(nest, /if \(isPost\) \{ const s = String\(text/);
+  assert.match(nest, /isPost \? null : h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: doImport/);
+  assert.match(nest, /api\("\/admin\/status"/);
+  assert.match(nest, /isPost && admin \?/);
+});
