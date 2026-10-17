@@ -10026,6 +10026,7 @@ function ChatThread({
   // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
+    if (loadTtsApi().noListen) return null;   // 她在语音设置里关掉了气泡底下的「听一下」
     const k = m && m.kind;
     if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
     const spk = speakerOf(m);
@@ -10982,6 +10983,9 @@ function ChatThread({
   // 画成漫画先挑画风（她 2026-10-13）：真漫画＝勾线画出来；照片漫画＝保持真人照片，靠气泡和字做出漫画感
   onComic && !comicAsk ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) setComicAsk(true); }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,
   onComic && comicAsk ? [["draw", "真漫画"], ["photo", "照片漫画"]].map(([k, zh]) => h("button", { key: k, "data-wk": "selcomic", "data-part": k, onClick: () => { setComicAsk(false); if (selIds.length) { onComic(selIds, k); exitSel(); } }, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, zh)) : null,
+  // 一次撤好几条（群友 2026-10-17「许愿可以多选撤回」）：只撤自己发的，走的就是单条撤回那一条路
+  onLongPress ? (() => { const mine = selIds.length && selIds.every(i => messages[i] && messages[i].role === "user" && !messages[i].recalled);
+    return h("button", { "data-wk": "selrecall", onClick: () => { if (!mine) return; selIds.slice().sort((a, b) => a - b).forEach(i => onLongPress("recall", i)); exitSel(); }, disabled: !mine, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "撤回"); })() : null,
   h("button", {
     onClick: doDelete,
     disabled: !selIds.length,
@@ -17705,6 +17709,7 @@ function GroupThread({
   // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
+    if (loadTtsApi().noListen) return null;   // 她在语音设置里关掉了气泡底下的「听一下」
     const k = m && m.kind;
     if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
     const spk = speakerOf(m);

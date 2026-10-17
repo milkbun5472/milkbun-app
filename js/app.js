@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.888";
+const APP_VERSION = "v75.891";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -221,6 +221,9 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const [imgStore, setImgStore] = useState(null);
   useEffect(() => { if (open && typeof loadImgApiProfiles === "function") { try { setImgStore(loadImgApiProfiles()); } catch (e) {} } }, [open]);
   // 浮窗可拖动（她 2026-08-16 点名固定位置挡手）：拖完贴边吸附，位置存 x_modelFloatPos，重开 App 记得住。
+  // 自己的图（群友 2026-10-17）：设置里换了就当场跟着变
+  const [floatImg, setFloatImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
+  useEffect(() => { const f = () => setFloatImg(loadJSON("x_modelFloatImg", "") || ""); window.addEventListener("lisa-modelfloatimg", f); return () => window.removeEventListener("lisa-modelfloatimg", f); }, []);
   const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
   const dragStart = useRef(null);
@@ -364,11 +367,12 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
     h("button", { onClick: () => { if (justDragged.current) { justDragged.current = false; return; } setOpen(v => !v); },
       onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: () => { dragStart.current = null; setDrag(null); },
       "aria-label": "快速切换模型", className: "active:scale-95",
-      style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
+      style: floatImg ? { width: 46, height: 46, flexShrink: 0, padding: 0, touchAction: "none", background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "center" } : { width: 46, height: 46, borderRadius: 23, flexShrink: 0, padding: 0, overflow: "hidden", touchAction: "none",
         background: "conic-gradient(from 210deg, #efe7d9, #cbbfa9 25%, #f3ecdf 52%, #c6b9a2 78%, #efe7d9)",
         border: "1px solid rgba(74,62,44,.45)",
         boxShadow: "0 6px 16px rgba(0,0,0,.24), inset 0 1px 2px rgba(255,255,255,.75), inset 0 -2px 4px rgba(90,74,52,.28)",
         display: "flex", alignItems: "center", justifyContent: "center" } },
+      floatImg ? h("img", { src: typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } }) :
       h("svg", { width: 46, height: 46, viewBox: "0 0 46 46", "aria-hidden": "true" },
         // 面上的细放射纹（拉丝），淡到只在光下看得出
         h("circle", { cx: 23, cy: 23, r: 15.5, fill: "rgba(255,253,246,.5)", stroke: "rgba(74,62,44,.28)", strokeWidth: 1 }),
