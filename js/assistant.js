@@ -1115,6 +1115,7 @@
       + "改已有的规则用 find（逐字抄那一条规则）；加新规则用 \"append\":true，text 只写新加的那几条，会接在最后。"
       + "选择器要窄到只命中她说的那一处：共用的挂点（note、card…）看挂点说明里的 data-part／data-kind，连它一起写。"
       + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
+      + "她要把某个人／某个群／某个人线下的 CSS 清空、恢复默认：出一张那一格的卡，填 \"whole\":true，text 留空字符串——就是整份换成空。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【reply 一定要写话】不管出没出卡，reply 都是你跟" + uName + "说的话：先接住她这句（她在抱怨、在问、在吐槽就先回应那个），出卡的话再用一两句说清这张卡改了什么、为什么这么改。reply 永远不许空着、也不许只写「改动稿在下面」。\n\n"
@@ -1195,7 +1196,12 @@
     });
     // 关系那一条 text 空着＝删掉这条线，是正经的一张卡
     const relDrop = x => x.target === "rel" && String(x.id || "").trim();
-    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x) || (typeof window !== "undefined" && window.AssistExtras && window.AssistExtras.okWithoutText(x))))
+    // 清空某一格 CSS（她 2026-10-17 截图：秋秋连着四次「改动稿格式不对」）＝整份换成空：
+    //   whole 填了、text 是空的那张卡是合法的，原来被「没正文」这道一起丢了
+    const CSS_CLEAR_OK = { chatcss: 1, offlinecss: 1, groupcss: 1 };
+    const S0id = x => String((x && x.id) || "").trim();
+    const cssClear = x => !!(CSS_CLEAR_OK[x.target] && (x.whole === true || x.whole === "true") && S0id(x));
+    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || cssClear(x) || loreMetaOnly(x) || relDrop(x) || (typeof window !== "undefined" && window.AssistExtras && window.AssistExtras.okWithoutText(x))))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
       // 导世界书、把一串人连起来：全是世界书／关系／配角的那一轮放宽到 12 张
       .slice(0, (rawPatches.length && rawPatches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
