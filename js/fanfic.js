@@ -685,7 +685,16 @@
   // ⚠️凡是【手上已经有这篇文】的那几枪（续写、写长一点、请原作者回来、加笔），
   //   都得把这篇文的群像向带上。写成这一行，新开第四枪时照抄就行——
   //   不然那一处又会是「一层写在四处、第四处没跟上」的那一处。
-  function ficOpts(fic, opts) { return Object.assign({}, opts || {}, { groupWay: groupWayOf(fic, opts) }); }
+  function ficOpts(fic, opts) {
+    const o = Object.assign({}, opts || {}, { groupWay: groupWayOf(fic, opts) });
+    // 「他俩 × 我」那种三人文（她 2026-10-17 群友：续写时 U 的外貌又丢了）：原来只有新写那一枪知道要带上「我」，
+    //   文上没记，续写、写长一点、请原作者回来都照「只写他俩」写——「我」整个被挤出去，外貌更不用说。现在记在文上（withMe），这几枪都跟着带
+    if (fic && fic.withMe && o.includeMe == null) {
+      const me = ficMeProfile(fic.cp);
+      Object.assign(o, { includeMe: true, meName: (me && me.name) || "我", mePersona: (me && me.persona) || "", meAppearance: (me && me.appearance) || "" });
+    }
+    return o;
+  }
   // ── 同人文到底是什么 ──────────────────────────────────────────────
   // 她 2026-09-11 亲口定的：**「同人文本来就是『他们俩换了个身份世界观继续相爱』。」**
   // 她同一轮还说：「他们身份也不应该被带入同人文吧」——
@@ -771,7 +780,8 @@
     // 带上我：写成 A × 我 × B 三人同框
     if (bothChars && opts.includeMe) {
       const meName = opts.meName || "我";
-      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + loveLine() + posRule(a.name, b.name);
+      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格")
+        + (opts.meAppearance && String(opts.meAppearance).trim() ? "\n外貌（务必贴合，别自己另编发色、长相）：" + String(opts.meAppearance).trim().slice(0, 400) : "") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + loveLine() + posRule(a.name, b.name);
     }
     // 只他俩 CP：即便角色卡写了「我男朋友」，也不把「我」带进文里
     const soloTail = bothChars ? "\n【只写这两人】这是 " + a.name + " × " + b.name + " 的双人同人文，读者/『我』不出场、不作为角色写进去；就算某人的设定里写了 TA 是「我的男朋友/恋人」，本篇也只聚焦他们两人彼此，别把「我」拉进来凑三人。" : "";
@@ -2896,11 +2906,15 @@
   }
   // 「我」按面具写（她 2026-10-16：「搞按面具吧」）：这篇 CP 里第一位角色认我哪张面具，人设和外貌就取那张；
   //   名字仍用资料里的那个，跟书架、CP 标签、「谁没出场」那几处对得上。没有角色（我 × 原创）就用资料本身。
-  let ficMeOf = null;
-  function cpChars(cp, characters, profile) {
+  let ficMeOf = null, ficProfile = null;
+  function ficMeProfile(cp, profile) {
+    profile = profile || ficProfile;
     const lead = (cp || []).find(function (tok) { return tok !== "me"; });
     const mask = lead && typeof ficMeOf === "function" ? ficMeOf(lead) : null;
-    const me = mask && mask !== profile ? Object.assign({}, profile || {}, { persona: mask.persona || "", appearance: mask.appearance || "" }) : profile;
+    return mask && mask !== profile ? Object.assign({}, profile || {}, { persona: mask.persona || "", appearance: mask.appearance || "" }) : profile;
+  }
+  function cpChars(cp, characters, profile) {
+    const me = ficMeProfile(cp, profile);
     return (cp || []).map(function (tok) { return tok === "me" ? meChar(me) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
   }
 
@@ -5418,7 +5432,7 @@
     // 光读 loadCfg() 不会触发渲染。
     const [paperId, setPaperId] = useState(function () { return (loadCfg() || {}).paper || FIC_PAPER_DEFAULT; });
     const t = ficPaperTheme(appTheme, ficPaper({ paper: paperId }));
-    ficMeOf = props.meOf || null;
+    ficMeOf = props.meOf || null; ficProfile = props.profile || null;
     const [tabs, setTabs] = useState(loadTabs);
     const [fics, setFics] = useState(loadFics);
     const [cps, setCps] = useState(loadCPs);
@@ -5534,7 +5548,8 @@
         const briefList = Array.isArray(briefs) ? briefs : [];
         const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
-          includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我", mePersona: (props.profile && props.profile.persona) || "",
+          includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我",
+          mePersona: ((ficMeProfile(cp, props.profile) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile) || {}).appearance) || "",
           groupWay: String(groupWay || "").trim() };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
@@ -5547,7 +5562,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe, groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset
