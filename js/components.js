@@ -10026,6 +10026,7 @@ function ChatThread({
   // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
+    if (loadTtsApi().noListen) return null;   // 她在语音设置里关掉了气泡底下的「听一下」
     const k = m && m.kind;
     if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
     const spk = speakerOf(m);
@@ -13009,9 +13010,9 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
   const _card = inline ? null : (typeof htmlCardOf === "function" ? htmlCardOf(text) : null);
   if (_card) return h(HtmlCard, { html: _card });
-  // 早先存下来的「原文 | 中文」（双语没开、TA自己写的，她 2026-10-11 截图）：画的时候也劈开，挂成译文——
+  // 早先存下来的「原文 | 中文」「原文【中文】」（双语没开、TA自己写的，她 2026-10-11／10-17 截图）：画的时候也劈开，挂成译文——
   //   新消息在拆泡那一步就劈好了，这一处只管已经躺在记录里的那些。她自己发的不动。
-  if (!zhReady && !isU && typeof text === "string" && text.indexOf("|") > 0 && typeof splitBilingual === "function") {
+  if (!zhReady && !isU && typeof text === "string" && (text.indexOf("|") > 0 || /】\s*$/.test(text)) && typeof splitBilingual === "function") {
     const _bi = splitBilingual(text, false);
     if (_bi) { text = _bi.text; zhReady = _bi.zh; }
   }
@@ -17705,6 +17706,7 @@ function GroupThread({
   // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
+    if (loadTtsApi().noListen) return null;   // 她在语音设置里关掉了气泡底下的「听一下」
     const k = m && m.kind;
     if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
     const spk = speakerOf(m);
