@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.882";
+const APP_VERSION = "v75.886";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -626,6 +626,7 @@ function App() {
   const [spaceBooks, setSpaceBooks] = useState({});
   // 空间门口那三样（她 2026-10-16「567 也做了」）：门牌、东西在谁那儿、留灯。{charId:{plaque, things:[], light:{me,ta}}}
   const [spaceHome, setSpaceHome] = useState({});
+  const [usPartnerId, setUsPartnerId] = useState(null);   // 空间里正开着谁（给 TransWho 用）
   const spaceHomeRef = useRef({});
   // 问答小本封面标题：{ [charId]: title }
   const [coupleQATitle, setCoupleQATitle] = useState({});
@@ -21416,7 +21417,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const noRepeat = recentPosts.length
         ? "\n\n**【不许复读】TA 最近已经发过下面这些朋友圈，这一条【绝对不要】再写同一件事、同一种心情或雷同句式，换一件全新的事、一个新角度：**\n" + recentPosts.map((c, i) => (i + 1) + "、" + c.slice(0, 60)).join("\n")
         : "";
-      const livedMaterial = ambientMaterialFor(char, { limit: 20 });
+      // 刚聊完（她 2026-10-17：刚在聊感情，朋友圈却是一份扯面指南）：那段聊天就是他此刻心里装着的，
+      //   这一条不掷轴、料给足；隔久了才发的照旧掷轴，免得条条都在写她。
+      const _lastTalk = Math.max(0, ...(chatsRef.current[char.id] || []).slice(-30).map(m => Number(m && m.ts) || 0));
+      const _momHot = _lastTalk > 0 && Date.now() - _lastTalk < 30 * 60 * 1000;
+      const livedMaterial = ambientMaterialFor(char, { limit: _momHot ? 60 : 40 });
       // 配不配图交还给TA（群里读者 2026-10-02：「是默认每一条都带图？让 char 自己选择带图 or 不带图」）。
       //   原来提示词里写死「大约一半概率配一张图」——那是替TA掷了答案。这里只摆出TA自己的习惯当参照。
       // 「pyq 感觉 ai 味好重」（群里芸 2026-10-03）。查下来不是漏层：朋友圈走
@@ -21443,7 +21448,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _momRolled = window.Axes
         ? window.Axes.roll(MOMENT_AXES, [char.id, "moment", moments.length, Date.now()], { allFree: 0.08, skip: 0.12, free: 0.20 })
         : null;
-      const _momAxes = window.Axes ? window.Axes.text(_momRolled, {
+      const _momAxes = (typeof _momHot !== "undefined" && _momHot) ? "\n\n【你刚跟她聊完】下面「最近亲历」里最新的那段，就是你这会儿心里还装着的。发什么你自己定；想沾那件事就沾——可以含糊、不点名、只露一点余温，不用刻意绕开它去找别的话题。\n" : window.Axes ? window.Axes.text(_momRolled, {
         on: "\n\n【这一条的几条轴（别点破它们，写出来的就是一条普通朋友圈）】它们互相独立；没列出来的方面你自己拿主意。"
           + "\n**别为了凑这几条而写**——它们只是防止你每次都往同一个地方走；真正写出来的要像这个人随手发的。",
         off: "\n\n【这一条没有给你任何限制】别挑一个最像朋友圈的样子来发，也别沿用你最近那几条的结构。"
@@ -24263,6 +24268,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");
   };
   // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
+  // 这个人开着「外语消息自带中译」吗：TransText 认「这段是谁写的」时问这一句（论坛、朋友圈、日记、查手机……）
+  window.__charBilingual = id => !!(settingsFor(id) || {}).bilingual;
   const relSay = c => {
     const rk = spaceRelKey((couplesRef.current || {})[c && c.id]), r = spaceRel(rk);
     const cp = (couplesRef.current || {})[c && c.id], role = spaceRoleLine(cp, (meOf(c && c.id) || {}).name || "她");
@@ -30549,7 +30556,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEat: eatTakeout,
     toast: toast,
     onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
-  });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
+  });else if (screen === "us") body = /*#__PURE__*/React.createElement(window.TransWho || React.Fragment, window.TransWho ? { id: usPartnerId } : null, React.createElement(Us, {
+    onPartnerView: setUsPartnerId,
     land: usLand,
     onLanded: () => setUsLand(null),
     characters: liveChars,
@@ -30860,7 +30868,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
     onReadExDiary: markExDiaryRead
-  });else if (screen === "lore") body = h(WorldBook, {
+  }));else if (screen === "lore") body = h(WorldBook, {
     entries: loreEntries,
     characters: liveChars,
     onBack: goHome,

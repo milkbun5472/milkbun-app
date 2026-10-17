@@ -6911,13 +6911,32 @@ function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w
 function emoteSlotWords(words, emotes, emoteNorm) {
   // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
   const JSON_EMOTE = /^\s*[{｛]\s*["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']\s*[}｝]\s*$/i;
-  let w0 = (Array.isArray(words) ? words : []).map(w => {
-    if (w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim()) return "[表情] " + w.emote.trim();
+  // 多行 JSON 被拆成一泡一行（她 2026-10-17 截图：气泡里一个个「{」「:」「,」「}」）：先把 { … } 拼回一项，
+  //   认得出表情就当表情；拼回来还只剩括号冒号逗号的空壳，整串拿掉。
+  const _src = Array.isArray(words) ? words : [], _merged = [], _conv = new Set();
+  const JUNK = /^[\s{}｛｝:：,，"“”'\[\]]*$/;
+  for (let i = 0; i < _src.length; i++) {
+    const w = _src[i];
+    if (typeof w === "string" && /^\s*[{｛]\s*$/.test(w)) {
+      let j = i + 1; const parts = [w];
+      while (j < _src.length && typeof _src[j] === "string" && j - i < 12) { parts.push(_src[j]); if (/[}｝]\s*$/.test(_src[j])) break; j++; }
+      if (j < _src.length && /[}｝]\s*$/.test(String(_src[j]))) {
+        const joined = parts.join(" "), key = joined.match(/["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']/i);
+        if (key) { _conv.add(_merged.length); _merged.push("[表情] " + key[1].trim()); i = j; continue; }
+        if (JUNK.test(joined)) { i = j; continue; }
+      }
+    }
+    if (typeof w === "string" && /[{}｛｝:：]/.test(w) && JUNK.test(w)) continue;
+    _merged.push(w);
+  }
+  let w0 = _merged.map((w, i) => {
+    if (w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim()) { _conv.add(i); return "[表情] " + w.emote.trim(); }
     const mj = typeof w === "string" ? w.match(JSON_EMOTE) : null;
+    if (mj) _conv.add(i);
     return mj ? "[表情] " + mj[1].trim() : w;
   });
   // 一个表情包都没有：认出来的这几项也发不出图，直接拿掉，别把「[表情] …」当字发出去
-  if (!(emotes && emotes.length)) w0 = w0.filter((w, i) => !(typeof w === "string" && /^\[表情\] /.test(w) && w !== (Array.isArray(words) ? words[i] : w)));
+  if (!(emotes && emotes.length)) w0 = w0.filter((w, i) => !_conv.has(i));
   const kws = [];
   const EMOTE_SLOT = kw => { kws.push({ kw, sent: false }); return "emoteslot" + (kws.length - 1); };
   if (!(emotes && emotes.length)) return { words: w0, kws };
@@ -7010,7 +7029,14 @@ function markPauseVoice(words) {
     }
     raw.push(a);
   }
-  const list = raw.map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
+  // 模型把 {"voice":"…","emo":"…"} 写成了一串字（她 2026-10-17 截图：语音条下面的字幕就是那一整串）：拆回对象再认
+  const unJson = w => {
+    if (typeof w !== "string" || !/^\s*[{｛][\s\S]*[}｝]\s*$/.test(w)) return w;
+    try { const o = JSON.parse(w.trim().replace(/^｛/, "{").replace(/｝$/, "}")); return o && typeof o === "object" && !Array.isArray(o) ? o : w; } catch (e) {}
+    const m = /["“”']\s*(?:voice|语音)\s*["“”']\s*[:：]\s*["“”']([\s\S]*?)["“”']\s*(?:[,，]\s*["“”']\s*emo\s*["“”']\s*[:：]\s*["“”']([^"“”']*)["“”'])?\s*[}｝]\s*$/i.exec(w);
+    return m ? (m[2] ? { voice: m[1], emo: m[2] } : { voice: m[1] }) : w;
+  };
+  const list = raw.map(unJson).map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;
   const flush = () => { if (run != null) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(run); run = null; } };

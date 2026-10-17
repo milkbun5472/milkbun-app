@@ -10,6 +10,11 @@
 // {{char}} / {{user}} 这类占位符 app 不认，导入时就换掉，不要留给她手动改
 // 外语也挂「译」（她 2026-10-17：「没接上的翻译地方也都接上去」）：论坛、情侣空间、日记这些 TA 写的字，
 //   跟查手机同一个壳（PTX → TransText）：探得出外语才挂「译」，中文原样返回。
+// 论坛、空间里那一段是哪个角色写的：包一层 TransWho，那个人开着「自带中译」就直接摆中文（components.js TransText）
+function STW(who, el) {
+  const id = who && typeof who === "object" ? (String(who.authorType || "").indexOf("character") === 0 ? who.authorId : null) : who;
+  return id && typeof window !== "undefined" && window.TransWho ? h(window.TransWho, { id: id }, el) : el;
+}
 function STX(v) {
   // 已经是元素／数组（整页正文、一排按钮）就原样放过——String() 了就是一行「[object Object]」，还会挂上「译」（2026-10-17 群友截图）
   if (v && typeof v === "object") return v;
@@ -3074,8 +3079,8 @@ function Forum({
           p.refTitle ? h("button", { onClick: e => { e.stopPropagation(); const t0 = (posts || []).find(x => x && x.id === p.refPostId); if (t0) openPost(t0); },
             className: "active:opacity-60 text-left", style: { display: "block", maxWidth: "100%", fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
-          p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, STX(p.title)),
-          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STX(p.body)),
+          p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, STW(p, STX(p.title))),
+          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
           actBar(p))));
   }
@@ -3104,7 +3109,7 @@ function Forum({
                 requestAppConfirm("删掉这一楼", (cm.authorType === "me" ? "这楼是你自己写的，删了回不来。" : "") + "楼里的楼中楼也一起删。", () => onDeleteFloor(post.id, cm.id), "删掉"); },
                 title: "删掉这一楼", className: "shrink-0 active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
-          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, STX(atClean(cm.content))) : null,
+          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, STW(cm, STX(atClean(cm.content)))) : null,
           forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { "data-wk": "foreplies", className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
@@ -3119,7 +3124,7 @@ function Forum({
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, STX(atClean(r.content))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, STW(r, STX(atClean(r.content)))),
               h("button", {
                 onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName) }),
                 className: "active:opacity-60",
@@ -3174,7 +3179,7 @@ function Forum({
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts))),
             delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STX(p.body)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           forumPhotoCard(p, 280),
           h("div", { className: "mt-3" }, tag(p.board)),
           actBar(p),
@@ -6903,7 +6908,7 @@ function SpaceDoor({ partner, home, busy, lit, carryNames, tone, eyebrow, put, t
     eyebrow("留灯", "今晚的，早上六点熄"), lights);
 }
 
-function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onSetRel, spaceBooks, spaceBookBusy, onBookAdd, onBookReply, onBookRemove, onBookTa, spaceHome, spaceHomeBusy, lightLit, carryNamesOf, onSpaceHome, onSpaceHomeTa, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, onReplyQA, onEditQAReply, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, onForwardDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onRollStyles, onRollThemes, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, onUploadPhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying, onPartnerView }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -7022,6 +7027,8 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 
   // —— 单段情侣详情（仅 together 可进）——
   const partner = view ? characters.find(c => c.id === view) : null;
+  // 空间里是哪个人：告诉外面一声，外面那层 TransWho 就按他开没开「自带中译」决定「译」要不要直接展开
+  useEffect(() => { if (onPartnerView) onPartnerView(partner ? partner.id : null); }, [partner && partner.id]);
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
     return h(CoupleQABook, { partner, bank: window.spaceLover && cp[partner.id] && !window.spaceLover(cp[partner.id]) ? COUPLE_QA_BANK.filter(x => !x.love) : COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], books: (coupleQABooks || {})[partner.id] || {}, customBooks: (coupleQACustomBooks || {})[partner.id] || [], onSaveBook: onSaveQABook, onSaveCustom: onSaveQACustom, onSaveCustomBooks: onSaveQACustomBooks, onAnswer: onAnswerQA, onSeal: onSealQA, onReveal: (id, text) => onRevealQA(partner.id, id, text), onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onReply: onReplyQA ? (eid, txt) => onReplyQA(partner, eid, txt) : null, onEditReply: onEditQAReply, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
@@ -13855,7 +13862,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           h(InkStruck, { text: p.text, seed: (entry.id || "") + i, lineH: Math.round(16.5 * 2.05), rgb: iRGB }));
         if (p.secret) return h("p", { key: i, style: body },
           h(InkSecret, { text: p.text, seed: (entry.id || "") + i, rgb: iRGB, ink: t.ink }));
-        return h("p", { key: i, style: body }, STX(p.text));
+        return h("p", { key: i, style: body }, STW(isMe ? null : char && char.id, STX(p.text)));
       }),
       entry.signature ? h("div", { style: { marginTop: 20, fontFamily: F_DISPLAY, fontSize: 18, color: t.sub, textAlign: "right" } }, entry.signature) : null,
       isMe ? h("div", { style: { marginTop: 34 } },
@@ -13866,7 +13873,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           h(Avatar, { character: (chars || []).find(x => x.id === c.charId) || { name: c.name }, size: 28, radius: 9 }),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 2 } }, c.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.sub } }, STX(c.text))))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.sub } }, STW(c.charId, STX(c.text)))))),
         h("button", { onClick: onComment, disabled: commenting, className: "w-full mt-5 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50", style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub } },
           commenting ? h(IPulse, { size: 15, color: t.sub }) : h(ISpark, { size: 15, color: t.sub }),
           commenting ? "他们在看你今天写的…" : (comments.length ? "再叫人来看看" : "叫他们来看看"))) : null,
