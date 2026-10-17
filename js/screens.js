@@ -8841,7 +8841,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       stHot.map(x => talkRow(x, pickTalk, y => onDelSongTalk && onDelSongTalk(talkSong, y.id))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "14px 0 0" } }, "最新评论"),
       stItems.filter(x => stHot.indexOf(x) < 0).slice().reverse().map(x => talkRow(x, pickTalk, y => onDelSongTalk && onDelSongTalk(talkSong, y.id))))
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "24px 0" } }, "这首歌底下还没有评论"),
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "24px 0" } }, "这首歌底下还没有评论")) : null;
+  // 歌评页的输入框钉在最底下（她 2026-10-17：「歌评不在最下面」）：占的是底栏那一格，跟聊天的输入栏一个位置
+  const songTalkBar = talkSong ? h("div", { "data-wk": "listentalkbar", className: "shrink-0", style: { padding: "2px 14px 10px", borderTop: "1px solid " + t.line, background: t.bg } },
     sendBox(talkDraft, setTalkDraft, talkTo, () => { const v = talkDraft; setTalkDraft(""); onReplySongTalk && onReplySongTalk(talkSong, v, talkTo); setTalkTo(""); }, songTalkBusy === stKey, talkTo ? "回复@" + talkTo : "写一条歌评", () => setTalkTo(""))) : null;
   const cloudTab = h("div", { className: "px-4 py-3" },
     cv.open
@@ -8942,7 +8944,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     // 上沿留一道亮线当箱板的棱（不然它像贴上去的一条贴纸）。
     // ⚠️v62.46 前这两行写的还是「木纹」「木板的棱」——那是 v61.43 木台面那一版的话，
     //   v61.44 材质换成唱片沟纹之后没跟着换，一页两种材质的隐喻（审美审计点名）。
-    h("div", { className: "shrink-0 flex items-stretch", style: {
+    nav === "songtalk" && songTalkBar ? songTalkBar : h("div", { className: "shrink-0 flex items-stretch", style: {
       borderTop: "1px solid " + (hex6(t.ink) ? t.ink + "26" : t.line),
       boxShadow: hex6(t.ink) ? "inset 0 1px 0 rgba(255,255,255,.35)" : "none",
       background: hex6(t.ink) ? t.ink + "14" : t.bg } },

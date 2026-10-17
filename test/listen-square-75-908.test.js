@@ -53,3 +53,6 @@ test('帖子、帖子里的评论、歌评都能删，自己的和刷出来的�
   assert.equal((sc.match(/onDelSquareComment\(p\.id, x\.id\)/g)||[]).length,2);
   assert.equal((sc.match(/onDelSongTalk\(talkSong, y\.id\)/g)||[]).length,2);
 });
+test('歌评页的输入框钉在最底下，占底栏那一格',()=>{
+  assert.match(sc,/nav === "songtalk" && songTalkBar \? songTalkBar : h\("div", \{ className: "shrink-0 flex items-stretch"/);
+});
