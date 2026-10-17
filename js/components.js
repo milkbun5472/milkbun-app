@@ -13909,6 +13909,7 @@ function shareCardOf(kind) {
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;
+  if (kind === "listenshare") return window.ListenShareCard || null;   // 一起听广场转来的一帖（js/listen-square.js）
   if (kind === "shuashare") return window.ShuaShareCard || null;   // 片刻的视频（js/shua.js）   // 直播回放（js/live.js，2026-10-07）
   return null;
 }

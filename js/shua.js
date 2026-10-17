@@ -137,7 +137,8 @@
   // ── 熟面孔（她 2026-10-16：「论坛有意思是因为有一套熟人系统…片刻里面没有」）──────────────
   //   就是论坛那批常驻网友，换了片刻上的网名和刷视频的习惯。跟她的碰面账两边共用。
   //   regs：[{id,name,voice,tie}]；pairs：他们之间的交情；me：她这次用的号名
-  function regularsBlock(regs, pairs, me) {
+  // doing：这个平台上大家在干什么。片刻是「刷视频、发评论」，一起听广场是「听歌、写歌评」——同一批人、同一份交情，一段话两处用
+  function regularsBlock(regs, pairs, me, doing) {
     if (!regs || !regs.length) return "";
     const pick = regs.filter(r => r.tie && r.tie.encounters).concat(regs.filter(r => !(r.tie && r.tie.encounters)).sort(() => Math.random() - 0.5)).slice(0, 6);
     const ids = new Set(pick.map(r => r.id));
@@ -145,7 +146,7 @@
       const how = (t.warm || 0) >= (t.spar || 0) * 2 && t.warm > 1 ? "，碰上多半聊得来" : (t.spar || 0) >= (t.warm || 0) * 2 && t.spar > 1 ? "，碰上多半要抬两句杠" : "";
       return "；跟 @" + me + " 在评论区碰过 " + n0 + " 次" + how + "，再遇见认得出这个号，可以接着以前的调子（但不知道她的私生活）"; };
     const ps = (pairs || []).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
-    return "\n\n【这个平台上的熟面孔】下面几位是常在这儿刷视频、发评论的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
+    return "\n\n【这个平台上的熟面孔】下面几位是常在这儿" + (doing || "刷视频、发评论") + "的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
       + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同一条底下碰见了可以接旧梗、互损，别每次重新认识。" : "")
       + "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。";
   }
@@ -1343,5 +1344,5 @@
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;
-  window.ShuaKit = { tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
 })();

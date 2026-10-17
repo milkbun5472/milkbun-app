@@ -7964,7 +7964,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -8009,6 +8009,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   // v54.51 网易云化：连了账号就以「发现」(cloud)为落地页，正在放歌仍优先回播放页；
   // 没连账号退回本地曲库(home)。四 tab：推荐 / 播放 / 我的 / 曲库
   const [nav, setNav] = useState(now ? "play" : (canSearch ? "cloud" : "home"));
+  // 广场 / 歌评：哪一帖正在回、回的是谁、打的字；歌评页开的是哪首（整页，返回回到原来那格）
+  const [sqOpen, setSqOpen] = useState(null), [sqTo, setSqTo] = useState(""), [sqDraft, setSqDraft] = useState(""), [sqShare, setSqShare] = useState(null), [sqPostDraft, setSqPostDraft] = useState("");
+  const [talkSong, setTalkSong] = useState(null), [talkBack, setTalkBack] = useState("square"), [talkDraft, setTalkDraft] = useState(""), [talkTo, setTalkTo] = useState("");
   const [addTab, setAddTab] = useState("netease"); // netease | local（搜歌在「发现」，不在这儿）
   const [link, setLink] = useState("");
   const [title, setTitle] = useState("");
@@ -8242,7 +8245,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       // 加进她真网易云歌单（仅网易云歌 + 已连账号；openCvAdd 在下方云村区声明，闭包延迟取用没有 TDZ 问题）
       (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { bg: t.bg2 }) : null,
       // 歌词页开关
-      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 })),
+      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
+      // 这首歌的歌评（她 2026-10-17）：一首一页，刷过的留着
+      cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { bg: t.bg2 })),
     // ── 进度＝唱针的行程（v62.46）────────────────────────────────────
     // 原来这儿是一根【原生 <input type="range">】：一页程序画的唱片沟纹中间躺着一根
     // iOS 系统滑块，是整页最裸的一件东西（审美审计点名）。
@@ -8732,29 +8737,68 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   // 账号条和搜索坐在一张纸上，不直接压在木纹上（木头上的字会脏）
   const cvPaper = { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14,
     padding: "10px 12px", boxShadow: "0 2px 6px rgba(30,28,24,.07)" };
-  // 音乐广场：熟人和路人分享歌和听歌的话；她点「刷一刷」才来新的一批，点歌就放
+  // 音乐广场：熟人、论坛那批熟面孔和路人分享歌和听歌的话；她能发帖、评论、回谁、转给TA；点歌就放，点「歌评」进那首歌自己那页
   const square = data.square || [];
+  const LQ = window.ListenSquare || {};
   const sqAv = by => { const c = (characters || []).find(x => x.id === by); return c ? h(Avatar, { character: c, size: 34, radius: 999 })
     : h("div", { style: { width: 34, height: 34, borderRadius: 999, background: t.line, flexShrink: 0 } }); };
+  const nameTag = x => h("span", { style: { color: x.by === "me" ? t.accent || t.tint : (characters || []).some(c => c.id === x.by) ? t.ink : t.fog } }, x.name);
+  // 一条评论：点一下就是回他
+  const talkRow = (x, onPick) => h("button", { key: x.id, "data-wk": "listencomment", onClick: () => onPick(x), className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, padding: "4px 0", minHeight: 30 } },
+    nameTag(x), x.to ? h("span", { style: { color: t.fog } }, " 回 " + x.to) : null, "：", x.text);
+  const sendBox = (val, setVal, to, onSend, busy, ph) => h("div", { style: { marginTop: 6 } },
+    to ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "回 " + to + " ", h("button", { onClick: () => (setTalkTo(""), setSqTo("")), style: { color: t.tint, minHeight: 28, padding: "0 6px" } }, "不回他了")) : null,
+    h("div", { className: "flex", style: { gap: 6 } },
+      h("input", { "data-wk": "input", value: val, onChange: e => setVal(e.target.value), onKeyDown: e => { if (e.key === "Enter" && val.trim() && !busy) onSend(); }, placeholder: ph, className: "flex-1 min-w-0 outline-none",
+        style: { minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
+      h("button", { "data-wk": "block", onClick: onSend, disabled: !val.trim() || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发")));
+  const openTalk = (song, back) => { setTalkSong(song); setTalkBack(back || "square"); setTalkDraft(""); setTalkTo(""); setNav("songtalk"); };
   const squareTab = h("div", { className: "px-4 py-3", "data-wk": "listensquare" },
     h("button", { "data-wk": "listensqgen", onClick: () => onGenSquare && onGenSquare(), disabled: !!genSquare || !canSearch, className: "w-full active:opacity-80 disabled:opacity-50",
       style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5, marginBottom: 6 } }, genSquare ? "大家在挑歌…" : "刷一刷"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginBottom: 12 } },
-      canSearch ? "你的人和路人网友在这儿分享最近在听的歌、听歌时想到的事。点一下「刷一刷」来一批（花一次调用，不会自己刷）；点歌就放。" : "先在「设置」里配好音乐源，广场上的歌才搜得到、放得出来。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginBottom: 10 } },
+      canSearch ? "你的人、论坛那几位熟面孔和路人网友在这儿分享在听的歌。「刷一刷」来一批（一次调用，不会自己刷）；点歌就放，「歌评」进那首歌自己的评论页。" : "先在「设置」里配好音乐源，广场上的歌才搜得到、放得出来。"),
+    // 她自己发一帖：用正在放的那首
+    h("div", { "data-wk": "listensqcompose", style: { padding: 10, borderRadius: 12, border: "1px solid " + t.line, marginBottom: 8 } },
+      now ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 6 } }, "分享正在放的 " + (LQ.songLine ? LQ.songLine(now) : now.title)) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "先放一首歌，就能分享它"),
+      now ? sendBox(sqPostDraft, setSqPostDraft, "", () => { const v = sqPostDraft; setSqPostDraft(""); onPostSquare && onPostSquare(v, now); }, !!squareBusy, "听的时候在想什么") : null),
     square.length ? square.map(p => h("div", { key: p.id, "data-wk": "listensqpost", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
-      h("div", { className: "flex items-center", style: { gap: 9 } }, sqAv(p.by),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: p.by !== "npc" ? t.ink : t.sub } }, p.name, p.by !== "npc" ? h("span", { style: { fontSize: 10, color: t.tint, marginLeft: 6 } }, "你认识") : null)),
+      h("div", { className: "flex items-center", style: { gap: 9 } }, p.by === "me" ? h(Avatar, { character: { avatarImage: (profile || {}).avatarImage, name: (profile || {}).name }, size: 34, radius: 999 }) : sqAv(p.by),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5 } }, nameTag(p), (characters || []).some(c => c.id === p.by) ? h("span", { style: { fontSize: 10, color: t.tint, marginLeft: 6 } }, "你认识") : null)),
       p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.75, margin: "8px 0" } }, p.text) : null,
-      h("button", { "data-wk": "listensqplay", onClick: () => onPlaySquare && onPlaySquare(p), className: "w-full flex items-center active:opacity-70", style: { gap: 10, padding: 8, borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, textAlign: "left", minHeight: 52 } },
-        p.song && p.song.cover ? h("img", { src: p.song.cover, alt: "", style: { width: 38, height: 38, borderRadius: 6, objectFit: "cover", flexShrink: 0 } }) : h("div", { style: { width: 38, height: 38, borderRadius: 6, background: t.line, flexShrink: 0 } }),
-        h("div", { className: "min-w-0 flex-1" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.title) || ""),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.artist) || "")),
-        h("span", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0, gap: 3 } }, ic("play", t.tint, 16), "放")),
+      h("div", { className: "flex", style: { gap: 6 } },
+        h("button", { "data-wk": "listensqplay", onClick: () => onPlaySquare && onPlaySquare(p), className: "flex-1 min-w-0 flex items-center active:opacity-70", style: { gap: 10, padding: 8, borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, textAlign: "left", minHeight: 52 } },
+          p.song && p.song.cover ? h("img", { src: p.song.cover, alt: "", style: { width: 38, height: 38, borderRadius: 6, objectFit: "cover", flexShrink: 0 } }) : h("div", { style: { width: 38, height: 38, borderRadius: 6, background: t.line, flexShrink: 0 } }),
+          h("div", { className: "min-w-0 flex-1" },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.title) || ""),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.artist) || "")),
+          h("span", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0, gap: 3 } }, ic("play", t.tint, 16), "放")),
+        h("button", { "data-wk": "listensqtalk", onClick: () => openTalk(p.song, "square"), className: "active:opacity-70", style: { minWidth: 52, minHeight: 52, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "歌评")),
       (p.comments || []).length ? h("div", { style: { marginTop: 8, paddingLeft: 10, borderLeft: "2px solid " + t.line } },
-        p.comments.map((c, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
-          h("span", { style: { color: c.by !== "npc" ? t.ink : t.fog } }, c.name + "："), c.text))) : null))
+        p.comments.map(c => talkRow(c, x => { setSqOpen(p.id); setSqTo(x.by === "me" ? "" : x.name); }))) : null,
+      h("div", { className: "flex", style: { gap: 14, marginTop: 6 } },
+        h("button", { "data-wk": "listensqreply", onClick: () => { setSqOpen(sqOpen === p.id ? null : p.id); setSqTo(""); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 36 } }, squareBusy === p.id ? "大家在回…" : "评论"),
+        h("button", { "data-wk": "listensqshare", onClick: () => setSqShare(sqShare === p.id ? null : p.id), style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 36 } }, "转给TA")),
+      sqShare === p.id ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 4 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { onShareSquare && onShareSquare(p, c); setSqShare(null); }, className: "active:opacity-70",
+        style: { minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, c.remark || c.name))) : null,
+      sqOpen === p.id ? sendBox(sqDraft, setSqDraft, sqTo, () => { const v = sqDraft; setSqDraft(""); onReplySquare && onReplySquare(p.id, v, sqTo); }, squareBusy === p.id, sqTo ? "回 " + sqTo : "说点什么") : null))
     : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "30px 0" } }, "还没人发帖"));
+  // 一首歌的歌评整页：刷过的按门牌留在 listen.songTalk 里
+  const stKey = talkSong && LQ.songKey ? LQ.songKey(talkSong) : "";
+  const stPage = stKey ? ((data.songTalk || {})[stKey] || {}) : {};
+  const partnerNow = (characters || []).find(c => c.id === data.partnerId) || null;
+  const songTalkTab = talkSong ? h("div", { className: "px-4 py-3", "data-wk": "listentalk" },
+    h("button", { onClick: () => setNav(talkBack || "square"), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, minHeight: 36 } }, "‹ 返回"),
+    h("div", { className: "flex items-center", style: { gap: 10, margin: "6px 0 10px" } },
+      talkSong.cover ? h("img", { src: talkSong.cover, alt: "", style: { width: 54, height: 54, borderRadius: 8, objectFit: "cover" } }) : null,
+      h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, talkSong.title || ""), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, talkSong.artist || ""))),
+    h("button", { "data-wk": "listentalkgen", onClick: () => onGenSongTalk && onGenSongTalk(talkSong), disabled: songTalkBusy === stKey, className: "w-full active:opacity-80 disabled:opacity-50",
+      style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, songTalkBusy === stKey ? "大家在写…" : ((stPage.items || []).length ? "再刷一批歌评" : "刷歌评")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, margin: "6px 0 10px" } },
+      (partnerNow ? "正在陪你听的「" + (partnerNow.remark || partnerNow.name) + "」每批一定会留一条。" : "") + "刷过的会留在这首歌这一页，换歌再回来还在。点谁的评论就是回他。"),
+    (stPage.items || []).length ? h("div", null, (stPage.items || []).map(x => talkRow(x, y => setTalkTo(y.by === "me" ? "" : y.name))))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "24px 0" } }, "这首歌底下还没有评论"),
+    sendBox(talkDraft, setTalkDraft, talkTo, () => { const v = talkDraft; setTalkDraft(""); onReplySongTalk && onReplySongTalk(talkSong, v, talkTo); setTalkTo(""); }, songTalkBusy === stKey, talkTo ? "回 " + talkTo : "写一条歌评")) : null;
   const cloudTab = h("div", { className: "px-4 py-3" },
     cv.open
       ? h("div", null,
@@ -8838,7 +8882,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     h("div", { style: { position: "relative", zIndex: 1 } }, h(Head, { zh: "一起听", bg: "transparent", noLine: nav === "play" && !!now,
       sub: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) + " 首" : null,
       onBack: () => { if (openPl) setOpenPl(null); else onBack(); } })),
-    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : nav === "square" ? squareTab : mineTab),
+    h("div", { className: "flex-1 overflow-y-auto", style: { position: "relative", zIndex: 1 } }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : nav === "square" ? squareTab : nav === "songtalk" ? (songTalkTab || squareTab) : mineTab),
     cvAddSheet,
     pickerOverlay,
     // 底部 tab。v61.42 按一句判据重排（她 2026-09-03：「好多功能都是一段一段加的
