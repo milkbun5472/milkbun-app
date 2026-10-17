@@ -936,12 +936,26 @@
         + "  这一页要整个换个样子，走 pagecolor（那一栏不靠挂点，每一页都成立）。\n";
     } catch (e) { return ""; }
   }
-  function themeCssNote() {
+  // ⚠️专有挂点只带【这回聊到的那几页】（她 2026-10-17：秋秋做个气泡超过十分钟没答上来）：
+  //   原来每一枪都把五十多页、两千六百多个挂点整份塞进去，十万字的提示词，光读就要好几分钟。
+  //   聊到哪一页（页名、或者她开着的那一页）才带那一页的全表；别的页只列个名字，她一提下一轮就带上。
+  const WK_ALIAS = { "聊天页": /聊天|气泡|单聊|对话框|输入框|顶栏/ };
+  function themeCssNote(focus, pageKey) {
     const ts = TS(); if (!ts || !ts.WK_COMMON) return "";
+    const f = String(focus || "");
     const fmt = function (arr) { return (arr || []).map(function (h) { return "    [data-wk=\"" + h[0] + "\"] " + h[1]; }).join("\n"); };
-    const scoped = (ts.WK_SCOPED || []).map(function (g) {
+    const hit = function (g) {
+      if (pageKey && (g.pages || []).indexOf(pageKey) >= 0) return true;
+      const zh = String(g.zh || "");
+      return (zh && f.indexOf(zh) >= 0) || (zh.length > 2 && /页$/.test(zh) && f.indexOf(zh.slice(0, -1)) >= 0) || (WK_ALIAS[zh] && WK_ALIAS[zh].test(f))
+        || (g.pages || []).some(function (pk) { return pk && pk.length > 2 && f.indexOf(pk) >= 0; });
+    };
+    const groups = ts.WK_SCOPED || [];
+    const on = groups.filter(hit), off = groups.filter(function (g) { return !hit(g); });
+    const scoped = on.map(function (g) {
       return "  【只有" + g.zh + "（" + (g.pages || []).join(" / ") + "）才有】\n" + fmt(g.hooks);
-    }).join("\n");
+    }).join("\n") + (off.length ? "\n  【这几页也有自己专有的挂点，这回没带全表】" + off.map(function (g) { return g.zh; }).join("、")
+      + "——要改其中哪一页，跟她说一声是哪页，她一提那一页的名字，下一轮就把那一页的挂点带上；别凭空猜挂点名。" : "");
     return "  ⚠️写 CSS 之前必须知道这三件事，不然写出来【一条都不会生效】：\n"
       + "  ① 这个 App 的样式几乎全是【内联 style】，行内赢过普通规则——**每一条声明都要带 !important**，不带就等于没写。\n"
       + "  ② 页面 CSS 会被系统【自动加上作用域】。你只管写普通选择器，**绝不要自己加 .theme-xxx 或 [data-page=...] 这类前缀**，加了就永远匹配不到。\n"
@@ -1032,7 +1046,7 @@
       + "  ⚠️快照里每张角色卡都带一栏【这张卡是否完整】。为 true 就是全文，放心照它出 patch、别再说自己看不到；"
       + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
-      + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
+      + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote(focus, ctx && ctx.page)
       // 她 2026-10-17 截图：说「把天气、木鱼都删了」，秋秋写了一份 CSS 去藏，还说「拿不准就长按拖去删除区」——
       //   主屏本来就有「从桌面移走」。界面上点得出来的事，答案是那一步在哪儿点，不是一张改动稿。
       + "  ⚠️她要的事界面上本来就能点出来（删/移走/放回一个组件、换图、开关某一样），先翻攻略找到那一步，直接告诉她在哪儿点；"

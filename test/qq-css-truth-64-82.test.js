@@ -22,7 +22,7 @@ const studio = R("js/theme-studio.js"), assistant = R("js/assistant.js");
 test("钩子清单只有一份，秋秋引用它、不另抄一份", () => {
   assert.match(studio, /const WK_SCOPED = Object\.freeze\(\[/);
   assert.match(studio, /CSS_BUILTINS, WK_COMMON, WK_SCOPED,/, "没导出去，秋秋拿不到");
-  assert.match(assistant, /\(ts\.WK_SCOPED \|\| \[\]\)\.map/, "秋秋没引用那一份");
+  assert.match(assistant, /const groups = ts\.WK_SCOPED \|\| \[\];/, "秋秋没引用那一份");
   assert.match(assistant, /fmt\(g\.hooks\)/, "秋秋没把专有那几组念出来");
   // ⚠️assistant 里不许再铺一份钩子名单
   const shown = assistant.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
@@ -94,7 +94,7 @@ test("秋秋被告知了那三件事，而且被要求【说实话】而不是�
   assert.match(note, /别硬出一份改不动的 CSS 糊弄过去/);
   assert.match(note, /fmt\(ts\.WK_COMMON\)/, "没把每页都有的那几个发过去");
   // 真的拼进了那段提示词，不是算了没人用（v55.95 那个形状）
-  assert.match(assistant, /\+ \(pages \? "，或某一页：" \+ pages : ""\) \+ "）\\n" \+ themeCssNote\(\)/, "算了没拼进去");
+  assert.match(assistant, /\+ \(pages \? "，或某一页：" \+ pages : ""\) \+ "）\\n" \+ themeCssNote\(focus, ctx && ctx\.page\)/, "算了没拼进去");
 });
 
 test("拿不到主题工作台时安静降级，别把整段提示词搞崩", () => {
