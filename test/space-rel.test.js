@@ -39,7 +39,7 @@ test("恋人向的地方只认恋人空间：群聊那句、梦、抽卡、旁�
   const dj = fs.readFileSync(path.join(__dirname, "..", "js", "dreamjournal.js"), "utf8");
   assert.match(eng, /function spaceLover\(cp\) \{ return !!\(cp && cp\.status === "together" && spaceRelKey\(cp\) === "lover"\); \}/);
   assert.match(app, /if \(cp\.status === "together" && !spaceLover\(cp\)\) return spaceRelLine\(/);
-  assert.match(app, /\{ couple: spaceLover\(cp\), have: gachaHave\(char\) \}/);
+  assert.match(app, /\{ couple: spaceLover\(cp\), have: gachaHave\(char\)( \}|, )/);   // 后面可以再带别的（v75.959 加了 lucky）
   assert.match(app, /const tog = members\.filter\(c => spaceLover\(couples\[c\.id\]\)\)/);
   assert.match(dream, /window\.spaceLover\(cp\)/); assert.match(dj, /window\.spaceLover\(cp\)/);
 });
