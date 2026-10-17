@@ -2109,13 +2109,15 @@
       "data-assistant-dock": "1",
       // 普通头像照旧放进圆里（她 2026-10-17：一律去框那版大家的秋秋都变方了）；
       //   抠好的透明图（四角透明）才不要圆底、边框和阴影，原样站在那儿
+      // 不透明的自己的图（她 2026-10-17「不透明的不能没有框吗」）：裁成圆，但不要底、边框和阴影
       style: ballCut
         ? { ...base, left: a.x, top: a.y, width: BALL, height: BALL, display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }
+        : ballSrc ? { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }
         : { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
         background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.22)",
         display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "grab" } },
-      ballCut
-        ? h("img", { src: ballSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } })
+      ballSrc
+        ? h("img", { src: ballSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: ballCut ? "contain" : "cover", borderRadius: ballCut ? 0 : "50%", pointerEvents: "none" } })
         : h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
 
     // 展开的样子：一扇能拖的小窗
