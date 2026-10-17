@@ -21,7 +21,7 @@ test("一本账：单聊、群聊、线下、主题都记在 LookHist；挂在 s
   assert.match(eng, /const LOOK_STORES = \{ x_chatSettings: "chat", x_groupSettings: "group", x_offlineSettings: "offline" \};/);
   assert.match(eng, /if \(typeof LOOK_STORES === "object" && LOOK_STORES\[k\]\) \{ try \{ LookHist\.noteStore\(k, v\); \} catch \(e\) \{\} \}/);
   assert.match(ts, /LH\(\)\.note\(HIST_SCOPE, prev, next\)/);
-  assert.match(ts, /g\.ThemeStudio = \{ histCount, undoStep, /);
+  assert.match(ts, /g\.ThemeStudio = \{[^}]*\bhistCount, undoStep, /);   // 前面可以再挂别的（v75.893 加了 CHAT_CSS_MAX）
 });
 
 test("一直点「上一版」就一直往前退；「换回来」能回去；正常改一次清掉换回来", () => {

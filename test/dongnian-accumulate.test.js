@@ -68,7 +68,9 @@ test("按 TA 今天的作息判醒没醒；没排作息就不猜", () => {
   assert.ok(!/hr >= 8 && hr <= 23/.test(code), "8–23 那句又写回来了——它会替没排作息的人编一份作息");
   assert.match(code, /return "awake";\s*\n\s*\} catch \(e\) \{ return "awake"; \}/, "没排作息时不是一律醒着");
   // 睡着时留一条窄缝，别变成半夜刷屏
-  assert.match(app, /if \(!forced \|\| Math\.random\(\) > 0\.12\) continue;/);
+  // v75.905 起一夜只掷一次（记在 nightRollRef 里），不再每过一遍闸就掷 12%
+  assert.match(app, /if \(!forced\) continue;/);
+  assert.match(app, /nightRollRef\.current\[cid\] = \{ k: _nk, ok: Math\.random\(\) < 0\.12 \}/);
   assert.match(app, /t\.action === "contact" && t\.forced/, "只有思念很重那一档才有资格半夜发");
   const pi = app.indexOf("const jw = (typeof window !== \"undefined\" && window.__dongnian && window.__dongnian[cid])");
   const proactive = app.slice(pi, app.indexOf("return; // 一次一个，错峰", pi));

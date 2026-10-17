@@ -13233,7 +13233,9 @@ function VoiceMsg({ m, isU, speaker }) {
   useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
   // 转录、波形、时长都按剥干净的那一份算（标记会跟着显示，还会把秒数算长）。
   // 合成仍走 m.content 原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 一处说了算。
-  const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(m.content) : String(m.content || "");
+  // 存下来的那条要是一整串 {"voice":"…","emo":"…"}（旧版本落下的）：字幕和念的都只取里面那句话
+  const vText = (() => { const raw = String(m.content || ""), u = typeof unwrapVoiceJson === "function" ? unwrapVoiceJson(raw) : raw; return u && typeof u === "object" && typeof u.voice === "string" ? u.voice : raw; })();
+  const say = typeof ttsMarkStrip === "function" ? ttsMarkStrip(vText) : String(vText || "");
   const dur = m.dur || Math.max(1, Math.round(say.replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
   // ⚠️原来这里写死 `isU ? "#16330a" : t.ink`——她把气泡文字色改成别的，
@@ -13244,7 +13246,7 @@ function VoiceMsg({ m, isU, speaker }) {
   const bars = voiceBars(say, dur);
   const emoZh = VOICE_EMO_ZH[m.emo] || "";
   // 有配语音 API + 这个角色选了音色 → 才显示播放按钮（懒生成：点了才合成收费，缓存后重播免费）
-  const canTts = !isU && speaker && speaker.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
+  const canTts = !isU && speaker && speaker.voiceId && vText && typeof ttsReady === "function" && ttsReady();
   const playTts = async e => {
     e.stopPropagation();
     if (pSt === "gen") return;
@@ -13254,7 +13256,7 @@ function VoiceMsg({ m, isU, speaker }) {
     aud.play().catch(() => {}); // 在用户手势里先解锁 iOS 音频，真数据到了才播
     setPErr(null); setPSt("gen");
     try {
-      const blob = await ttsSpeak(m.content, speaker.voiceId, { emo: m.emo }); // v48.31 作者标注的语气优先
+      const blob = await ttsSpeak(vText, speaker.voiceId, { emo: m.emo }); // v48.31 作者标注的语气优先
       const url = URL.createObjectURL(blob);
       aud.src = url;
       aud.onended = () => { setPSt("idle"); URL.revokeObjectURL(url); };
@@ -13909,6 +13911,7 @@ function shareCardOf(kind) {
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;
+  if (kind === "listenshare") return window.ListenShareCard || null;   // 一起听广场转来的一帖（js/listen-square.js）
   if (kind === "shuashare") return window.ShuaShareCard || null;   // 片刻的视频（js/shua.js）   // 直播回放（js/live.js，2026-10-07）
   return null;
 }

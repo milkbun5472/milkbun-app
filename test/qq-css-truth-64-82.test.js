@@ -45,7 +45,9 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
   //   或者作为 wk 属性传给共用组件（GlassPane、IArrow 自己转成 data-wk）
   // 单引号写法（'data-wk':'x'，char-day-kitchen-ui 那种压缩写法）也算挂上了
   const hung = n => new RegExp('"data-wk":[^\n]*"' + n + '"').test(src) || new RegExp("'data-wk':\\s*'" + n + "'").test(src)
-    || src.indexOf('wk: "' + n + '"') >= 0 || src.indexOf('wk="' + n + '"') >= 0;
+    || src.indexOf('wk: "' + n + '"') >= 0 || src.indexOf('wk="' + n + '"') >= 0
+    // 第四种：当参数传给本页自己的小帮手，帮手里写着 "data-wk": wk（screens.js 的 actBtn("listensqreply", …)、row(…, "quietpro")）
+    || new RegExp('(actBtn\\("|row\\([^\n]*, ")' + n + '"').test(src);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));
 });

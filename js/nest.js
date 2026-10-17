@@ -34,6 +34,10 @@
     //   不进「全部」那面墙（后端就不给），只在这一格里看
     { key: "post", zh: "留言板", seal: "言", color: "#7a6f62", hint: "想反馈的、想问的、想聊的，写一帖" }
   ];
+  // 名字旁边的称号（她 2026-10-17：「管理模式的专属称号放在我名字旁边，这样评论也能让她们知道我是谁」）：
+  //   一枚小小的朱红印章，后端只让管理口令挂；没挂的人这里什么都不画
+  const Badge = ({ b }) => b ? h("span", { "data-wk": "nestbadge", style: { display: "inline-block", marginLeft: 5, padding: "0 5px", fontFamily: F_BODY, fontSize: 10.5, lineHeight: "16px",
+    color: "#fff", background: "#a0383f", borderRadius: 3, verticalAlign: "1px", letterSpacing: .5, whiteSpace: "nowrap" } }, b) : null;
   // 她给一帖标的：收到了／修好了（后端只认管理口令改）
   const STATUS = { got: { zh: "收到了", color: "#b38a35" }, fixed: { zh: "修好了", color: "#71834f" } };
   const StatusChip = ({ st, big }) => STATUS[st] ? h("span", { "data-wk": "nestpoststatus", "data-st": st, style: { display: "inline-block", fontFamily: F_BODY, fontSize: big ? 12.5 : 11,
@@ -345,7 +349,7 @@
       h("div", { className: "flex items-center justify-between" },
         h("span", { "aria-hidden": true, style: { width: big ? 32 : 26, height: big ? 32 : 26, borderRadius: 999, border: "1.5px solid " + K.color, color: K.color,
           display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: big ? 14 : 12, fontWeight: 700, transform: "rotate(-8deg)" } }, K.seal),
-        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, h(StatusChip, { st: it.status, big }), (KZH[it.kind] || "") + " · " + fmtDay(it.created) + (it.edited ? " · 改于 " + fmtDay(it.edited) : ""))),
+        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, h(StatusChip, { st: it.status, big }), it.returned ? h("span", { "data-wk": "nestreturnedchip", style: { fontFamily: F_BODY, fontSize: big ? 12.5 : 11, color: "#a0383f", border: "1px solid #a0383f", borderRadius: 4, padding: "0 5px" } }, "退回了") : null, (KZH[it.kind] || "") + " · " + fmtDay(it.created) + (it.edited ? " · 改于 " + fmtDay(it.edited) : ""))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: big ? 20 : 15, lineHeight: 1.35, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, it.title),
       // 墙上那张：有小图就别一张拍立得（白边、反着歪一点），没有就只有字
       !big && it.thumb ? h("div", { "data-wk": "nestpolaroid", style: { margin: "8px 2px 2px", padding: "5px 5px 14px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)", transform: "rotate(" + (-tilt(it.id) * 1.6) + "deg)" } },
@@ -353,7 +357,7 @@
       big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub || t.ink, lineHeight: 1.75, marginTop: 8, whiteSpace: "pre-wrap" } }, it.intro) : null,
       !big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.intro) : null,
       big && foot ? h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line } }, foot) : null,
-      big ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub || t.fog, marginTop: 6 } }, "by " + (it.nick || "无名")),
+      big ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub || t.fog, marginTop: 6 } }, "by " + (it.nick || "无名"), h(Badge, { b: it.badge })),
       big ? null : h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
         h("span", { className: "inline-flex items-center", style: { gap: 3, color: it.liked ? "#c0717f" : t.fog } }, h(IHeart, { size: 13, color: it.liked ? "#c0717f" : t.fog, filled: it.liked }), it.likes || 0),
         h("span", null, "留言 " + (it.comments || 0)),
@@ -400,6 +404,15 @@
       setBusy(false);
     };
     const isPost = !!(it && it.kind === "post");
+    // 退回给作者（她 2026-10-17）：不删，写一句原因，作者收到小纸条，改好一保存就重新摆出来
+    const [retOpen, setRetOpen] = useState(false), [retText, setRetText] = useState("");
+    const doReturn = async () => {
+      const reason = retText.trim(); if (!reason) { props.toast("写一句为什么退回"); return; }
+      setBusy(true);
+      try { await api("/admin/return", { method: "POST", body: { item: it.id, reason } }); setIt(x => Object.assign({}, x, { returned: reason })); setRetOpen(false); setRetText(""); props.toast("退回去了，作者会收到小纸条"); }
+      catch (e) { props.toast(e.message); }
+      setBusy(false);
+    };
     const setStatus = async st => {
       try { await api("/admin/status", { method: "POST", body: { item: it.id, status: st } }); setIt(x => Object.assign({}, x, { status: st })); props.toast(st ? "标好了" : "标记擦掉了"); }
       catch (e) { props.toast(e.message); }
@@ -452,11 +465,16 @@
         h(React.Fragment, null,
           // 揭下来的那张纸条：底部是署名和关注，不放圆头像
           h(Slip, { t, it, big: true, foot: h("div", { className: "flex items-center justify-between" },
-            h("button", { "data-wk": "nestsign", onClick: () => it.uid && onUser(it.uid), className: "active:opacity-60 min-w-0 truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, textAlign: "left" } }, "— " + (it.nick || "无名")),
+            h("button", { "data-wk": "nestsign", onClick: () => it.uid && onUser(it.uid), className: "active:opacity-60 min-w-0 truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, textAlign: "left" } }, "— " + (it.nick || "无名"), h(Badge, { b: it.badge })),
             h("div", { className: "flex items-center", style: { gap: 10, flexShrink: 0 } },
               it.uid && (!me || me.id !== it.uid) ? h("button", { "data-wk": "nestfollow", "data-on": follow ? "1" : "0", onClick: doFollow, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: follow ? t.fog : (t.tint || t.ink) } }, follow ? "已关注" : "＋关注") : null,
               // 导入次数只给作者本人看（她 2026-10-16）：后端只在是你的东西时才带这个数，没带就不显示
               it.imports != null ? h("span", { "data-wk": "nestimports", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "被导入 " + it.imports + " 次 · 只有你看得到") : null)) }),
+          // 被退回的：作者和她看得到原因
+          it.returned ? h("div", { "data-wk": "nestreturned", style: { marginTop: 14, padding: "12px 14px", border: "1px solid #a0383f", borderRadius: 10, background: tint("#a0383f", "10"), fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } },
+            h("div", { style: { fontWeight: 600, color: "#a0383f" } }, "这件被退回了，先收起来，别人看不到"),
+            h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4 } }, "原因：" + it.returned),
+            it.mine ? h("div", { style: { fontSize: 12.5, color: t.fog, marginTop: 4 } }, "照着改一改，点「编辑」保存，就会重新摆回墙上原来的位置。") : null) : null,
           // 帖子：正文就摆在纸条底下，整段读，不折叠
           isPost ? h("div", { "data-wk": "nestpostbody", style: Object.assign({ marginTop: 14, fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.85,
             whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 16 }, card(t)) }, preview) : null,
@@ -469,6 +487,14 @@
             isPost ? null : h(Btn, { t, onClick: doCopy, wk: "nestcopy" }, "复制"),
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: () => onEdit(it), wk: "nestedit" }, "编辑") : null,
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
+          admin && !it.returned ? (retOpen
+            ? h("div", { "data-wk": "nestreturnform", style: { marginTop: 10 } },
+                h("textarea", { value: retText, maxLength: 300, rows: 3, placeholder: "写给作者：为什么退回、要改哪儿", onChange: e => setRetText(e.target.value), className: "w-full outline-none",
+                  style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", resize: "vertical" } }),
+                h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+                  h(Btn, { t, onClick: () => setRetOpen(false), wk: "nestreturncancel" }, "算了"),
+                  h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doReturn, wk: "nestreturnsend" }, "退回给作者")))
+            : h("div", { className: "flex", style: { marginTop: 8 } }, h(Btn, { t, onClick: () => setRetOpen(true), wk: "nestreturn" }, "退回给作者改"))) : null,
           // 她（管理口令）给帖子打标：别人只看得到标记，看不到这一排
           isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
             ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
@@ -530,7 +556,7 @@
     }, "擦掉");
     const replyTo = c => { if (!me) { onLogin(); return; } setTo(c); setTimeout(() => inputRef.current && inputRef.current.focus(), 0); };
     const top = (list || []).filter(c => !c.parent), kids = id => (list || []).filter(c => c.parent === id);
-    const who = c => h("button", { onClick: () => onUser(c.uid), className: "active:opacity-60", style: { color: "inherit" } }, c.name + (c.uid === item.uid ? " · 主人" : ""));
+    const who = c => h("button", { onClick: () => onUser(c.uid), className: "active:opacity-60", style: { color: "inherit" } }, c.name, h(Badge, { b: c.badge }), c.uid === item.uid ? " · 主人" : "");
     const tools = c => h("span", { style: { display: "inline-flex", gap: 12 } },
       c.deleted ? null : h("button", { "data-wk": "nestreply", onClick: () => replyTo(c), className: "active:opacity-60" }, "回她"),
       c.canDelete ? h("button", { "data-wk": "nesterase", onClick: () => del(c), className: "active:opacity-60" }, "擦掉") : null);
@@ -600,13 +626,14 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: 2 } }, "小 窝 借 书 证"),
             h("div", { className: "flex items-end justify-between", style: { marginTop: 8, borderBottom: "1px solid " + t.line, paddingBottom: 10 } },
               h("div", { className: "min-w-0" },
-                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, d.user.name),
+                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, d.user.name, h(Badge, { b: d.user.badge })),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, "来了 " + daysSince(d.user.created) + " 天")),
               self ? null : h(Btn, { t, solid: !d.followed, onClick: doFollow, wk: "nestfollow" }, d.followed ? "已关注" : "＋ 关注")),
             h("div", { className: "flex justify-around", style: { marginTop: 10 } }, stat(d.items.length, "贴的"), stat(d.following, "关注"), stat(d.followers, "粉丝"))),
           self ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
             h(Btn, { t, onClick: changePw, wk: "nestpw" }, "改密码"), h(Btn, { t, onClick: onLogout, wk: "nestlogout" }, "退出登录")) : null,
           !self && adminToken() ? h("div", { style: { marginTop: 10 } }, h(Btn, { t, onClick: ban, wk: "nestban" }, "停用这个号")) : null,
+          self && adminToken() ? h(BadgeSet, { t, props, cur: d.user.badge || "", onSet: b => setD(x => Object.assign({}, x, { user: Object.assign({}, x.user, { badge: b }) })) }) : null,
           self ? h("div", { style: { marginTop: 16 } }, h(Cubbies, { t, kind: tab, onPick: setTab, cols: 3, flush: true,
             items: [{ key: "mine", zh: "我贴的" }, { key: "favs", zh: "我收藏的" }, { key: "following", zh: "我关注的" }] })) : null,
           tab === "mine" || !self ? (d.items.length ? h(Wall, { t, items: d.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, self ? "还没贴过，回首页右上角「＋ 传一个」。" : "她还没贴过东西。"))
@@ -624,7 +651,7 @@
     useEffect(() => { let live = true;
       api("/notices").then(d => { if (!live) return; setList(d.notices || []); api("/notices/seen", { method: "POST" }).catch(() => {}); }).catch(e => { if (live) setErr(e.message); });
       return () => { live = false; }; }, []);
-    const line = n => n.kind === "reply" ? (n.title ? "在《" + n.title + "》里回了你" : "回了你") : n.kind === "comment" ? "在《" + n.title + "》的留言簿上写了一句" : n.kind === "follow" ? "关注了你" : "贴了新纸条《" + n.title + "》";
+    const line = n => n.kind === "reply" ? (n.title ? "在《" + n.title + "》里回了你" : "回了你") : n.kind === "comment" ? "在《" + n.title + "》的留言簿上写了一句" : n.kind === "follow" ? "关注了你" : n.kind === "return" ? "把《" + n.title + "》退回给你改一改，点进去看原因，改好了点「编辑」保存就会重新摆出来" : "贴了新纸条《" + n.title + "》";
     return h("div", { "data-wk": "nestnotices", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "收到的小纸条", onBack: onClose, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-8" },
@@ -634,7 +661,7 @@
         list.map(n => h("button", { key: n.id, "data-wk": "nestnotice", "data-on": n.seen ? "0" : "1", onClick: () => n.kind === "follow" ? onUser(n.fromUid) : onOpen(n.item),
             className: "w-full text-left active:opacity-70", style: { display: "block", marginBottom: 12, padding: "10px 12px", background: n.seen ? t.bg2 : "#faeeda", border: "1px solid " + t.line,
               transform: "rotate(" + tilt(n.id) * 0.5 + "deg)" } },
-          h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: n.seen ? t.fog : "#633806" } }, h("span", null, n.from), h("span", null, ago(n.created))),
+          h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: n.seen ? t.fog : "#633806" } }, h("span", null, n.from || (n.kind === "return" ? "小窝管理员" : "")), h("span", null, ago(n.created))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: n.seen ? t.ink : "#412402", marginTop: 2, lineHeight: 1.6 } }, line(n)),
           n.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: n.seen ? t.fog : "#854f0b", marginTop: 2 } }, "「" + n.text + "」") : null))));
   }
@@ -680,6 +707,20 @@
           busy ? "……" : mode === "login" ? "登录" : mode === "register" ? "注册" : "改好密码并登录")),
         mode === "register" ? null : h("button", { "data-wk": "nestforgot", onClick: () => setMode(mode === "recover" ? "login" : "recover"), className: "active:opacity-60",
           style: { marginTop: 14, fontFamily: F_BODY, fontSize: 12.5, color: t.tint || t.ink } }, mode === "recover" ? "← 想起来了，回去登录" : "忘了密码？用恢复码")));
+  }
+
+  // 管理模式下、自己的页里：挂名字旁边那枚称号（最多 8 个字，空着保存＝摘掉）
+  function BadgeSet({ t, props, cur, onSet }) {
+    const [v, setV] = useState(cur || "管理员"), [busy, setBusy] = useState(false);
+    const save = async () => { setBusy(true);
+      try { const d = await api("/admin/badge", { method: "POST", body: { badge: v.trim() } }); onSet(d.badge); props.toast(d.badge ? "挂上了" : "摘掉了"); } catch (e) { props.toast(e.message); }
+      setBusy(false); };
+    return h("div", { "data-wk": "nestbadgeset", style: { marginTop: 12, padding: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "名字旁边的称号：你的署名、留言、借书证上都会带着它，大家一看就知道是你。最多 8 个字，清空再保存就是摘掉。"),
+      h("div", { className: "flex", style: { gap: 8 } },
+        h("input", { value: v, maxLength: 8, onChange: e => setV(e.target.value), className: "flex-1 min-w-0 outline-none",
+          style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px" } }),
+        h(Btn, { t, solid: true, disabled: busy, onClick: save, wk: "nestbadgesave" }, "保存")));
   }
 
   // ── 传一个上去 ─────────────────────────────────────────────
@@ -836,7 +877,7 @@
           const d = await api("/item/" + edit.id, { method: "PUT", body: { title: title.trim(), intro: intro.trim(),
             payload: payload == null ? undefined : payload,
             images: same ? undefined : shots.map(x => x.keep != null ? { keep: x.keep } : x.full), thumb } });
-          props.toast("改好了"); onDone(edit.id, kind, { title: title.trim(), intro: intro.trim(), edited: d.edited, pics: shots.length, thumb: !!shots.length });
+          props.toast(edit.returned ? "改好了，重新摆回墙上了" : "改好了"); onDone(edit.id, kind, { returned: "", title: title.trim(), intro: intro.trim(), edited: d.edited, pics: shots.length, thumb: !!shots.length });
         } catch (e) { props.toast("没改成：" + e.message); setBusy(false); }
         return;
       }

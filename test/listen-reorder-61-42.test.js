@@ -24,8 +24,8 @@ const NAVBAR = cut("    // 底部 tab。v61.42", "    h(\"input\", { ref: audioF
 
 test("四个 tab 的名字对得上它们装的东西", () => {
   assert.match(NAVBAR, /navBtn\("cloud", "发现"/, "「推荐」没改名——它装的是搜索/日推/FM/榜单，是【还不是你的】");
-  assert.match(NAVBAR, /navBtn\("home", "设置"/,
-    "「曲库」还叫曲库——里面全是接口/Cookie/登录，真正的曲库已经搬去「我的」了");
+  // 「设置」那一格（接口/Cookie/登录）v75.917 挪到顶栏右上角齿轮，底栏只剩四格
+  assert.doesNotMatch(NAVBAR, /navBtn\("home"/, "设置又回到底栏了");
   // v62.81：发现只要有搜索接口就开——搜歌不要账号，账号只管日推/FM/榜单。
   // 原来要连了账号才有这一格，没连账号的人只能在设置里搜，搜索因此长了第二份。
   assert.match(NAVBAR, /canSearch \? navBtn\("cloud", "发现"/, "发现那格又要账号才开了");

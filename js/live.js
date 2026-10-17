@@ -115,6 +115,33 @@
       + "高光里按先后的 flow（8~14 项，每一项 who 写「主播」或某个观众的网名，text 写那一句；回谁的弹幕就把那条排在前面）、滚过去的路人弹幕 noise（6~10 条，很短）、这场最多时的在线人数 viewers（数字）。";
   }
 
+  // ── 平台上的熟面孔（她 2026-10-17：「常驻 npc 接进直播，名字沿用片刻那条」）──────────────
+  //   就是论坛那批人在片刻上的号（直播本来就在片刻里）。每场挑 1–2 位来当常客，其余照旧现编。
+  //   他们对每个主播的态度按「熟面孔 × 主播」记在 x_liveRegStance，下回再来还是那个态度；跟她的碰面账是论坛那一本，四处互通。
+  const REG_KEY = "x_liveRegStance";
+  const stanceLoad = () => { try { const v = loadJSON(REG_KEY, null); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } };
+  const hostKeyOf = ses => ses.mode === "host" ? "me" : (ses.stranger ? "st:" + ses.charId : ses.charId);
+  const tieTxt = (t, me) => { if (!t || !t.encounters) return ""; const n0 = Math.min(9, t.encounters);
+    const how = (t.warm || 0) >= (t.spar || 0) * 2 && t.warm > 1 ? "，碰上多半聊得来" : (t.spar || 0) >= (t.warm || 0) * 2 && t.spar > 1 ? "，碰上多半要抬两句杠" : "";
+    return "；在这个平台上跟 @" + me + " 碰过 " + n0 + " 次" + how + "，认得这个号（不知道她的私生活）"; };
+  // 这一场给模型看的那几位：在这个主播这儿来过的排前面，再掺几位没来过的，最多五位
+  function famPool(regs, ses) {
+    const st = stanceLoad(), hk = hostKeyOf(ses);
+    const been = arr(regs).filter(r => st[r.id] && st[r.id][hk]);
+    const fresh = arr(regs).filter(r => !(st[r.id] && st[r.id][hk])).sort(() => Math.random() - .5);
+    return been.sort(() => Math.random() - .5).slice(0, 3).concat(fresh).slice(0, 5).map(r => Object.assign({}, r, { stance: st[r.id] && st[r.id][hk] || null }));
+  }
+  function famBlock(pool, pairs, me, mine) {
+    if (!pool.length) return "";
+    const ids = new Set(pool.map(r => r.id));
+    const ps = arr(pairs).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
+    return "\n\n【这个平台上的熟面孔】常在这儿刷视频、看直播的老网友：\n" + pool.map(r => "· 「" + r.name + "」：" + r.voice
+        + (r.stance ? "；是" + (mine ? "你这个号" : "这个直播间") + "的老观众，看过 " + Math.min(99, r.stance.n || 1) + " 场，态度：" + r.stance.lean : "；还没来过" + (mine ? "你的" : "这个") + "直播间")
+        + (mine ? "" : tieTxt(r.tie, me))).join("\n")
+      + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同场碰见了可以接旧梗、互怼，别每次重新认识。" : "")
+      + "\n送不送礼、送多少照各自的性子和手头，不是谁都会刷。";
+  }
+
   // ── 看 TA 播 ────────────────────────────────────────────
   function watchInstruction(ses, uName, first, own) {
     const who = ses.as === "mask"
@@ -154,7 +181,10 @@
     //   路人主播（probeStranger）没有「本来的关系」，这一段只给自己的角色。
     const who2 = "\n\n【开口的是谁】上面这些只管直播间里发生了什么。「主播」那几句始终是你本人在说：用你平时的词、你的脾气和节奏，人设里你是什么性子（话多还是懒得开口、嘴硬还是黏人、什么时候会突然认真），镜头前就还是那个性子，顶多当着观众收着点。"
       + me + "在你生活里是谁，进了直播间也还是那个人——你对她的态度照你们本来的关系来，不会变成对路人那样。判据：把主播名遮住，熟悉你的人一听就知道是你。";
-    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "") + (own ? who2 : "");
+    // 熟面孔那段排在「开口的是谁」前面：那一段是收尾压轴的，把人摆回面前
+    const famText = first && arr(ses.famPool).length ? famBlock(ses.famPool, ses.famPairs, uName, false)
+      + "\n常客 regulars 里有 1~2 个从这几位熟面孔里来：name 照抄网名，who 照上面写他是什么人，lean——来过的照上面那个态度写（看得久了可以有点变化），没来过的照他的性子定一个对你的态度；其余常客是这场才有的人，自己起。" : "";
+    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "") + famText + (own ? who2 : "");
     if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
@@ -647,6 +677,11 @@
         patch(id, s => ({ ...s, event: ev, lines: arr(s.lines).concat([{ kind: "event", text: ev, ts: Date.now() }]).slice(-LINES_CAP) }));
         ses = get(id);
       }
+      if (first && props.regulars && !ses.famPool) {
+        const pool = famPool(props.regulars(), ses);
+        patch(id, s0 => ({ ...s0, famPool: pool, famPairs: props.regularPairs ? props.regularPairs() : [] }));
+        ses = get(id);
+      }
       setBusy(true);
       try {
         const d = await (st
@@ -656,7 +691,10 @@
         //   她（或她这次的马甲）只能是她自己：同名的常客剔掉，署她名字的那几句也不收
         const meNames = [uName, ses.meName, ses.maskName].map(x => S(x).trim()).filter(Boolean);
         const isMe = n => meNames.indexOf(S(n).trim()) >= 0;
-        const regs = (first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : arr(ses.regulars)).filter(r => r && !isMe(r.name));
+        const famOf = n => arr(ses.famPool).find(r => r.name === S(n).trim());
+        const regs = (first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80), ...(famOf(r.name) ? { famId: famOf(r.name).id } : {}) }).filter(r => r && r.name).slice(0, 4) : arr(ses.regulars)).filter(r => r && !isMe(r.name));
+        // 熟面孔来了这一场：把他对这个主播的态度记下来，下回再来照这个
+        if (first) { const stb = stanceLoad(), hk = hostKeyOf(ses); regs.filter(r => r.famId).forEach(r => { const o0 = (stb[r.famId] || {})[hk] || {}; stb[r.famId] = Object.assign({}, stb[r.famId], { [hk]: { lean: r.lean || o0.lean || "", n: (o0.n || 0) + 1, ts: Date.now() } }); }); saveJSON(REG_KEY, stb); }
         const hostName = first ? (st ? st.name : (S(d.host).slice(0, 20) || char.name)) : ses.host;
         const act = S(d.act).slice(0, 120);
         const regNames = arr(regs).map(r => r.name).filter(n => arr(ses.banned).indexOf(n) < 0);
@@ -695,6 +733,11 @@
           noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
           viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)),
           endTs: (!first && d.end === true) ? Date.now() : s.endTs }));
+        // 她这场说过话、熟面孔也开了口：记一次碰面（一场一人只记一次；马甲号不算到她大号头上）
+        if (props.touchRegular && ses.as !== "mask" && arr(get(id).lines).some(l => l.kind === "me")) {
+          const done = arr(get(id).famTouched), spoke = regs.filter(r => r.famId && flowLines.some(l => l.kind === "reg" && l.name === r.name) && done.indexOf(r.famId) < 0);
+          if (spoke.length) { spoke.forEach(r => props.touchRegular(r.famId, "theirs", "")); patch(id, s0 => ({ ...s0, famTouched: done.concat(spoke.map(r => r.famId)) })); }
+        }
         if (!first && d.end === true) wrapUp(id);
       } catch (e) { toast("直播间没连上：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(false); }
@@ -703,15 +746,26 @@
     const stepHost = async (id, first) => {
       const ses = get(id); if (!ses) return;
       const chars = charsOf(ses); if (!chars.length) return;
+      // 她自己开播：熟面孔里挑两位来看——跟她碰得多的先来，再掺一位随机的
+      let fam = arr(ses.fam);
+      if (first && props.regulars && !ses.fam) {
+        const regs0 = props.regulars(), byTie = regs0.filter(r => r.tie && r.tie.encounters).sort((a, b) => (b.tie.encounters || 0) - (a.tie.encounters || 0));
+        fam = byTie.slice(0, 1).concat(regs0.filter(r => byTie.slice(0, 1).indexOf(r) < 0).sort(() => Math.random() - .5)).slice(0, 2);
+        const stb = stanceLoad(); fam = fam.map(r => Object.assign({}, r, { stance: (stb[r.id] || {}).me || null }));
+        patch(id, s0 => ({ ...s0, fam, famPairs: props.regularPairs ? props.regularPairs() : [] }));
+      }
       setBusy(true);
       try {
-        const d = await props.probeMany(chars, hostInstruction(ses, uName, chars, chars.map(props.briefFor), first) + (props.maskNote ? props.maskNote(chars) : ""), HOST_SHAPE) || {};
-        const names = chars.map(c => c.name);
+        const famText = fam.length ? famBlock(fam, ses.famPairs || (props.regularPairs ? props.regularPairs() : []), uName, true)
+          + "\n这几位不认识她本人，只认得「" + uName + "」这个号" + fam.filter(r => r.tie && r.tie.encounters).map(r => "（「" + r.name + "」在平台上跟她碰过 " + Math.min(9, r.tie.encounters) + " 次）").join("") + "。他们也可以在 chat、gifts 里出现（name 照抄网名），私下消息 private 只有她认识的那几个人会发。" : "";
+        const d = await props.probeMany(chars, hostInstruction(ses, uName, chars, chars.map(props.briefFor), first) + famText + (props.maskNote ? props.maskNote(chars) : ""), HOST_SHAPE) || {};
+        const famNames = fam.map(r => r.name);
+        const names = chars.map(c => c.name).concat(famNames);
         const chat = normChat(d.chat, names);
         const gifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
           .filter(g => g && names.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 5);
-        const priv = normChat(d.private, names).slice(0, 5);
-        const add = chat.map(x => ({ kind: "char", name: x.name, text: x.text, ts: Date.now() }))
+        const priv = normChat(d.private, names).filter(x => famNames.indexOf(x.name) < 0).slice(0, 5);
+        const add = chat.map(x => ({ kind: famNames.indexOf(x.name) >= 0 ? "reg" : "char", name: x.name, text: x.text, ts: Date.now() }))
           .concat(gifts.map(g => ({ kind: "gift", name: g.name, gift: g.gift, amount: g.amount, ts: Date.now() })))
           .concat(priv.map(x => ({ kind: "private", name: x.name, text: x.text, ts: Date.now() })));
         gifts.forEach(g => {
@@ -720,6 +774,12 @@
           const gc = chars.find(c => c.name === g.name);
           if (gc && props.charPay) props.charPay(gc.id, -g.amount, "直播打赏 · 送了「" + g.gift + "」");
         });
+        // 熟面孔在她直播间开口：一场一人记一次碰面；第一次来记下他对她这个号的态度
+        if (props.touchRegular && fam.length) {
+          const done = arr(get(id).famTouched), spoke = fam.filter(r => chat.some(x => x.name === r.name) && done.indexOf(r.id) < 0);
+          if (spoke.length) { spoke.forEach(r => props.touchRegular(r.id, "theirs", "")); patch(id, s0 => ({ ...s0, famTouched: done.concat(spoke.map(r => r.id)) }));
+            const stb = stanceLoad(); spoke.forEach(r => { const o0 = (stb[r.id] || {}).me || {}; stb[r.id] = Object.assign({}, stb[r.id], { me: { lean: o0.lean || "来看过她播", n: (o0.n || 0) + 1, ts: Date.now() } }); }); saveJSON(REG_KEY, stb); }
+        }
         priv.forEach(x => { const c = chars.find(cc => cc.name === x.name); if (c) props.onPrivate(c.id, x.text); });
         patch(id, s => ({ ...s, lines: arr(s.lines).concat(add).slice(-LINES_CAP), noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
           viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)) }));
