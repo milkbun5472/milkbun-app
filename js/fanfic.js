@@ -3464,6 +3464,8 @@
     const swipeRef = React.useRef({ x: 0, y: 0 });
     // 翻到/生成新章后跳到该章开头（别落在中间，省得往回翻）
     const chapRef = React.useRef(null);
+    // 一键到底、目录（群友 2026-10-17「希望这里可以有一个一键到达底部」「要是有目录和删除这本章就更好了」）
+    const [tocOpen, setTocOpen] = useState(false);
     const firstChap = React.useRef(true);
     React.useEffect(function () {
       if (firstChap.current) { firstChap.current = false; return; }
@@ -3621,6 +3623,28 @@
     // ⚠️endHook 留空：那是给续写用的锚点，她写的时候没这一栏——
     //   genNextChapter 拿到空的会自己写成「（无锚点）」，不会崩。
     // 改这一章：只换这一章的字，谁写的、章末留言、锚点都不动——后面续写照样接得上。
+    // 删掉一章：后面的往前挪；挂在那一章上的原作者留言、画的图一起跟着挪（删掉那章的留言一起删）
+    function deleteChapter(i) {
+      const n = (f.chapters || []).length;
+      if (n <= 1) { props.toast && props.toast("只剩这一章了，删不了；不要这篇就在书架上删整篇"); return; }
+      const ok = function () {
+        props.onUpdate(f.id, function (fic) {
+          fic.chapters = (fic.chapters || []).filter(function (_, k) { return k !== i; });
+          fic.reviews = (fic.reviews || []).filter(function (r) { return !(r && r.chapterIdx === i); }).map(function (r) {
+            if (!r) return r;
+            const o = Object.assign({}, r);
+            if (o.chapterIdx != null && o.chapterIdx > i) o.chapterIdx -= 1;
+            if (o.artChap != null) { if (o.artChap === i) delete o.artChap; else if (o.artChap > i) o.artChap -= 1; }
+            return o;
+          });
+          fic.updatedAt = Date.now(); return fic;
+        });
+        const to = Math.max(0, Math.min(i, n - 2));
+        setChapIdx(to); markRead(f.id, to); setEditIdx(-1);
+        props.toast && props.toast("删掉了第 " + (i + 1) + " 章");
+      };
+      requestAppConfirm("删掉第 " + (i + 1) + " 章？", "这一章的正文和挂在它底下的留言一起删掉，后面的章节号往前挪一位。删了找不回来。", ok, "删掉");
+    }
     function saveEditChapter(i) {
       const txt = editTxt.trim();
       if (!txt) { props.toast && props.toast("一章不能是空的"); return; }
@@ -3793,7 +3817,12 @@
           // 出本：本子封面＋一张无料书签，两次生图
           props.onFicImage ? h("button", { onClick: function () { drawArt("book"); }, disabled: !!busyArt, className: "active:opacity-60 flex items-center gap-1.5",
             style: { fontFamily: F_BODY, fontSize: 12.5, color: busyArt === "book" ? t.fog : t.sub }, "data-wk": "ficreaderbtn", "data-part": "book" },
-            busyArt === "book" ? "在印本子…" : f.book ? "再出一版本子" : "出本") : null),
+            busyArt === "book" ? "在印本子…" : f.book ? "再出一版本子" : "出本") : null,
+          h("button", { onClick: function () {
+            // 滚到这一页的最底下（续写、书评都在那儿）：往上找真正在滚的那一层
+            let el = chapRef.current; while (el && !(el.scrollHeight > el.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+            if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); }, className: "active:opacity-60",
+            style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12.5, color: t.sub }, "data-wk": "ficreaderbtn", "data-part": "tobottom" }, "↓ 到底")),
         f.book ? h("div", { className: "flex", style: { gap: 10, alignItems: "flex-end", margin: "-6px 0 20px" } },
           h("div", { style: { width: "58%", borderRadius: 3, overflow: "hidden", boxShadow: "0 6px 14px -6px " + hexA(t.ink, .45) } }, h(FicImg, { k: f.book.cover, onClick: setArtView })),
           f.book.mark ? h("div", { style: { width: "22%", borderRadius: 3, overflow: "hidden", boxShadow: "0 4px 10px -5px " + hexA(t.ink, .4) } }, h(FicImg, { k: f.book.mark, onClick: setArtView, style: { aspectRatio: "1 / 3", objectFit: "cover" } })) : null,
@@ -3806,8 +3835,8 @@
           const btn = function (label, to, disabled) { return h("button", { onClick: function () { goChap(to); }, disabled: disabled, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: disabled ? t.line : t.sub, padding: "2px 4px" }, "data-wk": "ficreaderbtn", "data-part": "r5" }, label); };
           const pager = function (top) { return chs.length > 1 ? h("div", { className: "flex items-center justify-between " + (top ? "mb-4 pb-2" : "mt-5 pt-3"), style: (top ? { borderBottom: "1px solid " + t.line } : { borderTop: "1px solid " + t.line }) },
             btn("‹ 上一章", idx - 1, idx <= 0),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.35 } },
-              h("span", { style: { display: "block" } }, "第 " + (idx + 1) + " / " + chs.length + " 章"),
+            h("button", { onClick: function () { setTocOpen(true); }, className: "active:opacity-60", "data-wk": "ficreaderbtn", "data-part": "toc", style: { background: "transparent", fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.35 } },
+              h("span", { style: { display: "block" } }, "第 " + (idx + 1) + " / " + chs.length + " 章 ▾"),
               // 这一章的笔在谁手上：她自己写的、或请了谁代笔。原作者自己写的那几章不标
               // （每一章都写一遍「by 某某」＝等于没标）。
               (ch.byMe || ch.byAuthor || ch.grabbed) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10, color: ch.grabbed ? t.tint : t.fog, opacity: ch.grabbed ? 1 : .8 } },
@@ -3860,6 +3889,9 @@
               editIdx !== idx ? h("button", { onClick: function () { setEditIdx(idx); setEditTxt(String(ch.content || "")); }, className: "active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 40 }, "data-wk": "ficreaderbtn", "data-part": "14" },
                 "改这一章") : null,
+              editIdx !== idx && chs.length > 1 ? h("button", { onClick: function () { deleteChapter(idx); }, className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b4463a", background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 40 }, "data-wk": "ficreaderbtn", "data-part": "delchap" },
+                "删掉这一章") : null,
               filedNote ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, filedNote) : null),
             // 偷懒的那一章不许悄无声息地落盘（她 2026-09-11）。
             // ⚠️只留一行字 + 一颗键，**绝不自动再打一枪**——她定的：任何东西都不接受一次发两遍。
@@ -3873,7 +3905,22 @@
                   style: { fontFamily: F_BODY, fontSize: 11.5, color: busyMore ? t.fog : t.accent, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 }, "data-wk": "ficreaderbtn", "data-part": "7" },
                   busyMore ? "接着写…" : "让TA接着写"));
             })(),
-            pager(false));
+            pager(false),
+            // 目录：点「第 N / M 章」弹出来，点哪章跳哪章
+            tocOpen ? h("div", { onClick: function () { setTocOpen(false); }, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.32)", display: "flex", alignItems: "flex-end" } },
+              h("div", { onClick: function (e) { e.stopPropagation(); }, "data-wk": "ficreader", "data-part": "toc", style: { width: "100%", maxHeight: "70vh", overflowY: "auto", background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px calc(env(safe-area-inset-bottom) + 18px)" } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 8 } }, "目录 · " + chs.length + " 章"),
+                chs.map(function (c, k) {
+                  const by = c.grabbed ? (f.author || "原作者") + " 抢回去写的" : c.byMe ? "你写的" : c.byAuthor ? c.byAuthor + " 代笔" : "";
+                  const first = String(c.content || "").replace(/\s+/g, " ").trim().slice(0, 34);
+                  return h("button", { key: k, onClick: function () { setTocOpen(false); goChap(k); }, className: "w-full text-left active:opacity-60",
+                    style: { display: "block", padding: "10px 2px", borderTop: k ? "1px solid " + t.line : "none", background: "transparent" } },
+                    h("div", { className: "flex items-baseline", style: { gap: 8 } },
+                      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: k === idx ? t.accent : t.ink } }, "第 " + (k + 1) + " 章"),
+                      by ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, by) : null,
+                      k === idx ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "在读") : null),
+                    first ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first + "…") : null);
+                }))) : null);
         })(),
 
         // 续写：两个入口（v64.63，她 2026-09-06：「我写了的为啥只能追更！
