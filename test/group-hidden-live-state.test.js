@@ -28,7 +28,9 @@ assert(/action 就是" \+ G_ACTION_SPEC \+ "/.test(app), "记忆互通那一段�
 // 连注释一起匹配的话，越把原因写清楚测试越红。
 const _noComment = app.split("\n").map(l => l.split("//")[0]).join("\n");
 assert(!/每次随情境更新/.test(_noComment), "那句反着的措辞又长回来了");
-assert(app.includes('putLiveField(patch, live, "wearing", data.wearing, now);'), "group replies must persist wearing with its own freshness clock");
+// 2026-10-17 起穿着走 putWearing（还新鲜时要有换衣服的动作才认新的），底下仍是 putLiveField 那只时钟
+assert(app.includes('putWearing(patch, live, data.wearing, now,'), "group replies must persist wearing with its own freshness clock");
+assert(app.includes('putLiveField(patch, live, "wearing", v, now);'), "putWearing 认下来以后还走 putLiveField");
 assert(app.includes('if (patch.action) patch.actionUpdatedAt = now;'), "group replies must persist action with its own freshness clock");
 // 组件保留 hideWearAction 能力，但 App 不再对群聊打开的卡片启用它（她 2026-08-18 要回穿着/动作）
 // ⚠️别冻这两处的写法：v59.77 心声卡重做了（居中框、三栏、历史那一段的变量改叫 s2）。

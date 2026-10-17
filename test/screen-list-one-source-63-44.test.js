@@ -103,7 +103,8 @@ test("子页面：查手机里那二十个、情侣空间那些门，问哪个�
   const scr = R("screens.js");
   const us = scr.slice(scr.indexOf("function Us({"));
   // ⚠️别写成 /sub === "\w+"/：那会把别处的 `cv.sub === "rec"` 也算成一扇门
-  const subs = [...new Set((us.match(/(?<![.\w])sub === "(\w+)"/g) || []).map(x => x.slice(9, -1)))];
+  // ⚠️也别把 typeof sub === "string" 算成一扇门（v75.791 起本子走 "book:xxx"，那一句是在认这种字符串门牌）
+  const subs = [...new Set((us.match(/(?<![.\w]|typeof )sub === "(\w+)"/g) || []).map(x => x.slice(9, -1)))];
   assert.ok(subs.length >= 18, "情侣空间的门抓少了：" + subs.length);
   const ZH = { album: "合照", anniv: "我们的日子", archive: "我们的档案", capsule: "时光胶囊",
     disc: "唱片", drawer: "抽屉", exdiary: "交换日记", firsts: "第一次", gacha: "抽卡",

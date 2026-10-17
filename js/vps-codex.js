@@ -54,7 +54,7 @@
       h("div", { className: "px-4 pt-2 shrink-0", style: { paddingBottom: "calc(12px + env(safe-area-inset-bottom))", borderTop: "1px solid " + t.line, background: t.bg } },
         h("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 } }, QUICK.map(function (q) { return h("button", { key: q, disabled: sending, onClick: function () { send(q); }, style: { flex: "0 0 auto", padding: "7px 10px", border: "1px solid " + t.line, borderRadius: 999, background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q); })),
         h("div", { style: { display: "flex", alignItems: "flex-end", gap: 8 } },
-          h("textarea", { value: text, onChange: function (e) { setText(e.target.value); }, rows: 2, maxLength: 3000, placeholder: "给 VPS Codex 留一封信…", style: { flex: 1, resize: "none", outline: "none", padding: "10px 12px", border: "1px solid " + t.line, borderRadius: 15, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5 } }),
+          h("textarea", { "data-wk": "textarea", value: text, onChange: function (e) { setText(e.target.value); }, rows: 2, maxLength: 3000, placeholder: "给 VPS Codex 留一封信…", style: { flex: 1, resize: "none", outline: "none", padding: "10px 12px", border: "1px solid " + t.line, borderRadius: 15, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5 } }),
           h("button", { disabled: sending || !text.trim(), onClick: function () { send(); }, style: { width: 44, height: 44, borderRadius: 999, background: t.ink, color: t.bg2, opacity: sending || !text.trim() ? .35 : 1, fontSize: 18 } }, sending ? "…" : "↑"))));
   }
   root.VpsCodexApp = VpsCodexApp;

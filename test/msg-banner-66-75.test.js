@@ -14,9 +14,10 @@ const sc = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
 test("只挂在 bumpUnread 这一处：单聊、群聊、旁观群、线下冒泡全都从这儿过", () => {
   // ⚠️五个来处早就各自算过「来了新消息、而且她没在看这一屏」，在那五处各挂一次
   //   就是同一层规则活在五个地方（施工规则/one-public-mechanism.md）。
-  assert.match(ap, /const bumpUnread = \(id, k\) => \{\s*\n\s*pushBanner\(id, k\);/,
+  // v75.86x 起多带一个 roomId（侧房来的那条，点了进那间房），还是只挂在这一处
+  assert.match(ap, /const bumpUnread = \(id, k, roomId\) => \{\s*\n\s*pushBanner\(id, k, roomId\);/,
     "没挂在 bumpUnread 上");
-  const pb = ap.slice(ap.indexOf("const pushBanner = (id, count)"), ap.indexOf("// 未读小红点 +k"));
+  const pb = ap.slice(ap.indexOf("const pushBanner = (id, count, roomId)"), ap.indexOf("// 未读小红点 +k"));
   assert.ok(pb.length > 400, "找不到 pushBanner");
   // 群和单聊各认各的那份消息；旁观群标出来（她本来就不在场）
   assert.match(pb, /groupChatsRef\.current/);
@@ -56,11 +57,11 @@ test("过几秒自己往上翻走，不用她动手", () => {
 
 test("点一下直接到那条聊天，走的是现成那一处", () => {
   // ⚠️主屏「捎来的字条」本来就有一份一模一样的三行，现在合成 openChatById 一处。
-  assert.match(ap, /const openChatById = \(id, type\) => \{/);
+  assert.match(ap, /const openChatById = \(id, type, roomId\) => \{/);
   assert.match(ap, /onOpenChat: openChatById,/, "主屏那份没搬过来，就成了两处各改各的");
   assert.ok(ap.indexOf('if (type === "group") { const g = groups.find(x => x.id === id); if (!g) return; setActiveGroup(g); clearUnread(id); setScreen("gthread"); return; }') < 0,
     "主屏那份旧的还留在原地");
-  assert.match(ap, /onOpen: b => \{ setBanners\(p => p\.filter\(x => x\.key !== b\.key\)\); openChatById\(b\.id, b\.type\); \}/);
+  assert.match(ap, /onOpen: b => \{ setBanners\(p => p\.filter\(x => x\.key !== b\.key\)\); openChatById\(b\.id, b\.type, b\.roomId\); \}/);
 });
 
 test("顶上那张卡跟来电横幅同一个形状，不另发明一种", () => {

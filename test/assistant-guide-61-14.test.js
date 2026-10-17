@@ -374,7 +374,7 @@ test("「你再看看呢」也算在说 V——判据看的是整段对话，不
   // 她上一句常常一个名字都不带，名字在前面提的。只看当前这一句，卡就又变成半截。
   const hist = [{ role: "me", text: "宝宝你看看 V 的人设卡有点 ooc" }, { role: "it", text: "抓到几个软肋…" }];
   const sys = A.api.buildSystem({ characters: many, profile: { name: "Lisa" } }, "宝宝你再看看呢", hist);
-  const grab = n => (new RegExp('"名字": "' + n + '",[\\s\\S]*?"这张卡是否完整": (true|false)').exec(sys) || [])[1];
+  const grab = n => (new RegExp('"名字": ?"' + n + '",[\\s\\S]*?"这张卡是否完整": ?(true|false)').exec(sys) || [])[1];
   assert.equal(grab("V"), "true", "这一句没提名字，V 的卡就又断了");
   assert.equal(grab("角色7"), "false", "顺手把所有人的卡都全给了");
   // 找名字用的就是【要发出去的那段窗口】，跟发的是同一份文本
@@ -594,7 +594,7 @@ test("这一页上的人算「在说谁」——她一个名字都没提也得�
   const sys = A.api.buildSystem(
     { characters: many, profile: { name: "Lisa" }, page: { screen: "thread", charName: "V" } },
     "他的卡有点 ooc，你看看", []);
-  const grab = n => (new RegExp('"名字": "' + n + '",[\\s\\S]*?"这张卡是否完整": (true|false)').exec(sys) || [])[1];
+  const grab = n => (new RegExp('"名字": ?"' + n + '",[\\s\\S]*?"这张卡是否完整": ?(true|false)').exec(sys) || [])[1];
   assert.equal(grab("V"), "true", "站在他的聊天里问「他」，卡还是半截");
   assert.equal(grab("角色7"), "false");
   // 这一页的手册词条也捎上了，「这一页是干嘛的」不用她先说页名

@@ -453,7 +453,7 @@
           transition: "left .55s cubic-bezier(.3,.7,.3,1), top .55s cubic-bezier(.3,.7,.3,1), transform .15s", pointerEvents: "none" } }) : null,
       // 改备注的假框：照「设置备注」那种样子，居中一张卡
       renameBox ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.28)", pointerEvents: "none" } },
-        h("div", { style: { width: 280, borderRadius: 16, background: bg2, color: ink, padding: "16px 16px 12px", boxShadow: "0 12px 32px rgba(0,0,0,.28)" } },
+        h("div", { "data-wk": "block", style: { width: 280, borderRadius: 16, background: bg2, color: ink, padding: "16px 16px 12px", boxShadow: "0 12px 32px rgba(0,0,0,.28)" } },
           h("div", { style: { fontSize: 15, fontWeight: 600, textAlign: "center", marginBottom: 12 } }, renameBox.title || "设置备注"),
           h("div", { style: { minHeight: 40, borderRadius: 10, border: "1px solid rgba(0,0,0,.18)", padding: "9px 12px", fontSize: 15 } }, renameBox.typed, renameBox.noCaret ? null : h("span", { style: { opacity: .6 } }, "｜")),
           h("div", { style: { marginTop: 12, textAlign: "right", fontSize: 14, opacity: .8 } }, renameBox.ok || "完成"))) : null,

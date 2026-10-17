@@ -35,15 +35,17 @@ function load() {
 test("全屏观看要回来，而且全屏就只有图", () => {
   const i = dwell.indexOf("const fullShot =");
   assert.ok(i > 0, "全屏看图整个没了——她 2026-09-01 点名要回来的就是这个");
-  const v = dwell.slice(i, dwell.indexOf("document.body) : null;", i));
-  assert.match(v, /position: "fixed", inset: 0/, "不是铺满屏幕");
-  assert.match(v, /objectFit: "contain"/, "全屏还在裁图，看不到整张");
-  assert.match(v, /onClick: function \(\) \{ setShot\(""\); \}/, "点一下退不出来");
+  // 2026-10-16 起走全库那一份 ImageViewer（九处并一处）：铺满屏幕、整张不裁、挂到 body，都由它负责
+  const v = dwell.slice(i, dwell.indexOf("\n", i));
+  assert.match(v, /h\(ImageViewer, \{ onClose: function \(\) \{ setShot\(""\); \}, items: \[\{ src: shot \}\] \}\)/, "点一下退不出来");
+  const IV = (() => { const c0 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8"); const a0 = c0.indexOf("function ImageViewer("); return c0.slice(a0, c0.indexOf("function requestAppConfirm(", a0)); })();
+  assert.match(IV, /position: "fixed", inset: 0/, "不是铺满屏幕");
+  assert.match(IV, /objectFit: "contain"/, "全屏还在裁图，看不到整张");
   // 全屏＝只有图：不许再压标题、氛围、统计条上去
   assert.ok(v.indexOf("p.name") < 0 && v.indexOf("ambient") < 0 && v.indexOf("linear-gradient") < 0,
     "全屏上又压了东西——那就不叫全屏观看了");
   // fixed 会锚到带 transform 的祖先上，所以必须 portal 出去
-  assert.match(v, /ReactDOM\.createPortal/, "没 portal 出去，外面几层有 transform，会锚歪");
+  assert.match(IV, /ReactDOM\.createPortal/, "没 portal 出去，外面几层有 transform，会锚歪");
   // 两处有图的地方都点得开，而且真的挂进了页面
   assert.match(dwell, /const placeHero = function \(p, zs\) \{[\s\S]{0,700}setShot\(src\)/, "整屏那张点不开");
   assert.match(dwell, /const placePhoto = function \(p, height\) \{[\s\S]{0,300}setShot\(src\)/, "区域页顶上那条点不开");

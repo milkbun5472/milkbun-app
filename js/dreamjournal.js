@@ -134,7 +134,7 @@
     // 展开的是哪一条（一次只开一条）：一条梦加上三个人的解法能有一屏那么长，
     // 全摊着的话翻半天才见到下一条（她 2026-09-04 报的）。
     const [openId, setOpenId] = useState(null);
-    const [view, setView] = useState("hers");     // hers=她的梦 | theirs=TA们的梦
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("dreamjournal", ["hers", "theirs"])) || "hers");     // hers=她的梦 | theirs=TA们的梦
     const [theirs, setTheirs] = useState([]);
     const [genBusy, setGenBusy] = useState(null); // 正在生成的 dream key
     const chars = props.characters || [];
@@ -360,14 +360,14 @@
                 h("button", { "data-wk": "djexpand", onClick: () => { const on = openId === d.key; setOpenId(on ? null : d.key); if (!on) markDreamSeen(d); },
                   className: "active:opacity-60", style: tap({ color: PINK, padding: "0 8px 0 0" }) },
                   openId === d.key ? "合上" : "展开这场梦"),
-                (d.motifs || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, d.motifs.map(m => h("span", { "data-wk": "djmotif", key: m, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, padding: "1px 8px", borderRadius: 999 } }, m))) : null,
+                (d.motifs || []).length ? h("div", { "data-wk": "block", className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, d.motifs.map(m => h("span", { "data-wk": "djmotif", key: m, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, padding: "1px 8px", borderRadius: 999 } }, m))) : null,
                 d.wakeLine ? h("div", { "data-wk": "djwakeline", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, borderTop: "1px dashed " + t.line, paddingTop: 6 } }, "醒来TA大概会说：「" + d.wakeLine + "」") : null) : null)))); })()
         ) : h(React.Fragment, null,
 
         // 母题仪表（潜意识词频）
         openMotif && motifs.length ? h("div", { "data-wk": "djmotifs", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "你的潜意识常客（出现≥2次）· 记梦率 " + dreamDays + "/" + totalDays + " 天"),
-          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, motifs.map(([w, n]) => h("span", { "data-wk": "djmotif", key: w, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, padding: "2px 9px", borderRadius: 999 } }, w + " ×" + n)))) : null,
+          h("div", { "data-wk": "block", className: "flex flex-wrap", style: { gap: 6 } }, motifs.map(([w, n]) => h("span", { "data-wk": "djmotif", key: w, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, padding: "2px 9px", borderRadius: 999 } }, w + " ×" + n)))) : null,
 
         // 今日采集卡
         h("div", { "data-wk": "djcompose", style: paperCard({ marginBottom: 16, padding: "13px 14px 14px" }) },

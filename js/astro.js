@@ -656,7 +656,7 @@
     };
     return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
       h(Head, { zh: "出生信息", sub: person.name, onBack: onBack, ink: S.ink, bg: "transparent", noLine: true,
-        right: h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: S.tint, background: "transparent", border: "none", minHeight: 40 } }, "存") }),
+        right: h("button", { "data-wk": "block", onClick: save, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: S.tint, background: "transparent", border: "none", minHeight: 40 } }, "存") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 20px 28px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.7, marginTop: 6 } }, "只存在星测里，不改档案。日期还是用档案里那个生日（要带年份）。"),
         label("几点出生"),
@@ -664,13 +664,13 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 4 } }, "不知道就空着：按正午算，没有上升，月亮可能差一点。"),
         label("在哪儿出生"),
         own ? h("div", null,
-          h("input", { value: lat, onChange: e => setLat(e.target.value), placeholder: "纬度（北纬为正，比如 39.9）", inputMode: "decimal", style: inSt }),
-          h("input", { value: lon, onChange: e => setLon(e.target.value), placeholder: "经度（东经为正，比如 116.4）", inputMode: "decimal", style: inSt }),
-          h("input", { value: tz, onChange: e => setTz(e.target.value), placeholder: "时区（东八区写 8）", inputMode: "decimal", style: inSt }))
+          h("input", { "data-wk": "input", value: lat, onChange: e => setLat(e.target.value), placeholder: "纬度（北纬为正，比如 39.9）", inputMode: "decimal", style: inSt }),
+          h("input", { "data-wk": "input", value: lon, onChange: e => setLon(e.target.value), placeholder: "经度（东经为正，比如 116.4）", inputMode: "decimal", style: inSt }),
+          h("input", { "data-wk": "input", value: tz, onChange: e => setTz(e.target.value), placeholder: "时区（东八区写 8）", inputMode: "decimal", style: inSt }))
           : h("div", null,
             h("div", { className: "flex items-center", style: { gap: 10 } },
-              h("input", { value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") runSearch(); }, placeholder: city ? "已选：" + city.name + "（输入县、镇、村都行）" : "输入出生的地方：县、镇、村都行", style: Object.assign({}, inSt, { flex: 1 }) }),
-              h("button", { onClick: runSearch, disabled: searching || !q.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13.5, color: S.tint, background: "transparent", border: "none", minHeight: 40, padding: "0 4px" } }, searching ? "搜…" : "搜")),
+              h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") runSearch(); }, placeholder: city ? "已选：" + city.name + "（输入县、镇、村都行）" : "输入出生的地方：县、镇、村都行", style: Object.assign({}, inSt, { flex: 1 }) }),
+              h("button", { "data-wk": "block", onClick: runSearch, disabled: searching || !q.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13.5, color: S.tint, background: "transparent", border: "none", minHeight: 40, padding: "0 4px" } }, searching ? "搜…" : "搜")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 4 } }, "点「搜」会把这个地名发给 OpenStreetMap 查经纬度，只发地名。不想联网就直接在下面列表里挑。"),
             searchErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.accent, marginTop: 6 } }, searchErr) : null,
             found && found.length ? h("div", { style: { marginTop: 6 } }, found.map((c, i) => { const on = city && city.lat === c.lat && city.lon === c.lon; return h("button", { key: i, onClick: () => pick(c), className: "active:opacity-70",
@@ -681,7 +681,7 @@
                 h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: S.fog, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.full))); })) : null,
             city ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: S.sub } },
               h("span", null, city.name + " · " + (city.lat < 0 ? "南纬 " : "北纬 ") + Math.abs(+city.lat).toFixed(2) + " · " + (city.lon < 0 ? "西经 " : "东经 ") + Math.abs(+city.lon).toFixed(2) + " · 时区"),
-              h("input", { value: tzEdit, onChange: e => setTzEdit(e.target.value), inputMode: "decimal", style: { width: 46, outline: "none", background: "transparent", color: S.ink, border: "none", borderBottom: "1px solid " + (city.guessed ? S.accent : S.line), fontFamily: F_BODY, fontSize: 13, textAlign: "center" } }),
+              h("input", { "data-wk": "input", value: tzEdit, onChange: e => setTzEdit(e.target.value), inputMode: "decimal", style: { width: 46, outline: "none", background: "transparent", color: S.ink, border: "none", borderBottom: "1px solid " + (city.guessed ? S.accent : S.line), fontFamily: F_BODY, fontSize: 13, textAlign: "center" } }),
               null) : null,
             city && city.guessed ? h("div", { style: { fontFamily: F_BODY, color: S.accent, fontSize: 11, marginTop: 4 } }, "这个国家有好几个时区，是按经度猜的，对一下（标准时间，不含夏令时）") : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, margin: "14px 0 2px" } }, "常用城市（不联网）"),
@@ -689,13 +689,13 @@
               list.map(c => { const on = city && city.name === c[0]; return h("button", { key: c[0], onClick: () => pick({ name: c[0], lat: c[1], lon: c[2], tz: c[3], cc: cityCC(c) }), className: "active:opacity-70",
                 style: { display: "flex", alignItems: "center", gap: 4, minHeight: 34, background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 13.5, color: on ? S.ink : S.sub, fontWeight: on ? 600 : 400 } },
                 on ? h(Spark, { size: 8, color: S.tint }) : null, c[0]); }))),
-        h("button", { onClick: () => setOwn(!own), className: "active:opacity-70", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "none", borderBottom: "1px dotted " + S.tint, padding: "6px 0 1px" } },
+        h("button", { "data-wk": "block", onClick: () => setOwn(!own), className: "active:opacity-70", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "none", borderBottom: "1px dotted " + S.tint, padding: "6px 0 1px" } },
           own ? "从城市列表里选" : "列表里没有 · 自己填经纬度"),
         h("div", { className: "flex items-center justify-between", style: { marginTop: 16, gap: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.6 } }, "自动算中国夏令时", h("div", { style: { fontSize: 10.5, color: S.fog } }, "大陆 1986~1991 年夏天出生的，按钟表上的时间填就行，这边自动换算。国外的夏令时没算。")),
-          h("button", { onClick: () => setDstAuto(!dstAuto), "aria-pressed": dstAuto, className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: dstAuto ? S.tint : S.fog, background: "transparent", border: "none", borderBottom: "1px dotted " + (dstAuto ? S.tint : S.line), minHeight: 36 } }, dstAuto ? "开着" : "关了")),
+          h("button", { "data-wk": "block", onClick: () => setDstAuto(!dstAuto), "aria-pressed": dstAuto, className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: dstAuto ? S.tint : S.fog, background: "transparent", border: "none", borderBottom: "1px dotted " + (dstAuto ? S.tint : S.line), minHeight: 36 } }, dstAuto ? "开着" : "关了")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 10, lineHeight: 1.7 } }, "古代、架空的角色挑一个最接近的地方就行。"),
-        value && (value.time || value.city) ? h("button", { onClick: () => onSave(null), className: "active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 12.5, color: S.fog, background: "transparent", border: "none" } }, "清掉这份出生信息") : null));
+        value && (value.time || value.city) ? h("button", { "data-wk": "block", onClick: () => onSave(null), className: "active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 12.5, color: S.fog, background: "transparent", border: "none" } }, "清掉这份出生信息") : null));
   }
 
   function AstroApp(props) {
@@ -704,7 +704,7 @@
     const chars = (props.characters || []).filter(c => c && !c.isGroup);
     const profile = props.profile || {};
     const meName = profile.name || "我";
-    const [tab, setTab] = useState("today");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("astro", ["today", "chart", "pair", "group"])) || "today");
     const [notes, setNotes] = useState(loadNotes);
     const [busy, setBusy] = useState("");
     const today = dayKeyOf();
@@ -861,9 +861,9 @@
         return h("div", null, pickRow(people.filter(p => p.char), commenter, setCommenter, "让谁替你抽"),
           got ? h("div", { style: { display: "flex", justifyContent: "center", margin: "6px 0 4px" } }, h(AstroSignCard, { m: { astro: got } })) : null,
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
-            h("button", { onClick: () => drawSign(c), disabled: !!busy, className: "active:opacity-80 disabled:opacity-50", style: { flex: 1, minHeight: 44, background: "transparent", border: "1px solid " + S.tint, borderRadius: 3, color: S.tint, fontFamily: F_BODY, fontSize: 13.5 } },
+            h("button", { "data-wk": "block", onClick: () => drawSign(c), disabled: !!busy, className: "active:opacity-80 disabled:opacity-50", style: { flex: 1, minHeight: 44, background: "transparent", border: "1px solid " + S.tint, borderRadius: 3, color: S.tint, fontFamily: F_BODY, fontSize: 13.5 } },
               busy === key ? (c.remark || c.name) + " 在抽…" : got ? "再抽一张" : "让 " + (c.remark || c.name) + " 抽一张"),
-            got && props.onShareSign ? h("button", { onClick: () => props.onShareSign(c, got), className: "active:opacity-80", style: { flex: 1, minHeight: 44, background: S.tint, border: "none", borderRadius: 3, color: S.bg, fontFamily: F_BODY, fontSize: 13.5 } }, "转发回聊天") : null));
+            got && props.onShareSign ? h("button", { "data-wk": "block", onClick: () => props.onShareSign(c, got), className: "active:opacity-80", style: { flex: 1, minHeight: 44, background: S.tint, border: "none", borderRadius: 3, color: S.bg, fontFamily: F_BODY, fontSize: 13.5 } }, "转发回聊天") : null));
       })()) : null,
       // 月亮日记
       h(Panel, { S: S, title: "月亮日记" }, (() => {
@@ -873,13 +873,13 @@
         return h("div", { "data-wk": "astromoon" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: S.ink, lineHeight: 1.7 } }, "今天月亮在" + SIGNS[ms][0] + "座 · 「" + MOON_WORD[ms] + "」"),
           h("div", { className: "flex", style: { gap: 6, marginTop: 10 } }, MZ.map((z, v) => { const on = mine && mine.v === v;
-            return h("button", { key: v, onClick: () => setMood(v), "aria-pressed": on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, background: on ? S.tint : "transparent", color: on ? S.bg : S.sub, border: "1px solid " + (on ? S.tint : S.line), borderRadius: 3, fontFamily: F_BODY, fontSize: 12 } }, z); })),
-          h("input", { defaultValue: (mine && mine.note) || "", key: today + "|" + moonTick, placeholder: "今天心里是什么样子（跟健康 app 的心情是同一格）", onBlur: e => setMood(null, e.target.value), "aria-label": "今天的心情",
+            return h("button", { "data-wk": "block", key: v, onClick: () => setMood(v), "aria-pressed": on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, background: on ? S.tint : "transparent", color: on ? S.bg : S.sub, border: "1px solid " + (on ? S.tint : S.line), borderRadius: 3, fontFamily: F_BODY, fontSize: 12 } }, z); })),
+          h("input", { "data-wk": "input", defaultValue: (mine && mine.note) || "", key: today + "|" + moonTick, placeholder: "今天心里是什么样子（跟健康 app 的心情是同一格）", onBlur: e => setMood(null, e.target.value), "aria-label": "今天的心情",
             style: { width: "100%", minWidth: 0, minHeight: 40, marginTop: 8, padding: "8px 10px", background: "transparent", border: "1px solid " + S.line, borderRadius: 3, color: S.ink, fontFamily: F_BODY, fontSize: 13 } }),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginTop: 12 } }, days.map(x => h("div", { key: x.dk, title: x.dk, style: { textAlign: "center", padding: "6px 0", borderRadius: 3, background: x.dk === today ? S.bg2 : "transparent" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: S.fog } }, x.dk.slice(8)),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.sub, marginTop: 2 } }, SIGNS[x.ms][0]),
-            h("div", { style: { width: 7, height: 7, borderRadius: 99, margin: "4px auto 0", background: x.mood && x.mood.v != null ? [S.accent, S.accent, S.fog, S.tint, S.tint][x.mood.v] : "transparent", border: x.mood && x.mood.v != null ? "none" : "1px solid " + S.line, opacity: x.mood && x.mood.v != null ? 0.4 + x.mood.v * 0.15 : 1 } })))),
+            h("div", { "data-wk": "block", style: { width: 7, height: 7, borderRadius: 99, margin: "4px auto 0", background: x.mood && x.mood.v != null ? [S.accent, S.accent, S.fog, S.tint, S.tint][x.mood.v] : "transparent", border: x.mood && x.mood.v != null ? "none" : "1px solid " + S.line, opacity: x.mood && x.mood.v != null ? 0.4 + x.mood.v * 0.15 : 1 } })))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, "两周里月亮走过的星座和你的心情，翻回来看看对不对得上"));
       })()));
 
@@ -1036,9 +1036,9 @@
     };
     const askView = h("div", { className: "flex flex-col" },
       h(Panel, { S: S, title: "问星星一件事" },
-        h("textarea", { value: askText, onChange: e => setAskText(e.target.value), rows: 3, placeholder: "比如：这周适合跟他表白吗？", "aria-label": "想问的事",
+        h("textarea", { "data-wk": "textarea", value: askText, onChange: e => setAskText(e.target.value), rows: 3, placeholder: "比如：这周适合跟他表白吗？", "aria-label": "想问的事",
           style: { width: "100%", minWidth: 0, padding: 12, borderRadius: 3, border: "1px solid " + S.line, background: "transparent", color: S.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6 } }),
-        h("button", { onClick: doAsk, className: "active:opacity-80", style: { width: "100%", minHeight: 44, marginTop: 8, background: S.tint, color: S.bg, border: "none", borderRadius: 3, fontFamily: F_BODY, fontSize: 14, letterSpacing: ".1em" } }, "抽一句"),
+        h("button", { "data-wk": "block", onClick: doAsk, className: "active:opacity-80", style: { width: "100%", minHeight: 44, marginTop: 8, background: S.tint, color: S.bg, border: "none", borderRadius: 3, fontFamily: F_BODY, fontSize: 14, letterSpacing: ".1em" } }, "抽一句"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, meChart ? "按今天天上的行星和你的星盘挑；同一天同一个问题，答案不会变" : "没有带年份的生日，只按星座的日运来")),
       lastAsk ? h(Panel, { S: S, title: "星星说" },
         h("div", { "data-wk": "astroask", style: { fontFamily: F_BODY, fontSize: 12, color: S.fog } }, "「" + lastAsk.q + "」 · 问的是" + lastAsk.area),

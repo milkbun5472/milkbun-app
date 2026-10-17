@@ -44,11 +44,11 @@ test("封面归档进图库，能看整张也能存相册", () => {
 });
 
 test("大图查看器搬出图库分支，演出页也能点开看整张", () => {
-  assert.match(th, /const bigViewer = \(\) => galView && h\("div"/);
+  assert.match(th, /const bigViewer = \(\) => galView && h\(ImageViewer, \{/);   // 2026-10-16 起走全库那一份
   assert.match(th, /const viewer = bigViewer\(\);/, "图库分支改成复用同一个");
   // 只能有一处定义：搬完还留着旧的那份就等于又分了叉
-  assert.equal((th.match(/galView && h\("div", \{ onClick: \(\) => setGalView\(null\)/g) || []).length, 1);
-  assert.match(th, /maxHeight: "72vh", borderRadius: 10, objectFit: "contain"/, "看的是整张，不是裁过的");
+  assert.equal((th.match(/galView && h\(ImageViewer, \{ onClose: \(\) => setGalView\(null\)/g) || []).length, 1);
+  assert.match((() => { const c0 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8"); const a0 = c0.indexOf("function ImageViewer("); return c0.slice(a0, c0.indexOf("function requestAppConfirm(", a0)); })(), /objectFit: "contain"/, "看的是整张，不是裁过的");
   assert.match(th, /🔍 看封面整张/);
   assert.match(th, /🖼 封面当背景/);
   // 演出页点开的封面若还没归档，删除按钮不能哑火

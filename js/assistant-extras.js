@@ -29,6 +29,9 @@
       what: "聊天攒到这么多条，就把早的那些压成长期记忆。" },
     { key: "sumBuffer", zh: "总结后留几条原文", where: "记 · 他知道什么", type: "num", min: 5, max: 100, def: 20,
       what: "压成总结的时候，最近这么多条保留原样不压。" },
+    // 存档里存的是反的（noLoveLetter＝不许）：inv 让秋秋看到、改的都是界面上那一格「允许 Ta 主动发空间邀请」
+    { key: "noLoveLetter", inv: true, zh: "允许 Ta 主动发空间邀请（申请信）", where: "动 · 主动消息 / 朋友圈 / 主动找你", type: "bool", def: true,
+      what: "你们还没开空间时，他想跟你更进一步了会自己写一封申请信（聊天里一个封着的信封，拆开选答应或再想想）。关了就不会写。跟自动功能里的「情书」不是一回事：那个是已经在一起以后，空间里按频率写的信。他什么时候写由他自己定：开着也要满足这几样——你们还没开空间、也没有一封在等你回；上次写过隔了一天以上；你上次说「再想想」后过了三天；刚分开不满七天不写。" },
     { key: "autoMoment", zh: "自己发朋友圈", where: "动 · 他会主动做什么", type: "bool", def: false,
       what: "开了他会时不时自己发一条朋友圈。" },
     { key: "defaultOffline", zh: "点进来先进线下", where: "窗 · 这个聊天窗", type: "bool", def: false,
@@ -73,6 +76,7 @@
     if (def.type === "route") { const r = ((ctx && ctx.apiProfiles) || []).find(p => p && p.id === v); return r ? (r.name || "（没起名的线路）") : "跟随全局"; }
     if (def.type === "mask") { const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && x.id === v); return m ? m.name : "主面具"; }
     if (v == null) return def.type === "bool" ? (def.def == null ? "跟着总开关" : (def.def ? "开" : "关")) : def.type === "pick" ? def.opts[def.def] : String(def.def);
+    if (def.inv && def.type === "bool") v = !v;
     return def.type === "bool" ? (v ? "开" : "关") : def.type === "pick" ? (def.opts[v] || String(v)) : String(v);
   };
   // 她说的值 → 存进去的值；认不出就报错（不猜）
@@ -90,7 +94,7 @@
       if (!m) throw new Error("没有叫「" + t + "」的面具；现有的：" + (((ctx && ctx.masks && ctx.masks()) || []).map(x => x.name).filter(Boolean).join("、") || "只有主面具"));
       return m.id;
     }
-    if (def.type === "bool") { if (yes(t)) return true; if (no(t)) return false; throw new Error("「" + def.zh + "」只能是开或关"); }
+    if (def.type === "bool") { if (yes(t)) return !def.inv; if (no(t)) return !!def.inv; throw new Error("「" + def.zh + "」只能是开或关"); }
     if (def.type === "num") {
       const n = Math.round(Number(t.replace(/[^\d.]/g, "")));
       if (!isFinite(n) || !t) throw new Error("「" + def.zh + "」要填一个数");
@@ -520,7 +524,9 @@
       return { 谁: c.name, id: c.id, 天: days.map(d => ({ 日期: d, 段: ((book[d] || {}).seqs || []).filter(Boolean).map(r => r.seq + ". " + (r.time || "") + " " + clip(r.title, 30) + (r.location ? " @ " + clip(r.location, 20) : "")) })) }; });
     const ann = (ctx.annivList && ctx.annivList()) || [];
     out.情侣空间 = chars.map(c => { const h = (ctx.coupleHomeOf && ctx.coupleHomeOf(c.id)) || {}; const a = h.archive || {};
-      return { 谁: c.name, id: c.id, 档案: COUPLE_FIELDS.map(([k, zh]) => k + "（" + zh + "）=" + (clip(a[k], 120) || "空")),
+      // 先说开没开：没开的人，底下那些档案、愿望都是空的，别当成「已经在一起了」
+      const cp = ctx.coupleOf ? ctx.coupleOf(c.id) : null, rl = cp && window.spaceRel ? window.spaceRel(cp) : null;
+      return { 谁: c.name, id: c.id, 空间: !cp ? "没开（你们还不是恋人，也没有别的关系空间）" : cp.status === "together" ? "开着 · " + (rl ? rl.space + "（" + rl.zh + "）" : "情侣空间") : cp.status === "pending" ? "邀请还没回应" : "没开", 档案: COUPLE_FIELDS.map(([k, zh]) => k + "（" + zh + "）=" + (clip(a[k], 120) || "空")),
         愿望板: (h.wishes || []).filter(Boolean).slice(0, 20).map(w => ({ id: w.id, 愿望: clip(w.title, 40), 类: w.type, 状态: w.status === "done" ? "做到了" : "还没" })),
         纪念日: ann.filter(x => x && x.characterId === c.id).map(x => ({ id: x.id, 名字: x.name, 日期: (x.year ? x.year + "-" : "") + x.month + "-" + x.day })) }; });
     out.表情包 = ((ctx.emotePacks && ctx.emotePacks()) || []).slice(0, 30).map(k => ({ id: k.id, 名字: k.name, 几张: (k.emotes || []).length, 给谁: k.global ? "全局" : whoNames(ctx, k.charIds) }));
@@ -685,6 +691,91 @@
     + "  look 小人的颜色（陪伴、庭院、TA的一天共用一份）：id＝角色id，text＝JSON，只认 skin（肤色）、eye（眼睛）、hairColor（发色）、hairColor2（挑染）四样，都是 #六位色号，她说颜色名你换成色号；发型、衣服款式让她去小世界的「改外貌」里挑。\n"
     + "  gardenpartner 某一档换同行者：id＝快照【小世界存档】里的存档id，text＝角色名，或「一个人」。从小房间开的庭院房绑死那个人，不能换。\n"
     + "  她问小世界怎么玩，照攻略「小世界」那条讲；快照里看得到她开了哪几档、各是哪个世界、跟谁。\n";
+
+  // ── 带她去那一页（她 2026-10-16：「不止知道东西在哪里，还可以出一个跳转卡，按了就能带到那个页面」）──
+  //   id＝攻略里那一条的 id（目录里每条都有）；按了就开那条所在的 app。不改任何东西，所以不进撤回本。
+  // 往里那一格的中文名：卡上「去哪儿」那一行用，也写进给秋秋的说明里
+  const OPEN_SUB_ZH = { api: "接哪些模型", apiText: "文字模型", apiImage: "图像 API", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆", apiStt: "语音识别",
+    apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪", cot: "创作小稿", look: "这个 app 长什么样", theme: "外观与壁纸",
+    themeStudio: "主题工作台", bubble: "聊天气泡", write: "他们写出来的东西", auto: "谁会自己动", data: "我的东西存在哪", debug: "上一轮到底发了什么",
+    "data/inner-life": "人格试点", "data/storage": "本地空间", "data/photos": "本机照片库", "data/cloud": "云同步", "data/backup": "导入与导出", "data/rescue": "找回失联的角色",
+    real: "现实地图", story: "架空地图" };
+  // 别的 app 里面那一格（她 2026-10-16「别的 app 不能都搞具体跳转吗」）：攻略那条 id/这里的键
+  const OPEN_APP_SUBS = {
+    fanfic: { feed: "首页刷文", shelf: "书架", publish: "自己写一篇", rp: "加笔（穿书改写）", authors: "作者", mine: "我的" },
+    study: { teach: "认真教", costudy: "一起研究", nv1: "一教一学", tb: "我来教" },
+    ledger: { wallet: "钱包", stats: "统计", cal: "日历", me: "我的" },
+    memo: { reminders: "提醒", notes: "备忘" },
+    weekly: { cover: "本期封面", issue: "翻这一期", shelf: "往期书架" },
+    dreamjournal: { hers: "她的梦", theirs: "TA们的梦" },
+    stylelab: { build: "做预设", test: "试写" },
+    health: { today: "今天", body: "身体" },
+    astro: { today: "今日", pair: "配对", chart: "星盘", group: "群榜" },
+    debate: { setup: "开一场新的" }, dream: { setup: "开一场新的" }, theater: { create: "新建一出" }, trpg: { create: "开一个新团" }
+  };
+  const COUPLE_SUBS = { studio: "照相馆", gacha: "抽卡", letters: "情书", exdiary: "交换日记", album: "合照墙", timeline: "我们的日子", anniv: "纪念日",
+    qa: "问答", wishes: "心愿", pacts: "约定", trip: "旅行", garden: "花园", jar: "存钱罐", drawer: "抽屉", firsts: "第一次", capsule: "时间胶囊",
+    disc: "唱片架", recall: "回忆", ifroom: "另一种我们", makeup: "和好", archive: "档案" };
+  Object.keys(OPEN_APP_SUBS).forEach(a => Object.keys(OPEN_APP_SUBS[a]).forEach(k => { if (!OPEN_SUB_ZH[k]) OPEN_SUB_ZH[k] = OPEN_APP_SUBS[a][k]; }));
+  Object.keys(COUPLE_SUBS).forEach(k => { if (!OPEN_SUB_ZH[k]) OPEN_SUB_ZH[k] = COUPLE_SUBS[k]; });
+  TARGETS.open = {
+    zh: "带你去那一页",
+    read: ctx => [],
+    // id＝「攻略那条的 id」或「攻略那条的 id/往里那一格」（她 2026-10-16「搞能进那一格吧」）
+    before: (p, ctx) => { const M = typeof window !== "undefined" && window.AssistantManual; const raw = S(p.id), i = raw.indexOf("/"); const e = M && M.byId ? M.byId(i < 0 ? raw : raw.slice(0, i)) : null; return e ? "去「" + e.zh + "」" + (i >= 0 ? " → " + (OPEN_SUB_ZH[raw.slice(i + 1)] || raw.slice(i + 1)) : (e.where ? "（" + e.where + "）" : "")) : ""; },
+    write: (id, patch, ctx) => {
+      const M = typeof window !== "undefined" && window.AssistantManual;
+      const raw = S(id), i = raw.indexOf("/"), eid = i < 0 ? raw : raw.slice(0, i), sub = i < 0 ? "" : raw.slice(i + 1);
+      const e = M && M.byId ? M.byId(eid) : null;
+      if (!e) throw new Error("攻略里没有「" + eid + "」这一条");
+      if (!ctx.onOpenPage) throw new Error("这个页面没接跳转的入口");
+      if (!ctx.onOpenPage(e.app, e.id, sub)) throw new Error("「" + e.zh + (sub ? " → " + sub : "") + "」没法直接跳过去，照「" + (e.where || e.zh) + "」走");
+      return 1;
+    }
+  };
+  const _ok4 = okWithoutText;
+  okWithoutText = x => _ok4(x) || (x.target === "open" && S(x.id).trim());
+  const _doc4 = docLines;
+  docLines = () => _doc4() + "  open 带她去那一页：她说想去做某件事、找某个功能（「我想搞个新世界地图」「表情包在哪」），除了告诉她在哪，再出一张 open 卡，她按一下就开到那一页。"
+    + "id＝目录里那一条的 id，text 写按钮上那句话（比如「去架空地图」）。只是开页面，不改任何东西；一轮最多两张，别每句话都出。\n"
+    + "    能直接进到里面那一格的，id 写成「那条的 id/那一格」：\n"
+    + "    · config/页名，页名：" + Object.keys(OPEN_SUB_ZH).filter(k => k.indexOf("/") < 0 && k !== "real" && k !== "story").map(k => k + "＝" + OPEN_SUB_ZH[k]).join("、") + "；\n"
+    + "      数据里那几块再往里一层：" + Object.keys(OPEN_SUB_ZH).filter(k => k.indexOf("data/") === 0).map(k => "config/" + k + "＝" + OPEN_SUB_ZH[k]).join("、") + "；\n"
+    + "    · map/real＝现实地图、map/story＝架空地图（新建一个世界就在架空地图里）；\n"
+    + "    · chat/角色id＝直接打开跟那个人的聊天，group/群id＝打开那个群（id 看快照，名字也认）。\n"
+    + "    · couple/角色id/那一块＝跟那个人的情侣空间里直接进那一块（得是在一起的那个人）：" + Object.keys(COUPLE_SUBS).map(k => k + "＝" + COUPLE_SUBS[k]).join("、") + "；只写 couple/角色id 就停在空间首页；\n"
+    + "    · 这几个 app 也能进到那一格，写「攻略那条的 id/键」（攻略那条 id 一般就是 app 名）：" + Object.keys(OPEN_APP_SUBS).map(a => a + "（" + Object.keys(OPEN_APP_SUBS[a]).map(k => k + "＝" + OPEN_APP_SUBS[a][k]).join("、") + "）").join("；") + "。\n"
+    + "    别的地方只能开到那个 app 的首页，照攻略告诉她再点哪儿。\n";
+
+  // ── 桌面布局（她 2026-10-16：「我的 xx app 在哪儿，她可以说在第几页」）────────
+  //   读的就是主屏自己存的那两份（x_homeLayout 每页摆了什么、x_homeFolders 每个文件夹里装了什么），名字照主屏那张表叫
+  const HOME_WIDGET_ZH = { card: "名片组件", cal: "日历组件", music: "歌单组件", map: "地图组件", us: "情侣条组件", memo: "备忘组件", weather: "天气组件",
+    muyu: "木鱼组件", ledger: "账本组件", wheel: "转盘组件", recent: "最近组件", taday: "TA的一天组件" };
+  function homeLayoutRows() {
+    // 先问主屏此刻真画出来的那一份（含没存过时的默认布局），问不到才读盘
+    const now = (typeof window !== "undefined" && typeof window.__homeNow === "function") ? window.__homeNow() : null;
+    const L = now && Array.isArray(now.pages) ? Object.assign({}, now.pages) : (LS("x_homeLayout", {}) || {});
+    const F = now && now.folders ? now.folders : (LS("x_homeFolders", {}) || {});
+    const REG = (typeof window !== "undefined" && window.__homeReg) || {};
+    const zhOf = k => { const it = REG[k]; if (it && it.zh) return it.zh; if (it && it.kind === "widget") return HOME_WIDGET_ZH[it.which] || k; if (/^d_/.test(k)) return "（你自己放的装饰）"; return k; };
+    const pages = Object.keys(L).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    const out = [];
+    pages.forEach((n, i) => {
+      const items = (L[n] || []).filter(k => !/^sp_/.test(k)).map(k => {
+        if (/^f_/.test(k)) { const f = F[k] || {}; return "文件夹「" + (f.name || "没起名") + "」（里面：" + (f.keys || []).map(zhOf).join("、") + "）"; }
+        return zhOf(k);
+      });
+      if (items.length) out.push("第" + (i + 1) + "页：" + items.join("、"));
+    });
+    const placed = new Set(); pages.forEach(n => (L[n] || []).forEach(k => placed.add(k)));
+    Object.keys(F).forEach(fid => { if (!placed.has(fid)) out.push("没摆在任何一页上的文件夹「" + (F[fid].name || "") + "」：" + (F[fid].keys || []).map(zhOf).join("、")); });
+    return out;
+  }
+  const _snap5 = snapshotExtra;
+  snapshotExtra = (ctx, hot) => { const o = _snap5(ctx, hot); const rows = homeLayoutRows(); if (rows.length) o.桌面布局 = rows; return o; };
+  const _doc5 = docLines;
+  docLines = () => _doc5() + "· 快照【桌面布局】是她主屏现在真实的样子：第几页、按顺序摆了什么、每个文件夹里装着什么。她问「xx 在哪儿」就照它说（第几页、在不在哪个文件夹里）；"
+    + "主屏上没有的，再照攻略说从哪儿进。页数从左往右数，第1页是最左边那页。\n";
 
   const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;

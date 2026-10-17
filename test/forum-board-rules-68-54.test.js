@@ -37,7 +37,7 @@ test("六个吧都有规矩，一条都不空", () => {
 test("规矩只有一份：app.js 不许再抄一张表", () => {
   assert.ok(strip(app).indexOf("FORUM_BOARD_RULES = {") < 0,
     "app.js 里又出现了第二张吧规表——一层写在两处，第二处永远跟不上");
-  assert.match(app, /const rules = FORUM_BOARD_RULES\[b\];/);
+  assert.match(app, /const rules = typeof forumBoardRulesOf === "function" \? forumBoardRulesOf\(b\) : FORUM_BOARD_RULES\[b\];/);
 });
 
 test("吧规挂在四条生成线共用的那一块上", () => {

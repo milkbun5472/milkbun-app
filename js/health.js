@@ -642,7 +642,7 @@
   }
   // 一杯水：点第几杯就记到第几杯，再点同一杯退回一杯
   function Cup({ S, full, onClick }) {
-    return h("button", { onClick, className: "active:scale-90", style: { width: 34, height: 44, background: "transparent", border: "none", padding: 0, transition: "transform .1s" } },
+    return h("button", { "data-wk": "block", onClick, className: "active:scale-90", style: { width: 34, height: 44, background: "transparent", border: "none", padding: 0, transition: "transform .1s" } },
       h("svg", { width: 26, height: 34, viewBox: "0 0 26 34" },
         h("path", { d: "M3 3h20l-2.4 27a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8z", fill: full ? A(S.water, "cc") : "none", stroke: full ? S.water : S.fog, strokeWidth: 1.4, strokeLinejoin: "round" }),
         full ? h("path", { d: "M6 9q3.5 2 7 0t7 0", fill: "none", stroke: "rgba(255,255,255,.55)", strokeWidth: 1.2 }) : null));
@@ -652,7 +652,7 @@
   function Face({ S, v, on, onClick, mini }) {
     const mouth = ["M8 19q5-5 10 0", "M8 18q5-2.5 10 0", "M8 17.5h10", "M8 16.5q5 3 10 0", "M7.5 15.5q5.5 5.5 11 0"][v];
     const col = on ? S.accent : S.fog;
-    return h("button", { onClick, "aria-pressed": on, style: { flex: 1, minHeight: 56, background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 } },
+    return h("button", { "data-wk": "block", onClick, "aria-pressed": on, style: { flex: 1, minHeight: 56, background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 } },
       h("svg", { width: on ? 32 : 26, height: on ? 32 : 26, viewBox: "0 0 26 26", style: { transition: "all .2s" } },
         h("circle", { cx: 13, cy: 13, r: 11.5, fill: on ? A(S.accent, "1f") : "none", stroke: col, strokeWidth: 1.4 }),
         h("circle", { cx: 9.3, cy: 10.5, r: 1.2, fill: col }), h("circle", { cx: 16.7, cy: 10.5, r: 1.2, fill: col }),
@@ -694,7 +694,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
         h(Section, { S, title: "说一句，让模型估" },
           h("div", { className: "flex", style: { gap: 8 } },
-            h("input", { value: ai, onChange: e => setAi(e.target.value), placeholder: "吃了什么、大概多少", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") runAi(); } }),
+            h("input", { "data-wk": "input", value: ai, onChange: e => setAi(e.target.value), placeholder: "吃了什么、大概多少", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") runAi(); } }),
             h("button", { onClick: runAi, disabled: busy || !ai.trim(), style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: busy || !ai.trim() ? 0.5 : 1 }) }, busy ? "估着…" : "估一下")),
           guess ? h("div", { style: { marginTop: 10 } },
             guess.map((x, i) => h("div", { key: i, className: "flex items-center", style: { padding: "8px 0", borderBottom: "1px dashed " + S.line, fontFamily: F_BODY, fontSize: 13.5, color: S.ink } },
@@ -705,7 +705,7 @@
               h("button", { onClick: () => setGuess(null), style: btnS(S) }, "不对，重说"),
               h("button", { onClick: () => add(guess.map(x => Object.assign({ src: "ai", qty: 1 }, x))), style: Object.assign(btnS(S, true), { flex: 1 }) }, "就记这些"))) : null),
         h(Section, { S, title: "常吃的" },
-          h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜一下", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
+          h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜一下", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
           list.map(f => {
             const on = pick === f;
             return h("div", { key: f.name, style: { borderBottom: "1px dashed " + S.line } },
@@ -723,8 +723,8 @@
           !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.fog, padding: "10px 0" } }, "这里没有，用上面那行让模型估，或者下面自己填。") : null),
         h(Section, { S, title: "自己填" },
           h("div", { className: "flex", style: { gap: 8 } },
-            h("input", { value: man.name, onChange: e => setMan(Object.assign({}, man, { name: e.target.value })), placeholder: "吃了什么", style: inputS(S) }),
-            h("input", { value: man.kcal, onChange: e => setMan(Object.assign({}, man, { kcal: e.target.value.replace(/[^\d]/g, "") })), placeholder: "千卡", inputMode: "numeric", style: Object.assign(inputS(S), { width: 84, flexShrink: 0 }) }),
+            h("input", { "data-wk": "input", value: man.name, onChange: e => setMan(Object.assign({}, man, { name: e.target.value })), placeholder: "吃了什么", style: inputS(S) }),
+            h("input", { "data-wk": "input", value: man.kcal, onChange: e => setMan(Object.assign({}, man, { kcal: e.target.value.replace(/[^\d]/g, "") })), placeholder: "千卡", inputMode: "numeric", style: Object.assign(inputS(S), { width: 84, flexShrink: 0 }) }),
             h("button", { disabled: !man.name.trim() || !Number(man.kcal), onClick: () => add([{ name: man.name.trim().slice(0, 30), kcal: Number(man.kcal), p: 0, c: 0, f: 0, qty: 1, src: "manual" }]),
               style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: !man.name.trim() || !Number(man.kcal) ? 0.5 : 1 }) }, "记下")))));
   }
@@ -756,7 +756,7 @@
           step(4, "最后加「拷贝到剪贴板」，再加「打开 App」", "「拷贝到剪贴板」拷的是上面那个文本；「打开 App」选秋秋机（用浏览器的就选 Safari）。\n点右下角 ▶ 试跑。第一次会问能不能读健康数据和位置，都点「允许」。"),
           step(5, "回到这里点「导入」", "健康页「今天」最上面那行的「导入」。第一次 iPhone 会问能不能粘贴，点允许。\n想每天自动跑：快捷指令 →「自动化」→「特定时间」，比如每晚十点跑它，第二天打开点一下就进来了。")),
         h(Section, { S, title: "剪贴板读不到的话，贴在这儿" },
-          h("textarea", { value: txt, onChange: e => setTxt(e.target.value), rows: 7, placeholder: SHORTCUT_TEMPLATE.trim(),
+          h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 7, placeholder: SHORTCUT_TEMPLATE.trim(),
             style: Object.assign(inputS(S), { minHeight: 150, padding: "8px 2px", resize: "none", lineHeight: 1.6 }) }),
           h("button", { onClick: tryPaste, disabled: !txt.trim(), style: Object.assign(btnS(S, true), { width: "100%", marginTop: 12, opacity: txt.trim() ? 1 : 0.5 }) }, "导入这一段")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, lineHeight: 1.6, textAlign: "center" } },
@@ -822,7 +822,7 @@
         h("span", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: 99, background: S.bg, transition: "left .2s" } })));
     const num = (label, k, unit, step) => h("div", { className: "flex items-center", style: { minHeight: 52, borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
       h("span", { style: { flex: 1, fontSize: 14, color: S.ink } }, label),
-      h("input", { value: d.goal[k] == null ? "" : d.goal[k], inputMode: "decimal", placeholder: "不定",
+      h("input", { "data-wk": "input", value: d.goal[k] == null ? "" : d.goal[k], inputMode: "decimal", placeholder: "不定",
         onChange: e => { const v = e.target.value.replace(/[^\d.]/g, ""); onPatch({ goal: Object.assign({}, d.goal, { [k]: v === "" ? null : Number(v) }) }); },
         style: Object.assign(inputS(S), { width: 90, textAlign: "right" }) }),
       h("span", { style: { width: 34, textAlign: "right", fontSize: 12, color: S.sub } }, unit));
@@ -857,11 +857,11 @@
             h("button", { onClick: () => { try { navigator.geolocation.getCurrentPosition(p => onPatch({ home: { lat: p.coords.latitude, lon: p.coords.longitude } }), () => {}, { timeout: 15000 }); } catch (e) {} }, style: btnS(S) }, "用这台设备现在的位置"),
             d.home ? h("button", { onClick: () => onPatch({ home: null }), style: btnS(S) }, "清掉") : null)),
         h(Section, { S, title: "我有自己的网关", wk: "healthgateway",
-            right: h("button", { onClick: onGuide, style: { minHeight: 36, background: "transparent", border: "none", color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600 } }, "没有？免费搭一个") },
+            right: h("button", { "data-wk": "block", onClick: onGuide, style: { minHeight: 36, background: "transparent", border: "none", color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600 } }, "没有？免费搭一个") },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7, marginBottom: 6 } },
             "没有就不用管，导入照旧用剪贴板。有的话：让快捷指令每天定时用「获取 URL 内容」把那段字发给你的网关，网关存着最新一份；在这儿填它给出那一份的地址，秋秋机每次打开、切回来时去拿一次，就不用再点导入了。网关要用 https，并允许跨域访问。"),
-          h("input", { value: d.gateway.url || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { url: e.target.value.trim() }) }), placeholder: "网关地址，https 开头", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
-          h("input", { value: d.gateway.key || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { key: e.target.value.trim() }) }), placeholder: "密钥（可空，会放在 Authorization: Bearer 里）", style: inputS(S) }),
+          h("input", { "data-wk": "input", value: d.gateway.url || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { url: e.target.value.trim() }) }), placeholder: "网关地址，https 开头", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
+          h("input", { "data-wk": "input", value: d.gateway.key || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { key: e.target.value.trim() }) }), placeholder: "密钥（可空，会放在 Authorization: Bearer 里）", style: inputS(S) }),
           h("div", { className: "flex items-center", style: { gap: 10, marginTop: 12 } },
             h("button", { disabled: !d.gateway.url, onClick: onPull, style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: d.gateway.url ? 1 : 0.5 }) }, "现在拿一次"),
             h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: d.gateway.err ? S.blood : S.fog, lineHeight: 1.5, wordBreak: "break-all" } },
@@ -886,7 +886,7 @@
     // 网关在后台拉到了新的一份：页面跟着刷新
     React.useEffect(() => { const f = () => setD(load()); g.addEventListener && g.addEventListener("qq-health-updated", f); pullGateway(false);
       return () => g.removeEventListener && g.removeEventListener("qq-health-updated", f); }, []);
-    const [tab, setTab] = useState("today");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("health", ["today", "body"])) || "today");
     const [page, setPage] = useState(null);          // { kind: "add", meal } | { kind: "watch" }
     const [kg, setKg] = useState("");
     const [sp, setSp] = useState(null), [spMin, setSpMin] = useState(30), [stepIn, setStepIn] = useState("");
@@ -965,7 +965,7 @@
             rows.map(r => h("div", { key: r.id, className: "flex items-center", style: { padding: "2px 0 6px 48px", fontFamily: F_BODY, fontSize: 13, color: S.sub } },
               h("span", { style: { flex: 1 } }, r.name + (r.qty && r.qty !== 1 ? " ×" + r.qty : "")),
               h("span", { style: { color: S.tint, marginRight: 4 } }, Math.round(r.kcal * (r.qty || 1))),
-              h("button", { onClick: () => delMeal(r.id), "aria-label": "删掉这一条", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×"))));
+              h("button", { "data-wk": "block", onClick: () => delMeal(r.id), "aria-label": "删掉这一条", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×"))));
         })),
       h(Section, { S, title: "喝水", wk: "healthwater", right: h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.water } }, tot.water + " / " + (d.goal.water || 8) + " 杯") },
         h("div", { className: "flex flex-wrap", style: { gap: 2 } },
@@ -976,7 +976,7 @@
         (d.sport || []).filter(s => s.day === today).map(s => h("div", { key: s.id, className: "flex items-center", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 13.5, color: S.ink } },
           h("span", { style: { flex: 1 } }, s.kind + " · " + s.min + " 分钟"),
           h("span", { style: { color: S.accent, marginRight: 4 } }, "−" + s.kcal),
-          h("button", { onClick: () => delSport(s.id), "aria-label": "删掉这一条", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×"))),
+          h("button", { "data-wk": "block", onClick: () => delSport(s.id), "aria-label": "删掉这一条", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×"))),
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 6 } },
           SPORTS.map(x => h("button", { key: x[0], onClick: () => setSp(sp && sp[0] === x[0] ? null : x), "aria-pressed": !!(sp && sp[0] === x[0]), style: chipS(S, sp && sp[0] === x[0]) }, x[0]))),
         sp ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12 } },
@@ -986,24 +986,24 @@
           h("button", { onClick: addSport, style: Object.assign(btnS(S, true), { flex: 1 }) }, "记下 · 约 " + burnOf(sp[1], spMin, lastKg(d)) + " 千卡")) : null,
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 14 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, flexShrink: 0 } }, "今天走了"),
-          h("input", { value: stepIn, onChange: e => setStepIn(e.target.value.replace(/[^\d]/g, "")), inputMode: "numeric", placeholder: tot.steps ? String(tot.steps) : "多少步", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveSteps(); } }),
+          h("input", { "data-wk": "input", value: stepIn, onChange: e => setStepIn(e.target.value.replace(/[^\d]/g, "")), inputMode: "numeric", placeholder: tot.steps ? String(tot.steps) : "多少步", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveSteps(); } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, flexShrink: 0 } }, "步"),
           h("button", { onClick: saveSteps, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "记下")),
         d.goal.steps ? h("div", { style: { marginTop: 8 } },
           h("div", { style: { height: 4, borderRadius: 99, background: A(S.ink, "10"), overflow: "hidden" } },
-            h("div", { style: { width: Math.min(100, Math.round(tot.steps / d.goal.steps * 100)) + "%", height: "100%", background: S.accent, borderRadius: 99 } })),
+            h("div", { "data-wk": "block", style: { width: Math.min(100, Math.round(tot.steps / d.goal.steps * 100)) + "%", height: "100%", background: S.accent, borderRadius: 99 } })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 4 } }, "今天 " + tot.steps + " / " + d.goal.steps + " 步")) : null),
       // 小习惯：自己加的那几样，每天勾一下；定了时间的，到点还没勾会弹一下
       h(Section, { S, title: "小习惯", wk: "healthhabit" },
         (d.habits || []).map(x => { const on = (d.habitLog[today] || []).includes(x.id);
           return h("div", { key: x.id, className: "flex items-center", style: { minHeight: 44, borderBottom: "1px dashed " + S.line } },
-            h("button", { onClick: () => toggleHabit(x.id), "aria-pressed": on, className: "flex items-center", style: { flex: 1, minHeight: 44, gap: 10, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
+            h("button", { "data-wk": "block", onClick: () => toggleHabit(x.id), "aria-pressed": on, className: "flex items-center", style: { flex: 1, minHeight: 44, gap: 10, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
               h("span", { style: { width: 22, height: 22, borderRadius: 7, border: "1.5px solid " + (on ? S.accent : A(S.ink, "33")), background: on ? S.accent : "transparent", color: S.bg, fontSize: 13, lineHeight: "19px", textAlign: "center", flexShrink: 0 } }, on ? "✓" : ""),
               h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: on ? S.sub : S.ink, textDecoration: on ? "line-through" : "none" } }, x.name),
               x.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, x.at) : null),
-            h("button", { onClick: () => delHabit(x.id), "aria-label": "删掉这个习惯", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×")); }),
+            h("button", { "data-wk": "block", onClick: () => delHabit(x.id), "aria-label": "删掉这个习惯", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×")); }),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
-          h("input", { value: habIn, onChange: e => setHabIn(e.target.value.slice(0, 16)), placeholder: "吃维生素、护肤……", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") addHabit(); } }),
+          h("input", { "data-wk": "input", value: habIn, onChange: e => setHabIn(e.target.value.slice(0, 16)), placeholder: "吃维生素、护肤……", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") addHabit(); } }),
           h("input", { type: "time", value: habAt, onChange: e => setHabAt(e.target.value), "aria-label": "几点提醒（可空）", style: Object.assign(inputS(S), { width: 92, flexShrink: 0 }) }),
           h("button", { onClick: addHabit, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "加")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 6 } }, "时间可以不填；填了的，到点还没勾会提醒一下（App 开着、或者后台醒着的时候）。")),
@@ -1044,7 +1044,7 @@
           return h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.sub, marginTop: 4, lineHeight: 1.6 } },
             e.reached ? "已经到目标了。" : e.away ? "最近四周每周大约 " + (e.perWeek > 0 ? "+" : "") + e.perWeek + " 公斤，跟目标是反着走的。" : "照最近四周的走法（每周 " + (e.perWeek > 0 ? "+" : "") + e.perWeek + " 公斤），大约 " + e.date + " 到目标。"); })(),
         h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
-          h("input", { value: kg, onChange: e => setKg(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "今天多少公斤", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveKg(); } }),
+          h("input", { "data-wk": "input", value: kg, onChange: e => setKg(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "今天多少公斤", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveKg(); } }),
           h("button", { onClick: saveKg, style: Object.assign(btnS(S, true), { flexShrink: 0 }) }, "记下"))),
       h(Section, { S, title: "经期", wk: "healthperiod" },
         h("div", { className: "flex items-center", style: { gap: 14, padding: "4px 0 10px" } },

@@ -199,8 +199,8 @@ function ToyConfig({ toast }) {
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "配件 · 本地"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginBottom: 12 } },
       "在 iPhone 上打开 Lovense Remote → 连上设备 → 开「Game Mode」，把页面上的「域名:端口」原样抄进下面。要和手机同一个 WiFi。只存本机、不进云。"),
-    row("本地地址（域名:端口）", h("input", { value: c.url, onChange: e => set({ url: e.target.value }), placeholder: "192-168-1-44.lovense.club:30010", style: inSt })),
-    row("标识（X-platform，随便起）", h("input", { value: c.platform, onChange: e => set({ platform: e.target.value }), placeholder: "MilkbunApp", style: inSt })),
+    row("本地地址（域名:端口）", h("input", { "data-wk": "input", value: c.url, onChange: e => set({ url: e.target.value }), placeholder: "192-168-1-44.lovense.club:30010", style: inSt })),
+    row("标识（X-platform，随便起）", h("input", { "data-wk": "input", value: c.platform, onChange: e => set({ platform: e.target.value }), placeholder: "MilkbunApp", style: inSt })),
     h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "启用"),
       h("button", { onClick: () => set({ enabled: !c.enabled }), style: { width: 50, height: 29, borderRadius: 999, background: c.enabled ? t.ink : t.line, position: "relative" } },
@@ -247,7 +247,7 @@ function ToyConfig({ toast }) {
             "▸ 还没有实况：去跟 TA 说一句话，再回来这里，会显示那一轮到底开没开成。");
           const bad = (g.conds || []).filter(x => !x[1]).map(x => x[0]);
           const mm = Math.max(0, Math.round((Date.now() - g.ts) / 60000));
-          return h("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: g.result ? "rgba(60,122,74,.08)" : "rgba(192,57,43,.07)", border: "1px solid " + (g.result ? "rgba(60,122,74,.3)" : "rgba(192,57,43,.25)") } },
+          return h("div", { "data-wk": "block", style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: g.result ? "rgba(60,122,74,.08)" : "rgba(192,57,43,.07)", border: "1px solid " + (g.result ? "rgba(60,122,74,.3)" : "rgba(192,57,43,.25)") } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.result ? "#3c7a4a" : "#c0392b", lineHeight: 1.6 } },
               g.result
                 ? "✓ 上一轮（" + g.who + "，" + mm + " 分钟前）已把 toy 能力给到 TA 了。"
@@ -265,7 +265,7 @@ function ToyConfig({ toast }) {
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } },
               "\u00b7 \u6307\u4ee4\u91cc\u542b toy \u5b57\u6bb5\uff1a" + (p.toyInTask ? "\u6709 \u2713" : "\u6ca1\u6709 \u2717")
               + "\u3000\u00b7 \u7ebf\u4e0b\u672a\u6563\u573a\u5e72\u6270\uff1a" + (p.offlineBleed ? "\u6709\uff08\u4f1a\u76d6\u8fc7\u7ebf\u4e0a\u80fd\u529b\uff0c\u5efa\u8bae\u5148\u7ed3\u675f\u7ebf\u4e0b\uff09" : "\u65e0")),
-            showTail ? h("div", { style: { marginTop: 6, maxHeight: 200, overflowY: "auto", padding: "8px 10px", borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontFamily: "monospace", fontSize: 10, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap", wordBreak: "break-all" } }, p.tail) : null);
+            showTail ? h("div", { "data-wk": "block", style: { marginTop: 6, maxHeight: 200, overflowY: "auto", padding: "8px 10px", borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontFamily: "monospace", fontSize: 10, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap", wordBreak: "break-all" } }, p.tail) : null);
         })(),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
           "③ 是【一次会话】的授权：刷新页面或重开 app 会自动解除，需要重点一次——这是当初定的安全设计，不是坏了。三关全绿，TA 的选项才会出现。"));
@@ -277,7 +277,7 @@ function ToyConfig({ toast }) {
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, str)),
       h("input", { type: "range", min: 0, max: 20, step: 1, value: str, onChange: e => setStr(+e.target.value), style: { width: "100%" } }),
       h("div", { className: "flex gap-2", style: { marginTop: 10 } },
-        h("button", { onClick: () => run(() => toyVibrate(str, 0), "已发送"), disabled: busy, className: "flex-1", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 8, padding: "9px 0" } }, busy ? "…" : "测试"),
+        h("button", { "data-wk": "block", onClick: () => run(() => toyVibrate(str, 0), "已发送"), disabled: busy, className: "flex-1", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 8, padding: "9px 0" } }, busy ? "…" : "测试"),
         h("button", { onClick: () => run(() => toyStop(), "已停止"), disabled: busy, className: "flex-1", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 0" } }, "停止"),
         h("button", { onClick: detect, disabled: busy, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, "检测")),
       diag ? h("div", { style: { maxHeight: 220, overflowY: "auto", fontFamily: "monospace", fontSize: 11, color: diag[0] === "✓" ? "#3c7a4a" : t.accent, marginTop: 10, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5 } }, diag) : null),

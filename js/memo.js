@@ -255,8 +255,8 @@
             h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
             h("span", { style: { width: 22, height: 22, borderRadius: 999, border: "2px solid " + (sel.includes(c.id) ? ACCENT : t.line), background: sel.includes(c.id) ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, flexShrink: 0 } }, sel.includes(c.id) ? "✓" : "")))),
         h("div", { className: "flex gap-2 shrink-0", style: { marginTop: 14 } },
-          h("button", { onClick: props.onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 0" }, "data-wk": "memocommentpickerbtn", "data-part": "close" }, "取消"),
-          h("button", { onClick: () => sel.length && props.onPick(sel), disabled: !sel.length || props.busy, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: ACCENT, borderRadius: 14, padding: "11px 0" }, "data-wk": "memocommentpickerbtn", "data-part": "4" }, props.busy ? "生成中…" : "让 TA 们说 (" + sel.length + ")")))), document.body);
+          h("button", { "data-wk": "block", onClick: props.onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 0" }, "data-wk": "memocommentpickerbtn", "data-part": "close" }, "取消"),
+          h("button", { "data-wk": "block", onClick: () => sel.length && props.onPick(sel), disabled: !sel.length || props.busy, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: ACCENT, borderRadius: 14, padding: "11px 0" }, "data-wk": "memocommentpickerbtn", "data-part": "4" }, props.busy ? "生成中…" : "让 TA 们说 (" + sel.length + ")")))), document.body);
   }
 
   // ---- 谁可以看到（可见角色）----
@@ -274,7 +274,7 @@
             h(Avatar, { character: c, size: 34, radius: 999 }),
             h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: sel.includes(c.id) ? ACCENT : t.fog } }, sel.includes(c.id) ? "✓ 可见" : "不可见")))),
-        h("button", { onClick: () => props.onSave(sel), className: "w-full active:opacity-80 shrink-0", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#fff", background: t.ink, borderRadius: 14, padding: "12px 0" }, "data-wk": "memovisiblepickerbtn", "data-part": "2" }, "保存"))), document.body);
+        h("button", { "data-wk": "block", onClick: () => props.onSave(sel), className: "w-full active:opacity-80 shrink-0", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#fff", background: t.ink, borderRadius: 14, padding: "12px 0" }, "data-wk": "memovisiblepickerbtn", "data-part": "2" }, "保存"))), document.body);
   }
 
   // ---- 批注区块（备忘/提醒详情共用）----
@@ -303,7 +303,7 @@
         const c = (props.characters || []).find(x => x.id === cm.charId) || { name: cm.name, color: "#8a8a8a" };
         return h("div", { key: i, className: "flex items-start gap-2.5", "data-wk": "memocommentblock", "data-part": "r2" },
           h(Avatar, { character: c, size: 30, radius: 999 }),
-          h("div", { style: { flex: 1, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "9px 12px" } },
+          h("div", { "data-wk": "block", style: { flex: 1, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "9px 12px" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.sub, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 } }, c.remark || c.name || cm.name,
               cm.auto ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "1px 7px" } }, "自己注意到 · 办完了") : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.5 } }, cm.text),
@@ -333,7 +333,7 @@
       props.onSave(Object.assign(clean, { id: r.id || uid("r"), title: title.trim(), note: note.trim(), repeat: repeat, anchor: anchor, startTime: startTime || "", endTime: startTime ? (endTime || "") : "", done: !!r.done, visibleTo: r.visibleTo || [], comments: r.comments || [], createdTs: r.createdTs || Date.now() }));
     };
     const inp = { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14.5, color: t.ink, outline: "none" };
-    const rchip = (v, lbl) => h("button", { onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) }, "data-wk": "memoreminderformbtn", "data-part": "1" }, lbl);
+    const rchip = (v, lbl) => h("button", { "data-wk": "block", onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) }, "data-wk": "memoreminderformbtn", "data-part": "1" }, lbl);
     // 选中日期 + 重复方式 → 一句人话解释这条会什么时候提醒
     const explain = !aDate ? "" : repeat === "none" ? "只在这一天提醒一次。"
       : repeat === "weekly" ? "每周" + WEEK[aDate.getDay()] + "提醒。"
@@ -345,8 +345,8 @@
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑提醒" : "新提醒"),
         h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT }, "data-wk": "memoreminderformbtn", "data-part": "2" }, "保存")),
-      h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "要提醒的事（如 交房租 / 妈妈生日 / 复诊）", style: Object.assign({}, inp, { marginBottom: 10 }), "data-wk": "memoreminderforminput", "data-part": "要提醒的事（如 交房租 " }),
-      h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可空）", style: Object.assign({}, inp, { marginBottom: 14 }), "data-wk": "memoreminderforminput", "data-part": "备注（可空）" }),
+      h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "要提醒的事（如 交房租 / 妈妈生日 / 复诊）", style: Object.assign({}, inp, { marginBottom: 10 }), "data-wk": "memoreminderforminput", "data-part": "要提醒的事（如 交房租 " }),
+      h("input", { "data-wk": "input", value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可空）", style: Object.assign({}, inp, { marginBottom: 14 }), "data-wk": "memoreminderforminput", "data-part": "备注（可空）" }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, repeat === "monthlyEnd" ? "日期（月底模式下只用来定从哪个月起）" : "日期"),
       h("input", { type: "date", value: anchor, onChange: e => setAnchor(e.target.value), style: Object.assign({}, inp, { marginBottom: 14 }), "data-wk": "memoreminderforminput", "data-part": "3" }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "时间（留空＝全天，只挂在日历顶部）"),
@@ -356,7 +356,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 14 } }, startTime ? "会画在日历那天的时间轴上" : "全天：画在日历顶部那一条"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "重复"),
       h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, rchip("none", "不重复"), rchip("weekly", "每周"), rchip("biweekly", "每两周"), rchip("monthly", "每月"), rchip("monthlyEnd", "每月最后一天"), rchip("yearly", "每年")),
-      explain && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, lineHeight: 1.5, background: ACCENT + "10", borderRadius: 10, padding: "8px 11px" } }, explain),
+      explain && h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, lineHeight: 1.5, background: ACCENT + "10", borderRadius: 10, padding: "8px 11px" } }, explain),
       props.initial && h("button", { onClick: () => props.onDelete(r.id), className: "w-full active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" }, "data-wk": "memoreminderformbtn", "data-part": "3" }, "删除这条提醒"));
   }
 
@@ -375,8 +375,8 @@
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑备忘" : "新备忘"),
         h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT }, "data-wk": "memonoteformbtn", "data-part": "1" }, "保存")),
-      h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "标题", style: Object.assign({}, inp, { fontSize: 16, marginBottom: 10 }), "data-wk": "memonoteforminput", "data-part": "标题" }),
-      h("textarea", { value: body, onChange: e => setBody(e.target.value), placeholder: "随手记点什么…", rows: 8, style: Object.assign({}, inp, { fontSize: 14.5, lineHeight: 1.6, resize: "none" }), "data-wk": "memonoteformtext", "data-part": "随手记点什么…" }),
+      h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "标题", style: Object.assign({}, inp, { fontSize: 16, marginBottom: 10 }), "data-wk": "memonoteforminput", "data-part": "标题" }),
+      h("textarea", { "data-wk": "textarea", value: body, onChange: e => setBody(e.target.value), placeholder: "随手记点什么…", rows: 8, style: Object.assign({}, inp, { fontSize: 14.5, lineHeight: 1.6, resize: "none" }), "data-wk": "memonoteformtext", "data-part": "随手记点什么…" }),
       props.initial && h("button", { onClick: () => props.onDelete(n.id), className: "w-full active:opacity-70", style: { marginTop: 20, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" }, "data-wk": "memonoteformbtn", "data-part": "2" }, "删除这条备忘"));
   }
 
@@ -386,7 +386,7 @@
   function Memo(props) {
     const t = useTheme();
     const [data, setData] = useState(loadData);
-    const [tab, setTab] = useState("reminders");   // reminders | notes
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("memo", ["reminders", "notes"])) || "reminders");   // reminders | notes
     const [form, setForm] = useState(null);        // {kind:'reminder'|'note', item?}
     const [detail, setDetail] = useState(null);    // {kind, id}
     // 从日历点某条提醒进来：memoOpenReminder 把 id 放在 __memoOpenId，这里接住并打开详情。

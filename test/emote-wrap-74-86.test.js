@@ -1,7 +1,7 @@
 // 她 2026-10-05 转群里截图：气泡里出现「【emote：小仓鼠举起两个大拇指】」，还被切成两个气泡
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8") + require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");   // 认表情挪进 engine 的 emoteSlotWords 了
 const grab = name => { const m = app.match(new RegExp("const " + name + " = (/.+/[a-z]*);")); assert.ok(m, name); return eval(m[1]); };
 test("【emote：…】整条认成表情，切成两半的先拼回去", () => {
   const OPEN = grab("WRAP_OPEN"), RE = grab("WRAP_RE");
@@ -11,5 +11,8 @@ test("【emote：…】整条认成表情，切成两半的先拼回去", () => 
   assert.ok(OPEN.test("【emote：白色小狗一脸自豪"));
   assert.equal(("【emote：白色小狗一脸自豪" + "任由黄色小狗摸头夸夸 】").match(RE)[1], "白色小狗一脸自豪任由黄色小狗摸头夸夸");
   assert.ok(!RE.test("这就发"), "普通话被吃了");
-  assert.match(app, /if \(mWrap && mWrap\[1\]\.trim\(\)\) \{ emoteWordKws\.push\(mWrap\[1\]\.trim\(\)\); return false; \}/);
+  // 2026-10-16 起认到的表情在原位置留 emoteslot（「单聊一定在最下面」），不再抽走攒到最后
+  assert.match(app, /if \(mWrap && mWrap\[1\]\.trim\(\)\) return EMOTE_SLOT\(mWrap\[1\]\.trim\(\)\);/);
+  assert.match(app, /const _eSlot = emoteSlotOf\(words\[i\]\);/);
+  assert.match(app, /emote:string=表情包关键词（想让表情夹在两句话中间/);
 });

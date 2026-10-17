@@ -100,10 +100,18 @@ for (let round = 1; round <= 4; round++) {
   if (tryd("git diff --check " + REMOTE + "/main") === null) die("git diff --check 不过（行尾空白／冲突标记）");
   console.log(only ? "跑这次相关的测试：" + only : "跑全套测试（并行）…");
   let out = "";
-  try { out = sh("node --test " + (only || "test/*.test.js test/*.test.mjs") + " 2>&1", { shell: "/bin/bash" }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
+  // ⚠️钉死 tap 格式：下面认的是 tap 的「not ok」「# pass」。新版 node 管道里默认出的是另一种格式（✖ / ℹ pass），
+  //   一行都认不出来，于是「没有红灯」，带着红灯照推（2026-10-16 v75.828 就是这么带着两条红推上去的）。
+  //   还有一种「什么都没跑」：这个脚本自己在一个测试里被调起来时（ship-worktree.test.mjs），继承来的 NODE_TEST_CONTEXT
+  //   会让里面这次 node --test 以为自己嵌在别的测试里，直接跳过、一条都不跑。拿掉它，让这一次真的跑。
+  const testEnv = Object.assign({}, process.env); delete testEnv.NODE_TEST_CONTEXT;
+  try { out = sh("node --test --test-reporter=tap " + (only || "test/*.test.js test/*.test.mjs") + " 2>&1", { shell: "/bin/bash", env: testEnv }); } catch (e) { out = String(e.stdout || "") + String(e.stderr || ""); }
   const fails = (out.match(/^not ok \d+ - .*$/gm) || []).filter(l => !allow.some(a => l.includes(a)));
   const pass = (out.match(/^# pass (\d+)/m) || [])[1], fail = (out.match(/^# fail (\d+)/m) || [])[1];
   console.log("测试：" + pass + " 过，" + fail + " 不过" + (allow.length ? "（--allow 放过：" + allow.join("、") + "）" : ""));
+  // 读不出结果＝不知道过没过，一律当没过（不许再「看不懂就当绿」）
+  if (pass === undefined || fail === undefined) die("读不出测试结果，不推：\n" + out.slice(-800));
+  if (Number(fail) > 0 && !fails.length && !allow.length) die("测试报了 " + fail + " 条不过，但没认出是哪几条，不推：\n" + out.slice(-800));
   if (fails.length) die("有红灯，不推：\n" + fails.join("\n"));
   // 6) 发版提交 + 推
   const msg = readFileSync(msgFile, "utf8").replace(/^\s*/, "v" + V + " ");

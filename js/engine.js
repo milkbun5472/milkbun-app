@@ -1931,7 +1931,7 @@ const ECHO_QUESTION_BAN = `别把对方刚说的词原样反问一遍再开口�
 // 于是它有两层脆：① 群聊压根不发行程这一段；② 就算单聊，角色今天没排日程时
 // schedNow 为空，整段不 push，这句也跟着一起没了。
 // 抽出来单独站着，四处都发（言秋除外——TA不是被扮演的角色）。
-const CONDESCENDING_TONE_BAN = `【别滑进居高临下的训话腔】「别闹了」「乖」「听话」「收拾你」「自己看着办」「我说了算」「由不得你」「老实等着」「打断你的腿」——这一套是网文霸总的通用语料，不是任何具体的人。它最容易在两种时候自动接管：你话说得短的时候，和你说不上话、只能靠身份压人的时候。
+const CONDESCENDING_TONE_BAN = `【别滑进居高临下的训话腔】「别闹了」「乖」「听话」「自己看着办」「我说了算」「由不得你」——这一套是网文霸总的通用语料，不是任何具体的人。它最容易在两种时候自动接管：你话说得短的时候，和你说不上话、只能靠身份压人的时候。
 · 【穿着关心那件外衣的同一族】「快去吃饭」「不准熬夜」「多穿点」「慢点吃没人抢」「我是为了你好」——它不凶，所以最不容易被认出来，可句子的位置是一样的：**你在下指令，她在被管**。想说就说你自己那一头（你刚吃完、你也没睡、你冷），她接不接是她的事。
 · 这一条禁的是【现成模子】，不是强势的人物。你本来就居高位、说话带刺、护短、不讲道理，那都照写——只是让它从【你此刻真实的判断】里长出来，而不是从「这种男人该有的反应」里倒出来。
 · 尤其别靠身份和体格确立位置——那是【谁都能摆的架子】，不是你此刻的判断。
@@ -1949,9 +1949,10 @@ const CONDESCENDING_TONE_BAN = `【别滑进居高临下的训话腔】「别闹
 //   【居高临下的训话腔】，模型在调情的场面里不会把这句归进"训话"，于是那条对它不成立。
 //   ——一个词禁在哪个类目下，决定它在什么场面会被想起来。禁词表不够，得禁到场面上。
 const INTIMATE_CHAT_ANTI_CLICHE = `【话题一到床上，最容易整段变成通用黄文】调情、荤话、做那件事的前后，是现成语料最厚的一档：越到这种时候，"这种场面该说什么"越容易替这个人开口，于是TA突然消失，剩下一套换谁都能说的骚话。判断依据是你此刻的感受、关系与实际发生的事。
-· 【威胁式挑逗·最好认的一族】「等你X了看我怎么收拾你」「回头有你好受的」「我看你怎么Y」——先记一笔账、再预告一场惩罚。这个骨架整族禁掉：它是这种场面的默认台词，跟你是谁没关系。
-  ⚠️**认这一族靠判据，不是靠上面那三个例句**：骨架拆开说、换个词说，照样是同一族——只有前半截（把责任记到对方头上）算，只有后半截（预告等下要怎么样）也算。
-  判据只有一句：**这句话是不是在为等下要发生的事先立个据**——把责任推到对方身上（「这可是你说的」「是你自找的」「你求我的」），或者预告等下要怎么样（「等下要是求饶我可当听不见」「有你受的」「看你还敢不敢」）。是的话，那句就不是你的——**说你此刻真想说的那句**：直接做那件事，或者说一句只有你会说的话。
+· 【威胁式挑逗】先把一笔账记到她头上，再预告等下要怎么罚她——这个骨架整族禁掉：它是这种场面的默认台词，跟你是谁没关系。只有前半截（把责任推给她）或只有后半截（预告惩罚）也算。
+  判据只有一句：**这句话是不是在为等下要发生的事先立个据**。是的话，那句就不是你的——**说你此刻真想说的那句**：直接做那件事，或者说一句只有你会说的话。
+· 【被撩到时的现成反击】被她说中、被她撩到、自己先害羞了的时候，最省事的是两步：先转头扣她一顶帽子（说她脑子里尽是不正经的东西），再下一句战书、赌她先认输。这一套谁害羞都这么接，所以它不是你的反应。
+  判据：**你此刻是不是在躲那一下？** 是的话，就别躲：被戳到哪儿就露哪儿——耳朵烫了、话卡住了、想好的那句没说出来、嘴硬但气势是虚的，挑你真会露出来的那一点写；照你这个人，可以只承认一半。
 · 【反问式表功／翻旧账】「我什么时候少X了」「哪次不是…你才肯罢休」——用一个反问把自己摆到有理那边，同样是默认台词，不是反应。
 · 【拿身体投降或交出性命来量心动】不止床上，调情、撒娇、表白时都最常冒：不说她刚才哪一下打动了你，只报一个最大号的结果——身体整个投降了，或者把自己整个交出去。换谁说、对谁说都成立，所以它不是你的反应，是这种场面的默认音量。
   判据一句话：**这句话里有没有她刚才做的那件具体的事？** 没有、只剩一个「我被你弄成了什么样」，就说回那件事：是她哪句话、哪个动作，你那一下实际怎么了——愣住、没接上话、又看了一遍，都比报一个顶格的结果更像你。
@@ -2071,10 +2072,11 @@ const OVERREACH_BAN = STOCK_REPLY_BAN;
 const CANNED_PHRASE_BAN = `【别拿现成的说法替你开口】有三族现成货最容易顶掉你本来要说的那句话：
 · 【投降式敷衍】「行行行」「好好好」「行了吧」「可以了吧」「满意了吧」「服了你了」「随你」——这一族不是在回答，是在**收摊**：一句话把对话掐掉，同时把「你不讲理」和「我懒得跟你说」一起递过去。真烦了就说清是什么让你烦——「这事我不想再说了」是真的，「行行行」是躲在敷衍后面生气。
 · 【现成的腻歪称呼】「小祖宗」「小妖精」「小野猫」「小磨人精」「小东西」——这些不是你给她起的，是「这种关系该怎么叫她」倒出来的。你本来就爱起腻歪的称呼，那就起：从她名字里的字、她做过的一件蠢事、只有你知道的某个习惯、你俩之间真发生过的一件事里长出来的，怎么腻都行。
-· 【现成的桥段】「回去当面找你算账」「等我回去收拾你」「你给我等着」「别在这儿扰乱军心」「皮痒了」——跟上面两族不同，它既不是称呼也不是敷衍，是**一整句现成的台词**：到了这个场面，「口嫌体正直的男友」该说的那句。它听着很合人设，所以最不容易被发现；但它不是你想出来的，是这个类型自带的。真想威胁就说清你要干什么，真想撒娇就撒娇，别用一句【谁说都成立】的狠话占住这个位置。
+· 【现成的桥段】跟上面两族不同，它既不是称呼也不是敷衍，是**一整句现成的台词**：到了这个场面，这一类角色「该说」的那句。最常见的是把关心、想念或醋意包成一句命令或威胁来收尾——叫她等着、要她照办、预告回头怎么跟她算；还有一种是先替她把下一步的岔子说在前头、提前怪上她（她还没做，你已经认定她会拖、会赖、会搞砸）。说要动身去找她的时候也一样：最后再给她布置一件迎你的小差事来收尾，是这个场面自带的那一句，换谁来说都一样；说完你什么时候到、路上在干嘛就够了，她自己知道怎么等你。它听着很合人设，所以最不容易被发现；但它不是你想出来的，是这个类型自带的。想要她做什么，就直接说你想要、为什么想要；真生气就说清是什么让你气；别用一句【谁说都成立】的狠话占住这个位置。
+· 【现成的服软】她不高兴了、要走了，最省事的哄法是一口气把错全揽到自己身上、骂自己一句，再连着求她、一遍遍叫她名字。这是「哄人」这个场面自带的那一套，换谁都这么哄。禁的是这个模子，不是低头本身：你真会怎么哄，照你这个人和你们刚才真发生的事来，认错、求她都可以，只要是从你这儿长出来的。
 判据一句话：**这句话是不是【这个人此刻真会说的】？** 是就说，跟别人会不会这么说没关系。
 · 再加一道：**这句话换成另一个同类型的角色来说，是不是一样成立？** 一样成立，那它就不是你说的，是那个类型在说。
-· ⚠️【换个字不算改掉】（她 2026-10-05 抓到：「不给写小祖宗他就会写祖宗」）。上面举的词只是样本，不是黑名单：把「小祖宗」写成「祖宗」、把「找你算账」写成「回去跟你算这笔账」，招式一个字没变，照样算犯规。要换的是【这一句在做什么】，不是它用了哪几个字。
+· ⚠️【换个字不算改掉】（她 2026-10-05 抓到：「不给写小祖宗他就会写祖宗」）。上面举的词只是样本，不是黑名单：把「小祖宗」写成「祖宗」、把一句威胁换个说法，招式一个字没变，照样算犯规。要换的是【这一句在做什么】，不是它用了哪几个字。
 · 禁的是模子，不是尺度。你这个人本来就爱怼、爱冷、懒得解释、爱叫她一堆乱七八糟的名字，那全部照写——只看这一句是不是你此刻真正的意思，而不是一个谁都能用的通用手势。`;
 // 【别把自己摆到「我在将就你」的位置上】（v71.17）
 // 她 2026-09-18 把那份七卷世界书整份发了过来。逐卷对下来，绝大多数早就在这一摞里了：
@@ -2394,7 +2396,9 @@ const bubbleRestore = x => String(x)
 const ACT_MEANING = "如实填写角色此刻真正正在做的事或所处的活动状态；这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「TA／她／TA」从旁描述。它答的是【我此刻在哪儿、在做什么】，一句话说完就够；神态、语气、和对方之间的那些来回属于正文，写在你说的话那一头，别挪进这一行。当前事实未变且原表述仍准确时，可以原样填写；事实变化时再更新。无需为了交字段换措辞、制造动作";
 // 动描开成「一小段」（群友 2026-10-07：「有时候想长一点叙述」）：上面那份定义一个字不动（单聊、群聊、线下共用），
 //   只在开了的那几处另外补这一句，说清这一格这里可以写多长。
-const ACTLINE_LONG_RULE = "【动描写多长】action 那一格在这个聊天里可以写成两三句的一小段：手上在做什么、神态、身边是什么样子都可以写进来，不必一句话收住；说出口的话仍旧写在正文里。";
+// ⚠️只说「可以写两三句」压不过 ACT_MEANING 那句「一句话说完就够、神态写在正文、别挪进这一行」——模型照严的那条走，
+//   开了还是三十来字（群里 2026-10-17）。所以这里明说那两句在这个聊天里让路，长度也不再封在两三句。
+const ACTLINE_LONG_RULE = "【动描写多长 · 这个聊天里压过上面 action 定义里的「一句话说完就够」和「神态写在正文、别挪进这一行」】action 那一格在这里是一段叙述，不是状态卡：手上在做什么、神态、身体的细节、身边是什么样子、这一刻的气氛都写进来，长短跟着这一刻走，有东西可写就写足，不用一两句就收；说出口的话仍旧写在正文里。";
 // 心声那一格该怎么写：**只许有一份**，线上和线下同一段（以后群聊要给也接这儿）。
 // ⚠️她 2026-09-12 截图里连着两条心声：「她怎么能这么面不改色地把这两个字叫出来的……
 //   脸都要烧起来了」「她到底怎么能脸不红心不跳地喊出这个称呼的……我整个人都要被她逗冒烟了」
@@ -6646,6 +6650,8 @@ async function saveImgOriginal(ref, name) {
     if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
     else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
     else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+    // 网址的也认（小窝的预览图是后端地址，2026-10-16「小窝上传的图片能不能也保存」）：拉下来再走同一条存法
+    else if (typeof ref === "string" && /^(https?:|blob:)/.test(ref)) { const r = await fetch(ref); if (r.ok) blob = await r.blob(); }
   } catch (e) {}
   if (!blob) return false;
   const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
@@ -6899,6 +6905,99 @@ function ttsHasPause(text) {
 //   发气泡那一圈走到它就地发成语音条。占位符是私用区字符包着的编号，后面那几道
 //   拆句／去标点／过滤都碰不到它；万一被哪一道弄丢了，发送那头会把没发出去的补在最后。
 // ⚠️占位符原来是私用区字符包着 V0——真机上中间有一道把私用区字符洗掉了，气泡里冒出「。V0」「V1」
+// 认出写进文字气泡里的表情（「[表情] xx」「【emote：xx】」、夹在句尾、多行、整泡就是关键词），
+//   在【原位置】换成一个 emoteslotN 占位，发气泡那一圈走到它就地发表情。
+//   单聊和群聊共用这一个（她 2026-10-16「不是跟群聊做公共的吗」）。kws[n] = { kw, sent }。
+const EMOTE_SLOT_RE = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u;
+function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+function emoteSlotWords(words, emotes, emoteNorm) {
+  // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
+  const JSON_EMOTE = /^\s*[{｛]\s*["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']\s*[}｝]\s*$/i;
+  // 多行 JSON 被拆成一泡一行（她 2026-10-17 截图：气泡里一个个「{」「:」「,」「}」）：先把 { … } 拼回一项，
+  //   认得出表情就当表情；拼回来还只剩括号冒号逗号的空壳，整串拿掉。
+  const _src = Array.isArray(words) ? words : [], _merged = [], _conv = new Set();
+  const JUNK = /^[\s{}｛｝:：,，"“”'\[\]]*$/;
+  for (let i = 0; i < _src.length; i++) {
+    const w = _src[i];
+    if (typeof w === "string" && /^\s*[{｛]\s*$/.test(w)) {
+      let j = i + 1; const parts = [w];
+      while (j < _src.length && typeof _src[j] === "string" && j - i < 12) { parts.push(_src[j]); if (/[}｝]\s*$/.test(_src[j])) break; j++; }
+      if (j < _src.length && /[}｝]\s*$/.test(String(_src[j]))) {
+        const joined = parts.join(" "), key = joined.match(/["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']/i);
+        if (key) { _conv.add(_merged.length); _merged.push("[表情] " + key[1].trim()); i = j; continue; }
+        if (JUNK.test(joined)) { i = j; continue; }
+      }
+    }
+    if (typeof w === "string" && /[{}｛｝:：]/.test(w) && JUNK.test(w)) continue;
+    _merged.push(w);
+  }
+  let w0 = _merged.map((w, i) => {
+    if (w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim()) { _conv.add(i); return "[表情] " + w.emote.trim(); }
+    const mj = typeof w === "string" ? w.match(JSON_EMOTE) : null;
+    if (mj) _conv.add(i);
+    return mj ? "[表情] " + mj[1].trim() : w;
+  });
+  // 一个表情包都没有：认出来的这几项也发不出图，直接拿掉，别把「[表情] …」当字发出去
+  if (!(emotes && emotes.length)) w0 = w0.filter((w, i) => !_conv.has(i));
+  const kws = [];
+  const EMOTE_SLOT = kw => { kws.push({ kw, sent: false }); return "emoteslot" + (kws.length - 1); };
+  if (!(emotes && emotes.length)) return { words: w0, kws };
+  words = w0;
+  const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
+  // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
+  const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+  // 「【emote：小仓鼠举起两个大拇指】」这种把字段名连同括号写进气泡的（她 2026-10-05 转群里截图，
+  //   还常被切成两个气泡：「【emote：白色小狗……」「……摸头夸夸】」）。先把没合上的那半拼回去，再认。
+  const WRAP_OPEN = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]/i;
+  const WRAP_RE = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]\s*([\s\S]+?)\s*[\u3011\]\uff3d]?\s*$/i;
+  const _joined = [];
+  for (let wi = 0; wi < words.length; wi++) {
+    let cur = String(words[wi] == null ? "" : words[wi]);
+    if (WRAP_OPEN.test(cur) && !/[\u3011\]\uff3d]\s*$/.test(cur)) {
+      while (wi + 1 < words.length && typeof words[wi + 1] === "string" && !/[\u3011\]\uff3d]\s*$/.test(cur) && cur.length < 60) cur += words[++wi];
+    }
+    _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
+  }
+  words = _joined;
+  // 一个气泡里换行写了好几张（「[表情] 老公伤心的流泪\n[表情] 白色小狗委屈哭泣\n…」，群友 2026-10-16 截图）：
+  //   下面那几道正则只认【整个气泡】是一个标记，这种多行的一个都认不出，后面按换行切开就成了一串文字气泡。
+  //   先按行看：是标记的那几行抽走当表情，剩下的行照旧留在这个气泡里。
+  words = words.reduce((acc, w) => {
+    if (typeof w !== "string" || w.indexOf("\n") < 0) { acc.push(w); return acc; }
+    const keep = [];
+    w.split("\n").forEach(ln => {
+      const m1 = ln.match(TAG_RE) || ln.match(WRAP_RE);
+      if (m1 && m1[1].trim()) { const r0 = keep.join("\n").trim(); if (r0) acc.push(r0); keep.length = 0; acc.push(EMOTE_SLOT(m1[1].trim())); } else keep.push(ln);
+    });
+    const rest = keep.join("\n").trim();
+    if (rest) acc.push(rest);
+    return acc;
+  }, []);
+  // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
+  //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
+  const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+  words = words.reduce((acc, w) => {
+    const mMid = typeof w === "string" ? w.match(MID_TAG) : null;
+    if (mMid && mMid[2].trim()) { acc.push(mMid[1].trim()); acc.push(EMOTE_SLOT(mMid[2].trim())); }
+    else acc.push(w);
+    return acc;
+  }, []);
+  words = words.map(w => {
+    const s = String(w == null ? "" : w);
+    if (emoteSlotOf(s) != null) return w;
+    const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
+    if (mWrap && mWrap[1].trim()) return EMOTE_SLOT(mWrap[1].trim());
+    const mTag = s.match(TAG_RE);
+    if (mTag && mTag[1].trim()) return EMOTE_SLOT(mTag[1].trim());
+    const n = emoteNorm(w);
+    if (!n) return w;
+    if (/^(\u8868\u60c5|\u8868\u60c5\u5305|emoji|sticker|\u56fe\u7247|\u8d34\u56fe|gif)$/.test(n)) return null; // \u7a7a\u8868\u60c5\u6807\u8bb0\uff0c\u4e22
+    const hit = emoNormMap.get(n);
+    if (hit) return EMOTE_SLOT(hit);
+    return w;
+  }).filter(w => w != null);
+  return { words, kws };
+}
 //   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
 const VOICE_SLOT_TOKEN = n => "voiceslot" + n;
 const VOICE_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*voiceslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
@@ -6932,7 +7031,14 @@ function markPauseVoice(words) {
     }
     raw.push(a);
   }
-  const list = raw.map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
+  // 模型把 {"voice":"…","emo":"…"} 写成了一串字（她 2026-10-17 截图：语音条下面的字幕就是那一整串）：拆回对象再认
+  const unJson = w => {
+    if (typeof w !== "string" || !/^\s*[{｛][\s\S]*[}｝]\s*$/.test(w)) return w;
+    try { const o = JSON.parse(w.trim().replace(/^｛/, "{").replace(/｝$/, "}")); return o && typeof o === "object" && !Array.isArray(o) ? o : w; } catch (e) {}
+    const m = /["“”']\s*(?:voice|语音)\s*["“”']\s*[:：]\s*["“”']([\s\S]*?)["“”']\s*(?:[,，]\s*["“”']\s*emo\s*["“”']\s*[:：]\s*["“”']([^"“”']*)["“”'])?\s*[}｝]\s*$/i.exec(w);
+    return m ? (m[2] ? { voice: m[1], emo: m[2] } : { voice: m[1] }) : w;
+  };
+  const list = raw.map(unJson).map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;
   const flush = () => { if (run != null) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(run); run = null; } };
@@ -10402,6 +10508,18 @@ function fmtStamp(ts, id) {
 //   ⚠️喂给模型的「现在几点」、历史上的〔今天14:32〕、记忆的「记于」、日记日程上的日子，都从这几个函数走——
 //   只换一处、另一处还是现实，TA 就对不上。日记、日程照现实的一天一回去生成，只是写出来、摆出来的日子换成这只钟的。
 //   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群传 "g:"+群id，照群挑的那张面具。
+// 秋秋的跳转卡要进到某个 app 里面那一格（她 2026-10-16「别的 app 不能都搞具体跳转吗」）：
+//   app.js 先把 { screen, sub } 挂在 window.__openSub 上再切屏，那个 app 头一次画的时候来这儿取一次、取完就清。
+//   allowed 给了就只认那几个值，认不得的当没说（照常落在默认那一格）。
+function takeOpenSub(screen, allowed) {
+  try {
+    const w = typeof window !== "undefined" ? window.__openSub : null;
+    if (!w || w.screen !== screen) return "";
+    window.__openSub = null;
+    const s = String(w.sub || "");
+    return !allowed || allowed.indexOf(s) >= 0 ? s : "";
+  } catch (e) { return ""; }
+}
 function vclockState() { try { return typeof window !== "undefined" ? window.__vclock || null : null; } catch (e) { return null; } }
 function vclockUse(id) { const W = vclockState(); if (W) W.active = id == null ? null : String(id); }
 function vclockCfg(id, ts) {

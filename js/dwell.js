@@ -334,7 +334,6 @@
       if (shot) { setShot(""); }
       else if (item) { setItem(null); }
       else if (zone) { setZoneIdx(-1); }
-      else if (view === "room") { setView("place"); }
       else if (view === "place") { setOpenId(null); setZoneIdx(-1); setView("places"); }
       else if (view === "places") { setSelId(""); setView("who"); }
       else if (view === "who") { setOpening(false); setView("door"); }
@@ -360,11 +359,8 @@
     // 真·全屏看图（她 2026-09-01：「去掉了全屏观看」）。
     // 全屏就该是【只有图】：没有渐变、没有标题、没有统计条，点一下就退出来。
     // portal 到 body——外面那几层有 transform，fixed 会锚到它们身上而不是屏幕。
-    const fullShot = (shot && typeof ReactDOM !== "undefined") ? ReactDOM.createPortal(
-      h("div", { onClick: function () { setShot(""); }, style: { position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "dwellpagetap", "data-part": "1" },
-        h("img", { src: shot, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } }),
-        h("div", { style: { position: "absolute", left: 0, right: 0, textAlign: "center", bottom: "calc(env(safe-area-inset-bottom) + 18px)", fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)" } }, "点一下退出")),
-      document.body) : null;
+    // 场景图看大图：全库那一份 ImageViewer（2026-10-16 九处并一处）
+    const fullShot = shot ? h(ImageViewer, { onClose: function () { setShot(""); }, items: [{ src: shot }] }) : null;
     // 底衬：上一层那张图糊开压暗铺满整页（no-half-sheet.md 明写的那一条）。
     // 它不是装饰——进了区域、进了物件，人还得看得见自己在哪儿。没图就是一整块暗底加细网格。
     const backdrop = function (p) {
@@ -383,7 +379,7 @@
           ? h("img", { src: src, alt: p.name || "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
           : h("div", { className: "h-full flex items-center justify-center", style: { backgroundImage: "linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px)", backgroundSize: "24px 24px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: OVER_SUB, border: "1px solid " + OVER_LINE, padding: "8px 11px", borderRadius: 6 } }, "还没画过这儿")),
-        src ? h("div", { style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(9,12,14,.68)", padding: "5px 8px", borderRadius: 4 } }, "点开看全屏") : null);
+        src ? h("div", { "data-wk": "block", style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(9,12,14,.68)", padding: "5px 8px", borderRadius: 4 } }, "点开看全屏") : null);
     };
     // 一处地方的第一屏＝你站在那儿看见的画面。
     // ⚠️进去的入口就在【这张图上】（她 2026-09-01 要的），但不是照片上挂胶囊＋连线＋幽灵英文——
@@ -399,7 +395,7 @@
           h("div", { style: { position: "absolute", inset: 0, background: src
             ? "linear-gradient(180deg,rgba(5,8,10,.16) 0%,rgba(5,8,10,.06) 28%,rgba(5,8,10,.68) 100%)"
             : "radial-gradient(circle at 72% 24%,rgba(97,120,134,.28),transparent 36%),linear-gradient(180deg,rgba(9,12,14,.08),rgba(9,12,14,.7))" } }),
-          src ? h("div", { style: { position: "absolute", right: 16, top: 16, fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.72)", background: "rgba(9,12,14,.42)", border: "1px solid rgba(255,255,255,.22)", padding: "5px 9px", borderRadius: 999 } }, "点开看全屏") : null),
+          src ? h("div", { "data-wk": "block", style: { position: "absolute", right: 16, top: 16, fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.72)", background: "rgba(9,12,14,.42)", border: "1px solid rgba(255,255,255,.22)", padding: "5px 9px", borderRadius: 999 } }, "点开看全屏") : null),
         // 底下这一叠压在图上，但要能点，所以摆在那个铺满的按钮【外面】
         h("div", { style: { position: "relative", pointerEvents: "none", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "0 21px calc(env(safe-area-inset-bottom) + 22px)" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 31, lineHeight: 1.28, textShadow: "0 2px 20px rgba(0,0,0,.42)" } }, p.name),
@@ -500,7 +496,7 @@
         },
           h("div", { style: { position: "relative", width: 168, height: 258 } },
             // 门开了以后透出来的光
-            h("div", { style: { position: "absolute", inset: 0, borderRadius: "84px 84px 6px 6px", background: "linear-gradient(180deg," + ACCENT + "22, #f6efe288)", boxShadow: opening ? "0 0 60px 12px rgba(246,239,226,.34)" : "none", transition: "box-shadow .5s ease" } }),
+            h("div", { "data-wk": "block", style: { position: "absolute", inset: 0, borderRadius: "84px 84px 6px 6px", background: "linear-gradient(180deg," + ACCENT + "22, #f6efe288)", boxShadow: opening ? "0 0 60px 12px rgba(246,239,226,.34)" : "none", transition: "box-shadow .5s ease" } }),
             // 门扇：从左边那条边转开
             h("div", { style: { position: "absolute", inset: 0, borderRadius: "84px 84px 6px 6px", border: "1.5px solid " + t.line, background: t.bg2,
               transformOrigin: "left center", transform: opening ? "rotateY(-72deg)" : "rotateY(0deg)", transition: "transform .56s cubic-bezier(.34,.68,.3,1)", boxShadow: "0 18px 44px rgba(0,0,0,.16)" } },
@@ -530,12 +526,7 @@
     //   原来图底下还铺着一整段台面（每块区域一条，摆着那儿的东西）——那是同一批入口的第二份，
     //   而且它把图挤成了「顶上一张插图」。入口图上已经有了，第二份就只是占地方。
     //   台面这个形状留着，它在【区域页】还是主角（走近了看那一块）。这里只留图。
-    // ── 走进去看看（v68.71，她 2026-09-15 要的那间能拖着看的屋子）──────────
-    // ⚠️零调用：屋里摆的就是这一页上这几块区域里的东西，一件不多一件不少。
-    //   点一件弹出来的那两句，也是去处生成时本来就写好的 note 和 thought。
-    if (view === "room" && open && window.RoomView) {
-      return h(window.RoomView, { place: open, char: char, onBack: function () { setView("place"); } });
-    }
+    // 「走进去看看」那间能拖着看的 3D 屋子 2026-10-16 撤了（她：「能不能删掉那个」）。
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
       return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r10" },
@@ -547,13 +538,6 @@
             // 第一屏的底比底衬暗一档，直接接会拉出一条横线像坏了。这一段顶上补一道压暗，
             // 一百来像素里化开，翻下去是「图糊了」，不是「换了一页」。
             h("div", { className: "px-5", style: { paddingTop: 30, backgroundImage: "linear-gradient(180deg,rgba(5,8,10,.3) 0,rgba(5,8,10,0) 116px)" } },
-              // 「走进去」是这一页的头一件事，所以它单独一行、在那两颗上面。
-              // ⚠️还没有区域／东西的时候不给：进去是一间空屋子，按了等于没反应
-              //（「按了没反应的按钮比没有按钮更糟」）。
-              (open.zones || []).some(function (z) { return (z.items || []).length; }) && window.RoomView
-                ? h("button", { onClick: function () { setView("room"); }, className: "w-full active:opacity-70",
-                    style: { minHeight: 46, borderRadius: 10, marginBottom: 9, background: OVER_INK, color: "#1b2126",
-                      fontFamily: F_DISPLAY, fontSize: 14 }, "data-wk": "dwellpagebtn", "data-part": "3" }, "走进去看看") : null,
               h("div", { className: "grid grid-cols-2", style: { gap: 9 } },
                 h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, background: OVER_INK, color: "#1b2126", fontFamily: F_BODY, fontSize: 12 }, "data-wk": "dwellpagebtn", "data-part": "4" }, busy ? "正在再看一遍…" : "再去看一遍"),
                 h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, border: "1px solid " + OVER_LINE, background: OVER_CARD, color: OVER_INK, fontFamily: F_BODY, fontSize: 12 }, "data-wk": "dwellpagebtn", "data-part": "5" }, drawing ? "正在画这儿…" : (open.img ? "重画这儿的样子" : "画一张这儿的样子"))),

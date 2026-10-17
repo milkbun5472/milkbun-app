@@ -19,7 +19,7 @@
   function StyleLabApp(props) {
     const t = useTheme();
     const SP = window.StylePresets;
-    const [tab, setTab] = useState("build");             // build | test
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("stylelab", ["build", "test"])) || "build");             // build | test
     const [presets, setPresets] = useState(() => SP.list());
     const [curId, setCurId] = useState(() => { const l = SP.list(); return l.length ? l[0].id : ""; });
     const [openCat, setOpenCat] = useState({});
@@ -242,18 +242,18 @@
               // 改一条／新写一条：就地一张稿子，不另开半窗
               modEdit ? h("div", { "data-wk": "slmodedit", style: { border: "1px solid " + t.ink, borderRadius: 6, background: t.bg2, padding: 10, marginBottom: 10 } },
                 h("div", { style: Object.assign({}, S.hint, { marginBottom: 6, color: t.ink }) }, modEdit.id === "__new" ? "自己写一个模块" : "改这一条"),
-                h("input", { value: modEdit.name, onChange: e => setModEdit(x => Object.assign({}, x, { name: e.target.value })), placeholder: "名字",
+                h("input", { "data-wk": "input", value: modEdit.name, onChange: e => setModEdit(x => Object.assign({}, x, { name: e.target.value })), placeholder: "名字",
                   style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none", marginBottom: 6 } }),
-                h("input", { value: modEdit.hint, onChange: e => setModEdit(x => Object.assign({}, x, { hint: e.target.value })), placeholder: "一句话说它管什么（可空）",
+                h("input", { "data-wk": "input", value: modEdit.hint, onChange: e => setModEdit(x => Object.assign({}, x, { hint: e.target.value })), placeholder: "一句话说它管什么（可空）",
                   style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none", marginBottom: 6 } }),
-                h("textarea", { value: modEdit.text, onChange: e => setModEdit(x => Object.assign({}, x, { text: e.target.value })), rows: 7, placeholder: "写给模型看的那段要求…",
+                h("textarea", { "data-wk": "textarea", value: modEdit.text, onChange: e => setModEdit(x => Object.assign({}, x, { text: e.target.value })), rows: 7, placeholder: "写给模型看的那段要求…",
                   style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, outline: "none", resize: "vertical" } }),
                 h("div", { style: { display: "flex", gap: 8, marginTop: 8, alignItems: "center" } },
                   h("button", { "data-wk": "slmodsave", onClick: () => {
                       try { if (modEdit.id === "__new") SP.addUserModule(modEdit); else SP.saveModuleEdit(modEdit.id, modEdit); setModEdit(null); setPresets(SP.list().slice()); }
                       catch (e) { props.toast && props.toast(e.message || "没存上"); } },
                     style: { minHeight: 40, padding: "0 16px", borderRadius: 4, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, border: "none" } }, "存好"),
-                  h("button", { onClick: () => setModEdit(null), style: { minHeight: 40, padding: "0 12px", background: "none", border: "none", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
+                  h("button", { "data-wk": "block", onClick: () => setModEdit(null), style: { minHeight: 40, padding: "0 12px", background: "none", border: "none", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
                   SP.MODULES[modEdit.id] && SP.moduleById(modEdit.id).edited ? h("button", { "data-wk": "slmodreset", onClick: () => { SP.resetModule(modEdit.id); setModEdit(null); setPresets(SP.list().slice()); },
                     style: { marginLeft: "auto", minHeight: 40, padding: "0 10px", background: "none", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "恢复原样") : null))
               : h("button", { "data-wk": "slmodnew", onClick: () => setModEdit({ id: "__new", name: "", hint: "", text: "" }),
@@ -362,7 +362,7 @@
                 h("button", { "data-wk": "slfullbtn", "data-on": showFull ? "1" : "0", onClick: () => setShowFull(v => !v), style: Object.assign({}, S.tapGhost(t.tint), { marginLeft: "auto", border: "none" }) }, showFull ? "收起" : "看全文")),
               // 样张：一张印出来的纸。收起时下缘【褪下去】而不是被硬切一刀——
               // 硬切看着像内容没加载完，褪下去才读得出「后面还有」。
-              h("div", { style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
+              h("div", { "data-wk": "block", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
                   padding: "11px 12px", maxHeight: showFull ? "none" : 150, overflow: "hidden" } },
                 h("div", { "data-wk": "slpreviewtext", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } },
                   assembled || "（空的——挑几根字条，或者贴一段进去）"),

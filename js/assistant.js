@@ -889,7 +889,21 @@
     return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
-      ...(typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.snapshotExtra(ctx, hot) : {}) };
+      ...(typeof window !== "undefined" && window.AssistExtras ? pruneExtra(window.AssistExtras.snapshotExtra(ctx, hot), focus) : {}) };
+  }
+
+  // 快照里那几大块按需带（她 2026-10-17「是不是喂太多东西了回复好慢」）：
+  //   记忆库、衣柜、日历、行程这些，只有这会儿聊到（她这句或前面几句里提了）才放进去；没提就只留一行说这轮没带。
+  const EXTRA_WHEN = {
+    记忆库: /记忆|记得|记住|忘|回忆|memory/i, 衣柜: /衣|穿|外套|裙|裤|鞋|搭配|造型/, 日历: /日历|纪念日|几号|生日|日子|提醒|节日|周年/,
+    行程: /行程|日程|安排|在干嘛|在干什么|去哪|几点|今天.{0,6}(干|做)/, 情侣空间: /空间|情侣|恋人|闺蜜|挚友|家人|愿望|档案|申请信|邀请|情书|在一起/,
+    表情包: /表情/, 小房间: /房间/, 线下设置: /线下|见面/, 桌面布局: /桌面|主屏|组件|图标/
+  };
+  function pruneExtra(o, focus) {
+    const f = String(focus || ""), skipped = [];
+    Object.keys(EXTRA_WHEN).forEach(k => { if (o && k in o && !EXTRA_WHEN[k].test(f)) { delete o[k]; skipped.push(k); } });
+    if (skipped.length) o.这轮没带的 = skipped.join("、") + "（她这会儿没聊到；她一提起，下一轮就带上。别凭空猜里面有什么）";
+    return o;
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
@@ -963,7 +977,11 @@
     // 她开着的那一页：攻略里那一整个 app 都捎上（信息那一页底下有说话、见面、小房间……），
     //   不只是跟页面同名的那一条——她问「这个按钮干嘛的」，答案常常在同一页的别的小节里。
     const here = hereId ? M.byId(hereId) : null;
-    const page = here ? M.appEntries(here.app) : [];
+    // 开着的那一页不再整个 app 全带（「信息」底下十几条、两三万字，每问一句都读一遍）：
+    //   只带这一页里跟她这句最沾边的两条；一条都不沾就带这一页本身那一条。还要别的，目录在、lookup 会翻。
+    const pageAll = here ? M.appEntries(here.app) : [];
+    const pageHit = M.find(question, 40).filter(x => pageAll.some(p => p.id === x.id)).slice(0, 2);
+    const page = pageHit.length ? pageHit : (here ? [here] : []);
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
     (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));
@@ -1075,6 +1093,7 @@
       + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
+      + "【reply 一定要写话】不管出没出卡，reply 都是你跟" + uName + "说的话：先接住她这句（她在抱怨、在问、在吐槽就先回应那个），出卡的话再用一两句说清这张卡改了什么、为什么这么改。reply 永远不许空着、也不许只写「改动稿在下面」。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
       + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
@@ -1084,7 +1103,7 @@
       + (extraIds && extraIds.length ? "【你刚要翻的那几条已经放进上面的详细里了，照着答；这次别再要 lookup】\n\n"
         : "【翻一下攻略】她问的是 App 怎么用，可上面「详细」里没有答案，而目录里看得出答案多半在某一条（看「里面讲」那一行）："
           + "这一轮先别答，只输出 {\"lookup\":[\"那一条方括号里的 id\"]}（最多 3 条），那几条正文会递给你，你再答。详细里已经有答案、或者不是问功能，就别用 lookup。\n\n")
-      + "【App 现状快照】\n" + JSON.stringify(snap, null, 1) + "\n\n"
+      + "【App 现状快照】\n" + JSON.stringify(snap) + "\n\n"
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
 
@@ -1096,7 +1115,10 @@
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
     const img = isFile ? null : pic;
     const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
-    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
+    // 旧记录里只剩一句「改动稿在下面。」的那几条：换成卡上写的改了什么，别让它照着自己学成只发卡
+    const itText = m => m.role !== "me" && /^改动稿在下面。?$/.test(String(m.text || "").trim()) && Array.isArray(m.patches) && m.patches.length
+      ? m.patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n") : String(m.text || "");
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: itText(m) + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
       .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : Array.isArray(img) && img.length > 1 ? "（她发来 " + img.length + " 张图，看看说说）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? (Array.isArray(img) ? img : [img]) : undefined }]);
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
@@ -1211,6 +1233,9 @@
       reply = scrubCode(plain);
     }
     if (!reply && !patches.length && !outFile) throw new Error("线路没有返回可读内容，可以再问一次");
+    // reply 空着只剩卡（她 2026-10-17「秋秋坏了都不说话了只会发卡」）：不拿一句「改动稿在下面」糊过去——
+    //   那句会进对话记录，下一轮它照着自己学，越来越只会发卡。照卡上写的说清这几张改了什么、为什么。
+    if (!reply && patches.length) reply = patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n");
     return { reply: reply || (outFile ? "文件在下面。" : "改动稿在下面。"), patches, file: outFile };
   }
 
@@ -1526,7 +1551,10 @@
         p.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, lineHeight: 1.6 } }, p.why) : null),
       // 只改一小段的时候，摆的就是那一小段——不许把整份原文和整份新文摆出来让她自己找。
       // 那是这个改法的意义所在：她一眼看得清动了哪儿，也一眼看得出别处没动。
-      p.find
+      // 跳转卡没有改前改后：只说要去哪儿（她 2026-10-16）
+      p.target === "open"
+        ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px", fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7 } }, was || "带你去那一页")
+      : p.find
         ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "原文这一段"),
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.fog, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .8 } }, p.find),
@@ -1543,7 +1571,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
               open ? shown : shown.slice(0, cutNew) + (shown.length > cutNew ? "…" : "")),
             (shown.length > cutNew || (was && was.length > cutOld))
-              ? h("button", { onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
+              ? h("button", { "data-wk": "block", onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
               : null),
       h("div", { "data-wk": "qqpatchfoot", style: { padding: "8px 12px 10px", borderTop: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 10 } },
         state
@@ -1554,14 +1582,15 @@
                 ? h("button", { "data-wk": "qqpatchbtn", "data-part": "undo", onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, "撤回")
                 : null,
               // 撤回了又想要回来、或者上次没应用成：再点一下（群里 2026-10-10：「应用了以后再撤回就没办法应用了」）
-              (state === "已撤回" || /^没应用/.test(state)) && props.onApply
-                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, state === "已撤回" ? "重新应用" : "再试一次")
+              // 跳转卡（open）按过了也能再按：它不改东西，只是再开一次那一页
+              (state === "已撤回" || /^没应用/.test(state) || (p.target === "open" && state === "已应用")) && props.onApply
+                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, p.target === "open" && state === "已应用" ? "再去一次" : state === "已撤回" ? "重新应用" : "再试一次")
                 : null,
               state === "已应用" && !A.undoable(p)
-                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : p.target === "undo" ? "" : "（新建的，退不了）")
+                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : (p.target === "undo" || p.target === "open") ? "" : "（新建的，退不了）")
                 : null)
           : h(React.Fragment, null,
-              h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "应用这条"),
+              h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, p.target === "open" ? (String(p.text || "").trim().slice(0, 16) || "带我去") : "应用这条"),
               h("button", { "data-wk": "qqpatchbtn", "data-part": "skip", onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过")),
         // 不管应用没应用、撤没撤，原文都能拷走（她自己贴到别处、存一份都行）
         p.text ? h("button", { "data-wk": "qqpatchbtn", "data-part": "copy", onClick: async () => { const ok = typeof copyText === "function" && await copyText(String(p.text)); props.toast && props.toast(ok ? "复制好了" : "没复制上"); }, style: { marginLeft: "auto", background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: 0 } }, "复制") : null));
@@ -1667,11 +1696,13 @@
     const t = useTheme(), sm = !!props.compact, av = sm ? 24 : 30, cfg = props.cfg;
     // 语气照 DEFAULT_PROMPT 那只小肥鸟（她 2026-10-12：「你听听这像它的语气吗」）：轻快、亲近，啾一下就够
     const text = sm
-      ? "啾！我是" + cfg.name + "～这一页怎么用、哪儿不对劲，尽管问！整本攻略在主屏名片右下角那颗「?」里。\n想改装修、文风、角色档案，我也能帮你动手。拖着顶上那条能把我挪开哦。"
+      ? "啾！我是" + cfg.name + "～这一页怎么用、哪儿不对劲，尽管问，截个图发我也行！整本攻略在主屏名片右下角那颗「?」里。\n想改装修、文风、角色档案，我也能帮你动手；想逛大家做的好东西，去主屏的「秋秋小窝」。拖着顶上那条能把我挪开哦。"
       : "啾！我是" + cfg.name + "，住在这台手机里的小肥鸟～\n"
         + "不知道从哪儿下手的话，主屏名片右下角有颗小小的「?」，戳进去就是「攻略」啦：哪儿怎么玩、出了毛病怎么办，全写在里面。\n"
         + "懒得翻？那就直接问我嘛，那本我背得滚瓜烂熟！按钮是干嘛的、东西找不着、设置了没反应，统统丢给我。\n"
-        + "想改文风、改角色的人设外貌、给界面换身装修，或者往记忆库里塞点东西，我也能叼着笔帮你改。先给你看改成啥样，你点了「应用这条」才算数，啾！";
+        + "哪儿看着怪怪的，截个图发给我，比说半天还快！\n"
+        + "想改文风、改角色的人设外貌、给界面换身装修，或者往记忆库里塞点东西，我也能叼着笔帮你改。先给你看改成啥样，你点了「应用这条」才算数。\n"
+        + "对了对了！主屏上还有个「秋秋小窝」，是本小鸟开的小集市：大家捏的主题、美化、世界书、人设都摆在那儿，看中了点一下就搬回来；自己的宝贝也能摆上去，有话想说就去留言板写一帖，啾！";
     return h("div", { "data-wk": "qqmsg", "data-me": "0", "data-part": "first", style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14, marginTop: sm ? 0 : 6 } },
       h(QiuFace, { cfg: cfg, size: av, radius: 9 }),
       h("div", { "data-wk": "qqbubble", "data-me": "0", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text));
@@ -1753,7 +1784,7 @@
           h("button", { "data-wk": "qqballswitch", "data-on": cfg.ballOn ? "1" : "0", onClick: () => put({ ballOn: !cfg.ballOn }), style: {
             width: 46, height: 27, borderRadius: 999, border: "none", padding: 0, flexShrink: 0,
             background: cfg.ballOn ? t.accent : t.line, position: "relative", transition: "background .18s" } },
-            h("div", { style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
+            h("div", { "data-wk": "block", style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
         // 走哪条线路（她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」）
         // 摆法照设置里【线下与创作模型】那一栏：第一行是「跟随全局」，底下一行一条线路。
         (function () {

@@ -59,7 +59,8 @@ test("不是把线下那份原样搬上来", () => {
 });
 
 test("「收拾你」原来就写在训话腔那条里，照样漏——所以这条不能也只是一张词表", () => {
-  assert.ok(eng.includes("收拾你"), "训话腔那条里的词表不该被删");
+  // 2026-10-16 起训话腔那条也不再念「收拾你」（威胁那几句只讲骨架）；教训留在注释里
+  const ct = eng.slice(eng.indexOf("const CONDESCENDING_TONE_BAN = `")); assert.ok(ct.slice(0, ct.indexOf("`;")).indexOf("收拾你") < 0);
   const c = eng.slice(eng.indexOf("// 情欲【气泡】反八股"));
   assert.ok(/CONDESCENDING_TONE_BAN/.test(c.slice(0, c.indexOf("const INTIMATE_CHAT_ANTI_CLICHE"))),
     "注释里要留着这个教训：一个词禁在哪个类目下，决定它在什么场面被想起来");

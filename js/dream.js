@@ -422,7 +422,7 @@
   function Dream(props) {
     const t = nightNow();
     const [saves, setSaves] = useState(loadSaves);
-    const [view, setView] = useState("home"); // "home" | "setup" | <sessionId>
+    const [view, setView] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("dream", ["setup"])) || "home"); // "home" | "setup" | <sessionId>
     const lpTimer = useRef(null), lpFired = useRef(false);
 
     const persist = list => { if (saveSaves(list)) { setSaves(list); return true; } props.toast && props.toast("这次没保存成功，原梦境还在"); return false; };
@@ -869,7 +869,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             s.dreamCore
-              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
+              ? h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "这场梦其实是关于"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
@@ -884,7 +884,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             s.dreamCore
-              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
+              ? h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "Ta 一直绕开的是"),
                 s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "踩到它的那一步：「" + s.wrongText + "」") : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
@@ -901,7 +901,7 @@
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             // 为什么这个选项是错的
             s.whyWrong
-              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(217,138,138,0.10)", border: "1px solid rgba(217,138,138,0.30)", borderRadius: 12 } },
+              ? h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 14px", background: "rgba(217,138,138,0.10)", border: "1px solid rgba(217,138,138,0.30)", borderRadius: 12 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: BAD_LIT, marginBottom: 6 } }, "为什么这条路走不通"),
                 s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "「" + s.wrongText + "」") : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.whyWrong))

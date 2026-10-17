@@ -546,7 +546,7 @@ function mapSubSkin(t) {
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         editing ? h("div", { style: Object.assign({ borderRadius: 16, padding: "14px 16px 16px", border: "1px solid " + t.line, marginBottom: 12 }, worldPaper(t)) },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", marginBottom: 6 } }, "名字"),
-          h("input", { value: editing.name, onChange: function (e) { setEditing(Object.assign({}, editing, { name: e.target.value })); },
+          h("input", { "data-wk": "input", value: editing.name, onChange: function (e) { setEditing(Object.assign({}, editing, { name: e.target.value })); },
             style: { width: "100%", outline: "none", fontFamily: F_DISPLAY, fontSize: 18, color: "#3b3227", background: "transparent", border: "none", borderBottom: "1px solid rgba(120,104,80,0.45)", padding: "4px 0" }, "data-wk": "mapworldmapinput", "data-part": "1" }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", margin: "12px 0 6px" } }, "是什么地方"),
           h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["城镇", "遗迹", "野外", "地标"].map(function (k) {
@@ -556,7 +556,7 @@ function mapSubSkin(t) {
               kindMark(k, 13, on2 ? "#fff" : "#3b3227"), k);
           })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", margin: "12px 0 6px" } }, "这儿眼下正有什么事（可以空着）"),
-          h("textarea", { value: editing.hook, rows: 3, onChange: function (e) { setEditing(Object.assign({}, editing, { hook: e.target.value })); },
+          h("textarea", { "data-wk": "textarea", value: editing.hook, rows: 3, onChange: function (e) { setEditing(Object.assign({}, editing, { hook: e.target.value })); },
             style: { width: "100%", outline: "none", resize: "vertical", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#4a3f31", background: "rgba(255,255,255,0.35)", border: "1px solid rgba(120,104,80,0.35)", borderRadius: 8, padding: "6px 8px" }, "data-wk": "mapworldmaptext", "data-part": "1" }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7a6a54", marginTop: 6, lineHeight: 1.6 } }, "改名的话，钉在这儿的人和行程里写到这儿的地方会一起改过来。"),
           h("div", { className: "flex justify-end", style: { gap: 10, marginTop: 10 } },
@@ -574,7 +574,7 @@ function mapSubSkin(t) {
               className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#3b3227", border: "1px solid rgba(80,66,48,0.45)", borderRadius: 999, padding: "2px 10px", minHeight: 28 }, "data-wk": "mapworldmapbtn", "data-part": "5" }, "改这一块的名字") : null),
           regEdit ? h("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(120,104,80,0.35)" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", marginBottom: 6 } }, "这一块叫什么"),
-            h("input", { value: regEdit.name, onChange: function (e) { setRegEdit(Object.assign({}, regEdit, { name: e.target.value })); },
+            h("input", { "data-wk": "input", value: regEdit.name, onChange: function (e) { setRegEdit(Object.assign({}, regEdit, { name: e.target.value })); },
               style: { width: "100%", outline: "none", fontFamily: F_DISPLAY, fontSize: 16, color: "#3b3227", background: "transparent", border: "none", borderBottom: "1px solid rgba(120,104,80,0.45)", padding: "4px 0" }, "data-wk": "mapworldmapinput", "data-part": "2" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", margin: "10px 0 6px" } }, "地形"),
             h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["山地", "平原", "森林", "水泽", "荒漠", "城郭"].map(function (k) {
@@ -741,7 +741,7 @@ function mapSubSkin(t) {
           }),
           regions.length < WORLD_MAX_REGIONS ? h("button", { onClick: function () { setReg(NEW); }, className: "active:opacity-70", style: chip(reg === NEW), "data-wk": "mapnodeaddbtn", "data-part": "1" }, "＋ 新开一块") : null),
         reg === NEW ? h("div", { style: { marginTop: 12, padding: "12px", border: "1px dashed " + t.line, borderRadius: 12 } },
-          h("input", { value: rName, onChange: function (e) { setRName(e.target.value.slice(0, 8)); }, placeholder: "这块地方叫什么（≤8字）", style: inp, "data-wk": "mapnodeaddinput", "data-part": "这块地方叫什么（≤8字）" }),
+          h("input", { "data-wk": "input", value: rName, onChange: function (e) { setRName(e.target.value.slice(0, 8)); }, placeholder: "这块地方叫什么（≤8字）", style: inp, "data-wk": "mapnodeaddinput", "data-part": "这块地方叫什么（≤8字）" }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "10px 2px 6px" } }, "地形"),
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
             ["山地", "平原", "森林", "水泽", "荒漠", "城郭"].map(function (k) { return h("button", { key: k, onClick: function () { setRTerr(k); }, className: "active:opacity-70", style: chip(rTerr === k), "data-wk": "mapnodeadd", "data-part": "r2" }, k); })),
@@ -751,7 +751,7 @@ function mapSubSkin(t) {
               return h("button", { key: r.name, onClick: function () { setRAdj(on ? rAdj.filter(function (x) { return x !== r.name; }) : rAdj.concat([r.name])); }, className: "active:opacity-70", style: chip(on), "data-wk": "mapnodeadd", "data-part": "r3", "data-on": on ? "1" : "0" }, r.name); })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 10 } }, "下面写的地点，就是这块地方的第一个地点。")) : null,
         h("div", { style: lbl }, "自己写一个"),
-        h("input", { value: nm, onChange: function (e) { setNm(e.target.value); }, placeholder: "地点叫什么", style: inp, "data-wk": "mapnodeaddinput", "data-part": "地点叫什么" }),
+        h("input", { "data-wk": "input", value: nm, onChange: function (e) { setNm(e.target.value); }, placeholder: "地点叫什么", style: inp, "data-wk": "mapnodeaddinput", "data-part": "地点叫什么" }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
           ["城镇", "遗迹", "野外", "地标"].map(function (k) {
             // 图例条目：一个记号 + 一个名字，方角、只有一道边；选中那条上墨、加粗那道边。
@@ -765,7 +765,7 @@ function mapSubSkin(t) {
                 border: (on2 ? "2px" : "1px") + " solid " + (on2 ? t.ink : t.line) }, "data-wk": "mapnodeadd", "data-part": "r4" },
               kindMark(k, 13, on2 ? "#fff" : t.ink), k);
           })),
-        h("textarea", { value: hook, onChange: function (e) { setHook(e.target.value); }, rows: 3, placeholder: "这儿眼下正有什么事（一句，可空）",
+        h("textarea", { "data-wk": "textarea", value: hook, onChange: function (e) { setHook(e.target.value); }, rows: 3, placeholder: "这儿眼下正有什么事（一句，可空）",
           style: Object.assign({}, inp, { marginTop: 9, lineHeight: 1.8, resize: "vertical" }), "data-wk": "mapnodeaddtext", "data-part": "这儿眼下正有什么事（一句" }),
         h("button", { onClick: function () {
             const nd = { name: nm.trim(), kind: kind, hook: hook.trim() };
@@ -774,7 +774,7 @@ function mapSubSkin(t) {
           disabled: !nm.trim() || (reg === NEW && !rName.trim()), className: "w-full active:opacity-80",
           style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: nm.trim() ? 1 : 0.5 }, "data-wk": "mapnodeaddbtn", "data-part": "2" }, "加进「" + (reg === NEW ? (rName.trim() || "新的一块") : reg) + "」（不花调用）"),
         h("div", { style: lbl }, "或者让模型添几个"),
-        h("input", { value: hint, onChange: function (e) { setHint(e.target.value); }, placeholder: "想要什么样的？（可空）", style: inp, "data-wk": "mapnodeaddinput", "data-part": "想要什么样的？（可空）" }),
+        h("input", { "data-wk": "input", value: hint, onChange: function (e) { setHint(e.target.value); }, placeholder: "想要什么样的？（可空）", style: inp, "data-wk": "mapnodeaddinput", "data-part": "想要什么样的？（可空）" }),
         h("button", { onClick: function () { onGen(reg, hint.trim()); }, disabled: busy || reg === NEW, className: "w-full active:opacity-80",
           style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13.5, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0", opacity: busy ? 0.5 : 1 }, "data-wk": "mapnodeaddbtn", "data-part": "3" },
           busy ? "添着…" : (reg === NEW ? "新开的这块先自己写第一个地点" : "让模型往「" + reg + "」添 2-4 个（一次调用）")),
@@ -800,7 +800,7 @@ function mapSubSkin(t) {
       h(Head, { zh: init ? "这个世界" : "开一个世界", en: init ? "" : "New world", bg: "transparent", onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 7px" } }, "世界叫什么"),
-        h("input", { value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "一个名字", style: inp, "data-wk": "mapworldforminput", "data-part": "一个名字" }),
+        h("input", { "data-wk": "input", value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "一个名字", style: inp, "data-wk": "mapworldforminput", "data-part": "一个名字" }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "生图参考"),
         h("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
           h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
@@ -810,7 +810,7 @@ function mapSubSkin(t) {
             typeof AvatarPicker === "function" ? h(AvatarPicker, { character: { name: r.label || "景", avatarImage: r.img, color: t.line }, size: 56, radius: 8, imageMaxDim: 1024, imageQuality: 0.9,
               onPick: function (v) { putRefs(refs.map(function (x, j) { return j === i ? Object.assign({}, x, { img: v }) : x; })); },
               onClear: function () { putRefs(refs.filter(function (_, j) { return j !== i; })); } }) : null,
-            h("input", { value: r.label || "", placeholder: "这张是哪儿", style: Object.assign({}, inp, { flex: 1 }),
+            h("input", { "data-wk": "input", value: r.label || "", placeholder: "这张是哪儿", style: Object.assign({}, inp, { flex: 1 }),
               onChange: function (e) { const v = e.target.value.slice(0, 24); setRefs(refs.map(function (x, j) { return j === i ? Object.assign({}, x, { label: v }) : x; })); },
               onBlur: function () { putRefs(refs); }, "data-wk": "mapworldforminput", "data-part": "这张是哪儿" }));
         }),
@@ -819,7 +819,7 @@ function mapSubSkin(t) {
             onPick: function (v) { if (v) putRefs(refs.concat([{ img: v, label: "" }])); } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "添一张")) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "这个世界是什么样的"),
-        h("textarea", { value: brief, onChange: function (e) { setBrief(e.target.value); }, rows: 7, placeholder: "写多少都行：这地方靠什么活着、有哪几块地方、彼此什么关系、路上会遇上什么。写得越具体，画出来的地图越是你的，越含糊模型就越往通用模板上靠。",
+        h("textarea", { "data-wk": "textarea", value: brief, onChange: function (e) { setBrief(e.target.value); }, rows: 7, placeholder: "写多少都行：这地方靠什么活着、有哪几块地方、彼此什么关系、路上会遇上什么。写得越具体，画出来的地图越是你的，越含糊模型就越往通用模板上靠。",
           style: Object.assign({}, inp, { lineHeight: 1.8, resize: "vertical" }), "data-wk": "mapworldformtext", "data-part": "写多少都行：这地方靠什么" }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 4px" } }, "带谁进去住"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginBottom: 8 } },
@@ -1083,7 +1083,7 @@ function mapSubSkin(t) {
       // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）：手写那条一个挂点都没有，
       // 「好友地图」这一页的主题 CSS 抓不到顶栏；返回键原来还是个 19px 的「←」字符。
       h(Head, { zh: "好友地图", onBack: onBack, noLine: true,
-        right: h("div", { className: "flex shrink-0", style: { gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: 2 } },
+        right: h("div", { "data-wk": "block", className: "flex shrink-0", style: { gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: 2 } },
           [["real", "现实"], ["story", "架空"]].map(function (m) {
             const on = (mode || "real") === m[0];
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub }, "data-wk": "mappage", "data-part": "r2", "data-on": on ? "1" : "0" }, m[1]);
@@ -1105,17 +1105,17 @@ function mapSubSkin(t) {
             // 地点搜索条（真·全球搜索）
             h("div", { style: { position: "absolute", top: 10, left: 12, right: 12, zIndex: 1200 } },
               h("div", { style: { display: "flex", gap: 6 } },
-                h("input", { value: pq, onChange: function (e) { setPq(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") doPlaceSearch(); }, placeholder: "搜任何地方：店名 / 地址 / 城市",
+                h("input", { "data-wk": "input", value: pq, onChange: function (e) { setPq(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") doPlaceSearch(); }, placeholder: "搜任何地方：店名 / 地址 / 城市",
                   style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "rgba(255,255,255,0.95)", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", outline: "none", boxShadow: "0 2px 10px rgba(0,0,0,.10)" }, "data-wk": "mappageinput", "data-part": "搜任何地方：店名 / 地" }),
-                h("button", { onClick: doPlaceSearch, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 999, padding: "0 16px", boxShadow: "0 2px 10px rgba(0,0,0,.15)" }, "data-wk": "mappagebtn", "data-part": "1" }, pBusy ? "…" : "搜")),
-              pRes ? h("div", { style: { marginTop: 6, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,.12)" } },
+                h("button", { "data-wk": "block", onClick: doPlaceSearch, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 999, padding: "0 16px", boxShadow: "0 2px 10px rgba(0,0,0,.15)" }, "data-wk": "mappagebtn", "data-part": "1" }, pBusy ? "…" : "搜")),
+              pRes ? h("div", { "data-wk": "block", style: { marginTop: 6, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,.12)" } },
                 pRes.length ? pRes.map(function (p, i) {
                   return h("button", { key: i, onClick: function () { goPlace(p); }, className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", padding: "9px 14px", borderTop: i ? "1px solid " + t.line : "none" }, "data-wk": "mappage", "data-part": "r4" },
                     h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, p.name),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.full));
                 }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px 14px" } }, "没搜到，换个说法试试")) : null),
             // 临时地点卡：导航 / 清除
-            pin ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 86, zIndex: 1200, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 16, padding: "10px 14px", boxShadow: "0 6px 20px rgba(0,0,0,.14)", display: "flex", alignItems: "center", gap: 10 } },
+            pin ? h("div", { "data-wk": "block", style: { position: "absolute", left: 12, right: 12, bottom: 86, zIndex: 1200, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 16, padding: "10px 14px", boxShadow: "0 6px 20px rgba(0,0,0,.14)", display: "flex", alignItems: "center", gap: 10 } },
               h("div", { className: "min-w-0 flex-1" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📍 " + pin.name),
                 route ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 2 } }, "🚗 " + route.km + " km · 约 " + route.min + " 分钟") : null),
@@ -1123,11 +1123,11 @@ function mapSubSkin(t) {
               h("button", { onClick: function () { routeTo(pin.pos); }, disabled: routeBusy, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#3f6d8c", borderRadius: 999, padding: "7px 14px", opacity: routeBusy ? 0.65 : 1 }, "data-wk": "mappagebtn", "data-part": "3" }, routeBusy ? "算路中…" : "路线"),
               h("button", { onClick: function () { setPin(null); clearRoute(); setSteps(null); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 4px" }, "data-wk": "mappagebtn", "data-part": "4" }, "✕")) : null,
             // 实时下一步提示（真导航横幅）：绿牌报「XX 米后 干什么」，随你移动自己刷新
-            (route && nextTurn) ? h("div", { style: { position: "absolute", top: 62, left: 12, right: 12, zIndex: 1200, background: "#2e5e46", borderRadius: 14, padding: "10px 16px", boxShadow: "0 6px 20px rgba(0,0,0,.25)", display: "flex", alignItems: "center", gap: 12 } },
+            (route && nextTurn) ? h("div", { "data-wk": "block", style: { position: "absolute", top: 62, left: 12, right: 12, zIndex: 1200, background: "#2e5e46", borderRadius: 14, padding: "10px 16px", boxShadow: "0 6px 20px rgba(0,0,0,.25)", display: "flex", alignItems: "center", gap: 12 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#fff", whiteSpace: "nowrap" } }, nextTurn.m >= 1000 ? (nextTurn.m / 1000).toFixed(1) + " km" : nextTurn.m + " m"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: "rgba(255,255,255,0.95)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nextTurn.text)) : null,
             // 全程步骤列表
-            (route && steps && stepsOpen) ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 150, maxHeight: "38%", overflowY: "auto", zIndex: 1200, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 16, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
+            (route && steps && stepsOpen) ? h("div", { "data-wk": "block", style: { position: "absolute", left: 12, right: 12, bottom: 150, maxHeight: "38%", overflowY: "auto", zIndex: 1200, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 16, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
               steps.map(function (s, i) {
                 return h("div", { key: i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "8px 14px", borderTop: i ? "1px solid " + t.line : "none" }, "data-wk": "mappage", "data-part": "r5" },
                   h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0, width: 52, textAlign: "right" } }, s.dist >= 1000 ? (s.dist / 1000).toFixed(1) + " km" : Math.round(s.dist) + " m"),
@@ -1135,11 +1135,11 @@ function mapSubSkin(t) {
               })) : null,
             // 底部角色条（z-index 压过 Leaflet 图层）：点头像=飞到 TA；右侧「设/改」=设城市；最前「全部」=看全部
             h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto", alignItems: "center" } },
-              h("button", { key: "__all", onClick: fitAll, className: "shrink-0 active:opacity-80", style: { display: "flex", alignItems: "center", gap: 5, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" }, "data-wk": "mappagebtn", "data-part": "5" },
+              h("button", { "data-wk": "block", key: "__all", onClick: fitAll, className: "shrink-0 active:opacity-80", style: { display: "flex", alignItems: "center", gap: 5, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" }, "data-wk": "mappagebtn", "data-part": "5" },
                 h("span", { style: { fontSize: 13 } }, "🗺️"), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "全部")),
               (characters || []).map(function (c) {
                 const hm = charHome(c); const st = (status || {})[c.id]; const pos = charPos(c, st, anchor);
-                return h("div", { key: c.id, className: "shrink-0", style: { display: "flex", alignItems: "stretch", background: "#fff", border: "1px solid " + t.line, borderRadius: 999, boxShadow: "0 2px 8px rgba(0,0,0,.08)", overflow: "hidden" }, "data-wk": "mappage", "data-part": "r6" },
+                return h("div", { "data-wk": "block", key: c.id, className: "shrink-0", style: { display: "flex", alignItems: "stretch", background: "#fff", border: "1px solid " + t.line, borderRadius: 999, boxShadow: "0 2px 8px rgba(0,0,0,.08)", overflow: "hidden" }, "data-wk": "mappage", "data-part": "r6" },
                   h("button", { onClick: function () { flyTo(pos); }, className: "active:opacity-70", style: { display: "flex", alignItems: "center", gap: 7, padding: "5px 6px 5px 6px" }, "data-wk": "mappagebtn", "data-part": "6" },
                     (function () { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return h("div", { style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0, background: av ? "center/cover no-repeat url(" + av + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 12 }, "data-wk": "mappage", "data-part": "r7" }, av ? "" : String(c.name || "?").slice(0, 1)); })(),
                     h("div", { style: { textAlign: "left" } },
@@ -1152,7 +1152,7 @@ function mapSubSkin(t) {
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "「" + (selChar ? (selChar.remark || selChar.name) : "") + "」在哪座城市"),
           charHome(selChar) ? h("button", { onClick: function () { onSetHome(sel, null); setSel(null); setQ(""); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent }, "data-wk": "mappagebtn", "data-part": "8" }, "清除") : null),
-        h("input", { value: q, onChange: function (e) { setQ(e.target.value); }, placeholder: "搜城市名，如 上海 / 东京 / 伦敦",
+        h("input", { "data-wk": "input", value: q, onChange: function (e) { setQ(e.target.value); }, placeholder: "搜城市名，如 上海 / 东京 / 伦敦",
           style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", width: "100%", outline: "none", marginBottom: 10 }, "data-wk": "mappageinput", "data-part": "搜城市名，如 上海 / " }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, maxHeight: "42vh", overflowY: "auto" } },
           cityList.map(function (name) {
