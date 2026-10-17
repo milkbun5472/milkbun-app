@@ -6459,7 +6459,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#43552f", marginTop: 10 } }, g.species),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#7a8a62", marginTop: 4 } },
             st.zh + " · " + fmtD(g.plantedTs) + " 种下"),
-          g.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.7, color: "#93707c", marginTop: 10 } }, "「" + g.why + "」") : null),
+          g.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.7, color: "#93707c", marginTop: 10 } }, "「", (typeof TransText === "function" ? h(TransText, { text: g.why, inline: true }) : g.why), "」") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, textAlign: "center", marginTop: 12 } },
           doze ? "它在打盹——你们回来，它就接着长。" : "它吃你们真实的相处：聊过天、线下待过、打过卡，它就长一点。没有进度条——长到哪儿，看它自己。"),
         bloomed ? h("button", { onClick: onKeep, className: "w-full active:opacity-70",
@@ -6486,7 +6486,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
               k.why ? h("div", { style: on
                 ? { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }
                 : { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                "「" + k.why + "」") : null),
+                "「", (on && typeof TransText === "function" ? h(TransText, { text: k.why, inline: true }) : k.why), "」") : null),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, flexShrink: 0 } }, fmtD(k.ts) + " 收"));
           if (!k.why) return h("div", { key: i }, row);
           return h("button", { key: i, onClick: () => setOpenFlower(on ? -1 : i),
@@ -6558,7 +6558,7 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay, hasKin
   }
   return h("div", { "data-wk": "tripbook", style: { marginTop: 16 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 8 } }, "订机票和酒店"),
-    b.taPick.why && !paid ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.65, color: "#93707c", marginBottom: 8 } }, name + "：「" + b.taPick.why + "」") : null,
+    b.taPick.why && !paid ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.65, color: "#93707c", marginBottom: 8 } }, name + "：「", (typeof TransText === "function" ? h(TransText, { text: b.taPick.why, inline: true }) : b.taPick.why), "」") : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 6px" } }, "去程"),
     b.flights.map((x, i) => row("flight", x, i)),
     backs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "回程") : null,
@@ -6569,7 +6569,7 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay, hasKin
       h("div", { className: "flex", style: { gap: 8 } },
         [["window", "我靠窗"], ["aisle", "我靠过道"]].map(([k, zh]) => h("button", { key: k, "data-on": seat.me === k ? "1" : "0", onClick: () => onBookPick && onBookPick({ seat: k }), className: "flex-1 active:opacity-70",
           style: { minHeight: 40, borderRadius: 10, border: "1.5px solid " + (seat.me === k ? "#43371f" : "#e6dcc4"), background: "#fdfaf1", color: "#3a3226", fontFamily: F_BODY, fontSize: 13 } }, zh))),
-      seat.why && !seat.mine ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, color: "#93707c", marginTop: 6 } }, name + "：「" + seat.why + "」") : null),
+      seat.why && !seat.mine ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, color: "#93707c", marginTop: 6 } }, name + "：「", (typeof TransText === "function" ? h(TransText, { text: seat.why, inline: true }) : seat.why), "」") : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "住哪 · " + b.nights + " 晚"),
     b.hotels.map((x, i) => row("hotel", x, i)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, margin: "6px 0 8px", textAlign: "right" } }, "两个人" + (backs.length ? "往返" : "") + "的票 + " + b.nights + " 晚 · 共 ¥" + total),
