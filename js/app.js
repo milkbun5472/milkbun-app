@@ -7636,7 +7636,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
             if (pSkip("study:" + cu.id)) continue;
             pOnce("study:" + cu.id, "studyReview:" + dayKey,
-              () => replyNow(cand.id, "", null, { proactive: true, remind: { title: "复习「" + (cu.subject || cu.title || "这门课") + "」", note: n + " 道到点该复习了", src: "study" } }),
+              // 房间里开的课（她 2026-10-17「如果是房间开的课咋算」）：催在那间房里，不催到主聊天；房被删了才回主聊天
+              () => { const K = window.ChatRooms, rid = String(cu.roomId || "main"), rm = K && rid !== "main" ? K.get(cand.id, rid) : null;
+                const inRoom = !!(rm && !rm.main);
+                return replyNow(cand.id, "", null, { proactive: true, ...(inRoom ? { chatKey: K.chatKey(cand.id, rid), room: rm } : {}),
+                  remind: { title: "复习「" + (cu.subject || cu.title || "这门课") + "」", note: n + " 道到点该复习了", src: "study" } }); },
               () => { const l2 = loadJSON("x_studyRemindLog", {}); l2[cu.id] = dayKey; saveJSON("x_studyRemindLog", l2); });
             return;                                               // 一次一个，错峰
           }
