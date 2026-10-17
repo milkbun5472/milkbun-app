@@ -9058,6 +9058,24 @@ function VoiceMouthConfig({ toast }) {
 // 网易云接口怎么搭（她 2026-10-14 要的内置教程）：跟 Fish 中转那块同一个样子，点开才有。
 //   要点只有一个：Cookie 是交给接口转发的，接口空着 Cookie 就没用、「扫码登录」也不出来。
 //   ⚠️攻略里「一起听」那条讲的是同一件事，改这里要连那条一起改。
+// ── 我的作息 · 免打扰（她 2026-10-17：「我睡着的时候他们别吵我」「只是点开一下下后台就开始跑了」）──
+//   按这台手机的钟算。两件事分开勾：不发主动消息（她自己设的提醒照来）／后台不跑（跟后台线路选「无」同一道闸，只在这段时间里）。
+function QuietHoursBox({ t, toast }) {
+  const [q, setQ] = useState(() => ({ on: false, from: "00:00", to: "08:00", noPro: true, noBg: false, ...(loadJSON("x_quiet", null) || {}) }));
+  const put = patch => setQ(p => { const n = { ...p, ...patch }; saveJSON("x_quiet", n); return n; });
+  const row = (label, note, val, fn, wk) => h("button", { onClick: fn, "data-wk": wk, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 44, gap: 12, textAlign: "left" } },
+    h("div", null, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, label), note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, note) : null),
+    h("span", { style: { flexShrink: 0, width: 44, height: 26, borderRadius: 13, padding: 3, background: val ? t.ink : t.line } },
+      h("span", { style: { display: "block", width: 20, height: 20, borderRadius: 10, background: t.bg2, transform: val ? "translateX(18px)" : "none", transition: "transform .18s" } })));
+  const tm = (k) => h("input", { type: "time", value: q[k] || "", onChange: e => put({ [k]: e.target.value }), "data-wk": "input",
+    style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14 } });
+  return h("div", { "data-wk": "quiethours", style: { marginTop: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
+    row("我的作息 · 免打扰", "按这台手机的钟。到了这段时间，下面勾上的那几样就停；过了自己恢复。", q.on, () => put({ on: !q.on }), "quiettoggle"),
+    q.on ? h("div", null,
+      h("div", { className: "flex items-center", style: { gap: 8, margin: "6px 0 4px", fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "从", tm("from"), "到", tm("to")),
+      row("这段时间不发主动消息", "谁都不来找你，醒着的也不来。你自己设的提醒照常到。", q.noPro, () => put({ noPro: !q.noPro }), "quietpro"),
+      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停，只剩你点了才动的；点开看一下也不会被带着跑起来。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg")) : null);
+}
 function NeteaseApiHelp({ toast }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -10763,6 +10781,7 @@ function ApiConfig({
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
       bgApiId, onSetBgApi, "跟随主模型", "无（后台一律不跑）"),
+    h(QuietHoursBox, { t: t, toast: toast }),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),

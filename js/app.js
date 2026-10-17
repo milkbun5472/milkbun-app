@@ -1582,7 +1582,9 @@ function App() {
   // 本体模式的角色：「查手机」「角色日程」这两样是替TA编一个人的生活，自动补刷一律不跑（手动也不排日程，见 noSchedFor）
   const BODY_NO_LIFE = { phone: 1, schedule: 1 };
   // 后台线路选了「无」：自己跑的一律不跑（她 2026-10-10「后台 api 能不能选个无，强制不刷新」）
-  const bgOff = () => loadJSON("x_bgApi", null) === "__off__";
+  // 后台一律不跑：后台线路选了「无」，或者正在她设的免打扰时段里、勾了「这段时间后台不跑」
+  const quietNow = kind => { try { return !!(window.ScheduleClock && window.ScheduleClock.quietActive(loadJSON("x_quiet", null), kind)); } catch (e) { return false; } };
+  const bgOff = () => loadJSON("x_bgApi", null) === "__off__" || quietNow("bg");
   // 面具「先歇着」（群友 2026-10-15：「能不能根据面具分组启用，不用时那边时间可以选择暂停」）：
   //   跟这张面具聊的人（群＝群挑的那张面具）后台什么都不自己动，时间那只钟也停着（停钟在 VClockMasks 里一起拨）。
   const maskRested = id => { try { if (!id) return false; const k = String(maskKeyOf(id) || "") || "main"; const c = (((prefsRef.current || {}).vclocks) || {})[k]; return !!(c && c.rest); } catch (e) { return false; } };
@@ -10792,6 +10794,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   原来只有「想你了」那一路问过睡没睡，天气、健康、纪念日、约定、开花那几路都没问——收在这一处，谁都绕不过。
     //   放行的只有：自己已经判过睡眠的（dongnian 有它那条「很想才偶尔发」的窄缝）、她自己定的提醒和生日零点、
     //   言秋的报错，以及她刚刚亲手做了什么、TA当场接一句的那几种。
+    // 她在睡（她设的免打扰时段、勾了「不发主动消息」）：谁的由头都不开口，只放行她自己设的提醒
+    if (opts && opts.proactive && !opts._bg && !opts.remind && quietNow("pro")) return false;
     if (opts && opts.proactive && !opts._bg && !PROACTIVE_SLEEP_OK.some(k => opts[k])) {
       const _c = characters.find(c => c.id === charId);
       if (_c && sleepPhaseOf(_c) === "asleep") return false;
