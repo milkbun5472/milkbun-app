@@ -728,8 +728,9 @@ function CastForm({
             h("div", { className: "flex-1 min-w-0" },
               h("input", { "data-wk": "castfname", value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
               h("span", { style: { display: "block", height: 1, background: t.line, margin: "5px 0 7px" } }),
-              h("input", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }),
-              // 头像那几颗小字（贴图、生成、移除、存、锁脸）收成名字底下一排，照片框里只留照片
+              h("textarea", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", rows: 2, className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: t.fog, resize: "none" } }))),
+          h("div", { style: { marginTop: 12 } },
+              // 头像那几颗小字（贴图、生成、移除、存、锁脸）摆在头像那一排底下，整行宽（她 2026-10-17「能不能把那几个按钮移到头像下面」）；照片框里只留照片
               //（她 2026-10-17「这块变大了看起来好别扭」——挂在照片框里把框撑宽撑高了）
               (() => { const lk = (label, fn, on) => h("button", { key: label, onClick: fn, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.tint : t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, label);
                 return h("div", { className: "flex flex-wrap", style: { columnGap: 10, rowGap: 4, marginTop: 2 } },
@@ -742,7 +743,7 @@ function CastForm({
                   avatarImage ? lk("移除照片", () => setAvatarImage(null)) : null); })(),
               chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
                 h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
-                h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35, whiteSpace: "pre-line" } }, "聊天头像是TA自己换的 · 用回这张")))),
+                h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35, whiteSpace: "pre-line" } }, "聊天头像是TA自己换的 · 用回这张"))),
           h("div", { "data-wk": "castfcolor", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),
