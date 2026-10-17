@@ -1424,8 +1424,14 @@
       const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
       return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
     }
-    if (CSS_T[p.target] && !p.find && !p.whole && String(before(p, ctx) || "").trim())
-      throw new Error("这一栏原来有 CSS，这条却是整份重写——别处会被跟着改掉。让它改用「改一小段」或「在后面加」；真要整体重做，跟它说清楚「整体重做」");
+    // 原来有 CSS、这条却是整份写的（群里 2026-10-17：「我已经弹了好几次了」——原来是直接拒，她只能一遍遍按「再试一次」，秋秋还照样整份写）：
+    //   不再拒。新的那份里已经把旧的原样包进去了，就当整份收下；不然就把它接在旧的后面——
+    //   CSS 后写的赢，她要改的那几处照新的来，没提到的旧规则一条不少，别处不会被跟着改掉。
+    if (CSS_T[p.target] && !p.find && !p.whole && String(before(p, ctx) || "").trim()) {
+      const cur = String(before(p, ctx) || "").replace(/\s+$/, ""), nx = String(p.text || "");
+      if (nx.indexOf(cur.trim()) >= 0) return T.write(p.id, p, ctx);
+      return T.write(p.id, Object.assign({}, p, { text: cur + "\n\n" + nx.replace(/^\s+/, "") }), ctx);
+    }
     if (p.append && !p.find) {
       if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌、档案和美化 CSS 那几栏能接着往后写");
       const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
