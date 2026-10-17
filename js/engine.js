@@ -2838,7 +2838,11 @@ function setRerollDir(t) { REROLL_DIR = { text: String(t || "").trim().slice(0, 
 function rerollDirLine() {
   const d = REROLL_DIR.text;
   if (!d || Date.now() - REROLL_DIR.ts > 60000) return "";
-  return "\n〔她这次给的方向〕" + d + "——这一次重写照这个方向来；只管这一次。";
+  // 她只说一句「别八股」「太油了」（她 2026-10-17：长按重写写了「不要八股」，他照样又攥字据又预告怪她）：
+  //   模型不知道她嫌的是哪一处，只会换几个字。让它先对着上一版自己认出犯的是哪一族，再连骨架一起换掉。
+  return "\n〔她这次给的方向〕" + d + "——这一次重写照这个方向来；只管这一次。"
+    + "她嫌的多半不是哪几个字，是上一版那几句【在做的事】：先把上一版逐句对照上面【别拿现成的说法替你开口】那几族，认出它犯的是哪一族，"
+    + "这一次连那个做法一起换掉——同一个做法换一套字再说一遍，等于没听她的。";
 }
 function onlineRerollHint(avoid) {
   const a = String(avoid || "").trim();
