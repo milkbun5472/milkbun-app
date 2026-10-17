@@ -12644,12 +12644,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _lockSrc = (() => {
         if (sideRoom || char.npc) return null;
         if (_seenMsg && _seenMsg.imageRef) return { ref: _seenMsg.imageRef, desc: String(_seenMsg.desc || _seenMsg.content || "她发来的那张").slice(0, 120), from: "her" };
-        const rows = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled).slice(-6);
+        const all = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled);
+        const rows = all.slice(-6);
         for (let k = rows.length - 1; k >= 0; k--) { const m = rows[k]; if (m.role === "assistant" && m.kind === "selfie" && (m.imgKey || m.imgUrl) && !m.failed && !m.pending) return { key: m.imgKey, url: m.imgUrl, desc: String(m.desc || "").slice(0, 120), from: "him" }; }
+        // 她这一句点名要换壁纸／锁屏：图是前几条发的也认，往回找最近那一张（她 2026-10-17 转群友：画隔了几句，叫他换，他只嘴上说换了）。
+        //   别的时候照旧一个字不提（她 2026-10-13 定的）
+        const lastU = [...all].reverse().find(m => m.role === "user" && !m.kind);
+        if (lastU && /壁纸|锁屏|屏保|桌面背景|手机背景/.test(String(lastU.content || ""))) {
+          const far = all.slice(-40);
+          for (let k = far.length - 1; k >= 0; k--) {
+            const m = far[k];
+            if (m.role === "user" && m.imageRef) return { ref: m.imageRef, desc: String(m.desc || m.content || "她发来的那张").slice(0, 120), from: "her" };
+            if (m.role === "assistant" && m.kind === "selfie" && (m.imgKey || m.imgUrl) && !m.failed && !m.pending) return { key: m.imgKey, url: m.imgUrl, desc: String(m.desc || "").slice(0, 120), from: "him" };
+          }
+        }
         return null;
       })();
       const _lockNow = (() => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; return lk.lockWallpaper ? String(lk.lockDesc || "一张图") : ""; } catch (e) { return ""; } })();
-      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.from === "her" ? "她刚发来的这张图" : "你刚发的那张照片") + "，你想设成自己手机的锁屏的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。" + (_lockNow ? "你现在的锁屏是：" + _lockNow + "。" : "") : "";
+      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。"
+        + "⚠️只在话里说「换好了」、JSON 里没填，手机上什么都不会变——说了换就一定要填。" + (_lockNow ? "你现在的锁屏是：" + _lockNow + "。" : "") : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
