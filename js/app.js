@@ -1167,7 +1167,7 @@ function App() {
     ? (groups.find(g => g && g.id === activeGroupSel.id) || activeGroupSel)
     : null;
   // 记录此刻在看的聊天，供未读红点判断
-  viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
+  viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id), roomId: activeRoomId };
   const [editingChar, setEditingChar] = useState(null);
   const [selSched, setSelSched] = useState(null);
   // 从聊天／线下点进日历的时候记下来处，退出日历就回到那儿（她 2026-09-29 转群里读者：
@@ -3153,6 +3153,13 @@ function App() {
       const added = n.slice(pl.length).filter(m => m && m.role === "assistant" && m.kind !== "system" && m.kind !== "silence").length;
       const viewing = viewingMainChat(personId);
       if (!sideRoom && added > 0 && !viewing) setTimeout(() => bumpUnread(personId, added), 0);
+      // 侧房里TA自己开口、她又没在那间房里（她 2026-10-17：「不进房间也没有提醒吧」——一起学催复习就落在房里）：
+      //   照样弹顶上那条、亮红点；点那条直接进那间房。她就在那间房里看着就不弹
+      if (sideRoom && added > 0) {
+        const rid = String(id).split("::room::")[1] || "";
+        const inThatRoom = viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(personId) && String(viewRef.current.roomId) === String(rid);
+        if (!inThatRoom) setTimeout(() => bumpUnread(personId, added, rid), 0);
+      }
     }
     return {
       ...p,
@@ -4816,7 +4823,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 点开某一条聊天：主屏那张「捎来的字条」和顶上那条消息提醒走的是同一处
   // （施工规则/one-public-mechanism.md：第二处要用时，把已有的那份也搬过来）。
-  const openChatById = (id, type) => {
+  // roomId：侧房那一条（她 2026-10-17「不进房间也没有提醒吧」）——走 enterRoom，换人那个 effect 才不会把房打回主聊天
+  const openChatById = (id, type, roomId) => {
     if (type === "group") {
       const g = (groupsRef.current || []).find(x => String(x.id) === String(id));
       if (!g) return;
@@ -4824,7 +4832,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     const c = (charactersRef.current || []).find(x => String(x.id) === String(id));
     if (!c) return;
-    setActiveChar(c); clearUnread(id); setScreen("thread");
+    if (roomId && roomId !== "main") enterRoom(c, roomId); else setActiveChar(c);
+    clearUnread(id); setScreen("thread");
   };
   // 进群那一下记住这个群攒了几条没看，群里顶上挂一颗「↑ N 条新消息」，点了跳到第一条没看的
   //   （群友 2026-10-08：「群聊他们聊新的几十条，可以直接跳转到我未读的地方吗，翻了老半天辨认哪些看过哪些没看过」）
@@ -4850,12 +4859,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   单聊走 pChat、群聊和旁观群走 pGChat、线下冒泡和跨端账本也都从这儿过。
   const BANNER_MS = 4200;      // 停几秒（跟系统通知横幅一个量级）
   const BANNER_OUT_MS = 300;   // 往上翻走那一下
-  const pushBanner = (id, count) => {
+  const pushBanner = (id, count, roomId) => {
     if (prefsRef.current && prefsRef.current.msgBanner === false) return;
     const g = (groupsRef.current || []).find(x => String(x.id) === String(id));
     const c = g ? null : (charactersRef.current || []).find(x => String(x.id) === String(id));
     if (!g && !c) return;                       // 认不出是谁就不弹：宁可没有，也不弹一条「未知」
-    const msgs = g ? ((groupChatsRef.current || {})[id] || []) : ((chatsRef.current || {})[id] || []);
+    const roomKey = roomId && window.ChatRooms ? window.ChatRooms.chatKey(id, roomId) : id;
+    const msgs = g ? ((groupChatsRef.current || {})[id] || []) : ((chatsRef.current || {})[roomKey] || []);
     let last = null;
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
@@ -4881,9 +4891,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       id: id, type: g ? "group" : "char",
       name: g ? (g.name || "群聊") : (c.remark || c.name || "TA"),
       // 旁观群她本来就不在场，标出来省得以为是有人在跟她说话
-      tag: g ? (g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate ? "旁观" : "群") : "",
+      tag: g ? (g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate ? "旁观" : "群") : (roomId && window.ChatRooms ? (((window.ChatRooms.get(id, roomId) || {}).name) || "小房间") : ""),
       who: g ? { id: g.id, name: g.name, avatarImage: g.avatarImage || g.avatar || "" } : chatFace(c),   // 跟聊天里同一张脸（她 2026-10-05）
-      text: text, n: count
+      text: text, n: count,
+      roomId: roomId || "", roomName: roomId && window.ChatRooms ? (((window.ChatRooms.get(id, roomId) || {}).name) || "小房间") : ""
     };
     setBanners(p => [b, ...p].slice(0, 4));
     const t1 = setTimeout(() => setBanners(p => p.map(x => x.key === b.key ? { ...x, leaving: true } : x)), BANNER_MS);
@@ -4891,8 +4902,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     bannerTimers.current.push(t1, t2);
   };
   // 未读小红点 +k（角色发来消息时若没在看这个聊天就累加）
-  const bumpUnread = (id, k) => {
-    pushBanner(id, k);
+  const bumpUnread = (id, k, roomId) => {
+    pushBanner(id, k, roomId);
     setUnreadMap(p => {
       const n = { ...p, [id]: (p[id] || 0) + k };
       saveJSON("x_unread", n);
@@ -32901,7 +32912,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   }), h(MsgBanners, {
     list: banners,
     // 点一下直接落到那条聊天里（跟主屏那张「捎来的字条」是同一个动作，走同一处）
-    onOpen: b => { setBanners(p => p.filter(x => x.key !== b.key)); openChatById(b.id, b.type); },
+    onOpen: b => { setBanners(p => p.filter(x => x.key !== b.key)); openChatById(b.id, b.type, b.roomId); },
     // 上划送走（她 2026-09-11：「往上扫【全部截止到那一条】都划掉，不是一条一条划」）：
     // 推走的那条连同压在它底下的那几条（更早的、她已经扫过一眼的）一起清掉。
     onDismiss: b => setBanners(p => { const i = p.findIndex(x => x.key === b.key); return i < 0 ? p : p.slice(0, i); })
