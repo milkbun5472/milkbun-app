@@ -49,6 +49,8 @@ test("「人格档案」换成了我们自己的说法，但【人格档案馆�
   const bad = [];
   all.forEach(([f, s]) => s.split("\n").forEach((l, i) => {
     if (f === "heart.js" && /欲望盒子\/人格档案/.test(l)) return;
+    // 注释里照抄她原话的不算（她说「人格档案」指的就是档案馆那一页，原话不改）
+    if (/^\s*\/\//.test(l) && /她 20\d\d-\d\d-\d\d[：:「]/.test(l)) return;
     // 「人格档案馆」是她的界面名（她 2026-08-30 亲自改的），不是这套系统的词
     const hit = l.replace(/人格档案馆/g, "");
     if (hit.includes("人格档案")) bad.push(f + ":" + (i + 1) + " " + l.trim().slice(0, 60));

@@ -32755,6 +32755,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             userP: s.userP,
             describeMe: s.describeMe,
             chatBg: s.chatBg,
+            chatBgFx: s.chatBgFx,   // 背景面纱、虚化（v75.888）：不接的话点了保存又变回去
             callBg: s.callBg || "",
             skin: s.skin || "",
             layout: s.layout && typeof s.layout === "object" ? s.layout : undefined,

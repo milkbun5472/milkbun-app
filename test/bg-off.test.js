@@ -7,7 +7,8 @@ const path = require("node:path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const a = src("app.js"), s = src("screens.js");
 test("后台选「无」：自己跑的一律关，自动抽记忆也停", () => {
-  assert.match(a, /const bgOff = \(\) => loadJSON\("x_bgApi", null\) === "__off__";/);
+  // 免打扰时段（v75.906）也算「后台不跑」，后面多了一截 quietNow("bg")
+  assert.match(a, /const bgOff = \(\) => loadJSON\("x_bgApi", null\) === "__off__"( \|\| quietNow\("bg"\))?;/);
   assert.match(a, /const autoRefreshOn = \(feature, charId\) => !bgOff\(\) &&/);
   assert.ok((a.match(/cfg\.autoExtract[^;]*bgOff\(\)\) return;/g) || []).length >= 5, "自动抽记忆还有没挡住的");
 });
