@@ -2611,7 +2611,13 @@ function App() {
     try {
       // 不安全的 CSS 一律不挂（跟云端导出那道同一个判据，别只在编辑框里提示一句就放过去）
       const raw = os0.customCSS && !window.ThemeStudio.unsafeReason(os0.customCSS) ? os0.customCSS : "";
-      const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, scope)) : "";
+      // 选择器自己就从线下那一层写起（[data-wk="offline"] [data-wk="chathead"]，单独放的时候大家都这么写）：
+      //   原来照样在前面再套一层 offline，变成「offline 里面的 offline」，一条都对不上，顶栏就没了（群里 2026-10-17）。
+      //   先用占位当 scope，再把「占位 + offline」并成一层。
+      const SENT = "html[data-lisa-offscope-x]";
+      const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, SENT)
+        .split(SENT + " [data-wk=\"offline\"]").join(scope).split(SENT + " [data-wk='offline']").join(scope).split(SENT + " [data-wk=offline]").join(scope)
+        .split(SENT).join(scope)) : "";
       applyOfflineLook(css);
     } catch (e) { applyOfflineLook(""); }
   };
