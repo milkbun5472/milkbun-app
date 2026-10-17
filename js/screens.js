@@ -5893,11 +5893,20 @@ function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
       h(AlbumPhoto, { photo: zoom, full: true }),
       zoom.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.85)", marginTop: 14, textAlign: "center", maxWidth: 320, lineHeight: 1.6 } }, STX(zoom.desc)) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 8 } }, new Date(zoom.ts || 0).toLocaleString("zh-CN")),
+      // 存到手机（她 2026-10-17：「合照墙的能不能保存图片」）：主屏幕网页版长按存不了，给一颗明着的键，走公共那条 saveImgOriginal
+      (zoom.imgKey || zoom.imgUrl) ? h("button", {
+        onClick: e => { e.stopPropagation();
+          const done = ok => window.__toast && window.__toast(ok ? "已经存下来了" : "这张取不到原图");
+          if (zoom.imgKey && window.saveImgOriginal) { window.saveImgOriginal(zoom.imgKey, "合照").then(done); return; }
+          fetch(zoom.imgUrl).then(r => r.blob()).then(b => typeof saveFile === "function" ? saveFile(new File([b], "合照-" + Date.now() + ".png", { type: b.type || "image/png" })) : null).then(v => done(v !== "cancel")).catch(() => done(false)); },
+        className: "active:opacity-60",
+        style: { marginTop: 18, padding: "8px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", fontFamily: F_BODY, fontSize: 13, color: "#fff" }
+      }, "保存这张") : null,
       // 删除放在【看大图这一层】：小格子上挂 ✕ 会误触，而误触在这儿是不可逆的
       onDelete ? h("button", {
         onClick: e => { e.stopPropagation(); onDelete(zoom); setZoom(null); },
         className: "active:opacity-60",
-        style: { marginTop: 18, padding: "7px 18px", borderRadius: 999, border: "1px solid rgba(255,255,255,.28)", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.72)" }
+        style: { marginTop: 12, padding: "7px 18px", borderRadius: 999, border: "1px solid rgba(255,255,255,.28)", background: "transparent", fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.72)" }
       }, "删掉这张") : null) : null,
     up ? h("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: t.bg, display: "flex", flexDirection: "column" } },
       h(Head, { zh: "挂一张上墙", bg: "transparent", onBack: () => { URL.revokeObjectURL(up.url); setUp(null); } }),
