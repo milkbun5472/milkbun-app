@@ -31142,11 +31142,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("home")
   });else if (screen === "live" || screen === "shua") {
     // 直播的那一套口子（js/live.js）。v74.99x 起直播是刷刷底栏的一格；老入口 "live" 也落进刷刷。
+    // 片刻上的熟面孔＝论坛那批人在片刻的号（shua 那一栏）；片刻的评论区和直播间都认这一份，碰面账是论坛那一本
+    const shuaRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); };
+    const shuaPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.split(a.name).join(a.shua.name).split(b.name).join(b.shua.name) } : null; }).filter(Boolean);
     const liveProps = {
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
     characters: liveChars.filter(c => !c.npc && !isBody(c.id)),
     profile: profile,
     wallet: wallet,
+    regulars: shuaRegulars, regularPairs: shuaPairs, touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),
     toast: toast,
     maskName: (anonMe && anonMe.name) || "",
     // 看 TA 播：料就是TA平时那一整份（TA 开播的时候还是TA），站位是「TA本人在现场」
@@ -31299,8 +31303,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),
       // 片刻的熟面孔＝论坛那批人换了个网名（shua）；碰面账、彼此的交情都是同一份
-      regulars: () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); },
-      regularPairs: () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.replace(new RegExp(a.name, "g"), a.shua.name).replace(new RegExp(b.name, "g"), b.shua.name) } : null; }).filter(Boolean),
+      regulars: shuaRegulars,
+      regularPairs: shuaPairs,
       touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),
       coupleOf: id => (couplesRef.current || {})[id] || null,   // 情侣号纪念日：在一起是哪天
       live: liveProps,
