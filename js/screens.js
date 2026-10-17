@@ -10574,7 +10574,7 @@ function Config(props) {
         h(ConfigTile, { icon: "清", tint: "#a05a4a", title: "各聊天窗的 CSS", sub: (props.chatCssRows || []).length ? (props.chatCssRows || []).length + " 处写了自己的 CSS · 美化挡住进不去时在这儿清空" : "哪个聊天窗都没写自己的 CSS", onClick: () => setPage("chatCss"), wide: true }),
         // 回车键发不发（她 2026-10-17：「线上线下能不能回车分行，现在一按回车就发出去了」）：线上、线下、群聊、群线下都按这一格
         (() => { const nl = typeof enterNewline === "function" && enterNewline();
-          return h(ConfigTile, { icon: "↵", tint: "#5a7a9a", title: "回车键", sub: nl ? "回车换行，点发送键才发 · 点一下改回回车发送" : "回车直接发送 · 点一下改成回车换行",
+          return h(ConfigTile, { icon: "键", tint: "#5a7a9a", title: "回车键", sub: nl ? "回车换行，点发送键才发 · 点一下改回回车发送" : "回车直接发送 · 点一下改成回车换行",
             onClick: () => { saveJSON("x_enterNewline", !nl); setBatTick(x => x + 1); } }); })(),
         // 右上角那颗小电池（App 自己画的，不是手机状态栏）：点一下显示 / 隐藏
         (() => { let off = false; try { off = localStorage.getItem("x_hideBattery") === "1"; } catch (e) {}
