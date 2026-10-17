@@ -16643,6 +16643,10 @@ function OfflineMode({
   const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
+  // 线下也只画最近一截（她 2026-10-17：群友跟一个人聊得久，「几分钟了我还没进去他的线下」）：
+  //   单聊早就只画最近那几百条、往上翻才续；线下这一页原来是整场一次全画，一场长的就卡死在进门那一下。
+  const _offN = activeSession && Array.isArray(activeSession.msgs) ? activeSession.msgs.length : 0;
+  const { winStart: offWin, growMore: offGrow } = useChatWindow(scroller, _offN, (activeSession && activeSession.id) || "");
   if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, char, onClose: () => setReadView(null), onDelSession, fmtStamp, onPinShike });
 
   // ---- setup ----
@@ -16722,10 +16726,10 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "往期线下记录"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
-    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", style: Number(os.fontSize) ? { "--off-fs": Number(os.fontSize) + "px" } : undefined },
+    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", onScroll: e => { if (e.target.scrollTop < 320) offGrow(); }, style: Number(os.fontSize) ? { "--off-fs": Number(os.fontSize) + "px" } : undefined },
       h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
-      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
+      msgs.map((m, i) => i < offWin ? null : offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
       // 回应选项：最后一拍是 TA 的、而且带着选项才出（开关关了模型就不写，旧的那几拍本来就没有）
       (() => { const lm = msgs[msgs.length - 1]; const ops = !sending && !pick && !oocMode && !narrMode && lm && lm.role === "char" && Array.isArray(lm.replyOpts) ? lm.replyOpts : [];
         return ops.length ? h("div", { "data-wk": "offreplyopts", className: "flex flex-col", style: { gap: 6, margin: "4px 0 10px" } },
@@ -17429,6 +17433,10 @@ function GroupOfflineMode({
   const sheet = (title, children) => offSheet(t, title, () => { setPhotoOpen(false); setNoteOpen(false); setEndConfirm(false); setStyleSheet(false); setModeOpen(false); setPastOpen(false); }, children);
 
   // ---- 往期回看 ----
+  // 线下也只画最近一截（她 2026-10-17：群友跟一个人聊得久，「几分钟了我还没进去他的线下」）：
+  //   单聊早就只画最近那几百条、往上翻才续；线下这一页原来是整场一次全画，一场长的就卡死在进门那一下。
+  const _offN = activeSession && Array.isArray(activeSession.msgs) ? activeSession.msgs.length : 0;
+  const { winStart: offWin, growMore: offGrow } = useChatWindow(scroller, _offN, (activeSession && activeSession.id) || "");
   if (readView) return h(OfflineSessionReader, { session: readView, sessions, t, profile, members, onOpenState: offOpenState, canOpenState: offCanPeek, showNotes: true, onClose: () => setReadView(null), onDelSession, fmtStamp, onPinShike });
 
   // ---- setup ----
@@ -17587,10 +17595,10 @@ function GroupOfflineMode({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     directorNotes,
-    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
+    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", onScroll: e => { if (e.target.scrollTop < 320) offGrow(); } },
       h(ChatJumpArrows, { scroller, t }),
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
+      msgs.map((m, i) => i < offWin ? null : offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
