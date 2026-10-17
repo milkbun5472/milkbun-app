@@ -3615,18 +3615,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (refresh) patch.conditionUpdatedAt = now;
     }
   };
-  // 穿着不许自己漂（她 2026-10-17「聊着天他自己就变了，明明没有换衣服」）：模型每轮都会交 wearing，
-  //   常常顺手换个说法、换个颜色。卡上已经有一身还新鲜的时候，这一轮的话（她说的、他说的、动作描写）里
-  //   得真有换衣服的动作才认新的；没有就照旧。force＝这一轮本来就要求重新确认（行程换槽）或她手动改的。
-  const WEAR_CHANGE_RE = /换(上|了|好|下|掉|成|身|件|套|衣)|穿(上|好|起)|套上|披上|裹上|脱(了|下|掉)|解(开|下)|更衣|宽衣|换装|洗(完|好)?澡|沐浴|冲(了|个)?凉|起床|起来了|睡(下|觉)|躺下/;
-  const putWearing = (patch, live, value, now, cueText, force) => {
-    const v = String(value == null ? "" : value).trim();
-    if (!v) return;
-    const cv = String((live && live.wearing) || "").trim(), ua = Number(live && live.wearingUpdatedAt);
-    const cur = cv && ua > 0 && now - ua <= (typeof LIVE_STATE_TTL !== "undefined" ? LIVE_STATE_TTL.wearing : 18 * 3600000) ? cv : "";
-    if (cur && !force && !sameStateValue(v, cur) && !WEAR_CHANGE_RE.test(String(cueText || ""))) return;
-    putLiveField(patch, live, "wearing", v, now);
-  };
+  // 穿着：不在代码里挡他换（她 2026-10-17「我就是不想挡着他换衣服 我只是嫌他该换不换」）。
+  //   认下来的规矩照 putLiveField；cueText／force 留着给调用处，不再拿来拦。
+  const putWearing = (patch, live, value, now) => putLiveField(patch, live, "wearing", value, now);
   const clearWearingOnMove = (patch, live, hasWearing) => {
     if (patch.place && live.place && !sameStateValue(patch.place, live.place) && !hasWearing) {
       patch.wearing = null; patch.wearingUpdatedAt = 0;
@@ -12561,7 +12552,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!_liveChatAction) _missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
       // 穿着不自己漂（她 2026-10-17）：卡上有一身、这轮又不用重新确认时，把那身原样给它，没换就抄回
       const _wearKeepHint = _liveChatWearing && !_body && !_wearRefreshGate.required
-        ? "\n【着装连贯】卡上记着你现在穿：" + _liveChatWearing + "。这一轮没换衣服，wearing 就把这一句原样抄回，别换颜色、换料子、换个说法；真换了才写新的。" : "";
+        ? "\n【穿着】卡上记着你现在穿：" + _liveChatWearing + "。这一轮该换就换——场景变了、出门回家、洗澡睡觉、天冷天热、到了该换的时候，wearing 写你真换上的那身；没换就原样抄回，别只换个颜色换个说法。" : "";
       const _stateBootstrapHint = _wearKeepHint + (_missingStateFields.length
         ? "\n【一次性状态建档】App 还没有 " + _missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知处境合理建立一次；不要写进 word，也不要为填状态制造剧情。"
         : "");

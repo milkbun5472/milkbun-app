@@ -122,14 +122,10 @@ test("空间门口：spaceDoor 进 coupleStatusLines，x_spaceHome 走 IndexedDB
   ["usplaque", "usthing", "uslight", "usplaqueta"].forEach(k => assert.ok(scr.slice(i, j).includes('"data-wk": "' + k + '"'), k));
   assert.match(scr, /bestie: \{ days: \["闺蜜盖章", "天"\]/);
 });
-// 她 2026-10-17「聊着天他自己就变了明明没有换衣服」：卡上的衣服还新鲜时，没换衣服的动作就不认新的；卡上能手改
-test("穿着不自己漂：putWearing 要换衣服的动作才认新的，状态卡能改穿着", () => {
-  assert.match(app, /const putWearing = \(patch, live, value, now, cueText, force\) =>/);
-  assert.match(app, /if \(cur && !force && !sameStateValue\(v, cur\) && !WEAR_CHANGE_RE\.test/);
-  assert.match(app, /putWearing\(st, _live0, parsed\.wearing, stateNow,/);
-  assert.match(app, /putWearing\(ost, liveState, res\.wearing, stateNow,/);
+// 她 2026-10-17：先做了「没换衣服的动作不认新衣服」，她：「我就是不想挡着他换衣服 我只是嫌他该换不换」——撤掉拦截，只留提醒和卡上手改
+test("穿着：不在代码里拦他换，提醒他该换就换，状态卡能改穿着", () => {
+  assert.match(app, /const putWearing = \(patch, live, value, now\) => putLiveField\(patch, live, "wearing", value, now\);/);
+  assert.ok(app.indexOf("WEAR_CHANGE_RE") < 0, "又在拦他换衣服");
+  assert.match(app, /这一轮该换就换/);
   assert.match(app, /onSetWearing: roomCard \? null :/);
-  assert.match(app, /【着装连贯】卡上记着你现在穿/);
-  const i = app.indexOf("const WEAR_CHANGE_RE = "), re = new Function("return " + app.slice(i + 23, app.indexOf(";\n", i)))();
-  assert.ok(re.test("我先去换件衣服") && re.test("洗完澡出来") && !re.test("把汤碗推到她手边"));
 });
