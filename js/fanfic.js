@@ -690,7 +690,7 @@
     // 「他俩 × 我」那种三人文（她 2026-10-17 群友：续写时 U 的外貌又丢了）：原来只有新写那一枪知道要带上「我」，
     //   文上没记，续写、写长一点、请原作者回来都照「只写他俩」写——「我」整个被挤出去，外貌更不用说。现在记在文上（withMe），这几枪都跟着带
     if (fic && fic.withMe && o.includeMe == null) {
-      const me = ficMeProfile(fic.cp);
+      const me = ficMeProfile(fic.cp, null, fic.meMask);
       Object.assign(o, { includeMe: true, meName: (me && me.name) || "我", mePersona: (me && me.persona) || "", meAppearance: (me && me.appearance) || "" });
     }
     return o;
@@ -2907,14 +2907,16 @@
   // 「我」按面具写（她 2026-10-16：「搞按面具吧」）：这篇 CP 里第一位角色认我哪张面具，人设和外貌就取那张；
   //   名字仍用资料里的那个，跟书架、CP 标签、「谁没出场」那几处对得上。没有角色（我 × 原创）就用资料本身。
   let ficMeOf = null, ficProfile = null;
-  function ficMeProfile(cp, profile) {
+  // 这一篇单独挑了面具（她 2026-10-17「同人文设置搞面具分吧」）：挑了就用那张，不挑照旧跟着那位角色认的
+  function ficMaskById(id) { if (!id) return null; try { return (loadJSON("x_masks", []) || []).find(function (m) { return m && m.id === id; }) || null; } catch (e) { return null; } }
+  function ficMeProfile(cp, profile, maskId) {
     profile = profile || ficProfile;
     const lead = (cp || []).find(function (tok) { return tok !== "me"; });
-    const mask = lead && typeof ficMeOf === "function" ? ficMeOf(lead) : null;
+    const mask = ficMaskById(maskId) || (lead && typeof ficMeOf === "function" ? ficMeOf(lead) : null);
     return mask && mask !== profile ? Object.assign({}, profile || {}, { persona: mask.persona || "", appearance: mask.appearance || "" }) : profile;
   }
-  function cpChars(cp, characters, profile) {
-    const me = ficMeProfile(cp, profile);
+  function cpChars(cp, characters, profile, maskId) {
+    const me = ficMeProfile(cp, profile, maskId);
     return (cp || []).map(function (tok) { return tok === "me" ? meChar(me) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
   }
 
@@ -3223,6 +3225,9 @@
     const [pickA, setPickA] = useState(""), [pickB, setPickB] = useState("");
     const [styleIds, setStyleIds] = useState(cfg0.activeStyleIds || []); // 本次生效的文风（默认=上次选的）
     const [includeMe, setIncludeMe] = useState(false); // 俩角色 CP 时：带上「我」写成 A×我×B
+    // 这一篇「我」用哪张面具（她 2026-10-17）：空＝跟着那位角色认的那张
+    const [meMask, setMeMask] = useState("");
+    const allMasks = (function () { try { return (loadJSON("x_masks", []) || []).filter(function (m) { return m && m.id; }); } catch (e) { return []; } })();
     // 群像：点进去的那几个人（点的先后＝顺序），和这几个人之间是什么关系
     const [cast, setCast] = useState([]);
     const [way, setWay] = useState("");
@@ -3330,7 +3335,12 @@
             h("span", { style: { fontFamily: F_BODY, color: t.fog, flexShrink: 0 } }, "×"),
             h("select", { value: pickB, onChange: function (e) { setSel([]); setCast([]); setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2), "data-wk": "ficgensheetselect", "data-part": "2" },
               cpOptions(characters, props.userName))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "选「我」时按你在设置里的面具人设来写，没填则自由发挥"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "选「我」时按面具人设来写，没填则自由发挥"),
+          (allMasks.length > 1 && ((chosenCP() || []).indexOf("me") >= 0 || (!isGroup && twoRealChars() && includeMe))) ? h("div", { "data-wk": "ficmemask", className: "flex items-center gap-2", style: { marginBottom: 10 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flexShrink: 0 } }, "这篇的「我」用"),
+            h("select", { value: meMask, onChange: function (e) { setMeMask(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
+              h("option", { value: "" }, "跟着他认的那张"),
+              allMasks.map(function (m) { return h("option", { key: m.id, value: m.id }, m.name || "未命名面具"); }))) : null,
 
           // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
           (!isGroup && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
@@ -3391,7 +3401,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : ""); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -3478,7 +3488,7 @@
         if (s.status === "done" && s.result && Number.isInteger(s.result.chapterIndex)) setChapIdx(s.result.chapterIndex);
       });
     }, [chapterTaskKey]);
-    const chars = cpChars(f.cp, props.characters, props.profile);
+    const chars = cpChars(f.cp, props.characters, props.profile, f.meMask);
     const storyLore = function (extra) {
       const ids = chars.filter(function (c) { return c && !c.isMe && c.id; }).map(function (c) { return c.id; });
       return props.worldbookFor ? props.worldbookFor(ids, [f.title, props.tab && props.tab.name, extra || ""].filter(Boolean).join("\n")) : props.worldbook;
@@ -4711,7 +4721,7 @@
       persist([sess].concat(window.Fanfic.loadRP()));
       setOpenId(sess.id); setView("thread");
     }
-    function charsOf(fic) { return cpChars((fic && fic.cp) || [], props.characters, props.profile); }
+    function charsOf(fic) { return cpChars((fic && fic.cp) || [], props.characters, props.profile, fic && fic.meMask); }
 
     // 会话
     if (view === "thread") {
@@ -4824,7 +4834,7 @@
     function autoGrow() { const el = taRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(130, el.scrollHeight) + "px"; } }
     // 原篇被删时 props.fic 没了，退回存档自己记着的那份 cp——不然这一局的人全空了，
     // 身份锚点那句话认不出「文里那位就是她」，玩家会被写成另一个人
-    const cpc = cpChars((props.fic && props.fic.cp) || s.cp || [], props.characters, props.profile);
+    const cpc = cpChars((props.fic && props.fic.cp) || s.cp || [], props.characters, props.profile, props.fic && props.fic.meMask);
     const storyLore = function (extra) {
       const ids = cpc.filter(function (c) { return c && !c.isMe && c.id; }).map(function (c) { return c.id; });
       const recent = (s.transcript || []).slice(-8).map(function (x) { return x.text || ""; }).join("\n");
@@ -5554,7 +5564,7 @@
     function chapterShared(fic, ch, chapNo) { props.onNotifyChapter && props.onNotifyChapter(fic, ch, chapNo, fic.sharedTo || []); }
 
     // 生成
-    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay) {
+    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask) {
       // ⚠️**用 cast 不是 characters**（她 2026-09-11 那三篇的病根就在这一行）：
       //   characters 是【真人角色】那一份，不含配角；cast 才是含配角的全量。
       //   挑人那一格用的是 cast（所以她挑得到「萧成烨」），可这一枪用的是 characters，
@@ -5575,7 +5585,7 @@
       setGearOpen(false);
       props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
       const run = async function (updateProgress) {
-        const chars = cpChars(cp, cast, props.profile);
+        const chars = cpChars(cp, cast, props.profile, meMask);
         const routedWorldbook = props.worldbookFor ? props.worldbookFor((cp || []).filter(function (id) { return id && id !== "me"; }), [curTab.name, curTab.desc, (briefs || []).join("\n")].filter(Boolean).join("\n")) : props.worldbook;
         const cfg = loadCfg();
         // 本次勾选的文风（GenSheet 传来）→ 用它，并记住当默认；没传就退回上次的
@@ -5596,7 +5606,7 @@
         const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
           includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我",
-          mePersona: ((ficMeProfile(cp, props.profile) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile) || {}).appearance) || "",
+          mePersona: ((ficMeProfile(cp, props.profile, meMask) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile, meMask) || {}).appearance) || "",
           groupWay: String(groupWay || "").trim() };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
@@ -5609,7 +5619,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe, groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset

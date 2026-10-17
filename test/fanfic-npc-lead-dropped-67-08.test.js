@@ -18,7 +18,7 @@ const app = fic.slice(fic.indexOf("    const cast = props.allChars || characters
 assert.ok(app.length > 2000, "没切到 FanficApp");
 
 test("生成那一枪用的是 cast，不是只有真人角色的那一份", () => {
-  assert.match(app, /const chars = cpChars\(cp, cast, props\.profile\);/,
+  assert.match(app, /const chars = cpChars\(cp, cast, props\.profile, meMask\);/,
     "配角出身的那一位会在这儿被悄悄丢掉，CP 当场少一个人");
   // 按 CP 搜也一样：写配角的那几篇也得搜得出来
   assert.match(app, /const c = cast\.find\(function \(x\) \{ return x\.id === id; \}\);/);

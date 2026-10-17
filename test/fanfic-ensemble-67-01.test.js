@@ -72,7 +72,7 @@ test("那一向跟着这篇文走，续写第七章还是那一向", () => {
   // 加笔走同一个 cpBlock（v67.02 删掉魂穿之后，那一枪永远带着 includeMe）
   assert.match(code, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, \{ includeMe: true/);
   // 落在这篇文上，不然续写时无从读起
-  assert.match(code, /cp: cp \|\| \[\], withMe: !!includeMe, groupWay: String\(groupWay \|\| ""\)\.trim\(\)/);
+  assert.match(code, /cp: cp \|\| \[\], withMe: !!includeMe, meMask: meMask \|\| "", groupWay: String\(groupWay \|\| ""\)\.trim\(\)/);
 });
 
 test("名字：三个人以上不写成「A × B × C」", () => {
@@ -108,7 +108,7 @@ test("挑人那一格：点的先后就是顺序，三个以上才问向", () =>
     "群像还是把「带上我」递了出去——那一枪会按「他俩 × 我」写");
   // 三个人以上才问那一向
   assert.match(gs, /isGroup \? h\("div", \{ style: \{ marginTop: 12 \} \}/);
-  assert.match(gs, /isGroup \? way\.trim\(\) : ""\)/, "没挑群像却把那一向递了出去");
+  assert.match(gs, /isGroup \? way\.trim\(\) : "", meMask\)/, "没挑群像却把那一向递了出去");
 });
 
 test("四个向之外永远留着一格自己写", () => {

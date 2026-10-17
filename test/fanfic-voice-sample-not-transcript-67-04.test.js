@@ -167,7 +167,7 @@ test("四种局面都接上了：一人配原创、双人、三人同框、群�
 test("写完之后数一数：谁一次都没露面", () => {
   const abox = { };
   vm.createContext(abox);
-  vm.runInContext("var ficMeOf = null, ficProfile = null;\n" + grab("ficMeProfile") + grab("cpChars") + grab("absentLeads") + "\nthis.M = { absentLeads };", abox);
+  vm.runInContext("var ficMeOf = null, ficProfile = null;\n" + grab("ficMaskById") + grab("ficMeProfile") + grab("cpChars") + grab("absentLeads") + "\nthis.M = { absentLeads };", abox);
   const A = abox.M.absentLeads;
   const CS = [{ id: "di", name: "皇帝" }, { id: "wang", name: "王爷" }];
   const long = t2 => t2 + "字".repeat(300);
