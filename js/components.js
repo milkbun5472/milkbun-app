@@ -16546,6 +16546,7 @@ function OfflineMode({
   const [sCss, setSCss] = useState(os.customCSS || "");
   // 正文字号（群友 2026-10-11：「线下能给单独角色调字的大小吗」）：0＝原样；只管这个人线下的正文和旁白
   const [sFont, setSFont] = useState(Number(os.fontSize) || 0);
+  const [sNoShot, setSNoShot] = useState(!!os.noAutoShot);   // 关掉他顺手拍照（她 2026-10-17）
   const [sOpts, setSOpts] = useState(!!os.replyOpts);   // 每一拍后给几个回应选项（群友 2026-10-16「懒人从选项里选，勤劳人关掉自己写」）
   // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
   const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
@@ -16590,7 +16591,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -16654,6 +16655,13 @@ function OfflineMode({
     h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
       offShow("style", "custom", "自定义文风", styleSection),
       offShow("style", "example", "好吃片段库", exampleSection),
+      offShow("scene", "autoshot", "他会不会自己拍照",
+    h("button", { "data-wk": "offautoshot", "data-on": sNoShot ? "0" : "1", onClick: () => setSNoShot(v => !v), className: "w-full pt-5 flex items-center justify-between active:opacity-70", style: { gap: 12, textAlign: "left" } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "他会自己拍照"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, sNoShot ? "关着：他不会在戏里顺手拍照生图；你点「拍一张」照样能拍" : "开着：戏里他觉得该拍的时候会自己拍一张（会花一次生图）")),
+      h("span", { style: { flexShrink: 0, width: 44, height: 26, borderRadius: 999, background: sNoShot ? t.line : (t.accent || t.ink), position: "relative", transition: "background .15s" } },
+        h("span", { style: { position: "absolute", top: 3, left: sNoShot ? 3 : 21, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s" } })))),
       offShow("look", "font", "正文字号",
     h("div", { "data-wk": "offfontsize", className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
@@ -17489,6 +17497,7 @@ function GroupOfflineMode({
   const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
   // 写法（她 2026-10-08）：一人一拍＝原来那样；整段小说＝一次一整段、全员一起写，各人心声照常挂在这一段上
   const [sWriteMode, setSWriteMode] = useState(os.writeMode === "novel" ? "novel" : "beats");
+  const [sNoShot, setSNoShot] = useState(!!os.noAutoShot);   // 关掉他们顺手拍照（她 2026-10-17）
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
   const [sDesc, setSDesc] = useState(!!os.describeMe);
@@ -17610,7 +17619,7 @@ function GroupOfflineMode({
     h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !gSetTab && h(SettingCatalog, { pages: gSetPages, onOpen: k => { setGSetTab(k); setGSec(""); },
         note: "保存后下次开场生效" }),
@@ -17622,6 +17631,13 @@ function GroupOfflineMode({
       h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, sBg ? "更换" : "选择"),
       sBg ? h("button", { onClick: () => { setSBg(""); onSaveSettings && onSaveSettings({ bg: "" }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "清除") : null,
       h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } }))),
+      gShow("scene", "autoshot", "他们会不会自己拍照",
+    h("button", { "data-wk": "offautoshot", "data-on": sNoShot ? "0" : "1", onClick: () => setSNoShot(v => !v), className: "w-full pt-5 flex items-center justify-between active:opacity-70", style: { gap: 12, textAlign: "left" } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "他们会自己拍照"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, sNoShot ? "关着：谁都不会在戏里顺手拍照生图；你点「拍一张」照样能拍" : "开着：戏里有人觉得该拍的时候会自己拍一张（会花一次生图）")),
+      h("span", { style: { flexShrink: 0, width: 44, height: 26, borderRadius: 999, background: sNoShot ? t.line : (t.accent || t.ink), position: "relative", transition: "background .15s" } },
+        h("span", { style: { position: "absolute", top: 3, left: sNoShot ? 3 : 21, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s" } })))),
       gShow("scene", "taste", "本场口味",
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
       gShow("write", "mode", "写法",

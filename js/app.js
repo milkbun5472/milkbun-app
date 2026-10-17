@@ -8852,7 +8852,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 线下拍照：接了图像 API、这个人有外貌或参考照、没在冷却里才把 photo 这个能力给TA。
       // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
-      const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
+      const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling && !osFor(charId).noAutoShot;   // 线下设置里关了「他会自己拍照」就不给这一格
       // 一起听：她正跟这个人一起听，线下这一拍TA也能切歌（跟线上同一个 taSwitchSong）。
       //   小房间那道闸跟线上一样走 otherScenes；群线下不给（一次替一屋子人说话，谁切歌说不清）。
       const _offListenL = listenRef.current || {};
@@ -9711,7 +9711,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (group.memberIds || []).forEach(id => { gCtx.memberStyleExamples[id] = pickOfflineStyleExamples(osFor(id).examples, effectiveSess.msgs || []); });
       // 群线下拍照（四处一样喂）：谁接了图像 API 又有外貌/参考照、谁没在冷却里。
       // 合照另要两张参考照都在；多人合影要凑得齐两个人的参考照。
-      const _gShooters = ((typeof imgApiReady === "function") && imgApiReady())
+      const _gShooters = ((typeof imgApiReady === "function") && imgApiReady()) && !osFor("g_" + group.id).noAutoShot   // 群线下设置里关了「他们会自己拍照」
         ? (gCtx.members || []).filter(c => c && (c.appearance || c.refPhoto) && !photoCooldownState(_gWindow, c.id).cooling) : [];
       const _gMe = meOfGroup(group.id) || {};
       const _gDuo = _gShooters.filter(c => c.refPhoto && _gMe.refPhoto);
