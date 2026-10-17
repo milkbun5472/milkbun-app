@@ -1139,7 +1139,7 @@
     // 附件两种：图（只跟这一句走）、文件（她发来的 CSS/文本，内容接在这一句后面）
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
     const img = isFile ? null : pic;
-    const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
+    const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.imgs ? "（里面嵌着 " + pic.imgs + " 张图，你这儿看到的是占位那一句；她直接导入原文件时图都在）" : "") + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
     // 旧记录里只剩一句「改动稿在下面。」的那几条：换成卡上写的改了什么，别让它照着自己学成只发卡
     const itText = m => m.role !== "me" && /^改动稿在下面。?$/.test(String(m.text || "").trim()) && Array.isArray(m.patches) && m.patches.length
       ? m.patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n") : String(m.text || "");
