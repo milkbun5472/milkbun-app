@@ -9074,7 +9074,7 @@ function QuietHoursBox({ t, toast }) {
     q.on ? h("div", null,
       h("div", { className: "flex items-center", style: { gap: 8, margin: "6px 0 4px", fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "从", tm("from"), "到", tm("to")),
       row("这段时间不发主动消息", "谁都不来找你，醒着的也不来。你自己设的提醒照常到。", q.noPro, () => put({ noPro: !q.noPro }), "quietpro"),
-      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停，只剩你点了才动的；点开看一下也不会被带着跑起来。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg")) : null);
+      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停；点开看一下也不会被带着跑起来。你自己点了要的（比如在日记、周刊里点生成）照常出。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg")) : null);
 }
 function NeteaseApiHelp({ toast }) {
   const t = useTheme();
