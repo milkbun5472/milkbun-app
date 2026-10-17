@@ -1,6 +1,6 @@
-import {restoreResidentWork} from './resident-work.mjs?v=fg-2f4de0c05cc03cb1';
-import {idlePetPose} from '../../art/pet-house/pet-action.mjs?v=fg-2f4de0c05cc03cb1';
-import {RESIDENT_ACTS,restoreResidentChoices} from './resident-choice.mjs?v=fg-2f4de0c05cc03cb1';
+import {restoreResidentWork} from './resident-work.mjs?v=fg-29f27ae3d09a730b';
+import {idlePetPose} from '../../art/pet-house/pet-action.mjs?v=fg-29f27ae3d09a730b';
+import {RESIDENT_ACTS,restoreResidentChoices} from './resident-choice.mjs?v=fg-29f27ae3d09a730b';
 const finitePoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,f)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
 export function nextRandom(state){state.rng=(Math.imul(state.rng,1664525)+1013904223)>>>0;return state.rng/4294967296;}

@@ -1,4 +1,4 @@
-import {roomPoint,roomDoor} from './room-layout.mjs?v=fg-2f4de0c05cc03cb1';
+import {roomPoint,roomDoor} from './room-layout.mjs?v=fg-29f27ae3d09a730b';
 const clamp=(v,a,b,d=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 const text=(s,n=80)=>typeof s==='string'?s.slice(0,n):'';
 const clone=v=>structuredClone(v),point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
@@ -55,7 +55,8 @@ export function createResidentWork(state,{town,world,person,getContext=()=>({}),
  function tick(dt,at=now()){
   if(!Number.isFinite(dt)||dt<=0)return {owned:!!state.shift,speed:0};if(!state.shift&&!state.automatic&&state.fatigue<=0){state.at=at;return {owned:false,speed:0};}
   const before={shift:clone(state.shift),at:state.at,fatigue:state.fatigue,balance:state.balance,earned:state.earned,skills:clone(state.skills),ledger:state.ledger.length,works:state.works.length,gifts:state.gifts.length,notes:state.notes.length,body:clone(town.state),peers:(ctx().pets||[]).map(x=>[x,clone(x.entry.town)])};
-  const r=step(dt,at);
+  const elapsed=!state.shift?.trial&&state.shift?.phase==='work'&&!town.state.goal?Math.max(dt,Math.max(0,(at-state.at)/1000)):dt;
+  const r=step(elapsed,at);
   if((ended||before.shift?.phase!==state.shift?.phase||before.shift?.id!==state.shift?.id||at-lastPersist>5000)&&!recovering){
    lastPersist=at;
    if(!save()){
@@ -68,7 +69,7 @@ export function createResidentWork(state,{town,world,person,getContext=()=>({}),
   }
   return r;
  }
- function recover(at=now()){const gap=state.at?Math.max(0,(at-state.at)/1000):0;if(gap<1){state.at=at;return;}return transaction(()=>{recovering=true;try{const begin=at-Math.min(gap,72*3600)*1000;let cursor=begin,budget=0;if(state.shift){state.shift.pickup=false;state.shift.visit=false;}while(cursor<at&&budget++<120000){const s=state.shift;if(!s){const d=new Date(cursor);d.setSeconds(0,0);d.setMinutes(d.getMinutes()+1);const next=Math.min(at,d.getTime());state.fatigue=Math.max(0,state.fatigue-(next-cursor)/120000);step(.001,cursor,{offline:true});if(!state.shift){cursor=next;continue;}}const active=state.shift;if(active?.phase==='work'&&!town.state.goal){const remaining=active.duration-active.worked,untilEnd=active.trial?remaining:Math.max(0,(active.endAt-cursor)/1000),secs=Math.min(60,remaining,untilEnd,(Math.floor(active.worked/(active.duration/3))+1)*(active.duration/3)-active.worked,(at-cursor)/1000);if(secs>0){step(secs,cursor+secs*1000,{offline:true});cursor+=secs*1000;continue;}}step(.1,cursor,{offline:true});cursor+=100;}state.at=at;log('offline','按已约好的排班在本地补算了离线工作，探班和接下班不补编。',at,'work-offline:'+at);return {accepted:true};}finally{recovering=false;}});}
+ function recover(at=now()){const gap=state.at?Math.max(0,(at-state.at)/1000):0;if(gap<1||state.shift?.trial&&!state.shift.settled){state.at=at;return;}return transaction(()=>{recovering=true;try{const begin=at-Math.min(gap,72*3600)*1000;let cursor=begin,budget=0;if(state.shift){state.shift.pickup=false;state.shift.visit=false;}while(cursor<at&&budget++<120000){const s=state.shift;if(!s){const d=new Date(cursor);d.setSeconds(0,0);d.setMinutes(d.getMinutes()+1);const next=Math.min(at,d.getTime());state.fatigue=Math.max(0,state.fatigue-(next-cursor)/120000);step(.001,cursor,{offline:true});if(!state.shift){cursor=next;continue;}}const active=state.shift;if(active?.phase==='work'&&!town.state.goal){const remaining=active.duration-active.worked,untilEnd=active.trial?remaining:Math.max(0,(active.endAt-cursor)/1000),secs=Math.min(60,remaining,untilEnd,(Math.floor(active.worked/(active.duration/3))+1)*(active.duration/3)-active.worked,(at-cursor)/1000);if(secs>0){step(secs,cursor+secs*1000,{offline:true});cursor+=secs*1000;continue;}}step(.1,cursor,{offline:true});cursor+=100;}state.at=at;log('offline','按已约好的排班在本地补算了离线工作，探班和接下班不补编。',at,'work-offline:'+at);return {accepted:true};}finally{recovering=false;}});}
  function summary(){const s=state.shift;return s?s.phase==='travel'?'正沿路去'+s.contract.title+'的工位':s.phase==='work'?s.contract.title+' · '+(residentJob(s.contract.role)?.duties[s.stage]||['准备工作','处理事务','整理交付'][s.stage]):s.phase==='break'?'工作间隙陪你歇一会儿':s.phase==='pickup'?'收工了，在门外等你':'收工后正在回家':'今天还没有出勤';}
  function view(){const s=state.shift,at=now();return {...clone(state),name:person.name,suggestion:suggestResidentJob(person),jobs:clone(RESIDENT_JOBS),forms:{...WORK_FORMS},today:date(at),activity:summary(),progress:s?Math.round(s.worked/s.duration*100):0};}
 
