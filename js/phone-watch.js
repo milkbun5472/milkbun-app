@@ -1116,7 +1116,9 @@
         //   外层整条不吃手指（别挡住底下的屏幕），只有这一块让她点得到「译」
         pointerEvents: "auto"
       }
-    }, typeof TransText === "function" ? h(TransText, { text: p.text, zhReady: p.zh || undefined, ink: "currentColor", inline: true, noModel: true }) : p.text));
+    // 交了中文就直接「原句（中文）」摆出来（她 2026-10-17：「不是不能直接（中文）吗，非得翻译是吧」）——不用点、不用等；没交才留「译」兜底
+    }, p.zh ? p.text + "（" + p.zh + "）"
+      : typeof TransText === "function" ? h(TransText, { text: p.text, ink: "currentColor", inline: true, noModel: true }) : p.text));
   }
 
   // 底下那条：进度、倍速、跳过、敲一下。
