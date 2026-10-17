@@ -14021,13 +14021,13 @@ function GachaShareCard({ m, isU }) {
   const ink = "#5a3442", soft = "#b0708a", paper = "#fffaf6";
   // 两侧的半圆缺口：用背景挖，不另起元素，什么底色上都对
   const notch = "radial-gradient(circle at 0 50%, transparent 9px, " + paper + " 9.5px) left / 51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 9px, " + paper + " 9.5px) right / 51% 100% no-repeat";
-  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
+  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start"), style: { display: "flex", justifyContent: isU ? "flex-end" : "flex-start" } },
     h("div", { "data-wk": "card", "data-kind": "gachashare", style: { width: 236, filter: "drop-shadow(0 4px 10px rgba(120,60,80,.12))" } },
       // 上半截
       h("div", { style: { background: paper, borderRadius: "16px 16px 0 0", padding: "12px 14px 10px", borderTop: "3px solid " + (best === "SSR" ? "#d9a24a" : best === "SR" ? "#c46a8e" : "#b8bdc4") } },
-        h("div", { className: "flex items-center justify-between" },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: soft } }, "GACHA · 扭蛋票"),
-          h("span", { "aria-hidden": "true", style: { width: 18, height: 18, borderRadius: 999, background: "linear-gradient(180deg,#f7c9d9 50%,#fff 50%)", border: "1.5px solid #e3b3c6" } })),
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: soft } }, "扭 蛋 票"),
+          h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 18, height: 18, borderRadius: 999, background: "linear-gradient(180deg,#f7c9d9 50%,#fff 50%)", border: "1.5px solid #e3b3c6" } })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: ink, marginTop: 6, lineHeight: 1.3 } }, "替你扳了 " + (g.n || cs.length) + " 下"),
         best ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: soft, marginTop: 2 } }, best === "SSR" ? "出金了" : best === "SR" ? "手气还行" : "下次再来") : null),
       // 打孔撕线
@@ -14035,11 +14035,11 @@ function GachaShareCard({ m, isU }) {
         h("div", { style: { position: "absolute", left: 14, right: 14, top: 8, borderTop: "2px dotted #e7cdd8" } })),
       // 下半截
       h("div", { style: { background: paper, borderRadius: "0 0 16px 16px", padding: "4px 14px 12px" } },
-        top.map((c, i) => h("div", { key: i, className: "flex items-center", style: { gap: 9, marginTop: i ? 7 : 2 } },
+        top.map((c, i) => h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 9, marginTop: i ? 7 : 2 } },
           h("span", { style: { flexShrink: 0, minWidth: 38, textAlign: "center", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: "#fff", background: pill[c.r] || pill.R, borderRadius: 999, padding: "2px 7px", boxShadow: c.r === "SSR" ? "0 0 0 2px #f6e2b8" : "none" } }, c.r),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name))),
         cs.length > top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: soft, marginTop: 7 } }, "还有 " + (cs.length - top.length) + " 张，都在券夹里") : null,
-        h("div", { className: "flex justify-between", style: { marginTop: 10, paddingTop: 7, borderTop: "1px dashed #ecd6df", fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: 1, color: "#c79aac" } },
+        h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 10, paddingTop: 7, borderTop: "1px dashed #ecd6df", fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: 1, color: "#c79aac" } },
           h("span", null, (d.getMonth() + 1) + "/" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes())),
           h("span", null, serial)))));
 }
