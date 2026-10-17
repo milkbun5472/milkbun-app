@@ -839,10 +839,16 @@ function pickTextFile(onMsg, opts) {
       }
       txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
       if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
+      // 文件里嵌着的图（美化 json 里的头像框、贴纸，CSS 里的 url(data:image…)）：一张就是几万个字母，
+      //   读的人（秋秋、角色）看不懂也用不上，还会把真正的 CSS 挤到截断线后面（群里 2026-10-17：14 万字的气泡包只给了前 6 万）。
+      //   换成一句「这里有张图」，字数照实算剩下的
+      const imgs = [];
+      txt = txt.replace(/data:image\/([a-z0-9.+-]+);base64,[A-Za-z0-9+\/=]{200,}/gi, (m, ty) => { imgs.push(m.length); return "data:image/" + ty + ";base64,…（这里是一张图，约 " + Math.ceil(m.length * 0.75 / 1024) + "KB，没给文字）"; });
       const cut = txt.length > MAX;
       const body = cut ? txt.slice(0, MAX) : txt;
       onMsg({ kind: "file", name: f.name, size: f.size, chars: txt.length, cut: cut, max: MAX, text: body,
-        content: "[文件] " + f.name + "（" + txt.length + " 字" + (cut ? "，只给了前 " + MAX + " 字" : "") + "）\n" + body });
+        imgs: imgs.length,
+        content: "[文件] " + f.name + "（" + txt.length + " 字" + (imgs.length ? "，里面 " + imgs.length + " 张图没给文字" : "") + (cut ? "，只给了前 " + MAX + " 字" : "") + "）\n" + body });
     } catch (e) { typeof toast === "function" && toast("这份文件读不出来：" + ((e && e.message) || e)); }
   };
   inp.click();

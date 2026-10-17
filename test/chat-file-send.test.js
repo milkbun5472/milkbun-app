@@ -27,3 +27,20 @@ test("PDF and docx via vendored, lazily loaded libraries", () => {
   const idx = fs.readFileSync(__dirname + "/../index.html", "utf8");
   assert.ok(!/pdf\.min\.js|mammoth/.test(idx), "解析库不该进开机那一串");
 });
+
+// 群里 2026-10-17：14 万字的气泡包发给秋秋，只给了前 6 万——大半是嵌着的图（头像框、贴纸的 base64）
+test("文件里嵌着的图换成一句占位，字数不再被图吃掉；秋秋那头知道有几张图", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  const asst = fs.readFileSync(path.join(__dirname, "..", "js", "assistant.js"), "utf8");
+  const i = comp.indexOf("function pickTextFile("), seg = comp.slice(i, comp.indexOf("\n}\n", i));
+  const m = /txt = txt\.replace\((\/data:image[^\n]*?\/gi), /.exec(seg);
+  assert.ok(m, "没在截断之前把图换掉");
+  assert.ok(seg.indexOf(m[0]) < seg.indexOf("const cut = txt.length > MAX"), "要在算截断之前换");
+  const re = eval(m[1]);
+  const big = '{"assets":{"iv_a":"data:image/png;base64,' + "A".repeat(80000) + '"},"css":"a{}"}';
+  const out = big.replace(re, "图");
+  assert.ok(out.length < 100 && out.includes('"css":"a{}"'));
+  assert.equal('url(data:image/svg+xml;base64,PHN2Zy8+)'.replace(re, "图"), 'url(data:image/svg+xml;base64,PHN2Zy8+)', "小的不动");
+  assert.match(asst, /pic\.imgs \? "（里面嵌着 " \+ pic\.imgs \+ " 张图/);
+});
