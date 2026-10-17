@@ -9973,6 +9973,7 @@ function ChatThread({
   // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
+    if (loadTtsApi().noListen) return null;   // 她在语音设置里关掉了气泡底下的「听一下」
     const k = m && m.kind;
     if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
     const spk = speakerOf(m);
@@ -17600,6 +17601,7 @@ function GroupThread({
   // 现在它是【这条消息的页脚】的一项——本来就是同一档信息，字号字色也跟着它。
   const sayDot = (i, m) => {
     if (!canSpeakMsg(m)) return null;
+    if (loadTtsApi().noListen) return null;   // 她在语音设置里关掉了气泡底下的「听一下」
     const k = m && m.kind;
     if (k && k !== "photo" && k !== "location") return null;   // 语音条自己气泡上已经有一个
     const spk = speakerOf(m);
