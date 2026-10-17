@@ -1571,7 +1571,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
               open ? shown : shown.slice(0, cutNew) + (shown.length > cutNew ? "…" : "")),
             (shown.length > cutNew || (was && was.length > cutOld))
-              ? h("button", { onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
+              ? h("button", { "data-wk": "block", onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
               : null),
       h("div", { "data-wk": "qqpatchfoot", style: { padding: "8px 12px 10px", borderTop: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 10 } },
         state
@@ -1784,7 +1784,7 @@
           h("button", { "data-wk": "qqballswitch", "data-on": cfg.ballOn ? "1" : "0", onClick: () => put({ ballOn: !cfg.ballOn }), style: {
             width: 46, height: 27, borderRadius: 999, border: "none", padding: 0, flexShrink: 0,
             background: cfg.ballOn ? t.accent : t.line, position: "relative", transition: "background .18s" } },
-            h("div", { style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
+            h("div", { "data-wk": "block", style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
         // 走哪条线路（她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」）
         // 摆法照设置里【线下与创作模型】那一栏：第一行是「跟随全局」，底下一行一条线路。
         (function () {

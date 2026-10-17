@@ -95,7 +95,7 @@
     };
     // 一句墙角的铅笔字（空墙、访客、没砌墙都用它）
     const pencil = (lines) => h("div", { "data-wk": "yqempty", style: { padding: "56px 28px 0", textAlign: "center" } },
-      h("div", { style: { display: "inline-block", transform: "rotate(-1.5deg)", padding: "10px 14px", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.08)" } },
+      h("div", { "data-wk": "block", style: { display: "inline-block", transform: "rotate(-1.5deg)", padding: "10px 14px", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.08)" } },
         h("div", { style: { display: "flex", justifyContent: "center", marginTop: -17, marginBottom: 4 } }, h(Pin, { color: t.ink, size: 12 })),
         lines.map((s, i) => h("div", { key: i, style: { fontFamily: SERIF, fontSize: 12, color: t.fog, lineHeight: 1.8 } }, s))));
 

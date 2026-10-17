@@ -2266,7 +2266,7 @@
             : "把课本章节、讲义、自己的笔记传上来，老师就照着你真正要学的那份来教。能读 .txt、.md 和带文字层的 .pdf。"),
         list.map(function (m) {
           const open = peek === m.id, body = MAT_CACHE[m.id];
-          return h("div", { key: m.id, style: { background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", padding: "11px 14px", marginBottom: 9, boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+          return h("div", { "data-wk": "block", key: m.id, style: { background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px", padding: "11px 14px", marginBottom: 9, boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
             h("button", { onClick: function () { setPeek(open ? "" : m.id); }, className: "w-full flex items-center active:opacity-70", style: { gap: 8, textAlign: "left", background: "transparent", border: "none", padding: 0 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0 5px", flexShrink: 0 } }, m.kind === "pdf" ? "PDF" : m.kind === "handout" ? "老师给的" : "文字"),
               h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.name),
@@ -2640,7 +2640,7 @@
         units.length === 0 ? h("div", { style: { marginTop: 40, textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog, lineHeight: 1.9 } }, "还没上过课。\n开一张课页，老师排出的小节和要点会长在这里。")
         : units.map(function (u) {
           const tested = u.points.filter(function (p) { return p.level != null; }).length;
-          return h("section", { key: u.key, style: { marginTop: 12, padding: "13px 14px 12px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px" } },
+          return h("section", { "data-wk": "block", key: u.key, style: { marginTop: 12, padding: "13px 14px 12px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + accent, borderRadius: "4px 12px 12px 4px" } },
             h("div", { className: "flex items-baseline", style: { gap: 8 } },
               h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: STUDY_SKIN.ink } }, u.title),
               h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog } }, "测过 " + tested + "/" + u.points.length)),
@@ -2760,7 +2760,7 @@
           // 每一道
           report.items.map(function (it, k) {
             const ok = it.result === "correct";
-            return h("div", { key: k, style: { marginTop: 9, padding: "12px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (ok ? accent : STUDY_SKIN.red), borderRadius: "4px 12px 12px 4px" } },
+            return h("div", { "data-wk": "block", key: k, style: { marginTop: 9, padding: "12px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (ok ? accent : STUDY_SKIN.red), borderRadius: "4px 12px 12px 4px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, (k + 1) + ". " + it.prompt),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: ok ? accent : STUDY_SKIN.red, marginTop: 5 } }, (ok ? "对 · " : it.result === "partial" ? "半对 · " : "错 · ") + "你写的：" + (optLabel(it, it.given) || "（空）")),
               ok ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginTop: 2 } }, "答案：" + optLabel(it, it.answer)),
@@ -2909,7 +2909,7 @@
         (drops && drops.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "言秋的投递 · " + drops.length) : null,
         (drops && drops.length) ? drops.map(function (d) {
           const paras = dropParas(d.payload);
-          return h("div", { key: d.id, className: "mb-2", style: { padding: "12px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
+          return h("div", { "data-wk": "block", key: d.id, className: "mb-2", style: { padding: "12px 14px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: STUDY_SKIN.ink } }, d.title || "未署名投递"),
             paras.map(function (t, i) {
               return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: 1.75, marginTop: i === 0 ? 7 : 5, whiteSpace: "pre-wrap" } }, t);
@@ -2994,7 +2994,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: accent, margin: "19px 2px 8px" } }, "学到哪了"),
         summaries.length === 0
           ? h("div", { "data-wk": "studycard", style: { padding: "13px 14px", fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, lineHeight: 1.7, background: STUDY_SKIN.paper, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 10 } }, "还没有记录。开一节课，聊完它会自动记住进度，下一节接着走。")
-          : h("div", { className: "mb-2", style: { padding: "10px 14px 11px", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.12) 28px)", border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px" } },
+          : h("div", { "data-wk": "block", className: "mb-2", style: { padding: "10px 14px 11px", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.12) 28px)", border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + STUDY_SKIN.red, borderRadius: "4px 12px 12px 4px" } },
               summaries.slice().reverse().slice(0, 8).map(function (sm, i) {
                 return h("div", { key: sm.sessionId || i, style: { fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.ink, lineHeight: "28px" } }, "· " + sm.text);
               })),
@@ -3102,7 +3102,7 @@
         })),
         mode === "nv1" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, marginTop: 10, lineHeight: 1.7 } }, "会自动判断两位谁更适合站讲台，另一位坐同学位。") : null)),
       h(StudyFooter, null,
-        h("button", { onClick: begin, disabled: busy, className: "w-full py-3", style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", opacity: busy ? 0.6 : 1 } },
+        h("button", { "data-wk": "block", onClick: begin, disabled: busy, className: "w-full py-3", style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", opacity: busy ? 0.6 : 1 } },
           busy ? "判定角色能力中…" : "建课程")),
       confirmUnfit ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(20,19,15,0.55)" }, onClick: function () { setConfirmUnfit(null); } },
         h("div", { onClick: function (e) { e.stopPropagation(); }, style: { width: "84%", maxWidth: 340, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "5px solid " + skin.accent, borderRadius: "5px 18px 18px 5px", padding: "20px 20px 16px", boxShadow: "0 20px 50px rgba(25,30,24,.24)" } },
@@ -3245,7 +3245,7 @@
             const ed = { width: "100%", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, background: STUDY_SKIN.desk, border: "1px solid " + STUDY_SKIN.line, borderRadius: 8, padding: "7px 9px", marginTop: 6, lineHeight: 1.6, resize: "vertical" };
             const tool = function (label, on, fn, extra) { return h("button", Object.assign({ onClick: fn, className: "active:opacity-60",
               style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (on ? skin.accent : STUDY_SKIN.line), background: on ? skin.soft : "transparent", color: on ? skin.accent : STUDY_SKIN.sub } }, extra || {}), label); };
-            return h("div", { key: u.id, "data-wk": "studyunit", "data-keep": u._keep ? "1" : "0", className: "mb-3", style: { position: "relative", padding: "14px 14px 12px 49px", background: STUDY_SKIN.paper, border: "1px solid " + (u._keep ? skin.accent : STUDY_SKIN.line), borderRadius: "5px 14px 14px 5px", boxShadow: "0 6px 16px " + STUDY_SKIN.shadow } },
+            return h("div", { "data-wk": "block", key: u.id, "data-wk": "studyunit", "data-keep": u._keep ? "1" : "0", className: "mb-3", style: { position: "relative", padding: "14px 14px 12px 49px", background: STUDY_SKIN.paper, border: "1px solid " + (u._keep ? skin.accent : STUDY_SKIN.line), borderRadius: "5px 14px 14px 5px", boxShadow: "0 6px 16px " + STUDY_SKIN.shadow } },
               h("span", { style: { position: "absolute", left: 12, top: 12, width: 25, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: skin.soft, borderBottom: "3px solid " + skin.accent, fontFamily: F_DISPLAY, fontSize: 14, color: skin.accent } }, i + 1),
               editing
                 ? h("div", null,
@@ -3286,7 +3286,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginBottom: 7 } }, "这节想侧重什么（可选）"),
         h("input", { "data-wk": "studyinput", value: focus, onChange: function (e) { return setFocus(e.target.value); }, placeholder: "留空=接着上次；或写：想多练听力", style: field }))),
       h(StudyFooter, null,
-        h("button", { onClick: generate, disabled: !!busy, className: "w-full py-3", style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", opacity: busy ? 0.6 : 1 } },
+        h("button", { "data-wk": "block", onClick: generate, disabled: !!busy, className: "w-full py-3", style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", opacity: busy ? 0.6 : 1 } },
           busy === "sum" ? "翻阅之前几节…" : busy === "draft" ? "正在排这张课页…" : "排本节大纲")));
   }
 
@@ -3318,7 +3318,7 @@
             on ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: skin.accent } }, "同桌") : null);
         })))),
       h(StudyFooter, null,
-        h("button", { onClick: begin, className: "w-full py-3", style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "12px 5px 12px 5px" } }, "把研究纸摊开")));
+        h("button", { "data-wk": "block", onClick: begin, className: "w-full py-3", style: { minHeight: 46, fontFamily: F_BODY, fontSize: 15, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "12px 5px 12px 5px" } }, "把研究纸摊开")));
   }
 
   // 聊天主体
@@ -3798,7 +3798,7 @@
       : h("div", { "data-wk": "studycard", className: "shrink-0 px-4 py-2", style: { background: STUDY_SKIN.paper, borderBottom: "1px solid " + STUDY_SKIN.line } },
           h("button", { onClick: function () { return setExpand(!expand); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 32 } },
             h("div", { "data-wk": "studycard", className: "flex-1", style: { height: 7, padding: 1, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: 2, overflow: "hidden" } },
-              h("div", { style: { height: "100%", width: (studyProgressRatio(units, prog) * 100) + "%", background: accent, borderRadius: 1 } })),
+              h("div", { "data-wk": "block", style: { height: "100%", width: (studyProgressRatio(units, prog) * 100) + "%", background: accent, borderRadius: 1 } })),
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog } },
               (unit ? unit.title : "本节") + " " + ((prog.completed || []).length) + "/" + (units.length || "?"))),
           expand && unit ? h("div", { className: "mt-2 flex flex-wrap gap-1.5" }, (unit.grammar || []).map(function (g) {
@@ -3809,8 +3809,8 @@
 
     const lessonTools = sess.mode === "costudy" ? null : h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { background: studyPaperA(.9), borderBottom: "1px solid " + STUDY_SKIN.line } },
       h("button", { onClick: prevUnit, disabled: busy || !units.length || (units.findIndex(function (u) { return u.id === prog.current_unit; }) <= 0), className: "active:opacity-60 disabled:opacity-30", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.sub, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 10px 4px 4px" } }, "← 上一小节"),
-      h("button", { onClick: quizMe, disabled: busy, className: "active:opacity-60 disabled:opacity-30", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "3px solid " + accent, borderRadius: "4px 10px 4px 4px" } }, "抽一张题卡"),
-      h("button", { onClick: checkpoint, disabled: busy, className: "active:opacity-60", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: accent, background: studyModeSkin(sess.mode).soft, border: "1px solid " + accent + "66", borderRadius: "4px 10px 4px 4px" } },
+      h("button", { "data-wk": "block", onClick: quizMe, disabled: busy, className: "active:opacity-60 disabled:opacity-30", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "3px solid " + accent, borderRadius: "4px 10px 4px 4px" } }, "抽一张题卡"),
+      h("button", { "data-wk": "block", onClick: checkpoint, disabled: busy, className: "active:opacity-60", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: accent, background: studyModeSkin(sess.mode).soft, border: "1px solid " + accent + "66", borderRadius: "4px 10px 4px 4px" } },
         prog.exit_ticket && prog.exit_ticket.status === "awaiting_answer"
           ? (hasExitAnswer(sess, prog.exit_ticket) ? "提交结课" : "先答小测")
           : (prog.exit_ticket && prog.exit_ticket.status === "needs_retry" ? "再测一次" : "结课小测")));
@@ -3869,7 +3869,7 @@
               className: "active:opacity-65", style: { minHeight: 36, padding: "6px 9px", fontFamily: F_BODY, fontSize: 11.5,
                 color: STUDY_SKIN.fog, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 8 } }, "重新拼") : null) : null);
       }
-      return h("div", { style: { position: "relative", width: "min(100%, 430px)", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.10) 28px)", border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: "13px 13px 14px", boxShadow: "0 7px 18px " + STUDY_SKIN.shadow } },
+      return h("div", { "data-wk": "block", style: { position: "relative", width: "min(100%, 430px)", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.10) 28px)", border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: "13px 13px 14px", boxShadow: "0 7px 18px " + STUDY_SKIN.shadow } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".15em", color: accent } }, "小测 · " + (q.type === "choice" ? "单选" : q.type === "true_false" ? "判断" : "填空")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, attempts.length ? "已答 " + attempts.length + " 次" : "未作答")),
@@ -3886,7 +3886,7 @@
           h("button", { disabled: busy || !String(draft).trim() || !confidence, onClick: function () { submitQuiz(m, draft, confidence); },
             className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 7, fontFamily: F_BODY, fontSize: 12.5,
               color: STUDY_SKIN.paper, background: accent, borderRadius: "4px 10px 4px 4px", padding: "9px 0" } }, busy ? "判定中…" : "交这张题卡")) : null,
-        hintsUsed ? h("div", { style: { marginTop: 9, padding: "8px 9px", background: accent + "0d", borderRadius: 8 } },
+        hintsUsed ? h("div", { "data-wk": "block", style: { marginTop: 9, padding: "8px 9px", background: accent + "0d", borderRadius: 8 } },
           hints.slice(0, hintsUsed).map(function (hint, i) {
             return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: STUDY_SKIN.fog,
               marginTop: i ? 5 : 0 } }, "提示 " + (i + 1) + "：" + hint);
@@ -3907,7 +3907,7 @@
       if (m.hidden) return null;
       if (m.studyNote) {
         const n = m.studyNote;
-        return h("div", { key: m.id, className: "my-4", style: { position: "relative", background: STUDY_SKIN.paper, border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: 14, boxShadow: "0 7px 18px " + STUDY_SKIN.shadow, transform: "rotate(-.2deg)" } },
+        return h("div", { "data-wk": "block", key: m.id, className: "my-4", style: { position: "relative", background: STUDY_SKIN.paper, border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: 14, boxShadow: "0 7px 18px " + STUDY_SKIN.shadow, transform: "rotate(-.2deg)" } },
           h("div", { className: "flex items-center justify-between", style: { marginBottom: 9 } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: STUDY_SKIN.ink } }, "课后批注页"),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, n.authorName || "老师")),
@@ -3922,7 +3922,7 @@
         return h("div", { key: m.id, className: "flex justify-end mb-2" },
           h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
             m.imageRef ? h("img", { src: typeof resolveImg === "function" ? resolveImg(m.imageRef) : m.imageRef, alt: "你发的图", style: { display: "block", maxWidth: "100%", maxHeight: 260, borderRadius: 10, border: "1px solid " + STUDY_SKIN.line, objectFit: "contain", background: STUDY_SKIN.paper } }) : null,
-            (m.content || !m.imageRef) ? h("div", { style: { background: accent, color: STUDY_SKIN.paper, borderRadius: "12px 12px 3px 12px", padding: "9px 12px", boxShadow: "0 4px 10px " + accent + "24", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content) : null));
+            (m.content || !m.imageRef) ? h("div", { "data-wk": "block", style: { background: accent, color: STUDY_SKIN.paper, borderRadius: "12px 12px 3px 12px", padding: "9px 12px", boxShadow: "0 4px 10px " + accent + "24", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content) : null));
       }
       const isTeacher = !teacher || m.speakerId === teacher.id;
       const char = chars.find(function (c) { return c.id === m.speakerId; });
@@ -3933,7 +3933,7 @@
           (sess.mode === "nv1" || (char && char.voiceId && typeof ttsReady === "function" && ttsReady())) ? h("div", { className: "flex items-center gap-1", style: { marginBottom: 2 } },
             sess.mode === "nv1" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, m.name + (isTeacher ? "（老师）" : "（同学）")) : null,
             (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: isVoice(m.content) ? m.content.slice(VOICE_PRE.length) : m.content, spk: char, tp: tp }) : null) : null,
-          m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", cursor: isVoice(m.content) ? "pointer" : undefined },
+          m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { "data-wk": "block", style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", cursor: isVoice(m.content) ? "pointer" : undefined },
             onClick: isVoice(m.content) ? function () { playVoice(char, m.content); } : undefined }, voiceShow(m.content))));
     });
 
@@ -3954,14 +3954,14 @@
               (prog.warmup_queue || []).length && !prog.warmup_started
                 ? h("button", { onClick: startWarmup, disabled: busy, className: "px-4 py-2 active:opacity-70",
                     style: { fontFamily: F_BODY, fontSize: 13, background: accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px" } }, "先做课前热身")
-                : h("button", { onClick: replyNow, disabled: busy, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px" } }, busy ? "…" : "请 " + (teacher ? teacher.name : "对方") + " 写下开场"))
+                : h("button", { "data-wk": "block", onClick: replyNow, disabled: busy, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px" } }, busy ? "…" : "请 " + (teacher ? teacher.name : "对方") + " 写下开场"))
           : bubbles,
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, padding: "4px 2px" } }, "正在翻课页…") : null),
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.97) } },
         bubbles.length ? h("div", { className: "px-4 pt-2 flex gap-2" },
           sess.mode !== "costudy" ? h("button", { onClick: reteach, disabled: busy, className: "active:opacity-70 disabled:opacity-40",
             style: { flex: "0 0 auto", fontFamily: F_BODY, fontSize: 12.5, color: accent, border: "1px solid " + accent, borderRadius: "4px 10px 4px 4px", padding: "8px 11px" } }, "换种讲法") : null,
-          h("button", { onClick: replyNow, disabled: busy, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: busy ? STUDY_SKIN.line : accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px", padding: "8px 0", opacity: busy ? 0.8 : 1 } },
+          h("button", { "data-wk": "block", onClick: replyNow, disabled: busy, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: busy ? STUDY_SKIN.line : accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px", padding: "8px 0", opacity: busy ? 0.8 : 1 } },
             busy ? "生成中…" : (sess.mode === "nv1" ? "让 " + (teacher ? teacher.name : "老师") + " / 同学接话" : "让 " + (chars[0] ? chars[0].name : "对方") + " 回复"))) : null,
         h("div", { className: "px-4 pt-3 flex items-end gap-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
           h("button", { onClick: function () { photoRef.current && photoRef.current.click(); }, "aria-label": "发图片", className: "shrink-0 active:opacity-70",
@@ -3970,7 +3970,7 @@
           h("input", { "data-wk": "studyinput", ref: photoRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: function (e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; sendPhoto(f); } }),
           h("textarea", { "data-wk": "studyinput", value: input, onChange: function (e) { return setInput(e.target.value); }, rows: 1, placeholder: "写在这张课页上…", style: { flex: 1, resize: "none", fontFamily: F_BODY, fontSize: 14, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: "5px 16px 16px 5px", padding: "9px 13px", maxHeight: 100 },
             onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } } }),
-          h("button", { onClick: send, disabled: !input.trim(), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, background: accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", padding: "9px 16px", opacity: !input.trim() ? 0.5 : 1 } }, "写下"))));
+          h("button", { "data-wk": "block", onClick: send, disabled: !input.trim(), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, background: accent, color: STUDY_SKIN.paper, borderRadius: "5px 14px 5px 5px", padding: "9px 16px", opacity: !input.trim() ? 0.5 : 1 } }, "写下"))));
   }
 
   // 顶层：三板分区 + 三级导航
@@ -4467,7 +4467,7 @@
     const reviewUi = reviewed ? stus.map(function (c) {
       const rv = tbReviewOf(s, c.id); if (!rv) return null;
       const left = tbMisOf(s, c.id).filter(function (m) { return !m.found; });
-      return h("div", { key: c.id, "data-wk": "tbreview", style: { margin: "4px 0 14px", padding: "16px", background: skin.soft, borderRadius: 14, border: "1px solid " + skin.accent + "55" } },
+      return h("div", { "data-wk": "block", key: c.id, "data-wk": "tbreview", style: { margin: "4px 0 14px", padding: "16px", background: skin.soft, borderRadius: 14, border: "1px solid " + skin.accent + "55" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: skin.accent } }, "评教卡 · " + c.name),
         h("div", { style: { fontSize: 15, color: skin.accent, margin: "4px 0 6px", letterSpacing: 2 } }, "★★★★★".slice(0, rv.stars) + "☆☆☆☆☆".slice(0, 5 - rv.stars)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: STUDY_SKIN.ink, whiteSpace: "pre-wrap" } }, rv.card),

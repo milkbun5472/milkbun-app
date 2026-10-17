@@ -645,7 +645,7 @@
             h("button", { onClick: function () { setWhyOpen(!whyOpen); },
               style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
               whyOpen ? "收起原话" : "到底哪儿没成"),
-            whyOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
+            whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
       })() : null,
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
@@ -666,11 +666,11 @@
               h("button", { onClick: function () { setWhyOpen(!whyOpen); },
                 style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
                 whyOpen ? "收起原话" : "到底哪儿没成"),
-              whyOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, st.raw) : null) : null);
+              whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, st.raw) : null) : null);
         })(),
         onSeed ? h("button", { "data-wk": "gazebtn", "data-kind": "seed", onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? say("他在想…") : say("让他写写看")) : null) : null,
       defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
-        return h("div", { key: fk, "data-wk": "gazecard", "data-k": fk, "data-empty": b ? "0" : "1", onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
+        return h("div", { "data-wk": "block", key: fk, "data-wk": "gazecard", "data-k": fk, "data-empty": b ? "0" : "1", onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
           tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
           unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
           (box.locks || {})[fk] ? h("span", { "data-wk": "gazelockmark", style: { position: "absolute", top: 7, right: 22, fontFamily: F_BODY, fontSize: 9, color: GOLD } }, "已锁") : null,

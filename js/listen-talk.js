@@ -152,7 +152,7 @@
         [side === "l" ? "borderTopRightRadius" : "borderTopLeftRadius"]: 4,
         opacity: Math.max(0.25, 1 - Math.max(0, now - clockOf(r) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } }, r.content);
     const me = props.profile || {};
-    const head = (who, isMe) => h("div", { style: { width: 54, height: 54, borderRadius: 999, padding: 2, background: "rgba(255,255,255,.7)", boxShadow: "0 4px 12px rgba(30,28,24,.2)" } },
+    const head = (who, isMe) => h("div", { "data-wk": "block", style: { width: 54, height: 54, borderRadius: 999, padding: 2, background: "rgba(255,255,255,.7)", boxShadow: "0 4px 12px rgba(30,28,24,.2)" } },
       isMe ? (me.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(me.avatarImage) : me.avatarImage, alt: "", style: { width: 50, height: 50, borderRadius: 999, objectFit: "cover" } })
         : h("div", { style: { width: 50, height: 50, borderRadius: 999, background: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, String(me.name || "我").slice(0, 1)))
         : h(Avatar, { character: who, size: 50, radius: 999 }));
@@ -171,7 +171,7 @@
       h("div", { style: { textAlign: "center", marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, props.roomName ? "在「" + props.roomName + "」里听 · 说的话落在这间房" : "同一首歌，同一刻"),
       col(theirs, "l"), col(mine, "r"));
     const bar = h("div", { className: "flex items-center", style: { gap: 8, width: "100%", maxWidth: 340, marginTop: 14 } },
-      h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },
+      h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); },
         placeholder: "跟 " + (partner.remark || partner.name) + " 说…",
         style: { flex: 1, minWidth: 0, height: 38, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
       h("button", { onClick: send, disabled: busy || !txt.trim(), className: "active:opacity-70",
@@ -184,7 +184,7 @@
     const log = rows.length ? h("div", { className: "w-full", style: { maxWidth: 340, marginTop: 8 } },
       h("button", { onClick: () => setShowLog(v => !v), "data-wk": "listenlog", className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "6px 0", minHeight: 32 } },
         (showLog ? "收起" : "刚才说的") + "（" + rows.length + "）"),
-      showLog ? h("div", { style: { maxHeight: 240, overflowY: "auto", padding: "8px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+      showLog ? h("div", { "data-wk": "block", style: { maxHeight: 240, overflowY: "auto", padding: "8px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
         rows.map((r, i) => h("div", { key: (r.ts || 0) + "_" + i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, marginBottom: 4 } },
           h("span", { style: { color: t.fog } }, who(r) + "："), r.content,
           r.song ? h("span", { style: { color: t.fog, fontSize: 10.5 } }, "  《" + r.song + "》") : null))) : null) : null;

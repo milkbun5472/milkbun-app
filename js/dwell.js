@@ -379,7 +379,7 @@
           ? h("img", { src: src, alt: p.name || "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
           : h("div", { className: "h-full flex items-center justify-center", style: { backgroundImage: "linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px)", backgroundSize: "24px 24px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: OVER_SUB, border: "1px solid " + OVER_LINE, padding: "8px 11px", borderRadius: 6 } }, "还没画过这儿")),
-        src ? h("div", { style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(9,12,14,.68)", padding: "5px 8px", borderRadius: 4 } }, "点开看全屏") : null);
+        src ? h("div", { "data-wk": "block", style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: "rgba(9,12,14,.68)", padding: "5px 8px", borderRadius: 4 } }, "点开看全屏") : null);
     };
     // 一处地方的第一屏＝你站在那儿看见的画面。
     // ⚠️进去的入口就在【这张图上】（她 2026-09-01 要的），但不是照片上挂胶囊＋连线＋幽灵英文——
@@ -395,7 +395,7 @@
           h("div", { style: { position: "absolute", inset: 0, background: src
             ? "linear-gradient(180deg,rgba(5,8,10,.16) 0%,rgba(5,8,10,.06) 28%,rgba(5,8,10,.68) 100%)"
             : "radial-gradient(circle at 72% 24%,rgba(97,120,134,.28),transparent 36%),linear-gradient(180deg,rgba(9,12,14,.08),rgba(9,12,14,.7))" } }),
-          src ? h("div", { style: { position: "absolute", right: 16, top: 16, fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.72)", background: "rgba(9,12,14,.42)", border: "1px solid rgba(255,255,255,.22)", padding: "5px 9px", borderRadius: 999 } }, "点开看全屏") : null),
+          src ? h("div", { "data-wk": "block", style: { position: "absolute", right: 16, top: 16, fontFamily: F_BODY, fontSize: 10, color: "rgba(244,241,233,.72)", background: "rgba(9,12,14,.42)", border: "1px solid rgba(255,255,255,.22)", padding: "5px 9px", borderRadius: 999 } }, "点开看全屏") : null),
         // 底下这一叠压在图上，但要能点，所以摆在那个铺满的按钮【外面】
         h("div", { style: { position: "relative", pointerEvents: "none", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "0 21px calc(env(safe-area-inset-bottom) + 22px)" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 31, lineHeight: 1.28, textShadow: "0 2px 20px rgba(0,0,0,.42)" } }, p.name),
@@ -496,7 +496,7 @@
         },
           h("div", { style: { position: "relative", width: 168, height: 258 } },
             // 门开了以后透出来的光
-            h("div", { style: { position: "absolute", inset: 0, borderRadius: "84px 84px 6px 6px", background: "linear-gradient(180deg," + ACCENT + "22, #f6efe288)", boxShadow: opening ? "0 0 60px 12px rgba(246,239,226,.34)" : "none", transition: "box-shadow .5s ease" } }),
+            h("div", { "data-wk": "block", style: { position: "absolute", inset: 0, borderRadius: "84px 84px 6px 6px", background: "linear-gradient(180deg," + ACCENT + "22, #f6efe288)", boxShadow: opening ? "0 0 60px 12px rgba(246,239,226,.34)" : "none", transition: "box-shadow .5s ease" } }),
             // 门扇：从左边那条边转开
             h("div", { style: { position: "absolute", inset: 0, borderRadius: "84px 84px 6px 6px", border: "1.5px solid " + t.line, background: t.bg2,
               transformOrigin: "left center", transform: opening ? "rotateY(-72deg)" : "rotateY(0deg)", transition: "transform .56s cubic-bezier(.34,.68,.3,1)", boxShadow: "0 18px 44px rgba(0,0,0,.16)" } },

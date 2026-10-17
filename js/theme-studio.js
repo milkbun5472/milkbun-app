@@ -378,6 +378,7 @@
     ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["lookundo", "美化「回到上一版／换回来」那一行"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
     ["csexport", "聊天设置里「导出聊天记录」那一块"], ["csexportbtn", "那一块里的「导出 txt」"], ["csreset", "聊天设置里「清除 / 重置…」那颗按钮"], ["callpill", "聊天里那条「通话已结束」回执的整块（多选时 data-on＝1）"], ["proactiverate", "聊天设置里「多久来找你一次」那一排（选项 data-on）"], ["csrouteoff", "线路那一格「线下见面单独走」的一颗（data-on＝1 选中）"], ["mcppick", "聊天设置 · 让 Ta 能上网 下面那一列「能用的工具」（一台 MCP 一行开关）"], ["resetpage", "清除 / 重置选择页整页"], ["resetgo", "选择页最后那颗「确定清掉」"],
+    ["block", "页里一块自己有底色或边框的卡片、板、格子（凡是没单独起名的都是它；想只改某一页，前面带上那一页的最外层挂点）"],
     ["empty", "空状态那一块（还没有内容时）"],
     ["sheet", "从底下掀起来的半窗"], ["pagesheet", "原来是半窗、现在铺满整页的那些（通话记录、查找记录、记忆库、备忘录编辑……）"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
     ["avatar", "头像（全 App 每一颗）"],
@@ -536,7 +537,7 @@
         ["chattoollabel", "键底下那行字"],
         // 点头像那张心声卡（她 2026-09-22 转群里读者：「那个卡片不可以美化的嘛？」）
         ["statecard", "点头像那张心声卡整张"], ["statehead", "心声卡抬头（头像·名字·此刻心情）"],
-        ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statewear", "心声卡上「穿着」那一行（点一下能改）"], ["statevoice", "心声卡「心里想的」那一块"], ["statevoicedel", "心声卡上每条心声旁边的「删」"], ["statevoiceclear", "心声卡翻旧的那页顶上的「清空」"],
+        ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statewear", "心声卡上「穿着」那一行（点一下能改）"], ["closetpick", "改穿着时弹出来的衣柜挑选（从衣柜挑一身、打字筛）"], ["statevoice", "心声卡「心里想的」那一块"], ["statevoicedel", "心声卡上每条心声旁边的「删」"], ["statevoiceclear", "心声卡翻旧的那页顶上的「清空」"],
         ["stateaff", "心声卡底下好感那一整行（心＋好感度那几个字）"],
         // 那颗心拆开（她 2026-10-05：「要可以改图案」）：换形状写在 stateheart 上的 --sc-heart-mask，四层一起变
         ["stateheart", "好感那颗心整颗（换图案：--sc-heart-mask: url(图)；颜色 --sc-heart-ink）"], ["stateheartline", "心的描边那一圈"],
@@ -1027,7 +1028,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.879",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.881",changed: "论坛楼层和楼中楼正文套上翻译壳，挂点没变。",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
