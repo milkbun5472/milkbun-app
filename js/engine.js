@@ -7353,8 +7353,27 @@ function hanLineLang(text) {
   if (typeof toSimplified === "function" && toSimplified(t) !== t) return "粤语";
   return "";
 }
+// 中译写在句尾的【】里（她 2026-10-17 转群里粤语截图：「睇就睇，邊個怕你睇【看就看，谁怕你看】」）：
+//   人设里自己约好这么写的，跟竖线是一回事。只认【】、不认（）——（）多半是动作、语气，劈错了比不劈难看。
+//   左边要看得出是外语／粤语（繁体、粤语字都算），括号里要是简体普通话，「【表情】」这类发东西的标记不算。
+const BI_MARK_RE = /^(表情|图片|照片|语音|贴纸|转账|红包|位置|链接|视频|文件)/;
+function bracketBilingual(text) {
+  const t = String(text == null ? "" : text);
+  if (t.indexOf("|") >= 0) return null;
+  const m = t.match(/^([\s\S]*?\S)\s*【([^【】]+)】\s*$/);
+  if (!m) return null;
+  const orig = m[1].trim(), zh = m[2].trim();
+  if (!orig || !zh || orig === zh || BI_MARK_RE.test(zh)) return null;
+  if (!/[\u4e00-\u9fff]/.test(zh) || /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(zh)) return null;
+  if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(zh)) return null;
+  const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
+  if (!foreign && !hanLineLang(orig)) return null;
+  return { text: orig, zh: zh };
+}
 function splitBilingual(text, hanLang) {
   const t = String(text == null ? "" : text);
+  const br = typeof bracketBilingual === "function" ? bracketBilingual(t) : null;
+  if (br) return br;
   const i = t.indexOf("|");
   if (i <= 0 || i !== t.lastIndexOf("|")) return null;
   const orig = t.slice(0, i).trim(), zh = t.slice(i + 1).trim();
@@ -7370,7 +7389,14 @@ function splitBilingual(text, hanLang) {
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
 function joinBilingualLines(lines, hanLang, opts) {
-  const joined = (lines || []).reduce((acc, x) => {
+  // 【 开了没合上、】落在下一行的（同一张截图：「頭髮都未吹好【刚刚…」换行「头发都还没吹好】」）：先接成一行再说
+  const brJoined = (lines || []).reduce((acc, x) => {
+    const line = String(x == null ? "" : x), prev = acc.length ? acc[acc.length - 1] : null;
+    if (prev != null && prev.lastIndexOf("【") > prev.lastIndexOf("】") && line.indexOf("】") >= 0 && line.indexOf("【") < 0) acc[acc.length - 1] = prev + line.trim();
+    else acc.push(line);
+    return acc;
+  }, []);
+  const joined = brJoined.reduce((acc, x) => {
     const line = String(x == null ? "" : x);
     const prev = acc.length ? acc[acc.length - 1] : null;
     if (prev != null && /^\s*\|/.test(line) && prev.indexOf("|") < 0) acc[acc.length - 1] = prev + " " + line.trim();
@@ -7520,6 +7546,33 @@ async function _transGoogle(text, src) {
   return zh;
 }
 // 免费引擎②：MyMemory。匿名每天 1000 词，CORS 开放，欧洲的机器国内通常连得上。
+// 微软（她 2026-10-17 群里粤语截图：Google 在国内连不上、MyMemory 不翻粤语，模型她不让叫，三条全断）：
+//   Edge 浏览器自带翻译用的那一家，国内一般连得上，认粤语（yue）。先拿一张临时票（约十分钟），再翻。
+let _msTok = { v: "", at: 0 };
+async function _transMicrosoft(text, src) {
+  if (!_msTok.v || Date.now() - _msTok.at > 8 * 60000) {
+    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const r = await fetch("https://edge.microsoft.com/translate/auth", { signal: ctrl.signal });
+      if (!r.ok) throw new Error("取票 HTTP " + r.status);
+      _msTok = { v: (await r.text()).trim(), at: Date.now() };
+    } finally { clearTimeout(to); }
+  }
+  const from = src && src !== "auto" ? "&from=" + src : "";
+  const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch("https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=zh-Hans" + from, {
+      method: "POST", signal: ctrl.signal,
+      headers: { "Authorization": "Bearer " + _msTok.v, "Content-Type": "application/json" },
+      body: JSON.stringify([{ Text: String(text || "") }]) });
+    if (r.status === 401) _msTok = { v: "", at: 0 };
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    const zh = String((((j && j[0] && j[0].translations) || [])[0] || {}).text || "").trim();
+    if (!zh) throw new Error("没有返回译文");
+    return zh;
+  } finally { clearTimeout(to); }
+}
 async function _transMyMemory(text, src) {
   const u = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text)
     + "&langpair=" + encodeURIComponent((src && src !== "auto" ? src : "en") + "|zh-CN");
@@ -7602,13 +7655,14 @@ async function translateToZh(text, lang, opts) {
   const myMemoryOk = src === "en" || src === "auto";
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
+    { by: "免费", run: () => _transMicrosoft(text, src) },
     { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
     // 模型那一级默认不走了（她 2026-10-16：「翻译能不能不给模型翻译，浪费钱」）——免费两家都不成就照实报失败，点一下再试。
     //   只有调用处明说 allowModel 才叫模型（现在没有哪一处这么说）
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
-  const names = ["Google", "MyMemory", "模型"];
+  const names = ["Google", "微软", "MyMemory", "模型"];
   for (let i = 0; i < chain.length; i++) {
     try {
       const zh = await chain[i].run();
@@ -7617,9 +7671,9 @@ async function translateToZh(text, lang, opts) {
       return { zh: zh, by: chain[i].by };
     } catch (e) { errs.push(names[i] + "：" + String((e && e.message) || e).slice(0, 70)); }
   }
-  // 三级都挂了要把三条原因都报出来——只报最后一条的话，她看到「后台线路没配」
+  // 几级都挂了要把每一条原因都报出来——只报最后一条的话，她看到「后台线路没配」
   // 会以为是自己没配，其实前面两个免费的是网络不通。
-  throw new Error("三条都没翻成 · " + errs.join("；"));
+  throw new Error("都没翻成 · " + errs.join("；"));
 }
 
 // 日语汉字 → 假名读音（v47.93）：MiniMax 对「寝」这类中日共用汉字压不住会读成中文，
