@@ -291,7 +291,8 @@ function chatLookClean(look) {
   CHAT_LOOK_KEYS.forEach(k => { const v = look && look[k]; if (v != null && v !== "" && !(typeof v === "object" && !Object.keys(v).length)) clean[k] = v; });
   return clean;
 }
-async function exportChatLook(look, fileBase) {
+// 打成一份包（图一起装进去），导出和小窝直接传共用这一份
+async function packChatLook(look, fileBase) {
   const clean = chatLookClean(look);
   const refs = [...new Set(JSON.stringify(clean).match(/iv_[A-Za-z0-9_-]+/g) || [])];
   const assets = {};
@@ -302,6 +303,10 @@ async function exportChatLook(look, fileBase) {
     } catch (e) {}
   }
   const pack = { kind: CHAT_LOOK_KIND, v: 1, name: fileBase || "", look: clean, assets: assets };
+  return pack;
+}
+async function exportChatLook(look, fileBase) {
+  const pack = await packChatLook(look, fileBase);
   if (typeof saveTextFile === "function") await saveTextFile((fileBase || "聊天") + "-美化.json", JSON.stringify(pack), "application/json");
   return pack;
 }

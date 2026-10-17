@@ -3,7 +3,7 @@
 //
 // 大家把自己做的东西传上来、别人点一下就导进自己的手机：
 //   主题、聊天美化、CSS、世界书、文风、预设台预设、人设。
-// 定下来的几条：大家自己传、传的人能删自己的、管理口令什么都能删；第一版不收图；
+// 定下来的几条：大家自己传、传的人能删自己的、管理口令什么都能删；第一版不收图（2026-10-17 起收了：美化里的图压小了一起传）；
 //   不分尺度；没有举报键；只按时间排（新的在前／旧的在前），不按导入数排。
 //
 // 东西存在 Cloudflare 那边（qiuqiu-nest），这一页只走秋秋机自己的 /nest/ 前门——
@@ -129,12 +129,11 @@
     if (!t) throw new Error("这份文件是空的");
     if (kind === "theme") {
       if (!d || !/-theme$/.test(String(d.kind || ""))) throw new Error("这不是主题包：去「设置 → 主题工作台」点「导出」存出来的那种 json");
-      if (d.assets && Object.keys(d.assets).length) throw new Error("这个主题包里带着图（图标、壁纸或字体文件），小窝先不收图：导出时把那几样的勾去掉再存一份");
+      if (Object.values(d.assets || {}).some(v => /^data:(?!image\/)/i.test(String(v)))) throw new Error("这个主题包里带着字体文件，小窝不收字体：导出时把「字体」的勾去掉再存一份");
       return { payload: t, title: base, note: "主题包" };
     }
     if (kind === "look") {
       if (!d || !(d.kind === "chat-look" || (/-theme$/.test(String(d.kind || "")) && d.bubbleSkin))) throw new Error("这不是聊天美化：要聊天设置里「整套美化」导出的，或「聊天气泡」那一栏导出的 json");
-      if (d.assets && Object.keys(d.assets).length) throw new Error("这套美化里带着图（背景图、头像框这些），小窝先不收图：去掉图再导出一份");
       return { payload: t, title: base, note: d.kind === "chat-look" ? "整套聊天美化" : "气泡包" };
     }
     if (kind === "css") return { payload: /\.docx$/i.test(name || "") ? unWord(t) : t, title: base, note: t.length + " 字的 CSS" };
@@ -726,9 +725,12 @@
   // ── 传一个上去 ─────────────────────────────────────────────
   //   两条路：从手机里选一份文件（每一类都行），或者从 app 里现成的挑（世界书、文风、预设、人设）。
   //   主题、聊天美化、CSS 在 app 里没有「挑一个」这回事，就是文件或者贴一份。
-  // 嵌进去的图（data:image）：跟后端 embeddedImages 同一把尺子——矢量小图（svg，8KB 以内）放行，别的都不收。
-  //   传之前先在这儿找出来，告诉她是哪一段，免得只看到后端一句「不收图片」不知道去哪儿找（群里 2026-10-17）
-  const SVG_MAX = 8192;
+  // 嵌进去的图（data:image）：跟后端 embeddedImages 同一把尺子（她 2026-10-17「直接开放」）——
+  //   位图（png/jpg/webp/gif）每张压到 ASSET_CHARS 以内都收，矢量图 8KB 内收；字体文件不收；一件最多 12 张、整份 1.6MB。
+  //   上传前先 shrinkImages 压一遍，再拿 imgProblem 查一遍，卡住了直接说是哪一样
+  const SVG_MAX = 8192, ASSET_CHARS = 400 * 1024, ASSET_COUNT = 12, PAYLOAD_ALL = 1600 * 1024;
+  const RASTER = ["png", "jpeg", "jpg", "webp", "gif"];
+  const blobToData = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
   function embeddedImages(text) {
     const out = [], re = /data:image\/([a-z0-9.+-]+)/gi; let m;
     while ((m = re.exec(text))) {
@@ -736,30 +738,56 @@
       let end = (q === '"' || q === "'") ? text.indexOf(q, st) : text.indexOf(")", st);
       if (end < 0) end = text.length;
       const type = m[1].toLowerCase(), len = end - st;
-      out.push({ type, len, ok: type === "svg+xml" && len <= SVG_MAX, near: text.slice(Math.max(0, st - 60), st).replace(/\\"/g, '"').split(/[{};]/).pop().trim().slice(-40) });
+      out.push({ type, len, st, end, ok: type === "svg+xml" ? len <= SVG_MAX : RASTER.indexOf(type) >= 0 && len <= ASSET_CHARS,
+        near: text.slice(Math.max(0, st - 60), st).replace(/\\"/g, '"').split(/[{};]/).pop().trim().slice(-40) });
       re.lastIndex = Math.max(re.lastIndex, end);
     }
     return out;
   }
+  // 压一张：太大就缩边再压，直到放得下（透明的保持 png，见 engine.js _resizeImageCore）
+  async function shrinkOne(dataUrl) {
+    if (dataUrl.length <= ASSET_CHARS || /^data:image\/(svg|gif)/i.test(dataUrl)) return dataUrl;
+    const blob = await (await fetch(dataUrl)).blob();
+    for (const [dim, q] of [[1600, .85], [1280, .82], [1024, .8], [800, .75], [640, .7]]) {
+      const out = await resizeImageFile(blob, dim, q);
+      if (out.length <= ASSET_CHARS) return out;
+    }
+    return dataUrl;   // 实在压不下去：交给 imgProblem 说清楚
+  }
+  async function shrinkImages(payload) {
+    let text = String(payload || "");
+    const big = embeddedImages(text).filter(x => x.type !== "svg+xml" && x.len > ASSET_CHARS).reverse();
+    for (const x of big) {
+      const src = text.slice(x.st, x.end), out = await shrinkOne(src);
+      if (out !== src) text = text.slice(0, x.st) + out + text.slice(x.end);
+    }
+    return text;
+  }
   function imgProblem(payload) {
-    const bad = embeddedImages(String(payload || "")).filter(x => !x.ok);
-    if (!bad.length) return "";
-    const b = bad[0];
-    return "里面嵌着 " + bad.length + " 张小窝不收的图：" + (b.type === "svg+xml" ? "一张 " + Math.ceil(b.len / 1024) + "KB 的矢量图（超过 8KB）" : "一张 " + b.type + " 图片")
-      + (b.near ? "，第一张在「" + b.near + "」后面" : "") + "。CSS 里搜 data:image，把那段 url(…) 删掉或换成颜色再传；想给人看效果，放预览截图。小的矢量图标（svg）能传。";
+    const text = String(payload || "");
+    if (/data:(?:font|application\/(?:font|x-font))/i.test(text)) return "里面带着字体文件，小窝不收字体：导出时把「字体」的勾去掉再传。";
+    const imgs = embeddedImages(text), bad = imgs.filter(x => !x.ok);
+    if (bad.length) {
+      const b = bad[0];
+      return "有 " + bad.length + " 张图传不了：" + (b.type === "svg+xml" ? "一张 " + Math.ceil(b.len / 1024) + "KB 的矢量图（超过 8KB）"
+        : RASTER.indexOf(b.type) >= 0 ? "一张图压到最小还是太大" : "一张 " + b.type + "（只收 png、jpg、webp、gif）")
+        + (b.near ? "，在「" + b.near + "」后面" : "") + "。换一张小点的图，或者把它删掉再传。";
+    }
+    if (imgs.filter(x => x.type !== "svg+xml").length > ASSET_COUNT) return "图太多了，一件最多 " + ASSET_COUNT + " 张。";
+    if (text.length > PAYLOAD_ALL) return "连图一共太大了（最多 " + Math.round(PAYLOAD_ALL / 1024) + "KB），少放几张图再传。";
+    return "";
   }
 
   // ── 不用先导出：主题、聊天美化直接拿手机上正用着的那套（她 2026-10-16：老师们传之前还得先弄成文件）──
-  //   主题走主题工作台导出那一支 exportPackage，只是不出文件；图标图片、壁纸、自己传的字体不带（小窝不收图）。
+  //   主题走主题工作台导出那一支 exportPackage，只是不出文件；图标、壁纸、CSS 里的图都带上（2026-10-17 起收图），只有自己传的字体文件不带。
   async function packCurrentTheme() {
     const S = window.ThemeStudio; if (!S) throw new Error("主题工作台没加载出来，退出再进来试试");
     const p = S.normalize(S.load());
-    const pick = { css: true, base: true, bubble: true, wall: false,
-      icons: !Object.keys(p.icons || {}).length, fonts: !(p.customFonts || []).length };
-    const text = await S.exportPackage({ profile: p, baseTheme: loadJSON("x_theme", null) || undefined,
+    // 图标、壁纸、CSS 里的图、气泡贴纸都带上（她 2026-10-17 小窝开放收图）；自己传的字体文件不带（太大）
+    const wall = loadJSON("x_wallpaper", "");
+    const pick = { css: true, base: true, bubble: true, icons: true, wall: !!wall, fonts: !(p.customFonts || []).length };
+    return await S.exportPackage({ profile: p, baseTheme: loadJSON("x_theme", null) || undefined, wallpaper: wall || undefined,
       bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick });
-    if (Object.keys((JSON.parse(text).assets) || {}).length) throw new Error("你现在这套 CSS 里用了自己传的图，小窝先不收图：去主题工作台导出时把带图的那几样去掉，再选那份文件");
-    return text;
   }
   // 聊天美化能挑的：「我存的美化」那一架、每个人的聊天窗、每个群，正用着的那一套
   function lookSources(chars) {
@@ -784,18 +812,23 @@
     (loadJSON("x_groups", []) || []).forEach(g => g && put("g:" + g.id, (g.name || "群聊") + "（群）", "群里自己写的 CSS", g.customCSS));
     return out;
   }
-  function packCss(src) {
-    if (/iv_[A-Za-z0-9_-]+/.test(src.css)) throw new Error("这段 CSS 里用了自己传的图，小窝先不收图：把图去掉再传");
-    return src.css;
+  // CSS 里 url(iv_…) 是本机图库的门牌，别人手机上没有：换成图本身嵌进去（上传前再统一压小）
+  async function packCss(src) {
+    let css = String(src.css || "");
+    const refs = [...new Set(css.match(/iv_[A-Za-z0-9_-]+/g) || [])];
+    for (const ref of refs) {
+      const blob = typeof imgVaultFetchBlob === "function" ? await imgVaultFetchBlob(ref).catch(() => null) : null;
+      if (!blob) throw new Error("CSS 里有一张图在这台手机的图库里找不到了（" + ref + "）");
+      css = css.split(ref).join(await blobToData(blob));
+    }
+    return css;
   }
-  // 背景是自己传的图就不带（其余照带）；CSS 里还引用着自己的图就不收
-  function packLook(src) {
-    const look = Object.assign({}, src.look); let dropped = false;
-    if (/iv_|^data:/.test(String(look.chatBg || ""))) { delete look.chatBg; dropped = true; }
-    if (/iv_[A-Za-z0-9_-]+/.test(JSON.stringify(look))) throw new Error("这套的 CSS 或气泡里用了自己传的图，小窝先不收图：把图去掉再传");
-    if (!Object.keys(look).length) throw new Error("这套里只有一张背景图，小窝不收图，没有别的可传");
-    return { payload: JSON.stringify({ kind: "chat-look", v: 1, name: src.name, look, assets: {} }), dropped };
+  // 整套美化：头像框、挂件、背景这些自己传的图一起打进包（跟聊天设置里「导出」同一份 packChatLook）
+  async function packLook(src) {
+    if (typeof packChatLook !== "function") throw new Error("美化打包没加载出来，退出再进来试试");
+    return { payload: JSON.stringify(await packChatLook(src.look, src.name)) };
   }
+
 
   // 改一件（群友 2026-10-17「仓库上传可不可以加一个再编辑」）：同一页，edit＝点进去那件（带 payload）。
   //   类别不能换；内容不碰就不发、后端原样留着；截图一张张留或换，原来的那几张用 { keep: 第几张 }。
@@ -819,7 +852,7 @@
     const looks = kind === "look" ? lookSources((props.characters || []).filter(c => c && !c.npc)) : [];
     const csses = kind === "css" ? cssSources((props.characters || []).filter(c => c && !c.npc)) : [];
     const rows = kind === "css" ? csses.map(x => ({ id: x.id, name: x.name, sub: x.sub }))
-      : kind === "theme" ? [{ id: "cur", name: "我现在用的这套主题", sub: "页面 CSS、配色、气泡一起；图标图片、壁纸、自己传的字体不带" }]
+      : kind === "theme" ? [{ id: "cur", name: "我现在用的这套主题", sub: "页面 CSS、配色、气泡、图标、壁纸一起；只有自己传的字体文件不带" }]
       : kind === "look" ? looks.map(x => ({ id: x.id, name: x.name, sub: x.sub }))
       : kind === "lore" ? lore.map(e => ({ id: e.id, name: e.title || "未命名", sub: String(e.payload || "").slice(0, 40) }))
       : kind === "style" ? styles.map(s => ({ id: s.key, name: s.name, sub: String(s.prompt).slice(0, 40) }))
@@ -865,11 +898,9 @@
       if (edit && !file && !chosen.length && !String(text || "").trim()) return null;   // 改的时候没碰内容：不发，后端留着原来的
       if (file) return file.payload;
       if (kind === "theme" && chosen.length) return await packCurrentTheme();
-      if (kind === "css" && chosen.length) return packCss(csses.find(x => x.id === chosen[0]));
+      if (kind === "css" && chosen.length) return await packCss(csses.find(x => x.id === chosen[0]));
       if (kind === "look" && chosen.length) {
-        const r = packLook(looks.find(x => x.id === chosen[0]));
-        if (r.dropped) props.toast("背景是自己传的图，没带上；其余照传");
-        return r.payload;
+        return (await packLook(looks.find(x => x.id === chosen[0]))).payload;
       }
       if (pasteKind) {
         const s = String(text || "").replace(/^﻿/, "").trim();
@@ -885,6 +916,7 @@
     const send = async () => {
       let payload;
       try { payload = await build(); } catch (e) { props.toast(e.message); return; }
+      if (payload != null && kind !== "post") { try { payload = await shrinkImages(payload); } catch (e) {} }
       const ip = payload != null ? imgProblem(payload) : ""; if (ip) { props.toast(ip, 8000); return; }
       if (!title.trim()) { props.toast("起个名字吧"); return; }
       setBusy(true);
@@ -913,8 +945,8 @@
     const field = (val, set, ph, max, area) => h(area ? "textarea" : "input", { value: val, maxLength: max, placeholder: ph, rows: area ? 3 : undefined,
       onChange: e => set(e.target.value), className: "w-full outline-none", style: inputStyle });
     const k = KIND[kind];
-    const where = kind === "theme" ? "「设置 → 主题工作台」点「导出」存的 json（图标、壁纸、自传字体那几样别勾）"
-      : kind === "look" ? "聊天设置里「整套美化」导出的 json，或「设置 → 聊天气泡」导出的 json（都别带图）"
+    const where = kind === "theme" ? "「设置 → 主题工作台」点「导出」存的 json（自己传的字体那一样别勾）"
+      : kind === "look" ? "聊天设置里「整套美化」导出的 json，或「设置 → 聊天气泡」导出的 json（头像框、挂件、背景图都能带）"
       : kind === "css" ? ".css、.txt，或者老师给的 Word（.docx）；Word 改坏的引号和破折号会自动改回来"
       : kind === "lore" ? "世界书 json，或者一份 txt／docx（整份当一条词条）"
       : kind === "style" ? "一份 txt／docx／md，整份就是这条文风"
@@ -924,7 +956,7 @@
       h(Head, { zh: edit ? "改一改" : "传一个上去", onBack: onClose, bg: "transparent" }),
       edit ? null : h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, edit ? (isPost ? "标题、正文、截图都能改；底下的留言和赞都留着。" : "名字、简介、截图都能改。内容不想换就别动下面这几格，原来的留着；换了以后，已经导进别人手机的那份不会跟着变，想要新的得再导一次。留言、赞、收藏都留着。") : k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。东西本身不带图、不带记忆和聊天（想让人看看长什么样，底下放截图）；署名就是你的小窝昵称，随时能删。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, edit ? (isPost ? "标题、正文、截图都能改；底下的留言和赞都留着。" : "名字、简介、截图都能改。内容不想换就别动下面这几格，原来的留着；换了以后，已经导进别人手机的那份不会跟着变，想要新的得再导一次。留言、赞、收藏都留着。") : k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。美化里的图（头像框、挂件、背景、图标、贴纸）会压小了一起传；不带记忆和聊天，也不带自己传的字体文件。署名就是你的小窝昵称，随时能删。")),
         // ① 从手机文件选（帖子没有文件）
         isPost ? null : h("div", { style: Object.assign({ padding: 14 }, card(t)) },
           h("div", { className: "flex items-center", style: { gap: 10 } },
@@ -1064,5 +1096,5 @@
   }
 
   window.NestApp = NestApp;
-  window.Nest = { KINDS, embeddedImages, imgProblem, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
+  window.Nest = { KINDS, embeddedImages, imgProblem, shrinkImages, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
 })();

@@ -958,7 +958,9 @@
     const cssRefs = cssImageRefs(profile.globalCSS).concat(...Object.values(profile.pageCSS || {}).map(cssImageRefs));
     // 她自己传的字体文件也在同一个保险箱里，所以它跟图标走同一条打包路（one-public-mechanism）。
     const fontRefs = g.FontChoice ? g.FontChoice.fileRefs(profile.fonts, profile.customFonts) : [];
-    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs].filter(x => /^iv_/.test(x)))];
+    // 气泡贴纸（我的／TA 的）如果是自己传的图，也是保险箱门牌——跟着气泡那一样一起装进包（她 2026-10-17 小窝开放收图）
+    const bubbleRefs = sel.bubble && extras && extras.bubbleSkin ? [extras.bubbleSkin.mySticker, extras.bubbleSkin.charSticker] : [];
+    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs, ...bubbleRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -996,7 +998,8 @@
     (p.customFonts || []).forEach(f => { if (f && map[f.ref]) f.ref = map[f.ref]; });
     p.globalCSS = remapCSSImages(p.globalCSS, map);
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
-    const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? pkg.bubbleSkin : null;
+    const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? Object.assign({}, pkg.bubbleSkin) : null;
+    if (bubbleSkin) ["mySticker", "charSticker"].forEach(k => { if (map[bubbleSkin[k]]) bubbleSkin[k] = map[bubbleSkin[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
   };
   // 「复制给别的 AI」（群友 2026-09-30：把主题发给 DeepSeek，它说「这是空壳代码、你没有 html」）。
