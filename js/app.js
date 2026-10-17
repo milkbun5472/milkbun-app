@@ -13379,9 +13379,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 一条语音条落地：夹在文字中间的（就地）和 voice 栏的（最后）走同一个口子
       const pushVoiceMsg = raw => {
-        const vt = stripEchoedMeta((raw && (raw.t || raw.text)) || "");
+        let vt = stripEchoedMeta((raw && (raw.t || raw.text)) || "");
+        // 不管走的是哪种写法（「[语音] …」、【voice】…【/voice】、停顿句），剥完外壳里面还是一串 {"voice":…} 的：在落地这一处再拆一次
+        let _ujEmo = null;
+        if (typeof unwrapVoiceJson === "function") { const _u = unwrapVoiceJson(String(vt).trim()); if (_u && typeof _u === "object" && typeof _u.voice === "string") { vt = _u.voice.trim(); _ujEmo = _u.emo || null; } }
         if (!vt) return;
-        const vEmo = raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
+        const _emo0 = (raw && raw.emo) || _ujEmo;
+        const vEmo = _emo0 && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(_emo0)) ? String(_emo0) : undefined;
         pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——

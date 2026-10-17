@@ -9,3 +9,8 @@ test('语音写成一串 JSON：拆包是公共一份，单聊、群聊、已存
   assert.match(app,/const _uj = unwrapVoiceJson\(item\.text\)/);
   assert.match(cp,/unwrapVoiceJson\(raw\)/);
 });
+test('「[语音] {…}」【voice】{…}【/voice】这种：剥完外壳在落地那一处再拆',()=>{
+  const seg=app.slice(app.indexOf('const pushVoiceMsg = raw =>'),app.indexOf('const pushVoiceMsg = raw =>')+900);
+  assert.match(seg,/unwrapVoiceJson\(String\(vt\)\.trim\(\)\)/);
+  assert.match(seg,/_ujEmo/);
+});
