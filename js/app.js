@@ -32568,7 +32568,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             skin: s.skin || "",
             layout: s.layout && typeof s.layout === "object" ? s.layout : undefined,
             // 这个聊天自己写的 CSS：不安全的（@import / javascript: 之类）不存
-            customCSS: (window.ThemeStudio && s.customCSS && !window.ThemeStudio.unsafeReason(s.customCSS)) ? String(s.customCSS).slice(0, 60000) : "",
+            //   这一版存不了（花括号没配对之类）就留着上一份能用的，不清空——编辑框里那行红字已经当场说了
+            customCSS: (window.ThemeStudio && s.customCSS && !window.ThemeStudio.unsafeReason(s.customCSS)) ? String(s.customCSS).slice(0, window.ThemeStudio.CHAT_CSS_MAX || 200000)
+              : (s.customCSS ? (settingsFor(activeChar.id).customCSS || "") : ""),
             // 这个人自己的字（她 2026-09-18）。存进来之前先洗一遍：她在主题工作台
             // 删掉一支自己传的字体之后，某个人身上不许还留着一个指不着的键。
             font: (window.FontChoice
