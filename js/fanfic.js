@@ -1144,7 +1144,9 @@
       + "\n⚠️authorBio 讲【这个人】，authorStyle 讲【她的文长什么样】，两栏别串味——挑枪手是照 authorStyle 那一栏挑人的。"
       + "⚠️底下给每位写了【简介和路数写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，别硬塞细节凑长度。"
       + authorAnglesBlock(n, angleNonce(), "篇的那位");
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock
+    // 写成完结短篇（群里 2026-10-17 许愿：「给他一个剧情、设定多少字、发一篇出来」）：不当连载的开头写
+    const oneShotBlock = opts && opts.oneShot ? "\n\n【这一篇是写完的短篇，不是连载开头】照上面「每篇写什么」把这段剧情在这一篇里完整写完：有起有落，结尾落在故事真正结束的地方，不留给下一章的悬念、不写「未完待续」。endHook 照实写它停在了哪儿就行。" : "";
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + oneShotBlock
       + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce()) + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
@@ -3241,7 +3243,8 @@
     const [includeMe, setIncludeMe] = useState(false); // 俩角色 CP 时：带上「我」写成 A×我×B
     // 这一篇「我」用哪张面具（她 2026-10-17）：空＝跟着那位角色认的那张
     const [meMask, setMeMask] = useState("");
-    const [noCP, setNoCP] = useState(false);   // 无 CP：挑的人都在，默认不写感情线
+    const [noCP, setNoCP] = useState(false);
+    const [oneShot, setOneShot] = useState(false);   // 写成完结短篇：一篇写完，不当连载开头   // 无 CP：挑的人都在，默认不写感情线
     const allMasks = (function () { try { return (loadJSON("x_masks", []) || []).filter(function (m) { return m && m.id; }); } catch (e) { return []; } })();
     // 群像：点进去的那几个人（点的先后＝顺序），和这几个人之间是什么关系
     const [cast, setCast] = useState([]);
@@ -3313,6 +3316,12 @@
         sec("n", "写几篇 · 每篇写什么", n + " 篇 · " + (briefN ? briefN + " 篇写了梗" : "都自由发挥"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "生成篇数　" + n + " 篇"),
           h("input", { type: "range", min: 1, max: 8, value: n, onChange: function (e) { setN(Number(e.target.value)); }, className: "w-full mb-4", "data-wk": "ficgensheetinput", "data-part": "1" }),
+          h("button", { "data-wk": "ficoneshot", "data-on": oneShot ? "1" : "0", onClick: function () { setOneShot(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: oneShot ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (oneShot ? t.ink : t.line), borderRadius: 12, marginBottom: 14 } },
+            h("div", { style: { textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, oneShot ? "写成完结短篇" : "写成连载开头"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, oneShot ? "照下面写的剧情一篇写完，有头有尾，不留悬念" : "点一下改成完结短篇：给一段剧情，一篇写完")),
+            h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (oneShot ? t.ink : t.line), background: oneShot ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, oneShot ? "✓" : "")),
 
           // 每篇一个框：想好了就写，没写的那篇自由发挥。
           // ⚠️框数跟着篇数走，但 briefs 不随之截断——她把篇数调小再调回来，
@@ -3422,7 +3431,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0, oneShot); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -5585,7 +5594,7 @@
     function chapterShared(fic, ch, chapNo) { props.onNotifyChapter && props.onNotifyChapter(fic, ch, chapNo, fic.sharedTo || []); }
 
     // 生成
-    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask, noCP) {
+    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask, noCP, oneShot) {
       // ⚠️**用 cast 不是 characters**（她 2026-09-11 那三篇的病根就在这一行）：
       //   characters 是【真人角色】那一份，不含配角；cast 才是含配角的全量。
       //   挑人那一格用的是 cast（所以她挑得到「萧成烨」），可这一枪用的是 characters，
@@ -5628,7 +5637,7 @@
           briefs: briefList, author: byAuthor || null,
           includeMe: !!includeMe && !noCP, meName: (props.profile && props.profile.name) || userName || "我",
           mePersona: ((ficMeProfile(cp, props.profile, meMask) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile, meMask) || {}).appearance) || "",
-          groupWay: String(groupWay || "").trim(), noCP: !!noCP };
+          groupWay: String(groupWay || "").trim(), noCP: !!noCP, oneShot: !!oneShot };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
         // 每篇完成立刻落库；中途失败也不赔掉已经写好的篇目。普通文风仍是一批一次调用。
@@ -5640,7 +5649,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset

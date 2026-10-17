@@ -11161,7 +11161,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const api = bgActiveRef.current || active;
     if (!api || typeof runProbe !== "function") return;
     try {
-      const d = await runProbe(api, phoneCtx(c), { tag: "mydaily", maxTokens: 6000,
+      const d = await runProbe(api, phoneCtx(c), { tag: "mydaily", maxTokens: 8000,
         schemaHint: "{\"people\":[{\"name\":\"微信里显示的名字（可以是备注、网名、群名）\",\"sex\":\"男|女|群\",\"rel\":\"跟她什么关系\",\"lines\":[{\"me\":true,\"text\":\"她说的\"},{\"me\":false,\"text\":\"对方说的\"}]}]}",
         instruction: "这一步不是你在说话：替「" + (me.name || "她") + "」编她自己手机微信里的日常联系人。下面是她的人设：\n" + String(me.persona || "（没写人设——照一个普通人的日常来）").slice(0, 1500)
           + "\n编 5-7 个：她生活里真会有的人和群（同事、同学、家里人、朋友、工作群、家族群这类），照她的身份、年纪、在哪儿来定，别写成换谁都一样的那几个。"
