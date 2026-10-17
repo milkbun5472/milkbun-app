@@ -6220,7 +6220,8 @@ function PhoneApp({
     : appKey === "forum"
       ? (() => { const a = ((live || {}).forumAccounts || []).find(x => x.key === forumTab); return a ? a.label + " · " + (a.name || "") : "论坛"; })()
       : zh;
-  return h("div", {
+  // 这台手机里的字都是 TA 的：TA 开着「自带中译」，「译」就直接展开（TransWho）
+  return h(window.TransWho || React.Fragment, window.TransWho ? { id: char && char.id } : null, h("div", {
     className: "h-full flex flex-col relative",
     style: phoneAppBg(t)
   },
@@ -6241,7 +6242,7 @@ function PhoneApp({
   }, content), sheet && h(PageSheet, {
     onClose: () => setSheet(null),
     tall: true
-  }, sheet));
+  }, sheet)));
 }
 
 // 查手机主界面：仿桌面

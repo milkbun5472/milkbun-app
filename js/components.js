@@ -9216,7 +9216,7 @@ function MomentsFeed({
       //   展开走免费优先那条链（Google → MyMemory → 后台线路）。
       //   zhReady＝生成那一轮模型随手给的译文（这个人的聊天设置开了「外语中译」才会有），
       //   有就直接显示、不再花一次翻译；没有也点得动。
-    }, h(TransText, { text: m.content, zhReady: m.zh })), m.image && (isImgRef(m.image) ? h("button", {
+    }, h(TransWho, { id: m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))), m.image && (isImgRef(m.image) ? h("button", {
       onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
       "data-wk": "mophoto", "data-kind": "img",
       className: "mt-2.5 block active:opacity-80"
@@ -9332,7 +9332,7 @@ function MomentsFeed({
       }
       // 评论也跟着翻（她 2026-10-03）：外语角色的评论原来只有正文能翻、
       //   评论一句一句躺在那儿读不懂。同一条 TransText，中文照旧零开销。
-    }, "：", h(MomentCommentText, { cm: cm }))))), onMore && /*#__PURE__*/React.createElement("button", {
+    }, "：", h(TransWho, { id: ((characters || []).find(c => c && c.name === cm.author) || {}).id }, h(MomentCommentText, { cm: cm })))))), onMore && /*#__PURE__*/React.createElement("button", {
       onClick: () => moreBusy !== m.id && onMore(m.id),
       disabled: moreBusy === m.id,
       className: "mt-2 active:opacity-60",
@@ -9488,7 +9488,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   const sendC = m => { if (cText.trim()) { onCommentMoment(m.id, cText.trim(), cReply || undefined); setCommenting(null); setCReply(null); setCText(""); } };
 
   const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, h(TransText, { text: m.content, zhReady: m.zh })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, h(TransWho, { id: isMe ? null : m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))),
     m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
       : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "[图片] 点开看描述"))) : null,
@@ -12998,6 +12998,13 @@ function MomentCommentText({ cm }) {
 }
 // long：长文（思考链）按「英文为主、夹着中文也算」认语种；size：译文字号跟着那一处正文走
 // noModel：免费翻译翻不成就停，不去叫模型（心声那几处）
+// 「这段是谁写的」（她 2026-10-17「人格档案里面的语言和翻译不是应该覆盖到所有他说话的地方吗」）：
+//   论坛、朋友圈、日记、查手机、情侣空间这些页在外面包一层 TransWho，写上是哪个角色；
+//   那个人开着「外语消息自带中译」，他写的字在这些地方也直接摆中文，不用再点「译」。
+const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.createContext(null) : null;
+function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
+function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
+if (typeof window !== "undefined") { window.TransWho = TransWho; window.TransWhoCtx = TransWhoCtx; }
 function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   const [autoShow] = useOnlineTranslationAuto();
   // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
@@ -13133,8 +13140,10 @@ function useLongPressMenu(onFire, opts) {
   const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
   return { startPress: startPress, endPress: endPress };
 }
-function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size, noModel }) {
+function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false, long, size, noModel }) {
   const t = useTheme();
+  // 包在 TransWho 里、写的人开着「自带中译」：也当直接显示（她 2026-10-17）
+  const _whoAuto = typeof transWhoAuto === "function" && transWhoAuto(isU), autoShow = autoShowAll || _whoAuto;
   // 随消息来的译文要是繁体（模型没照「右边写简体」办），显示前换成简体（js/t2s.js）
   if (zhReady && typeof toSimplified === "function") zhReady = toSimplified(zhReady);
   const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)

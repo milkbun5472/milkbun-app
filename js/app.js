@@ -626,6 +626,7 @@ function App() {
   const [spaceBooks, setSpaceBooks] = useState({});
   // 空间门口那三样（她 2026-10-16「567 也做了」）：门牌、东西在谁那儿、留灯。{charId:{plaque, things:[], light:{me,ta}}}
   const [spaceHome, setSpaceHome] = useState({});
+  const [usPartnerId, setUsPartnerId] = useState(null);   // 空间里正开着谁（给 TransWho 用）
   const spaceHomeRef = useRef({});
   // 问答小本封面标题：{ [charId]: title }
   const [coupleQATitle, setCoupleQATitle] = useState({});
@@ -24245,6 +24246,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");
   };
   // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
+  // 这个人开着「外语消息自带中译」吗：TransText 认「这段是谁写的」时问这一句（论坛、朋友圈、日记、查手机……）
+  window.__charBilingual = id => !!(settingsFor(id) || {}).bilingual;
   const relSay = c => {
     const rk = spaceRelKey((couplesRef.current || {})[c && c.id]), r = spaceRel(rk);
     const cp = (couplesRef.current || {})[c && c.id], role = spaceRoleLine(cp, (meOf(c && c.id) || {}).name || "她");
@@ -30531,7 +30534,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEat: eatTakeout,
     toast: toast,
     onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
-  });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
+  });else if (screen === "us") body = /*#__PURE__*/React.createElement(window.TransWho || React.Fragment, window.TransWho ? { id: usPartnerId } : null, React.createElement(Us, {
+    onPartnerView: setUsPartnerId,
     land: usLand,
     onLanded: () => setUsLand(null),
     characters: liveChars,
@@ -30842,7 +30846,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
     onReadExDiary: markExDiaryRead
-  });else if (screen === "lore") body = h(WorldBook, {
+  }));else if (screen === "lore") body = h(WorldBook, {
     entries: loreEntries,
     characters: liveChars,
     onBack: goHome,
