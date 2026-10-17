@@ -6565,7 +6565,7 @@ function PhoneCarry({
       const nm = a.name || (w0 && w0.item) || "";
       if (onWatchSend && nm && a.to) { try { onWatchSend(char, openRef.current, nm, a.to, { act: "move" }); } catch (e) {/* 落盘失败不该把这段演砸 */} }
     }
-    else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text } : w);
+    else if (a.kind === "think") setWatch(w => w ? { ...w, thought: a.text, thoughtZh: a.zh || "" } : w);
     // 对面回一句（她 2026-09-10：「微信也模拟一下对面的回复」）——
     // 不然那一屏永远停在TA自己那条上，像对面死了。
     else if (a.kind === "reply") {
@@ -7013,7 +7013,7 @@ function PhoneCarry({
       h("div", { style: { height: "100%" } }, view),
       h("div", { style: { position: "fixed", inset: 0, zIndex: 55, pointerEvents: "none" } },
         h(WK.WatchDot, dot || {}),
-        h(WK.WatchThought, { text: watch.thought })),
+        h(WK.WatchThought, { text: watch.thought, zh: watch.thoughtZh })),
       h("div", { style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 56 } },
         h(WK.WatchBar, {
           char,

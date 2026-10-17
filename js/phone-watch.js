@@ -172,7 +172,9 @@
         const prev = out[out.length - 1];
         if (prev && prev.kind === "think") { dropped.push("连着的第二句心声：" + text.slice(0, 12)); continue; }
         thoughts++;
-        out.push({ kind: "think", text: text.slice(0, 60) });
+        // 外语心声自带的中文（她 2026-10-17：「为什么不能让它写的时候顺便交中文上来」）：有就带着，屏幕上直接摆译文，不另去翻
+        const zh = S(x.zh).trim();
+        out.push(Object.assign({ kind: "think", text: text.slice(0, 60) }, zh && zh !== text ? { zh: zh.slice(0, 80) } : {}));
         continue;
       }
       // ⚠️同一样东西在一段里点开两次，就是「来来回回那两张」（她 2026-09-10 第二次报）。
@@ -932,6 +934,7 @@
       //   真正需要一句话的那几下反而空着。
       "· 反过来，**亮屏、回桌面、滑动、退出去这种一看就懂的，一句都别配**——它们本来就不需要解释。两句心声也不许连在一起：中间总得有你做的一下。",
       "· 点开一样东西之后**至少 pause 一下**再做别的：进去两秒就退出来，看的人只会觉得莫名其妙。",
+      "· 你心里那句要是用的不是中文（你平时就说外语、方言），think 里再加一栏 zh，写这一句的简体中文意思（{\"kind\":\"think\",\"text\":\"原句\",\"zh\":\"中文\"}）；本来就是中文就不用加。",
       "",
       "【每个 app 里你能干什么】",
       can.indexOf("wechat") >= 0 ? "· 微信：**这个 app 里绝大多数时候你刷的是别人**——翻朋友圈（tab 切 moments，openItem 写发这条的人）、点开某个人的会话说两句、看看联系人。**点开一个会话就是要跟这个人说话**——openItem 之后一定要 type，打点什么出来。发不发随你：可以 erase 掉重打、改口、打完了删光直接 back 走人（**那一下最像你**），也可以 send 发出去。唯独**不许点开看两秒就退出去**：只想看看的话，就停在会话列表上翻，别进去。tab 可以切 chats / contacts / moments / me；切到 moments 就是翻朋友圈，openItem 的 name 写发这条的人。" : "",
@@ -1113,7 +1116,7 @@
         //   外层整条不吃手指（别挡住底下的屏幕），只有这一块让她点得到「译」
         pointerEvents: "auto"
       }
-    }, typeof TransText === "function" ? h(TransText, { text: p.text, ink: "currentColor", inline: true, noModel: true }) : p.text));
+    }, typeof TransText === "function" ? h(TransText, { text: p.text, zhReady: p.zh || undefined, ink: "currentColor", inline: true, noModel: true }) : p.text));
   }
 
   // 底下那条：进度、倍速、跳过、敲一下。
