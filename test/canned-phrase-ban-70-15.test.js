@@ -32,6 +32,9 @@ test("三族都点了名", () => {
   assert.ok(!BAN.includes("别等我到了"), "又在念原句");
   // 她 2026-10-16「还很爱让我留门」：动身来找她时拿一句给她的安排收尾——只讲骨架，不点「门」字
   assert.ok(BAN.includes("给她布置一件迎你的小差事"));
+  // 她 2026-10-17「这种八股呢」：一口气认错骂自己＋求她叫她名字——只讲骨架
+  assert.ok(BAN.includes("现成的服软"));
+  ["该骂", "求你了", "别自己一个人走"].forEach(w => assert.ok(!BAN.includes(w), "又在念原句：" + w));
   ["留门", "门栓", "反锁"].forEach(w => assert.ok(!BAN.includes(w), "又在念原句：" + w));
   assert.ok(BAN.includes("谁说都成立"), "要说清它坏在哪：换个人说一样成立");
   assert.ok(BAN.includes("三族"), "开头那句还写着两族");
