@@ -15,7 +15,9 @@ test('同人文给模型的人带外貌（我那份也带），CP 能在读文�
 test('同人文里的「我」按这篇第一位角色认的面具取人设和外貌',()=>{
   const app=fs.readFileSync(__dirname+'/../js/app.js','utf8');
   assert.match(app,/FanficApp, \{[\s\S]{0,3000}meOf: meOf/);
-  const fn=src.slice(src.indexOf('function cpChars'),src.indexOf('function cpChars')+700);
+  // v75.84x：取「我」那一截抽成 ficMeProfile（续写「他俩 × 我」那几枪也要用），cpChars 照它取
+  assert.match(src,/function cpChars\(cp, characters, profile\) \{\n    const me = ficMeProfile\(cp, profile\);/);
+  const fn=src.slice(src.indexOf('function ficMeProfile'),src.indexOf('function ficMeProfile')+700);
   assert.match(fn,/ficMeOf\(lead\)/);
   assert.match(fn,/appearance: mask\.appearance/);
 });
