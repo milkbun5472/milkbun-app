@@ -172,8 +172,8 @@ test("日历真的把这一截画出来了", () => {
   const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
   const seg = comp.slice(comp.indexOf("const blocksOn = dk =>"), comp.indexOf("const dayHasAnything"));
   assert.match(seg, /schedSleepCarry\(\(\(schedules \|\| \{\}\)\[view\] \|\| \{\}\)\[prevKey\], plan\)/);
-  assert.match(seg, /key: "carry"/);
-  assert.match(seg, /toMyMin\(carry\.from\)/, "接觉这一截也要走时差换算");
+  assert.match(seg, /key: "carry" \+ dd/);
+  assert.match(seg, /put\(base \+ carry\.from/, "接觉这一截也要走时差换算");
 });
 
 test("提示词也明说了就寝该多长", () => {

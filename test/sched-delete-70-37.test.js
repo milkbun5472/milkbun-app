@@ -148,7 +148,9 @@ test("点不着的段号什么也不做", () => {
 
 test("凌晨那条「昨晚睡过来的」不给单段删——它不是今天 seqs 里的一段", () => {
   // 建块时 carry 那条没有 raw，普通段有 raw: s
-  assert.match(comp, /out\.push\(\{ key: "carry",[\s\S]{0,400}?ai: true, dev: null, carry: true,/);
+  assert.match(comp, /put\(base \+ carry\.from, base \+ carry\.to, \{ key: "carry" \+ dd,[\s\S]{0,400}?ai: true, dev: null, carry: true,/);
+  // 删整天要删的是它【来的那一天】（前一天那份）
+  assert.match(comp, /dayEv\.b\.carry && dayEv\.b\.carryFrom \? dayEv\.b\.carryFrom : dayEv\.dk/);
   assert.match(comp, /dayEv\.b\.ai && isCharView && dayEv\.b\.raw && dayEv\.b\.raw\.seq && h\("button"/);
 });
 
