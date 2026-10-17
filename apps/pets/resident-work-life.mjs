@@ -1,5 +1,5 @@
-import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-3dabc3b4ab63b8df';
-import {weightedChoice} from './resident-choice.mjs?v=fg-3dabc3b4ab63b8df';
+import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-a6d34eed07f6ef97';
+import {weightedChoice} from './resident-choice.mjs?v=fg-a6d34eed07f6ef97';
 
 const copy=v=>structuredClone(v);
 const num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
@@ -25,7 +25,7 @@ export function restoreWorkLife(raw){
  const after=s.after&&typeof s.after.id==='string'&&['quiet','share','celebrate','flowers','dinner'].includes(s.after.kind)?{...copy(s.after),time:num(s.after.time,300),phase:['waiting','going','shopping','returning','doing','done'].includes(s.after.phase)?s.after.phase:'waiting'}:null;
  const meeting=s.meeting&&TOWN_RESIDENTS.some(n=>n.id===s.meeting.peer)&&['coming','talking'].includes(s.meeting.phase)?{...copy(s.meeting),time:num(s.meeting.time,60)}:null;
  const contact=s.contact&&TOWN_RESIDENTS.some(n=>n.id===s.contact.peer)?{...copy(s.contact),time:num(s.contact.time,60)}:null;
- return {version:1,bonds,projects,paths,events:Array.isArray(s.events)?s.events.filter(e=>typeof e?.id==='string'&&Object.hasOwn(choices,e.kind)).map(copy):[],after,meeting,contact,pauseUntil:num(s.pauseUntil),careStyle:['auto','flowers','dinner','none'].includes(s.careStyle)?s.careStyle:'auto',careDate:words(s.careDate,12)};
+ return {version:1,roomForm:['office','clinic','classroom','studio','business'].includes(s.roomForm)?s.roomForm:null,bonds,projects,paths,events:Array.isArray(s.events)?s.events.filter(e=>typeof e?.id==='string'&&Object.hasOwn(choices,e.kind)).map(copy):[],after,meeting,contact,pauseUntil:num(s.pauseUntil),careStyle:['auto','flowers','dinner','none'].includes(s.careStyle)?s.careStyle:'auto',careDate:words(s.careDate,12)};
 }
 const peerFor=c=>c.place==='bakery'?'baker':c.place==='florist'?'florist':c.place==='cafe'?'regular':TOWN_RESIDENTS[workHash(c.title)%TOWN_RESIDENTS.length].id;
 const peerName=id=>TOWN_RESIDENTS.find(n=>n.id===id)?.name||'工作伙伴';
@@ -37,6 +37,7 @@ export function beginWorkProject(state,s,job){
  if(state.life.after)state.life.after.phase='done';state.life.contact=null;state.life.meeting=null;
  const path=state.life.paths[k];
  if(path?.mode==='independent'&&path.opened){s.contract={...s.contract,title:path.name||s.contract.title+'的小铺',place:'workroom',form:'business',independent:true};}
+ if(s.contract.place==='workroom')state.life.roomForm=s.contract.form;
 }
 export function workEvent(state,s,preferences,at,{automatic=false,option}={}){
  if(s.worked<s.duration*.25)return null;
@@ -90,7 +91,7 @@ export function workLifeRequest(state,action,o,{at,preferences,shift,home,availa
  }
  if(action==='after-response'){
   const a=l.after;if(!a||a.phase==='done')return no('等TA收工回家，再一起待一会儿。');if(shift||!home)return no('先实际回到家里，再陪TA。');if(!Object.hasOwn(AFTER_CHOICES,o.kind))return no('选一种此刻的陪伴。');if(o.kind==='meal'&&!(a.kind==='dinner'&&a.delivered))return no('等TA把晚餐准备好，再一起吃。');
-  if(a.responded)return no('这次陪伴已经约好了，回到场景一起待一会儿。');a.response=o.kind;a.responded=true;a.phase='waiting';a.time=0;return yes('约好了，TA会走到家里合适的位置，再一起待一会儿。');
+  if(a.responded)return no('这次陪伴已经约好了，回到场景一起待一会儿。');a.response=o.kind;a.spot=null;a.responded=true;a.phase='waiting';a.time=0;return yes('约好了，TA会走到家里合适的位置，再一起待一会儿。');
  }
  if(action==='meet-colleague'||action==='invite-colleague'){
   if(!TOWN_RESIDENTS.some(n=>n.id===o.peer)||!available(o.peer))return no('这位街坊正在赴约或忙自己的事，空下来再商量。');if(l.meeting||l.contact&&l.contact.phase!=='done')return no('先陪完这一次碰面。');

@@ -1,3 +1,4 @@
+import {residentRoomForm} from './resident-workroom.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -9,13 +10,13 @@ import {restoreNeighborhood,createNeighborhood} from './neighborhood.mjs';
 import {createPetWorld} from '../../art/pet-career/world-navigation.mjs';
 const world=createPetWorld(JSON.parse(readFileSync(new URL('../../art/pet-career/outside.json',import.meta.url))));
 function fixture({raw,people=false,persona='安静，细心，有耐心，喜欢读书'}={}){
- const state=restoreResidentWork(raw,'ta'),body=newTownLife('home',{x:0,z:2.4},77),person={id:'ta',name:'阿澄',persona};let at=new Date(2026,9,19,9).getTime(),fail=false,neighborhood;
+ const state=restoreResidentWork(raw,'ta'),body=newTownLife('home',{x:0,z:2.4},77),person={id:'ta',name:'阿澄',persona};let at=new Date(2026,9,19,9).getTime(),fail=false,neighborhood,obstacles=[];
  const context={preferences:deriveResidentPreferences(person).scores,pets:[],viewerPlace:'home'};
- const actors=()=>[{id:'companion:ta',kind:'person',size:1.6,place:body.place,position:body.position},...Object.entries(neighborhood?.state.neighbors||{}).map(([id,n])=>({id:'neighbor:'+id,kind:'person',size:1.6,place:n.town.place,position:n.town.position}))];
- const town=createTownLife(body,{world,size:()=>1.4,roomVariant:()=>state.shift?.contract.form||state.primary?.form||'office',actor:()=>({id:'companion:ta',kind:'person',size:1.6}),actors});
+ const actors=()=>[...obstacles,{id:'companion:ta',kind:'person',size:1.6,place:body.place,position:body.position},...Object.entries(neighborhood?.state.neighbors||{}).map(([id,n])=>({id:'neighbor:'+id,kind:'person',size:1.6,place:n.town.place,position:n.town.position}))];
+ const town=createTownLife(body,{world,size:()=>1.4,roomVariant:()=>residentRoomForm(state),actor:()=>({id:'companion:ta',kind:'person',size:1.6}),actors});
  const engine=createResidentWork(state,{town,world,person,getContext:()=>context,now:()=>at,save:()=>!fail});
- if(people){neighborhood=createNeighborhood(restoreNeighborhood(null,[]),{world,getRows:()=>[],getActors:actors,getTime:()=>({at,date:[new Date(at).getFullYear(),String(new Date(at).getMonth()+1).padStart(2,'0'),String(new Date(at).getDate()).padStart(2,'0')].join('-'),minute:new Date(at).getHours()*60+new Date(at).getMinutes(),weekday:new Date(at).getDay()}),getWorkActivity:()=>engine.peerPlan(),save:()=>!fail});context.neighbors=neighborhood.state.neighbors;context.neighborFree=id=>neighborhood.canWorkMeet(id);}
- const f={state,body,town,engine,context,get at(){return at;},set at(v){at=v;},set fail(v){fail=v;},neighborhood,step(dt=.1){at+=dt*1000;const r=engine.tick(dt,at);neighborhood?.tick(dt);return r;},drive(test,max=20000){for(let i=0;i<max;i++){if(test())return;i%100===0&&assert.ok(Number.isFinite(at));f.step();}assert.fail('native activity did not finish '+JSON.stringify({shift:state.shift,life:state.life,body}));},setup(role='writer',extra={}){assert.ok(engine.request('configure',{slot:'primary',role,days:[0,1,2,3,4,5,6],start:540,end:720,...extra}).accepted);},complete(){assert.ok(engine.request('trial').accepted);f.drive(()=>!state.shift);return structuredClone(state);},nextDay(){engine.releaseLeisure();at+=86400000;state.fatigue=0;state.at=at;}};return f;
+ if(people){neighborhood=createNeighborhood(restoreNeighborhood(null,[]),{world,getRows:()=>[],getActors:actors,getTime:()=>({at,date:[new Date(at).getFullYear(),String(new Date(at).getMonth()+1).padStart(2,'0'),String(new Date(at).getDate()).padStart(2,'0')].join('-'),minute:new Date(at).getHours()*60+new Date(at).getMinutes(),weekday:new Date(at).getDay()}),getWorkActivity:()=>engine.peerPlan(),getWorkroomForm:()=>residentRoomForm(state),save:()=>!fail});context.neighbors=neighborhood.state.neighbors;context.neighborFree=id=>neighborhood.canWorkMeet(id);}
+ const f={state,body,town,engine,context,set obstacles(v){obstacles=v;},get at(){return at;},set at(v){at=v;},set fail(v){fail=v;},neighborhood,step(dt=.1){at+=dt*1000;const r=engine.tick(dt,at);neighborhood?.tick(dt);return r;},drive(test,max=20000){for(let i=0;i<max;i++){if(test())return;i%100===0&&assert.ok(Number.isFinite(at));f.step();}assert.fail('native activity did not finish '+JSON.stringify({shift:state.shift,life:state.life,body}));},setup(role='writer',extra={}){assert.ok(engine.request('configure',{slot:'primary',role,days:[0,1,2,3,4,5,6],start:540,end:720,...extra}).accepted);},complete(){assert.ok(engine.request('trial').accepted);f.drive(()=>!state.shift);return structuredClone(state);},nextDay(){engine.releaseLeisure();at+=86400000;state.fatigue=0;state.at=at;}};return f;
 }
 test('old canonical human work archives gain an isolated life record; another owner receives none of its people or career choices',()=>{
  const f=fixture();f.setup();f.complete();const saved=structuredClone(f.state),again=restoreResidentWork(saved,'ta');assert.deepEqual(again.life,saved.life);assert.ok(again.life.projects.writer);const other=restoreResidentWork(saved,'another');assert.equal(other.life.events.length,0);assert.equal(other.life.after,null);assert.equal(other.balance,0);assert.deepEqual(restoreWorkLife({paths:{x:{mode:'invalid'}},careStyle:'invalid'}).paths,{});
@@ -49,4 +50,27 @@ test('a rest period keeps both contracts and blocks automatic offline attendance
 });
 test('offline work advances projects and work correspondence locally without inventing visits, gifts, companionship or mentor meetings',()=>{
  const f=fixture();f.setup('doctor');f.engine.request('automatic',{enabled:true});f.at=new Date(2026,9,19,18).getTime();assert.ok(f.engine.recover(f.at).accepted);assert.equal(f.state.ledger.filter(x=>x.kind==='income').length,1);assert.ok(f.state.life.events[0].selected);assert.ok(Object.values(f.state.life.bonds).every(x=>x.meets===0));assert.ok(!f.state.notes.some(x=>['colleague','care','mentor','afterwork'].includes(x.kind)));assert.equal(f.state.life.contact,null);const balance=f.state.balance;f.engine.recover(f.at);assert.equal(f.state.balance,balance);
+});
+
+test('an occupied remote work target chooses a reachable clear spot without throwing or counting work at the door',()=>{
+ const f=fixture();f.setup('doctor');const blocker={id:'visitor',kind:'person',size:1.6,place:'workroom',position:{x:-1.5,z:-.48}};f.obstacles=[blocker];f.engine.request('trial');assert.doesNotThrow(()=>f.step());assert.equal(f.state.shift.worked,0);f.drive(()=>f.state.shift?.phase==='work');assert.equal(f.body.place,'workroom');assert.ok(Math.hypot(f.body.position.x-blocker.position.x,f.body.position.z-blocker.position.z)>=.77);assert.ok(f.town.nav().walkable(f.body.position.x,f.body.position.z));
+});
+test('a fully occupied resting area waits, records no false rest, and resumes only after a real walk when it clears',()=>{
+ const f=fixture();f.setup();f.complete();f.town.sync('home',{x:0,z:3.1},0,{manual:true});f.obstacles=[[-.65,-.1],[-1.3,.55],[0,.55],[-.65,1.2]].map(([x,z],i)=>({id:'dog-'+i,kind:'pet',species:'dog',size:1.3,weight:1.2,place:'home',position:{x,z}}));
+ for(let i=0;i<400;i++)assert.equal(!!f.step().seated,false);assert.equal(f.state.life.after.phase,'waiting');assert.equal(f.state.life.after.time,0);assert.ok(!f.state.notes.some(n=>n.kind==='afterwork'));assert.deepEqual(f.body.position,{x:0,z:3.1});
+ f.obstacles=[];f.drive(()=>f.state.life.after.phase==='doing');assert.ok(Math.hypot(f.body.position.x,f.body.position.z-3.1)>1);assert.ok(!f.state.notes.some(n=>n.kind==='afterwork'));f.drive(()=>f.state.life.after.phase==='done');assert.equal(f.state.notes.filter(n=>n.kind==='afterwork').length,1);
+});
+test('working, greeting and arriving turn at the same physical rate as walking instead of snapping the body',()=>{
+ const f=fixture({people:true});f.setup('doctor');f.engine.request('trial');let maximum=0,invited=false;
+ while(f.state.shift){const old=f.body.heading;f.step();const delta=Math.abs(Math.atan2(Math.sin(f.body.heading-old),Math.cos(f.body.heading-old)));maximum=Math.max(maximum,delta);assert.ok(delta<=.300001,'body yaw jumped '+delta);if(!invited&&f.state.shift?.phase==='work'){assert.ok(f.engine.request('invite-colleague',{peer:'regular'}).accepted);invited=true;}}
+ assert.ok(maximum>.1);assert.equal(f.state.life.bonds.regular.meets,1);
+});
+test('the clinic remains the same room for a colleague leaving after the meeting and after the shift ends',()=>{
+ const f=fixture({people:true});f.setup('doctor');f.engine.request('trial');f.drive(()=>f.state.shift?.phase==='work');f.engine.request('invite-colleague',{peer:'regular'});f.drive(()=>f.state.life.contact?.phase==='done');const peer=f.neighborhood.state.neighbors.regular.town;let walked=0,last={...peer.position};
+ for(let i=0;i<2200&&peer.place==='workroom';i++){f.step();if(peer.place==='workroom'){const nav=f.town.nav('workroom');assert.ok(nav.walkable(peer.position.x,peer.position.z),'visitor crossed clinic furniture');walked+=Math.hypot(peer.position.x-last.x,peer.position.z-last.z);last={...peer.position};}}
+ assert.notEqual(peer.place,'workroom');assert.ok(walked>1);f.drive(()=>!f.state.shift);assert.equal(residentRoomForm(f.state),'clinic');assert.equal(residentRoomForm(restoreResidentWork(f.state,'ta')),'clinic');f.engine.releaseLeisure();f.setup('barista');assert.equal(residentRoomForm(f.state),'clinic');
+});
+
+test('changing an unaccompanied rest into sharing actually walks to the company space before the new sitting timer',()=>{
+ const f=fixture();f.setup();f.complete();f.drive(()=>f.state.life.after.phase==='doing');const old={...f.body.position};assert.ok(f.engine.request('after-response',{kind:'listen'}).accepted);f.drive(()=>f.state.life.after.phase==='doing');assert.ok(Math.hypot(old.x-f.body.position.x,old.z-f.body.position.z)>.4);assert.ok(!f.state.notes.some(n=>n.kind==='afterwork'));f.drive(()=>f.state.life.after.phase==='done');assert.equal(f.state.notes.filter(n=>n.kind==='afterwork').length,1);
 });

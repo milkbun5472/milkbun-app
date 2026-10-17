@@ -1,13 +1,13 @@
-import {workroomFurniture} from './resident-workroom.mjs?v=fg-3dabc3b4ab63b8df';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-3dabc3b4ab63b8df';
-import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-3dabc3b4ab63b8df';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-3dabc3b4ab63b8df';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-3dabc3b4ab63b8df';
+import {workroomFurniture} from './resident-workroom.mjs?v=fg-a6d34eed07f6ef97';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-a6d34eed07f6ef97';
+import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-a6d34eed07f6ef97';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-a6d34eed07f6ef97';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-a6d34eed07f6ef97';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist','workroom'];
-import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-3dabc3b4ab63b8df';
-export {roomDoor} from './room-layout.mjs?v=fg-3dabc3b4ab63b8df';
+import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-a6d34eed07f6ef97';
+export {roomDoor} from './room-layout.mjs?v=fg-a6d34eed07f6ef97';
 // Footprints come from the existing Blender furniture, converted from Z-up.
 const footprints={
 
@@ -48,5 +48,8 @@ export function createTownLife(state,{world,size=()=>1,actor=()=>({kind:'pet',si
  }
  function walkTo(p){const n=nav(),q=point(p)&&n.freePoint(p,state.position);if(state.place==='outside'||!q||!n.walkable(q.x,q.z))return false;const request=state.place+':'+JSON.stringify(q);if(failedGoal===request&&retry>0)return false;if(!n.path(state.position,q)){failedGoal=request;retry=.45;return false;}state.hold=0;state.manual=true;state.target=state.place;state.phase='stroll';state.time=0;state.stop=null;goal(q);onChange();return true;}
  function go(target,stop=null,{manual=false}={}){if(!TOWN_PLACES.includes(target))return false;if(target==='outside'){if(!point(stop)||!world.walkable(stop.x,stop.z)||state.place==='outside'&&Math.hypot(state.position.x-stop.x,state.position.z-stop.z)<.15)return false;state.manual=manual;state.hold=0;state.stop=point(stop);if(state.place==='outside'){state.target='outside';state.phase='stroll';state.time=0;goal(stop);onChange();}else depart('outside');return true;}if(state.place===target)return !!point(stop)&&Math.hypot(state.position.x-stop.x,state.position.z-stop.z)>=.15&&walkTo(stop);state.manual=manual;state.stop=null;state.hold=0;if(state.place==='outside')travel(target);else depart(target);return true;}
- return {state,tick,sync,go,walkTo,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
+ // A destination in another room is approached from its real entrance, never
+ // from a blocked work surface or a null origin.
+ function reachablePoint(place,desired,maxOffset=1.2){const from=place===state.place?state.position:place==='outside'?world.building(state.place)?.approach:roomDoor(place);return from&&point(desired)?nav(place).freePoint(desired,from,maxOffset,true):null;}
+ return {state,tick,sync,go,walkTo,reachablePoint,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
 }
