@@ -1108,9 +1108,12 @@
         maxWidth: "84%", borderRadius: 13, padding: "6px 12px",
         background: "rgba(24,21,18,.66)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
         fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: "rgba(255,252,246,.94)",
-        boxShadow: "0 6px 20px rgba(20,17,13,.28)"
+        boxShadow: "0 6px 20px rgba(20,17,13,.28)",
+        // 外语 char 的心声也要能翻（群友 2026-10-17：「看外国 char 玩手机的时候他的心声翻译不了」）：
+        //   外层整条不吃手指（别挡住底下的屏幕），只有这一块让她点得到「译」
+        pointerEvents: "auto"
       }
-    }, p.text));
+    }, typeof TransText === "function" ? h(TransText, { text: p.text, ink: "currentColor", inline: true, noModel: true }) : p.text));
   }
 
   // 底下那条：进度、倍速、跳过、敲一下。
