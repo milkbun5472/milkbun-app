@@ -9784,7 +9784,24 @@ function photoAttachValue(v) {
 // 点开之后那一层：大图／整段描述，真有像素时还能存进手机相册。
 // ⚠️存图走的是公共那一条 window.saveImgOriginal（engine.js）——查手机那边早就在用它，
 //   别在这儿再写一条下载逻辑。
-function PhotoSheet({ m, onClose, toast, onGen }) {
+// 改画面描述再画（她 2026-10-17）：论坛、片刻这些「照一段描述画出来」的图共用这一颗
+function DescEditRedraw({ initial, run, onDone, wk }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const [txt, setTxt] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (typeof run !== "function") return null;
+  if (!open) return h("button", { "data-wk": wk || "descedit", onClick: () => { setTxt(String(initial || "")); setOpen(true); }, className: "active:opacity-70",
+    style: { marginTop: 8, width: "100%", minHeight: 40, borderRadius: 10, border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "改画面描述再画");
+  return h("div", { "data-wk": wk || "descedit", style: { marginTop: 10 } },
+    h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 3, autoFocus: true, className: "w-full outline-none p-2.5 rounded-lg",
+      style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
+    h("div", { className: "flex gap-4 mt-2 justify-end" },
+      h("button", { onClick: () => setOpen(false), style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "算了"),
+      h("button", { disabled: busy || !txt.trim(), onClick: async () => { setBusy(true); const ok = await Promise.resolve().then(() => run(txt.trim())).catch(() => false); setBusy(false); if (ok) { setOpen(false); onDone && onDone(ok); } },
+        className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, busy ? "正在画…" : "照这个画")));
+}
+function PhotoSheet({ m, onClose, toast, onGen, onRegen }) {
   const t = useTheme();
   const cap = photoCaption(m);
   return h(Sheet, { onClose: onClose, tall: true },
@@ -9797,12 +9814,15 @@ function PhotoSheet({ m, onClose, toast, onGen }) {
               if (!window.saveImgOriginal) return toast && toast("这台设备存不了图");
               window.saveImgOriginal(m.imageRef, "照片").then(function (ok) { if (toast) toast(ok ? "已经存下来了" : "这张取不到原图"); });
             }, className: "active:opacity-70",
-            style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"))
+            style: { marginTop: 12, width: "100%", padding: "11px 0", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "⬇ 保存到手机（原图）"),
+          onRegen && cap ? h(DescGenImageButton, { mark: "regen-" + (m.itemId || ""), label: "再画一张", busyLabel: "重画中…", run: () => onRegen(null), onDone: onClose }) : null,
+          onRegen ? h(DescEditRedraw, { initial: cap, run: d => onRegen(d), onDone: onClose }) : null)
       : h("div", null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: t.fog, marginBottom: 8 } }, "这张只有描述，没有真的图"),
           m.noDrawWhy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginBottom: 10 } }, m.noDrawWhy) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, cap || "（什么都没写）"),
-          onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null));
+          onGen && cap ? h(DescGenImageButton, { run: onGen, onDone: onClose }) : null,
+          onRegen ? h(DescEditRedraw, { initial: cap, run: d => onRegen(d), onDone: onClose }) : null));
 }
 function RoomWorldBanner({ onEnter }) {
   const t = useTheme();

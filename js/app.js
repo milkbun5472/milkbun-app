@@ -21722,7 +21722,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 贴吧配图（她 2026-09-28：跟朋友圈一样有开关、只有描述的那张点开能生）。
   // itemId 是帖子 id 或楼层 id；成图挂进 photo.imageRef，描述原样留在 photo.desc。
-  const forumGenImage = async (itemId, quiet) => {
+  // force：画过了也再画一张；newDesc：她改过的画面描述（她 2026-10-17：论坛配图也要能重画、改描述再画）
+  const forumGenImage = async (itemId, quiet, force, newDesc) => {
     if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
     const post = (forumPostsRef.current || []).find(p => p && p.id === itemId);
     let floorOf = null, floor = null;
@@ -21732,14 +21733,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     const x = post || floor;
     const ph = x && forumPhotoOf(x);
-    if (!ph || ph.imageRef || !ph.desc) return false;
+    const nd = String(newDesc || "").trim();
+    if (!ph || (ph.imageRef && !force) || !(nd || ph.desc)) return false;
     const char = characters.find(c => c.id === x.authorId && !x.anon);
     try {
-      const ref = await drawFromDesc(char || null, ph.desc, ph.who);
-      const photo = { imageRef: ref, desc: ph.desc };
+      const desc = nd || ph.desc;
+      const ref = await drawFromDesc(char || null, desc, ph.who);
+      const photo = { imageRef: ref, desc: desc };
       if (post) setForumPosts(prev => { const n = prev.map(p => p.id === itemId ? { ...p, photo } : p); saveJSON("x_forumPosts", n); return n; });
       else setForumComments(prev => { const n = { ...prev, [floorOf]: (prev[floorOf] || []).map(f => f.id === itemId ? { ...f, photo } : f) }; saveForumComments(n); return n; });
-      return true;
+      return ref;
     } catch (e) {
       if (!quiet) toast("贴吧配图没生成：" + String(e && e.message || "重试").slice(0, 120));
       return false;
