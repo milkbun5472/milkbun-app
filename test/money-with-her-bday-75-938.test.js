@@ -4,7 +4,7 @@ test('你俩之间真花过的钱：从她的流水按这个人挑，查手机�
   assert.match(app,/const moneyWithHerLine = char =>/);
   assert.match(app,/e\.ref && e\.ref\.charId === char\.id/);
   assert.match(app,/instruction: moneyWithHerLine\(char\)/);
-  const i=ph.indexOf('function phoneMoneyBlock');const fn=new Function(ph.slice(i,ph.indexOf('\n}\n',i)+2)+'\nreturn phoneMoneyBlock;')();
+  const i=ph.indexOf('const PHONE_MONEY_KEYS');const fn=new Function(ph.slice(i,ph.indexOf('\n}\n',i)+2)+'\nreturn phoneMoneyBlock;')();
   assert.equal(fn('notes',{withHer:'X'}),'X');
   assert.match(fn('shopping',{balance:100,withHer:'Y'}),/Y$/);
 });
