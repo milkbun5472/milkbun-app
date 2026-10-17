@@ -7936,7 +7936,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (sleepPhaseOf(c) === "asleep") pWhy(cid, "TA 在睡觉——睡着时只有很想的时候才偶尔发一句，醒了再来");
           if (sleepPhaseOf(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
-            if (!forced || Math.random() > 0.12) continue;
+            // ⚠️一夜只掷一次（她 2026-10-17 锁屏截图：清早六点三个人排着队问「醒了没」）：
+            //   这道闸每一两分钟过一遍，原来每遍都掷 12%——一夜掷几百次，等于必发。
+            //   现在记住掷出来的结果，同一夜（中午到次日中午算一夜，跨零点不重掷）再来还是那个答案。
+            if (!forced) continue;
+            const _nk = new Date(Date.now() - 12 * 3600e3).toDateString(), _nr = nightRollRef.current[cid];
+            if (!_nr || _nr.k !== _nk) nightRollRef.current[cid] = { k: _nk, ok: Math.random() < 0.12 };
+            if (!nightRollRef.current[cid].ok) continue;
           }
           // 傲娇挡一挡（v64.69，她 2026-09-06：「如果它永远 0 那怎么可能端着」）。
           // ⚠️动念自己那道 prideBlock 是【真闸】——过了线TA会去「找点事做」而不是找你。
@@ -8064,6 +8070,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
   };
   const dongnianCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
+  const nightRollRef = useRef({});        // charId -> {k: TA当地那一天, ok}：睡着时「很想才偶尔发」一夜只掷一次
   const dongnianFiredRef = useRef({});     // charId -> 上次 dongnian 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
   // ── 动念分对象（她 2026-09-04：「给 cp 而不是我涨进度那里」）──────────────
   // 一个角色不是只有一份思念：TA想 Lisa 是一份，想群里那位是另一份。
