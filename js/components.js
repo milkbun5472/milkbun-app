@@ -552,14 +552,17 @@ function applyChatLook(next) {
   // ⑥ 这个聊天自己写的 CSS（她 2026-09-30：「每个人单独聊天不能细化 css」）：压在最上面——
   //   它是这一个窗口里最具体的一层。App 那头已经用主题工作台同一支 scopeCSS 限死到这个人这一页。
   // ⑤.5 排版开关编出来的那几条：排在自己写的 CSS 前面——开关是起手，自己写的最具体
-  put("wk-char-layout-css", (scope && L.layoutCSS) ? L.layoutCSS : "");
-  put("wk-char-custom-css", (scope && L.customCSS) ? L.customCSS : "");
+  // 安全模式（地址后面加 ?safe-theme=1）：主题工作台那份不挂，各聊天窗自己写的那几层也不挂——写坏了能先进去清
+  const _safe = !!(window.ThemeStudio && window.ThemeStudio.safeMode && window.ThemeStudio.safeMode());
+  put("wk-char-layout-css", (scope && L.layoutCSS && !_safe) ? L.layoutCSS : "");
+  put("wk-char-custom-css", (scope && L.customCSS && !_safe) ? L.customCSS : "");
 }
 // 群聊窗自己那层（排版开关 + 自己写的 CSS）：App 那头已经限到这一个群、换好图片地址，这里只管挂上去（挂在单聊那几层后面）
-function applyGroupLook(css) { mountStyle("wk-group-look-css", css); }
+const lookSafe = () => !!(typeof window !== "undefined" && window.ThemeStudio && window.ThemeStudio.safeMode && window.ThemeStudio.safeMode());
+function applyGroupLook(css) { mountStyle("wk-group-look-css", lookSafe() ? "" : css); }
 // 线下那层（这一个人自己的线下长相）：App 那头已经限到这个人、换好图片地址，
 // 这里只管挂上去。挂在群那层后面＝比它更具体的东西压在更上面。
-function applyOfflineLook(css) { mountStyle("wk-offline-look-css", css); }
+function applyOfflineLook(css) { mountStyle("wk-offline-look-css", lookSafe() ? "" : css); }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }
 // 「打电话也用这套皮肤」那一行。开关本身不进 x_bubbleSkin（那份是发成 CSS 的，

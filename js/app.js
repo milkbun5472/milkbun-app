@@ -32301,6 +32301,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("主题已保存");
     },
     wallpaper: wallpaper,
+    // 各聊天窗自己写的 CSS（她 2026-10-17 转群友：「美化遮住了进不去聊天设置」）：在外面列出来，点一下清空，不用先进那个聊天窗
+    chatCssRows: [].concat(
+      (characters || []).filter(c => String(((chatSettings || {})[c.id] || {}).customCSS || "").trim()).map(c => ({ kind: "chat", id: c.id, name: (c.remark || c.name) + " · 聊天窗", len: String(chatSettings[c.id].customCSS).length })),
+      (groups || []).filter(g => String((g && g.customCSS) || "").trim()).map(g => ({ kind: "group", id: g.id, name: (g.name || "群") + " · 群聊窗", len: String(g.customCSS).length })),
+      (characters || []).filter(c => String(((offlineSettings || {})[c.id] || {}).customCSS || "").trim()).map(c => ({ kind: "offline", id: c.id, name: (c.remark || c.name) + " · 线下", len: String(offlineSettings[c.id].customCSS).length }))),
+    onClearChatCss: (kind, id) => { if (kind === "chat") patchChatSetting(id, { customCSS: "" }); else if (kind === "group") updateGroup(id, { customCSS: "" }); else if (kind === "offline") saveOfflineSettings(id, { customCSS: "" }); toast("清空了，那一格回到默认样子"); },
     onSaveWallpaper: w => {
       setWallpaper(w);
       saveJSON("x_wallpaper", w);

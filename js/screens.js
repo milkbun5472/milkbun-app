@@ -10478,7 +10478,7 @@ function Config(props) {
     apiImage: "图像 API", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
     apiStt: "语音识别", apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
     cot: "创作小稿", look: "这个 app 长什么样",
-    theme: "外观与壁纸", themeStudio: "主题工作台",
+    theme: "外观与壁纸", themeStudio: "主题工作台", chatCss: "各聊天窗的 CSS",
     bubble: "聊天气泡", write: "他们写出来的东西",
     auto: "谁会自己动、多久动一次", data: "我的东西存在哪",
     debug: "上一轮到底发了什么", toy: "本地配件"
@@ -10487,7 +10487,7 @@ function Config(props) {
   // 回哪一层：api* 归 api，长相三兄弟归 look，小稿/问答归 write，其余回首页
   const back = page === "home" ? props.onBack : () => {
     if (/^api[A-Z]/.test(page)) return setPage("api");
-    if (page === "theme" || page === "themeStudio" || page === "bubble") return setPage("look");
+    if (page === "theme" || page === "themeStudio" || page === "bubble" || page === "chatCss") return setPage("look");
     if (page === "cot") return setPage("write");
     setPage("home");
   };
@@ -10570,6 +10570,7 @@ function Config(props) {
         h(ConfigTile, { icon: "色", tint: "#8a6d9c", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
         h(ConfigTile, { icon: "泡", tint: "#4f8391", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
         h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包；改完能直接跳到那一页看", onClick: () => setPage("themeStudio"), wide: true }),
+        h(ConfigTile, { icon: "清", tint: "#a05a4a", title: "各聊天窗的 CSS", sub: (props.chatCssRows || []).length ? (props.chatCssRows || []).length + " 处写了自己的 CSS · 美化挡住进不去时在这儿清空" : "哪个聊天窗都没写自己的 CSS", onClick: () => setPage("chatCss"), wide: true }),
         // 右上角那颗小电池（App 自己画的，不是手机状态栏）：点一下显示 / 隐藏
         (() => { let off = false; try { off = localStorage.getItem("x_hideBattery") === "1"; } catch (e) {}
           return h(ConfigTile, { icon: "电", tint: "#6f8a5e", title: "右上角电池", sub: off ? "已隐藏 · 点一下显示" : "显示着 · 点一下隐藏",
@@ -10603,6 +10604,15 @@ function Config(props) {
       page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, masks: props.vclockMasks, maskPrimary: props.vclockPrimary, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, onSetGeoPoint: props.onSetGeoPoint, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
+      // 各聊天窗自己写的 CSS：一格一行，点「清空」先问一句
+      page === "chatCss" && section(h("div", { "data-wk": "chatcsslist" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
+          "某个聊天窗的 CSS 写坏了、把按钮挡住进不去设置的时候，在这儿清掉那一格。清掉的只是那一个聊天窗（或群、线下）自己写的那份，皮肤、气泡、背景图和全 App 的主题都不动。想先留一份，进得去时在那个聊天窗的 CSS 格子底下点「导出 .css」。"),
+        (props.chatCssRows || []).length ? (props.chatCssRows || []).map(r => h("div", { key: r.kind + r.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + CFG_LINE(t) } },
+          h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, r.name), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.len + " 字")),
+          h("button", { "data-wk": "chatcssclear", onClick: () => requestAppConfirm("清空「" + r.name + "」自己写的 CSS？", "这一格会回到默认样子，清掉找不回来（进得去时可以先在那儿导出一份）。", () => props.onClearChatCss && props.onClearChatCss(r.kind, r.id), "清空"),
+            className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid #a05a4a66", color: "#a05a4a", fontFamily: F_BODY, fontSize: 12.5 } }, "清空")))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "24px 0" } }, "哪个聊天窗都没写自己的 CSS"))),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
