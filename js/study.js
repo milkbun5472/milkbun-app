@@ -207,14 +207,18 @@
   // 图只在出话那一刻从图库临时展开（engine.js 的 expandMessageImages，主聊天也走它），最近两张
   async function withImages(msgs) {
     if (!msgs.some(function (m) { return m && m._imageRefs && m._imageRefs.length; })) return msgs;
-    return typeof expandMessageImages === "function" ? expandMessageImages(msgs, 2) : msgs;
+    // 只附最新那一张（群里 2026-10-17：拍第二页，TA把第一页的内容认到第二页上，越重来越不准）——
+    //   两张一起附上，模型分不清哪张是这回问的；之前那几张在文字里留个「之前发过」就够了
+    return typeof expandMessageImages === "function" ? expandMessageImages(msgs, 1) : msgs;
   }
 
   // 把 transcript 尾巴映射成 API messages：目标角色自己的话=assistant，
   // 用户与其它角色的话=user（带「名字：」前缀供上下文，不影响输出）
   function toMessages(transcript, targetId, userName) {
     const msgs = [];
-    tail(transcript, 12).forEach(function (m) {
+    const tl = tail(transcript, 12);
+    const lastImgAt = (function () { for (let i = tl.length - 1; i >= 0; i--) if (tl[i] && tl[i].role === "user" && tl[i].imageRef) return i; return -1; })();
+    tl.forEach(function (m, idx) {
       if (m.role === "char" && m.speakerId === targetId) {
         const last = msgs[msgs.length - 1];
         if (last && last.role === "assistant") last.content += "\n" + m.content;
@@ -222,12 +226,13 @@
       } else {
         const who = m.role === "user" ? (userName || "用户") : (m.name || "同学");
         // 她发的图（她 2026-09-23：「一起学也可以发图片给老师和同学看」）：图本身走视觉输入，文字里留一个标记
-        const line = who + "：" + (m.imageRef ? "［发了一张图，图附在这条消息上］" : "") + (m.content || "");
+        const isNew = m.imageRef && idx === lastImgAt;
+        const line = who + "：" + (m.imageRef ? (isNew ? "［发了一张新图，就是附在这条消息上的这张——这回说的是它］" : "［之前发过一张图，已经看过了，这回没附上；别把那张上的内容当成新图上的］") : "") + (m.content || "");
         const last = msgs[msgs.length - 1];
         if (last && last.role === "user") {
           last.content += "\n" + line;
-          if (m.imageRef) last._imageRefs = (last._imageRefs || []).concat([m.imageRef]);
-        } else msgs.push(Object.assign({ role: "user", content: line }, m.imageRef ? { _imageRefs: [m.imageRef] } : {}));
+          if (isNew) last._imageRefs = (last._imageRefs || []).concat([m.imageRef]);
+        } else msgs.push(Object.assign({ role: "user", content: line }, isNew ? { _imageRefs: [m.imageRef] } : {}));
       }
     });
     if (!msgs.length || msgs[msgs.length - 1].role !== "user")
