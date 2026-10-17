@@ -14008,20 +14008,40 @@ function shareCardOf(kind) {
   if (kind === "shuashare") return window.ShuaShareCard || null;   // 片刻的视频（js/shua.js）   // 直播回放（js/live.js，2026-10-07）
   return null;
 }
-// TA替她扳了拉杆：一张小票，按稀有度排着抽到了什么
+// TA替她扳了拉杆：做成一张扭蛋机吐出来的票根——上半截是机器号和「替你扳了几下」，
+//   中间一道打孔的撕线（两侧挖半圆缺口），下半截按稀有度排着抽到了什么，最底下一行时间和流水号。
 function GachaShareCard({ m, isU }) {
-  const t = useTheme();
   const g = m.gacha || {}, cs = Array.isArray(g.cards) ? g.cards : [];
-  const rank = { SSR: 0, SR: 1, R: 2 }, col = { SSR: "#c0883a", SR: "#a74d70", R: "#8a8f98" };
-  const top = cs.slice().sort((a, b) => (rank[a.r] || 2) - (rank[b.r] || 2)).slice(0, 5);
+  const rank = { SSR: 0, SR: 1, R: 2 };
+  const pill = { SSR: "linear-gradient(135deg,#e9b75a,#c0883a)", SR: "linear-gradient(135deg,#d77fa3,#a74d70)", R: "linear-gradient(135deg,#aab0b8,#868c95)" };
+  const top = cs.slice().sort((a, b) => (rank[a.r] == null ? 2 : rank[a.r]) - (rank[b.r] == null ? 2 : rank[b.r])).slice(0, 5);
+  const best = top[0] && top[0].r;
+  const d = new Date(m.ts || Date.now()), pad = n => String(n).padStart(2, "0");
+  const serial = "No." + String(Math.abs(Math.round((m.ts || 0) / 1000)) % 1000000).padStart(6, "0");
+  const ink = "#5a3442", soft = "#b0708a", paper = "#fffaf6";
+  // 两侧的半圆缺口：用背景挖，不另起元素，什么底色上都对
+  const notch = "radial-gradient(circle at 0 50%, transparent 9px, " + paper + " 9.5px) left / 51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 9px, " + paper + " 9.5px) right / 51% 100% no-repeat";
   return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
-    h("div", { "data-wk": "card", "data-kind": "gachashare", style: { width: 232, borderRadius: 16, overflow: "hidden", background: "linear-gradient(135deg,#fff8f7,#f6f0f7)", border: "1px solid #eadde3" } },
-      h("div", { style: { padding: "11px 13px 12px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: "#b0708a" } }, "扭蛋 · 替你扳了 " + (g.n || cs.length) + " 下"),
-        top.map((c, i) => h("div", { key: i, className: "flex items-center", style: { gap: 8, marginTop: 7 } },
-          h("span", { style: { flexShrink: 0, minWidth: 34, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 11, color: "#fff", background: col[c.r] || col.R, borderRadius: 6, padding: "1px 5px" } }, c.r),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink || "#3a2a30", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name))),
-        cs.length > top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", marginTop: 6 } }, "还有 " + (cs.length - top.length) + " 张，都在券夹里") : null)));
+    h("div", { "data-wk": "card", "data-kind": "gachashare", style: { width: 236, filter: "drop-shadow(0 4px 10px rgba(120,60,80,.12))" } },
+      // 上半截
+      h("div", { style: { background: paper, borderRadius: "16px 16px 0 0", padding: "12px 14px 10px", borderTop: "3px solid " + (best === "SSR" ? "#d9a24a" : best === "SR" ? "#c46a8e" : "#b8bdc4") } },
+        h("div", { className: "flex items-center justify-between" },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: soft } }, "GACHA · 扭蛋票"),
+          h("span", { "aria-hidden": "true", style: { width: 18, height: 18, borderRadius: 999, background: "linear-gradient(180deg,#f7c9d9 50%,#fff 50%)", border: "1.5px solid #e3b3c6" } })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: ink, marginTop: 6, lineHeight: 1.3 } }, "替你扳了 " + (g.n || cs.length) + " 下"),
+        best ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: soft, marginTop: 2 } }, best === "SSR" ? "出金了" : best === "SR" ? "手气还行" : "下次再来") : null),
+      // 打孔撕线
+      h("div", { "aria-hidden": "true", style: { height: 18, background: notch, position: "relative" } },
+        h("div", { style: { position: "absolute", left: 14, right: 14, top: 8, borderTop: "2px dotted #e7cdd8" } })),
+      // 下半截
+      h("div", { style: { background: paper, borderRadius: "0 0 16px 16px", padding: "4px 14px 12px" } },
+        top.map((c, i) => h("div", { key: i, className: "flex items-center", style: { gap: 9, marginTop: i ? 7 : 2 } },
+          h("span", { style: { flexShrink: 0, minWidth: 38, textAlign: "center", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: "#fff", background: pill[c.r] || pill.R, borderRadius: 999, padding: "2px 7px", boxShadow: c.r === "SSR" ? "0 0 0 2px #f6e2b8" : "none" } }, c.r),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name))),
+        cs.length > top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: soft, marginTop: 7 } }, "还有 " + (cs.length - top.length) + " 张，都在券夹里") : null,
+        h("div", { className: "flex justify-between", style: { marginTop: 10, paddingTop: 7, borderTop: "1px dashed #ecd6df", fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: 1, color: "#c79aac" } },
+          h("span", null, (d.getMonth() + 1) + "/" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes())),
+          h("span", null, serial)))));
 }
 function ForumShareCard({ m, isU }) {
   const t = useTheme();
