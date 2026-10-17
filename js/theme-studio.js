@@ -1006,6 +1006,7 @@
   function sizePresets(page) {
     const chat = page === "thread" || page === "gthread";
     return (chat ? [
+          ["顶栏让开刘海、换手机不飘", "调顶栏上下留白时用这条，刘海高低不同的手机都贴着状态栏下沿", '[data-wk="chathead"] {\n  padding-top: calc(var(--app-safe-top) + 6px) !important;\n  height: auto !important;\n}'],
           ["顶部按屏幕高度留白", "给顶上的装饰图让位，高手机留得多、矮手机留得少", '[data-wk="body"] {\n  padding-top: calc(var(--app-vh) * 12) !important;\n}'],
           ["气泡最宽占屏幕七成", "换宽屏、窄屏，气泡都不会撑得太满", '[data-wk="bubble"] {\n  max-width: calc(var(--app-w) * 0.72) !important;\n}'],
           ["背景图随手机铺满", "背景图不会在长手机上露白边、也不会被拉变形", '[data-wk="chat"] {\n  background-size: cover !important;\n  background-position: center !important;\n}'],
@@ -1041,7 +1042,7 @@
       "4. 只交回 CSS，不要 <style> 标签，不要 html，不要 JavaScript。",
       "5. 有的挂点带附加属性可以细分：data-me=\"1\" 是我这一侧、data-me=\"0\" 是对方那一侧；气泡还有 data-kind（text/voice/photo 等）。",
       "6. 想跟着屏幕大小走，可以用这几个变量：--app-w（屏宽）、--app-h（屏高）、--app-vh（屏高的百分之一）、--app-safe-top、--app-safe-bottom；html 上还有 data-screen-size=\"short\"/\"tall\" 可以分矮屏高屏。",
-      "7. 顶栏（chathead）和底栏（composer）自带刘海／底部横条的安全区，写在 padding-top／padding-bottom 里：别对它们写 padding 简写、别把 padding-top（底栏 padding-bottom）写成死数，不然顶栏会钻进状态栏底下跟时间叠在一起。要调就写 padding-top: calc(var(--app-safe-top) + 6px) !important，底栏用 var(--app-safe-bottom)。顶栏里用 position:absolute; top:50% 居中的名字、头像，要写 top: calc(50% + var(--app-safe-top) / 2)，不然比两边按钮高半截。",
+      "7. 顶栏（chathead）和底栏（composer）自带刘海／底部横条的安全区，写在 padding-top／padding-bottom 里：别对它们写 padding 简写、别把 padding-top（底栏 padding-bottom）写成死数，不然顶栏会钻进状态栏底下跟时间叠在一起。要调就写 padding-top: calc(var(--app-safe-top) + 6px) !important，底栏用 var(--app-safe-bottom)。顶栏里用 position:absolute; top:50% 居中的名字、头像，要写 top: calc(50% + var(--app-safe-top) / 2)，不然比两边按钮高半截。顶栏别写死 height（刘海高低不一样，写死就有人被压扁或空出一截）；顶栏上的装饰图挂在 [data-wk=\"chathead\"] 自己的 ::before／::after 上，用 bottom 或百分比定位，别用 position: fixed，也别从屏幕顶写一个死的 top——换台手机它就飘走了。",
       "番茄钟：pomfocus 是专注整页，视频铺满外壳、标准 Head 透明；pompoke 是轻戳透明按钮，pomsubtitle 是底部模式字幕，pomtimer 是独立发条倒计时，pommore 是手动补新话与回看入口；字幕内有新话上一句/下一句按钮，长话只在字幕正文内滚动。人物脸部留空，字幕读完收起；保留按钮层级与 0.4 底安全区，不让字幕挡住计时。pomvideoeditor 是制作整页，pomvideostage 的 video 可调 object-fit；视频与语音独立。",
       "通话：callcamera 是用户真实摄像头小窗，不替换角色背景；保留开关和前后镜头切换触区至少 40px，与头像并排，窄屏不越屏。callcomposer 继续使用 0.4 底安全区，正文为唯一主滚动区。",
       "小世界选择页[fgworld]沿左右交替的小路排列，插画是填色SVG；列车、小镇与TA的一天使用96×86的画布，庭院房子与占位圆圈使用112×112。调整svg宽高时保持原viewBox的比例，颜色分别在填色与描边上；保留[fgbody]唯一滚动正文和公共透明Head。",
