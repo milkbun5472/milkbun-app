@@ -10824,6 +10824,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const maskNames = (characters || []).filter(x => maskSet.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean);
     const maskTrace = txt => maskNames.some(n => String(txt || "").includes(n));
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
+    // 是男是女（她 2026-10-17：「他好像不知道联系人性别」）：只看名字和备注猜不出来，照角色卡上的那一个字标给他
+    const sexOf = c => { try { const p = window.CharacterPronoun && window.CharacterPronoun.ta ? window.CharacterPronoun.ta(c) : ""; return p === "他" ? "男" : p === "她" ? "女" : ""; } catch (e) { return ""; } };
+    const tagOf = c => { const x = sexOf(c); return x ? "（" + x + "）" : ""; };
     const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
     const uN = userName(profile);
     // 日子都写上（她 2026-10-01：「他好像不知道日记日期和现在日期」）
@@ -10842,7 +10845,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }).filter(Boolean).sort((a, b) => (b.lm.ts || 0) - (a.lm.ts || 0)).slice(0, 10);
       // 不给每行标号：标了TA就会在心里数「第五行的谁」（她 2026-10-02）；只告诉TA自己排第几
       const myRank = list.findIndex(x => x.c.id === viewerId);
-      if (list.length) out.push("【她的消息列表（一打开「信息」就看得到，从上往下）】" + (myRank >= 0 ? "你自己排在第 " + (myRank + 1) + " 个。" : "") + "\n" + list.map(x => "· " + (x.c.id === viewerId ? "【你自己】" : "") + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」")
+      if (list.length) out.push("【她的消息列表（一打开「信息」就看得到，从上往下）】" + (myRank >= 0 ? "你自己排在第 " + (myRank + 1) + " 个。" : "") + "\n" + list.map(x => "· " + (x.c.id === viewerId ? "【你自己】" : "") + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」") + (x.c.id === viewerId ? "" : tagOf(x.c))
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
       const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
@@ -10864,7 +10867,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   心声念的是一个月前那句，画面却停在昨天（她 2026-10-02：「他的心声说的是很久以前的聊天吧，跟屏幕对不上」）
       const arc = x => {
         const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
-        const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
+        const head = "她（" + uN + "）和「" + nm + "」" + tagOf(x.c) + "的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
         return head + (x.cold ? "（这段已经 " + x.cold + " 天没动静了——以前聊得挺多，后来断了）" : "") + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
@@ -11006,7 +11009,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
       const ok = id => !hid || !hid.has(String(id));
       const c = (characters || []).find(x => x && (x.name === who || x.remark === who) && ok(x.id));
-      if (c) { openChatById(c.id); return; }
+      // 有的人一点开就是线下（默认进线下／上次停在线下）——那一层盖在最上面，录像往别处翻时得一起收掉，
+      //   不然就卡在那一屏出不来（她 2026-10-17）。所以点开聊天也记一笔，peekOffClose 会把线下收起
+      if (c) { peekOffRef.current = true; openChatById(c.id); return; }
       const g = (groupsRef.current || []).find(x => x && x.name === who && ok(x.id) && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
       if (g) { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); return; }
       setScreen("messages");
