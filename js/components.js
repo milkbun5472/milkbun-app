@@ -266,6 +266,9 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
       style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
         fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, lineHeight: 1.6, resize: "vertical" } }),
     bad ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 4 } }, "这段存不了：" + bad) : null,
+    // 写到多长了：超过上限的那截存不进去，当场说，不等她回来发现新加的没了
+    (function () { const max = (TS && TS.CHAT_CSS_MAX) || 200000, n = css.length; return n > max * 0.8 ? h("div", { "data-wk": "chatcsslen", style: { fontFamily: F_BODY, fontSize: 11.5, color: n > max ? t.accent : t.fog, marginTop: 4, lineHeight: 1.6 } },
+      "已写 " + n + " 字，上限 " + max + " 字" + (n > max ? "——超出的那截存不进去。内嵌的图片（data:image 那一长串）最占地方，换成「插入图库图片」能省下一大截。" : "")) : null; })(),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
       btn("导出 .css", exportCSS, !css.trim()),
       btn("导入", () => fileRef.current && fileRef.current.click()),
@@ -10955,12 +10958,10 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })),
-  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", {
-    className: "flex items-center justify-between px-4 py-3 shrink-0",
-    style: {
-      background: t.bg2,
-      borderTop: `1px solid ${t.line}`
-    }
+  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
+  // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
+  h("div", {
+    className: "flex items-center justify-between px-4 pt-2.5 pb-1",
   }, h("button", {
     onClick: exitSel,
     style: {
@@ -10974,11 +10975,10 @@ function ChatThread({
       fontSize: 14,
       color: t.ink
     }
-  }, "已选 " + selIds.length), h("div", {
-    className: "flex gap-3 items-center"
-  },
+  }, "已选 " + selIds.length), h("div", { style: { minWidth: 40, display: "flex", justifyContent: "flex-end" } },
   // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
-  selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
+  selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null)),
+  h("div", { "data-wk": "selactions", className: "flex items-center justify-around px-2 pb-2.5", style: { gap: 4, minHeight: 44 } },
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
   // 画成漫画先挑画风（她 2026-10-13）：真漫画＝勾线画出来；照片漫画＝保持真人照片，靠气泡和字做出漫画感
   onComic && !comicAsk ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) setComicAsk(true); }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,
@@ -13013,9 +13013,9 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
   const _card = inline ? null : (typeof htmlCardOf === "function" ? htmlCardOf(text) : null);
   if (_card) return h(HtmlCard, { html: _card });
-  // 早先存下来的「原文 | 中文」（双语没开、TA自己写的，她 2026-10-11 截图）：画的时候也劈开，挂成译文——
+  // 早先存下来的「原文 | 中文」「原文【中文】」（双语没开、TA自己写的，她 2026-10-11／10-17 截图）：画的时候也劈开，挂成译文——
   //   新消息在拆泡那一步就劈好了，这一处只管已经躺在记录里的那些。她自己发的不动。
-  if (!zhReady && !isU && typeof text === "string" && text.indexOf("|") > 0 && typeof splitBilingual === "function") {
+  if (!zhReady && !isU && typeof text === "string" && (text.indexOf("|") > 0 || /】\s*$/.test(text)) && typeof splitBilingual === "function") {
     const _bi = splitBilingual(text, false);
     if (_bi) { text = _bi.text; zhReady = _bi.zh; }
   }
