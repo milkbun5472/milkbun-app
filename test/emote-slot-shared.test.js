@@ -31,3 +31,10 @@ test("单聊、群聊都调同一个，发到占位就地发", () => {
   assert.match(app, /const _gE = emoteSlotOf\(gBubbles\[j\]\);/);
   assert.ok(app.indexOf("const TAG_RE = ") < 0, "app 里又留了一份自己认表情的");
 });
+test("写成一串字的 {\"emote\":\"…\"} 也认（她 2026-10-17 截图）", () => {
+  const g = load();
+  const r = g.slot(["不给退货！", '{"emote":"认栽"}', "{ “emote”：“开心” }"], EM, norm);
+  assert.deepEqual(r.words.map(w => g.of(w) != null ? "E" : w), ["不给退货！", "E", "E"]);
+  assert.equal(r.kws[0].kw, "认栽");
+  assert.deepEqual(g.slot(['a', '{"emote":"认栽"}'], [], norm).words, ["a"], "没表情包时也别把它当字发出去");
+});

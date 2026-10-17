@@ -6906,7 +6906,15 @@ function ttsHasPause(text) {
 const EMOTE_SLOT_RE = /^[\s\p{P}\p{S}]*emoteslot(\d+)[\s\p{P}\p{S}]*$/u;
 function emoteSlotOf(w) { const m = EMOTE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 function emoteSlotWords(words, emotes, emoteNorm) {
-  let w0 = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+  // {"emote":"关键词"} 那一项：对象照认；模型把它写成了一串字（她 2026-10-17 截图：气泡里冒出 {"emote":"拿枪打你"}）也认
+  const JSON_EMOTE = /^\s*[{｛]\s*["“”']?\s*(?:emote|sticker|表情(?:包)?)\s*["“”']?\s*[:：]\s*["“”']\s*([^"“”']+?)\s*["“”']\s*[}｝]\s*$/i;
+  let w0 = (Array.isArray(words) ? words : []).map(w => {
+    if (w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim()) return "[表情] " + w.emote.trim();
+    const mj = typeof w === "string" ? w.match(JSON_EMOTE) : null;
+    return mj ? "[表情] " + mj[1].trim() : w;
+  });
+  // 一个表情包都没有：认出来的这几项也发不出图，直接拿掉，别把「[表情] …」当字发出去
+  if (!(emotes && emotes.length)) w0 = w0.filter((w, i) => !(typeof w === "string" && /^\[表情\] /.test(w) && w !== (Array.isArray(words) ? words[i] : w)));
   const kws = [];
   const EMOTE_SLOT = kw => { kws.push({ kw, sent: false }); return "emoteslot" + (kws.length - 1); };
   if (!(emotes && emotes.length)) return { words: w0, kws };
