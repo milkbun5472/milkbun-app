@@ -245,7 +245,20 @@
   // ── 那一排分类：小窝是一面格子柜，每一格是一只抽屉 ─────────────
   //   选中的那只是「拉出来了」：浮起来、有影子、拉手上墨；没选的推在柜子里，暗一些、拉手是细线。
   //   CSS「放哪儿」那三格、上传页挑类别也是这面柜子（items / noAll 传进来）。
-  function Cubbies({ t, kind, onPick, noAll, items, cols, flush }) {
+  // 首页那一排能收起（她 2026-10-16：「3x3太占位置了」）：收着时只剩一行写着现在看的是哪一格，点开挑完自己收回去
+  function Cubbies({ t, kind, onPick, noAll, items, cols, flush, fold }) {
+    const [open, setOpen] = useState(false);
+    if (fold && !open) {
+      const cur = KIND[kind];
+      return h("div", { "data-wk": "nestcubbies", className: "shrink-0 px-4 pt-2 pb-3" },
+        h("button", { "data-wk": "nestcubbyfold", onClick: () => setOpen(true), className: "w-full flex items-center active:opacity-70",
+          style: { gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 12, background: hex6(t.ink) ? t.ink + "0d" : t.bg2, fontFamily: F_BODY, fontSize: 13.5, color: t.ink } },
+          h("span", { style: { width: 14, height: 3, borderRadius: 2, background: cur ? cur.color : t.ink } }),
+          h("span", { style: { fontWeight: 600 } }, cur ? cur.zh : "全部"),
+          h("span", { style: { marginLeft: "auto", fontSize: 12.5, color: t.fog } }, "换一格 ▾")));
+    }
+    const pick0 = onPick;
+    onPick = fold ? (k => { setOpen(false); pick0(k); }) : pick0;
     const all = items || (noAll ? [] : [{ key: "", zh: "全部" }]).concat(KINDS);
     const n = cols || (all.length % 4 && all.length % 3 === 0 ? 3 : 4);   // 「全部」+八格＝九格，排成 3×3
     const frame = hex6(t.ink) ? t.ink + "0d" : t.bg2;
@@ -937,7 +950,7 @@
         right: h("div", { className: "flex items-center", style: { gap: 4 } }, bell,
           h("button", { "data-wk": "nestupbtn", onClick: () => me ? push({ v: "upload" }) : needLogin({ v: "upload" }), className: "active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
-      h(Cubbies, { t, kind, onPick: setKind }),
+      h(Cubbies, { t, kind, onPick: setKind, fold: true }),
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },
           h(ISearch, { size: 15, color: t.fog }),

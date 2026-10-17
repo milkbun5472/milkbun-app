@@ -75,3 +75,9 @@ test("留言板：第八格、写帖子就是一段字、没有导入和复制�
   assert.match(nest, /api\("\/admin\/status"/);
   assert.match(nest, /isPost && admin \?/);
 });
+
+test("首页格子柜收着：只剩一行，挑完自己收回去；传东西那页照旧整格摊开", () => {
+  assert.match(nest, /h\(Cubbies, \{ t, kind, onPick: setKind, fold: true \}\)/);
+  assert.match(nest, /onPick = fold \? \(k => \{ setOpen\(false\); pick0\(k\); \}\)/);
+  assert.match(nest, /h\(Cubbies, \{ t, kind, noAll: true, onPick: setKind \}\)/);
+});
