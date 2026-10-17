@@ -2081,10 +2081,15 @@
     if (!open) return h("div", { "data-wk": "qqdockball", ...dragProps,
       onClick: () => { if (!swallowIfDragged()) setOpen(true); },
       "data-assistant-dock": "1",
-      style: { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
+      // 换了自己的图（群友 2026-10-17：透明 png 想无边框无阴影）：圆底、边框、阴影都去掉，图长什么样就是什么样
+      style: cfg.avatarImage
+        ? { ...base, left: a.x, top: a.y, width: BALL, height: BALL, display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }
+        : { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
         background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.22)",
         display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "grab" } },
-      h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
+      cfg.avatarImage
+        ? h("img", { src: typeof resolveImg === "function" ? resolveImg(cfg.avatarImage) : cfg.avatarImage, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } })
+        : h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
 
     // 展开的样子：一扇能拖的小窗
     return h("div", { "data-wk": "qqdock",
