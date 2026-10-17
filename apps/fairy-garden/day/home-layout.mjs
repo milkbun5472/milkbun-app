@@ -1,11 +1,11 @@
-import {patchPartColors} from './home-parts.mjs?v=fg-3dabc3b4ab63b8df';
-import {buildSpace} from './spaces.mjs?v=fg-3dabc3b4ab63b8df';
-import {MAPS,walkable,findPath} from '../world.mjs?v=fg-3dabc3b4ab63b8df';
+import {patchPartColors} from './home-parts.mjs?v=fg-a6d34eed07f6ef97';
+import {buildSpace} from './spaces.mjs?v=fg-a6d34eed07f6ef97';
+import {MAPS,walkable,findPath} from '../world.mjs?v=fg-a6d34eed07f6ef97';
 
-import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-3dabc3b4ab63b8df';
-import {homeSize,wallSpan,wallTop,furnitureHeight,HOME_WINDOW} from './home-architecture.mjs?v=fg-3dabc3b4ab63b8df';
+import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-a6d34eed07f6ef97';
+import {homeSize,wallSpan,wallTop,furnitureHeight,HOME_WINDOW} from './home-architecture.mjs?v=fg-a6d34eed07f6ef97';
 export {HOME_NAMES,homePlacements,homeFurniture};
-import {homeFloorContains,homeBathroom} from './bathroom-layout.mjs?v=fg-3dabc3b4ab63b8df';
+import {homeFloorContains,homeBathroom} from './bathroom-layout.mjs?v=fg-a6d34eed07f6ef97';
 const overlaps=(a,b,gap=.035)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+gap-1e-6&&Math.abs(a.z-b.z)<(a.d+b.d)/2+gap-1e-6;
 export function checkHomeLayout(raw,{routes=true}={}){
  const placements=homePlacements(raw),map=buildSpace('dayHome',placements),names=Object.fromEntries(homeFurniture(placements).map(p=>[p.id,p.label])),f=map.furniture.filter(p=>!p.walkThrough&&!p.mount).map(furnitureFootprint);

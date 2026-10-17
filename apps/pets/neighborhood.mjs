@@ -1,11 +1,11 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-3dabc3b4ab63b8df';
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-3dabc3b4ab63b8df';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-3dabc3b4ab63b8df';
-import {careSummary} from './care.mjs?v=fg-3dabc3b4ab63b8df';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-a6d34eed07f6ef97';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-a6d34eed07f6ef97';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-a6d34eed07f6ef97';
+import {careSummary} from './care.mjs?v=fg-a6d34eed07f6ef97';
 
-import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-3dabc3b4ab63b8df';
+import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-a6d34eed07f6ef97';
 
-import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-3dabc3b4ab63b8df';
+import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-a6d34eed07f6ef97';
 export const NEIGHBORS=TOWN_RESIDENTS.concat(PET_NEIGHBORS);
 const rainPoint=()=>{const d=roomDoor('cafe');return {x:d.x+1.2,z:d.z};};
 const profile=id=>NEIGHBORS.find(n=>n.id===id),num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
@@ -45,9 +45,9 @@ export function weekendGathering(time,weather='晴日'){
 export function gatheringSpot(event,who,world){const n=event.place==='outside'?world:createTownNavigation(event.place,1.4),offsets=event.place!=='outside'&&who==='pet'?[[-.9,0]]:who==='companion'?[[1.15,.1],[.8,-.8],[-.8,-.8]]:[[-1,.6],[-1.1,0],[0,1.1]];for(const[x,z]of offsets){const p={x:event.point.x+x,z:event.point.z+z};if(n.walkable(p.x,p.z)&&n.path(event.point,p))return p;}return {...event.point};}
 // Relationships grow only from observed encounters. Route execution is shared
 // with pets and TA; none of this module runs in the offline recovery writer.
-export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime,getWeather=()=> '晴日',getWorkActivity=()=>null,save=()=>true}){
+export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime,getWeather=()=> '晴日',getWorkActivity=()=>null,getWorkroomForm=()=>getWorkActivity()?.form||'office',save=()=>true}){
  let routes=new Map(),changed=false;
- const bind=()=>{routes=new Map(NEIGHBORS.map(n=>[n.id,createTownLife(state.neighbors[n.id].town,{world,roomVariant:()=>getWorkActivity()?.form||'office',size:()=>n.pet?n.profile.size:1.4,actor:()=>({id:'neighbor:'+n.id,kind:n.pet?'pet':'person',species:n.species,size:n.pet?n.profile.size:1.4}),actors:getActors,onChange:()=>{changed=true;}})]));};bind();
+ const bind=()=>{routes=new Map(NEIGHBORS.map(n=>[n.id,createTownLife(state.neighbors[n.id].town,{world,roomVariant:getWorkroomForm,size:()=>n.pet?n.profile.size:1.4,actor:()=>({id:'neighbor:'+n.id,kind:n.pet?'pet':'person',species:n.species,size:n.pet?n.profile.size:1.4}),actors:getActors,onChange:()=>{changed=true;}})]));};bind();
  const friends=createPetFriends(state,{rows:getRows,getActors,now:()=>getTime().at,save,onRestore:bind});const guests=createPetVisits(state,{world,rows:getRows,getActors,now:()=>getTime().at,date:()=>getTime().date,save,onRestore:bind});let friendMotion=null;
  const row=id=>getRows().find(x=>x.entry.id===id),near=(id,p)=>!!p&&p.entry.town?.place===state.neighbors[id].town.place&&same(p.entry.town.position,state.neighbors[id].town.position);
  const free=p=>!!p&&!p.career.state.job&&!p.care.state.helper&&!p.care.state.task&&p.care.state.energy>=30&&p.care.state.satiety>=30;

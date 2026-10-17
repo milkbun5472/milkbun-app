@@ -1,17 +1,18 @@
-import {createResidentWork,restoreResidentWork} from './resident-work.mjs?v=fg-3dabc3b4ab63b8df';
-import {togetherWaiting,togetherDestination,togetherActivity} from './together.mjs?v=fg-3dabc3b4ab63b8df';
-import {gatheringSpot} from './neighborhood.mjs?v=fg-3dabc3b4ab63b8df';
-import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-3dabc3b4ab63b8df';
-import {RESIDENT_ACTS,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-3dabc3b4ab63b8df';
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-3dabc3b4ab63b8df';
-import {lifeOf,lifeNote} from './routine.mjs?v=fg-3dabc3b4ab63b8df';
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-3dabc3b4ab63b8df';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-3dabc3b4ab63b8df';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-3dabc3b4ab63b8df';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-3dabc3b4ab63b8df';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-3dabc3b4ab63b8df';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-3dabc3b4ab63b8df';
-import {turnPet} from './movement.mjs?v=fg-3dabc3b4ab63b8df';
+import {residentRoomForm} from './resident-workroom.mjs?v=fg-a6d34eed07f6ef97';
+import {createResidentWork,restoreResidentWork} from './resident-work.mjs?v=fg-a6d34eed07f6ef97';
+import {togetherWaiting,togetherDestination,togetherActivity} from './together.mjs?v=fg-a6d34eed07f6ef97';
+import {gatheringSpot} from './neighborhood.mjs?v=fg-a6d34eed07f6ef97';
+import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-a6d34eed07f6ef97';
+import {RESIDENT_ACTS,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-a6d34eed07f6ef97';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-a6d34eed07f6ef97';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-a6d34eed07f6ef97';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-a6d34eed07f6ef97';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-a6d34eed07f6ef97';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-a6d34eed07f6ef97';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-a6d34eed07f6ef97';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-a6d34eed07f6ef97';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-a6d34eed07f6ef97';
+import {turnPet} from './movement.mjs?v=fg-a6d34eed07f6ef97';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActors=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null,chores=null,getOuting=()=>null,getTogether=()=>null,getTogetherPeer=()=>null,getDomesticTask=()=>null,getNeighborhood=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
@@ -19,12 +20,12 @@ export async function createHousemate({scene,host,care,home,notice,save,getPets=
  let look=seatLook('companion',archive.journey?.companionLook||garden?.companion?.look,person.ta);
  const doll=createTraveler(await loadTravelerSource(),true,look);await doll.ready();scene.add(doll.root);doll.root.scale.setScalar(1.6);doll.root.visible=false;
  if(resident.id!==String(person.id)){Object.assign(resident,restoreResident({id:String(person.id)}));delete resident.town;}
- if(world&&!resident.town)resident.town=newTownLife('home',resident.town?.position||resident.position||{x:-1.15,z:1.35},resident.rng);const actor=()=>({id:'companion:'+person.id,kind:'person',size:doll.root.scale.x,place:'home'});let outingChange=false;const town=world?createTownLife(resident.town,{world,size:()=>1.4,roomVariant:()=>resident.work?.shift?.contract.form||resident.work?.primary?.form||'office',actor,actors:getActors,onChange:()=>{if(!outingChange)save();}}):null;const nav=createActorNavigation(createHomeNavigation(1.4),{actor,actors:getActors});syncResidentPreferences(resident,person);let route=[],clock=0,idle=0,visible=false,job=null,blockedTime=0,companyActivity=null;
+ if(world&&!resident.town)resident.town=newTownLife('home',resident.town?.position||resident.position||{x:-1.15,z:1.35},resident.rng);const actor=()=>({id:'companion:'+person.id,kind:'person',size:doll.root.scale.x,place:'home'});let outingChange=false;const town=world?createTownLife(resident.town,{world,size:()=>1.4,roomVariant:()=>residentRoomForm(resident.work),actor,actors:getActors,onChange:()=>{if(!outingChange)save();}}):null;const nav=createActorNavigation(createHomeNavigation(1.4),{actor,actors:getActors});syncResidentPreferences(resident,person);let route=[],clock=0,idle=0,visible=false,job=null,blockedTime=0,companyActivity=null;
  const members=()=>getPets().length?getPets().filter(x=>!x.entry.town||x.entry.town.place==='home'):[{entry:{id:'pet-1'},care,home}];
  const choose=id=>{const selected=members().find(x=>x.entry.id===id)||members().find(x=>x.entry.id===getActiveId())||members()[0];if(!selected)return '';care=selected.care;home=selected.home;return selected.entry.id;};
  const pos=()=>({x:doll.root.position.x,z:doll.root.position.z});
  let workMotion={};const work=town?createResidentWork(resident.work||(resident.work=restoreResidentWork(null,String(person.id))),{town,world,person,save,getContext:()=>({pets:getPets(),activePet:getPets().find(x=>x.entry.id===getActiveId()),preferences:resident.choices?.preferences?.scores,viewerPlace:getPlace()||'outside',neighbors:getNeighborhood()?.state.neighbors,neighborFree:id=>getNeighborhood()?.canWorkMeet(id),together:getTogether(),chores:chores?.state.task,domestic:getDomesticTask(),helper:job||getPets().some(x=>x.care.state.helper||x.care.state.task?.target==='companion:'+person.id),outing:resident.outing,company:companyActivity&&resident.activity===companyActivity,sleeping:resident.activity?.kind==='sleep'})}):null;
- function workingTick(dt){if(!work)return false;workMotion=work.tick(dt,getTime()?.at||Date.now());if(!workMotion.owned)return false;resident.activity=null;route=[];companyActivity=null;const p=town.state.position;clock+=dt;doll.root.position.set(p.x,town.nav().ground(p.x,p.z)+.03,p.z);doll.root.rotation.y=town.state.heading;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;doll.animate(clock,{moving:workMotion.speed>0,gesture:workMotion.gesture||'rest',seated:!!workMotion.seated,height:doll.root.position.y});syncResident();return true;}
+ function workingTick(dt){if(!work)return false;if(dt>0)workMotion=work.tick(dt,getTime()?.at||Date.now());if(!workMotion.owned)return false;resident.activity=null;route=[];companyActivity=null;const p=town.state.position;clock+=dt;doll.root.position.set(p.x,town.nav().ground(p.x,p.z)+.03,p.z);doll.root.rotation.y=town.state.heading;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;doll.animate(clock,{moving:workMotion.speed>0,gesture:workMotion.gesture||'rest',seated:!!workMotion.seated,task:workMotion.task,height:doll.root.position.y});syncResident();return true;}
 
  function begin(){if(work&&resident.work!==work.state){const saved=resident.work||restoreResidentWork(null,String(person.id));for(const k of Object.keys(work.state))delete work.state[k];Object.assign(work.state,saved);resident.work=work.state;}if(town&&town.state.place!=='home'){const p=town.state.position;doll.root.position.set(p.x,town.nav().ground(p.x,p.z)+.03,p.z);doll.root.rotation.y=town.state.heading;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;return;}visible=true;doll.root.visible=true;const resume=members().find(x=>String(x.care.state.helper?.id)===String(person.id));choose(resume?.entry.id);const old=care.state.helper;job=old&&String(old.id)===String(person.id)?old:null;care.state.helper=job;const p=nav.restore(job?.position||resident.town?.position||resident.position||{x:-1.15,z:1.35});doll.root.position.set(p.x,.08,p.z);doll.root.rotation.y=resident.heading;route=[];if(job){resident.activity=null;if(job.phase==='walking')plan();}else if(resident.activity?.phase==='walking'){const goal=resident.activity.goal;route=goal&&nav.walkable(goal.x,goal.z)?nav.path(pos(),goal)||[]:[];if(!route.length)resident.activity=null;}syncResident();}
  function target(action){const bowl=home.snapshot().station?.bowl;return action==='feed'?(bowl?{x:bowl.x,z:bowl.z+.25}:{x:HOME_PLACES.feeding.x,z:HOME_PLACES.feeding.z+.35}):action==='play'?{x:-.85,z:1.35}:{x:-.65,z:.55};}
