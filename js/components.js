@@ -11051,7 +11051,7 @@ function ChatThread({
   }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } },
     "《" + (pendingFic.subject || "这一篇") + "》"),
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
-  h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, wk: "newbelow" }),
+  h(NewBelowPill, { n: nb.newBelow, onGo: nb.go }),
   quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
   // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
   chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
@@ -12734,10 +12734,10 @@ function useNewBelow(ref, resetKey) {
   const go = () => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); };
   return { newBelow, follow, go };
 }
-function NewBelowPill({ n, onGo, wk }) {
+function NewBelowPill({ n, onGo, group }) {
   const t = useTheme();
   return n > 0 ? h("div", { style: { position: "relative", height: 0, zIndex: 6 } },
-    h("button", { "data-wk": wk || "newbelow", onClick: onGo, className: "active:opacity-70",
+    h("button", { "data-wk": group ? "gnewbelow" : "newbelow", onClick: onGo,   // 挂点只许写死的名字（不从外面传进来） className: "active:opacity-70",
       style: { position: "absolute", right: 14, bottom: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 40, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
       "↓ " + n + " 条新消息")) : null;
 }
@@ -18428,7 +18428,7 @@ function GroupThread({
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name))))),
-  h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, wk: "gnewbelow" }),
+  h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, group: true }),
   !selMode && quoted && h(QuoteDraftBar, { text: (window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)).replace(/^❝\s*/, ""), onClear: () => setQuoted(null) }),
   !selMode && h("div", {
     "data-wk": "composer",

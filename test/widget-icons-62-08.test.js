@@ -69,7 +69,7 @@ test("日历：AI 那几类走 SVG，手填日程仍用她挑的图标", () => {
   assert.match(comp, /const CAL_SEQ_GLYPH = \{ coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk \};/);
   assert.ok(!/CAL_SEQ_ICON/.test(comp), "旧的 emoji 表还在（会有人接着用它）");
   // AI 行程：带 glyph、不带 icon
-  assert.match(comp, /glyph: CAL_SEQ_GLYPH\[s\.type\] \|\| IPin, color: CAL_SEQ_TINT\[s\.type\]/);
+  assert.match(comp, /glyph: CAL_SEQ_GLYPH\[(\w+)\.type\] \|\| IPin, color: CAL_SEQ_TINT\[\1\.type\]/);   // 变量叫什么不管（v75.937 改成 sq）
   assert.match(comp, /glyph: CAL_SEQ_GLYPH\.sleep, color: CAL_SEQ_TINT\.sleep/, "跨夜那一段也要换");
   // 手填日程：她挑过就用她挑的（icon），没挑才给一枚图钉
   assert.match(comp, /icon: e\.icon \|\| "", glyph: e\.icon \? null : IPin/);
