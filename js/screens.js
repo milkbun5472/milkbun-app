@@ -11,6 +11,8 @@
 // 外语也挂「译」（她 2026-10-17：「没接上的翻译地方也都接上去」）：论坛、情侣空间、日记这些 TA 写的字，
 //   跟查手机同一个壳（PTX → TransText）：探得出外语才挂「译」，中文原样返回。
 function STX(v) {
+  // 已经是元素／数组（整页正文、一排按钮）就原样放过——String() 了就是一行「[object Object]」，还会挂上「译」（2026-10-17 群友截图）
+  if (v && typeof v === "object") return v;
   const s = String(v == null ? "" : v);
   if (!s) return s;
   return typeof TransText === "function" ? h(TransText, { text: s, ink: "currentColor", inline: true }) : s;
