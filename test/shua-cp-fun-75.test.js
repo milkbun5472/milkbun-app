@@ -35,5 +35,7 @@ test("她发视频：本机掷骰子定有没有人刷到、几个、是谁；�
   assert.match(src, /const anyone = lead \? true : Math\.random\(\) < 0\.4;/);
   assert.match(src, /if \(!pool\.length\) \{ patchV\(v\.id/);
   assert.match(src, /他们平时私聊里怎么跟她说话（下面各自那几句），评论区里还是那个人/);
-  assert.match(app, /\.slice\(-10\)\.map\(m => \(m\.role === "user" \? uN : c\.name\)/);
+  // 原来这里带最近十句私聊；现在跟论坛回帖同一份（charLivedGrounding：聊天那一份真上下文，比十句多），口气照样看得出
+  assert.match(app, /\+ charLivedGrounding\(c, about/);
+  assert.match(app, /lived = String\(\(ctxFor\(ch\) \|\| \{\}\)\.recentChat \|\| ""\)/);
 });

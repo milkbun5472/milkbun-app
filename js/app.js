@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.910";
+const APP_VERSION = "v75.917";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22698,6 +22698,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
   const forumCharGrounding = (ch, post, role, extraQuery) => {
     if (!ch) return "";
+    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
+    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
+      + charLivedGrounding(ch, { title: post && post.title, body: (post && post.body || "") + " " + String(extraQuery || "") });
+  };
+  // 他本人真经历过的：按这件事检索的记忆＋聊天那一份真上下文＋「只有他本人知道」的边界。
+  //   论坛楼里回帖、片刻、直播、一起听广场都拿这一份（她 2026-10-17：「能公共的就不要自己单独弄了」）。
+  //   人设那一段各处拼法不同（论坛单人 600 字，多人场合走群聊那套按人数分预算），所以不在这儿。
+  const charLivedGrounding = (ch, about) => {
+    if (!ch) return "";
+    const post = about || {}, extraQuery = "";
     const q = (post.title || "") + " " + (post.body || "") + " " + String(extraQuery || "");
     let mems = [];
     try { mems = retrieveMemories(memLibRef.current, ch.id, q, { limit: 8, touch: false, vec: false }); } catch (e) {}
@@ -22709,8 +22719,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   带 16 行就截断，等于又造了一套只有论坛认的上下文（one-public-mechanism.md）。
     let lived = "";
     try { lived = String((ctxFor(ch) || {}).recentChat || ""); } catch (e) {}
-    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
-    return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
+    return ""
       + (memText ? "\n相关真实记忆：\n" + memText : "")
       // 她 2026-09-28：TA 在楼里回另一个角色时，替她编了一句她没说过的话当论据。原来这儿写的是「别照抄原话」——
       //   本意是别把私聊原样搬上公开楼，模型却读成「她说过什么要自己转述一遍」，一转述就走样成她没说过的话。
@@ -27461,13 +27470,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, coupleDisc: null })); }
   };
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
+  // 你的人在直播、片刻、一起听广场露面时带的那一份（多人场合的人设拼法＋此刻在干嘛＋跟她什么关系＋真经历过的）：人设、此刻在干嘛、跟她什么关系、最近私聊十句（只他自己知道）
+  const charPublicBrief = (c, _i, all, about) => {
+    const uN = userName(profile);
+    const present = Array.isArray(all) && all.length ? all : [c];
+    if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
+    const cp = (couplesRef.current || {})[c.id] || {};
+    // 他真经历过的那一段（记忆、最近聊天、知情边界）跟论坛楼里回帖是同一份：charLivedGrounding
+    return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
+      + Object.values(groupNowSegs(c, { interop: true })).join("")
+      + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
+      + charLivedGrounding(c, about && typeof about === "object" ? about : {});
+  };
   // ── 音乐广场与歌评（她 2026-10-17）：提示词和数据形状在 js/listen-square.js，这儿只管打枪和存档 ──
   //   全都是她点了才打（不进后台）。熟面孔＝论坛那批人在这儿的网名（music 那一栏），碰面账是论坛那一份。
   const LQ = () => window.ListenSquare;
   const sqRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.music).map(n => ({ id: n.id, name: n.music.name, voice: n.music.habit, forum: n.name, tie: book.items[n.id] || null })); };
   const sqPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b);
     return a && b && a.music && b.music ? { a: a.id, b: b.id, line: "「" + a.music.name + "」↔「" + b.music.name + "」：" + r.tone.split(a.name).join(a.music.name).split(b.name).join(b.music.name) } : null; }).filter(Boolean);
-  const sqCast = (must, n) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); return must ? [must, ...rest] : rest; };
+  // 你的人在广场上带的料：跟直播、片刻同一份 charPublicBrief，里头「真经历过的」那段跟论坛回帖同一份（她 2026-10-17）
+  const sqCast = (must, n, about) => { const pool = liveChars.filter(c => c && !c.npc && !isBody(c.id)); const rest = pool.filter(c => !must || c.id !== must.id).sort(() => Math.random() - .5).slice(0, (n || 4) - (must ? 1 : 0)); const cast = must ? [must, ...rest] : rest;
+    return cast.map(c => ({ ...c, brief: charPublicBrief(c, 0, cast, { title: String((about && about.title) || "一起听 · 广场"), body: String((about && about.body) || "") }) })); };
   const sqMe = () => userName(profile);
   // 模型报上来的一条 → 存下来的一条：熟人认 id、熟面孔认网名、其余都是路人
   const sqItem = (x, cast) => {
@@ -27475,9 +27498,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const reg = !c && FORUM_NPC_REGISTRY.find(n => n.music && n.music.name === S0(x && x.name));
     const text = S0(x && x.text).slice(0, 400); if (!text) return null;
     return { id: "lq_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), by: c ? c.id : reg ? reg.id : "npc", name: c ? (c.remark || c.name) : reg ? reg.music.name : (S0(x && x.name) || "路人").slice(0, 20),
-      text, ...(S0(x && x.to) ? { to: S0(x.to).slice(0, 20) } : {}), tone: x && (x.tone === "warm" || x.tone === "spar") ? x.tone : "", ts: Date.now() };
+      text, ...(S0(x && x.to) ? { to: S0(x.to).slice(0, 20) } : {}), tone: x && (x.tone === "warm" || x.tone === "spar") ? x.tone : "", likes: Math.max(0, Math.min(99999, Math.round(Number(x && x.likes) || 0))), ts: Date.now() };
   };
   const S0 = v => String(v == null ? "" : v).trim();
+  // 刷出来的一批不是同一秒写的：在 from 到现在之间撒开，按先后排
+  const sqSpread = (items, from) => { const now = Date.now(), a = Math.min(from || now, now); return items.map(x => ({ ...x, ts: a + Math.round(Math.random() * (now - a)) })).sort((x, y) => x.ts - y.ts); };
   const sqAsk = async (sys, tag) => { const raw = await callAI(active, sys, [{ role: "user", content: "写。" }], { maxTokens: 8000, tag: tag }); return (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {}; };
   const sqReady = () => { if (!active) { toast("请先到设置配置 API"); return false; } return true; };
   // 熟面孔回了她（或者她回了熟面孔）才记一笔；路人、熟人不进这本账
@@ -27492,13 +27517,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!musicReady) { toast("先在一起听里选择音乐源"); return; }
     setGen(g => ({ ...g, square: true }));
     try {
-      const cast = sqCast(null, 4);
+      const cast = sqCast(null, 4, { title: "分享最近在听的歌" });
       const d = await sqAsk(LQ().feedSystem({ cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), avoid: ((listenRef.current || {}).square || []).slice(0, 20).map(p => p.song && p.song.title).filter(Boolean) }), "音乐广场");
       const out = [];
       for (const p of (Array.isArray(d.posts) ? d.posts : []).slice(0, 10)) {
         const head = sqItem(p, cast); const title = S0(p && p.title); if (!head || !title) continue;
         const song = await sqResolveSong(title, S0(p.artist)); if (!song) continue;
-        out.push({ ...head, song, comments: (Array.isArray(p.comments) ? p.comments : []).slice(0, 3).map(c => sqItem(c, cast)).filter(Boolean) });
+        // 时间撒开：帖子是这几个小时里陆续发的，评论在发帖之后陆续来（不然一排全是「1分钟前」）
+        const pts = Date.now() - Math.round(Math.random() * 6 * 3600e3);
+        out.push({ ...head, ts: pts, song, comments: sqSpread((Array.isArray(p.comments) ? p.comments : []).slice(0, 8).map(c => sqItem(c, cast)).filter(Boolean), pts) });
       }
       if (!out.length) { toast("这一批歌在网易云一首都没搜到，再刷一次试试"); return; }
       saveListen(p => ({ ...p, square: [...out, ...(p.square || [])].slice(0, LQ().KEEP_POSTS) }));
@@ -27523,15 +27550,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const target = liveChars.find(c => c && ((to && (c.remark || c.name) === to) || (!to && mine && post.by === c.id)));
     setGen(g => ({ ...g, squareReply: postId }));
     try {
-      const cast = sqCast(target || null, 3);
+      const cast = sqCast(target || null, 3, { title: LQ().songLine(post.song), body: S0(post.text) + " " + (mine ? mine.text : "") });
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。下面是这一帖的评论。",
         transcript: LQ().transcriptOf((post.comments || []).concat(mine ? [mine] : [])), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
-        text: mine ? mine.text : "（她刚发了这一帖）", to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: mine ? 4 : 5 }), "音乐广场");
-      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 6);
+        text: mine ? mine.text : "（她刚发了这一帖）", to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: mine ? "5-8" : "8-12" }), "音乐广场");
+      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
       saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: [...(x.comments || []), ...items] } : x) }));
       sqTouch(items.filter(x => x.to === sqMe() || !mine), "theirs");
       if (to && FORUM_NPC_REGISTRY.some(n => n.music && n.music.name === to)) { const r = FORUM_NPC_REGISTRY.find(n => n.music && n.music.name === to); touchForumPublicTie(r.id, "mine", ""); }
     } catch (e) { toast("没人接上：" + (e.message || "重试")); }
+    finally { setGen(g => ({ ...g, squareReply: null })); }
+  };
+  // 某一帖底下「再刷点评论」：跟论坛刷楼一样一枪 10–16 条，接在已有的后面
+  const moreSquare = async postId => {
+    if (!sqReady()) return;
+    const post = ((listenRef.current || {}).square || []).find(p => p.id === postId); if (!post) return;
+    setGen(g => ({ ...g, squareReply: postId }));
+    try {
+      const cast = sqCast(null, 3, { title: LQ().songLine(post.song), body: S0(post.text) });
+      const d = await sqAsk(LQ().songSystem({ song: post.song || {}, where: "一起听 app 的广场上，「" + post.name + "」分享了" + LQ().songLine(post.song) + "：「" + S0(post.text).slice(0, 200) + "」。这是这一帖底下的评论区，像网易云的动态评论。",
+        cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), transcript: LQ().transcriptOf(post.comments || []), n: "10-16" }), "音乐广场");
+      const items = sqSpread((Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 18), Math.max(post.ts || 0, ...(post.comments || []).map(x => x.ts || 0)));
+      if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
+      saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: [...(x.comments || []), ...items].slice(-LQ().KEEP_TALK) } : x) }));
+      sqTouch(items.filter(x => x.to === sqMe()), "theirs");
+    } catch (e) { toast("没刷出来：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, squareReply: null })); }
   };
   // 一首歌一页歌评：刷过的留在 listen.songTalk[门牌]，回来还在
@@ -27542,9 +27585,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const have = ((L.songTalk || {})[key] || {}).items || [];
     setGen(g => ({ ...g, songTalk: key }));
     try {
-      const cast = sqCast(partner, 3);
-      const d = await sqAsk(LQ().songSystem({ song, cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), partner: partner ? { id: partner.id, name: partner.remark || partner.name } : null, transcript: LQ().transcriptOf(have), n: 8 }), "歌评");
-      let items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
+      const cast = sqCast(partner, 3, { title: LQ().songLine(song) });
+      const d = await sqAsk(LQ().songSystem({ song, cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(), partner: partner ? { id: partner.id, name: partner.remark || partner.name } : null, transcript: LQ().transcriptOf(have), n: "12-18" }), "歌评");
+      // 歌评区是攒了很久的：新刷的一批撒在这一个月里（已有的在前面就从最后一条之后撒）
+      const lastTs = have.length ? Math.max(...have.map(x => x.ts || 0)) : Date.now() - 30 * 864e5;
+      let items = sqSpread((Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 20), lastTs);
       if (!items.length) { toast("这一批没写出来，再刷一次"); return; }
       saveListen(p => { const st = p.songTalk || {}, cur = st[key] || {};
         return { ...p, songTalk: { ...st, [key]: { song: { title: song.title, artist: song.artist || "", cover: song.cover || null, neteaseId: song.neteaseId || "" }, items: [...(cur.items || []), ...items].slice(-LQ().KEEP_TALK), ts: Date.now() } } }; });
@@ -27562,16 +27607,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const target = liveChars.find(c => c && to && (c.remark || c.name) === to) || null;
     setGen(g => ({ ...g, songTalk: key }));
     try {
-      const cast = sqCast(target || (characters || []).find(c => c.id === L.partnerId) || null, 3);
+      const cast = sqCast(target || (characters || []).find(c => c.id === L.partnerId) || null, 3, { title: LQ().songLine(song), body: mine.text });
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 里" + LQ().songLine(song) + "这首歌的评论区。", transcript: LQ().transcriptOf(have), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
-        text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: 4 }), "歌评");
-      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 6);
+        text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: "5-8" }), "歌评");
+      const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
       put(items);
       sqTouch(items.filter(x => x.to === sqMe()), "theirs");
       const r = to && FORUM_NPC_REGISTRY.find(n => n.music && n.music.name === to); if (r) touchForumPublicTie(r.id, "mine", "");
     } catch (e) { toast("没人接上：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, songTalk: null })); }
   };
+  // 删：自己发的、刷出来的都能删（她 2026-10-17）。整帖先问一句，一条评论直接删
+  const delSquarePost = postId => requestAppConfirm("删掉这一帖？", "底下的评论一起没了，删了找不回来。", () => saveListen(p => ({ ...p, square: (p.square || []).filter(x => x.id !== postId) })));
+  const delSquareComment = (postId, cid) => saveListen(p => ({ ...p, square: (p.square || []).map(x => x.id === postId ? { ...x, comments: (x.comments || []).filter(c => c.id !== cid) } : x) }));
+  const delSongTalk = (song, cid) => { const key = LQ().songKey(song); if (!key) return;
+    saveListen(p => { const st = p.songTalk || {}, cur = st[key]; if (!cur) return p; return { ...p, songTalk: { ...st, [key]: { ...cur, items: (cur.items || []).filter(c => c.id !== cid) } } }; }); };
   // 转给TA：落一张卡，跟片刻分享视频同一个形状，不让TA当场开口
   const shareSquare = (post, c) => {
     if (!post || !c) return;
@@ -31126,11 +31176,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("home")
   });else if (screen === "live" || screen === "shua") {
     // 直播的那一套口子（js/live.js）。v74.99x 起直播是刷刷底栏的一格；老入口 "live" 也落进刷刷。
+    // 片刻上的熟面孔＝论坛那批人在片刻的号（shua 那一栏）；片刻的评论区和直播间都认这一份，碰面账是论坛那一本
+    const shuaRegulars = () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); };
+    const shuaPairs = () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.split(a.name).join(a.shua.name).split(b.name).join(b.shua.name) } : null; }).filter(Boolean);
     const liveProps = {
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
     characters: liveChars.filter(c => !c.npc && !isBody(c.id)),
     profile: profile,
     wallet: wallet,
+    regulars: shuaRegulars, regularPairs: shuaPairs, touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),
     toast: toast,
     maskName: (anonMe && anonMe.name) || "",
     // 看 TA 播：料就是TA平时那一整份（TA 开播的时候还是TA），站位是「TA本人在现场」
@@ -31150,19 +31204,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️原来是这里自拼的一套：人设硬切 2500、只有在没在一起和六句聊天，心情、长出来的自我、住哪、身上带着什么一概没有。
     //   跟群聊／群通话走同一份：groupPersonaText 按在场人数分额度，groupNowSegs 给【此刻】那几层（私事带本人围栏）。
     //   调用处都是 list.map(briefFor)，第三个参数就是在场的这一拨人。
-    briefFor: (c, _i, all) => {
-      const uN = userName(profile);
-      const present = Array.isArray(all) && all.length ? all : [c];
-      if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
-      const cp = (couplesRef.current || {})[c.id] || {};
-      // 最近十句：片刻里TA回你、刷到你的视频，要照你俩平时怎么说话来（她 2026-10-15），六句看不出口气
-      const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
-        .slice(-10).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
-      return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
-        + Object.values(groupNowSegs(c, { interop: true })).join("")
-        + "\n和" + uN + "：" + (spaceLover(cp) ? "在一起的恋人" : cp.status === "together" ? spaceRel(cp).zh + "，不是恋人" : "还没在一起")
-        + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
-    },
+    briefFor: charPublicBrief,
     pay: (delta, label) => changeWallet(delta, label, "live", { where: "直播间" }),
     charPay: (charId, delta, label) => adjustCharBalance(charId, delta, label, "live"),
     remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
@@ -31283,8 +31325,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),
       // 片刻的熟面孔＝论坛那批人换了个网名（shua）；碰面账、彼此的交情都是同一份
-      regulars: () => { const book = forumPublicTies(); return FORUM_NPC_REGISTRY.filter(n => n.shua).map(n => ({ id: n.id, name: n.shua.name, voice: n.shua.voice, forum: n.name, tie: book.items[n.id] || null })); },
-      regularPairs: () => FORUM_NPC_RELATIONS.map(r => { const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b); return a && b && a.shua && b.shua ? { a: a.id, b: b.id, line: "「" + a.shua.name + "」↔「" + b.shua.name + "」：" + r.tone.replace(new RegExp(a.name, "g"), a.shua.name).replace(new RegExp(b.name, "g"), b.shua.name) } : null; }).filter(Boolean),
+      regulars: shuaRegulars,
+      regularPairs: shuaPairs,
       touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),
       coupleOf: id => (couplesRef.current || {})[id] || null,   // 情侣号纪念日：在一起是哪天
       live: liveProps,
@@ -32114,7 +32156,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenSquare: genSquare,
     genSquare: !!gen.square,
     onPlaySquare: post => post && post.song && playSong(post.song),
-    onPostSquare: postSquare, onReplySquare: replySquare, squareBusy: gen.squareReply || null, onShareSquare: shareSquare,
+    onPostSquare: postSquare, onReplySquare: replySquare, onMoreSquare: moreSquare, onDelSquare: delSquarePost, onDelSquareComment: delSquareComment, onDelSongTalk: delSongTalk, squareBusy: gen.squareReply || null, onShareSquare: shareSquare,
     onGenSongTalk: genSongTalk, onReplySongTalk: replySongTalk, songTalkBusy: gen.songTalk || null,
     player: player,
     onTogglePlay: togglePlay,

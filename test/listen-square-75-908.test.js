@@ -32,3 +32,32 @@ test('界面：广场能发帖评论转发，播放页有「评」进歌评页',
   assert.match(sc,/onPostSquare && onPostSquare\(v, now\)/);
   assert.match(sc,/"data-wk": "listentalkopen"/);
 });
+test('一枪刷得多（跟论坛一样）、网易云评论区的样子：网名、赞数、热评',()=>{
+  assert.match(app,/n: "12-18"/);assert.match(app,/n: "10-16"/);
+  assert.match(lq,/网易云评论区的样子/);assert.match(lq,/likes/);
+  assert.match(sc,/"热门评论"/);assert.match(sc,/"精彩评论"/);
+  assert.match(sc,/onMoreSquare && onMoreSquare\(p\.id\)/);
+  assert.match(lq,/"data-kind": "listenshare"/);
+});
+test('广场、直播、片刻共用 charPublicBrief，真经历那段跟论坛共用 charLivedGrounding',()=>{
+  assert.match(app,/brief: charPublicBrief\(c, 0, cast, \{ title:/);
+  assert.match(app,/\+ charLivedGrounding\(c, about/);
+  assert.match(app,/\+ charLivedGrounding\(ch, \{ title: post/);
+  assert.equal((app.match(/sqCast\([^\n]*?\{ title:/g)||[]).length,5);
+  assert.match(lq,/c\.brief \? S\(c\.brief\)/);
+});
+test('帖子、帖子里的评论、歌评都能删，自己的和刷出来的都行',()=>{
+  assert.match(app,/const delSquarePost = postId => requestAppConfirm\(/);
+  assert.match(app,/const delSquareComment = \(postId, cid\) =>/);
+  assert.match(app,/const delSongTalk = \(song, cid\) =>/);
+  assert.equal((sc.match(/onDelSquareComment\(p\.id, x\.id\)/g)||[]).length,2);
+  assert.equal((sc.match(/onDelSongTalk\(talkSong, y\.id\)/g)||[]).length,2);
+});
+test('歌评页的输入框钉在最底下，占底栏那一格',()=>{
+  assert.match(sc,/nav === "songtalk" && songTalkBar \? songTalkBar : h\("div", \{ className: "shrink-0 flex items-stretch"/);
+});
+test('设置挪到右上角，底栏四格；刷出来的评论时间撒开',()=>{
+  assert.doesNotMatch(sc,/navBtn\("home", "设置"/);
+  assert.match(sc,/"data-wk": "listensetbtn"/);
+  assert.match(app,/const sqSpread = \(items, from\) =>/);
+});
