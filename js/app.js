@@ -18035,9 +18035,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     groupEcho: "", groupOfflineEcho: ""
   });
   // 查手机微信里联系人的脸（群里 2026-10-17 许愿）：她在那边换过的 → 同名（或备注同名）的配角／角色 → 没有
+  // 配角卡里常写着「网名X」——他手机微信里显示的正是那个网名（群里 2026-10-17 截图：沈韦＝韦制、苏漾＝盐汽水不加盐）
+  const netOf = x => { const m = /网名(?:是|叫)?[：:「“"\s]*([^，,。；;」”"\n]{1,24})/.exec(String((x && (x.brief || x.persona || x.intro)) || "")); return m ? m[1].trim() : ""; };
   const _phoneFaceChar = (ownerId, name) => { const n = String(name || "").trim(); if (!n) return null;
     // 配角卡里常写着「网名X」，他手机微信里显示的正是那个网名（群里 2026-10-17 截图：沈韦＝韦制、苏漾＝盐汽水不加盐）
-    const netOf = x => { const m = /网名(?:是|叫)?[：:「“"\s]*([^，,。；;」”"\n]{1,24})/.exec(String((x && (x.brief || x.persona || x.intro)) || "")); return m ? m[1].trim() : ""; };
     return (characters || []).find(x => x && x.id !== ownerId && (x.name === n || x.remark === n || netOf(x) === n)) || null; };
   window.__phoneFaceOf = (ownerId, name) => {
     const mine = ((loadJSON("x_phoneContactAv", {}) || {})[ownerId] || {})[String(name || "").trim()];
@@ -18180,7 +18181,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const groupAvatar = group.avatarImage || group.avatar || (others.find(c => c.avatarImage) || {}).avatarImage;
       const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages,
         // 群里这几个真人的所有叫法，带给避重名单用（群名本身不是人名，不带）
-        memberNames: others.reduce((a, c) => a.concat([c.name, c.remark]), []).filter(Boolean) };
+        memberNames: others.reduce((a, c) => a.concat([c.name, c.remark, netOf(c)]), []).filter(Boolean) };
       if (spectatePrivate) {
         const pairKey = memberIds.map(String).sort().join("|");
         const prev = spectatePrivateByPair.get(pairKey);
@@ -18216,8 +18217,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 会话名对得上哪个角色卡，就把那张卡上的所有叫法一起收进来
       (characters || []).forEach(o => {
         if (!o || o.id === char.id) return;
-        if (window.PhoneKit && window.PhoneKit.samePerson(c.name, o.name)) { add(o.name); add(o.remark); }
-        else if (o.remark && window.PhoneKit && window.PhoneKit.samePerson(c.name, o.remark)) { add(o.name); add(o.remark); }
+        // 网名也收（群里 2026-10-17：旁观过的配角真聊天在，旁边还多一个用网名现编的假私聊）
+        if (window.PhoneKit && window.PhoneKit.samePerson(c.name, o.name)) { add(o.name); add(o.remark); add(netOf(o)); }
+        else if (o.remark && window.PhoneKit && window.PhoneKit.samePerson(c.name, o.remark)) { add(o.name); add(o.remark); add(netOf(o)); }
       });
     });
     return out;
