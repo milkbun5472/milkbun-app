@@ -6797,6 +6797,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const du = daysUntilBirthday(myBdayFor(char.id), today);
         if (du === 0) lines.push("🎂 今天是 " + uName + " 的生日。若合你的人设和你俩的关系，可以自然地记得、表达心意，别硬邦邦报日期、别客服腔。");
         else if (du != null && du <= 7) lines.push("再过 " + du + " 天就是 " + uName + " 的生日，你心里记着（想的话可提前张罗、准备点小惊喜，但别每句念叨）。");
+        // 平时也知道是哪天（她 2026-10-17 转群友：「面具里写了我的生日，这 char 还瞎说」）：原来只在前七天才说，平时他根本不知道
+        else lines.push(uName + " 的生日是 " + myBdayFor(char.id) + "，你知道（她问起或聊到时照这个说，平时不用主动提）。");
       }
       // 她生日前那几天，被挑中偷偷准备的那一位记着这件事（只在这几天出现）
       try {
@@ -18011,10 +18013,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 在这边顺手一点就是关掉，而开一次就是十几次调用。
   // 钱包那份读过来，发给花钱的那几个 app（购物/外卖）。只读不写。
   // 不接的话，一个月俸微薄的小官照样下单六百八十文的袍子——两边说的不是同一个人。
+  // 你俩之间真花过的钱（她 2026-10-17 转群友：「聊天记录里我自己的购买记录是 899，生成便签要还我的时候一搜就是一千多」）：
+  //   从她的钱包流水里挑记着这个人的那几笔（转账、送礼、代付、外卖、亲属卡、存钱罐……），金额照实给，别让模型去估。
+  const moneyWithHerLine = char => {
+    if (!char) return "";
+    const log = (loadJSON("x_walletLog", []) || []).filter(e => e && e.ref && e.ref.charId === char.id).slice(-12);
+    if (!log.length) return "";
+    const uN = userName(profileFor(char.id) || profile);
+    return "\n\n【你和" + uN + "之间真发生过的钱（她那边的流水，金额以这里为准，提到具体数目时照这个，别自己估）】\n"
+      + log.map(e => { const d = new Date(e.ts || Date.now()); return "· " + (d.getMonth() + 1) + "/" + d.getDate() + " " + String(e.label || "").slice(0, 40) + "：" + (e.delta < 0 ? "她出了 " : "她收到 ") + Math.abs(Math.round(Number(e.delta) * 100) / 100); }).join("\n");
+  };
   const phoneMoneyFor = char => {
     const w = (charWalletRef.current || {})[char && char.id];
-    if (!w || !w.init) return null;
-    return {
+    const withHer = moneyWithHerLine(char);
+    if (!w || !w.init) return withHer ? { withHer } : null;
+    return { withHer,
       balance: Number(w.balance) || 0,
       monthlyIncome: Number(w.monthlyIncome) || 0,
       fixedMonthly: Number(w.fixedMonthly) || 0,
@@ -18552,7 +18565,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     try {
       return await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演「" + char.name + characterText(char, "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出（房租水电话费这类【每月都要交的】，不含吃喝交通）；**这两栏要和底下 dailyPool 那些日常花销对得上账：一个人的月收入得覆盖得住「固定支出 + 一个月的吃喝交通」还余下一点，不然他每个月都在亏空、余额迟早是负的。拮据可以写成余得很少，但别写成月月填不上——那不是拮据，是这份档案自己跟自己打架。**baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**"),
+        instruction: moneyWithHerLine(char).replace(/^\n+/, "") + (moneyWithHerLine(char) ? "\n\n" : "") + "推演「" + char.name + characterText(char, "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出（房租水电话费这类【每月都要交的】，不含吃喝交通）；**这两栏要和底下 dailyPool 那些日常花销对得上账：一个人的月收入得覆盖得住「固定支出 + 一个月的吃喝交通」还余下一点，不然他每个月都在亏空、余额迟早是负的。拮据可以写成余得很少，但别写成月月填不上——那不是拮据，是这份档案自己跟自己打架。**baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**"),
         schemaHint: characterText(char, "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"accounts\":[{\"name\":\"这一处叫什么\",\"kind\":\"什么性质\",\"tail\":\"末四位或编号\",\"hold\":12000,\"primary\":false,\"note\":\"他为什么把钱放这儿\"}],\"debts\":[{\"who\":\"跟谁\",\"amount\":800,\"dir\":\"owe\",\"why\":\"怎么欠上的\",\"since\":\"多久了\"}],\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}"),
         // notes(4段批注)在 JSON 最后，思考型模型截断先丢它→放宽 token 防「刷新后批注没了」
         maxTokens: 12000
