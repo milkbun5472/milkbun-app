@@ -10363,7 +10363,8 @@ function ChatThread({
     wk: "headink"
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setModeOpen(true),
-    className: "flex items-center gap-2.5 flex-1 active:opacity-70"
+    className: "flex items-center gap-2.5 flex-1 active:opacity-70",
+    style: { minWidth: 0 }
   // 星星点头的日子（星测按你俩的星盘算的）：头像外亮一圈慢慢转的星光，平常日子原样
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
@@ -10379,16 +10380,19 @@ function ChatThread({
   //   原来名字只挂着 headink——那是整条顶栏共用的，一挪连返回键一起挪；现在挪 headname 只动名字和小字。
   /*#__PURE__*/React.createElement("div", {
     className: "text-left",
-    "data-wk": "headname"
+    "data-wk": "headname",
+    // 名字长了一行省略，别把顶栏撑成四行（她 2026-10-17：线下修了线上没修）
+    style: { minWidth: 0, overflow: "hidden" }
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1",
     "data-wk": "headink",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 16,
-      color: t.ink
+      color: t.ink,
+      minWidth: 0
     }
-  }, character.remark || character.name, h(IChevD, {
+  }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, character.remark || character.name), h(IChevD, {
     size: 13,
     color: t.fog,
     wk: "headdim"
