@@ -10002,7 +10002,7 @@ function ChatThread({
   // 递手机：勾掉的那几样＝她先藏起来了（TA看不到，但可能察觉少了点什么）
   const [peekOpen, setPeekOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]));
+  const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]).filter(k => k !== "daily"));   // 日常联系人默认不编，要了才勾
   const [peekHide, setPeekHide] = useState([]);
   const [peekAllMasks, setPeekAllMasks] = useState(false);
   const [peekFold, setPeekFold] = useState("");   // 单子分几格收着（她 2026-10-02：「单子能不能做 dropdown，东西有点多」）
@@ -11262,7 +11262,7 @@ function ChatThread({
     h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
       "勾着的TA能翻到；不想给看的先关掉——那几样就算你藏起来了，TA看不到，但未必察觉不到。递过去以后，TA会照自己的性子挑着翻，再来跟你说。"),
-    h(FoldRow, { title: "能翻的几样", state: peekAllow.length === (window.PEEK_PHONE_SECTIONS || []).length ? "全给看" : "藏了 " + ((window.PEEK_PHONE_SECTIONS || []).length - peekAllow.length) + " 样", ...pf("sec") },
+    h(FoldRow, { title: "能翻的几样", state: (() => { const real = (window.PEEK_PHONE_SECTIONS || []).filter(x => x[0] !== "daily"), hid = real.filter(x => !peekAllow.includes(x[0])).length; return (hid ? "藏了 " + hid + " 样" : "全给看") + (peekAllow.includes("daily") ? " · 编日常联系人" : ""); })(), ...pf("sec") },
     (window.PEEK_PHONE_SECTIONS || []).map(s => {
       const on = peekAllow.includes(s[0]);
       return h("button", { key: s[0], onClick: () => setPeekAllow(a => on ? a.filter(x => x !== s[0]) : a.concat(s[0])), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },

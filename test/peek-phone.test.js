@@ -10,7 +10,7 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
   const m = a.match(/const PEEK_PHONE_SECTIONS = (\[[\s\S]*?\]\]);/);
   assert.ok(m);
   const list = new Function("return " + m[1])();
-  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "health", "money", "shop", "pics"]);
+  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "health", "money", "shop", "pics", "daily"]);
   assert.ok(!list.some(x => /记账/.test(x[1])));
 });
 

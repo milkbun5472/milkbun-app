@@ -207,7 +207,7 @@ function ScreenBoundaryClass() {
 // 聊天页「给TA看手机」那张单子和下面拼素材的那段读同一张表。
 // 她 2026-10-02：「我们真的需要那些 app 吗」——查岗只查聊天；钱包、外卖、购物是聊天里翻出线索才顺着去的。
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
-const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"]];
+const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock }) {
   const t = useTheme();
@@ -10834,6 +10834,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const last = peekLastOf(viewerId);
     const seenWho = new Set(last.who || []);
     const out = [];
+    // 她自己的日常联系人（群里 2026-10-17：「每次给 char 查手机就一个人，他就觉得我好假」）——照这张面具的人设编的，
+    //   跟角色无关、不进她自己的信息列表，只在他翻手机时摆出来
+    if (on("daily")) {
+      const dl = peekDailyOf(viewerId);
+      if (dl && dl.people && dl.people.length) out.push("【她手机里的日常联系人——她生活里的普通人（同事、同学、家里人、群），不是角色，也不是藏起来的谁】\n"
+        + dl.people.slice(0, 8).map(x => "· 「" + cut(x.name, 16) + "」" + (x.sex === "男" || x.sex === "女" ? "（" + x.sex + "）" : "") + (x.rel ? "　" + cut(x.rel, 20) : "")
+          + "\n" + (Array.isArray(x.lines) ? x.lines.slice(-5).map(l => "  " + (l && l.me ? "她：" : cut(x.name, 16) + "：") + cut(l && l.text, 60)).join("\n") : "")).join("\n"));
+    }
     if (on("chats")) {
       // 消息列表那一屏本身（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
       const hm = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? d.toTimeString().slice(0, 5) : (d.getMonth() + 1) + "/" + d.getDate(); };
@@ -11135,12 +11143,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekMaskInfo = ids => { const set = new Set((ids || []).map(String)); return { ids: set, names: (characters || []).filter(x => set.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean) }; };
   const peekMaskView = () => { try { return peekPlay && window.__peekMask && window.__peekMask.ids.size ? window.__peekMask : null; } catch (e) { return null; } };
   const peekMaskHit = (pm, txt, id) => !!pm && ((id && pm.ids.has(String(id))) || pm.names.some(n => String(txt || "").includes(n)));
+  // 日常联系人按面具分开：换一张面具就是另一台手机、另一批人
+  const peekDailyKey = viewerId => { const m = String((settingsFor(viewerId) || {}).maskId || ""); return m && m !== maskPrimary ? m : "main"; };
+  const peekDailyOf = viewerId => ((loadJSON("x_myDaily", {}) || {})[peekDailyKey(viewerId)]) || null;
+  const peekDailyEnsure = async (viewerId, c) => {
+    const cur = peekDailyOf(viewerId);
+    if (cur && cur.people && cur.people.length && Date.now() - (cur.ts || 0) < 3 * 86400000) return;
+    const me = meOf(viewerId) || {};
+    const api = bgActiveRef.current || active;
+    if (!api || typeof runProbe !== "function") return;
+    try {
+      const d = await runProbe(api, phoneCtx(c), { tag: "mydaily", maxTokens: 6000,
+        schemaHint: "{\"people\":[{\"name\":\"微信里显示的名字（可以是备注、网名、群名）\",\"sex\":\"男|女|群\",\"rel\":\"跟她什么关系\",\"lines\":[{\"me\":true,\"text\":\"她说的\"},{\"me\":false,\"text\":\"对方说的\"}]}]}",
+        instruction: "这一步不是你在说话：替「" + (me.name || "她") + "」编她自己手机微信里的日常联系人。下面是她的人设：\n" + String(me.persona || "（没写人设——照一个普通人的日常来）").slice(0, 1500)
+          + "\n编 5-7 个：她生活里真会有的人和群（同事、同学、家里人、朋友、工作群、家族群这类），照她的身份、年纪、在哪儿来定，别写成换谁都一样的那几个。"
+          + "每个给最近的 3-5 句聊天，日常、琐碎、有来有回；跟「" + (c.remark || c.name) + "」无关，不暧昧、不提他。只输出 JSON。" });
+      const people = (d && Array.isArray(d.people) ? d.people : []).filter(x => x && x.name).slice(0, 8);
+      if (!people.length) return;
+      const all = loadJSON("x_myDaily", {}) || {};
+      saveJSON("x_myDaily", Object.assign({}, all, { [peekDailyKey(viewerId)]: { ts: Date.now(), people } }));
+    } catch (e) {}
+  };
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
+    // 勾了「日常联系人」才编（她 2026-10-17：「查手机那里搞个开关就行要不要生成」）；偷偷翻的那一路不现编，有现成的才带
+    if (!sneak && (allow || []).includes("daily")) { const c0 = (characters || []).find(x => x.id === charId); if (c0) await peekDailyEnsure(charId, c0); }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
     const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
     if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = peekMaskInfo(maskIds); } catch (e) {}
-    const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
+    const hidden = PEEK_PHONE_SECTIONS.filter(s => s[0] !== "daily" && !(allow || []).includes(s[0])).map(s => s[1]);   // 没勾日常联系人不算「藏」：那些人本来就不存在
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
     if (!sneak) pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
