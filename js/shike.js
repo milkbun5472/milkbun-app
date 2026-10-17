@@ -438,10 +438,10 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "哪一天"),
           h("input", { type: "date", value: creating.date || "", onChange: set("date"), style: inSt }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 6px" } }, "叫它什么"),
-          h("input", { value: creating.title || "", onChange: set("title"), maxLength: 30, placeholder: "比如「一起看了第一场雪」", style: inSt }),
+          h("input", { "data-wk": "input", value: creating.title || "", onChange: set("title"), maxLength: 30, placeholder: "比如「一起看了第一场雪」", style: inSt }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 6px" } }, "那天发生了什么（可以不写）"),
-          h("textarea", { value: creating.text || "", onChange: set("text"), rows: 6, style: Object.assign({}, inSt, { resize: "vertical", lineHeight: 1.6 }) }),
-          h("button", { onClick: saveCreate, className: "w-full active:opacity-70", style: { marginTop: 18, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "放进时刻")));
+          h("textarea", { "data-wk": "textarea", value: creating.text || "", onChange: set("text"), rows: 6, style: Object.assign({}, inSt, { resize: "vertical", lineHeight: 1.6 }) }),
+          h("button", { "data-wk": "block", onClick: saveCreate, className: "w-full active:opacity-70", style: { marginTop: 18, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "放进时刻")));
     }
     if (cur) {
       const list = (all[cur.id] || []).slice().reverse();
@@ -511,7 +511,7 @@
           props.toast && props.toast(ok ? "已经存下来了" : "这张取不到原图");
         } }) : null,
         h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); setMenuOpen(false); }, bg: "transparent",
-          right: h("button", { onClick: () => setMenuOpen(v => !v), className: "active:opacity-50", "aria-label": "更多", style: { width: 44, height: 38, fontSize: 22, color: t.ink, background: "transparent", border: "none" } }, "⋯") }),
+          right: h("button", { "data-wk": "block", onClick: () => setMenuOpen(v => !v), className: "active:opacity-50", "aria-label": "更多", style: { width: 44, height: 38, fontSize: 22, color: t.ink, background: "transparent", border: "none" } }, "⋯") }),
         h("div", { className: "shrink-0", style: { textAlign: "center", padding: "2px 16px 0" } },
           h("span", { onClick: e => editMeet(cur, e), style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, cursor: "pointer" } }, [daysLine(cur, ctx), upLine(upcoming(cur, ctx))].filter(Boolean).join(" · "))),
         // 右上角「⋯」收着那几样（她 2026-10-03：上面那几个药丸很占位置而且丑）
@@ -622,13 +622,13 @@
     return h("div", { "data-wk": "shikeotd", style: { position: "absolute", left: 16, right: 16, bottom: "calc(118px + env(safe-area-inset-bottom))", zIndex: 40,
         display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 18, background: "rgba(255,252,246,.94)", border: "1px solid " + t.line,
         boxShadow: "0 10px 30px rgba(40,30,20,.22)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
-      h("button", { onClick: onOpen, className: "active:opacity-80 flex items-center", style: { flex: 1, minWidth: 0, gap: 12, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
+      h("button", { "data-wk": "block", onClick: onOpen, className: "active:opacity-80 flex items-center", style: { flex: 1, minWidth: 0, gap: 12, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
         src ? h("img", { src, alt: "", style: { width: 46, height: 46, borderRadius: 12, objectFit: "cover", flexShrink: 0 } }) : null,
         h("div", { style: { minWidth: 0 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, (item.years === 1 ? "一年前" : item.years + " 年前") + "的今天 · " + (c.remark || c.name)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + item.m.title + "」"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 1 } }, "去时刻里看看 ›"))),
-      h("button", { onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { fontFamily: F_BODY, fontSize: 18, color: t.fog, background: "transparent", border: "none", padding: "4px 6px" } }, "×"));
+      h("button", { "data-wk": "block", onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { fontFamily: F_BODY, fontSize: 18, color: t.fog, background: "transparent", border: "none", padding: "4px 6px" } }, "×"));
   }
   g.ShikeOTD = ShikeOTD;
   // 聊天里那张时刻卡（她 2026-10-06：「这个时刻卡看不完啊，而且还是很普通」）：

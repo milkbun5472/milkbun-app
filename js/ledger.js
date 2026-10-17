@@ -593,7 +593,7 @@
     // 果冻电子钱包那套皮里：背后一层淡紫雾，弹窗本身是一块磨砂玻璃，确认键是粉色软糖
     const g = !!props.glass;
     return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: g ? "rgba(120,110,170,.28)" : pageColor("ledger", "bg2", "rgba(20,19,15,0.5)"), backdropFilter: g ? "blur(6px)" : "blur(3px)", padding: 24 }, onClick: props.onCancel, "data-wk": "ldgfielddialogsubmit" },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: g ? "linear-gradient(150deg, rgba(255,255,255,.82), rgba(246,242,255,.72))" : t.bg2, border: g ? "1px solid rgba(255,255,255,.9)" : "none", boxShadow: g ? "0 0 0 1px rgba(160,155,210,.3), inset 1.5px 1.5px 0 #fff, 0 14px 34px rgba(110,100,180,.25)" : "none", backdropFilter: g ? "blur(16px) saturate(1.3)" : "none", borderRadius: 20, padding: "20px 18px 16px", animation: "fadeUp .2s ease both", transform: lift ? "translateY(-" + Math.round(lift / 2) + "px)" : "none", transition: "transform .18s ease" }, "data-wk": "ldgfielddialogtap", "data-part": "1" },
+      h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: g ? "linear-gradient(150deg, rgba(255,255,255,.82), rgba(246,242,255,.72))" : t.bg2, border: g ? "1px solid rgba(255,255,255,.9)" : "none", boxShadow: g ? "0 0 0 1px rgba(160,155,210,.3), inset 1.5px 1.5px 0 #fff, 0 14px 34px rgba(110,100,180,.25)" : "none", backdropFilter: g ? "blur(16px) saturate(1.3)" : "none", borderRadius: 20, padding: "20px 18px 16px", animation: "fadeUp .2s ease both", transform: lift ? "translateY(-" + Math.round(lift / 2) + "px)" : "none", transition: "transform .18s ease" }, "data-wk": "ldgfielddialogtap", "data-part": "1" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 16, textAlign: "center" } }, props.title),
         (props.fields || []).map(f => h("div", { key: f.key, style: { marginBottom: 12 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 5 } }, f.label),
@@ -602,11 +602,11 @@
             Object.keys(CATEGORY_ART).map(k => h("button", { key: k, type: "button", onClick: () => set(f.key, k), "aria-label": "图标 " + k, className: "active:opacity-70",
               style: { height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1.5px solid " + (vals[f.key] === k ? "#e48cb2" : "transparent"), background: vals[f.key] === k ? "rgba(248,210,228,.45)" : "transparent" }, "data-wk": "ldgfielddialogbtn", "data-part": "图标 " },
               h(CategoryGlyph, { icon: k, size: 26 })))) :
-          h("input", { value: vals[f.key], onChange: e => set(f.key, e.target.value), placeholder: f.placeholder || "", maxLength: f.maxLength || 40, disabled: f.locked,
+          h("input", { "data-wk": "input", value: vals[f.key], onChange: e => set(f.key, e.target.value), placeholder: f.placeholder || "", maxLength: f.maxLength || 40, disabled: f.locked,
             style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: f.locked ? t.fog : t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 10, padding: "10px 12px", outline: "none" }, "data-wk": "ldgfielddialoginput", "data-part": "1" }))),
         h("div", { className: "flex gap-3", style: { marginTop: 6 } },
           h("button", { onClick: props.onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" }, "data-wk": "ldgfielddialogbtn", "data-part": "cancel" }, "取消"),
-          h("button", { onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: g ? "#713c5b" : "#fff", background: g ? "radial-gradient(70% 55% at 40% 18%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%), linear-gradient(160deg, #fcd6e8, #efa3c7)" : pageColor("ledger", "accent", ACCENT), boxShadow: g ? "0 0 0 1px rgba(214,140,180,.45), inset 0 0 0 1px rgba(255,255,255,.6), 0 4px 10px rgba(220,140,185,.3)" : "none", padding: "12px 0", borderRadius: 12, border: "none" }, "data-wk": "ldgfielddialogbtn", "data-part": "3" }, props.submitLabel || "保存"))));
+          h("button", { "data-wk": "block", onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: g ? "#713c5b" : "#fff", background: g ? "radial-gradient(70% 55% at 40% 18%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%), linear-gradient(160deg, #fcd6e8, #efa3c7)" : pageColor("ledger", "accent", ACCENT), boxShadow: g ? "0 0 0 1px rgba(214,140,180,.45), inset 0 0 0 1px rgba(255,255,255,.6), 0 4px 10px rgba(220,140,185,.3)" : "none", padding: "12px 0", borderRadius: 12, border: "none" }, "data-wk": "ldgfielddialogbtn", "data-part": "3" }, props.submitLabel || "保存"))));
   }
 
   // ============================================================
@@ -979,7 +979,7 @@
     const H = height || 10;
     return h("div", { style: { display: "flex", gap: gap == null ? 2 : gap, height: H }, "data-wk": "ldgcells" },
       Array.from({ length: n }, (_, i) => { const on = i < lit, c = Array.isArray(colors) ? colors[Math.min(colors.length - 1, Math.floor(i / n * colors.length))] : colors;
-        return h("div", { key: i, style: { flex: 1, borderRadius: sk.id === "glass" ? 3 : 3, background: on ? (sk.id === "glass" ? "linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 55%), " + c : c) : sk.lcdDim, boxShadow: on && sk.id === "glass" ? "0 1px 4px " + c + "88" : "none" }, "data-wk": "ldgcells", "data-part": "r2", "data-on": on ? "1" : "0" }); }));
+        return h("div", { "data-wk": "block", key: i, style: { flex: 1, borderRadius: sk.id === "glass" ? 3 : 3, background: on ? (sk.id === "glass" ? "linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 55%), " + c : c) : sk.lcdDim, boxShadow: on && sk.id === "glass" ? "0 1px 4px " + c + "88" : "none" }, "data-wk": "ldgcells", "data-part": "r2", "data-on": on ? "1" : "0" }); }));
   }
   // 线条小图标（底栏、按钮）：统一一套，别用 Unicode 方块
   const LI = {
@@ -1328,7 +1328,7 @@
         boxShadow: "inset 0 1px 0 #fff, inset 0 -4px 10px rgba(150,130,220,.2), inset 0 0 0 1px rgba(255,255,255,.55)" } },
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(112deg, transparent 32%, rgba(255,255,255,.65) 43%, rgba(214,236,255,.35) 49%, transparent 58%)" } }),
       h("div", { style: { position: "absolute", left: 22, top: 20, fontFamily: WIDE, fontSize: 12.5, fontWeight: 700, letterSpacing: ".16em", color: "#4d4f86" } }, "QIUQIU WALLET"),
-      h("div", { style: { position: "absolute", left: 22, top: 52, width: 38, height: 29, borderRadius: 6, background: "linear-gradient(135deg,#f7f5fc,#c9c4dc 60%,#eeebf6)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.3)" } },
+      h("div", { "data-wk": "block", style: { position: "absolute", left: 22, top: 52, width: 38, height: 29, borderRadius: 6, background: "linear-gradient(135deg,#f7f5fc,#c9c4dc 60%,#eeebf6)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.3)" } },
         h("div", { style: { position: "absolute", left: 12, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", right: 10, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }),
         h("div", { style: { position: "absolute", inset: "8px 0", borderTop: "1px solid rgba(120,110,160,.3)", borderBottom: "1px solid rgba(120,110,160,.3)" } })),
       h("div", { style: { position: "absolute", left: 22, bottom: 18, fontFamily: WIDE, fontSize: 10.5, letterSpacing: ".1em", lineHeight: 1.3, color: "#5c5e8c" } }, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)"),
@@ -1340,7 +1340,7 @@
       // 卡上的两张贴纸：椭圆的 QIUQIU、底边一条条码
       h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 9px", borderRadius: 999, transform: "rotate(-14deg)", fontFamily: WIDE, fontSize: 8.5, fontWeight: 700, letterSpacing: ".08em", color: "#55588a",
         background: "linear-gradient(160deg, rgba(255,255,255,.95), rgba(222,226,246,.9))", boxShadow: "0 1px 2px rgba(90,90,140,.25), inset 0 1px 0 #fff" } }, "QIUQIU"),
-      h("div", { style: { position: "absolute", left: "50%", bottom: 0, transform: "translateX(-40%)", padding: "4px 8px 2px", borderRadius: "4px 4px 0 0", background: "rgba(255,255,255,.85)", boxShadow: "0 -1px 2px rgba(90,90,140,.15)" } }, miniBarcode(90, 16, "card")));
+      h("div", { "data-wk": "block", style: { position: "absolute", left: "50%", bottom: 0, transform: "translateX(-40%)", padding: "4px 8px 2px", borderRadius: "4px 4px 0 0", background: "rgba(255,255,255,.85)", boxShadow: "0 -1px 2px rgba(90,90,140,.15)" } }, miniBarcode(90, 16, "card")));
     const key = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
       const ink = { pink: "#4a3446", blue: "#33415e", lilac: "#3f3a62" }[tone];
       return h("button", { onClick, className: "flex-1 flex flex-col items-center justify-center lg-key", "data-ledger-bigkey": tone,
@@ -1472,7 +1472,7 @@
         boxShadow: glass ? "0 16px 30px rgba(130,110,200,.24), inset 0 1px 0 #fff, inset 0 -6px 14px rgba(150,130,220,.25), inset 0 0 0 1px rgba(255,255,255,.6)" : "0 6px 16px rgba(0,0,0,.15)" } },
       glass ? h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(115deg, transparent 30%, rgba(255,255,255,.6) 42%, transparent 54%)" } }) : null,
       h("div", { style: { position: "absolute", left: 20, top: 18, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, letterSpacing: ".16em", color: glass ? "#6a5fa6" : "#fff" } }, glass ? "QIUQIU WALLET" : cur.label + " · " + cur.code),
-      h("div", { style: { position: "absolute", left: 20, top: 50, width: 36, height: 27, borderRadius: 6, background: glass ? "linear-gradient(135deg,#f6f3fc,#c7c1dc 60%,#eeeaf7)" : "linear-gradient(135deg,#e8cf94,#b89150)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.28)" } },
+      h("div", { "data-wk": "block", style: { position: "absolute", left: 20, top: 50, width: 36, height: 27, borderRadius: 6, background: glass ? "linear-gradient(135deg,#f6f3fc,#c7c1dc 60%,#eeeaf7)" : "linear-gradient(135deg,#e8cf94,#b89150)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.28)" } },
         h("div", { style: { position: "absolute", left: 11, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, top: 13, height: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", right: 9, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", inset: "7px 0", borderTop: "1px solid rgba(120,110,160,.3)", borderBottom: "1px solid rgba(120,110,160,.3)" } })),
       h("div", { style: { position: "absolute", left: 20, bottom: 15, fontFamily: "Arial,sans-serif", fontSize: 10.5, letterSpacing: ".09em", lineHeight: 1.2, color: glass ? "rgba(90,80,140,.72)" : "rgba(255,255,255,.8)" } }, glass ? h(Fragment, null, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)") : "这个月记了 " + s.count + " 笔"),
@@ -1801,7 +1801,7 @@
         catF ? h("div", { "data-ledger-catfilter": catF, style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
           h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.ink }, sk.card), "data-wk": "ldgbillsviewbtn", "data-part": "不再只看" },
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
-        q != null ? h("input", { autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic), "data-wk": "ldgbillsviewinput", "data-part": "搜备注、分类或金额" })
+        q != null ? h("input", { "data-wk": "input", autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic), "data-wk": "ldgbillsviewinput", "data-part": "搜备注、分类或金额" })
           : h(MonthNav, { mk, setMk, sk }),
         h("div", { style: { marginBottom: 10 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
         // 本月汇总条（她 2026-09-29）：滑下去也钉在顶上。算的就是眼下列出来的这些——筛了分类、搜了字，数跟着变；转账不算收支
@@ -2125,7 +2125,7 @@
         xfer ? null : h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } },
           silk(sk, "角色批注" + (comments.length ? " · " + comments.length : "")),
           (props.characters && props.characters.length)
-            ? h("button", { onClick: () => setPick(true), className: "active:opacity-80", style: { minHeight: 36, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: sk.ink, background: sk.id === "glass" ? "linear-gradient(180deg, #ffe6ef, #ffcfe0)" : sk.accent, boxShadow: "inset 0 1px 0 #fff" }, "data-wk": "ldgtxnviewbtn", "data-part": "6" },
+            ? h("button", { "data-wk": "block", onClick: () => setPick(true), className: "active:opacity-80", style: { minHeight: 36, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: sk.ink, background: sk.id === "glass" ? "linear-gradient(180deg, #ffe6ef, #ffcfe0)" : sk.accent, boxShadow: "inset 0 1px 0 #fff" }, "data-wk": "ldgtxnviewbtn", "data-part": "6" },
                 comments.length ? "再让 TA 们说说" : "让角色批注")
             : null),
         xfer ? null : comments.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
@@ -2312,7 +2312,7 @@
             h("span", { style: lcdNum(sk, 20, "rgba(43,52,82,.6)") }, cur ? cur.symbol : ""),
             h("span", { style: Object.assign({ flex: 1 }, lcdNum(sk, 30, amount ? sk.lcd : "rgba(43,52,82,.3)")) }, amount || "0.00"),
             amount ? h("button", { onClick: () => setAmount(""), "aria-label": "清空金额", className: "active:opacity-60", style: { width: 40, height: 40, color: "rgba(43,52,82,.5)", fontSize: 18 }, "data-wk": "ldgaddsheetbtn", "data-part": "清空金额" }, "⊗") : null),
-          h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注：这一笔是什么（可留空）", maxLength: 60,
+          h("input", { "data-wk": "input", value: note, onChange: e => setNote(e.target.value), placeholder: "备注：这一笔是什么（可留空）", maxLength: 60,
             style: Object.assign({ width: "100%", minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, outline: "none", marginBottom: 8 }, (glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE }) : sk.well), { borderRadius: 12 }), "data-wk": "ldgaddsheetinput", "data-part": "备注：这一笔是什么（可留" }),
           h("div", { className: "lg-entry-options", style: { display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
             // 日期：一颗小胶囊，底下压着一个透明的原生日期框，点了照样弹系统日期
@@ -2398,7 +2398,7 @@
     const decoImg = (n, st) => h("img", { src: LA + n + ".webp" + LV, alt: "", "aria-hidden": "true", draggable: false, style: Object.assign({ position: "absolute", height: "auto", pointerEvents: "none" }, st) });
     const rowStyle = g ? { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 14, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.1)" }
       : { display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line };
-    const iconBtn = (Icon, onClick, color) => h("button", { onClick, className: "active:opacity-50", style: { background: "transparent", border: "none", padding: 4 }, "data-wk": "ldgsettingssheetbtn", "data-part": "1" }, h(Icon, { size: 16, color: color || t.fog }));
+    const iconBtn = (Icon, onClick, color) => h("button", { "data-wk": "block", onClick, className: "active:opacity-50", style: { background: "transparent", border: "none", padding: 4 }, "data-wk": "ldgsettingssheetbtn", "data-part": "1" }, h(Icon, { size: 16, color: color || t.fog }));
 
     // 整页，不用半窗：三个 tab、一屋子币种和分类，半窗里一次只看得见三四行
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" }, "data-wk": "ldgsettingssheet" },
@@ -2438,7 +2438,7 @@
                 g ? h("span", { style: { position: "relative", width: 40, height: 34, flexShrink: 0 } },
                     h("img", { src: LA + "ic-acct.webp" + LV, alt: "", draggable: false, style: { width: 40, height: 34, objectFit: "contain" } }),
                     h("span", { style: { position: "absolute", right: -2, bottom: 0, width: 12, height: 12, borderRadius: 99, background: ty.tint, border: "2px solid #fff" } }))
-                  : h("div", { style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
+                  : h("div", { "data-wk": "block", style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, a.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, ty.zh + " · " + c.label)),
@@ -2490,7 +2490,7 @@
           // ---- 分类管理 ----
           tab === "cat" ? h(Fragment, null,
 g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", "支出分类"], ["income", "收入分类"]], value: catType, onChange: setCatType, sk: props.sk })) :
-            h("div", { style: { display: "flex", gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: 3, marginBottom: 14 } },
+            h("div", { "data-wk": "block", style: { display: "flex", gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: 3, marginBottom: 14 } },
               ["expense", "income"].map(k => h("button", { key: k, onClick: () => setCatType(k), className: "flex-1 active:opacity-80",
                 style: { padding: "7px 0", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, border: "none", background: catType === k ? (k === "income" ? INC : EXP) : "transparent", color: catType === k ? "#fff" : t.sub }, "data-wk": "ldgsettingssheetbtn", "data-part": "7" }, k === "income" ? "收入分类" : "支出分类"))),
             cats.map(c => h("div", { key: c.name, style: { ...rowStyle, marginBottom: 8 } },
@@ -2577,7 +2577,7 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
     };
     const g = props.sk && props.sk.id === "glass";
     const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
-    const input = (val, set, ph, mode) => h("input", { value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 20,
+    const input = (val, set, ph, mode) => h("input", { "data-wk": "input", value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 20,
       style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" }, "data-wk": "ldgrecureditorinput", "data-part": "1" });
     const pill = (on, txt, onClick, tint, key) => h("button", { key: key || txt, onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
       color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) }, "data-wk": "ldgrecureditorbtn", "data-part": "1", "data-on": on ? "1" : "0" }, txt);
@@ -2598,7 +2598,7 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
             : h(Fragment, null, label("每周几"), wrap([1, 2, 3, 4, 5, 6, 7].map(n => pill(wd === n, WD[n], () => setWd(n), null, "wd" + n)))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "到了那天打开记账会自动记上；那天没打开，下次打开时补上。删掉这条以后不再记，已经记上的不会动。")),
         h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("button", { onClick: save, disabled: !ok, className: "w-full active:opacity-85", style: { minHeight: 48, background: ok ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgrecureditorbtn", "data-part": "3" }, "保存"))),
+          h("button", { "data-wk": "block", onClick: save, disabled: !ok, className: "w-full active:opacity-85", style: { minHeight: 48, background: ok ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgrecureditorbtn", "data-part": "3" }, "保存"))),
       confirmDel ? h(ConfirmDialog, { title: "删掉「" + (r0.name || r0.category || "") + "」？", body: "以后不再自动记这一笔；已经记上的那些会留着。", confirmLabel: "删掉", danger: true, onConfirm: () => props.onDelete(r0), onCancel: () => setConfirmDel(false) }) : null);
   }
 
@@ -2628,7 +2628,7 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
     };
     const g = props.sk && props.sk.id === "glass";
     const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
-    const input = (val, set, ph, mode) => h("input", { value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 16,
+    const input = (val, set, ph, mode) => h("input", { "data-wk": "input", value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 16,
       style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" }, "data-wk": "ldgaccteditorinput", "data-part": "1" });
     const pill = (on, txt, onClick, tint) => h("button", { onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
       color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) }, "data-wk": "ldgaccteditorbtn", "data-part": "1", "data-on": on ? "1" : "0" }, txt);
@@ -2648,7 +2648,7 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
               h("div", { style: { flex: 1 } }, label("还款日（每月几号，1–28）"), input(dueDay, setDueDay, "25", "numeric"))),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "设了账单日就按周期算：账单日那天之前刷的算这一期应还，之后刷的算下一期。还信用卡在「记一笔 → 转账」里，从储蓄卡转给这张卡。")) : null),
         h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("button", { onClick: save, disabled: !name.trim(), className: "w-full active:opacity-85", style: { minHeight: 48, background: name.trim() ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgaccteditorbtn", "data-part": "3" }, "保存"))),
+          h("button", { "data-wk": "block", onClick: save, disabled: !name.trim(), className: "w-full active:opacity-85", style: { minHeight: 48, background: name.trim() ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgaccteditorbtn", "data-part": "3" }, "保存"))),
       confirmDel ? h(ConfirmDialog, { title: "删掉「" + (a0.name || "") + "」？", body: used ? "记在它上面的收支会留着、照样算进统计，只是不再属于哪个账户；跟它有关的转账会显示成「已删的账户」。" : "这个账户上还没有账，可以放心删。", confirmLabel: "删掉", danger: true, onConfirm: () => props.onDelete(a0), onCancel: () => setConfirmDel(false) }) : null);
   }
 

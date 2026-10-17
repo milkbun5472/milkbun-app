@@ -914,7 +914,7 @@
     //   少了那一句，钉子会跑到页面左上角去。
     const staples = () => h("div", { "aria-hidden": "true", style: { position: "absolute", left: 8, top: 10, bottom: 10, width: 4 } },
       h("div", { style: { position: "absolute", left: 1.5, top: 0, bottom: 0, width: 1, background: t.line } }),
-      [0.22, 0.68].map(k => h("div", { key: k, style: { position: "absolute", left: 0, top: (k * 100) + "%", width: 4, height: 9, borderRadius: 1, background: "rgba(120,112,98,.42)", boxShadow: "0 1px 0 rgba(255,255,255,.5)" } })));
+      [0.22, 0.68].map(k => h("div", { "data-wk": "block", key: k, style: { position: "absolute", left: 0, top: (k * 100) + "%", width: 4, height: 9, borderRadius: 1, background: "rgba(120,112,98,.42)", boxShadow: "0 1px 0 rgba(255,255,255,.5)" } })));
     // 头像:没设头像就用带首字的色块,别让入口页出现一排空洞
     const avatarOf = (c, size) => (c && c.avatarImage)
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
@@ -949,7 +949,7 @@
         boxShadow: "0 2px 6px -3px rgba(0,0,0,.5)"
       } }),
       // 板身：写着这一场是什么
-      h("div", { style: { background: "#2b2721", borderRadius: "0 0 3px 3px", padding: "13px 15px 15px" } },
+      h("div", { "data-wk": "block", style: { background: "#2b2721", borderRadius: "0 0 3px 3px", padding: "13px 15px 15px" } },
         h("div", { className: "flex items-baseline", style: { gap: 10 } },
           h("div", { "data-wk": "thrclappertitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".06em", color: "#f2ece1" } }, "今天排谁的戏"),
           h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: "rgba(242,236,225,.55)" } }, props.characters.length + " 位")),
@@ -993,7 +993,7 @@
             gg.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
               const cover = g.items[0];
               return h("div", { "data-wk": "thrgalchar", key: g.charId || "unknown", onClick: () => setGalChar(g.charId), style: { width: "calc((100% - 20px) / 3)", textAlign: "center" } },
-                h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 2, overflow: "hidden", background: "#e6e1d7", border: "4px solid #fbf8f2", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)" } },
+                h("div", { "data-wk": "block", style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 2, overflow: "hidden", background: "#e6e1d7", border: "4px solid #fbf8f2", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)" } },
                   cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
                   h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, avatarOf(c, 52))),
                 h("div", { "data-wk": "thrgalname", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "已删除"),
@@ -1139,12 +1139,12 @@
               // 这一拍的创作小稿（跟线下、同人文、穿书同一个展开）
               ((m.cot || m.cotRequested) && typeof CotReveal === "function") ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null))));
       const photoSheet = photoMenu && h("div", { "data-wk": "thrsheet", "data-part": "photo", onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
-        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+        h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
            ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       const msgSheet = msgMenu && h("div", { "data-wk": "thrsheet", "data-part": "msg", onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
-        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+        h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
             "从这一拍岔开一条新线：这一拍之前原样保留，之后的重演。**原线一个字不动**，随时能切回去。"),
           // 复制（群里 2026-10-07「希望小剧场可以复制」）：这一拍 / 这一幕整段（你的那几拍也带上，读起来是一台戏）

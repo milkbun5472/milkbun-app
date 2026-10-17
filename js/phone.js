@@ -2396,7 +2396,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
         "这一档对所有角色生效，下一次刷新开始算。它管的是【往后写出来的字】——已经存着的那些不会被改写（名册和账号改了名字就会攒成两份），想读外语的旧内容点「译」就行。"),
-      h("div", { style: { borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } },
+      h("div", { "data-wk": "block", style: { borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } },
         PHONE_LANG_MODES.map((k, i) => h("button", {
           key: k, onClick: () => onLang && onLang(k), className: "w-full text-left active:opacity-65",
           style: { display: "block", padding: "12px 14px", background: mode === k ? "rgba(255,255,255,.92)" : "transparent", borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" }
@@ -2407,7 +2407,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "清空重生"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
         characterText(char, "刷新不是从零开始的：旧那份会原样发回去当料，所以他这个 app 的样子会一直接着上一份走。只想让往后写的字换个语言，改上面那一档就够了；确定要连现在这一份一起不要了，才来清空——清之前先导出一份备份。")),
-      h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map(row))));
+      h("div", { "data-wk": "block", style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map(row))));
 }
 
 function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
@@ -2456,7 +2456,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, T(p.name))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, PTX(p.sub))))),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "逐个换图标"),
-      h("div", { style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map((a, i) => {
+      h("div", { "data-wk": "block", style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map((a, i) => {
         const custom = look.icons && look.icons[a.key];
         const src = phoneImage(custom);
         const at = phoneTone(a.key);
@@ -2750,9 +2750,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(p.id),
         style: { minHeight: 34, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (tfTo === p.id ? "#07c160" : "#dcdcdc"), background: tfTo === p.id ? "#07c160" : "#fff", color: tfTo === p.id ? "#fff" : "#333" } }, PTX(p.name)))) : null,
       h("div", { className: "flex items-center gap-2" },
-        h("input", { value: tfAmt, onChange: e => setTfAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "金额",
+        h("input", { "data-wk": "input", value: tfAmt, onChange: e => setTfAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "金额",
           style: { width: 96, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
-        h("input", { value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: "留言（可不填）",
+        h("input", { "data-wk": "input", value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: "留言（可不填）",
           style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
         h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo),
           style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
@@ -2770,17 +2770,17 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // TA正在打字的那一栏：只在「看TA玩」里出现（那会儿她自己那一栏收起来，屏幕上只有TA的手）。
     // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
     driveTyping != null ? h("div", { "data-wk": "pinput", "data-watch": "input", className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      h("div", { className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
+      h("div", { "data-wk": "block", className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
         driveTyping || h("span", { style: { color: "#bbb" } }, "\u00a0"),
         h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 15, marginLeft: 1, verticalAlign: "-2px", background: "#07c160", animation: "wkcaret 1s steps(2) infinite" } })),
       h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { flexShrink: 0, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: 13.5, color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? "#07c160" : "#e6e6e6" } }, "发送")) : null);
   const accounts = arr(d.me && d.me.accounts);
-  if (publicPage) return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { "data-wk": "pdetail", className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.35, color: "#191919" } }, PTX(article.title)), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, PTX(article.summary)), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#444" } }, PTX(article.thought)))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25 } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#222" } }, PTX(a.title)), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
+  if (publicPage) return h("div", { "data-wk": "block", className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { "data-wk": "pdetail", className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.35, color: "#191919" } }, PTX(article.title)), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, PTX(article.summary)), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#444" } }, PTX(article.thought)))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25 } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#222" } }, PTX(a.title)), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
   const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, PTX(c.name)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: 12.5, color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts)];
   const contactRow = (c, i) => h("button", { key: i, "data-wk": "pitem", "data-kind": "contact", onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#1c1c1c" } }, c.remark || c.name), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, PTX(c.intro))));
-  const searchBox = h("div", { className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
+  const searchBox = h("div", { "data-wk": "block", className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
     h("span", { style: { fontFamily: F_BODY, fontSize: 13.5 } }, "搜索"));
   const searchHead = h("div", { "data-wk": "head", className: "shrink-0 flex items-center gap-2 px-3 pb-2", style: { paddingTop: safeTop(9), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
@@ -2807,14 +2807,14 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#526786" } }, PTX(m.author)),
         h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: "#222", marginTop: 5 } }, PTX(m.content)),
         h("div", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#999", marginTop: 7 } }, phoneAgo(m) || m.time || ""),
-        h("div", { style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
+        h("div", { "data-wk": "block", style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
           arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
           arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 11.8, lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
     body = h("div", { style: { background: "#fff" } },
       h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: 16, textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: char, size: 60, radius: 7 }))),
       arr(d.moments).map(momentCard));
   }
-  else body = h("div", { style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18 } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: 22 } }, "›")));
+  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18 } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: 22 } }, "›")));
   // ── 联系人详情（v62.60 重做）────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：灰底 + 头像 + 一张白色圆角卡。
   // 换成任何一个 app 的「某某的资料」都成立——而这个 app 仿的是本尊，
@@ -2840,7 +2840,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           onRemark && !drive && remarkDraft != null
             ? h("div", { key: "rm", className: "flex items-center", style: { gap: 10, padding: "9px 16px" } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: "#191919", flexShrink: 0 } }, "备注"),
-                h("input", { value: remarkDraft, autoFocus: true, maxLength: 30, onChange: e => setRemarkDraft(e.target.value), placeholder: "留空就是删掉备注",
+                h("input", { "data-wk": "input", value: remarkDraft, autoFocus: true, maxLength: 30, onChange: e => setRemarkDraft(e.target.value), placeholder: "留空就是删掉备注",
                   style: { flex: 1, minWidth: 0, height: 34, borderRadius: 5, border: "1px solid #e0e0e0", padding: "0 9px", fontFamily: F_BODY, fontSize: 15, color: "#171717", outline: "none" } }),
                 h("button", { onClick: () => setRemarkDraft(null), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 14, color: "#8a8a8a" } }, "取消"),
                 h("button", { onClick: () => { const v = remarkDraft.trim(); onRemark(char, thread, v); setThread({ ...thread, remark: v }); setRemarkDraft(null); },
@@ -3414,7 +3414,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     (archive.name || archive.uid) ? h("div", { className: "flex items-baseline", style: { gap: 9, padding: "6px 4px 12px" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: READ_INK } }, archive.name || ""),
       archive.uid ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: READ_DIM } }, "书友号 " + archive.uid) : null) : null,
-    h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "22px 20px" } },
+    h("div", { "data-wk": "block", style: { background: READ_CARD, borderRadius: 18, padding: "22px 20px" } },
       h("div", { className: "flex items-center gap-5" },
         h("div", { style: { position: "relative", width: 108, height: 108, flexShrink: 0 } }, goalRing(pct, 108),
           h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
@@ -3427,8 +3427,8 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
             pct >= 1 ? T("已经超过他给自己定的 ") + readFmtMin(goalMin) : "离 " + readFmtMin(goalMin) + " 还差 " + readFmtMin(goalMin - doneMin)))),
       h("div", { className: "flex", style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid " + READ_LINE } },
         statCell(total, "本书"), statCell(shelves.length, "个书架"), statCell(marked, "处划线"))),
-    h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 14 } }, miniBook(fav, palOf(0), "最爱的一本")),
-    h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 12 } }, miniBook(plan, palOf(2), "打算下一本读")),
+    h("div", { "data-wk": "block", style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 14 } }, miniBook(fav, palOf(0), "最爱的一本")),
+    h("div", { "data-wk": "block", style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 12 } }, miniBook(plan, palOf(2), "打算下一本读")),
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: T("他最近在读的"), text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "这周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
@@ -3460,10 +3460,10 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   h("div", { style: { padding: "22px 22px 26px" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1.25, color: READ_INK } }, PTX(book.title || "无题")),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: READ_DIM, marginTop: 7 } }, PTX(book.author || "")),
-    book.readAt ? h("div", { style: { marginTop: 20, borderLeft: "3px solid #9dc49a", background: "rgba(157,196,154,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+    book.readAt ? h("div", { "data-wk": "block", style: { marginTop: 20, borderLeft: "3px solid #9dc49a", background: "rgba(157,196,154,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "读到"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: READ_INK, marginTop: 6 } }, PTX(book.readAt))) : null,
-    book.quote ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+    book.quote ? h("div", { "data-wk": "block", style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, T("他划的一句")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, PTX(book.quote))) : null,
     // ── 批注条：只有「看TA玩」演到写批注那一下才出现 ──
@@ -3473,7 +3473,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         drive.typing,
         h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: READ_INK, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
       h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { marginTop: 10, textAlign: "center", borderRadius: 8, padding: "7px 0", fontFamily: F_BODY, fontSize: 12.5, color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? "#b07f8e" : "rgba(0,0,0,.06)" } }, "记下")) : null,
-    book.note ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+    book.note ? h("div", { "data-wk": "block", style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "批注"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, PTX(book.note))) : null,
     onPeek ? h("button", {
@@ -3972,7 +3972,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     acc.persona ? h("div", { key: "p", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#5b564e" } }, PTX(acc.persona)) : null
   ]);
   // ── 今日落点 ──
-  const todayCard = (today.shop || today.main) ? h("div", { key: "td", style: { background: "rgba(255,255,255,.92)", borderRadius: 18, overflow: "hidden", marginBottom: 15, boxShadow: "0 8px 24px rgba(53,78,73,.08)" } },
+  const todayCard = (today.shop || today.main) ? h("div", { "data-wk": "block", key: "td", style: { background: "rgba(255,255,255,.92)", borderRadius: 18, overflow: "hidden", marginBottom: 15, boxShadow: "0 8px 24px rgba(53,78,73,.08)" } },
     h("div", { className: "flex items-start", style: { gap: 11, padding: "16px 17px 14px", borderBottom: "1px solid #f4efe2" } },
       h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: TAKE_ACCENT, display: "flex", alignItems: "center", justifyContent: "center" } },
         h("span", { style: { width: 9, height: 9, borderRadius: 99, background: "#fff" } })),
@@ -4005,7 +4005,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // ── 常点商家（横滑）──
   const shopSec = shops.length ? h("section", { key: "sp" }, secTitle("常点商家", "共 " + shops.length + " 家"),
     h("div", { className: "flex overflow-x-auto", style: { gap: 11, paddingBottom: 4, scrollbarWidth: "none", marginBottom: 13 } },
-      shops.map((sp, i) => h("div", { key: i, style: { width: 196, flexShrink: 0, background: "#fff", borderRadius: 15, overflow: "hidden" } },
+      shops.map((sp, i) => h("div", { "data-wk": "block", key: i, style: { width: 196, flexShrink: 0, background: "#fff", borderRadius: 15, overflow: "hidden" } },
         h("div", { style: { height: 76, position: "relative", background: "linear-gradient(150deg," + cov(sp.cover != null ? sp.cover : i)[0] + "," + cov(sp.cover != null ? sp.cover : i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
           h("div", { style: { width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,.82)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 19, color: "#5a5148" } }, initial(sp.name)),
           sp.times ? h("span", { style: { position: "absolute", right: 7, top: 7, fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: "rgba(0,0,0,.35)", borderRadius: 7, padding: "3px 8px" } }, sp.times) : null),
@@ -4018,7 +4018,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const liveSec = live.length ? h("section", { key: "lv" }, secTitle("还在路上", characterText(char, "他这会儿等着的")),
     live.map((it, i) => {
       const st = Math.max(0, Math.min(3, Number(it.step) || 0));
-      return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13 } },
+      return h("div", { "data-wk": "block", key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13 } },
         h("div", { className: "flex items-center justify-between", style: { padding: "13px 16px", background: "#fff8e6" } },
           h("div", { className: "flex items-center", style: { gap: 8 } },
             h("span", { style: { width: 9, height: 9, borderRadius: 99, background: "#f0523a" } }),
@@ -4036,7 +4036,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     })) : null;
   // ── 吃过的记录：默认是紧凑时间档案，点开才看收据细节 ──
   const orderSec = orders.length ? h("section", { key: "od" }, secTitle("吃过的记录", orders.length + " 次落点"),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "4px 15px", marginBottom: 13 } }, orders.map((o, i) => {
+    h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "4px 15px", marginBottom: 13 } }, orders.map((o, i) => {
       const expanded = open === i;
       // id 是给「这七天」跳过来用的：点上面那一顿，落到下面这一条并展开
       return h("div", { key: i, id: "tk-od-" + i, "data-wk": "pitem", "data-watch": "item:" + (o.shop || o.main || ""), style: { padding: "14px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none", scrollMarginTop: 90 } },
@@ -4090,7 +4090,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const likeAll = A(taste.likeTags);
   const hasTaste = A(taste.avoidTags).length || likeAll.length || taste.budget || taste.habit || stockNote;
   const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃这件事上", characterText(char, "他的挑剔")),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "2px 16px 8px", marginBottom: 13 } },
+    h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "2px 16px 8px", marginBottom: 13 } },
       A(taste.avoidTags).length ? askRow(T("他嫌什么——不是嫌这样东西，是嫌它哪一点"), lines(taste.avoidTags, "warn")) : null,
       stockNote ? askRow(T("他每次都写的那句"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.75, color: TAKE_INK } },
         stockNote.text, stockNote.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginLeft: 8 } }, "写过 " + stockNote.n + " 次") : null)) : null,
@@ -4110,7 +4110,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       const miss = wkDays.filter(d => !d.rows.length).length;
       return [late ? late + " 顿在深夜" : "", miss ? miss + " 天没着落" : ""].filter(Boolean).join(" · ") || "一顿接一顿";
     })()),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "14px 15px 15px", marginBottom: 13 } },
+    h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "14px 15px 15px", marginBottom: 13 } },
       wkDays.map((d, di) => {
         const empty = !d.rows.length;
         const rows = empty ? [null] : d.rows;
@@ -4139,7 +4139,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的），只是界面不再摆它。
   // ── 收货地址 ──
   const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("收货地址"),
-    card(addrs.map((a, i) => h("div", { key: i, style: { borderRadius: 12, padding: "13px 14px", marginTop: i ? 10 : 0, background: a.isDefault ? "#fffbef" : "#f7f6f3", border: "1px solid " + (a.isDefault ? "#f4e6bb" : "transparent") } },
+    card(addrs.map((a, i) => h("div", { "data-wk": "block", key: i, style: { borderRadius: 12, padding: "13px 14px", marginTop: i ? 10 : 0, background: a.isDefault ? "#fffbef" : "#f7f6f3", border: "1px solid " + (a.isDefault ? "#f4e6bb" : "transparent") } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, a.label || ""),
         a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: TAKE_ACCENT, borderRadius: 5, padding: "3px 8px" } }, "默认") : null,
@@ -4154,7 +4154,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       h("div", { className: "flex items-start", style: { gap: 9 } },
         h("span", { style: { width: 7, height: 7, borderRadius: 99, marginTop: 8, flexShrink: 0, background: TAKE_CORAL } }),
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: TAKE_INK, wordBreak: "break-word" } }, PTX(w.title || ""))),
-      w.when ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
+      w.when ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
     ), peekBtn("quiet", T("他想吃的"), wish.map(w => w.title).filter(Boolean).slice(0, 3).join("、"), wish.map(w => (w.title || "") + "（" + (w.when || "") + "）").join("｜"))) : null;
   // ── 送到别人那儿（v59.36，顶掉了「饭桌上的人」）──────────────────────────
   // 她 2026-09-01：「和谁吃还是不行去重不了，不然我们想想直接换一个板块吧」。
@@ -4178,7 +4178,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const feeds = Object.keys(feedMap).map(k => feedMap[k]).sort((a, b) => b.rows.length - a.rows.length).slice(0, 8);
   const feedSec = feeds.length ? h("section", { key: "fd" },
     secTitle("送到别人那儿", feeds.length + characterText(char, " 个不是他自己家的地方")),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } },
+    h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } },
       feeds.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none" } },
         h("div", { className: "flex items-start", style: { gap: 12 } },
           h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, initial(g.where)),
@@ -4203,7 +4203,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 剩下的两样本来就是全部内容：一段关于TA这一周怎么吃的话，和TA自己最后那句念叨。
   // 所以这一格干脆做成一页纸：正文一段，TA的话另起一行、用TA自己的口气收尾。
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("合起来看", characterText(char, "这一周他是这么吃的")),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "17px 17px 18px", marginBottom: 13 } },
+    h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "17px 17px 18px", marginBottom: 13 } },
       data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: TAKE_BODY } }, PTX(data.monthNote)) : null,
       data.tail ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: TAKE_INK, marginTop: data.monthNote ? 15 : 0, paddingLeft: 12, borderLeft: "2px solid " + TAKE_CORAL } }, PTX(data.tail)) : null)) : null;
   // 外卖不再按平台后台的「点餐 / 订单 / 口味 / 我的」分仓，而按角色生活阅读：
@@ -4245,7 +4245,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             skin: { ink: TAKE_INK, dim: TAKE_DIM, soft: "#fff", accent: TAKE_CORAL, radius: 15 } }))
       : null,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-      h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, PTX(page.lead)),
+      h("div", { "data-wk": "block", style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, PTX(page.lead)),
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
     nav,
     // TA刚点进去的那一家店／那一道菜
@@ -4410,7 +4410,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   // 表头那两道杠是化验单最认得出来的那个记号（上粗下细），比什么图标都管用。
   const labSheet = (title, list) => {
     if (!list.length) return null;
-    return h("div", { key: "lab", style: { background: "#fdfdfa", borderRadius: 3, padding: "0 16px 6px", marginBottom: 16, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+    return h("div", { "data-wk": "block", key: "lab", style: { background: "#fdfdfa", borderRadius: 3, padding: "0 16px 6px", marginBottom: 16, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
       // 抬头照检验单的样子：姓名一头、日期一头，底下压一道粗线；
       // 粗线下面再来一行【项目 / 结果】的列名，然后才是正文。
       // ⚠️不要在这儿把 tab 名再写一遍——顶栏已经写着「体征」了，写两遍是通用卡片的习惯。
@@ -4443,7 +4443,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: alert ? HEALTH_INK : HEALTH_BODY, wordBreak: "break-word" } }, txt)) : null;
   // 一次就诊＝一张处方笺：方角、纸色、抬头下面压一道实线。圆角 16 的白卡是通用卡片，
   // 不是病历里的任何一样东西（审美审计 2026-09-04）。
-  const visitCard = (v, i2, folded) => h("div", { key: i2, style: { background: "#fdfdfa", borderRadius: 3, padding: folded ? "13px 16px" : "16px 18px 20px", marginBottom: 10, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+  const visitCard = (v, i2, folded) => h("div", { "data-wk": "block", key: i2, style: { background: "#fdfdfa", borderRadius: 3, padding: folded ? "13px 16px" : "16px 18px 20px", marginBottom: 10, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
     h("div", { className: "flex items-baseline justify-between", style: { gap: 10, paddingBottom: 7, borderBottom: folded ? "none" : "1px solid " + HEALTH_INK } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: folded ? 15 : 18, color: HEALTH_INK, minWidth: 0 } }, PTX(v.who || "大夫")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, flexShrink: 0 } }, dateZh(v.date))),
@@ -4469,7 +4469,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
       visits.length > 1 ? h("button", { onClick: () => setVisitOpen(o => !o), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: HEALTH_ACCENT, flexShrink: 0 } }, visitOpen ? "只看最近一次" : "看过 " + visits.length + " 次") : null),
     visits.length
       ? h("div", null, (visitOpen ? visits : visits.slice(0, 1)).map((v, i2) => visitCard(v, i2, visitOpen && i2 > 0)))
-      : h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, characterText(char, "他还没看过大夫。下面这些是身上的读数。")),
+      : h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, characterText(char, "他还没看过大夫。下面这些是身上的读数。")),
     data.since ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: HEALTH_DIM, padding: "4px 6px 0" } }, "自那之后 · " + data.since) : null);
   // ── 这一段时间的综合分（每日轻量快照，不是把整份报告天天累计）──
   // 报告本身代表【今天】，每次照实重写；趋势另存一条一天一个数的线。
@@ -4491,7 +4491,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
     return h("section", { key: "vt", style: { marginTop: 16 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "6px 4px 4px" } }, "体温单"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, padding: "0 4px 12px" } }, "过去 " + n + " 天这条线的样子"),
-      h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "14px 16px 10px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+      h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "14px 16px 10px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
         h("svg", { viewBox: "0 0 " + W + " " + H, style: { display: "block", width: "100%", height: "auto" }, "aria-hidden": "true" },
           // 横四道：体温单的格纸
           [0, 1, 2, 3, 4].map(k => h("line", { key: "h" + k, x1: 0, x2: W, y1: PAD + ((H - PAD * 2) / 4) * k, y2: PAD + ((H - PAD * 2) / 4) * k, stroke: HEALTH_LINE, strokeWidth: 0.4, vectorEffect: "non-scaling-stroke" })),
@@ -4512,7 +4512,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   const timelineSec = timeline.length ? h("section", { key: "tl" },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "6px 4px 4px" } }, "病程记录"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, padding: "0 4px 14px" } }, "今天这一天是怎么过的"),
-    h("div", { style: { background: "#fdfdfa", borderRadius: 3, padding: "4px 16px 14px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
+    h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "4px 16px 14px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
       timeline.map((it, i) => h("div", { key: i, className: "flex", style: { gap: 13, paddingTop: 14 } },
         h("div", { style: { width: 44, flexShrink: 0, textAlign: "right" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.6, color: HEALTH_INK } }, it.time || "")),
@@ -4633,7 +4633,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
           A(v.myDanmaku).map((dm, j) => h("div", {
             key: j, style: { fontFamily: F_BODY, fontSize: 13.5, color: BILI_INK, background: "rgba(251,114,153,.08)", border: "1px solid rgba(251,114,153,.24)", borderRadius: 999, padding: "7px 14px", marginTop: 9, display: "inline-block" }
           }, dm))) : null,
-        v.thought ? h("div", { style: { marginTop: 18, background: "#f6f7f8", borderRadius: 12, padding: "13px 14px" } },
+        v.thought ? h("div", { "data-wk": "block", style: { marginTop: 18, background: "#f6f7f8", borderRadius: 12, padding: "13px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: BILI_DIM } }, T("看完他想的")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#3f4348", marginTop: 6 } }, PTX(v.thought))) : null,
         onPeek ? h("button", {
@@ -4840,7 +4840,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   // 一整块白纸上一行一个人，行与行只隔一道发丝线，右边永远挂着一枚【已关注】的描边胶囊
   // ——那枚胶囊就是「这是关注列表」而不是「这是通讯录」的全部区别。
   const followPage = follows.length
-    ? h("div", { style: { background: "#fff", borderRadius: 12, overflow: "hidden", margin: "4px 0" } },
+    ? h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 12, overflow: "hidden", margin: "4px 0" } },
         follows.map((f, i) => h("div", { key: i, className: "flex items-center", style: { gap: 12, padding: "13px 14px", borderTop: i ? "1px solid #f0f0f2" : "none" } },
           h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
           h("div", { className: "flex-1 min-w-0" },
@@ -4881,7 +4881,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     // 顶部大背景卡
     h("div", { style: { position: "relative", background: "linear-gradient(150deg,#8f97a8,#c8ccd4 55%,#e7e3dd)", padding: "26px 20px 22px" } },
       h("div", { className: "flex items-center", style: { gap: 15 } },
-        h("div", { style: { width: 74, height: 74, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", border: "3px solid rgba(255,255,255,.85)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30 } }, String(me.name || char.name || "?").trim().slice(0, 1)),
+        h("div", { "data-wk": "block", style: { width: 74, height: 74, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", border: "3px solid rgba(255,255,255,.85)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30 } }, String(me.name || char.name || "?").trim().slice(0, 1)),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.28)" } }, me.name || char.name),
           me.xhsId ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.86)", marginTop: 5 } }, "小红书号：" + me.xhsId) : null)),
@@ -4892,7 +4892,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#fff", marginTop: 16 } }, PTX(me.bio || "这人没写简介")),
       me.tag ? h("span", { style: { display: "inline-block", marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(255,255,255,.22)", borderRadius: 999, padding: "4px 12px" } }, PTX(me.tag)) : null),
     // tab 条
-    h("div", { style: { background: "#fff", borderRadius: "16px 16px 0 0", marginTop: -14, position: "relative", padding: "16px 18px 0" } },
+    h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: "16px 16px 0 0", marginTop: -14, position: "relative", padding: "16px 18px 0" } },
       h("div", { className: "flex", style: { gap: 22, borderBottom: "1px solid #f1f1f4" } },
         mineTab("note", "笔记", mine.length, false),
         mineTab("save", "收藏", saved.length, false),
@@ -5018,8 +5018,8 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: CAL_DIM } }, [open.kind, open.date, open.time].filter(Boolean).join(" · ")),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1.4, color: CAL_INK, marginTop: 8 } }, PTX(open.title || "")),
     open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
-    Number(open.postponed) > 0 ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
-      : open.overdue ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
+    Number(open.postponed) > 0 ? h("div", { "data-wk": "block", style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
+      : open.overdue ? h("div", { "data-wk": "block", style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
     open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#4b4b53", marginTop: 14 } }, PTX(open.note)) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : (open.overdue ? "日子早过了" : "")].filter(Boolean).join("｜") }),
@@ -5034,7 +5034,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
       onBack: onBack,
       right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 14px 22px" } },
-      h("div", { style: { background: "#fff", borderRadius: 18, padding: "14px 12px 10px", marginBottom: 16 } },
+      h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 18, padding: "14px 12px 10px", marginBottom: 16 } },
         // 翻月那一行（她 2026-09-06 要的「能不能换月份显示之前的和之后的」）
         h("div", { className: "flex items-center justify-between", style: { padding: "0 2px 8px" } },
           h("button", { onClick: () => stepMonth(-1), "aria-label": "上个月", className: "active:opacity-50",
@@ -5124,7 +5124,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
     const c = pal(open.color);
     const voice = open.kind === "voice";
     return h("div", { className: "absolute inset-0 flex flex-col justify-center px-5", style: { background: "rgba(60,52,38,.36)", zIndex: 30 }, onClick: () => setOpen(null) },
-      h("div", { onClick: e => e.stopPropagation(), style: { background: c.bg, borderRadius: 4, padding: "22px 20px 24px", maxHeight: "80%", overflowY: "auto", boxShadow: "0 20px 44px rgba(50,42,28,.32)" } },
+      h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { background: c.bg, borderRadius: 4, padding: "22px 20px 24px", maxHeight: "80%", overflowY: "auto", boxShadow: "0 20px 44px rgba(50,42,28,.32)" } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
           h("div", { className: "flex items-center", style: { gap: 6 } },
             voice ? h(PGlyph, { k: "mic", size: 13, color: c.ink }) : null,
@@ -5403,7 +5403,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, tabs.map((x, i) => tabCard(x, i, false)))
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "一个标签页都没开着");
   // ── 搜索记录：按时间列，搜索框的样子 ──
-  const searchPage = searches.length ? h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
+  const searchPage = searches.length ? h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
     searches.map((x, i) => h("button", {
       key: i, onClick: () => setOpen({ title: x.q, site: x.site, gist: "", _search: true, time: x.time, results: x.results, opened: x.opened }),
       // 搜索记录每一行也认名字：TA要是回头点开自己搜过的那一句，圆点落得下去
@@ -5421,7 +5421,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       h("span", { "aria-hidden": "true", style: { width: 15, height: 12, borderRadius: "2px 4px 4px 4px", background: "#f0c264", flexShrink: 0 } }),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: BR_INK } }, PTX(f.name || "")),
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: BR_DIM } }, A(f.items).length + " 条")),
-    h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
+    h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
       A(f.items).map((x, j) => h("button", {
         key: j, "data-wk": "pitem", "data-watch": "item:" + (x.title || ""), onClick: () => setOpen({ ...x, _mark: f.name }),
         className: "w-full text-left active:opacity-60",
@@ -5430,7 +5430,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BR_DIM, marginTop: 4 } }, PTX(x.site || ""))))))))
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "还没有书签");
   const privPage = h("div", null,
-    h("div", { style: { background: "#26262b", borderRadius: 14, padding: "15px 16px", marginBottom: 14 } },
+    h("div", { "data-wk": "block", style: { background: "#26262b", borderRadius: 14, padding: "15px 16px", marginBottom: 14 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#e6e6ea" } }, "无痕浏览"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, T("他专门开了不留记录的那几页。关掉就没了——只是还没关。"))),
     priv.length ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, priv.map((x, i) => tabCard(x, i, true)))
@@ -5608,7 +5608,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5,
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
-  const groupCard = kids => h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } }, kids);
+  const groupCard = kids => h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, overflow: "hidden" } }, kids);
   const secLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: CALL_DIM, padding: "14px 4px 8px" } }, txt);
   // ── 通话记录：iOS 那种列表，未接标红 ──
   const callRow = (x, i) => {
@@ -5626,7 +5626,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: CALL_DIM } }, x.time || ""));
   };
   const callsPage = calls.length ? h("div", null,
-    missedN ? h("div", { style: { background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#c0392b" } },
+    missedN ? h("div", { "data-wk": "block", style: { background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#c0392b" } },
       "这周有 " + missedN + " 通没接通") : null,
     groupCard(calls.map(callRow)))
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "没有通话记录");
@@ -5655,7 +5655,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "没有短信");
   // ── 语音信箱 ──
   const vmPage = vm.length ? h("div", null,
-    unheardN ? h("div", { style: { background: "rgba(10,132,255,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#1a5fb4" } },
+    unheardN ? h("div", { "data-wk": "block", style: { background: "rgba(10,132,255,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#1a5fb4" } },
       "有 " + unheardN + T(" 条他一直没听")) : null,
     vm.map((x, i) => h("button", {
       key: i, onClick: () => setOpen({ kind: "vm", x: x }),
@@ -5669,7 +5669,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "信箱是空的");
   // ── 联系人 + 拦截 ──
   const peoplePage = h("div", null,
-    me.number ? h("div", { style: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 14 } },
+    me.number ? h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 14 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, T("他的号码")),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: CALL_INK, marginTop: 5 } }, me.number)) : null,
     freq.length ? h("div", null, secLabel("常联系"),
@@ -5716,7 +5716,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
         return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
           h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, PTX(m2.text || "")));
       })) : null,
-      isVm && x.transcript ? h("div", { style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
+      isVm && x.transcript ? h("div", { "data-wk": "block", style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "留言转文字" + (x.heard === false ? T(" · 他一直没听") : "")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, PTX(x.transcript))) : null,
       isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#4b4b53" } }, PTX(x.gist)) : null,
@@ -5985,7 +5985,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
     const it = open.item || {}, isPost = open.kind === "post";
     return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-        h("article", { style: { marginTop: 12, borderRadius: 20, padding: "18px 17px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.09)" } },
+        h("article", { "data-wk": "block", style: { marginTop: 12, borderRadius: 20, padding: "18px 17px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.09)" } },
           h("div", { className: "flex items-center gap-2 flex-wrap" },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 9px", borderRadius: 99, background: skin.soft, color: skin.accent } }, isPost ? (it.board || "论坛") : "回帖"),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, fmtTs(it.ts))),
@@ -6000,7 +6000,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
           acc.key === "main" ? "转发给 TA" : T("摆到 TA 面前 · 这是他藏起来的"))));
   }
   const identityCount = countOf(acc);
-  const postCard = (it, i) => h("button", { key: it.id || "p" + i, "data-wk": "pitem", "data-watch": "item:" + (it.title || ""), onClick: () => openOne("post", it), className: "w-full text-left active:opacity-65", style: { display: "block", borderRadius: 18, padding: "14px 15px", marginTop: 10, background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 8px 22px rgba(28,36,27,.065)" } },
+  const postCard = (it, i) => h("button", { "data-wk": "block", key: it.id || "p" + i, "data-wk": "pitem", "data-watch": "item:" + (it.title || ""), onClick: () => openOne("post", it), className: "w-full text-left active:opacity-65", style: { display: "block", borderRadius: 18, padding: "14px 15px", marginTop: 10, background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 8px 22px rgba(28,36,27,.065)" } },
     h("div", { className: "flex items-center justify-between gap-3" },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 99, background: skin.soft, color: skin.accent } }, PTX(it.board || "论坛")),
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.dim } }, fmtTs(it.ts))),
@@ -6017,15 +6017,15 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
     // 形状、高度、位置都会变，遵守 tabs-not-plain-pills.md；按钮本身仍保留 50px 以上手感。
     h("div", { className: "shrink-0 flex px-4", style: { gap: 6, alignItems: "flex-end", paddingTop: 6, borderBottom: "1px solid " + skin.line } }, list.map(a => {
       const active = a.key === acc.key, s2 = PHONE_FORUM_SKINS[a.key] || PHONE_FORUM_SKINS.main;
-      return h("button", { key: a.key, onClick: () => goTab(a.key), className: "flex-1 outline-none active:opacity-60", style: { minWidth: 0, minHeight: active ? 58 : 50, position: "relative", bottom: -1, marginTop: active ? 0 : 8, borderRadius: "14px 14px 3px 3px", padding: "7px 3px 6px", background: active ? skin.paper : s2.soft, border: "1px solid " + (active ? skin.line : s2.line), borderTop: "3px solid " + s2.accent, borderBottomColor: active ? skin.paper : s2.line, color: active ? skin.ink : skin.dim, boxShadow: active ? "0 -5px 14px rgba(28,36,27,.07)" : "none", opacity: active ? 1 : .72, zIndex: active ? 2 : 1 } },
+      return h("button", { "data-wk": "block", key: a.key, onClick: () => goTab(a.key), className: "flex-1 outline-none active:opacity-60", style: { minWidth: 0, minHeight: active ? 58 : 50, position: "relative", bottom: -1, marginTop: active ? 0 : 8, borderRadius: "14px 14px 3px 3px", padding: "7px 3px 6px", background: active ? skin.paper : s2.soft, border: "1px solid " + (active ? skin.line : s2.line), borderTop: "3px solid " + s2.accent, borderBottomColor: active ? skin.paper : s2.line, color: active ? skin.ink : skin.dim, boxShadow: active ? "0 -5px 14px rgba(28,36,27,.07)" : "none", opacity: active ? 1 : .72, zIndex: active ? 2 : 1 } },
         h("span", { "aria-hidden": "true", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, width: 25, height: 14, borderRadius: "50% 50% 42% 42% / 72% 72% 38% 38%", background: s2.accent, marginBottom: 2 } }, h("i", { style: { width: 4, height: 3, borderRadius: 99, background: active ? skin.paper : skin.bg } }), h("i", { style: { width: 4, height: 3, borderRadius: 99, background: active ? skin.paper : skin.bg } })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5 } }, a.label),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".1em", color: active ? s2.accent : skin.dim, marginTop: 1 } }, countOf(a) + " TRACE"));
     })),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-      h("section", { style: { marginTop: 13, borderRadius: 22, padding: "16px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.08)" } },
+      h("section", { "data-wk": "block", style: { marginTop: 13, borderRadius: 22, padding: "16px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.08)" } },
         h("div", { className: "flex items-center gap-3" },
-          h("div", { className: "shrink-0 flex items-center justify-center", style: { width: 48, height: 48, borderRadius: 16, background: skin.soft, border: "1px solid " + skin.line } }, h(PGlyph, { k: "forum", size: 22, color: skin.accent })),
+          h("div", { "data-wk": "block", className: "shrink-0 flex items-center justify-center", style: { width: 48, height: 48, borderRadius: 16, background: skin.soft, border: "1px solid " + skin.line } }, h(PGlyph, { k: "forum", size: 22, color: skin.accent })),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: skin.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, acc.name || acc.label), h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, padding: "2px 7px", borderRadius: 99, background: skin.soft, color: skin.accent } }, skin.label)),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: skin.dim, marginTop: 2 } }, [acc.handle, identityCount + " 条足迹"].filter(Boolean).join(" · ")))),
@@ -6824,7 +6824,7 @@ function PhoneCarry({
         noLine: true,
         onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 px-4 pb-6" },
-        h("div", { className: "h-full flex flex-col rounded-[30px] overflow-hidden", style: { background: "linear-gradient(180deg,#fbfaf7,#f1eee7)", border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,0.10)" } },
+        h("div", { "data-wk": "block", className: "h-full flex flex-col rounded-[30px] overflow-hidden", style: { background: "linear-gradient(180deg,#fbfaf7,#f1eee7)", border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,0.10)" } },
           // 手机顶栏：我的头像 + 通讯录
           h("div", { className: "shrink-0 flex items-center gap-3 px-5 pt-6 pb-4", style: { borderBottom: "1px solid " + t.line } },
             h(Avatar, { character: meAv, size: 50, radius: 999 }),
@@ -7471,7 +7471,7 @@ function PhoneCarry({
   // 而不是再报一次几点（系统状态栏已经有了）。
   // 她 2026-09-01：「搜索框可以放长一点居中」——左右两侧收成等宽（各 34），
   // 中间那条就自然居中，也长了一截。
-  h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 12, padding: "0 12px", margin: "0 10px", background: "rgba(255,255,255,.6)", border: "1px solid rgba(255,255,255,.66)" } },
+  h("div", { "data-wk": "block", className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 12, padding: "0 12px", margin: "0 10px", background: "rgba(255,255,255,.6)", border: "1px solid rgba(255,255,255,.66)" } },
     h("span", { "aria-hidden": "true", style: { fontSize: 12.5, color: t.fog } }, "\u2315"),
     h("input", {
       value: q, onChange: e => setQ(e.target.value),
@@ -7524,7 +7524,7 @@ function PhoneCarry({
     "aria-label": "第 " + (i + 1) + " 页",
     style: { width: i === deskPage ? 15 : 6, height: 6, borderRadius: 9, background: i === deskPage ? t.ink : "rgba(30,28,24,.25)", transition: "all .2s" }
   }))),
-  h("div", { className: "shrink-0 mx-4 mb-3 px-3 py-2 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, layout.dock.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
+  h("div", { "data-wk": "block", className: "shrink-0 mx-4 mb-3 px-3 py-2 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, layout.dock.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
     onClose: () => setPick(false)
   }, h(Eyebrow, {
     style: {

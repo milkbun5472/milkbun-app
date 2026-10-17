@@ -557,7 +557,7 @@
         to ? h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } },
           h("span", null, "回 " + to.name + "：" + String(to.body || "").slice(0, 20)), h("button", { onClick: () => setTo(null), className: "active:opacity-60" }, "不回了")) : null,
         me ? h("div", { className: "flex", style: { gap: 8 } },
-            h("input", { ref: inputRef, value: text, maxLength: 500, onChange: e => setText(e.target.value), placeholder: to ? "回她一句" : "在留言簿上写一句",
+            h("input", { "data-wk": "input", ref: inputRef, value: text, maxLength: 500, onChange: e => setText(e.target.value), placeholder: to ? "回她一句" : "在留言簿上写一句",
               className: "flex-1 min-w-0 outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 13px" } }),
             h(Btn, { t, solid: true, disabled: busy || !text.trim(), onClick: send, wk: "nestsignbtn" }, busy ? "……" : "签上"))
           : h(Btn, { t, wide: true, onClick: onLogin, wk: "nestloginask" }, "登录以后才能签")));
@@ -653,13 +653,13 @@
       } catch (e) { props.toast(e.message); }
       setBusy(false);
     };
-    const field = (val, set, ph, type, max) => h("input", { value: val, type: type || "text", maxLength: max, placeholder: ph, autoComplete: type === "password" ? (mode === "login" ? "current-password" : "new-password") : "username",
+    const field = (val, set, ph, type, max) => h("input", { "data-wk": "input", value: val, type: type || "text", maxLength: max, placeholder: ph, autoComplete: type === "password" ? (mode === "login" ? "current-password" : "new-password") : "username",
       onChange: e => set(e.target.value), className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 13px", marginTop: 10 } });
     if (rec) return h("div", { "data-wk": "nestrecovery", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "你的恢复码", bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-6 pb-8" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.8 } }, "忘了密码，只能靠这一串改回来。它只在这里出现这一次，小窝也看不到原文——截图或者抄到备忘录里存好。"),
-        h("div", { style: { margin: "18px 0", padding: "18px 12px", background: "#faeeda", border: "1px dashed #854f0b", textAlign: "center",
+        h("div", { "data-wk": "block", style: { margin: "18px 0", padding: "18px 12px", background: "#faeeda", border: "1px dashed #854f0b", textAlign: "center",
           fontFamily: "ui-monospace,Menlo,monospace", fontSize: 21, letterSpacing: 2, color: "#412402", userSelect: "all", wordBreak: "break-all" } }, rec.code),
         h("div", { className: "flex", style: { gap: 8 } },
           h(Btn, { t, wide: true, onClick: async () => props.toast((await copyText(rec.code)) ? "恢复码复制好了，记得贴到别处存着" : "复制不了，长按那串字自己选"), wk: "nestreccopy" }, "复制"),
@@ -883,7 +883,7 @@
                 r.sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, r.sub) : null)))
               : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))) : null,
         isPost ? h("div", { "data-wk": "nestpostwrite" }, label(t, "想说什么（最多 4000 字）"),
-          h("textarea", { value: text, maxLength: 4000, rows: 8, placeholder: "哪里不好用、想要什么、遇到了什么，都可以写；配一张截图更好懂",
+          h("textarea", { "data-wk": "textarea", value: text, maxLength: 4000, rows: 8, placeholder: "哪里不好用、想要什么、遇到了什么，都可以写；配一张截图更好懂",
             onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
         pasteKind ? h("div", { style: { marginTop: 14 } }, label(t, kind === "css" ? "或者直接把 CSS 贴在这儿" : "也可以把导出的那份文件内容整份贴进来"),
           field(text, v => { setText(v); if (v) { setFile(null); setPick({}); } }, kind === "css" ? "[data-wk=\"bubble\"] { … }" : "{ \"kind\": … }", 262144, true)) : null,
@@ -893,7 +893,7 @@
         // ④ 预览截图：别人逛的时候先看个大概再决定要不要
         h("div", { "data-wk": "nestshotpick", style: { marginTop: 14 } }, label(t, isPost ? "截图（可不放，最多 3 张）" : "预览截图（可不放，最多 3 张；第一张会贴在墙上那张纸条上）"),
           h("div", { className: "flex flex-wrap", style: { gap: 10 } },
-            shots.map((x, k) => h("div", { key: k, style: { position: "relative", padding: "4px 4px 12px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)" } },
+            shots.map((x, k) => h("div", { "data-wk": "block", key: k, style: { position: "relative", padding: "4px 4px 12px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)" } },
               h("img", { src: x.thumb, alt: "", style: { display: "block", width: 76, height: 100, objectFit: "cover" } }),
               h("button", { "aria-label": "拿掉这张", onClick: () => setShots(a => a.filter((_, i) => i !== k)), className: "active:opacity-60",
                 style: { position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: t.bg, fontSize: 13, lineHeight: "24px" } }, "×"))),
@@ -979,7 +979,7 @@
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },
           h(ISearch, { size: 15, color: t.fog }),
-          h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜东西，也搜人", maxLength: 40, className: "flex-1 min-w-0 outline-none",
+          h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜东西，也搜人", maxLength: 40, className: "flex-1 min-w-0 outline-none",
             style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "transparent", border: "none", padding: "9px 0" } })),
         h("button", { "data-wk": "nestme", onClick: () => me ? openUser(me.id) : needLogin(), className: "active:opacity-60 truncate",
           style: { flexShrink: 0, maxWidth: 96, minHeight: 40, padding: "0 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },

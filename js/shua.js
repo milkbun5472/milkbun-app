@@ -463,7 +463,7 @@
           window.LiveKit && window.LiveKit.NoiseLayer ? h(window.LiveKit.NoiseLayer, { noise: arr(v.dms).concat(arr(v.myDms).map(x => x.text)), seed: v.id + "_" + arr(v.myDms).length }) : null,
           h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60", style: { position: "absolute", left: 6, top: 4, width: 40, height: 40 } }, h(IArrow, { size: 20, color: "#fff" })),
           (onDel || onDraw) ? h("button", { onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { position: "absolute", right: 6, top: 4, width: 40, height: 40, color: "#fff", fontSize: 20, lineHeight: "40px" } }, "⋯") : null,
-          more ? h("div", { style: { position: "absolute", right: 10, top: 44, zIndex: 5, minWidth: 130, borderRadius: 10, background: B.card, boxShadow: "0 6px 20px rgba(0,0,0,.25)", padding: "4px 0" } },
+          more ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: 44, zIndex: 5, minWidth: 130, borderRadius: 10, background: B.card, boxShadow: "0 6px 20px rgba(0,0,0,.25)", padding: "4px 0" } },
             onDraw ? moreItem(drawing ? "画着…" : (imgOf(v) ? "重画封面" : "画出来"), drawing ? null : onDraw) : null,
             onDel ? moreItem("扔掉这条", onDel) : null) : null)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 10 } },
@@ -475,7 +475,7 @@
           v.series ? h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: 11.5, color: B.accent, marginTop: 4 } }, "系列《" + v.series + "》· 第 " + (v.ep || 1) + " 期",
             onFollowSeries ? h("button", { "data-wk": "shuaseriesfollow", "data-on": seriesOn ? "1" : "0", onClick: onFollowSeries, className: "active:opacity-70", style: { minHeight: 26, padding: "0 10px", borderRadius: 8, border: "1px solid " + B.accent, background: seriesOn ? "transparent" : B.accent, color: seriesOn ? B.accent : "#fff", fontSize: 11 } }, seriesOn ? "已追更" : "追更") : null) : null,
           (v.intro || (v.title && v.caption)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: B.dim, marginTop: 6, lineHeight: 1.6 } }, v.intro || v.caption) : null,
-          arr(v.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { "data-wk": "shuatag", key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
+          arr(v.tags).length ? h("div", { "data-wk": "block", className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { "data-wk": "shuatag", key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
           h("div", { "data-wk": "shuaactbar", className: "flex", style: { marginTop: 10 } },
             act("like", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
             onCoin ? act("coin", v.myCoins ? "投过 " + v.myCoins : String(v.coins || "投币"), !!v.myCoins, onCoin) : null,
@@ -1135,8 +1135,8 @@
       const c = charOf(id); if (!c) return null;
       const a = cps[id], on = cpId === id, naming = busy === "cpname:" + id, editing = cpEdit === id;
       const meAv = { name: uName, avatarImage: profile && profile.avatarImage };
-      const btn = (label, fn, primary, dis) => h("button", { onClick: fn, disabled: !!dis, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 34, padding: "0 12px", borderRadius: 999, background: primary ? P.accent : "transparent", border: primary ? "none" : "1px solid " + P.line, color: primary ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12 } }, label);
-      const inp = (key, val, ph, onSave, max) => h("input", { key, defaultValue: val, placeholder: ph, onBlur: e => onSave(e.target.value.trim().slice(0, max)),
+      const btn = (label, fn, primary, dis) => h("button", { "data-wk": "block", onClick: fn, disabled: !!dis, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 34, padding: "0 12px", borderRadius: 999, background: primary ? P.accent : "transparent", border: primary ? "none" : "1px solid " + P.line, color: primary ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12 } }, label);
+      const inp = (key, val, ph, onSave, max) => h("input", { "data-wk": "input", key, defaultValue: val, placeholder: ph, onBlur: e => onSave(e.target.value.trim().slice(0, max)),
         className: "w-full outline-none", style: { marginTop: 6, minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } });
       return h("div", { "data-wk": "shuacprow", "data-on": on ? "1" : "0", key: id, style: { marginTop: 8, padding: "12px 14px", borderRadius: 16, border: (a ? "1px solid " : "1px dashed ") + (on ? P.accent : P.line), background: on ? "linear-gradient(120deg,rgba(254,44,85,.16),rgba(122,60,255,.12))" : P.field } },
         h("div", { className: "flex items-center", style: { gap: 12 } },

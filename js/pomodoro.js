@@ -236,7 +236,7 @@
               (tp && char && typeof TtsDot === "function") ? h(TtsDot, { k: "pmd" + rec.id, text: rec.annotation, spk: char, tp }) : null,
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a3925f" } }, "—— " + (rec.charName || (char && char.name) || "")))) : null),
         // TA报一下自己那边的进度（开场那一次就写好了，不另调模型）
-        rec.hisDone ? h("div", { style: { marginTop: 16, padding: "12px 14px", background: "rgba(255,253,247,.7)", border: "1px dashed rgba(120,96,58,.35)", borderRadius: 3 } },
+        rec.hisDone ? h("div", { "data-wk": "block", style: { marginTop: 16, padding: "12px 14px", background: "rgba(255,253,247,.7)", border: "1px dashed rgba(120,96,58,.35)", borderRadius: 3 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a3925f", marginBottom: 4 } }, (rec.charName || (char && char.name) || "TA") + " 那边"),
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.8, color: "#3a3024" } }, rec.hisDone)) : null,
         // 「这一轮只做」那件，做完没？——她答了，TA回一句（也是开场就写好的）
@@ -677,7 +677,7 @@
           } catch (e) { props.toast && props.toast("没点评成：" + String(e && e.message || e).slice(0, 80)); }
           finally { setCalBusy(false); }
         };
-        return h("div", { key: "cal", "data-wk": "pomcal", style: { marginTop: 12, padding: "12px 12px 10px", background: "#fffdf6", border: "1px solid " + line, borderRadius: 3 } },
+        return h("div", { "data-wk": "block", key: "cal", "data-wk": "pomcal", style: { marginTop: 12, padding: "12px 12px 10px", background: "#fffdf6", border: "1px solid " + line, borderRadius: 3 } },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8,16px)", gridAutoFlow: "column", gridTemplateRows: "repeat(7,16px)", gap: 4, justifyContent: "center" } }, cells),
           h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: fog } },
             h("span", null, "这周 " + Math.round(thisWeek) + " 分钟"),
@@ -772,7 +772,7 @@
             sess.pack && sess.pack.his ? h("div", { "data-wk": "pomhis", style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11, letterSpacing: 0, color: "rgba(246,239,223,.8)", textShadow: "0 1px 6px rgba(0,0,0,.4)" } }, c.name + " 在：" + sess.pack.his) : null),
           h("button", { className: "pom-poke", "data-wk": "pompoke", "aria-label": "戳一戳陪伴画面", onClick: poke, style: { position: "absolute", inset: 0, width: "100%", border: "none", background: "transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent" } }),
           h("div", { style: { position: "absolute", left: 22, right: 22, bottom: 12, pointerEvents: "none" } },
-            subtitle || (tp && tp.play) ? h("div", { key: current.key, className: "pom-subtitle" + (current.extraId ? " pom-extra-subtitle" : ""), "data-wk": "pomsubtitle", "data-pomodoro-subtitle": "", role: "status", "aria-live": "polite", style: { maxWidth: 380, margin: "0 auto", padding: sess.mode === "notes" ? "17px 18px" : "14px 16px", borderRadius: sess.mode === "notes" ? "2px 16px 16px 16px" : 14, background: sess.mode === "notes" ? "rgba(249,243,230,.94)" : "rgba(30,29,25,.65)", border: "1px solid " + (sess.mode === "notes" ? "rgba(255,255,255,.32)" : "rgba(246,239,223,.18)"), backdropFilter: "blur(14px)", boxShadow: "0 8px 28px rgba(0,0,0,.12)", color: sess.mode === "notes" ? "#3c382e" : cream } },
+            subtitle || (tp && tp.play) ? h("div", { "data-wk": "block", key: current.key, className: "pom-subtitle" + (current.extraId ? " pom-extra-subtitle" : ""), "data-wk": "pomsubtitle", "data-pomodoro-subtitle": "", role: "status", "aria-live": "polite", style: { maxWidth: 380, margin: "0 auto", padding: sess.mode === "notes" ? "17px 18px" : "14px 16px", borderRadius: sess.mode === "notes" ? "2px 16px 16px 16px" : 14, background: sess.mode === "notes" ? "rgba(249,243,230,.94)" : "rgba(30,29,25,.65)", border: "1px solid " + (sess.mode === "notes" ? "rgba(255,255,255,.32)" : "rgba(246,239,223,.18)"), backdropFilter: "blur(14px)", boxShadow: "0 8px 28px rgba(0,0,0,.12)", color: sess.mode === "notes" ? "#3c382e" : cream } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", opacity: .6, marginBottom: 7 } }, current.label),
               h("div", { className: current.extraId ? "pom-extra-copy" : undefined, style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.6, overflowWrap: "anywhere", maxHeight: "min(150px, 23vh)", overflowY: "auto", pointerEvents: "auto" } }, current.text),
               current.extraId ? h("div", { style: { pointerEvents: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 5, fontFamily: F_BODY, fontSize: 10 } },
@@ -791,7 +791,7 @@
               (function () { const RR = 28, C = 2 * Math.PI * RR; return h("svg", { width: 62, height: 62, viewBox: "0 0 62 62", "aria-hidden": "true", style: { position: "absolute", inset: 0, transform: "rotate(-90deg)", pointerEvents: "none" } },
                 h("circle", { cx: 31, cy: 31, r: RR, fill: "none", stroke: "rgba(246,239,223,.22)", strokeWidth: 1.5 }),
                 h("circle", { cx: 31, cy: 31, r: RR, fill: "none", stroke: "#dac8a4", strokeWidth: 1.5, strokeLinecap: "round", strokeDasharray: C, strokeDashoffset: (C * progress).toFixed(2) })); })(),
-              h("button", { onClick: togglePause, style: { position: "absolute", left: 5, top: 5, width: 52, height: 52, borderRadius: 999, background: cream, color: "#39352b", border: "none", fontFamily: F_BODY, fontSize: 12 } }, sess.pausedAt ? "继续" : "暂停"))),
+              h("button", { "data-wk": "block", onClick: togglePause, style: { position: "absolute", left: 5, top: 5, width: 52, height: 52, borderRadius: 999, background: cream, color: "#39352b", border: "none", fontFamily: F_BODY, fontSize: 12 } }, sess.pausedAt ? "继续" : "暂停"))),
           h("div", { style: { display: "flex", gap: 12, alignItems: "baseline", justifyContent: "space-between", marginTop: 12, fontFamily: F_BODY, fontSize: 11, color: dim } },
             h("span", { style: { overflowWrap: "anywhere", maxHeight: 42, overflowY: "auto", lineHeight: 1.7 } }, sess.task),
             h("span", { style: { flexShrink: 0, fontSize: 10 } }, "已坐住 " + Math.floor(elapsed / 60) + " 分钟" + (sess.kind === "cycle" && sess.rounds ? " · 满 " + sess.rounds + " 轮" : ""))),
@@ -815,13 +815,13 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, marginTop: 14 } }, "这一轮先收到这里？"),
             h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: "#7d725d" } }, "已经坐住的时间会留下。给这一轮留个原因，下次回来接着做。"),
             // 正计时、循环番茄本来就没有「到点」：收桌就是坐完了，算坐满
-            sess.kind === "up" || sess.kind === "cycle" ? h("button", { onClick: () => finish("done"), style: { width: "100%", minHeight: 52, marginTop: 22, background: "#3c382e", color: cream, border: "none", fontFamily: F_BODY, fontSize: 14 } }, "坐完了，收桌") : null,
+            sess.kind === "up" || sess.kind === "cycle" ? h("button", { "data-wk": "block", onClick: () => finish("done"), style: { width: "100%", minHeight: 52, marginTop: 22, background: "#3c382e", color: cream, border: "none", fontFamily: F_BODY, fontSize: 14 } }, "坐完了，收桌") : null,
             h("div", { style: { display: "grid", gap: 10, marginTop: 26 } }, ["临时有事", "状态不对", "任务已完成", "今天先到这里"].map(reason => h("button", { key: reason, onClick: () => finish("left", reason), style: { minHeight: 50, padding: "12px 16px", textAlign: "left", border: "1px solid #c9bea7", background: "rgba(255,253,247,.5)", fontFamily: F_BODY, fontSize: 13 } }, reason))),
-            h("button", { onClick: () => setEndOpen(false), style: { width: "100%", minHeight: 48, marginTop: 22, background: "#3c382e", color: cream, border: "none", fontFamily: F_BODY, fontSize: 13 } }, "继续这一轮"))) : null);
+            h("button", { "data-wk": "block", onClick: () => setEndOpen(false), style: { width: "100%", minHeight: 48, marginTop: 22, background: "#3c382e", color: cream, border: "none", fontFamily: F_BODY, fontSize: 13 } }, "继续这一轮"))) : null);
     }
 
     const cur = charOf(charId);
-    const archiveRight = h("button", { onClick: () => setView("archive"), className: "active:opacity-60", style: { minWidth: 44, height: 44, marginRight: -10, background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "记录 " + saves.length);
+    const archiveRight = h("button", { "data-wk": "block", onClick: () => setView("archive"), className: "active:opacity-60", style: { minWidth: 44, height: 44, marginRight: -10, background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "记录 " + saves.length);
     // ── 这一页就是【摆好的一张桌子】（v61.39）──
     // 桌面木纹打底，上面摆着：一张便签（写这一轮做什么）、对面的座位、一个发条计时盘、
     // 三张「怎么陪」的小卡。原来那版是横线分节的表单，搬到任何 app 上都成立。
@@ -863,7 +863,7 @@
             transform: "translateX(-56%) rotate(-2.6deg)", background: "rgba(226,214,186,.66)",
             borderLeft: "1px dashed rgba(255,255,255,.55)", borderRight: "1px dashed rgba(255,255,255,.55)" } }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f" } }, "这一轮只做"),
-          h("input", { value: task, onChange: e => { setTask(e.target.value); setMemoId(""); }, placeholder: "这一轮只做…", maxLength: 24,
+          h("input", { "data-wk": "input", value: task, onChange: e => { setTask(e.target.value); setMemoId(""); }, placeholder: "这一轮只做…", maxLength: 24,
             style: { width: "100%", fontFamily: F_DISPLAY, fontSize: 21, color: "#3a3024", background: "transparent",
               border: "none", borderBottom: "1px solid rgba(140,116,60,.28)", outline: "none", padding: "9px 0 7px", marginTop: 8 } }),
           h("label", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 10, fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e" } }, "专注类别",
@@ -914,7 +914,7 @@
                 color: Number(min) === p2 ? t.bg2 : "#6b5b3e", background: Number(min) === p2 ? t.ink : "transparent",
                 border: "1px solid " + (Number(min) === p2 ? t.ink : "rgba(90,72,44,.28)") } }, p2 >= 60 ? (p2 / 60) + " 小时" : p2 + " 分")),
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e" } }, "自定"),
-            h("input", { value: String(min), onChange: e => setMin(e.target.value.replace(/[^0-9]/g, "").slice(0, 3)),
+            h("input", { "data-wk": "input", value: String(min), onChange: e => setMin(e.target.value.replace(/[^0-9]/g, "").slice(0, 3)),
               inputMode: "numeric", "aria-label": "自定分钟",
               style: { width: 52, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, background: "transparent",
                 border: "none", borderBottom: "1px solid rgba(90,72,44,.4)", outline: "none", textAlign: "center", padding: "5px 0" } }),
@@ -948,7 +948,7 @@
           h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 6 } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#3a3024" } }, "背景音"),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7a5e" } }, "上发条时一起响，退出 App 也不停")),
-          h("div", { style: { background: "rgba(255,253,246,.6)", border: "1px solid rgba(90,72,44,.16)", borderRadius: 3, padding: "8px 12px 12px" } },
+          h("div", { "data-wk": "block", style: { background: "rgba(255,253,246,.6)", border: "1px solid rgba(90,72,44,.16)", borderRadius: 3, padding: "8px 12px 12px" } },
             h(AmbiencePanel, { ink: "#3a3024", fog: "#8a7a5e", line: "rgba(90,72,44,.28)", accent: "#8c743c" }))),
         h("button", { onClick: start, disabled: busy || !cur, className: "w-full active:opacity-80 disabled:opacity-40",
           style: { marginTop: 24, background: t.ink, color: t.bg2, border: "none", borderRadius: 3,

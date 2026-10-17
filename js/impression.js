@@ -761,7 +761,7 @@
               h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
                 (e.tags || []).slice(0, 3).map((tag, i) => {
                   const onLeft = i === 1;
-                  const dot = h("div", { key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
+                  const dot = h("div", { "data-wk": "block", key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
                   const line = h("div", { key: "l", style: { width: 20, height: 1, background: pageColor("impression", "bg2", "rgba(255,255,255,.85)"), flexShrink: 0 } });
                   const chip = h("div", { "data-wk": "imptag", key: "c", style: { background: pageColor("impression", "bg2", "rgba(97,84,56,.86)"), border: "1px solid rgba(246,239,226,.55)",
                     color: pageColor("impression", "ink", "#f6efe2"), padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,

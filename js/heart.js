@@ -520,7 +520,7 @@
       h(Head, { zh: (char.remark || char.name) + " 的心上", sub: "只有 TA 能往里写；你只是碰巧看见了", bg: "transparent", onBack: onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 18px 40px" } },
       // 今日独白
-      h("div", { style: { marginTop: 16, padding: "13px 14px", borderRadius: 14, background: ACCENT + "14", border: "1px solid " + ACCENT + "38" } },
+      h("div", { "data-wk": "block", style: { marginTop: 16, padding: "13px 14px", borderRadius: 14, background: ACCENT + "14", border: "1px solid " + ACCENT + "38" } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
           h(Eyebrow, null, latestIsToday ? "今日 · 发呆时飘过的" : "发呆"),
           h("button", {

@@ -471,7 +471,7 @@
           !st.hasPlan && h("button", { onClick: () => props.onSchedule?.(c), style: { ...btn, width: "100%", marginTop: 6, background: "transparent", borderStyle: "dashed" } }, "去日历给TA排今天"));
       }), h("button", { onClick: () => pick(DEMO.id), style: { ...btn, width: "100%", marginTop: 12, background: "transparent", borderStyle: "dashed" } }, "先看一段示例"),
       h("p", { style: { fontSize: 11, color: soft, lineHeight: 1.8 } }, "跟着日程走进小家、工作空间、小店和街道；专业日程也会走进实验室、图书馆、诊室和创作室。"),
-      h("button", { onClick: visitPlaces, "data-wk":"cdayplaces", style: { ...btn, width: "100%", marginTop: 4, background: "transparent", border: 0, color: soft, fontSize: 12 } }, "逛逛所有场景")))));
+      h("button", { "data-wk": "block", onClick: visitPlaces, "data-wk":"cdayplaces", style: { ...btn, width: "100%", marginTop: 4, background: "transparent", border: 0, color: soft, fontSize: 12 } }, "逛逛所有场景")))));
     const changeStyle = async value => {
       if (styleBusy) return;
       if (demo) { setDemoStyle(value); setStyleNotice("示例小家已换样式"); return; }

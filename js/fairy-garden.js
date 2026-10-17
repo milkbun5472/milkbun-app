@@ -689,7 +689,7 @@
         styles.dims.map(d => {
           const cur = Number(((look[who] || {}).dims || {})[d.key]);
           const value = isFinite(cur) ? cur : 1;
-          return h("div", { key: d.key, style: { marginBottom: 10, padding: "12px 13px", background: "rgba(244,229,211,.52)", border: "1px solid rgba(151,112,82,.16)", borderRadius: 14 } },
+          return h("div", { "data-wk": "block", key: d.key, style: { marginBottom: 10, padding: "12px 13px", background: "rgba(244,229,211,.52)", border: "1px solid rgba(151,112,82,.16)", borderRadius: 14 } },
             h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 3 } },
               h("span", null, d.label + " · " + Math.round(value * 100) + "%"),
               h("button", { onClick: () => pushLook({ dims: { [d.key]: 1 } }), className: "active:opacity-60",

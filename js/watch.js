@@ -274,8 +274,8 @@
     const f = props.film, c = props.partner;
     const pct = f.duration ? Math.min(100, Math.round((f.pos || 0) / f.duration * 100)) : 0;
     const notch = { position: "absolute", left: 86, width: 16, height: 16, borderRadius: "50%", background: W.bg, marginLeft: -8 };
-    return h("div", { style: { position: "relative", display: "flex", borderRadius: 14, background: "linear-gradient(135deg,#2e2835,#241f2b)", border: "1px solid " + W.line, overflow: "hidden", boxShadow: "0 10px 26px rgba(0,0,0,.35)" }, "data-wk": "watchticket" },
-      h("button", { onClick: props.onOpen, className: "active:opacity-80", style: { display: "flex", flex: 1, minWidth: 0, textAlign: "left", color: W.ink, background: "none", border: "none", padding: 0 }, "data-wk": "watchticketbtn", "data-part": "open" },
+    return h("div", { "data-wk": "block", style: { position: "relative", display: "flex", borderRadius: 14, background: "linear-gradient(135deg,#2e2835,#241f2b)", border: "1px solid " + W.line, overflow: "hidden", boxShadow: "0 10px 26px rgba(0,0,0,.35)" }, "data-wk": "watchticket" },
+      h("button", { "data-wk": "block", onClick: props.onOpen, className: "active:opacity-80", style: { display: "flex", flex: 1, minWidth: 0, textAlign: "left", color: W.ink, background: "none", border: "none", padding: 0 }, "data-wk": "watchticketbtn", "data-part": "open" },
         // 副券：第几场＋看到几成
         h("div", { style: { width: 86, flexShrink: 0, padding: "14px 10px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, borderRight: "2px dashed rgba(255,255,255,.14)" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: 2, color: W.amber } }, "放映"),
@@ -292,8 +292,8 @@
       h("div", { style: Object.assign({}, notch, { top: -8 }) }),
       h("div", { style: Object.assign({}, notch, { bottom: -8 }) }),
       h("div", { style: { width: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" } },
-        h("button", { onClick: props.onRename, "aria-label": "改名", className: "active:opacity-60", style: { width: 40, height: 40, color: W.fog, background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "watchticketbtn", "data-part": "改名" }, h(IPencil, { size: 15, color: W.fog })),
-        h("button", { onClick: props.onDelete, "aria-label": "删掉这部", className: "active:opacity-60", style: { width: 40, height: 40, color: W.fog, background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "watchticketbtn", "data-part": "删掉这部" }, h(IX, { size: 16, color: W.fog }))));
+        h("button", { "data-wk": "block", onClick: props.onRename, "aria-label": "改名", className: "active:opacity-60", style: { width: 40, height: 40, color: W.fog, background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "watchticketbtn", "data-part": "改名" }, h(IPencil, { size: 15, color: W.fog })),
+        h("button", { "data-wk": "block", onClick: props.onDelete, "aria-label": "删掉这部", className: "active:opacity-60", style: { width: 40, height: 40, color: W.fog, background: "none", border: "none", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "watchticketbtn", "data-part": "删掉这部" }, h(IX, { size: 16, color: W.fog }))));
   }
 
   // ---- 导入：整页（施工规则/no-half-sheet.md）----
@@ -330,7 +330,7 @@
         setBusy(false);
       }
     };
-    const row = (label, hint, file, onPick, ref, accept) => h("div", { style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
+    const row = (label, hint, file, onPick, ref, accept) => h("div", { "data-wk": "block", style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
       h("div", { className: "flex items-center justify-between gap-3" },
         h("div", { style: { minWidth: 0 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: W.ink } }, label),
@@ -341,14 +341,14 @@
       h(Head, { zh: "导入一部电影", onBack: props.onBack, bg: "transparent", ink: W.ink }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 16px 28px" } },
         h("div", { className: "space-y-3" },
-          h("div", { className: "flex", style: { gap: 6, padding: 4, borderRadius: 999, background: W.card, border: "1px solid " + W.line } },
+          h("div", { "data-wk": "block", className: "flex", style: { gap: 6, padding: 4, borderRadius: 999, background: W.card, border: "1px solid " + W.line } },
             [["file", "手机里的文件"], ["link", "B 站 / YouTube 链接"]].map(([k, zh]) => h("button", { key: k, onClick: () => setMode(k), "aria-pressed": String(mode === k), className: "flex-1 active:opacity-70",
               style: { minHeight: 36, borderRadius: 999, border: "none", background: mode === k ? W.amber : "none", color: mode === k ? W.amberInk : W.sub, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "watchimportpagebtn", "data-part": "1" }, zh))),
           mode === "file"
             ? row("电影文件", "mp4 最稳；存在这台手机里，不会跟着云同步走", video, pickVideo, vRef, "video/*")
-            : h("div", { style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
+            : h("div", { "data-wk": "block", style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: W.ink } }, "视频链接"),
-                h("input", { value: link, onChange: e => setLink(e.target.value), placeholder: "粘贴 B 站或 YouTube 的链接", className: "w-full outline-none",
+                h("input", { "data-wk": "input", value: link, onChange: e => setLink(e.target.value), placeholder: "粘贴 B 站或 YouTube 的链接", className: "w-full outline-none",
                   style: { marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, background: W.bg2, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchimportpageinput", "data-part": "粘贴 B 站或 YouT" }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: online && !online.short ? W.amber : W.fog, marginTop: 6 } },
                   !link.trim() ? "片子在它们网站上放，不占手机空间"
@@ -357,9 +357,9 @@
                     : online.source === "youtube" ? "YouTube：进度 TA 会自己跟上"
                     : "B 站：B 站不告诉我们放到哪，放的时候在下面那块表上也按一下播放 / 暂停，TA 靠它跟进度")),
           row("字幕（强烈建议）", mode === "file" ? "srt / vtt / ass。不选的话会先试着读视频里自带的字幕" : "srt / vtt / ass。网上的片子只能靠这一格给 TA 台词", sub, setSub, sRef, ANY_FILE),
-          h("div", { style: { padding: "12px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
+          h("div", { "data-wk": "block", style: { padding: "12px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, marginBottom: 6 } }, "片名"),
-            h("input", { value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 }, "data-wk": "watchimportpageinput", "data-part": "叫它什么" }))),
+            h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 }, "data-wk": "watchimportpageinput", "data-part": "叫它什么" }))),
         h("p", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8, color: W.fog, margin: "14px 4px" } },
           mode === "file" ? "TA 看不到画面本身，只读得到字幕；想让 TA 看画面的时候，放映时点「给 TA 看这一帧」（要你用的模型能识图）。"
             : "网上的片子 TA 读不到它的字幕，这边也截不了它的画面。想让 TA 跟着台词看，就把字幕导出成 srt 放进上面那一格；想让 TA 看画面，放映时用手机截屏，再点「＋ → 发张截图给 TA」。"),
@@ -373,7 +373,7 @@
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: W.ink, marginBottom: 4 } }, "今晚和谁一起看"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.fog, marginBottom: 14 } }, "选了之后这一部就是你们俩的"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(88px,1fr))", gap: 12 } },
-        (props.characters || []).map(c => h("button", { key: c.id, onClick: () => props.onPick(c.id), className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "12px 6px", borderRadius: 14, background: W.card, border: "1px solid " + W.line, color: W.ink }, "data-wk": "watchpickpartnerbtn", "data-part": "1" },
+        (props.characters || []).map(c => h("button", { "data-wk": "block", key: c.id, onClick: () => props.onPick(c.id), className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "12px 6px", borderRadius: 14, background: W.card, border: "1px solid " + W.line, color: W.ink }, "data-wk": "watchpickpartnerbtn", "data-part": "1" },
           h(Avatar, { character: c, size: 48, radius: 24 }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))));
   }
@@ -389,7 +389,7 @@
       h("button", { onClick: p.onExit, "aria-label": "退出影院模式", style: Object.assign({}, pill, { position: "absolute", left: "calc(env(safe-area-inset-left) + 12px)", top: top, width: 40, padding: 0, justifyContent: "center" }), "data-wk": "watchcinemalayerbtn", "data-part": "退出影院模式" }, h(IX, { size: 16, color: "#fff" })),
       h("button", { onClick: () => p.setSay(!p.say), style: Object.assign({}, pill, { position: "absolute", right: "calc(env(safe-area-inset-right) + 12px)", top: top }), "data-wk": "watchcinemalayerbtn", "data-part": "2" }, p.say ? "收起" : "说一句"),
       p.say && h("div", { className: "flex items-center gap-2", style: { position: "absolute", left: "calc(env(safe-area-inset-left) + 64px)", right: "calc(env(safe-area-inset-right) + 96px)", top: top, pointerEvents: "auto" } },
-        h("input", { value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchcinemalayerinput", "data-part": "小声说一句…" }),
+        h("input", { "data-wk": "input", value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchcinemalayerinput", "data-part": "小声说一句…" }),
         btn("说", p.send, { primary: true, disabled: p.busy || !String(p.txt || "").trim() })),
       // TA 刚说的话：浮在右上，九秒后自己淡掉
       h("div", { style: { position: "absolute", right: "calc(env(safe-area-inset-right) + 14px)", top: "calc(env(safe-area-inset-top) + 62px)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "58%" } },
@@ -710,7 +710,7 @@
               h("div", { style: { maxWidth: "76%" } },
                 m.frame && m.frame !== "gone" ? h("img", { src: m.frame, alt: "截的那一帧", style: { display: "block", width: 160, borderRadius: 10, marginBottom: m.content ? 5 : 0, marginLeft: "auto", border: "2px solid rgba(255,255,255,.1)" } }) : null,
                 m.frame === "gone" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: W.fog, textAlign: "right" } }, "（截过一帧）") : null,
-                m.content ? h("div", { style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, m.content) : null,
+                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, m.content) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: W.fog, marginTop: 3, textAlign: mine ? "right" : "left" } }, clock(m.at))));
           }),
           busy && h("div", { className: "flex items-center gap-2", style: { margin: "8px 0", color: W.fog, fontFamily: F_BODY, fontSize: 12 } }, h(Avatar, { character: partner, size: 28, radius: 14 }), (partner.remark || partner.name) + " 在想…")),
@@ -746,7 +746,7 @@
         // 输入
         h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(22,20,27,.92)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
           h("button", { onClick: () => setToolsOpen(!toolsOpen), "aria-label": toolsOpen ? "收起" : "更多", "aria-expanded": String(toolsOpen), className: "active:opacity-60", style: { width: 40, height: 40, flexShrink: 0, borderRadius: "50%", border: "1px solid " + (toolsOpen ? W.amber : W.line), background: "none", color: toolsOpen ? W.amber : W.sub, fontSize: 22, lineHeight: 1, transform: toolsOpen ? "rotate(45deg)" : "none", transition: "transform .15s" }, "data-wk": "watchscreeningbtn", "data-part": "3" }, "+"),
-          h("input", { value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: W.card, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchscreeninginput", "data-part": "小声说一句…" }),
+          h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: W.card, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchscreeninginput", "data-part": "小声说一句…" }),
           btn("说", send, { primary: true, disabled: busy || !txt.trim() }))));
   }
 
@@ -769,7 +769,7 @@
       h(Head, { zh: "一起看", sub: "放映厅", onBack: props.onBack, bg: "transparent", ink: W.ink }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 16px 28px" } },
         // 幕布：进门先看到的那一块
-        h("div", { style: { position: "relative", borderRadius: 18, padding: "22px 18px 18px", marginBottom: 18, overflow: "hidden", background: "linear-gradient(180deg,#5a2531 0%,#3a1a24 100%)", boxShadow: "inset 0 -18px 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35)" } },
+        h("div", { "data-wk": "block", style: { position: "relative", borderRadius: 18, padding: "22px 18px 18px", marginBottom: 18, overflow: "hidden", background: "linear-gradient(180deg,#5a2531 0%,#3a1a24 100%)", boxShadow: "inset 0 -18px 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35)" } },
           h("div", { style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 22px)", pointerEvents: "none" } }),
           h("div", { style: { position: "relative" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fbeee0" } }, "今晚放什么"),
