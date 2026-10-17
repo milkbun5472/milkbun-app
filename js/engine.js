@@ -7029,7 +7029,14 @@ function markPauseVoice(words) {
     }
     raw.push(a);
   }
-  const list = raw.map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
+  // 模型把 {"voice":"…","emo":"…"} 写成了一串字（她 2026-10-17 截图：语音条下面的字幕就是那一整串）：拆回对象再认
+  const unJson = w => {
+    if (typeof w !== "string" || !/^\s*[{｛][\s\S]*[}｝]\s*$/.test(w)) return w;
+    try { const o = JSON.parse(w.trim().replace(/^｛/, "{").replace(/｝$/, "}")); return o && typeof o === "object" && !Array.isArray(o) ? o : w; } catch (e) {}
+    const m = /["“”']\s*(?:voice|语音)\s*["“”']\s*[:：]\s*["“”']([\s\S]*?)["“”']\s*(?:[,，]\s*["“”']\s*emo\s*["“”']\s*[:：]\s*["“”']([^"“”']*)["“”'])?\s*[}｝]\s*$/i.exec(w);
+    return m ? (m[2] ? { voice: m[1], emo: m[2] } : { voice: m[1] }) : w;
+  };
+  const list = raw.map(unJson).map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;
   const flush = () => { if (run != null) { out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(run); run = null; } };
