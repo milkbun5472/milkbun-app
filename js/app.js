@@ -5540,14 +5540,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!g || gsFor(groupId).spectate) return;
     (g.memberIds || []).forEach(id => { const c = characters.find(x => x.id === id); if (c && !c.npc) { try { gachaEarn(id, kind); } catch (e) {} } });
   };
-  const gachaPull = (char, n) => {
+  // byTa：TA替她扳的那一发——走TA自己那条运气线（luck 键 charId|ta，保底单独算），券照样进她的券夹、盖上「TA 抽的」
+  const gachaPull = (char, n, byTa) => {
     const K = window.GachaKit;
     if (!K || !char) return;
     const cost = n >= K.TEN ? K.COST_TEN : K.COST_ONE;
     const after = K.spend(gachaPtsRef.current || {}, char.id, cost);
     if (!after) { toast("点数还不够。和 " + (char.remark || char.name) + " 好好待一会儿就有了"); return; }
     const cp = (couplesRef.current || {})[char.id];
-    const res = K.pull(n, gachaLuckRef.current[char.id] || { pulls: 0, sinceSSR: 0 },
+    const luckKey = byTa ? char.id + "|ta" : char.id;
+    const res = K.pull(n, gachaLuckRef.current[luckKey] || { pulls: 0, sinceSSR: 0 },
       { couple: spaceLover(cp), have: gachaHave(char) });   // 恋人卡只给恋人空间
     if (!res.cards.length) { toast("这一抽没抽出东西，点数没扣"); return; }
     const now = Date.now();
@@ -5556,10 +5558,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       charId: char.id, r: c.r, poolId: c.poolId, act: c.act, kind: c.kind || "",
       name: c.name, hint: c.hint,
       ts: now + i,          // 票根上的时间戳：什么时候抽到的
-      redeemedTs: null, result: null
+      redeemedTs: null, result: null, ...(byTa ? { byTa: true } : {})
     }));
     gachaPtsRef.current = after; setGachaPts(after); saveJSON("x_gachaPts", after);
-    const luck = { ...gachaLuckRef.current, [char.id]: res.state };
+    const luck = { ...gachaLuckRef.current, [luckKey]: res.state };
     gachaLuckRef.current = luck; setGachaLuck(luck); saveJSON("x_gachaLuck", luck);
     const cards = [...made, ...gachaCardsRef.current];
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);

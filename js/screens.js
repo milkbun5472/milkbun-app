@@ -16818,7 +16818,7 @@ function GachaCard({ card, busy, onRedeem, onShow, onTitle, onShoot, onCarve, sh
       // 同款叠着的时候，角上标一句「后面还有几张」——不然收起来看着像卡少了
       stackLeft ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: sk.tag, borderRadius: 999, padding: "2px 7px", flexShrink: 0 } }, "+" + stackLeft) : null,
       // 票根：什么时候抽到的。兑掉了也留着，这一行永远在
-      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: sk.tag, flexShrink: 0 } }, gachaWhen(card.ts))),
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: sk.tag, flexShrink: 0 } }, (card.byTa ? "TA 抽的 · " : "") + gachaWhen(card.ts))),
     done
       ? h("div", { style: { marginTop: 9 } },
           res.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, STX(res.title)) : null,
@@ -17183,7 +17183,6 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
   const album = K.albumOf ? K.albumOf(mine) : [];
   const p = (pts || {})[partner.id];
   const have = p && typeof p === "object" ? (Number(p.pts) || 0) : 0;
-  const lk = (luck || {})[partner.id] || { pulls: 0, sinceSSR: 0 };
   // 转起来的那一下（她 2026-09-14 要的「扭的时候里面东西会动、有出货动画」）。
   // ⚠️抽本来就是 0 调用、纯本地掷的，所以先转再算和先算再转对她没区别——
   //   这儿选【转完才把卡摆出来】，那一下才叫出货。
@@ -17197,6 +17196,8 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
   const spinTimer = useRef(null);
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current); }, []);
   const arm = n => { if (spin) return; setArmed(n); setArmSeq(x => x + 1); };
+  // 谁扳拉杆（她 2026-10-17 转群友：「许愿让对方也能抽，我手气太差了」）：TA扳的那一发走TA自己那条运气线（保底各算各的），券照样进你的券夹
+  const [byTa, setByTa] = useState(false);
   const doSpin = () => {
     if (spin || !armed) return;
     const n = armed;
@@ -17205,7 +17206,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
     spinTimer.current = setTimeout(() => {
       spinTimer.current = null;
       setSpin(0);
-      const made = onPull(partner, n);
+      const made = onPull(partner, n, byTa);
       if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); }
     }, 1750);
   };
@@ -17222,8 +17223,12 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
               h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 34, lineHeight: 1, color: "#a74d70" } }, have),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#b0708a" } }, "点"))),
           h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", lineHeight: 1.6 } },
-            h("div", null, "已抽 " + (lk.pulls || 0) + " 次"),
-            h("div", null, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk.sinceSSR || 0)) + " 抽保底 SSR"))),
+            (() => { const lk2 = (luck || {})[byTa ? partner.id + "|ta" : partner.id] || { pulls: 0, sinceSSR: 0 };
+              return [h("div", { key: "a" }, (byTa ? "TA 已抽 " : "已抽 ") + (lk2.pulls || 0) + " 次"),
+                h("div", { key: "b" }, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk2.sinceSSR || 0)) + " 抽保底 SSR")]; })())),
+        h("div", { "data-wk": "gachawho", className: "flex items-center", style: { gap: 6, margin: "8px 0 2px", fontFamily: F_BODY, fontSize: 11.5, color: "#a1808e" } }, "谁来扳拉杆",
+          [[false, "我"], [true, partner.remark || partner.name]].map(([v, zh]) => h("button", { key: zh, onClick: () => !spin && setByTa(v), className: "active:opacity-70",
+            style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + (byTa === v ? "#a74d70" : "#eadde3"), background: byTa === v ? "#a74d7014" : "transparent", color: byTa === v ? "#a74d70" : "#a1808e", fontFamily: F_BODY, fontSize: 12 } }, zh))),
         h(GachaMachine, { have: have, costOne: K.COST_ONE || 50, costTen: K.COST_TEN || 450,
           armed: armed, armSeq: armSeq, spin: spin, onArm: arm, onSpin: doSpin, partner: partner }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1808e", marginTop: 10, lineHeight: 1.6 } },
