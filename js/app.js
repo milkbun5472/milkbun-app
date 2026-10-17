@@ -17467,7 +17467,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     rows.forEach(x => { if (!out.length || out[out.length - 1].w !== x.w) out.push({ t: new Date(x.ts).toTimeString().slice(0, 5), w: x.w.slice(0, 80) }); });
     return out.slice(0, 6);
   };
-  const genPhotoDiary = async (charId, entry) => {
+  // wish：她在「改画面描述再拍」里写的三格，有就照它拍
+  const genPhotoDiary = async (charId, entry, wish) => {
+    wish = typeof wish === "string" ? wish.trim() : "";
     const char = characters.find(c => c.id === charId);
     if (!char || !entry || photoDiaryBusy) return;
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
@@ -17491,7 +17493,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n这篇日记：\n" + body
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
-      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3,
+      const sceneFinal = wish ? scene + "\n【她指定的这三格拍什么（最优先，压过上面从日记里挑时刻的说法；穿着和地方照旧）】\n" + wish : scene;
+      const prompt = buildPhotoPrompt(char, sceneFinal, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3,
         lead: "【最重要·整张图的版式】这一张不是一张照片，是一条竖着的三格胶片：从上到下三格一样大、格子之间留一道粗白边，三格拍的是这一天的三个时刻。必须画成三格，不许只画一张。" });
       // 给看得见这一页的人（半窗里的他）一句话：这三张拍的是什么
       const stripDesc = "他这篇日记那天的照片日记，竖着三格，从早到晚：照日记里写的「" + body.replace(/\s+/g, " ").slice(0, 80) + "…」那一天拍的"
@@ -17502,7 +17505,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       setDiaries(p => {
-        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now(), desc: stripDesc } } : e) };
+        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now(), desc: stripDesc + (wish ? "；她指定拍：" + wish.slice(0, 120) : ""), wish: wish || undefined } } : e) };
         saveJSON("x_diaries", n); return n;
       });
     } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
@@ -23267,7 +23270,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   重生成，写在那边的话下一次刷新连图带记录一起没了。收藏是她自己挑的，不会被冲掉，
   //   所以按钮也只给收着的那几张（二十五张都配一个按钮＝劝人烧额度）。
   // ⚠️重画时沿用同一个 img_ 键：换个新键的话旧那张 blob 谁也删不掉，一路攒在保险箱里。
-  const drawKeptPhoto = async (char, photo, key) => {
+  // override：她在「改画面描述再画」里亲手写的画面，有就照它画
+  const drawKeptPhoto = async (char, photo, key, override) => {
     if (!char || !photo || !key) return false;
     // ⚠️她 2026-09-10：「收藏的生图生不出来」。原来这一句一律说「去配一下」——
     //   可最常见的其实是【配好了、没启用】（v65.16 之后保存不再等于设为主用）。
@@ -23284,7 +23288,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return false;
     }
     if (gen.phoneShot) return false;
-    const scene = [photo.caption, photo.desc].map(x => String(x || "").trim()).filter(Boolean).join("｜");
+    const scene = String(override || "").trim() || [photo.caption, photo.desc].map(x => String(x || "").trim()).filter(Boolean).join("｜");
     if (!scene) { toast("这张没写下是什么，画不出来"); return false; }
     setGen(g => ({ ...g, phoneShot: key }));
     try {

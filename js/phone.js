@@ -3083,9 +3083,14 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     onPhotoEdit(next);
     if (how === "gone") closePhoto(); else setPhoto({ ...p, category: how });
   };
-  const drawPhoto = p => {
+  const editDrawPhoto = p => {
+    if (!onDrawPhoto || typeof requestAppPrompt !== "function") return;
+    const cur = [p.caption, p.desc].map(x => String(x || "").trim()).filter(Boolean).join("｜");
+    requestAppPrompt("改画面描述再画", "写这张照片上该看见什么，照新的画。", cur, txt => { if (String(txt || "").trim()) drawPhoto(p, String(txt)); }, "照这个画", { multiline: true });
+  };
+  const drawPhoto = (p, override) => {
     if (!onDrawPhoto) return;
-    Promise.resolve(onDrawPhoto(p, sig(p))).then(() => {
+    Promise.resolve(onDrawPhoto(p, sig(p), override)).then(() => {
       const k = phoneKeepLoad();
       setKeep(k);
       // ⚠️她 2026-09-10：「TA说画好了但是图不会动，要我重开 app 进一次才会替换」。
@@ -3168,6 +3173,13 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
         }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
           : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
+        isSaved(photo) && onDrawPhoto && (drawnRef(photo) || drawnUrl(photo)) ? h("button", {
+          "data-wk": "palbumedit",
+          onClick: () => editDrawPhoto(photo),
+          disabled: !!drawing,
+          className: "w-full active:opacity-60 disabled:opacity-45",
+          style: { marginTop: 10, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" }
+        }, "改画面描述再画") : null,
         // ── 回收站进出（她 2026-09-10）──────────────────────────
         // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在TA手机上被删掉。
         (onPhotoEdit && tab !== "saved") ? h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
@@ -6926,7 +6938,7 @@ function PhoneCarry({
     onPeek: pk => onPeek && onPeek(char, pk),
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
     // 的指纹，不是 true/false——同屏两张的按钮不能一起转圈。
-    onDrawPhoto: (photo, key) => onDrawPhoto && onDrawPhoto(char, photo, key),
+    onDrawPhoto: (photo, key, override) => onDrawPhoto && onDrawPhoto(char, photo, key, override),
     onPhotoEdit: items => onPhotoEdit && onPhotoEdit(char, items),
     drawing: drawingPhoto || ""
   };

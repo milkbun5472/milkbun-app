@@ -39,7 +39,7 @@ test("真图两处都认：本轮这一张身上没有，就去收藏那条记�
 });
 
 test("画完当场就能看见：keep 是自己的 state，写完得再读一遍", () => {
-  assert.match(view, /Promise\.resolve\(onDrawPhoto\(p, sig\(p\)\)\)\.then\(\(\) => \{[\s\S]{0,200}setKeep\(k\);/,
+  assert.match(view, /Promise\.resolve\(onDrawPhoto\(p, sig\(p\), override\)\)\.then\(\(\) => \{[\s\S]{0,200}setKeep\(k\);/,
     "画完没有重读 x_phoneKeep，按钮和图都不会变");
   // ⚠️她 2026-09-10：「他说画好了但是图不会动，要我重开 app 进一次才会替换」。
   //   正看着的这一张是 photo 那份快照，drawnRef 先看 p.imageRef——把新 ref 盖回快照。
@@ -129,7 +129,7 @@ test("画好的图要存进【图库】，不是聊天自拍那个仓", () => {
 
 test("正画着的那一张才转圈，同屏别的按钮不跟着转", () => {
   assert.match(ph, /drawing === sig\(photo\)/, "drawing 被当成 true\/false 用了");
-  assert.match(ph, /onDrawPhoto: \(photo, key\) => onDrawPhoto && onDrawPhoto\(char, photo, key\)/,
+  assert.match(ph, /onDrawPhoto: \(photo, key, override\) => onDrawPhoto && onDrawPhoto\(char, photo, key, override\)/,
     "liveCtx 没把 onDrawPhoto 接下去");
   assert.match(ph, /drawing: drawingPhoto \|\| ""/, "liveCtx 没把正在画的那张接下去");
   assert.match(ph, /onDrawPhoto: ctx\.onDrawPhoto, drawing: ctx\.drawing/, "album 那一行没往下发");

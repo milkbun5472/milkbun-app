@@ -721,8 +721,10 @@
           : "封面出好了，已进图库（这条线有你自己的背景图，没动它）", 6000);
       } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
-    const genPhoto = async () => {
+    // custom：她在「改画面描述再画」里亲手写的画面，有就顶替从正文里摘的那段
+    const genPhoto = async (custom) => {
       if (!line || busy) return;
+      const customDesc = typeof custom === "string" ? custom.trim() : "";
       const char = charOf(line);
       if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
       if (!(char.refPhoto || char.appearance)) return props.toast("角色还没有参考照或外貌描述");
@@ -749,7 +751,7 @@
         const kept = rows.filter(m => !explicit(m.content))
           .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-240);
         const fallbackCue = [line.hook, line.charOutfit ? null : null].filter(Boolean).find(t => !explicit(t)) || "两人此刻正对着彼此,气氛紧绷。";
-        const recent = kept || fallbackCue;
+        const recent = customDesc || kept || fallbackCue;
         const safeShot = "\n【画面尺度】必须是可公开展示的画面:人物衣着完整整齐,不露骨、不裸露,画面里不出现凶器、伤口、血迹与尸体;张力全部靠神情、距离、手的位置、环境与光影来表达。"
           + ((hitSex || hitViolent) ? "\n【这一拍要改画相邻的一瞬】本拍原文里有" + (hitSex && hitViolent ? "亲密与刀具/惊悚" : hitSex ? "亲密" : "刀具或惊悚") + "的内容,已从上面的描述里拿掉了。不要试图还原那一刻,改画【紧挨着它之前或之后】的一个瞬间:动作已经收住或还没发生,两人在同一个空间里,把刚才那股劲留在呼吸、眼神、没松开的距离和屋子里的光线上。这样画面依然属于这一拍,只是取了可以见人的那一格。" : "");
         // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
@@ -801,7 +803,7 @@
         }
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, desc: recent, ts: Date.now() }] }) }));
         galRevive(ref);
         saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now() }].concat(list));
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
@@ -817,7 +819,11 @@
         else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
       } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
     };
-    const rerollPhoto = m => { if (busy) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
+    const rerollPhoto = (m, custom) => { if (busy) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(() => genPhoto(custom), 60); };
+    const editRerollPhoto = m => {
+      if (busy || typeof requestAppPrompt !== "function") return;
+      requestAppPrompt("改画面描述再画", "写这一张画面上该看见什么，照新的重拍。", m.desc || "", txt => { if (String(txt || "").trim()) rerollPhoto(m, String(txt)); }, "照这个画", { multiline: true });
+    };
     // ---- 分支存档（v53.88）----
     // 从任意一拍岔开一条新线：那一拍之前原样保留，之后的全部不要；原线一个字不动。
     // 这既是"存档读档"（想回到某个路口重走），也是真正的 if 之 if。纯本地操作，零 API。
@@ -1141,8 +1147,9 @@
       const photoSheet = photoMenu && h("div", { "data-wk": "thrsheet", "data-part": "photo", onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
+           ["改画面描述再画", () => { const m = photoMenu; setPhotoMenu(null); editRerollPhoto(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
-           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : label === "取消" ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       const msgSheet = msgMenu && h("div", { "data-wk": "thrsheet", "data-part": "msg", onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
