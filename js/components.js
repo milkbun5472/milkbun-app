@@ -10190,15 +10190,31 @@ function ChatThread({
   };
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""), recentLimit);
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
+  const nb = useNewBelow(ref, (character && character.id) + "|" + (room && room.id || ""));
+  const lastHRef = useRef(0), turnTopRef = useRef(null);   // 上一拍的内容高度、这一轮TA第一条从哪儿开始
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (!inited.current) {
       inited.current = true;
+      nb.follow(messages); lastHRef.current = el.scrollHeight;
       return pinToBottom(el); // 首次进入：钉到底，直到图片/字体都加载完或她自己上翻
     }
     // ⚠️正在往上补那一下【不许】滚到底：那是她在翻旧的，把她甩回最新的等于白翻
     if (growing()) return;
+    // 她停在上面看TA刚发的第一条：后面几条不把她拽下去，底下挂「↓ N 条新消息」（跟群聊同一份）
+    const _prevH = lastHRef.current; lastHRef.current = el.scrollHeight;
+    if (!nb.follow(messages)) return;
+    // TA一条接一条地发：只跟到【这一轮第一条】顶到屏幕上沿为止，后面的往下落、不再推着屏幕走
+    //   （她 2026-10-17 转群友：「他往后发，但我们的屏幕可以停在第一条，要不然太眼花了」）。
+    //   她自己一发言就重新开始一轮、照常跟到底
+    const _last = messages[messages.length - 1];
+    if (!_last || _last.role === "user") turnTopRef.current = null;
+    else if (turnTopRef.current == null) turnTopRef.current = _prevH;
+    else {
+      const top = Math.max(0, turnTopRef.current - 56);
+      if (el.scrollHeight - el.clientHeight > top) { el.scrollTo({ top, behavior: "smooth" }); return; }
+    }
     // ⚠️不能只滚一下（她 2026-10-12 截图：发完最后一泡压在输入栏底下）：刚加的那泡后面，输入框缩回一行、
     //   「已送达」那行、键盘收起都还在改高度，一枪平滑滚动停在旧的底上。照首次进入那样钉住一小会儿，她一动手就松开。
     return pinToBottom(el, 900);
@@ -11032,6 +11048,7 @@ function ChatThread({
   }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } },
     "《" + (pendingFic.subject || "这一篇") + "》"),
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
+  h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, wk: "newbelow" }),
   quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
   // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
   chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
@@ -12689,6 +12706,38 @@ function giftFmtLeft(ms) {
 // 而这三枪早打完了，于是停在半空，她得自己往下翻（她 2026-08-25 报）。
 // 改成【盯着内容高度】：进入后的一小段窗口里，内容一变高就重新落底。
 // ⚠️她一旦自己往上翻就立刻停手，绝不跟她抢滚动条。
+// 她停在上面看的时候，TA们新说的话不许把她拽到底（群友 2026-10-08：「对面在发，我没法先看上面的问题」；
+//   2026-10-17 单聊也要：「char 发消息的时候屏幕可以停在第一条，不会一直往下弹」）。
+//   只在她本来就在底部、或者这条是她自己发的时候才跟到底；不然底下挂一颗「↓ N 条新消息」，她看完自己点。
+//   单聊、群聊共用这一份（施工规则/one-public-mechanism.md）。
+function useNewBelow(ref, resetKey) {
+  const atBottomRef = useRef(true), seenLenRef = useRef(null);
+  const [newBelow, setNewBelow] = useState(0);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const on = () => { atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120; if (atBottomRef.current) setNewBelow(0); };
+    el.addEventListener("scroll", on, { passive: true });
+    return () => el.removeEventListener("scroll", on);
+  }, [resetKey]);
+  // 这一拍要不要跟到底：第一次（刚进来）记个数、照跟
+  const follow = messages => {
+    const len = (messages || []).length;
+    if (seenLenRef.current == null) { seenLenRef.current = len; return true; }
+    const added = len - seenLenRef.current; seenLenRef.current = len;
+    const last = messages[len - 1];
+    if (!atBottomRef.current && added > 0 && !(last && last.role === "user")) { setNewBelow(n => n + added); return false; }
+    setNewBelow(0); return true;
+  };
+  const go = () => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); };
+  return { newBelow, follow, go };
+}
+function NewBelowPill({ n, onGo, wk }) {
+  const t = useTheme();
+  return n > 0 ? h("div", { style: { position: "relative", height: 0, zIndex: 6 } },
+    h("button", { "data-wk": wk || "newbelow", onClick: onGo, className: "active:opacity-70",
+      style: { position: "absolute", right: 14, bottom: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 40, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
+      "↓ " + n + " 条新消息")) : null;
+}
 function pinToBottom(el, ms) {
   if (!el) return () => {};
   let stopped = false, lastH = -1;
@@ -17814,30 +17863,18 @@ function GroupThread({
   // 跟单聊共用那一份窗口（施工规则/one-public-mechanism.md）：群聊更容易攒到上千条
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, group && group.id);
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, false);
-  const atBottomRef = useRef(true), seenLenRef = useRef(messages.length);
-  const [newBelow, setNewBelow] = useState(0);
-  // 她在不在底部：另挂一个滚动监听记着（列表那条 onScroll 只管往上补，别往里塞）
-  useEffect(() => {
-    const el = ref.current; if (!el) return;
-    const on = () => { atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120; if (atBottomRef.current) setNewBelow(0); };
-    el.addEventListener("scroll", on, { passive: true });
-    return () => el.removeEventListener("scroll", on);
-  }, [group && group.id]);
+  // 新消息跟不跟到底：跟单聊同一份 useNewBelow
+  const nb = useNewBelow(ref, group && group.id);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (!inited.current) {
       inited.current = true;
+      nb.follow(messages);
       return pinToBottom(el); // 首次进入群聊：同上
     }
     if (growing()) return;   // 她正在往上翻，别把她甩回最新的
-    // 她停在上面看的时候，他们新说的话不许把她拽到底（群友 2026-10-08：「对面在发，我没法先看上面的问题」）——
-    //   只在她本来就在底部、或者这条是她自己发的时候才跟到底；不然底下挂一颗「↓ N 条新消息」，她看完自己点
-    const added = messages.length - (seenLenRef.current || 0);
-    seenLenRef.current = messages.length;
-    const last = messages[messages.length - 1];
-    if (!atBottomRef.current && added > 0 && !(last && last.role === "user")) { setNewBelow(n => n + added); return; }
-    setNewBelow(0);
+    if (!nb.follow(messages)) return;   // 她停在上面看：不拽她，底下挂「↓ N 条新消息」
     return pinToBottom(el, 900);   // 跟单聊同一招：钉住一小会儿，等输入框缩回去、已读那行长出来
   }, [messages.length, sending]);
   const send = (v) => {
@@ -18388,11 +18425,7 @@ function GroupThread({
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name))))),
-  newBelow > 0 && h("div", { style: { position: "relative", height: 0, zIndex: 6 } },
-    h("button", { "data-wk": "gnewbelow", onClick: () => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); },
-      className: "active:opacity-70",
-      style: { position: "absolute", right: 14, bottom: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 32, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
-      "↓ " + newBelow + " 条新消息")),
+  h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, wk: "gnewbelow" }),
   !selMode && quoted && h(QuoteDraftBar, { text: (window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)).replace(/^❝\s*/, ""), onClear: () => setQuoted(null) }),
   !selMode && h("div", {
     "data-wk": "composer",
