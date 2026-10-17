@@ -5550,7 +5550,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const cp = (couplesRef.current || {})[char.id];
     const luckKey = byTa ? char.id + "|ta" : char.id;
     const res = K.pull(n, gachaLuckRef.current[luckKey] || { pulls: 0, sinceSSR: 0 },
-      { couple: spaceLover(cp), have: gachaHave(char) });   // 恋人卡只给恋人空间
+      { couple: spaceLover(cp), have: gachaHave(char), lucky: !!byTa });   // 恋人卡只给恋人空间；TA扳的手气偷偷好一点
     if (!res.cards.length) { toast("这一抽没抽出东西，点数没扣"); return; }
     const now = Date.now();
     const made = res.cards.map((c, i) => ({
@@ -5565,6 +5565,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     gachaLuckRef.current = luck; setGachaLuck(luck); saveJSON("x_gachaLuck", luck);
     const cards = [...made, ...gachaCardsRef.current];
     gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
+    // TA替她扳的：单聊里落一张小卡（不当场开口，等她回话时TA看得到——施工规则/wait-for-her）
+    if (byTa) {
+      const line = made.map(c => c.r + "「" + characterText(char, c.name) + "」").join("、");
+      pChat(char.id, p => [...p, { role: "assistant", kind: "gachashare", gacha: { n: made.length, cards: made.map(c => ({ r: c.r, name: characterText(char, c.name) })) },
+        content: "[抽卡] 你替她扳了 " + made.length + " 下拉杆，抽到：" + line, ts: Date.now(), read: true }]);
+    }
     return made;
   };
   // 点歌那张券要接上云村（她 2026-09-18：「点歌也没接网易云，应该要可以刻到情侣空间唱片」）。

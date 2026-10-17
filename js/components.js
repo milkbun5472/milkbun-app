@@ -14003,9 +14003,25 @@ function shareCardOf(kind) {
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;
+  if (kind === "gachashare") return GachaShareCard;   // TA替她扳的那一发（抽卡）
   if (kind === "listenshare") return window.ListenShareCard || null;   // 一起听广场转来的一帖（js/listen-square.js）
   if (kind === "shuashare") return window.ShuaShareCard || null;   // 片刻的视频（js/shua.js）   // 直播回放（js/live.js，2026-10-07）
   return null;
+}
+// TA替她扳了拉杆：一张小票，按稀有度排着抽到了什么
+function GachaShareCard({ m, isU }) {
+  const t = useTheme();
+  const g = m.gacha || {}, cs = Array.isArray(g.cards) ? g.cards : [];
+  const rank = { SSR: 0, SR: 1, R: 2 }, col = { SSR: "#c0883a", SR: "#a74d70", R: "#8a8f98" };
+  const top = cs.slice().sort((a, b) => (rank[a.r] || 2) - (rank[b.r] || 2)).slice(0, 5);
+  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
+    h("div", { "data-wk": "card", "data-kind": "gachashare", style: { width: 232, borderRadius: 16, overflow: "hidden", background: "linear-gradient(135deg,#fff8f7,#f6f0f7)", border: "1px solid #eadde3" } },
+      h("div", { style: { padding: "11px 13px 12px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: "#b0708a" } }, "扭蛋 · 替你扳了 " + (g.n || cs.length) + " 下"),
+        top.map((c, i) => h("div", { key: i, className: "flex items-center", style: { gap: 8, marginTop: 7 } },
+          h("span", { style: { flexShrink: 0, minWidth: 34, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 11, color: "#fff", background: col[c.r] || col.R, borderRadius: 6, padding: "1px 5px" } }, c.r),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink || "#3a2a30", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name))),
+        cs.length > top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", marginTop: 6 } }, "还有 " + (cs.length - top.length) + " 张，都在券夹里") : null)));
 }
 function ForumShareCard({ m, isU }) {
   const t = useTheme();
