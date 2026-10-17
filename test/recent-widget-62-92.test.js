@@ -101,9 +101,9 @@ test("点一张字条真的落到那个人的聊天框里", () => {
   }
   // v66.75 起这三行搬进了公共的 openChatById（顶上那条消息提醒点一下走的也是它）
   assert.match(app, /onOpenChat: openChatById,/);
-  assert.match(app, /const openChatById = \(id, type\) => \{/);
+  assert.match(app, /const openChatById = \(id, type(, roomId)?\) => \{/);
   assert.match(app, /setActiveGroup\(g\); clearUnread\(id\); setScreen\("gthread"\)/);
-  assert.match(app, /setActiveChar\(c\); clearUnread\(id\); setScreen\("thread"\)/);
+  assert.match(app, /else setActiveChar\(c\);\s*clearUnread\(id\); setScreen\("thread"\)/);
 });
 
 test("返回键那个圈数的是【别处】，当前这一间不算在里头", () => {
