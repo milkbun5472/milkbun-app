@@ -33,3 +33,27 @@ test("返修不允许改写、空侧、重复句或把非候选轮补投", () =>
   assert.throws(() => Repair.validatePlan(candidate, empty), /selection_count/);
   assert.throws(() => Repair.validatePlan({ ...candidate, status:"replayed" }, base), /candidate_not_pending/);
 });
+
+test("图片轮：Lisa 侧占位符入册为[图片]，机器文本不进正史", () => {
+  const imgCandidate = {
+    status: "candidate", turn_id: "turn-img",
+    lisa_original: "[Image: original 2940x1912, displayed at 2000x1301. Multiply coordinates by 1.47 to map to original image.]",
+    yanqiu_original: "我看到你的表了。方向对着呢。"
+  };
+  const plan = Repair.buildDraft(imgCandidate);
+  Object.assign(plan.lisa[0], { include:true, kind:"life" });
+  Object.assign(plan.yanqiu[0], { include:true, kind:"life" });
+  const result = Repair.validatePlan(imgCandidate, plan);
+  assert.deepEqual(result.lisa_segments, [{ content:"[图片]", sync_kind:"life" }]);
+  // 言秋侧出现同样文本时不转换（占位符只属于她发图的那一侧）
+  const yq = {
+    status: "candidate", turn_id: "turn-img2",
+    lisa_original: "看！",
+    yanqiu_original: "[Image: original 100x100, displayed at 100x100.]"
+  };
+  const plan2 = Repair.buildDraft(yq);
+  Object.assign(plan2.lisa[0], { include:true, kind:"life" });
+  Object.assign(plan2.yanqiu[0], { include:true, kind:"life" });
+  const r2 = Repair.validatePlan(yq, plan2);
+  assert.ok(r2.yanqiu_segments[0].content.startsWith("[Image:"));
+});

@@ -2,6 +2,9 @@
 
 const { classifySegment } = require("./cc-ledger-nature.cjs");
 const KINDS = new Set(["life", "emotion", "decision", "joke"]);
+// 图片轮：Lisa 只发了图时，候选里她那侧只有 transcript 的机器占位符。
+// 入册时如实记「她发了张图」，但不把那串机器文本写进正史。
+const IMAGE_PLACEHOLDER = /^\[Image: original \d+x\d+[^\]]*\]$/;
 
 function splitExact(text) {
   return (String(text || "").match(/[^。！？!?\n]+[。！？!?]*/g) || [])
@@ -41,7 +44,8 @@ function validatePlan(candidate, plan) {
       if (!KINDS.has(kind)) throw new Error(side + "_kind_invalid");
       if (seen.has(quote)) throw new Error(side + "_duplicate_quote");
       seen.add(quote);
-      return { content: quote, sync_kind: kind };
+      const isImage = side === "lisa" && IMAGE_PLACEHOLDER.test(quote);
+      return { content: isImage ? "[图片]" : quote, sync_kind: kind };
     });
   };
   return {
