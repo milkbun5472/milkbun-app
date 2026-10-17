@@ -8750,7 +8750,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         h("div", { className: "min-w-0 flex-1" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.title) || ""),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.song && p.song.artist) || "")),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0 } }, "▶ 放")),
+        h("span", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0, gap: 3 } }, ic("play", t.tint, 16), "放")),
       (p.comments || []).length ? h("div", { style: { marginTop: 8, paddingLeft: 10, borderLeft: "2px solid " + t.line } },
         p.comments.map((c, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
           h("span", { style: { color: c.by !== "npc" ? t.ink : t.fog } }, c.name + "："), c.text))) : null))
