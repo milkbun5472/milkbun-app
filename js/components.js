@@ -10958,12 +10958,10 @@ function ChatThread({
       borderRadius: 14
     }
   }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })),
-  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", {
-    className: "flex items-center justify-between px-4 py-3 shrink-0",
-    style: {
-      background: t.bg2,
-      borderTop: `1px solid ${t.line}`
-    }
+  onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
+  // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
+  h("div", {
+    className: "flex items-center justify-between px-4 pt-2.5 pb-1",
   }, h("button", {
     onClick: exitSel,
     style: {
@@ -10977,11 +10975,10 @@ function ChatThread({
       fontSize: 14,
       color: t.ink
     }
-  }, "已选 " + selIds.length), h("div", {
-    className: "flex gap-3 items-center"
-  },
+  }, "已选 " + selIds.length), h("div", { style: { minWidth: 40, display: "flex", justifyContent: "flex-end" } },
   // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
-  selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
+  selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null)),
+  h("div", { "data-wk": "selactions", className: "flex items-center justify-around px-2 pb-2.5", style: { gap: 4, minHeight: 44 } },
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
   // 画成漫画先挑画风（她 2026-10-13）：真漫画＝勾线画出来；照片漫画＝保持真人照片，靠气泡和字做出漫画感
   onComic && !comicAsk ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) setComicAsk(true); }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,

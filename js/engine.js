@@ -6149,7 +6149,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (how !== "classic") out.degraded = how === "softened" ? "softened" : out.degraded;
       return out;
     };
-    const ms = Number(opts && opts.attemptMs) || 180000;
+    // 带参考照这一枪只发一次，等满 5 分钟：慢中转带图要两三百秒（群友 2026-10-17：站上 270 秒出图成功扣了钱，
+    // 这边 180 秒就掐了，显示「图没等回来」）。拍照中卡死的提示在 6 分钟，仍在它后面。
+    const ms = Number(opts && opts.attemptMs) || 300000;
     try { return finish(await attemptWith(refBlobs, preferredMode, null, ms, true), "classic", preferredMode, true); }
     catch (e1) {
       note(e1);
