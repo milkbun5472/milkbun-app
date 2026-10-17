@@ -2643,7 +2643,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const liveThread = thread ? (watchPick(chats, thread.name, c => c && c.name) || thread) : null;
   const meName = userName(profile);
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
-  const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
+  // 联系人的脸（群里 2026-10-17 许愿）：她给这一位换过的那张 → 同名的配角／角色那张 → 没有就是色块
+  const [, bumpFace] = useState(0);
+  const faceOf = name => (typeof window !== "undefined" && typeof window.__phoneFaceOf === "function") ? window.__phoneFaceOf(char && char.id, name) : null;
+  const person = (name, avatarImage) => ({ name: name || "?", avatarImage: faceOf(name) || avatarImage, color: strColor(name) });
   const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
   // ⚠️查手机里这些内层 app【不换成公共 Head】：它们扮的是真手机上的微信、便签、相册……
   //   换成这个 app 自己的标题栏，扮演就散了（界面装修工单：「判据在这一处是反过来的」）。
@@ -2830,7 +2833,15 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       innerHead(thread.remark || thread.name, null, () => setThread(null)),
       h("div", { className: "flex-1 overflow-y-auto", style: { paddingBottom: 28 } },
         block(h("div", { className: "flex items-center", style: { gap: 14, padding: "18px 16px" } },
-          h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 }),
+          // 点头像换一张（配角的脸跟配角页走，在那边换）
+          (window.__phoneFaceIsNpc && window.__phoneFaceIsNpc(char && char.id, thread.name)) || drive
+            ? h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 })
+            : h("label", { "data-wk": "pcontactface", style: { cursor: "pointer", position: "relative", display: "block" } },
+                h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 }),
+                h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], ref => {
+                  const all = loadJSON("x_phoneContactAv", {}) || {}; const mine = Object.assign({}, all[char.id] || {}); mine[thread.name] = ref;
+                  saveJSON("x_phoneContactAv", Object.assign({}, all, { [char.id]: mine })); bumpFace(x => x + 1);
+                }) })),
           h("div", { style: { minWidth: 0 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#191919" } }, thread.remark || thread.name),
             thread.remark && thread.remark !== thread.name

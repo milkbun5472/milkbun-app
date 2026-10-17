@@ -18034,6 +18034,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbook: loreFor(char, "subjects"),
     groupEcho: "", groupOfflineEcho: ""
   });
+  // 查手机微信里联系人的脸（群里 2026-10-17 许愿）：她在那边换过的 → 同名（或备注同名）的配角／角色 → 没有
+  const _phoneFaceChar = (ownerId, name) => { const n = String(name || "").trim(); if (!n) return null;
+    // 配角卡里常写着「网名X」，他手机微信里显示的正是那个网名（群里 2026-10-17 截图：沈韦＝韦制、苏漾＝盐汽水不加盐）
+    const netOf = x => { const m = /网名(?:是|叫)?[：:「“"\s]*([^，,。；;」”"\n]{1,24})/.exec(String((x && (x.brief || x.persona || x.intro)) || "")); return m ? m[1].trim() : ""; };
+    return (characters || []).find(x => x && x.id !== ownerId && (x.name === n || x.remark === n || netOf(x) === n)) || null; };
+  window.__phoneFaceOf = (ownerId, name) => {
+    const mine = ((loadJSON("x_phoneContactAv", {}) || {})[ownerId] || {})[String(name || "").trim()];
+    if (mine) return mine;
+    const c = _phoneFaceChar(ownerId, name); return c ? (chatFace(c).avatarImage || null) : null;
+  };
+  window.__phoneFaceIsNpc = (ownerId, name) => !!_phoneFaceChar(ownerId, name);
   const relatedNames = char => {
     const set = new Set();
     for (const o of characters) {
