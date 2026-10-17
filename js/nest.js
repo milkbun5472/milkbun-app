@@ -674,6 +674,24 @@
       if (L && Object.keys(L).length) out.push({ id: "g:" + g.id, name: (g.name || "群聊") + "（群）", sub: "群里只有背景、排版和 CSS", look: L }); });
     return out;
   }
+  // CSS 能挑的：主题工作台的全局 CSS 和每一页的、每个聊天窗／群／线下自己写的那段
+  function cssSources(chars) {
+    const out = [], S = window.ThemeStudio, cs = loadJSON("x_chatSettings", {}) || {}, os = loadJSON("x_offlineSettings", {}) || {};
+    const zh = {}; ((S && S.PAGES) || []).forEach(x => { zh[x[0]] = x[1]; });
+    const put = (id, name, sub, css) => { css = String(css || "").trim(); if (css) out.push({ id, name, sub: sub + " · " + css.length + " 字", css }); };
+    const p = S ? S.normalize(S.load()) : {};
+    put("t:all", "全 App 的 CSS", "主题工作台", p.globalCSS);
+    Object.keys(p.pageCSS || {}).forEach(k => put("t:" + k, (zh[k] || k) + "那一页的 CSS", "主题工作台", p.pageCSS[k]));
+    chars.forEach(c => { const nm = (cs[c.id] && cs[c.id].remark) || c.name;
+      put("c:" + c.id, nm + "的聊天窗", "只给 TA 写的 CSS", cs[c.id] && cs[c.id].customCSS);
+      put("o:" + c.id, nm + "的线下", "线下自己写的 CSS", os[c.id] && os[c.id].customCSS); });
+    (loadJSON("x_groups", []) || []).forEach(g => g && put("g:" + g.id, (g.name || "群聊") + "（群）", "群里自己写的 CSS", g.customCSS));
+    return out;
+  }
+  function packCss(src) {
+    if (/iv_[A-Za-z0-9_-]+/.test(src.css)) throw new Error("这段 CSS 里用了自己传的图，小窝先不收图：把图去掉再传");
+    return src.css;
+  }
   // 背景是自己传的图就不带（其余照带）；CSS 里还引用着自己的图就不收
   function packLook(src) {
     const look = Object.assign({}, src.look); let dropped = false;
@@ -699,7 +717,9 @@
     const chars = (props.characters || []).filter(c => c && !c.npc && c.persona);
     const lore = props.loreEntries || [];
     const looks = kind === "look" ? lookSources((props.characters || []).filter(c => c && !c.npc)) : [];
-    const rows = kind === "theme" ? [{ id: "cur", name: "我现在用的这套主题", sub: "页面 CSS、配色、气泡一起；图标图片、壁纸、自己传的字体不带" }]
+    const csses = kind === "css" ? cssSources((props.characters || []).filter(c => c && !c.npc)) : [];
+    const rows = kind === "css" ? csses.map(x => ({ id: x.id, name: x.name, sub: x.sub }))
+      : kind === "theme" ? [{ id: "cur", name: "我现在用的这套主题", sub: "页面 CSS、配色、气泡一起；图标图片、壁纸、自己传的字体不带" }]
       : kind === "look" ? looks.map(x => ({ id: x.id, name: x.name, sub: x.sub }))
       : kind === "lore" ? lore.map(e => ({ id: e.id, name: e.title || "未命名", sub: String(e.payload || "").slice(0, 40) }))
       : kind === "style" ? styles.map(s => ({ id: s.key, name: s.name, sub: String(s.prompt).slice(0, 40) }))
@@ -709,7 +729,7 @@
     const toggle = id => { setFile(null); setText(""); setPick(p => multi ? Object.assign({}, p, { [id]: !p[id] }) : { [id]: true }); };
     const chosen = Object.keys(pick).filter(k => pick[k]);
     useEffect(() => {   // 选了一样就顺手把名字填上（她还能改）
-      if (!rows || title || multi || kind === "theme") return;
+      if (!rows || title || multi || kind === "theme" || kind === "css") return;
       const r = rows.find(x => x.id === chosen[0]); if (r) setTitle(String(r.name || "").slice(0, 40));
     }, [chosen.join(",")]);
     const readFile = async e => {
@@ -742,6 +762,7 @@
     const build = async () => {
       if (file) return file.payload;
       if (kind === "theme" && chosen.length) return await packCurrentTheme();
+      if (kind === "css" && chosen.length) return packCss(csses.find(x => x.id === chosen[0]));
       if (kind === "look" && chosen.length) {
         const r = packLook(looks.find(x => x.id === chosen[0]));
         if (r.dropped) props.toast("背景是自己传的图，没带上；其余照传");
@@ -795,8 +816,8 @@
             h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: readFile })),
           file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
             "已选 " + file.name + " · 读到" + file.note) : null),
-        // ② 从 app 里直接挑（CSS 没有可挑的）；主题／美化／CSS 还能整份贴
-        rows ? h("div", { style: { marginTop: 14 } }, label(t, (kind === "theme" ? "或者直接用手机上正用着的" : kind === "look" ? "或者直接挑一套正用着的、存过的" : "或者从 app 里挑") + (multi ? "（可以挑好几条）" : "")),
+        // ② 从 app 里直接挑（七类都能挑）；主题／美化／CSS 还能整份贴
+        rows ? h("div", { style: { marginTop: 14 } }, label(t, (kind === "theme" ? "或者直接用手机上正用着的" : kind === "look" ? "或者直接挑一套正用着的、存过的" : kind === "css" ? "或者直接挑一段手机上写着的" : "或者从 app 里挑") + (multi ? "（可以挑好几条）" : "")),
           h("div", { style: Object.assign({ padding: "2px 12px" }, card(t)) },
             rows.length ? rows.map((r, i) => h("button", { key: r.id, onClick: () => toggle(r.id), className: "w-full flex items-start active:opacity-70",
               style: { gap: 10, minHeight: 46, padding: "10px 0", textAlign: "left", borderTop: i ? "1px solid " + t.line : "none" } },
@@ -917,5 +938,5 @@
   }
 
   window.NestApp = NestApp;
-  window.Nest = { KINDS, packCurrentTheme, lookSources, packLook, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
+  window.Nest = { KINDS, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
 })();

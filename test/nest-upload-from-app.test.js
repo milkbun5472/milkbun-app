@@ -55,3 +55,14 @@ test("主题直接用正用着的：走主题工作台的 exportPackage，不带
   TS.exportPackage = async () => JSON.stringify({ kind: "qq-theme", assets: { iv_9: "data:" } });
   await assert.rejects(() => N.packCurrentTheme(), /不收图/);
 });
+
+test("CSS 也能直接挑：全 App、每一页、聊天窗、线下、群；空的不列，带图的不收", () => {
+  const TS = { PAGES: [["all", "全 App"], ["thread", "聊天页"]], normalize: p => p,
+    load: () => ({ globalCSS: "body{}", pageCSS: { thread: ".b{}" } }) };
+  const N = load({ x_chatSettings: { a: { customCSS: ".c{}" } }, x_offlineSettings: { a: { customCSS: "" } },
+    x_groups: [{ id: "g1", name: "宿舍", customCSS: ".g{}" }] }, { ThemeStudio: TS });
+  const rows = N.cssSources([{ id: "a", name: "明" }]);
+  assert.deepEqual(rows.map(r => r.id), ["t:all", "t:thread", "c:a", "g:g1"]);
+  assert.equal(N.packCss(rows[2]), ".c{}");
+  assert.throws(() => N.packCss({ css: "a{background:url(iv_x)}" }), /不收图/);
+});
