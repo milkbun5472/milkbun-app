@@ -3104,7 +3104,7 @@ function Forum({
                 requestAppConfirm("删掉这一楼", (cm.authorType === "me" ? "这楼是你自己写的，删了回不来。" : "") + "楼里的楼中楼也一起删。", () => onDeleteFloor(post.id, cm.id), "删掉"); },
                 title: "删掉这一楼", className: "shrink-0 active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
-          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)) : null,
+          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, STX(atClean(cm.content))) : null,
           forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { "data-wk": "foreplies", className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
@@ -3119,7 +3119,7 @@ function Forum({
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, atClean(r.content)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, STX(atClean(r.content))),
               h("button", {
                 onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName) }),
                 className: "active:opacity-60",
