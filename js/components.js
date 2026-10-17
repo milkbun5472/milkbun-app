@@ -15179,9 +15179,11 @@ function CoupleInviteCard({
   } },
     seal,
     h("div", { style: { padding: "15px 15px 13px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.18em", color: "#c99aa8" } }, "第一封"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.18em", color: "#c99aa8" } }, m.letter ? "想复合" : "第一封"),
       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 21, lineHeight: 1.25, color: "#2a2721", marginTop: 5, paddingRight: 26 } },
-        rl.invite)),
+        rl.invite),
+      // 冷静期里写的那封复合信（她 2026-10-17）：信写在卡上，TA 拆开读的就是这几句
+      m.letter ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#4a453c", marginTop: 9, whiteSpace: "pre-wrap" } }, m.letter) : null),
     // 折痕：一道压出来的线（上面一丝暗、下面一丝亮），不是普通分隔线
     h("div", { style: { height: 1, background: "rgba(0,0,0,.10)" } }),
     h("div", { style: { height: 1, background: "rgba(255,255,255,.85)" } }),
