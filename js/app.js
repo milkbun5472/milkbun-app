@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.881";
+const APP_VERSION = "v75.882";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -762,7 +762,7 @@ function App() {
   const gachaSeedsRef = useRef([]); gachaSeedsRef.current = gachaSeeds;
   const gachaLuckRef = useRef({}); gachaLuckRef.current = gachaLuck;
   const coupleHomeRef = useRef({}); coupleHomeRef.current = coupleHome;
-  // 解除情侣关系记录：{ [charId]: { ts, deducted, affAfter } } —— 一周冷却 + 复合需加回被扣一半
+  // 解除情侣关系记录：{ [charId]: { ts, deducted, affAfter, mode, declinedTs } } —— 一周内复合要写信、TA 自己定；被退回一天后才能再写
   const [coupleBreakup, setCoupleBreakup] = useState({});
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
@@ -24164,25 +24164,36 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     const after = Math.max(0, before - deduct);
     setAff(cid, after);
-    setCoupleBreakup(p => { const n = { ...p, [cid]: { ts: Date.now(), deducted: deduct, affAfter: after } }; saveJSON("x_coupleBreakup", n); return n; });
+    setCoupleBreakup(p => { const n = { ...p, [cid]: { ts: Date.now(), deducted: deduct, affAfter: after, mode: mode === "fight" ? "fight" : "sudden" } }; saveJSON("x_coupleBreakup", n); return n; });
     toast("已解除情侣关系 · 好感 −" + deduct);
   };
-  const sendCoupleInvite = async (char, rel, role) => {
+  // 复合（她 2026-10-17）：原来是一周硬冷静期＋好感硬门槛，两道都是代码直接拦。
+  //   现在一周内也能复合，但得写一封信，TA 拆开自己决定；好感、分开几天、当初怎么分的只当 TA 的参考（askCoupleInvite 那段）。
+  //   挡住的只剩一样：上一封被退回来不到一天，不许接着递。
+  const REJOIN_COOL_DAYS = 7, REJOIN_DECLINE_COOL_MS = 864e5;
+  const sendCoupleInvite = async (char, rel, role, letter) => {
     const rk = typeof spaceRelKey === "function" ? spaceRelKey(rel) : "lover", rl = typeof spaceRel === "function" ? spaceRel(rk) : { space: "情侣空间", invite: "想和你在一起" };
     if (!active) { toast("请先到设置配置 API"); return; }
     if (couples[char.id]) { toast(couples[char.id].status === "together" ? "你们已经在一起了" : "邀请已发出，等 TA 回应"); return; }
-    // 解除冷却 + 复合门槛
     const bk = coupleBreakup[char.id];
+    let note = "";
     if (bk) {
+      const left = Number(bk.declinedTs || 0) + REJOIN_DECLINE_COOL_MS - Date.now();
+      if (left > 0) { toast("上一封刚被退回来，过一天再写吧（还差 " + Math.ceil(left / 3600000) + " 小时）"); return; }
       const daysSince = (Date.now() - bk.ts) / 86400000;
-      if (daysSince < 7) { toast("刚解除还不到一周，再等等吧（还差 " + Math.ceil(7 - daysSince) + " 天）"); return; }
-      const need = bk.affAfter + bk.deducted / 2;
-      if (affOf(char.id) < need) { toast("TA 还没准备好复合——好感要至少加回被扣的一半（当前 " + Math.round(affOf(char.id)) + " / 需 " + Math.ceil(need) + "）"); return; }
+      if (daysSince < REJOIN_COOL_DAYS) {
+        note = String(letter || "").trim();
+        if (!note) {
+          requestAppPrompt("写给" + (char.remark || char.name) + "的信", "刚分开还不到一周，想复合要写封信。TA 拆开读完自己决定答不答应；被退回来的话，要过一天才能再写。", "",
+            v => { if (String(v || "").trim()) sendCoupleInvite(char, rel, role, String(v).trim()); }, "封好送去", { multiline: true, maxLength: 600 });
+          return;
+        }
+      }
     }
     const cid = "ci_" + Date.now();
     setCoupleFor(char.id, { status: "pending", since: null, rel: rk, ...(rk === "family" && String(role || "").trim() ? { role: String(role).trim().slice(0, 12) } : {}) });
     // 往聊天里发一张邀请卡（关系写在卡上：TA 看得到这是哪一种）
-    pChat(char.id, p => [...p, { role: "user", kind: "couple_invite", cid, status: "pending", rel: rk, content: "[" + rl.space + "邀请] " + rl.invite, ts: Date.now(), read: true }]);
+    pChat(char.id, p => [...p, { role: "user", kind: "couple_invite", cid, status: "pending", rel: rk, content: "[" + rl.space + "邀请] " + rl.invite + (note ? "\n" + note : ""), ...(note ? { letter: note.slice(0, 600) } : {}), ts: Date.now(), read: true }]);
     toast("邀请已送到和 " + char.name + " 的聊天——说完你想说的，再点卡片上「让 TA 回应」");
   };
   // 她点了卡片上那个按钮才回应。发出邀请到这一刻之间她说的话一并递过去——
@@ -24200,7 +24211,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const after = (at >= 0 ? line.slice(at + 1) : []).filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim()).slice(-12)
         .map(m => ({ role: m.role, content: m.content }));
       const bundle = buildBundle(ctxFor(char));
-      const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】" + ((rlI => rlI.space === "情侣空间" ? "用户向你发出「情侣邀请」，想和你正式在一起" : "用户想跟你开一个「" + rlI.space + "」：TA 说「" + rlI.invite + "」——这是" + rlI.zh + "那种关系，不是表白、不是要在一起；答不答应照你们现在的交情来")(spaceRel((couplesRef.current || {})[charId]))) + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
+      // 想复合的这一回：把分开这件事原样交给 TA 当参考，答不答应 TA 自己定（不是代码的门槛）
+      const bkA = (loadJSON("x_coupleBreakup", {}) || {})[charId], invM = line[at] || {};
+      const rejoin = bkA ? "\n【这是想复合】你们之前在一起过，" + Math.max(0, Math.floor((Date.now() - bkA.ts) / 864e5)) + " 天前被用户" + (bkA.mode === "fight" ? "在吵架时赌气" : "毫无预兆地") + "解除了"
+        + (invM.letter ? "；这次 TA 写了一封信给你：\n「" + invM.letter + "」" : "")
+        + "\n答不答应照你此刻的心情、被伤到多少、分开这些天、信里的话来——气还没消可以不答应，心软了也可以答应；好感度只是参考，不是门槛。" : "";
+      const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】" + ((rlI => rlI.space === "情侣空间" ? "用户向你发出「情侣邀请」，想和你正式在一起" : "用户想跟你开一个「" + rlI.space + "」：TA 说「" + rlI.invite + "」——这是" + rlI.zh + "那种关系，不是表白、不是要在一起；答不答应照你们现在的交情来")(spaceRel((couplesRef.current || {})[charId]))) + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。" + rejoin + "用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
         after.concat([{ role: "user", content: "（回应" + spaceRel((couplesRef.current || {})[charId]).space + "邀请）" }]), { maxTokens: 8500 });
       // 读不出来【不算TA拒绝】：卡标成「没送到」，pending 留着，她可以再点一次。
       // 原来这儿是 !!d.accept —— 解析一失败就是不可逆的婉拒。
@@ -24230,6 +24246,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast((char ? char.name : "TA") + " 接受了 ♥");
     } else {
       setCoupleFor(charId, null);
+      // 复合被退回：一天后才能再递（她 2026-10-17）
+      setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p, [charId]: { ...p[charId], declinedTs: Date.now() } }; saveJSON("x_coupleBreakup", n); return n; });
       toast((char ? char.name : "TA") + " 婉拒了邀请");
     }
   };

@@ -7936,7 +7936,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
             }))),
     unlinkChar && onUnlink ? h(Sheet, { onClose: () => setUnlinkChar(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "解除和 " + unlinkChar.name + " 的" + (window.spaceRel ? window.spaceRel(cp[unlinkChar.id]).space : "情侣关系")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog, marginBottom: 14 } }, "情侣空间的记录会全部保留（复合后还在）。解除会降低好感，且至少一周后、好感回到一定程度，TA 才可能同意复合。你想怎么解除？"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog, marginBottom: 14 } }, "情侣空间的记录会全部保留（复合后还在）。解除会降低好感。一周内想复合要写一封信，TA 读完自己决定；被退回来要过一天才能再写。你想怎么解除？"),
       h("button", { onClick: () => { onUnlink(unlinkChar, "sudden"); setUnlinkChar(null); }, className: "w-full text-left active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px", marginBottom: 10 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "直接解除"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "毫无预兆 · TA 会错愕地主动问你 · 好感 −5")),
