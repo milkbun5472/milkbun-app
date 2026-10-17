@@ -41,6 +41,6 @@ test('一枪刷得多（跟论坛一样）、网易云评论区的样子：网�
 });
 test('广场上你的人带的料跟论坛楼里回帖是同一份（forumCharGrounding）',()=>{
   assert.match(app,/brief: forumCharGrounding\(c, \{ title:/);
-  assert.equal((app.match(/sqCast\([^)]*, \{ title:/g)||[]).length,5);
+  assert.equal((app.match(/sqCast\([^\n]*?\{ title:/g)||[]).length,5);
   assert.match(lq,/c\.brief \? S\(c\.brief\)/);
 });
