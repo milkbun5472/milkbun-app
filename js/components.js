@@ -16737,8 +16737,8 @@ function OfflineMode({
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
-      h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
+      h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
+        h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, cName), h("span", { style: { flexShrink: 0 } }, "⌄")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
@@ -17209,6 +17209,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
+  const [moreOpen, setMoreOpen] = useState(false);    // 卡上那排键收着：常用的露在外面，其余点「⋯」才摊开
   // 整段小说那一拍（群线下「写法」选整段小说）：点头像框选看谁的心声
   const [castOpen, setCastOpen] = useState(false);
   const [castWho, setCastWho] = useState(null);
@@ -17255,14 +17256,18 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
   //   放在最前面：它是最无害的一个，不该排在「删除」旁边等着误触。
   const copyOne = () => copyText(String(m.content || "").trim())
     .then(ok => window.__toast && window.__toast(ok ? "已复制" : "复制不了，长按那段自己选"));
-  const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0", style: { marginLeft: "auto" } },
-    h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })),
+  // 线下卡上那排键太多挤不下（她 2026-10-17 截图：一张卡顶着六颗）：常用的重写（她那一张是编辑）露在外面，
+  //   复制、收进时刻、收范例、删除收进「⋯」，点一下就地摊开，再点收起
+  const moreKeys = editable && !editing && moreOpen;
+  const actions = editable && !editing && h("div", { "data-wk": "offcardacts", className: "flex items-center gap-3 shrink-0", style: { marginLeft: "auto" } },
+    moreKeys ? h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })) : null,
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
-    onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
-    (!isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
+    moreKeys && onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
+    (moreKeys && !isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
+    moreKeys && onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null,
+    (isUser || moreKeys) && onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     (!isUser && !isNarr && onReroll) ? h("button", Object.assign({ "data-wk": "rerollpress", disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重写（长按给方向）", style: { WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, rerollPress(() => onReroll(m.id))), h(IRefresh, { size: 15, color: t.fog })) : null,
-    onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
-    onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null);
+    h("button", { "data-wk": "offcardmore", "data-on": moreOpen ? "1" : "0", onClick: () => setMoreOpen(v => !v), className: "active:opacity-50", title: moreOpen ? "收起" : "更多", style: { fontFamily: F_BODY, fontSize: 17, lineHeight: 1, color: t.fog, minWidth: 22 } }, moreOpen ? "×" : "⋯"));
   const editBox = h("div", { className: "mt-1" },
     h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 4, autoFocus: true, className: "w-full outline-none p-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, resize: "none" } }),
     h("div", { className: "flex gap-4 mt-2 justify-end" },
@@ -17616,8 +17621,8 @@ function GroupOfflineMode({
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
-      h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName + " ⌄"),
+      h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
+        h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, gName), h("span", { style: { flexShrink: 0 } }, "⌄")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
