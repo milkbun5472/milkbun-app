@@ -470,7 +470,7 @@
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
           // 她（管理口令）给帖子打标：别人只看得到标记，看不到这一排
           isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
-            ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" + (st || "none") }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
+            ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
           placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : ["chat", "group"],
             onPick: placeOne, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
           h(Shots, { t, it, props }),

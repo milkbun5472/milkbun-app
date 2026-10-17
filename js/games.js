@@ -2884,7 +2884,7 @@
       setBusy(true);
       const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「" + (ev.zh || "这个小游戏") + "」的能力评估器。照这个人的人设，判断 TA 玩这个游戏的真实水平：会不会算、敢不敢冒险、爱怎么打、容易在哪儿栽跟头。"
         + "写一段「牌桌能力小传」，第三人称，不写分数。只输出 JSON：{\"skill\":\"……\"}";
-      callRetry(api, sys, [{ role: "user", content: "【这个人】" + s.name + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 6000, tag: (ev.zh || "小游戏") + "·能力评估" })
+      callRetry(api, sys, [{ role: "user", content: "【这个人】" + s.name + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 8000, tag: (ev.zh || "小游戏") + "·能力评估" })
         .then(function (raw) {
           const d = extractJSON(raw) || {}; const text = String(d.skill || "").trim();
           if (!text) throw new Error("没评出来，再点一次");
