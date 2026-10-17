@@ -999,8 +999,14 @@
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
     (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));
+    // 详细限一个总量（她 2026-10-17 查秋秋还塞不塞太多：问「聊天气泡」会顺带进三万多字的小世界那一条）：
+    //   排在前面的照放；后面沾边的放不下就只留名字，真要再用 lookup 翻。点名要翻的那几条（extraIds）不受限。
+    const BUDGET = 16000; let used = 0; const keep = [], skip = [];
+    hits.forEach((x, i) => { const tx = M.textOf(x); const must = i === 0 || (extraIds || []).indexOf(x.id) >= 0;
+      if (must || used + tx.length <= BUDGET) { keep.push(tx); used += tx.length; } else skip.push(x); });
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
-      + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
+      + (keep.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + keep.join("\n\n") : "")
+      + (skip.length ? "\n\n（也沾边、这回没放全文的：" + skip.map(x => "[" + x.id + "] " + (x.zh || "")).join("、") + "——要用就 lookup）" : "");
   }
 
   function buildSystem(ctx, question, history, extraIds) {
