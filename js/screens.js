@@ -8769,11 +8769,10 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
       h("button", { "data-wk": "block", onClick: onSend, disabled: !val.trim() || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发送")));
   const openTalk = (song, back) => { setTalkSong(song); setTalkBack(back || "square"); setTalkDraft(""); setTalkTo(""); setNav("songtalk"); };
-  // 歌的那一条「唱片封套」：封面压一枚小唱片，点就放
+  // 歌的那一条：封面上一颗播放键，点就放（这页的沟纹、碟她撤过，不再加回来）
   const sleeveRow = (song, onPlay, onTalk) => h("div", { className: "flex items-center", style: { gap: 10, padding: 8, borderRadius: 12, background: t.bg, border: "1px solid " + t.line, marginTop: 10 } },
     h("button", { "data-wk": "listensqplay", onClick: onPlay, className: "flex-1 min-w-0 flex items-center active:opacity-70", style: { gap: 12, textAlign: "left", minHeight: 56 } },
-      h("div", { style: { position: "relative", width: 64, height: 56, flexShrink: 0 } },
-        h("div", { style: { position: "absolute", left: 18, top: 3, width: 50, height: 50, borderRadius: 999, background: "repeating-radial-gradient(circle,#222 0 2px,#333 2px 3px)" } }),
+      h("div", { style: { position: "relative", width: 56, height: 56, flexShrink: 0 } },
         song && song.cover ? h("img", { src: song.cover, alt: "", style: { position: "absolute", left: 0, top: 0, width: 56, height: 56, borderRadius: 8, objectFit: "cover", boxShadow: "0 2px 6px rgba(0,0,0,.18)" } })
           : h("div", { style: { position: "absolute", left: 0, top: 0, width: 56, height: 56, borderRadius: 8, background: t.line } }),
         h("span", { style: { position: "absolute", left: 18, top: 18, width: 20, height: 20, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", "#333", 12))),

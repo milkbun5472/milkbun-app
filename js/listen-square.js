@@ -61,7 +61,7 @@
   // ── 转给TA：聊天里那张卡 ─────────────────────────────────────────
   const shareSnap = post => ({ id: post.id, name: S(post.name), text: S(post.text).slice(0, 300), song: post.song ? { title: S(post.song.title), artist: S(post.song.artist), cover: post.song.cover || null, neteaseId: post.song.neteaseId || "" } : null });
   const shareText = snap => "[她从一起听的广场转来一帖] " + snap.name + " 分享了" + songLine(snap.song) + (snap.text ? "：「" + snap.text + "」" : "");
-  // 聊天里那张卡：上半截是这首歌的封套（封面糊开当底、压一枚唱片），下半截是谁说了什么
+  // 聊天里那张卡：上半截是这首歌的封套（封面糊开当底，左边一张清楚的封面），下半截是谁说了什么
   function ListenShareCard({ m, isU }) {
     const h = React.createElement, t = (typeof useTheme === "function" ? useTheme() : {}) || {};
     const FB = typeof F_BODY !== "undefined" ? F_BODY : "inherit", FD = typeof F_DISPLAY !== "undefined" ? F_DISPLAY : FB;
@@ -71,9 +71,8 @@
         h("div", { style: { position: "relative", height: 96, overflow: "hidden", background: "#2b2622" } },
           sg.cover ? h("div", { "aria-hidden": "true", style: { position: "absolute", inset: -24, background: "center/cover no-repeat url(" + sg.cover + ")", filter: "blur(16px)", opacity: .7 } }) : null,
           h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.1))" } }),
-          h("div", { style: { position: "absolute", left: 40, top: 16, width: 62, height: 62, borderRadius: 999, background: "repeating-radial-gradient(circle,#1d1d1d 0 2px,#2e2e2e 2px 3px)", boxShadow: "0 2px 8px rgba(0,0,0,.35)" } }),
           sg.cover ? h("img", { src: sg.cover, alt: "", style: { position: "absolute", left: 14, top: 16, width: 62, height: 62, borderRadius: 8, objectFit: "cover", boxShadow: "0 3px 10px rgba(0,0,0,.35)" } }) : null,
-          h("div", { style: { position: "absolute", left: 118, right: 12, top: 22, color: "#fff" } },
+          h("div", { style: { position: "absolute", left: 90, right: 12, top: 22, color: "#fff" } },
             h("div", { style: { fontFamily: FD, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S(sg.title) || "一首歌"),
             h("div", { style: { fontFamily: FB, fontSize: 11, opacity: .8, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S(sg.artist)))),
         h("div", { style: { padding: "10px 13px 11px" } },
