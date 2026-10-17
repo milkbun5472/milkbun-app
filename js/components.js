@@ -15650,10 +15650,11 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
 }
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
+  const [wearEdit, setWearEdit] = useState(false); // 改穿着：卡里就地摊开衣柜（她 2026-10-17）
   const [page, setPage] = useState("now"); // 此刻 | Ta 眼里
   // 信纸里点开一块就记已读；顶上这颗红点要跟着重画，不然得关掉卡再开才灭（她 2026-10-10）
   const [, setGazeSeenTick] = useState(0);
@@ -15769,10 +15770,11 @@ function StateCard({
           i === 0 ? { left: 8, bottom: 6, borderWidth: "0 0 1px 1px" } : { right: 8, bottom: 6, borderWidth: "0 1px 1px 0" }) })),
         label("看得见的"),
         // 穿着对不上能直接改（她 2026-10-17「聊着天他自己就变了」）：只改这一格，心声、心情、动作都不碰
-        onSetWearing ? h("button", { "data-wk": "statewear", onClick: () => requestAppPrompt("他现在穿的", "改成对的那身，下一轮他就照这身接着来。", S(state && state.wearing), v => { if (String(v || "").trim()) onSetWearing(String(v).trim()); }, "改好了"),
+        onSetWearing ? h("button", { "data-wk": "statewear", onClick: () => setWearEdit(!wearEdit),
             className: "block w-full text-left active:opacity-60", style: { background: "transparent", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } },
-            S(state && state.wearing) || "穿着没记 · 点一下写", h("span", { style: { fontSize: 10.5, color: t.fog, marginLeft: 6 } }, "改"))
+            S(state && state.wearing) || "穿着没记 · 点一下写", h("span", { style: { fontSize: 10.5, color: t.fog, marginLeft: 6 } }, wearEdit ? "收起" : "改"))
           : S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
+        onSetWearing && wearEdit ? h("div", { style: { marginTop: 8 } }, h(ClosetPick, { t, sets: wearSets || [], empty: "衣柜还是空的，自己写一身；下一轮就照这身接着来", onPick: v => { onSetWearing(String(v).trim().slice(0, 80)); setWearEdit(false); } })) : null,
         // 动描开成「一小段」以后这一格会长（她 2026-10-07：「留意一下会不会卡被撑爆」）：最多露四行，点一下看全
         S(state && state.action) ? h(ClampText, { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 }, text: S(state.action) }) : null) : null,
       // 没说出口的：跟上面那半明显不是一类
@@ -16196,18 +16198,42 @@ function OffPhotoFold({ title, children }) {
   const [open, setOpen] = useState(false);
   return h(FoldRow, { title: title, state: open ? "" : "点开选照片", open: open, onToggle: () => setOpen(!open) }, open ? children : null);
 }
+// 从衣柜里挑一身（公共的一份：线下「穿什么」和状态卡「改穿着」都用它，她 2026-10-17）
+//   输入框一身两用：打字就筛衣柜（名字／说明／场合里带这几个词的，空格隔开要都带上），
+//   筛不到想要的就按「换上」把打的字原样写进去。sets = [{ name, note, occasion }]
+const closetSetText = x => x.name + (x.note ? "（" + x.note + "）" : "");
+function closetFilter(sets, q) {
+  const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return sets || [];
+  return (sets || []).filter(x => { const hay = [x.name, x.note, x.occasion].join(" ").toLowerCase(); return words.every(w => hay.includes(w)); });
+}
+function ClosetPick({ t, sets, empty, onPick, init }) {
+  const [q, setQ] = useState(init || "");
+  const all = sets || [], shown = closetFilter(all, q);
+  const chip = { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 12px", borderRadius: 999, minHeight: 36, color: t.ink, background: t.bg, border: "1px solid " + t.line };
+  return h("div", { "data-wk": "closetpick" },
+    h("div", { className: "flex gap-2" },
+      h("input", { value: q, onChange: e => setQ(e.target.value.slice(0, 80)), placeholder: all.length ? "打字筛衣柜，或者直接写一身" : "写一身：白衬衫、牛仔外套…", className: "flex-1 outline-none",
+        style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 11px", minWidth: 0 } }),
+      h("button", { onClick: () => { if (q.trim()) onPick(q.trim()); }, disabled: !q.trim(), className: "active:opacity-70 disabled:opacity-30",
+        style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 10, padding: "0 14px", whiteSpace: "nowrap" } }, "就写这个")),
+    all.length ? (shown.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 200, overflowY: "auto", marginTop: 8 } },
+        shown.map((x, i) => h("button", { key: i, onClick: () => onPick(closetSetText(x)), className: "active:opacity-70 text-left", style: chip },
+          x.name, x.occasion ? h("span", { style: { fontSize: 10, opacity: 0.55, marginLeft: 4 } }, x.occasion) : null)))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "衣柜里没有带这几个字的，按「就写这个」照你打的写进去"))
+    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, empty || "衣柜还是空的，先自己写一身"));
+}
 // 线下＋里那一段「穿什么」（单聊和群线下共用这一份）：先挑给谁换，再从那个人的衣柜里挑一身，或者自己写一句
 //   wardrobe = { people: [{ id, name, now, sets }], me: { now, sets } }；onPick(谁的 id 或 "me", 那一身, 以后都固定)
 // onMatch(关键词)：「我换」里的配一身——参考在场的人此刻穿的，配好挂进我的衣柜、直接换上
 function OfflineWardrobe({ t, wardrobe, onPick, onMatch, matchBusy }) {
   const [who, setWho] = useState(null);
-  const [own, setOwn] = useState("");
   const [kw, setKw] = useState("");
   const [forever, setForever] = useState(false);
   const w = wardrobe || {}, people = w.people || [], me = w.me || {};
   const cur = who === "me" ? me : people.find(p => p.id === who) || null;
   const sets = (cur && cur.sets) || [];
-  const pick = text => { onPick(who, text, who === "me" && forever); setWho(null); setOwn(""); };
+  const pick = text => { onPick(who, text, who === "me" && forever); setWho(null); };
   const chip = (on) => ({ fontFamily: F_BODY, fontSize: 12.5, padding: "7px 12px", borderRadius: 999, minHeight: 36, color: on ? t.bg2 : t.ink, background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line) });
   return h("div", null,
     h("div", { style: { height: 1, background: t.line, margin: "16px 0 12px" } }),
@@ -16217,15 +16243,7 @@ function OfflineWardrobe({ t, wardrobe, onPick, onMatch, matchBusy }) {
       h("button", { onClick: () => setWho(who === "me" ? null : "me"), className: "active:opacity-70", style: Object.assign(chip(who === "me"), { flex: people.length === 1 ? 1 : "0 0 auto" }) }, "我换")),
     cur ? h("div", { style: { marginTop: 10 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, "现在：" + (cur.now || "没记着")),
-      sets.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 180, overflowY: "auto" } },
-        sets.map((x, i) => h("button", { key: i, onClick: () => pick(x.name + (x.note ? "（" + x.note + "）" : "")), className: "active:opacity-70 text-left", style: chip(false) },
-          x.name, x.occasion ? h("span", { style: { fontSize: 10, opacity: 0.55, marginLeft: 4 } }, x.occasion) : null)))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (who === "me" ? "你的" : cur.name + "的") + "衣柜还是空的，先自己写一身"),
-      h("div", { className: "flex gap-2", style: { marginTop: 8 } },
-        h("input", { value: own, onChange: e => setOwn(e.target.value.slice(0, 80)), placeholder: "或者写一身：白衬衫、牛仔外套…", className: "flex-1 outline-none",
-          style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 11px", minWidth: 0 } }),
-        h("button", { onClick: () => { if (own.trim()) pick(own.trim()); }, disabled: !own.trim(), className: "active:opacity-70 disabled:opacity-30",
-          style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 10, padding: "0 14px" } }, "换上")),
+      h(ClosetPick, { t, sets, empty: (who === "me" ? "你的" : cur.name + "的") + "衣柜还是空的，先自己写一身", onPick: pick }),
       who === "me" && onMatch ? h("div", { style: { marginTop: 12, padding: "10px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 6 } },
           "配一身：" + (people.some(p => p.now) ? "照着" + people.filter(p => p.now).map(p => p.name).join("、") + "现在穿的来配套，" : "") + "配好挂进你的衣柜，直接换上"),
