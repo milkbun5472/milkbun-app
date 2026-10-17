@@ -150,7 +150,9 @@ test("每一类都能从手机文件里选，认 app 自己导出的那种", () 
   N.KINDS.filter(k => k.key !== "post").forEach(k => assert.match(nest, new RegExp("    " + k.key + ": \"\\."), k.key + " 没有能选的文件类型"));   // 留言板只写字，没有文件
   assert.match(N.fromFile("theme", JSON.stringify({ kind: "qq-theme", profile: {} }), "a.json").note, /主题包/);
   assert.match(N.fromFile("theme", JSON.stringify({ kind: ["lis", "a-theme"].join(""), profile: {} }), "a.json").note, /主题包/, "老名字的主题包选不进来");
-  assert.throws(() => N.fromFile("theme", JSON.stringify({ kind: "qq-theme", assets: { iv_1: "x" } }), "a.json"), /带着图/);
+  // 2026-10-17 起收图：带图的主题包照收，只有字体文件不收
+  assert.match(N.fromFile("theme", JSON.stringify({ kind: "qq-theme", profile: {}, assets: { iv_1: "data:image/png;base64,AA" } }), "a.json").note, /主题包/);
+  assert.throws(() => N.fromFile("theme", JSON.stringify({ kind: "qq-theme", assets: { iv_1: "data:font/woff2;base64,AA" } }), "a.json"), /字体/);
   assert.match(N.fromFile("look", JSON.stringify({ kind: "chat-look", look: {} }), "b.json").note, /整套/);
   const lore = JSON.parse(N.fromFile("lore", "港口终年起雾", "雾港.txt").payload);
   assert.equal(lore.entries[0].title, "雾港");

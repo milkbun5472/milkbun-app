@@ -521,7 +521,7 @@
         ["bdayplan", "生日暗中准备的封口信封"],
         ["offlogrestore", "「线下经过」卡上那颗「放回往期」"],
         ["gunreadjump", "群聊顶上那颗「↑ N 条新消息」（点了跳到第一条没看的）"],
-        ["gnewbelow", "群聊里你在上面看时，底下那颗「↓ N 条新消息」"],
+        ["gnewbelow", "群聊里你在上面看时，底下那颗「↓ N 条新消息」"], ["newbelow", "单聊里你在上面看时，底下那颗「↓ N 条新消息」"], ["chatcsslist", "设置·外观里「各聊天窗的 CSS」那一页"], ["chatcssclear", "那一页每一行的「清空」"],
         ["quote", "消息引用块（带 data-me；输入框上面那条待发送的引用也是它，多带 data-draft=\"1\"）"], ["quotedraft", "输入框上面那一整条待发送的引用"], ["quoteclear", "待发送引用右边那个 ×"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
         ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
         ["transfercard", "转账卡整张（那张纸的底、边、圆角）"], ["transferamount", "转账卡上的金额"], ["transferlabel", "转账卡左上角「转账／收款／退还」那几个字（想换成别的字：font-size:0 再用 ::after 写 content）"],
@@ -958,7 +958,9 @@
     const cssRefs = cssImageRefs(profile.globalCSS).concat(...Object.values(profile.pageCSS || {}).map(cssImageRefs));
     // 她自己传的字体文件也在同一个保险箱里，所以它跟图标走同一条打包路（one-public-mechanism）。
     const fontRefs = g.FontChoice ? g.FontChoice.fileRefs(profile.fonts, profile.customFonts) : [];
-    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs].filter(x => /^iv_/.test(x)))];
+    // 气泡贴纸（我的／TA 的）如果是自己传的图，也是保险箱门牌——跟着气泡那一样一起装进包（她 2026-10-17 小窝开放收图）
+    const bubbleRefs = sel.bubble && extras && extras.bubbleSkin ? [extras.bubbleSkin.mySticker, extras.bubbleSkin.charSticker] : [];
+    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs, ...bubbleRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -996,7 +998,8 @@
     (p.customFonts || []).forEach(f => { if (f && map[f.ref]) f.ref = map[f.ref]; });
     p.globalCSS = remapCSSImages(p.globalCSS, map);
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
-    const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? pkg.bubbleSkin : null;
+    const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? Object.assign({}, pkg.bubbleSkin) : null;
+    if (bubbleSkin) ["mySticker", "charSticker"].forEach(k => { if (map[bubbleSkin[k]]) bubbleSkin[k] = map[bubbleSkin[k]]; });
     return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
   };
   // 「复制给别的 AI」（群友 2026-09-30：把主题发给 DeepSeek，它说「这是空壳代码、你没有 html」）。
@@ -1029,7 +1032,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.939",changed: "线下分段画",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v75.946",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

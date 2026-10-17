@@ -3908,6 +3908,8 @@ function buildBundle(ctx, opts) {
   if (ctx.memoNote && ctx.memoNote.trim()) parts.push("【" + uName + " 备忘录里、特意让你能看到的提醒/记事】（可自然关心、临近时提醒一句、或问起弄了没，别生硬报清单、别越界、别每句都念）\n" + ctx.memoNote.trim());
   if (ctx.ownWalletNote && ctx.ownWalletNote.trim()) parts.push("【你自己的钱】" + ctx.ownWalletNote.trim());
   if (ctx.financeNote && ctx.financeNote.trim()) parts.push(ledgerContextBlock(ctx.financeNote, uName));
+  // 你俩之间真花过的钱：不看她给没给看账本——这些钱有一半是你自己经手的（app.js moneyWithHerLine）
+  if (ctx.moneyWithHer && ctx.moneyWithHer.trim()) parts.push(ctx.moneyWithHer.trim());
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
@@ -3927,7 +3929,7 @@ function leanWriteCtx(ctx) {
   return Object.assign({}, ctx, {
     worldbook: "", memLib: [], groupEcho: "", giftLog: "", dreamKeep: "", carryLog: "", wishLog: "",
     momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "", nowPlaying: "",
-    financeNote: "", memoNote: "", dateNote: "", periodNote: "", healthNote: ""
+    financeNote: "", moneyWithHer: "", memoNote: "", dateNote: "", periodNote: "", healthNote: ""
   });
 }
 
