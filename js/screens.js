@@ -723,25 +723,26 @@ function CastForm({
             h("div", { "data-wk": "castfavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
               h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3,
                 // ⚠️档案换头像不许顶掉聊天里另设的那张（她 2026-10-13「人格档案馆换的不要 override 聊天的」）
-                onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
+                onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar, noActions: true }),
               null),
             h("div", { className: "flex-1 min-w-0" },
               h("input", { "data-wk": "castfname", value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
               h("span", { style: { display: "block", height: 1, background: t.line, margin: "5px 0 7px" } }),
               h("input", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }),
-              // 存到手机／应用到锁脸、聊天头像那句：挪到名字底下（她 2026-10-17「这块变大了看起来好别扭」——原来挂在照片框里，把框撑宽了）
-              // 头像能存、能直接当参考照（群里 2026-10-17：「头像生成后能不能保存？生太帅，想用来锁脸」）
-              avatarImage ? h("div", { className: "flex", style: { gap: 10, marginTop: 7, justifyContent: "flex-start" } },
-                h("button", { onClick: () => { if (window.saveImgOriginal) window.saveImgOriginal(avatarImage, (name || "头像") + "-头像").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")); },
-                  className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, "存到手机"),
-                // 直接应用到锁脸（她 2026-10-17「再加个应用到锁脸吧直接」）：已经存在的角色当场写进档案，不用再点保存
-                h("button", { onClick: () => { setRefPhoto(avatarImage);
+              // 头像那几颗小字（贴图、生成、移除、存、锁脸）收成名字底下一排，照片框里只留照片
+              //（她 2026-10-17「这块变大了看起来好别扭」——挂在照片框里把框撑宽撑高了）
+              (() => { const lk = (label, fn, on) => h("button", { key: label, onClick: fn, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.tint : t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, label);
+                return h("div", { className: "flex flex-wrap", style: { columnGap: 10, rowGap: 4, marginTop: 2 } },
+                  lk("贴一张图", () => requestAppPrompt("贴一张图", "相册打不开时走这儿：把图片地址粘进来（http 开头，或者 data: 开头的那种长串都行）。", "", v => { const u = String(v || "").trim(); if (u && /^(https?:|data:image\/)/i.test(u)) setAvatarImage(u); }, "用这张")),
+                  genAvatar ? lk(avBusy ? "生成中…" : avatarImage ? "重新生成" : "生成头像", () => { if (!avBusy) genAvatar(); }, true) : null,
+                  avatarImage ? lk("存到手机", () => { if (window.saveImgOriginal) window.saveImgOriginal(avatarImage, (name || "头像") + "-头像").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")); }) : null,
+                  avatarImage ? lk(refPhoto === avatarImage ? "已用来锁脸" : "应用到锁脸", () => { setRefPhoto(avatarImage);
                     if (initial && initial.id && onApplyRef) { onApplyRef(initial.id, avatarImage); toast("应用了：之后生图就照这张脸锁"); }
-                    else toast("这张头像现在也是参考照了，保存档案后生图就照这张脸"); },
-                  className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, textDecoration: "underline", textUnderlineOffset: 2 } }, refPhoto === avatarImage ? "已用来锁脸" : "应用到锁脸")) : null,
+                    else toast("这张头像现在也是参考照了，保存档案后生图就照这张脸"); }) : null,
+                  avatarImage ? lk("移除照片", () => setAvatarImage(null)) : null); })(),
               chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
                 h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
-                h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35, whiteSpace: "pre-line" } }, "聊天里用的是TA自己换的\n点这里用回档案这张")))),
+                h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35, whiteSpace: "pre-line" } }, "聊天头像是TA自己换的 · 用回这张")))),
           h("div", { "data-wk": "castfcolor", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),

@@ -1350,6 +1350,7 @@ function AvatarPicker({
   radius,
   imageMaxDim = 400,
   imageQuality = 0.85,
+  noActions,
   onPick,
   onClear
 }) {
@@ -1393,7 +1394,7 @@ function AvatarPicker({
   }, /*#__PURE__*/React.createElement(ICamera, {
     size: 12,
     color: t.bg2
-  })))), h("div", { className: "flex flex-wrap items-center justify-center", style: { columnGap: 10, rowGap: 2, maxWidth: Math.max(size + 24, 96) } },
+  })))), noActions ? null : h("div", { className: "flex flex-wrap items-center justify-center", style: { columnGap: 10, rowGap: 2, maxWidth: Math.max(size + 24, 96) } },
     // ⚠️备用路必须【看得见】（她 2026-09-25 报：有人在小米上怎么点都开不了相册）。
     //   v74.076 那条贴图是挂在 input 的 onPaste 上的——没有任何提示，陌生人不可能发现，
     //   等于白留。这一颗把它摆到台面上：连文件选择器一起绕开，贴地址也行。
