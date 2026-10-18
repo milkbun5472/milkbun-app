@@ -188,6 +188,17 @@
     const idx = Number(props.index) || 0;
     const isLead = idx === 0 && !props.noLead;
     const no = String(idx + 1).padStart(2, "0");
+    // 长按调顺序（群里 2026-10-18：「同人文那里可不可以加一个修改文章顺序」）：按住半秒弹挪位置那一层；
+    //   长按过了这一下不算点开
+    const pressRef = React.useRef({ timer: 0, fired: false });
+    const pressProps = props.onReorder ? {
+      onPointerDown: function () { const pr = pressRef.current; pr.fired = false; clearTimeout(pr.timer); pr.timer = setTimeout(function () { pr.fired = true; props.onReorder(); }, 520); },
+      onPointerUp: function () { clearTimeout(pressRef.current.timer); },
+      onPointerLeave: function () { clearTimeout(pressRef.current.timer); },
+      onPointerMove: function (e) { if (Math.abs(e.movementY || 0) + Math.abs(e.movementX || 0) > 3) clearTimeout(pressRef.current.timer); },
+      onContextMenu: function (e) { e.preventDefault(); }
+    } : {};
+    const openOrNot = function (e) { if (pressRef.current.fired) { pressRef.current.fired = false; return; } props.onOpen && props.onOpen(e); };
     const summary = (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 110);
     // 出过本就摆本子封面，没出本有头图就摆头图
     const thumb = (f.book && f.book.cover) || (f.art && f.art.head) || "";
@@ -260,7 +271,7 @@
 
     // 卷首：这一页最上面那一本，摊开着——所以它更厚（影更沉）、字更大。
     if (isLead) return h("button", {
-      onClick: props.onOpen, className: "w-full text-left active:translate-y-px relative",
+      ...pressProps, onClick: openOrNot, className: "w-full text-left active:translate-y-px relative",
       style: {
         background: paper, borderRadius: 2, boxShadow: stack,
         padding: "14px 20px 13px 30px", marginBottom: 16
@@ -281,7 +292,7 @@
       tagRow(10), statRow(9));
 
     return h("button", {
-      onClick: props.onOpen, className: "w-full text-left active:translate-y-px relative flex",
+      ...pressProps, onClick: openOrNot, className: "w-full text-left active:translate-y-px relative flex",
       style: {
         background: paper, borderRadius: 2, boxShadow: stack,
         gap: 9, padding: "11px 17px 11px 26px", marginBottom: 13
@@ -2648,6 +2659,8 @@
       props.onOpenFicUsed && props.onOpenFicUsed();
     }, [props.openFic]);
     const [gearOpen, setGearOpen] = useState(false);
+    const [ficOrder, setFicOrder] = useState(function () { return loadJSON("x_ficOrder", {}) || {}; });
+    const [moving, setMoving] = useState(null); // 长按的那一篇 {id,title,i,n}
     const [tabSheet, setTabSheet] = useState(null); // null | {} (new) | tabObj (edit)
     // 点标签只看这个标签的（AO3 上最常用的那一下）
     const [tagFilter, setTagFilter] = useState("");
@@ -2884,7 +2897,7 @@
     }
 
     // ---- 各子页 ----
-    let inner;
+    let inner, moveSheet = null;
     if (view === "publish") {
       inner = h(Publish, { tabs: tabs, characters: cast, userName: userName, toast: props.toast, onBack: function () { setView("feed"); }, onPublish: publish });
     } else if (view === "mine") {
@@ -2932,6 +2945,37 @@
         if (kw) return !f.onShelf;
         return f.tabId === (curTab && curTab.id) && !f.onShelf;
       }).sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+      // 她自己排过的顺序（x_ficOrder：{ 板块id 或 "shelf": [篇id…] }）。排过的照她排的；
+      //   没排进去的（新写的）照旧按时间摆在最上面
+      const orderKey = view === "shelf" ? "shelf" : (curTab && curTab.id) || "";
+      const canReorder = (view === "shelf" || view === "feed") && !kw && !tagFilter && !meOnly && !!orderKey;
+      if (orderKey && !kw) {
+        const ord = (ficOrder[orderKey] || []);
+        const pos = {}; ord.forEach(function (id, i) { pos[id] = i; });
+        const fresh = list.filter(function (f) { return pos[f.id] == null; });
+        const placed = list.filter(function (f) { return pos[f.id] != null; }).sort(function (a, b) { return pos[a.id] - pos[b.id]; });
+        list.splice(0, list.length, ...fresh.concat(placed));
+      }
+      const moveFic = function (id, how) {
+        const ids = list.map(function (f) { return f.id; });
+        const i = ids.indexOf(id); if (i < 0) return;
+        ids.splice(i, 1);
+        const j = how === "top" ? 0 : how === "up" ? Math.max(0, i - 1) : Math.min(ids.length, i + 1);
+        ids.splice(j, 0, id);
+        const n = Object.assign({}, ficOrder, { [orderKey]: ids });
+        setFicOrder(n); saveJSON("x_ficOrder", n);
+      };
+      if (moving) {
+        const mi = list.findIndex(function (f) { return f.id === moving.id; });
+        const btn = function (label, how, off, part) { return h("button", { key: how, "data-wk": "ficmovebtn", "data-part": part, disabled: off,
+          onClick: function () { moveFic(moving.id, how); setMoving(null); },
+          className: "w-full active:opacity-60 disabled:opacity-35", style: { padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, label); };
+        moveSheet = h("div", { "data-wk": "ficmove", onClick: function () { setMoving(null); }, style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+          h("div", { onClick: function (e) { e.stopPropagation(); }, style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "0 2px 10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "挪「" + (moving.title || "这一篇") + "」 · 现在第 " + (mi + 1) + " 篇"),
+            btn("移到最上面", "top", mi <= 0, "top"), btn("往上挪一格", "up", mi <= 0, "up"), btn("往下挪一格", "down", mi < 0 || mi >= list.length - 1, "down"),
+            h("button", { onClick: function () { setMoving(null); }, className: "w-full active:opacity-60", style: { padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.fog, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "取消")));
+      }
       inner = h("div", { className: "flex-1 min-h-0 flex flex-col" },
         // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）：原先那块 30px 大标题
         // ＋「FANFIC」副标，一屏先被吃掉五分之一，正文卡片只剩两张半。
@@ -2983,7 +3027,8 @@
               readAt: rd ? (chN > 1 && rd.chap > 0 ? "读到 " + (rd.chap + 1) + "/" + chN : "读过") : "",
               onTag: function (tag) { setTagFilter(tag === tagFilter ? "" : tag); },
               onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); },
-              onDelete: function () { removeFic(f); } });
+              onDelete: function () { removeFic(f); },
+              onReorder: canReorder ? function () { setMoving({ id: f.id, title: f.title, i: i, n: list.length }); } : null });
           }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或在「我的 → 自己写一篇」里自己写" }))));
     }
 
@@ -2997,6 +3042,8 @@
       h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: true }), "data-wk": "ficpage" },   // 外层挂点：同人文首页那层纸（她 2026-10-18 群里「背景改不了」）
       inner,
       showNav ? h(BottomNav, { view: view, onNav: function (k) { setView(k); } }) : null,
+      // 挪位置那一层：长按一篇弹出来
+      moving && moveSheet ? moveSheet : null,
       gearOpen ? h(GenSheet, { tab: curTab, cps: cps, characters: cast, userName: userName, onClose: function () { setGearOpen(false); }, onConfirm: doGen }) : null,
       tabSheet ? h(TabSheet, { tab: tabSheet.id ? tabSheet : null, onClose: function () { setTabSheet(null); }, onSave: saveTab, onDelete: delTab }) : null));
   }

@@ -9,5 +9,6 @@ test("心声定义：问的是没说出口的那部分，拿他刚说出口的�
   assert.ok(TM);
   assert.match(TM, /没说出口的那一句/);
   assert.match(TM, /跟他刚才嘴上说的、做出来的对照/);
+  assert.match(TM, /嘴上已经说了的意思心里不用再说一遍/);
   assert.doesNotMatch(TM, /打算做什么|落点在他自己身上/);
 });

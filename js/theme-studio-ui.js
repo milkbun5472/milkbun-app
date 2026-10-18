@@ -121,6 +121,8 @@
     const [section, setSection] = useState(() => (lastSpot && lastSpot.section) || "icons"), [page, setPage] = useState(() => (lastSpot && lastSpot.page) || "home"), [previewing, setPreviewing] = useState(() => studio.isPreviewing());
     useEffect(() => { lastSpot = null; }, []);
     const iconFile = useRef(null), iconFiles = useRef(null), cssEditor = useRef(null), importFile = useRef(null), previewTimer = useRef(0), [pickKey, setPickKey] = useState("cast");
+    // 名字没对上的那几张先摆在这儿（群里 2026-10-18：相册里选的照片名字是一串编号，一张都对不上）——点一张，再点 App
+    const [iconTray, setIconTray] = useState([]), [trayPick, setTrayPick] = useState(-1);
     // ⚠️卸载时【不许】撤销预览（v61.05，她 2026-09-03：「预览 30 秒也没用，退出界面就没了」）：
     //   「先预览 30 秒」的用处本来就是【退出这一页、到处走走看看】。原来这儿一卸载就
     //   cancelPreview()，等于按下去只在这一屏有效，一走就没——这个按钮的意义整个没了。
@@ -165,16 +167,29 @@
     const chooseIcons = async e => {
       const files = Array.from(e.target.files || []); e.target.value = ""; if (!files.length) return;
       const byName = {}; studio.appIconList().forEach(([k, zh]) => { byName[k.toLowerCase()] = k; byName[zh] = k; });
-      const icons = { ...draft.icons }, hit = [], miss = [];
+      const icons = { ...draft.icons }, hit = [], miss = [], trayAdd = [];
       for (const f of files) {
         const stem = String(f.name || "").replace(/\.[a-z0-9]+$/i, "").trim();
         const key = byName[stem] || byName[stem.toLowerCase()];
-        if (!key) { miss.push(stem); continue; }
-        try { icons[key] = await imgToVault(await resizeImageFile(f, 512, .9)); hit.push(key); }
-        catch (err) { miss.push(stem + "（读不出）"); }
+        // 名字对不上的不扔：读进来摆到上面那一排，等她点一张、再点一个 App
+        if (!key) {
+          try { trayAdd.push({ ref: await imgToVault(await resizeImageFile(f, 512, .9)), name: stem }); }
+          catch (err) { miss.push(stem + "（读不出）"); }
+          continue;
+        }
+        // 一次选很多张时偶尔有一两张第一回解不出来：歇一下再试一回（群里 2026-10-18）
+        let ok = false;
+        for (let k = 0; k < 2 && !ok; k++) {
+          try { icons[key] = await imgToVault(await resizeImageFile(f, 512, .9)); ok = true; }
+          catch (err) { if (k === 0) await new Promise(r => setTimeout(r, 300)); }
+        }
+        if (ok) hit.push(key); else miss.push(stem + "（读不出）");
       }
       if (hit.length) patchDraft({ icons });
-      toast((hit.length ? "对上了 " + hit.length + " 张，已放入草稿，点预览看看" : "一张都没对上") + (miss.length ? "；认不出：" + miss.join("、") : ""));
+      if (trayAdd.length) { setIconTray(v => v.concat(trayAdd)); setTrayPick(-1); }
+      toast((hit.length ? "按名字对上了 " + hit.length + " 张" : "")
+        + (trayAdd.length ? (hit.length ? "；" : "") + trayAdd.length + " 张认不出是哪个 App，摆在列表上面了：点一张，再点要换的 App" : "")
+        + (!hit.length && !trayAdd.length ? "一张都没读进来" : "") + (miss.length ? "；" + miss.join("、") : ""), 6000);
     };
     const exportTheme = async () => {
       // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
@@ -397,7 +412,26 @@
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, flex: 1 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
           h("button", { onClick: () => iconFiles.current && iconFiles.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "一次选多张")),
-        h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], packSrc = studio.packIconSrc(draft.iconPack, key), src = ref ? resolveImg(ref) : packSrc; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { onClick: () => { setPickKey(key); iconFile.current && iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left" } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
+        iconTray.length ? h("div", { "data-wk": "icontray", style: { marginBottom: 12, border: "1px dashed " + t.line, borderRadius: 14, padding: "10px 10px 8px", background: t.bg2 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
+            trayPick >= 0 ? "选中了一张，点下面要换的那个 App" : "这 " + iconTray.length + " 张认不出是哪个 App：点一张，再点下面的 App；或者照列表顺序一次排上去"),
+          h("div", { className: "flex", style: { gap: 8, overflowX: "auto", paddingBottom: 4 } }, iconTray.map((it, i) => h("button", { key: i, "data-wk": "icontrayimg", "data-on": trayPick === i ? "1" : "0",
+            onClick: () => setTrayPick(p => p === i ? -1 : i), className: "shrink-0 active:opacity-70",
+            style: { padding: 2, borderRadius: 12, border: "2px solid " + (trayPick === i ? t.ink : "transparent") } },
+            h("img", { src: resolveImg(it.ref), alt: "", style: { width: 44, height: 44, borderRadius: 10, objectFit: draft.iconBare ? "contain" : "cover", display: "block" } })))),
+          h("div", { className: "flex", style: { gap: 8, marginTop: 6 } },
+            h("button", { "data-wk": "icontrayorder", onClick: () => {
+                const keys = studio.appIconList().map(x => x[0]), icons = { ...draft.icons };
+                iconTray.forEach((it, i) => { if (keys[i]) icons[keys[i]] = it.ref; });
+                const n = Math.min(iconTray.length, keys.length);
+                patchDraft({ icons }); setIconTray(v => v.slice(n)); setTrayPick(-1);
+                toast("照列表顺序排上了 " + n + " 张，不对的点那个 App 再换"); },
+              className: "active:opacity-70", style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, background: "transparent" } }, "照列表顺序排上去"),
+            h("button", { onClick: () => { setIconTray([]); setTrayPick(-1); }, className: "active:opacity-70",
+              style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, background: "transparent" } }, "这几张不要了"))) : null,
+        h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], packSrc = studio.packIconSrc(draft.iconPack, key), src = ref ? resolveImg(ref) : packSrc; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { "data-wk": "iconslot", "data-on": trayPick >= 0 ? "1" : "0", onClick: () => {
+            if (trayPick >= 0 && iconTray[trayPick]) { const it = iconTray[trayPick]; patchDraft({ icons: { ...draft.icons, [key]: it.ref } }); setIconTray(v => v.filter((_, j) => j !== trayPick)); setTrayPick(-1); return; }
+            setPickKey(key); iconFile.current && iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left", outline: trayPick >= 0 ? "1px dashed " + t.line : "none", outlineOffset: 3, borderRadius: 11 } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
         h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } }),
         h("input", { ref: iconFiles, type: "file", accept: "image/*", multiple: true, onChange: chooseIcons, style: { display: "none" } })),
       section === "css" && h("div", null,

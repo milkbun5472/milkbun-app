@@ -2452,7 +2452,7 @@ const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪
 // 她 2026-10-18：「我们提示词是不是错了，我只是想要看他没说出口的想法」——对，问错了。
 //   「他此刻心里想什么」没有参照，模型只能自己找东西填（点评她、描她、盘算待会儿），一个月里加方向、删方向都在补这个空问题。
 //   换成跟他这一轮【说出口、做出来的】对照：问的就是没说出口的那部分，参照物是他自己刚说的话，不用再给方向。
-const THOUGHT_MEANING = "他这一轮没说出口的那一句，第一人称：跟他刚才嘴上说的、做出来的对照——心里想的跟说的不一样的、憋着没说的、话里没带出来的那一点，用他自己想事情的口气。嘴上心里本来就一样时，写这一刻心里多出来的那一点点。";
+const THOUGHT_MEANING = "他这一轮没说出口的那一句，第一人称：跟他刚才嘴上说的、做出来的对照——心里想的跟说的不一样的、憋着没说的、话里没带出来的那一点，用他自己想事情的口气；嘴上已经说了的意思心里不用再说一遍，只写没说出口的那部分。嘴上心里本来就一样时，写这一刻心里多出来的那一点点。";
 const ACT_TAIL = /[了着过呢吧啊呀嘛哦噢的]+$/;
 function sameActLine(a, b) {
   const norm = x => String(x == null ? "" : x).trim()
@@ -7581,10 +7581,23 @@ async function _fetchJSON(url, ms) {
 async function _transGoogle(text, src) {
   const u = "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t"
     + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
-  const d = await _fetchJSON(u, 7000);
-  const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
-  if (!zh) throw new Error("空结果");
-  return zh;
+  try {
+    const d = await _fetchJSON(u, 7000);
+    const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
+    if (!zh) throw new Error("空结果");
+    return zh;
+  } catch (e1) {
+    // 国外也会断（她 2026-10-18：「我在国外谷歌也不行」）：gtx 那个口子有时卡住不回、或者不让网页调。
+    //   换 Chrome 划词翻译用的那个口子再试一次，返回的是 [译文] 或 [[译文, 源语种]]
+    const u2 = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex"
+      + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
+    let d2;
+    try { d2 = await _fetchJSON(u2, 7000); } catch (e2) { throw new Error(String((e1 && e1.message) || e1).slice(0, 30) + "；备用口：" + String((e2 && e2.message) || e2).slice(0, 30)); }
+    const first = Array.isArray(d2) ? d2[0] : null;
+    const zh2 = String(Array.isArray(first) ? first[0] : (first || (d2 && d2.sentences ? d2.sentences.map(x => x.trans || "").join("") : "")) || "").trim();
+    if (!zh2) throw new Error("空结果");
+    return zh2;
+  }
 }
 // 免费引擎②：MyMemory。匿名每天 1000 词，CORS 开放，欧洲的机器国内通常连得上。
 // 微软（她 2026-10-17 群里粤语截图：Google 在国内连不上、MyMemory 不翻粤语，模型她不让叫，三条全断）：
@@ -7692,12 +7705,12 @@ async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
-  // MyMemory 只在【源就是英文】时还值得一试：别的语种它一律绕道英语，绕废的概率很高。
-  const myMemoryOk = src === "en" || src === "auto";
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => _transMicrosoft(text, src) },
-    { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
+    // 日/韩/俄它也试（她 2026-10-18 群里俄文截图：Google 不通、微软取票 404，第三条又因为「要绕道英语」被跳过——三条全断）。
+    //   绕废了交回英文的那种，下面 _looksChinese 那道闸照样拦得住，不会把英文当译文摆出来
+    { by: "免费", run: () => _transMyMemory(text, src) },
     // 模型那一级默认不走了（她 2026-10-16：「翻译能不能不给模型翻译，浪费钱」）——免费两家都不成就照实报失败，点一下再试。
     //   只有调用处明说 allowModel 才叫模型（现在没有哪一处这么说）
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
@@ -10536,25 +10549,38 @@ function appVitals() {
 //   判据是【这张图身上有没有 alpha】，不是【调用方记不记得传保透明】——
 //   记不记得是人的事，二十多处里总有忘的那几处。
 function _resizeImageCore(file, maxDim, q, keepAlpha) {
+  // 读图用 objectURL，不再先把整张原图读成 data: 字符串（群里 2026-10-18：「选图标时多选很多张总是读不出图片」）——
+  //   手机原图一张几 MB，转成 data: 再大三成多，一次选十几张时 iOS 内存吃紧，后面那几张就解不出来了。
+  //   画完把画布清掉、把 objectURL 收回，一张一张不攒着。没有 objectURL 的老环境才退回 FileReader。
   return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => {
+    const draw = (src, done) => {
       const img = new window.Image();
       img.onload = () => {
-        let { width, height } = img;
-        const m = Math.max(width, height);
-        if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
-        const c = document.createElement("canvas");
-        c.width = Math.max(1, Math.round(width));
-        c.height = Math.max(1, Math.round(height));
-        const cx = c.getContext("2d");
-        // 不铺白底：铺了就等于自己把透明去掉了
-        cx.drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q));
+        try {
+          let { width, height } = img;
+          const m = Math.max(width, height);
+          if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(width));
+          c.height = Math.max(1, Math.round(height));
+          const cx = c.getContext("2d");
+          // 不铺白底：铺了就等于自己把透明去掉了
+          cx.drawImage(img, 0, 0, c.width, c.height);
+          const out = c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q);
+          c.width = 0; c.height = 0; img.src = "";
+          done(); res(out);
+        } catch (e) { done(); rej(e); }
       };
-      img.onerror = rej;
-      img.src = e.target.result;
+      img.onerror = e => { done(); rej(e && e.type ? new Error("图片解不出来") : e); };
+      img.src = src;
     };
+    if (typeof URL !== "undefined" && URL.createObjectURL && file instanceof Blob) {
+      const u = URL.createObjectURL(file);
+      draw(u, () => { try { URL.revokeObjectURL(u); } catch (e) {} });
+      return;
+    }
+    const r = new FileReader();
+    r.onload = e => draw(e.target.result, () => {});
     r.onerror = rej;
     r.readAsDataURL(file);
   });
