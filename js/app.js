@@ -22922,7 +22922,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
   const forumCharGrounding = (ch, post, role, extraQuery) => {
     if (!ch) return "";
-    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, 600);
+    // 楼主那一份给足：身份、家境这种常写在人设后半截，截在 600 字就看不到（2026-10-18「知道他很富还说他穷」）
+    const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, role === "楼主" ? 1500 : 600);
     return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
       + charLivedGrounding(ch, { title: post && post.title, body: (post && post.body || "") + " " + String(extraQuery || "") });
   };
@@ -23009,7 +23010,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
     const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "") + forumMutualRule(meOwn, opKnowers)
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
-      + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
+      + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan
+      // 认识楼主的人照他的真实处境说话（群里 2026-10-18：「明明知道我的 char 真实身份很富，还在论坛里说他很穷」）：
+      //   路人只看得到这一帖，可以照帖子猜；认识他的人（关系里写着的、他身边的人）知道他是谁、家里什么样，不照帖子表面去猜他
+      + (opChar ? "\n【认识楼主的人和路人看到的不一样】路人只看得到这一帖，照帖子说话；认识「" + opName + "」的人（下面关系里写着的、他身边的人）知道他真实的身份、家境和处境——照下面他的真实设定来，不照帖子表面去猜他，也别说出跟他真实情况对不上的话。" : "");
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
     if (opts.round2) {
       const repliedCells = opts.repliedChars || [];
