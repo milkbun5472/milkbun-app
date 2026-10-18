@@ -65,8 +65,10 @@ test("换成共用 Head 的那几页，是真的换了", () => {
   want.forEach(([f, re, zh]) => assert.match(R(f), re, zh + "那一页又变回手写顶栏了"));
   // 记账那几条顶栏是同一个形状，一次全换了（v74.282 加了账户编辑页、v74.283 加了周期账单编辑页，都用共用 Head）
   // v74.375 的账单分享角色选择页也复用 Head。
-  assert.equal((R("js/ledger.js").match(/h\(Head, \{ zh:/g) || []).length, 9, "记账那九条顶栏没都换过来");
-  assert.ok(!/safeTop\(/.test(R("js/ledger.js")), "记账里还剩着手写顶栏");
+  // 记账 2026-10-18 拆成两份：ledger-core.js（开机加载，bookPage 那一条顶栏在这儿）＋ ledger.js（页面）
+  const ledgerAll = R("js/ledger-core.js") + R("js/ledger.js");
+  assert.equal((ledgerAll.match(/h\(Head, \{ zh:/g) || []).length, 9, "记账那九条顶栏没都换过来");
+  assert.ok(!/safeTop\(/.test(ledgerAll), "记账里还剩着手写顶栏");
 });
 
 test("故意保留原样的那几条，写清了为什么，而且真的只加了属性", () => {

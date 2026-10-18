@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), memoSrc = R("memo.js"), ledSrc = R("ledger.js"), comp = R("components.js");
+const app = R("app.js"), memoSrc = R("memo.js"), ledSrc = R("ledger-core.js")   /* 替她记一笔那几支 2026-10-18 搬去 ledger-core.js（开机加载） */, comp = R("components.js");
 // 两个写入 API 真跑（loadJSON/saveJSON 换成内存桩）
 function boot(src) {
   const store = {};

@@ -1,7 +1,8 @@
+// 算账那一半 2026-10-18 搬去 js/ledger-core.js（开机加载），页面那一半还在 ledger.js；源码两份一起读
 // 账户（她 2026-09-29：信用卡按账单周期算；角色看不看得到余额单独一个开关；每种卡不同卡面颜色）
 const assert = require("assert");
 const fs = require("fs");
-const src = fs.readFileSync(__dirname + "/../js/ledger.js", "utf8");
+const src = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
 // 照写存档的那段切：账户那组纯函数 + summarize，连同它们依赖的 pad / monthKey
 const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, a); return src.slice(i, j); };
 const code = [cut("function pad(n)", "function todayStr"), cut("function monthKey(", "function todayKey"),
