@@ -15,3 +15,6 @@ test("翻到那一篇就标看过；列表挂小红点；目录、封面都数�
   assert.match(ui, /"data-wk": "diallread"/);
   assert.match(ui, /" 篇没看" : ""\) : "还是空的"/);
 });
+test("翻开某一本时列表顶上也有一键已读（她 2026-10-18：只在目录页找不到）", () => {
+  assert.match(ui, /"data-wk": "diallread", "data-part": "book"/);
+});

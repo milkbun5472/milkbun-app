@@ -10278,6 +10278,11 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-10", onTouchStart: onTS, onTouchEnd: onTE },
         gb && h(Spinner, { label: curAuthor.name + " 正在记录昨天…" }),
         !gb && !list.length && h(Empty, { text: "还没有日记", sub: isMe ? "点右上角铅笔写一篇" : "点右上角，或等 Ta 自己写" }),
+        // 这一本里有没看的，顶上就摆一颗（她 2026-10-18：「一键已读在哪儿啊」——只放在目录页，翻开这一本根本看不见）
+        (!isMe && onMarkRead && list.some(e => e.unread)) ? h("button", { "data-wk": "diallread", "data-part": "book",
+            onClick: () => onMarkRead(curId, list.filter(e => e.unread).map(e => e.id)), className: "active:opacity-60",
+            style: { display: "block", marginLeft: "auto", marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } },
+          list.filter(e => e.unread).length + " 篇没看 · 全部标为已读") : null,
         list.map((e, i) => {
           const d = new Date(!isMe && typeof vclockMap === "function" ? vclockMap(e.ts, curId) : e.ts);
           const wd = "日一二三四五六"[d.getDay()];
