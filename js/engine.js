@@ -7581,10 +7581,23 @@ async function _fetchJSON(url, ms) {
 async function _transGoogle(text, src) {
   const u = "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t"
     + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
-  const d = await _fetchJSON(u, 7000);
-  const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
-  if (!zh) throw new Error("空结果");
-  return zh;
+  try {
+    const d = await _fetchJSON(u, 7000);
+    const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
+    if (!zh) throw new Error("空结果");
+    return zh;
+  } catch (e1) {
+    // 国外也会断（她 2026-10-18：「我在国外谷歌也不行」）：gtx 那个口子有时卡住不回、或者不让网页调。
+    //   换 Chrome 划词翻译用的那个口子再试一次，返回的是 [译文] 或 [[译文, 源语种]]
+    const u2 = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex"
+      + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
+    let d2;
+    try { d2 = await _fetchJSON(u2, 7000); } catch (e2) { throw new Error(String((e1 && e1.message) || e1).slice(0, 30) + "；备用口：" + String((e2 && e2.message) || e2).slice(0, 30)); }
+    const first = Array.isArray(d2) ? d2[0] : null;
+    const zh2 = String(Array.isArray(first) ? first[0] : (first || (d2 && d2.sentences ? d2.sentences.map(x => x.trans || "").join("") : "")) || "").trim();
+    if (!zh2) throw new Error("空结果");
+    return zh2;
+  }
 }
 // 免费引擎②：MyMemory。匿名每天 1000 词，CORS 开放，欧洲的机器国内通常连得上。
 // 微软（她 2026-10-17 群里粤语截图：Google 在国内连不上、MyMemory 不翻粤语，模型她不让叫，三条全断）：
