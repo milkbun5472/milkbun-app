@@ -17495,6 +17495,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+        unread: true,   // TA 新写的，她还没翻到（翻到那一篇就去掉；以前的旧日记没有这一格＝看过）
         ts: targetTs,
         no: Math.floor(Math.random() * 9000) + 1000,
         titleEn: d.titleEn || "",
@@ -17547,6 +17548,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const delDiaryEntry = (charId, entryId) => setDiaries(p => {
     const n = { ...p, [charId]: (p[charId] || []).filter(e => e.id !== entryId) };
     saveJSON("x_diaries", n);
+    return n;
+  });
+  // 看过了：把这几篇的 unread 去掉（日记里翻到、或者目录上「全部标为已读」）
+  const markDiaryRead = (charId, ids) => setDiaries(p => {
+    const want = new Set(ids || []);
+    if (!(p[charId] || []).some(e => e.unread && want.has(e.id))) return p;
+    const n = { ...p, [charId]: (p[charId] || []).map(e => e.unread && want.has(e.id) ? (({ unread, ...rest }) => rest)(e) : e) };
+    diariesRef.current = n; saveJSON("x_diaries", n);
     return n;
   });
   const saveDiaryFields = (charId, fields) => pC(p => p.map(c => c.id === charId ? { ...c, ...fields } : c));
@@ -32320,6 +32329,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGen: genDiary,
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
+    onMarkRead: markDiaryRead,
     onSaveFields: saveDiaryFields,
     onPhotoDiary: genPhotoDiary, onDelPhotoDiary: delPhotoDiary, photoDiaryBusy: photoDiaryBusy,
     onAddMyEntry: addMyDiaryEntry,
