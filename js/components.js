@@ -8251,7 +8251,9 @@ function Messages({
   tab: tabProp,
   onTab,
   onMomentsSeen,
-  onOpenSettings
+  onOpenSettings,
+  peekDaily,      // 递手机录像时才有：她「日常联系人」那几位（编出来的，只在TA翻手机时摆进列表）
+  onOpenDaily
 }) {
   const t = useTheme();
   // tab 提到 App 层受控（v48.40）：进角色资料卡再返回时不丢，还回原来的通讯录/朋友圈 tab。无 prop 时回退内部 state（旧行为）
@@ -8426,7 +8428,16 @@ function Messages({
         q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, padding: "0 2px" } }, "×") : null)),
     characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或人格档案馆录入角色" }),
     kw && shownItems.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
-    shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it))
+    shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it)),
+    !kw && Array.isArray(peekDaily) ? peekDaily.map((p, i) => {
+      const ls = Array.isArray(p.lines) ? p.lines : [], last = ls[ls.length - 1];
+      return h("button", { key: "daily" + i, "data-wk": "mlrow", "data-kind": "daily", onClick: () => onOpenDaily && onOpenDaily(p),
+        className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
+        h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, h(Avatar, { character: { name: String(p.name || "") }, size: 50, radius: 10 })),
+        h("div", { className: "flex-1 text-left min-w-0" },
+          h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, String(p.name || "")),
+          h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? String(last.text || "") : "")));
+    }) : null
   ), tab === "contacts" && (() => {
     // 通讯录（v56.40，她 2026-08-26 要微信那样）：顶上两个收纳入口，下面按首字母分组，右边一条 A-Z 索引。
     // 有备注按备注的首字母，没备注按本名——她明说的。
