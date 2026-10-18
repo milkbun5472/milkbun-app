@@ -22,7 +22,7 @@ test("后台生成：跑完的结果只交一次；还在跑的不交；走开�
 });
 
 test("① 存档不再写在 setState 的 updater 里：现读存档、改完直接写回", () => {
-  const th = R("theater.js"), tr = R("trpg.js"), imp = R("impression.js"), cap = R("capsule.js"), memo = R("memo.js");
+  const th = R("theater.js"), tr = R("trpg.js"), imp = (R("impression-core.js") + "\n" + R("impression.js")), cap = R("capsule.js"), memo = R("memo.js");
   assert.match(th, /const update = fn => \{\n\s*const n = fn\(load\(\)\.slice\(\)\);\n\s*if \(!persist\(n\)\)/);
   assert.match(tr, /const update = fn => \{\n\s*const n = fn\(load\(\)\.slice\(\)\);\n\s*if \(!persist\(n\)\) return;/);
   assert.match(imp, /const put = fn => \{\n\s*const n = fn\(M\.load\(\) \|\| bookRef\.current\);\n\s*if \(!M\.save\(n\)\)/);

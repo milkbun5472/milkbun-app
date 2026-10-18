@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const dwell = R("dwell.js"), app = R("app.js");
+const dwell = (R("dwell-core.js") + "\n" + R("dwell.js")), app = R("app.js");
 
 // 把模块跑起来，出图那一步换成桩：只想看它把什么样的提示词递出去
 function load(onImagePrompt) {

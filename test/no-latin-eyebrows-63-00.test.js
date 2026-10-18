@@ -110,7 +110,7 @@ test("拼出来的大写英文也算——上面那两条正则都查不到它",
 });
 
 test("pageSkin 的 word 放行的只是水印，不是顺带把那个词整篇放行", () => {
-  const dwell = fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8");
+  const dwell = (fs.readFileSync(path.join(__dirname, "..", "js", "dwell-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8"));
   // 去处那三页的顶栏副标题原来写着 PLACES——它是显示出来的字，跟水印不是一回事
   assert.ok(!/topBar\("[^"]*", "[A-Z]/.test(dwell), "顶栏副标题又塞了一行英文");
   assert.equal((dwell.match(/word: "PLACES"/g) || []).length, 3, "页脚那个水印不该被顺手删掉");

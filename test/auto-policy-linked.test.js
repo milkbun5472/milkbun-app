@@ -42,8 +42,8 @@ test("每个页面开关都读写同一格", () => {
   assert.match(app, /auto: autoRefreshOn\("letter", c\.id\)/);
   assert.match(app, /autoChat: gsFor\(activeGroup\.id\)\.autoChat !== false && autoRefreshOn\("groupChat"\)/);
   assert.match(app, /!autoRefreshOn\("gaze", char\.id\)/);
-  assert.match(R("js/watch.js"), /window\.__autoRefreshOn\("watch"\)/);
-  assert.match(R("js/watch.js"), /window\.__setAutoFromPage\("watch", null, n\)/);
+  assert.match((R("js/watch-core.js") + "\n" + R("js/watch.js")), /window\.__autoRefreshOn\("watch"\)/);
+  assert.match((R("js/watch-core.js") + "\n" + R("js/watch.js")), /window\.__setAutoFromPage\("watch", null, n\)/);
   assert.match(R("js/memo.js"), /\("react", id\)/);
   assert.match(R("js/ledger.js"), /\("react", id\)/);
   assert.match(R("js/capsule.js"), /__autoRefreshOn\("capsule", char\.id\)/);

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.join(__dirname, "..");
-const imp = fs.readFileSync(path.join(root, "js/impression.js"), "utf8");
+const imp = (fs.readFileSync(path.join(root, "js/impression-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/impression.js"), "utf8"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -101,7 +101,7 @@ test("同一个月重写是覆盖，不是堆两张", () => {
 });
 
 test("三处注册齐全：脚本、图标、路由", () => {
-  assert.match(html, /<script src="js\/impression\.js\?v=/);
+  assert.match(html, /<script src="js\/impression-core\.js\?v=/);
   assert.match(comp, /impression: \{ kind: "app", zh: "月度印象"/);
   // v61.58 默认布局改成她自己那套（组件当主角、app 收进默认文件夹），
   // 所以「摆进桌面」＝在 DEFAULT_LAYOUT 里，或者在某个默认文件夹里

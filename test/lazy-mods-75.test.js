@@ -45,7 +45,10 @@ test("替身的名字就是那份脚本自己挂到 window 上的名字", () => 
     // 挂到 window 上，或者是那份脚本顶层的 function 声明（经典脚本里顶层 function 本来就挂在 window 上，phone-ui.js 那种）
     // 2026-10-18 起 garden 那组的 fairy-garden.js 是 (function (root) {…})(window) 包着的：root 就是 window，root.X = 也算挂上
     const viaRoot = /\}\)\(window\);/.test(files) ? "|^\\s*root\\." + m[1] + " = " : "";
-    assert.match(files, new RegExp("window\\." + m[1] + " = |^function " + m[1] + "\\(" + viaRoot, "m"), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
+    // 健康、星测、时刻那几份顶上写的是 const g = typeof window !== "undefined" ? window : globalThis：g.X = 也算
+    //   拆开以后页面那半的 g 是从开机那半递过来的（const { g, … } = (typeof window …).XCore），同一个东西
+    const viaG = /const g = typeof window !== "undefined" \? window : globalThis|const \{[^}]*\bg\b[^}]*\} = \(typeof window !== "undefined" \? window : globalThis\)/.test(files) ? "|^\\s*g\\." + m[1] + " = " : "";
+    assert.match(files, new RegExp("window\\." + m[1] + " = |^function " + m[1] + "\\(" + viaRoot + viaG, "m"), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
   });
 });
 
@@ -91,13 +94,17 @@ test("装载器：按顺序挂、只装一次、失败了能重来", async () =>
 //   2026-10-18 记账拆完漏了 genComments（async function 那种写法当时没认出来），选角色批注一点就报找不到。
 test("拆开的两半：页面那半用到的开机那半的名字，全都递过去了（async function、一行几个 const 也算）", () => {
   const nocom = t => t.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  [["js/ledger-core.js", "js/ledger.js", "LedgerCore"], ["js/fanfic-core.js", "js/fanfic.js", "FanficCore"], ["js/shua-core.js", "js/shua.js", "ShuaCore"], ["js/pomodoro-core.js", "js/pomodoro.js", "PomoCore"], ["js/trpg-core.js", "js/trpg.js", "TrpgCore"]].forEach(([cf, uf, v]) => {
+  [["js/ledger-core.js", "js/ledger.js", "LedgerCore"], ["js/fanfic-core.js", "js/fanfic.js", "FanficCore"], ["js/shua-core.js", "js/shua.js", "ShuaCore"], ["js/pomodoro-core.js", "js/pomodoro.js", "PomoCore"], ["js/trpg-core.js", "js/trpg.js", "TrpgCore"], ["js/health-core.js", "js/health.js", "HealthCore"], ["js/astro-core.js", "js/astro.js", "AstroCore"], ["js/shike-core.js", "js/shike.js", "ShikeCore"], ["js/dwell-core.js", "js/dwell.js", "DwellCore"], ["js/watch-core.js", "js/watch.js", "WatchCore"]].forEach(([cf, uf, v]) => {
     if (!fs.existsSync(path.join(__dirname, "..", cf))) return;
     const core = R(cf), ui = R(uf);
     const names = new Set();
     core.split("\n").forEach(l => {
       let m = /^  (?:const|let|var)\s+(.*)$/.exec(l);
-      if (m) for (const mm of m[1].matchAll(/(?:^|,\s*)([A-Za-z_$][\w$]*)\s*=/g)) names.add(mm[1]);
+      // 只认最外层的「名字 =」：一行里箭头函数自己的局部变量（const r = x => …）不算（2026-10-18 健康那份就有）
+      if (m) { let d = 0, seg = ""; for (const ch of m[1] + ",") {
+        if ("([{".includes(ch)) d++; else if (")]}".includes(ch)) d--;
+        if (d === 0 && ch === ",") { const mm = /^\s*([A-Za-z_$][\w$]*)\s*=/.exec(seg); if (mm) names.add(mm[1]); seg = ""; } else seg += ch;
+      } }
       m = /^  (?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(l);
       if (m) names.add(m[1]);
     });
@@ -115,7 +122,7 @@ test("拆开的两半：页面那半用到的开机那半的名字，全都递�
 //   2026-10-18 同人文拆完，FanficApp 每次画都给 ficMeOf / ficProfile 赋值，当场炸；改成经 setFicMe 递回开机那半。
 //   同名的局部 const（页面里自己声明的那种）不算。
 test("拆开的两半：页面那半不给共用的名字重新赋值", () => {
-  [["js/ledger.js", "LedgerCore"], ["js/fanfic.js", "FanficCore"], ["js/shua.js", "ShuaCore"], ["js/pomodoro.js", "PomoCore"], ["js/trpg.js", "TrpgCore"]].forEach(([uf, v]) => {
+  [["js/ledger.js", "LedgerCore"], ["js/fanfic.js", "FanficCore"], ["js/shua.js", "ShuaCore"], ["js/pomodoro.js", "PomoCore"], ["js/trpg.js", "TrpgCore"], ["js/health.js", "HealthCore"], ["js/astro.js", "AstroCore"], ["js/shike.js", "ShikeCore"], ["js/dwell.js", "DwellCore"], ["js/watch.js", "WatchCore"]].forEach(([uf, v]) => {
     if (!fs.existsSync(path.join(__dirname, "..", uf))) return;
     const ui = R(uf).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
     const dm = new RegExp("const \\{ ([^}]*) \\} = (?:window|\\(typeof window !== \"undefined\" \\? window : globalThis\\))\\." + v + ";").exec(ui);

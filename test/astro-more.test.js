@@ -3,7 +3,7 @@ const test = require("node:test"), assert = require("node:assert/strict"), vm = 
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 function load(store) {
   const win = {}; const ctx = { window: win, globalThis: win, React: { useState() {}, useMemo() {} }, loadJSON: (k, d) => (store && store[k]) ?? d, saveJSON() {}, h: () => null, console, Date, Math, JSON };
-  vm.createContext(ctx); vm.runInContext(read("astro.js"), ctx); return win.Astro;
+  vm.createContext(ctx); vm.runInContext((read("astro-core.js") + "\n" + read("astro.js")), ctx); return win.Astro;
 }
 // ⚠️这几个日子【按本机时区算】，不能写死（2026-10-04 抓到：这条在 UTC 的会话里绿、
 //   在她本机 CDT 上红）。2026 年 10 月那次满月是 UTC 10-26 04:12 —— 温尼伯是
@@ -33,13 +33,13 @@ test("太阳回归落在生日前后；问星同一天同一问答案不变", ()
   assert.equal(a.verdict, b.verdict); assert.equal(a.area, "感情");
 });
 test("天象和好日子接进日历与聊天那一行；群榜能发到群里", () => {
-  const app = read("app.js"), comp = read("components.js"), astro = read("astro.js");
+  const app = read("app.js"), comp = read("components.js"), astro = (read("astro-core.js") + "\n" + read("astro.js"));
   assert.match(app, /window\.Astro\.skyNote\(today\)/); assert.match(app, /window\.Astro\.pairGoodDays\(profile/);
   assert.match(comp, /window\.Astro\.skyOn\(dk\)/); assert.match(app, /onShareToGroup: \(gid, text\)/);
   assert.match(astro, /\["chart", "星盘"\], \["group", "群榜"\], \["ask", "问星"\]/);
 });
 test("查手机里有星测：接真数据、不生成；日子取 TA 上次真打开那天（刷新、看TA玩点开）", () => {
-  const phone = (read("phone.js") + "\n" + read("phone-ui.js")), app = read("app.js"), astro = read("astro.js");
+  const phone = (read("phone.js") + "\n" + read("phone-ui.js")), app = read("app.js"), astro = (read("astro-core.js") + "\n" + read("astro.js"));
   assert.match(phone, /const PHONE_LIVE_KEYS = \[[^\]]*"astro"\]/);
   assert.match(phone, /if \(key === "astro"\) return/);
   assert.match(app, /opened\.indexOf\("astro"\) >= 0 && window\.Astro && window\.Astro\.markSeen/);
@@ -47,14 +47,14 @@ test("查手机里有星测：接真数据、不生成；日子取 TA 上次真�
   assert.match(astro, /const seenDay = charId =>/);
 });
 test("今日签：手动抽和自动发同一份提示词；能转发回聊天；自动默认关", () => {
-  const app = read("app.js"), astro = read("astro.js"), pol = read("auto-refresh-policy.js"), comp = read("components.js");
+  const app = read("app.js"), astro = (read("astro-core.js") + "\n" + read("astro.js")), pol = read("auto-refresh-policy.js"), comp = read("components.js");
   assert.match(astro, /function signInstruction\(meName, facts\)/);
   assert.match(app, /window\.Astro\.signInstruction\(userName\(profile\), facts\)/);
   assert.match(app, /kind: "astroshare"/); assert.match(comp, /if \(kind === "astroshare"\) return window\.AstroSignCard/);
   assert.match(pol, /id: "astroSign"[^}]*globalDefault: false, charDefault: false/);
 });
 test("月亮日记写的心情就是健康 app 那一格；好日子头像光环、群里吵一架都有", () => {
-  const astro = read("astro.js"), comp = read("components.js");
+  const astro = (read("astro-core.js") + "\n" + read("astro.js")), comp = read("components.js");
   assert.match(astro, /d0\.mood = Object\.assign\(\{\}, d0\.mood/); assert.match(astro, /H\.save\(d0\)/);
   assert.match(comp, /window\.Astro\.isGoodDay\(character\)/);
   assert.match(astro, /照着星盘吵一架给我看看/);

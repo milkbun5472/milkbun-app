@@ -6,7 +6,7 @@ function load() {
   const win = { ScheduleClock: { deviceDayKey: () => "2026-10-05", shiftDayKey: (k, n) => k }, dispatchEvent: e => events.push(e.type), addEventListener() {}, removeEventListener() {} };
   const ctx = { window: win, loadJSON: (k, d) => store[k] ?? d, saveJSON: (k, v) => { store[k] = JSON.parse(JSON.stringify(v)); return true; }, React: { useEffect() {} }, useState: () => [], h: () => null,
     CustomEvent: function (t) { this.type = t; }, console, Date, Math, JSON };
-  ctx.globalThis = win; vm.createContext(ctx); vm.runInContext(read("health.js"), ctx);
+  ctx.globalThis = win; vm.createContext(ctx); vm.runInContext((read("health-core.js") + "\n" + read("health.js")), ctx);
   return { add: win.healthAddByChar, store, events };
 }
 test("一句话里几样一起记：一餐、喝水、运动、体重、睡眠、步数、心情各落进同一份 x_health", () => {
