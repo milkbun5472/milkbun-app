@@ -27,7 +27,7 @@ test('单人和混合群按说话人的双语设置注入，无开关不发', ()
 });
 test('流式、尾部对账和群通话均走同一拆分出口，字幕随真实转录写入', () => {
   assert.match(app, /callSystem = sys \+ roomPromptFor\(char.id, cur.room, true\) \+ callBiHint/);
-  assert.match(app, /callAI\(active, sys \+ callBiHint \+ cameraHint, window\.CallCamera\.withFrame\(hist, cameraFrame\)/);
+  assert.match(app, /callAI\(active, sys \+ callBiHint \+ callVoiceHint \+ cameraHint, window\.CallCamera\.withFrame\(hist, cameraFrame\)/);
   assert.match(app, /callLines\(stripName\(sy\) \|\| "", char\)/);
   assert.match(app, /acc.concat\(callLines\(sy, char\)\)/);
   assert.match(app, /callLines\(arr\[i\].text, spk\)/);
@@ -37,7 +37,7 @@ test('流式、尾部对账和群通话均走同一拆分出口，字幕随真�
   assert.match(app, /ttsWarm\(ln.speech, char.voiceId\)/);
 });
 test('通话现场与两处回看复用译键，深色通话传自己的前景色', () => {
-  assert.match(comp, /h\(TransText, \{ text: m.content, isU, zhReady: m.zh, ink: callBubble\(isU\).color \}\)/);
-  assert.equal((comp.match(/h\(TransText, \{ text: l\.content,[^}]*zhReady: l\.zh,[^}]*\}\)/g)||[]).length,2);
+  assert.match(comp, /h\(TransText, \{ text: callShow\(m.content\), isU, zhReady: m.zh, ink: callBubble\(isU\).color \}\)/);
+  assert.equal((comp.match(/h\(TransText, \{ text: callShow\(l\.content\),[^}]*zhReady: l\.zh,[^}]*\}\)/g)||[]).length,2);
   assert.match(comp, /tp.toggle\(messageKey, m.content, spk.voiceId,/);
 });

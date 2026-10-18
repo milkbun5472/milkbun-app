@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.979";
+const APP_VERSION = "v75.981";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19849,7 +19849,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 颜文字不是动作（她 2026-10-07：「(ᵔᴥᵔ) 被误判成灰字了」）：括号里一个汉字、一个英文词都没有的，
         //   先换成占位符藏起来，整句照常拆完再换回去——括号原样留着，跟着那句话走。
         const kao = [];
-        const s = String(str || "").replace(/[（(][^（）()\u4e00-\u9fffA-Za-z]{1,24}[）)]/g, m => { kao.push(m); return String.fromCharCode(0xE000 + kao.length - 1); });
+        const hideK = m => { kao.push(m); return String.fromCharCode(0xE000 + kao.length - 1); };
+        // 引号里的括号是那句话自己的（她 2026-10-18 截图：『あたまわるい（褒め言葉）』被拎出去成了一行灰字动作，台词断成两泡）：
+        //   『』「」“”里头的括号一律当原话，不当动作。
+        const s = String(str || "").replace(/[『「“][^『』「」“”\n]{0,120}[』」”]/g, q => q.replace(/[（(][^（）()]{1,40}[）)]/g, hideK))
+          // 声音标签 (sighs)(chuckle) 是念出来的那一部分，不是动作（她 2026-10-18 通话照语音条写）
+          .replace(typeof TTS_MARK_TAG_RE !== "undefined" ? TTS_MARK_TAG_RE : /$^/g, hideK)
+          .replace(/[（(][^（）()\u4e00-\u9fffA-Za-z]{1,24}[）)]/g, hideK);
         const unKao = x => x.replace(/[\uE000-\uE0FF]/g, c => kao[c.charCodeAt(0) - 0xE000] || "");
         const re = /[（(]([^（）()]{1,120})[）)]/g;
         let last = 0, mm;
@@ -19916,6 +19922,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const callMe = cur.groupId ? groupProfileFor(cur.groupId) : profile;
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
       const callBiHint = callBilingualRule(people, settingsFor);
+      // 通话台词照发语音条的写法（她 2026-10-18）：口语、带语气词；开着连续播报、有人念的，再教停顿和声音标签——
+      //   跟语音条是同一段（VOICE_PAUSE_MARK / voiceSoundHint），气泡和字幕上剥掉（callShow），只在念的时候起作用。
+      const callVoiced = people.some(p => p && p.voiceId && callAutoFor(p.id)) && typeof ttsReady === "function" && ttsReady();
+      const callVoiceHint = "\n【通话台词】这是在打电话，说出口的那几句照发语音的写法写：口语、短句，可以带语气词，想一下、顿住、笑出来的地方照实带出来。"
+        + (callVoiced ? (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK.replace(/^这条语音的内容里/, "台词里") : "") + (typeof voiceSoundHint === "function" ? voiceSoundHint() : "") : "");
       const callLines = (text, char) => callBilingualLines(text, !!(settingsFor(char.id) || {}).bilingual && !(settingsFor(char.id) || {}).engineerEyes, splitSayLine, hanLangOf(char));
       const callerName = callerIsChar ? ((people.find(p => p.id === cur.caller) || {}).name || "") : "";
       // 【通话是第五处】(v60.27 她 2026-09-02:「感觉语音视频没喂八股禁令进去」——是真的)
@@ -20003,7 +20014,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             }
           };
         })();
-        const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint + cameraHint;
+        const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint + callVoiceHint + cameraHint;
         const callMessages = window.CallCamera.withFrame(hist, cameraFrame);
         const raw = await callAI(apiFor(char.id), callSystem, callMessages, { use: "call", logWho: char.name || "", maxTokens: 65000, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
@@ -20099,7 +20110,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
-        const raw = await callAI(active, sys + callBiHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
+        const raw = await callAI(active, sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
