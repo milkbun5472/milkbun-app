@@ -456,7 +456,12 @@
             if (n === 1) delete one[page]; else one[page] = n;
             patchDraft({ pageZoom: one });
           };
+          // 别人在另一种宽度的手机上做的：一键按宽度比例缩过来（顶栏让刘海那一下是自动的，不用点）
+          const fit = page === "all" && studio.fitPlan ? studio.fitPlan(draft) : null;
           return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
+            fit ? h("button", { "data-wk": "themefit", onClick: () => { patchDraft(fit.patch); toast("已按这台手机的宽度缩放到 " + Math.round(fit.zoom * 100) + "%，点「先预览 30 秒」看看；不合适拖下面的拉条或点「还原」"); },
+              className: "w-full active:opacity-70", style: { minHeight: 44, marginBottom: 10, borderRadius: 12, border: "1px solid " + t.ink, background: t.ink, color: t.bg, fontFamily: F_BODY, fontSize: 13 } },
+              "一键适配我的手机（这份是在宽 " + fit.made + " 的手机上做的，你的是 " + fit.mine + "）") : null,
             h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
               h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
                 page === "all" ? "全 App 多大" : "这一页多大"),

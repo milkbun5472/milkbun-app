@@ -60,7 +60,7 @@ test("存档里带着它，也跟着主题包走", () => {
 test("拉条：每页一根，能还原，改完立刻进草稿", () => {
   const i = ui.indexOf('page === "all" ? "全 App 多大" : "这一页多大"');
   assert.ok(i > 0, "界面上没有这一格");
-  const seg = ui.slice(i - 900, i + 1400);
+  const seg = ui.slice(i - 1800, i + 1400);
   assert.ok(/type: "range"/.test(seg), "不是拉条");
   assert.ok(/step: 0\.05/.test(seg), "步子不对");
   assert.ok(/min: studio\.ZOOM_MIN \|\| 0\.8, max: studio\.ZOOM_MAX \|\| 1\.4/.test(seg), "上下限没问 ThemeStudio 要（两处各写一份迟早对不上）");
