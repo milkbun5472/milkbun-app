@@ -76,7 +76,7 @@ test("＋面板单聊群聊共用一个矮高度，能往下滑", () => {
 });
 
 test("我们的城市能切手绘/现实/架空，现实架空就是好友地图那两张，不另画", () => {
-  const dw = R("js/dwell.js");
+  const dw = (R("js/dwell-core.js") + "\n" + R("js/dwell.js"));
   assert.match(dw, /\[\["draw", "手绘"\], \["real", "现实"\], \["story", "架空"\]\]/);
   assert.match(dw, /h\(K\.MapWidget, \{ characters: \[char\]/);
   assert.match(dw, /h\(K\.WorldMapEmbed, \{ world: r\.world/);
@@ -87,7 +87,7 @@ test("我们的城市能切手绘/现实/架空，现实架空就是好友地图
 test("我们的城市每个人一份：换人就换城，旧版共用的按来往认领、认不出的留着让她捡", () => {
   global.localStorage = (() => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; })();
   global.window = global.window || {};
-  const src = R("js/dwell.js");
+  const src = (R("js/dwell-core.js") + "\n" + R("js/dwell.js"));
   const i = src.indexOf("  const DP_KEY"), j = src.indexOf("  window.DatePlaces = DatePlaces;");
   const DatePlaces = new Function("localStorage", src.slice(i, j) + "\nreturn DatePlaces;")(global.localStorage);
   localStorage.setItem("x_datePlaces", JSON.stringify([{ id: "a", name: "御马监跑马场", note: "", by: "" }, { id: "b", name: "面馆", by: "qz" }, { id: "c", name: "无主", by: "" }]));
@@ -209,7 +209,7 @@ test("「那天」收纳册：只收约过的（单聊的「那天」＋互通�
   assert.match(al, /gsFor\(g\.id\)\.memoryInterop/, "不互通的群不收");
   assert.match(al, /Array\.isArray\(m\.ids\) \? m\.ids\.includes\(charId\)/);
   assert.match(app, /kind: "datememory", place: sess\.datePlace, startTs: sess\.startTs, ids: /);
-  const dw = R("js/dwell.js");
+  const dw = (R("js/dwell-core.js") + "\n" + R("js/dwell.js"));
   assert.match(dw, /function DateAlbumCard\(/);
   assert.match(dw, /h\(DateMemoryCard, \{ m: m, character: \{ name: e\.who \}, fill: true \}\)/, "正面就是聊天里那张「那天」，不另画");
   assert.ok(dw.indexOf("THAT DAY") < 0, "dwell 里又抄了一份卡面");

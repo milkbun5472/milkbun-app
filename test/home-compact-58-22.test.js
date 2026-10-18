@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
-const dwell = fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8");
+const dwell = (fs.readFileSync(path.join(__dirname, "..", "js", "dwell-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8"));
 const grab = (a, b) => { const i = comp.indexOf(a), j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出：" + a); return comp.slice(i, j); };
 
 function makeHome(layout, folders) {

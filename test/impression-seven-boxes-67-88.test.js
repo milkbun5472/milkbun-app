@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/impression.js"), "utf8");
+const src = (fs.readFileSync(path.join(root, "js/impression-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/impression.js"), "utf8"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 
 // 真跑这一份：只补它加载时要的那几个全局，callAI 当桩把 sys 接下来

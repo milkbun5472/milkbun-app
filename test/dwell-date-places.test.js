@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const d = read("dwell.js"), a = read("app.js"), g = read("gacha.js");
+const d = (read("dwell-core.js") + "\n" + read("dwell.js")), a = read("app.js"), g = read("gacha.js");
 
 test("她自己钉的约会地点一份存着（x_datePlaces），去处顶上画成城市小地图", () => {
   assert.match(d, /localStorage\.getItem\("x_datePlaces"/);

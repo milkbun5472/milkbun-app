@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/impression.js"), "utf8");
+const src = (fs.readFileSync(path.join(root, "js/impression-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/impression.js"), "utf8"));
 
 function boot() {
   const sent = [];

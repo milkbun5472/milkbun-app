@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const R = f => fs.readFileSync(require.resolve("../js/" + f), "utf8");
-const app = R("app.js"), cmp = R("components.js"), sk = R("shike.js");
+const app = R("app.js"), cmp = R("components.js"), sk = (R("shike-core.js") + "\n" + R("shike.js"));
 
 test("卡上有去时刻里看，单聊、群聊、旧灰字那张都带上是谁的", () => {
   assert.match(sk, /function ShikeShareCard\(\{ m, isU, charId \}\)/);

@@ -2,9 +2,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), vm = require("vm");
-const src = fs.readFileSync(__dirname + "/../js/watch.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/watch-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/watch.js", "utf8"));
 
-const i = src.indexOf("function parseOnlineLink("), j = src.indexOf("let ytReady = null;", i);
+const i = src.indexOf("function parseOnlineLink("), j = src.indexOf("// 给测试用：纯函数", i)   // 2026-10-18 起这几个纯函数在 watch-core.js，切到它导出那行为止;
 assert.ok(i > 0 && j > i, "抠不出链接解析那两件");
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext(src.slice(i, j) + ";this.parse=parseOnlineLink;this.biliSrc=biliSrc;", ctx);

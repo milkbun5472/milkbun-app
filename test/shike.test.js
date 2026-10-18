@@ -7,7 +7,7 @@ const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 function kit() {
   const g = { React: { useState: () => [], useMemo: f => f() } };
-  new Function("window", "globalThis", "React", "h", "Svg", P("js/shike.js"))(g, g, g.React, () => null, () => null);
+  new Function("window", "globalThis", "React", "h", "Svg", P("js/shike-core.js") + "\n" + P("js/shike.js"))(g, g, g.React, () => null, () => null);
   return g.ShikeKit;
 }
 const D = (y, m, d, h) => new Date(y, m - 1, d, h || 12).getTime();
@@ -42,7 +42,7 @@ test("接进了回头看、页面路由、攻略、挂点名单", () => {
   assert.match(P("js/components.js"), /st = placeNewAppOnce\(st, "shike", "impression", "x_shikePlaced"\);/);
   assert.match(P("js/app.js"), /screen === "shike"\) body = h\(window\.ShikeApp, \{/);
   assert.match(P("js/assistant-manual.js"), /id: "shike", app: "shike", zh: "时刻"/);
-  assert.match(P("index.html"), /<script src="js\/shike\.js\?v=/);
+  assert.match(P("index.html"), /<script src="js\/shike-core\.js\?v=/);
 });
 
 test("两层：外层只有整屏高的卡横着滑，点进去才有时刻列表", () => {
@@ -162,7 +162,7 @@ test("第一轮：发给 TA、TA 偶尔想起一张旧的、TA 自己存一刻",
 });
 function kitNote(K, c, ctx) {
   const g = { React: { useState: () => [], useMemo: f => f() } };
-  new Function("window", "globalThis", "React", "h", "Svg", P("js/shike.js"))(g, g, g.React, () => null, () => null);
+  new Function("window", "globalThis", "React", "h", "Svg", P("js/shike-core.js") + "\n" + P("js/shike.js"))(g, g, g.React, () => null, () => null);
   return g.ShikeKit.chatNote(c, ctx);
 }
 
@@ -227,14 +227,14 @@ test("修：生图只回 blob 也能存；认识从在一起那天起算（更�
 });
 
 test("点「认识 N 天」能改认识那天：定了就以它为准，清空回到自动算", () => {
-  const s = P("js/shike.js");
+  const s = P("js/shike-core.js") + "\n" + P("js/shike.js");   // 2026-10-18 起认识那天的覆盖在 shike-core.js
   assert.match(s, /const MEET_KEY = "x_shikeMeet";/);
   assert.match(s, /const own = meetOverride\(c\.id\);\n\s*if \(own\) return own;/);
   assert.equal((s.match(/onClick: e => editMeet\(/g) || []).length, 2, "外层卡和里层顶上两处都能点");
   // 真跑：有覆盖就用覆盖
   const g = { React: { useState: () => [], useMemo: f => f() } };
   const store = { x_shikeMeet: { c1: D(2020, 5, 20) } };
-  new Function("window", "globalThis", "React", "h", "Svg", "loadJSON", P("js/shike.js"))(g, g, g.React, () => null, () => null, (k, d) => store[k] || d);
+  new Function("window", "globalThis", "React", "h", "Svg", "loadJSON", P("js/shike-core.js") + "\n" + P("js/shike.js"))(g, g, g.React, () => null, () => null, (k, d) => store[k] || d);
   const ms = g.ShikeKit.momentsFor({ id: "c1", name: "江识" }, { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: {}, profile: {}, uName: "Lisa" });
   assert.ok(ms.some(m => m.title === "认识 5 周年"), "定了 2020-05-20，就该有认识 5 周年");
 });

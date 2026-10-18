@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const hl = fs.readFileSync(__dirname + "/../js/health.js", "utf8");
+const hl = (fs.readFileSync(__dirname + "/../js/health-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/health.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("健康：目标补齐、立约、每周小结、小习惯都接上了", () => {
   assert.ok(/goal: \{ kcal: 1800, water: 8, kg: null, sleepH: null, bedBy: null, steps: null, sportWeek: null \}/.test(hl));

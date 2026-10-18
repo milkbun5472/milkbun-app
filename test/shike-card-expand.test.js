@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "shike.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "shike-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "shike.js"), "utf8"));
 // 她 2026-10-06：「这个时刻卡看不完啊而且还是很普通」
 test("聊天里的时刻卡点一下能展开看全，不再写死两行", () => {
   const i = src.indexOf("function ShikeShareCard("), j = src.indexOf("g.ShikeShareCard = ShikeShareCard;", i);

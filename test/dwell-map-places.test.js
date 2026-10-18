@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
-const d = fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8");
+const d = (fs.readFileSync(path.join(__dirname, "..", "js", "dwell-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8"));
 
 test("TA钉在架空世界里时，那张图上的地点都列出来，点了就写那一处", () => {
   assert.match(d, /window\.MapKit\.charRealm\(char, worlds\)/);

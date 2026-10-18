@@ -5,7 +5,7 @@ const path = require("node:path");
 // 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
 const { ruleText } = require("./_rules.js");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const dwell = R("dwell.js"), comp = R("components.js");
+const dwell = (R("dwell-core.js") + "\n" + R("dwell.js")), comp = R("components.js");
 
 function load() {
   const store = {}; const w = {};
