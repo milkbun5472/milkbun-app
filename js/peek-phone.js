@@ -463,5 +463,24 @@
             boxShadow: "0 8px 24px rgba(0,0,0,.22)", fontStyle: "italic", animation: "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" } }, "（" + thought + "）")) : null);
   }
 
-  window.PeekPhone = { PeekPlayer, cleanScript, findByText, STEP_CAP };
+  // 她的「日常联系人」：编出来的人没有真聊天页，录像点开时摆这一页（只读），TA看到的就是这几句。
+  //   顶栏走公共 Head（mobile-ui-layout），盖在 app 上、垫在录像那层透明遮罩下面
+  function PeekDailyChat({ person, onBack }) {
+    const h = React.createElement, t = (typeof useTheme === "function" ? useTheme() : {}) || {};
+    const FB = typeof F_BODY !== "undefined" ? F_BODY : "inherit";
+    const p = person || {}, ls = Array.isArray(p.lines) ? p.lines : [];
+    const head = typeof Head === "function" ? h(Head, { zh: S(p.name) || "聊天", onBack: onBack }) : null;
+    return h("div", { "data-wk": "peekdaily", className: "flex flex-col", style: { position: "fixed", inset: 0, zIndex: 9980, background: t.bg || "#f4f1ec" } },
+      head,
+      h("div", { className: "flex-1", style: { overflowY: "auto", padding: "14px 14px 40px" } },
+        p.rel ? h("div", { style: { textAlign: "center", fontFamily: FB, fontSize: 11, color: t.fog, margin: "0 0 12px" } }, S(p.rel)) : null,
+        ls.map((l, i) => {
+          const me = !!(l && l.me);
+          return h("div", { key: i, className: "flex " + (me ? "justify-end" : "justify-start"), style: { margin: "0 0 8px" } },
+            h("div", { "data-wk": "peekdailybubble", "data-me": me ? "1" : "0", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: FB, fontSize: 14, lineHeight: 1.6,
+              background: me ? (t.ink || "#333") : (t.bg2 || "#fff"), color: me ? (t.bg2 || "#fff") : (t.ink || "#333"), border: me ? "none" : "1px solid " + (t.line || "#ddd") } },
+              S(l && l.text)));
+        })));
+  }
+  window.PeekPhone = { PeekPlayer, PeekDailyChat, cleanScript, findByText, STEP_CAP };
 })();

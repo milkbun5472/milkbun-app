@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.987";
+const APP_VERSION = "v75.988";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -481,6 +481,8 @@ function App() {
   const [screen, setScreen] = useState("home");
   // 他正在翻她的手机（递手机那一路的录像播放）：{ charId, allow, seen, hidden, script|null }
   const [peekPlay, setPeekPlay] = useState(null);
+  // 递手机录像里点开的那位「日常联系人」（群里 2026-10-18：编出来的人她也要看得到TA翻到了什么）
+  const [peekDailyView, setPeekDailyView] = useState(null);
   const [dreamEnterKey, setDreamEnterKey] = useState(null); // 解梦馆 → 梦境：要推开的是哪一场（v62.99 合龙）
   // 时光胶囊从某一段情侣空间进入：只把那位对象带进胶囊页，绝不展示全库。
   useEffect(() => {
@@ -11065,8 +11067,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
   const peekOffRef = useRef(false);
   const peekOffClose = () => { if (peekOffRef.current) { peekOffRef.current = false; setOfflineChar(null); } };
+  // 这一趟录像里摆不摆日常联系人：勾了才摆；回放看当时TA读到的材料里有没有
+  const peekDailyShown = () => {
+    const p = peekPlay; if (!p) return null;
+    const on = (p.allow || []).includes("daily") || (p.replay && String(p.seen || "").indexOf("【她手机里的日常联系人") >= 0);
+    const dl = on ? peekDailyOf(p.charId) : null;
+    return dl && Array.isArray(dl.people) && dl.people.length ? dl.people.slice(0, 8) : null;
+  };
   const peekOpen = (app, who) => {
     peekOffClose();
+    setPeekDailyView(null);
     // 线下往期（她 2026-10-12：「查手机看线下根本没点进去」——原来只点开那个人的聊天，停在线上）：
     //   进那个人的线下，直接摊开「往期线下记录」那张单子。openOffline 只读存储、不开新场，翻一眼不会动到她的线下。
     if (app === "offline") {
@@ -11086,11 +11096,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const g = (groupsRef.current || []).find(x => x && x.name === who && ok(x.id) && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
       if (g) { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); return; }
       setScreen("messages");
+      const dp = (peekDailyShown() || []).find(x => x && String(x.name) === String(who));
+      if (dp) setPeekDailyView(dp);
       return;
     }
     if (PEEK_APP_ZH[app]) setScreen(app);
   };
   const peekBack = () => {
+    if (peekDailyView) { setPeekDailyView(null); return; }
     if (peekOffRef.current) { peekOffClose(); return; }
     // 照屏幕上那颗返回键点（公共顶栏的返回键挂着 data-watch="back"，「看他玩」也靠它；聊天页是 chatback）；找不到就回主屏
     const btn = document.querySelector('#root [data-watch="back"]') || document.querySelector('#root [data-wk="chatback"]') || document.querySelector('#root [aria-label="返回"]');
@@ -11614,6 +11627,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const peekDone = thoughts => {
     peekOffClose();
+    setPeekDailyView(null);
     const p = peekPlay;
     setPeekPlay(null);
     try { window.__peekHide = null; window.__peekMask = null; } catch (e) {}
@@ -30355,6 +30369,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     offlineLastTs: (() => { const m = { ...offlineTsRef.current }; const scan = store => { Object.keys(store || {}).forEach(id => { let t = 0; (store[id] || []).forEach(s => { const ms = s.msgs || []; const lt = ms.length ? (ms[ms.length - 1].ts || 0) : 0; if (lt > t) t = lt; }); m[id] = t; }); }; scan(offlines); scan(groupOfflines); return m; })(), // 线下最后一条时间(每场取末条)，供聊天列表排序（线下冒泡也顶上来）。base=开机种子(兜懒加载没灌的)，state 扫描覆盖已打开的（含删空→0）
     tab: msgTab,
     onTab: setMsgTab,
+    peekDaily: peekDailyShown(),
+    onOpenDaily: p => setPeekDailyView(p),
     onOpenSettings: () => setScreen("config"),   // 备份告警那条横幅点一下直接去设置
     onBack: goHome,
     onOpenThread: c => {
@@ -33060,6 +33076,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 点了出发就带她过去（她 2026-10-14「还是得手动进他聊天」）：跟消息提醒点进去是同一处
       openChatById(d.groupId || d.charId, d.groupId ? "group" : undefined); },
     onLater: () => setDateArrive(null)
+  }), peekPlay && peekDailyView && window.PeekPhone && window.PeekPhone.PeekDailyChat && h(window.PeekPhone.PeekDailyChat, {
+    person: peekDailyView, onBack: () => setPeekDailyView(null)
   }), peekPlay && window.PeekPhone && h(window.PeekPhone.PeekPlayer, {
     charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",
     avatarChar: (characters || []).find(x => x.id === peekPlay.charId),
