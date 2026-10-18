@@ -23342,6 +23342,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forumShareText = (post, tags) => "[转发了一条贴吧帖]「" + post.board + "」《" + post.title + "》｜"
     + forumWithPhoto(String(post.body || "").replace(/\s+/g, " ").slice(0, 160), post) + "｜作者显示：" + post.authorName
     + forumShareFloors(post) + (tags || "");
+  // 帖子／一楼评论转进论坛私信（群友 2026-10-18 许愿）：就当她在私信里发了这一段，对方照常回
+  const forwardPostToPM = (post, threadId) => {
+    const who = post.anon || post.board === "匿名吧" ? "匿名" : (post.authorName || "");
+    const txt = "〔转给你看〕" + (who ? who + " 在" : "") + "【" + (post.board || "论坛") + "】" + "《" + String(post.title || "").slice(0, 40) + "》：" + String(post.body || "").replace(/\s+/g, " ").slice(0, 300);
+    sendForumPM(threadId, txt);
+    toast("转过去了");
+  };
   const forwardPostToChat = (post, toChar) => {
     pChat(toChar.id, p => [...p, {
       role: "user", kind: "forumshare",
@@ -23819,6 +23826,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 清私信（她 2026-09-01：「加一个清理可以清掉私信」）。
   // 私信是【现在还挂着谁】那一类，不是发生过什么的日志——聊完了、不想理了就该能删掉。
   // 而且它和上面那条杠精配额是一对的：手上那个杠精被清掉，下一次刷新才可能再来一个。
+  // 私信里删一条（群友 2026-10-18：「私信能单个删除，看见有一个清理但是没敢点怕全部删」）
+  const delForumPMMsg = (threadId, idx) => setForumPMs(prev => { const n = prev.map(t => t && t.id === threadId ? { ...t, messages: (t.messages || []).filter((_, i) => i !== idx) } : t); saveJSON("x_forumPMs", n); return n; });
   const delForumPM = threadId => setForumPMs(prev => { const n = prev.filter(t => t && t.id !== threadId); saveJSON("x_forumPMs", n); return n; });
   const clearForumPMs = () => setForumPMs(() => { saveJSON("x_forumPMs", []); return []; });
   // 一个网友在私信里【是谁】（她 2026-09-01 说的就是这件事）：
@@ -24164,6 +24173,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // knownFloor：刚开的那层楼直接递进来。⚠️不能只靠 forumCommentsRef 现找——setForumComments 刚调，
   //   ref 还没跟上，找不到就退成 {}，层主成了一个叫「层主」的无名路人，于是「层主 回复 @她」
   //   （她 2026-09-23 截图：自己新开的楼里冒出一个层主，v73.303 修的是另一条路没修到这儿）。
+  // 私信和评论区是同一个人（群友 2026-10-18：「刚和一个 NPC 私信聊完，转头在评论区打招呼，说不认识我」）：
+  //   跟她用【同一个号】私信过的网友，在评论区碰到她认得出；私信里聊的具体内容是两人之间的，评论区是公开的。
+  const forumPmKnow = (post, names) => {
+    if (!post || post.board === "匿名吧" || post.anon) return "";
+    const alt = !!usingAlt(post), me = myForumName(post), want = new Set((names || []).filter(Boolean).map(String));
+    const ths = (forumPMsRef.current || []).filter(t => t && !t.charId && !!t.alt === alt && want.has(String(t.npcName)) && (t.messages || []).length).slice(0, 3);
+    if (!ths.length) return "";
+    return "【这几位跟「" + me + "」私信里聊过——在这儿碰到她认得她，就是私信里那个人】\n"
+      + ths.map(t => "· 「" + t.npcName + "」：" + t.messages.slice(-6).map(m => (m.from === "me" ? me : t.npcName) + "：" + String(m.text || "").slice(0, 60)).join(" / ")).join("\n")
+      + "\n私信里的事是你们两个人之间的，评论区是公开的：认得她、语气接得上就行，私信里的具体内容别当众说出来。\n";
+  };
   const genRepliesToMe = async (post, floorId, myText, toName, knownFloor) => {
     if (!active) return;
     setGen(g => ({ ...g, forumReplyMe: floorId }));
@@ -24215,7 +24235,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + (isSearch ? "" : forumActiveChars().filter(c => !groundedR.has(c.id) && forumInWorld(c, post))
             .map(c => forumCharGrounding(c, post, "这层楼里可能开口的", myText)).join(""));
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText, forumThreadWorld(post)), {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR
+          + forumPmKnow(post, [resp.name, floor.authorName, post.authorName].concat((floor.replies || []).map(r => r && r.authorName))) + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
           + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
@@ -30957,6 +30978,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onRenameBoard: renameForumBoard,
     onDropBoard: dropForumBoard,
     onSendPM: sendForumPM,
+    onDelPMMsg: delForumPMMsg,
+    onForwardToPM: forwardPostToPM,
     onAskWechat: askForumWechat,
     onOpenWechat: id => openChatById(id),
     onMarkPMRead: markPMRead,

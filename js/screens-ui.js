@@ -2055,7 +2055,7 @@ function Forum({
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
-  onRefreshPMs, onSendPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
+  onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onDeletePost, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
   toast
@@ -2134,6 +2134,8 @@ function Forum({
   const [photoView, setPhotoView] = useState(null);
   const forumPhotoCard = (x, max) => { const ph = forumPhotoOf(x); return ph ? h("div", { style: { marginTop: 8 } }, h(PhotoCard, { m: ph, max: max, onOpen: () => setPhotoView({ ...ph, itemId: x.id }) })) : null; };
   const [replyTo, setReplyTo] = useState(null);
+  const [pmSel, setPmSel] = useState(-1);   // 私信里点中的那一条（点一下出「删掉这条」）
+  useEffect(() => { setPmSel(-1); }, [pmId]);
   const [pmClean, setPmClean] = useState(false);   // 私信列表的「清理」档      // {floorId,name} 楼中楼目标
   const [liked, setLiked] = useState(() => {
     try { const x = JSON.parse(localStorage.getItem("x_forumLikes") || "[]"); return new Set(Array.isArray(x) ? x : []); } catch (e) { return new Set(); }
@@ -2507,6 +2509,9 @@ function Forum({
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
+              // 转发这一楼（群友 2026-10-18）：跟转帖同一个面板，私聊、群聊、论坛私信都能去
+              cm.content && h("button", { onClick: e => { e.stopPropagation(); setFwd({ board: post.board, title: "「" + String(post.title || "").slice(0, 20) + "」里的一楼", body: cm.content, authorName: cm.authorName, anon: !!(cm.anon || post.anon) }); },
+                title: "转发这一楼", "aria-label": "转发这一楼", className: "shrink-0 active:opacity-60 flex items-center", style: { padding: "0 2px" } }, h(ISend, { size: 13, color: FORUM_SKIN.fog })),
               // 删楼（她 2026-10-02 转群友）：跟删帖同一颗 ✕、同一种问法
               onDeleteFloor && cm.id && h("button", { onClick: e => { e.stopPropagation();
                 requestAppConfirm("删掉这一楼", (cm.authorType === "me" ? "这楼是你自己写的，删了回不来。" : "") + "楼里的楼中楼也一起删。", () => onDeleteFloor(post.id, cm.id), "删掉"); },
@@ -2855,9 +2860,14 @@ function Forum({
         th.messages.map((m, i) => h(Fragment, { key: i },
           // 时间：跟上一条隔了五分钟以上（或第一条）才插一行，跟聊天里一样
           m.ts && (i === 0 || !th.messages[i - 1].ts || m.ts - th.messages[i - 1].ts > 300000) ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0" } }, new Date(m.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })) : null,
-          h("div", { className: "flex " + (m.from === "me" ? "justify-end" : "justify-start") },
+          h("div", { className: "flex " + (m.from === "me" ? "justify-end" : "justify-start"), onClick: () => onDelPMMsg && setPmSel(pmSel === i ? -1 : i) },
           h("div", { "data-wk": "block", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, STX(m.text))))),
         sending && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
+      // 点中一条：只删这一条（清理那颗删的是整个对话）
+      pmSel >= 0 && th.messages[pmSel] ? h("div", { "data-wk": "pmmsgdel", className: "shrink-0 px-4 py-2 flex items-center", style: { borderTop: `1px solid ${t.line}`, gap: 10 } },
+        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "选中：" + String(th.messages[pmSel].text || "")),
+        h("button", { onClick: () => setPmSel(-1), className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
+        h("button", { onClick: () => { onDelPMMsg(th.id, pmSel); setPmSel(-1); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删掉这条")) : null,
       h("div", { className: "shrink-0 px-4 py-3 flex gap-2", style: { borderTop: `1px solid ${t.line}` } },
         h("input", { "data-wk": "input", value: pmText, onChange: e => setPmText(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "回 " + th.npcName + "…", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
         h("button", { onClick: send, disabled: sending, className: "px-4 rounded-lg active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发送")));
@@ -3021,6 +3031,10 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "私聊"),
       h("div", { className: "space-y-1 max-h-44 overflow-y-auto mb-3" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { onForwardToChat(fwd, c); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h(Avatar, { character: c, size: 32, radius: 8 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name)))),
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "群聊"),
+      onForwardToPM && (pms || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 8px" } }, "论坛私信"),
+      onForwardToPM && (pms || []).length > 0 && h("div", { "data-wk": "fwdpm", className: "space-y-1 max-h-40 overflow-y-auto mb-3" }, (pms || []).slice(0, 30).map(th => h("button", { key: th.id, onClick: () => { onForwardToPM(fwd, th.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60", style: { minHeight: 40 } },
+        h(Avatar, { character: { name: th.npcName }, size: 32, radius: 999 }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, th.npcName + (th.alt ? "（小号聊的）" : ""))))),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
     photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null,
