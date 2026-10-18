@@ -32680,14 +32680,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onAddMemories: (charId, items) => (items || []).forEach(txt =>
         addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
       // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
+      //   TA 开了别的房间（js/chat-rooms.js）的，房间里的也一起给，按时间排，标上是哪个房间（她 2026-10-18：「秋秋看不到房间的聊天记录」）
       recentChatFor: (charId, n) => {
         const c = characters.find(x => x.id === charId); const uN = userName(profile);
-        return ((chatsRef.current || {})[charId] || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant" || m.role === "narration"))
-          .slice(-(n || 40)).map(m => {
+        const CR = window.ChatRooms, all = chatsRef.current || {};
+        const rooms = CR ? CR.list(charId).filter(r => r && !r.main) : [];
+        const ok = m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant" || m.role === "narration");
+        const pool = (all[charId] || []).filter(ok).map(m => ({ m: m, room: "" }));
+        rooms.forEach(r => (all[CR.chatKey(charId, r.id)] || []).filter(ok).forEach(m => pool.push({ m: m, room: r.name || "房间" })));
+        if (rooms.length) pool.sort((a, b) => (a.m.ts || 0) - (b.m.ts || 0));
+        return pool.slice(-(n || 40)).map(({ m, room }) => {
             const d = new Date(m.ts || 0);
             const when = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
             const who = m.role === "user" ? uN : m.role === "narration" ? "旁白" : ((c && c.name) || "TA");
-            return when + " " + who + (m.kind === "ooc" ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
+            return when + (room ? "〔" + room + "〕" : "") + " " + who + (m.kind === "ooc" ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
           });
       },
       // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
