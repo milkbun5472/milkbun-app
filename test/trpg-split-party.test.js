@@ -3,8 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
-const { applyTurnPayload, foldHist } = require("../js/trpg.js");
+const src = (fs.readFileSync(path.join(root, "js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/trpg.js"), "utf8"));
+const { applyTurnPayload, foldHist } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
 // 分头行动(她 2026-09-04:跑团还是单调)——队伍分两路,一次调用写两条线:

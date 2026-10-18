@@ -3,8 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
-const { applyTurnPayload, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, foldHist } = require("../js/trpg.js");
+const src = (fs.readFileSync(path.join(root, "js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/trpg.js"), "utf8"));
+const { applyTurnPayload, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, foldHist } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
 // 离线这几天(她 2026-09-04:「4 要是我一周不玩咋办」)——隔了一天以上回来,世界没停:

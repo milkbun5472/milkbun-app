@@ -3,8 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
-const { applyTurnPayload, normOrder } = require("../js/trpg.js");
+const src = (fs.readFileSync(path.join(root, "js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/trpg.js"), "utf8"));
+const { applyTurnPayload, normOrder } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
 // 险境行动表(她 2026-09-04:跑团还是单调)——原来危险拍的 order 只是一枚「⚔ 顺序」角标。

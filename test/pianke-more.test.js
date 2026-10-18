@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const live = fs.readFileSync(path.join(__dirname, "../js/live.js"), "utf8");
-const shua = fs.readFileSync(path.join(__dirname, "../js/shua.js"), "utf8");
+const shua = (fs.readFileSync(path.join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/shua.js"), "utf8"));
 
 function liveKit() {
   const win = {};

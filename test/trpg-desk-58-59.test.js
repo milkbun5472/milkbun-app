@@ -2,8 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "trpg.js"), "utf8");
-const { trpgDeskBg, trpgHour } = require("../js/trpg.js");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "trpg.js"), "utf8"));
+const { trpgDeskBg, trpgHour } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 const grab = (a, b, cap) => {
   const i = src.indexOf(a), j = src.indexOf(b, i);
   assert.ok(i > 0 && j > i && (!cap || j - i < cap), "抠不出：" + a);
