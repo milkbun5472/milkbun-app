@@ -6675,6 +6675,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (liked) acts.push("你点了赞");
         if (myC.length) acts.push("你评论了「" + myC.join("；") + "」");
         if (!acts.length) acts.push("你没点赞也没评论");
+        if ((m.remind || []).includes(char.id)) acts.unshift("她发的时候特意提醒了你看");
         out.push("· 用户发的「" + String(m.content || "").slice(0, MOMENT_LOG_LEN) + "」：" + acts.join("，"));
       });
       // 你自己发过的动态 + 评论区摘要（不然用户在你帖子下回了你、聊天里你却一脸茫然）
@@ -11160,7 +11161,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她的朋友圈谁刷得到（她 2026-10-09）：挑了「谁可以看」就照那个名单；没挑的话，是主面具的朋友圈——
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
   // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
-  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || ""));
+  const momSeen = (m, charId) => !!m && !!m.mine && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -21973,6 +21974,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     content,
     image,
     visibleTo,
+    remind,
     poll,
     mask
   }) => {
@@ -21983,6 +21985,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content,
       image: image || null,
       visibleTo: visibleTo || null,
+      remind: Array.isArray(remind) && remind.length ? remind.slice(0, 20) : null,
       mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
       poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ts: Date.now(),
@@ -22018,14 +22021,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
-        return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "");
+        return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "") + ((mom.remind || []).includes(c.id) ? " 【她发的时候提醒了TA看】" : "");
       }).join("\n");
+      // 提醒谁看：点了名的人收到的是「她提醒你看」，不是自己刷到的——一定看见了，也知道是冲着自己来的
+      const remindNames = (mom.remind || []).map(id => (liveChars.find(c => c.id === id) || {}).name).filter(Boolean);
+      const remindAsk = remindNames.length ? "\n\n【她提醒了 " + remindNames.join("、") + " 看这条】他们是收到提醒点进来的，一定看见了，也知道她是特意叫自己看——每人都要有反应（赞、评论或两样都有）。怎么回由 TA 自己：可能接她的话、可能问她为什么叫自己、可能嘴上嫌弃还是回了；别写成一样的口气。" : "";
       const socialLore = loreForContext("social", canSee.map(c => c.id), mom.content);
       // 投票：每人照自己的性子、跟她的关系和对这件事的看法投一票（也可以不投），评论里可以说为什么
       const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
         + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
         + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"

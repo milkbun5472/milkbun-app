@@ -8686,6 +8686,15 @@ function NameCardMsg({ m, characters, onOpen }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "5px 13px 7px", borderTop: "1px solid " + t.line } }, "个人名片"));
 }
 // 朋友圈投票：每个选项一条，条有多长＝几票，底下写谁投的
+// 「提醒了谁看」那一行：动态流和个人页同一个
+function MomentRemindLine({ m, characters }) {
+  const t = useTheme();
+  const ids = (m && m.remind) || [];
+  if (!ids.length) return null;
+  const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+  const names = ids.map(nm).filter(Boolean);
+  return names.length ? h("div", { "data-wk": "moremindline", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "提醒了 ", h("span", { style: { color: t.tint } }, names.join("、")), " 看") : null;
+}
 function MomentPoll({ poll, characters }) {
   const t = useTheme();
   const votes = poll.votes || {}, names = Object.keys(votes), total = names.length;
@@ -8713,6 +8722,9 @@ function MomentCompose({
   const [img, setImg] = useState("");
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
+  // 提醒谁看（群里许咏安 2026-10-18：「朋友圈可不可以加一个提醒谁看」）：点名的人一定刷到、知道是她特意叫的
+  const [remind, setRemind] = useState([]);
+  const toggleRemind = id => setRemind(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   // 用哪张面具发（她 2026-10-11）：只有一张面具时这一行不出现
   const maskList = (typeof window !== "undefined" && window.__momentMasks) ? window.__momentMasks() : [];
   const [mask, setMask] = useState("");
@@ -8737,7 +8749,8 @@ function MomentCompose({
     onPost({
       content: body,
       image,
-      visibleTo: vis === "all" ? null : sel,
+      visibleTo: vis === "all" ? null : [...new Set([...sel, ...remind])],   // 提醒了谁，谁就得看得见
+      remind: remind.length ? remind : null,
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
       mask: mask || undefined
     });
@@ -8830,6 +8843,14 @@ function MomentCompose({
         h(Avatar, { character: { name: mk.name, avatarImage: mk.avatarImage, color: mk.color }, size: 28, radius: 999 }), mk.name + (mk.id ? "" : "（主面具）"));
     })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "没挑「谁可以看」的话，跟你用这张面具聊的人刷得到。")) : null,
+  h(Eyebrow, { style: { margin: "6px 0 8px" } }, "提醒谁看"),
+  h("div", { "data-wk": "moremind", className: "flex flex-wrap gap-2 mb-1" }, characters.map(c => {
+    const on = remind.includes(c.id);
+    return h("button", { key: c.id, "data-on": on ? "1" : "0", onClick: () => toggleRemind(c.id), className: "active:opacity-70 flex items-center gap-2",
+      style: { minHeight: 40, padding: "4px 12px 4px 5px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 13 } },
+      h(Avatar, { character: c, size: 28, radius: 999 }), (on ? "@" : "") + (c.remark || c.name));
+  })),
+  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "0 0 12px", lineHeight: 1.5 } }, remind.length ? "点了的人一定刷得到这条，也知道是你特意叫 TA 看的；选了「部分可见」也会自动把 TA 加进去。" : "不点就照常：谁刷到、回不回看各人。"),
   h(Eyebrow, {
     style: {
       margin: "6px 0 8px"
@@ -9363,7 +9384,7 @@ function MomentsFeed({
     }, "收进时刻"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }
-    }, "删除")), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
+    }, "删除")), h(MomentRemindLine, { m, characters }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -9585,6 +9606,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "评论"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "删除")),
+    h(MomentRemindLine, { m, characters }),
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
     (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm }))))) : null,
