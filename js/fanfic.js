@@ -5907,7 +5907,7 @@
     // 整个 App 套上她选的那张纸：卡片、标签、深浅交替全都读 useTheme()，
     // 换张纸自动跟着走，一个组件都不用改。
     return onPaper(
-      h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+      h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: true }), "data-wk": "ficpage" },   // 外层挂点：同人文首页那层纸（她 2026-10-18 群里「背景改不了」）
       inner,
       showNav ? h(BottomNav, { view: view, onNav: function (k) { setView(k); } }) : null,
       gearOpen ? h(GenSheet, { tab: curTab, cps: cps, characters: cast, userName: userName, onClose: function () { setGearOpen(false); }, onConfirm: doGen }) : null,
