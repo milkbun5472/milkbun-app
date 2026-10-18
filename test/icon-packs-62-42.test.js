@@ -98,7 +98,8 @@ test("工作台：整套贴纸纸 + 自带底开关 + 一次多张，三样都�
   assert.match(ui, /patchDraft\(\{ iconBare: !draft\.iconBare \}\)/, "开关拨不动");
   assert.match(ui, /multiple: true, onChange: chooseIcons/, "没有一次多张的入口");
   assert.match(ui, /byName\[k\.toLowerCase\(\)\] = k; byName\[zh\] = k;/, "文件名对 App 得同时认 key 和中文名");
-  assert.match(ui, /认不出：/, "认不出的文件必须报出来，不许悄悄丢");
+  // 2026-10-18 起认不出的那几张摆到列表上面让她手动点给哪个 App，提示里报出张数
+  assert.match(ui, /张认不出是哪个 App，摆在列表上面了/, "认不出的文件必须报出来，不许悄悄丢");
   // 不是一排药丸：贴纸纸是方角小圆角 + 歪一点，选中的不歪
   assert.match(ui, /transform: on \? "none" : "rotate\(-1\.2deg\)"/);
 });
