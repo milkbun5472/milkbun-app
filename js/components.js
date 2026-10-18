@@ -19727,21 +19727,23 @@ function offlineSubSkin(t, withHead) {
 // pages: [{ key, char, title, tint, state() }]
 function SettingCatalog({ pages, onOpen, note }) {
   const t = useTheme();
-  return h("div", { style: { marginTop: 6 } },
+  // 挂点（群里 2026-10-18：「这个界面要是能改就好了，还有他点开的页面」）：目录、每张卡、卡里三样、底下那张说明
+  return h("div", { "data-wk": "setcatalog", style: { marginTop: 6 } },
     // ⚠️不是两列大卡：一眼扫不完的东西，不管怎么分类都难找（线上那次的教训）。
     h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pages.map(page => h("button", {
       key: page.key,
+      "data-wk": "setcard", "data-key": page.key,
       onClick: () => onOpen(page.key),
       className: "w-full flex items-center active:opacity-70",
       style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
     },
-      h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
+      h("span", { "data-wk": "setcardicon", style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
       h("span", { className: "flex-1 min-w-0" },
-        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
-        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
+        h("span", { "data-wk": "setcardtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
+        h("span", { "data-wk": "setcardsub", style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "\u203a")
     ))),
-    note ? h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
+    note ? h("div", { "data-wk": "setnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
 }
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
@@ -19749,16 +19751,16 @@ function SettingSection({ title, open, onToggle, danger, children }) {
   //   光靠发丝线分隔的几行字浮在纹理上，看着像还没画完（她 2026-09-05：
   //   「聊天设置里面的子页也还是白屏很无聊」——无聊的一半是这个）。
   //   卡片压在纸上才立得住，也才对得上这一页「一叠档案卡」的样子。
-  return h("div", { style: { borderRadius: 15, border: "1px solid " + t.line,
+  return h("div", { "data-wk": "setsection", "data-on": open ? "1" : "0", style: { borderRadius: 15, border: "1px solid " + t.line,
     // ⚠️skinAlpha 收的是【两位十六进制后缀】，不是 0-1 的小数：传 .82 会拼出
     //   "#xxxxxx0.82" 这种废值（六位色号才拼，所以只有真拼上的时候才坏，
     //   非六位的反而原样返回——正是 v59.62 那种只在某些主题下静默出错的长相）。
     background: skinAlpha(t.bg2, open ? "f5" : "d4"), marginBottom: 9, overflow: "hidden",
     boxShadow: open ? "0 3px 14px rgba(40,34,26,.07)" : "none", transition: "box-shadow .2s" } },
-    h("button", { onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
+    h("button", { "data-wk": "setsectionhead", onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: danger ? t.accent : t.ink } }, title),
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
-    open ? h("div", { style: { padding: "0 14px 12px" } }, children) : null);
+    open ? h("div", { "data-wk": "setsectionbody", style: { padding: "0 14px 12px" } }, children) : null);
 }
 function RoomResume({ room, messages, character }) {
   const t = useTheme(), lines = window.ChatRooms.resumeLines(messages);
