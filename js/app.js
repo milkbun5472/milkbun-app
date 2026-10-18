@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.997";
+const APP_VERSION = "v75.998";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -31360,6 +31360,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     // 她出戏立的长期准则：跟单聊同一份（一起学里也算数）
     directivesFor: c => (c && directives[c.id]) || [],
+    // 学习准则（她 2026-10-18：「单开一份准则专门管学习的，还可以指定教学风格，聊天不需要带上」）：
+    //   存在这个人的聊天设置里（studyStyle / studyRules），只有一起学读，单聊、线下一律不带
+    studyRulesFor: c => { const st = (c && settingsFor(c.id)) || {}; return { style: String(st.studyStyle || ""), rules: Array.isArray(st.studyRules) ? st.studyRules : [] }; },
+    onSaveStudyRules: (id, patch) => patchChatSetting(id, patch),
     // 三人课堂：两位角色之间设定过的关系（有方向：a->b 是 a 眼里的 b）
     relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,
