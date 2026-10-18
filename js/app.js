@@ -22082,7 +22082,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
-        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）"; }
+        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）"; }
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
@@ -22746,7 +22746,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id) && charWorldOf(c.id) === genW).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
       const cast = castPool.length && Math.random() < FORUM_CAST_CHANCE ? castPool[Math.floor(Math.random() * castPool.length)] : null;
       const castLine = cast
-        ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。" + String(cast.n.persona || "").replace(/\s+/g, " ").slice(0, 400)
+        ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。\n【TA的人设】" + (typeof groupPersonaText === "function" ? groupPersonaText(cast.n.persona, NPC_PERSONA_CAP) : String(cast.n.persona || "").slice(0, 900))
+          // 配角跑成别人（她 2026-10-18：「论坛 npc 会 ooc」）：原来人设只截前 400 字、又跟网友那几条一个腔调写，TA就成了随便哪个网友
+          + "\n这一条的口气、用词、在意的事都照这个人来，网友那几条的腔调别带进TA这一条；TA不知道的事别替TA知道。"
           + "\n那一条填 cast:true，authorName／handle 写TA在网上用的网名（跟TA这个人对得上，不必是本名）；"
           + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
         : "";
