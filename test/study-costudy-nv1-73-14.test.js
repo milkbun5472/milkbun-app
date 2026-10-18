@@ -41,7 +41,7 @@ const d1 = box.directNv1(null, { transcript: [{ role: "user", content: "这题�
 assert.strictEqual(d1.lead + "/" + d1.named, "teacher/false");
 const d2 = box.directNv1(null, { transcript: [{ role: "user", content: "小周你说呢" }] }, T, P, {});
 assert.strictEqual(d2.lead + "/" + d2.named, "peer/true");
-box.stripName = x => String(x || "").trim(); box.guardOverspeak = x => x;
+box.stripName = x => String(x || "").trim(); box.guardOverspeak = x => x; box.sayStr = x => (x && typeof x === "object") ? String(x.voice || x.text || x.say || "") : String(x == null ? "" : x);
 vm.runInContext(fnSrc("parseTurns"), box);
 const turns = box.parseTurns(JSON.stringify({ turns: [{ name: "陆老师", say: ["先看这一步"] }, { name: "小周", say: ["哦！"] }, { name: "陆老师", say: [] }] }), T, P);
 assert.strictEqual(turns.map(t => t.char.id + ":" + t.says.join("|")).join(","), "t:先看这一步,p:哦！", "按先后落泡，空的那段不出现");

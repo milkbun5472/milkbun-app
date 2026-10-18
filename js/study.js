@@ -579,7 +579,7 @@
     let turns = Array.isArray(d.turns) ? d.turns : [];
     if (!turns.length && d.say) turns = [{ name: teacher.name, say: d.say }];
     return turns.map(function (t) {
-      const says = (Array.isArray(t && t.say) ? t.say : (t && t.say ? [t.say] : [])).map(stripName).map(guardOverspeak).filter(Boolean);
+      const says = (Array.isArray(t && t.say) ? t.say : (t && t.say ? [t.say] : [])).map(sayStr).map(stripName).map(guardOverspeak).filter(Boolean);
       return { char: who(t && t.name), says: says };
     }).filter(function (t) { return t.says.length; });
   }
@@ -4228,7 +4228,7 @@
     const raw = await callAI(active, sys, tbTail(s, stus), { maxTokens: TOK.turn });
     const d = tbJSON(raw);
     let turns = (Array.isArray(d.turns) ? d.turns : []).filter(function (t) { return t && t.say; }).map(function (t) { return { who: tbWho(stus, t.who).id, text: sayStr(t.say) }; });
-    if (!turns.length && d.say) turns = [].concat(d.say).map(function (t) { return { who: stus[0].id, text: String(t) }; });
+    if (!turns.length && d.say) turns = [].concat(d.say).map(function (t) { return { who: stus[0].id, text: sayStr(t) }; });
     if (!turns.length) turns = [{ who: stus[0].id, text: String(raw || "").replace(/[{}"]/g, "").slice(0, 200) }];
     const notes = {};
     if (d.notes && typeof d.notes === "object") Object.keys(d.notes).forEach(function (k) { notes[tbWho(stus, k).id] = String(d.notes[k] || "").trim(); });
