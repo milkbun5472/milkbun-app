@@ -23,7 +23,8 @@ test("入口、文件夹、脚本都挂上了", () => {
   assert.match(C, /shua: \{ kind: "app", zh: "片刻", G: window\.GShua \|\| GDebate \}/);
   assert.match(C, /swapAppOnce\(st, "live", "shua", "x_shuaSwapped"\)/);
   assert.match(C, /placeNewAppOnce\(st, "shua", "theater", "x_shuaPlaced"\)/);
-  assert.match(I, /<script src="js\/shua\.js\?v=/);
+  assert.match(I, /<script src="js\/shua-core\.js\?v=/);   // 2026-10-18 起片刻页面那半点进去才加载，开机那半在 shua-core.js
+  assert.match(I, /<script type="text\/lazy" data-lazy="shua" data-src="js\/shua\.js\?v=/);
   assert.match(I, /<script src="js\/live\.js\?v=/);
   assert.match(R("js/engine.js"), /"x_live",/);
 });

@@ -91,7 +91,7 @@ test("装载器：按顺序挂、只装一次、失败了能重来", async () =>
 //   2026-10-18 记账拆完漏了 genComments（async function 那种写法当时没认出来），选角色批注一点就报找不到。
 test("拆开的两半：页面那半用到的开机那半的名字，全都递过去了（async function、一行几个 const 也算）", () => {
   const nocom = t => t.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  [["js/ledger-core.js", "js/ledger.js", "LedgerCore"], ["js/fanfic-core.js", "js/fanfic.js", "FanficCore"]].forEach(([cf, uf, v]) => {
+  [["js/ledger-core.js", "js/ledger.js", "LedgerCore"], ["js/fanfic-core.js", "js/fanfic.js", "FanficCore"], ["js/shua-core.js", "js/shua.js", "ShuaCore"], ["js/pomodoro-core.js", "js/pomodoro.js", "PomoCore"], ["js/trpg-core.js", "js/trpg.js", "TrpgCore"]].forEach(([cf, uf, v]) => {
     if (!fs.existsSync(path.join(__dirname, "..", cf))) return;
     const core = R(cf), ui = R(uf);
     const names = new Set();
@@ -101,7 +101,7 @@ test("拆开的两半：页面那半用到的开机那半的名字，全都递�
       m = /^  (?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(l);
       if (m) names.add(m[1]);
     });
-    const dm = new RegExp("const \\{ ([^}]*) \\} = window\\." + v + ";").exec(ui);
+    const dm = new RegExp("const \\{ ([^}]*) \\} = (?:window|\\(typeof window !== \"undefined\" \\? window : globalThis\\))\\." + v + ";").exec(ui);
     assert.ok(dm, uf + " 没从 window." + v + " 取");
     const have = new Set(dm[1].split(",").map(x => x.trim()));
     const own = new Set([...ui.matchAll(/^  (?:async\s+)?(?:function|const|let)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]));
@@ -115,10 +115,10 @@ test("拆开的两半：页面那半用到的开机那半的名字，全都递�
 //   2026-10-18 同人文拆完，FanficApp 每次画都给 ficMeOf / ficProfile 赋值，当场炸；改成经 setFicMe 递回开机那半。
 //   同名的局部 const（页面里自己声明的那种）不算。
 test("拆开的两半：页面那半不给共用的名字重新赋值", () => {
-  [["js/ledger.js", "LedgerCore"], ["js/fanfic.js", "FanficCore"]].forEach(([uf, v]) => {
+  [["js/ledger.js", "LedgerCore"], ["js/fanfic.js", "FanficCore"], ["js/shua.js", "ShuaCore"], ["js/pomodoro.js", "PomoCore"], ["js/trpg.js", "TrpgCore"]].forEach(([uf, v]) => {
     if (!fs.existsSync(path.join(__dirname, "..", uf))) return;
     const ui = R(uf).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-    const dm = new RegExp("const \\{ ([^}]*) \\} = window\\." + v + ";").exec(ui);
+    const dm = new RegExp("const \\{ ([^}]*) \\} = (?:window|\\(typeof window !== \"undefined\" \\? window : globalThis\\))\\." + v + ";").exec(ui);
     if (!dm) return;
     const body = ui.replace(dm[0], "");
     const hit = dm[1].split(",").map(x => x.trim()).filter(n => {

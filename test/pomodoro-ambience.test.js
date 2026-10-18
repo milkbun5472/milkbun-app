@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const A = require("../js/ambience.js");
-const pom = fs.readFileSync(__dirname + "/../js/pomodoro.js", "utf8");
+const pom = (fs.readFileSync(__dirname + "/../js/pomodoro-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/pomodoro.js", "utf8"));
 test("背景音：每层合成得出来、循环接得上、几层能叠", () => {
   A.LAYERS.forEach(([k]) => { const a = A._layer(k); assert.strictEqual(a.length, A.RATE * A.SEC, k); assert.ok(a.every(Number.isFinite), k + " 有坏样本"); });
   assert.strictEqual(A._mix({}), null, "全拖到零就什么都不放");

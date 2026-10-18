@@ -1,7 +1,7 @@
 // 片刻情侣号卡片（她 2026-10-15）：换个样子，让TA起名、写简介
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const src = require("fs").readFileSync(__dirname + "/../js/shua.js", "utf8");
+const src = (require("fs").readFileSync(__dirname + "/../js/shua-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/shua.js", "utf8"));
 test("情侣号是卡片：两只头像、号名、简介；能切、能自己改、能让TA起", () => {
   assert.match(src, /const cpCard = id =>/);
   assert.match(src, /"data-wk": "shuacpbio"/);

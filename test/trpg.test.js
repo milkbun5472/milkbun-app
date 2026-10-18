@@ -3,11 +3,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
+const src = (fs.readFileSync(path.join(root, "js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/trpg.js"), "utf8"));
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, normSceneMeta, normSiteActions } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, normSceneMeta, normSiteActions } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -461,7 +461,7 @@ test("威胁钟不锈死:连着两个掷过骰的拍没人碰就自己走一格;
 
 // 探索态(v60.20,照 ai-virtual-phone 的两态循环):守密人不给选项=这一幕收了,屏上换成地点长出来的交互
 test("探索态菜单:只列在这儿的活人、还能翻几次、开着的支线", () => {
-  const { exploreMenu, pickSeed, regionOfNode } = require("../js/trpg.js");
+  const { exploreMenu, pickSeed, regionOfNode } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   const c = Object.assign(camp0(), { pos: "驿站", searched: { 驿站: 2 },
     npcs: [{ name: "掌柜", alive: true, met: "驿站" }, { name: "游方僧", alive: true, met: "" }, { name: "死人", alive: false, met: "驿站" }, { name: "外地人", alive: true, met: "城郭" }],
     quests: [{ name: "找马", status: "open" }, { name: "还钱", status: "done" }],
@@ -502,7 +502,7 @@ test("探索拍:四下看看记一次翻找;搜满三次就不再给这个按钮
 });
 
 test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立扣", () => {
-  const { rollStats: rs } = require("../js/trpg.js");
+  const { rollStats: rs } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   const fate = src.match(/const fateOf = luck =>[^;]+;/);
   assert.ok(fate, "fateOf 存在");
   assert.match(src, /offer = c\.fate > 0 && !c\.rerolled && \(grade\.tier === "fail" \|\| grade\.tier === "fumble"\)/, "成功不给花,重掷过不给再花");
@@ -787,7 +787,7 @@ test("秘典落幕解密,不在过程中泄底", () => {
 // 队友只有「能力 + 一句私念」,没有任何东西记着他跟你这一路处得怎么样。
 // 补了四样:羁绊 / 翻章的幕间 / NPC 人情账 / 队友手上的牌。
 // ============================================================
-const { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START } = require("../js/trpg.js");
+const { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 const camp1 = () => Object.assign(camp0(), {
   party: [{ key: "user", name: "Lisa", hp: 80, maxHp: 100, stats: { phy: 50, agi: 50, wit: 50, cha: 50, luck: 50 } },

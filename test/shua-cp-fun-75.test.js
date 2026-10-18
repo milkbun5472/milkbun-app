@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
-const src = fs.readFileSync(__dirname + "/../js/shua.js", "utf8"), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/shua-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/shua.js", "utf8")), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("CP 粉：TA发、她发、刷点评论都写成嗑你俩的粉丝；涨粉过整数落消息、TA记一笔", () => {
   assert.match(src, /底下网友评论 comments 多是这个号的 CP 粉/);
   assert.match(src, /多是嗑你俩的 CP 粉——催更、考古/);

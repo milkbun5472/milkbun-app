@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
-const src = fs.readFileSync(__dirname + "/../js/shua.js", "utf8"), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/shua-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/shua.js", "utf8")), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("双击画面点赞（只点亮不取消），点在按钮上不算", () => {
   assert.match(src, /if \(now - tapRef\.current < 300\)/);
   assert.match(src, /if \(!v\.liked\) onLike\(\);/);

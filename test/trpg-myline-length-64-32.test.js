@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "trpg.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "trpg.js"), "utf8"));
 
 test("暗线那把尺子够一句中文话", () => {
   const m = src.match(/const MYLINE_MAX = (\d+);/);
