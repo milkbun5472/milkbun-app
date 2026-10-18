@@ -170,8 +170,13 @@
         const stem = String(f.name || "").replace(/\.[a-z0-9]+$/i, "").trim();
         const key = byName[stem] || byName[stem.toLowerCase()];
         if (!key) { miss.push(stem); continue; }
-        try { icons[key] = await imgToVault(await resizeImageFile(f, 512, .9)); hit.push(key); }
-        catch (err) { miss.push(stem + "（读不出）"); }
+        // 一次选很多张时偶尔有一两张第一回解不出来：歇一下再试一回（群里 2026-10-18）
+        let ok = false;
+        for (let k = 0; k < 2 && !ok; k++) {
+          try { icons[key] = await imgToVault(await resizeImageFile(f, 512, .9)); ok = true; }
+          catch (err) { if (k === 0) await new Promise(r => setTimeout(r, 300)); }
+        }
+        if (ok) hit.push(key); else miss.push(stem + "（读不出）");
       }
       if (hit.length) patchDraft({ icons });
       toast((hit.length ? "对上了 " + hit.length + " 张，已放入草稿，点预览看看" : "一张都没对上") + (miss.length ? "；认不出：" + miss.join("、") : ""));

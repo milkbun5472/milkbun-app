@@ -10549,25 +10549,38 @@ function appVitals() {
 //   判据是【这张图身上有没有 alpha】，不是【调用方记不记得传保透明】——
 //   记不记得是人的事，二十多处里总有忘的那几处。
 function _resizeImageCore(file, maxDim, q, keepAlpha) {
+  // 读图用 objectURL，不再先把整张原图读成 data: 字符串（群里 2026-10-18：「选图标时多选很多张总是读不出图片」）——
+  //   手机原图一张几 MB，转成 data: 再大三成多，一次选十几张时 iOS 内存吃紧，后面那几张就解不出来了。
+  //   画完把画布清掉、把 objectURL 收回，一张一张不攒着。没有 objectURL 的老环境才退回 FileReader。
   return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => {
+    const draw = (src, done) => {
       const img = new window.Image();
       img.onload = () => {
-        let { width, height } = img;
-        const m = Math.max(width, height);
-        if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
-        const c = document.createElement("canvas");
-        c.width = Math.max(1, Math.round(width));
-        c.height = Math.max(1, Math.round(height));
-        const cx = c.getContext("2d");
-        // 不铺白底：铺了就等于自己把透明去掉了
-        cx.drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q));
+        try {
+          let { width, height } = img;
+          const m = Math.max(width, height);
+          if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(width));
+          c.height = Math.max(1, Math.round(height));
+          const cx = c.getContext("2d");
+          // 不铺白底：铺了就等于自己把透明去掉了
+          cx.drawImage(img, 0, 0, c.width, c.height);
+          const out = c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q);
+          c.width = 0; c.height = 0; img.src = "";
+          done(); res(out);
+        } catch (e) { done(); rej(e); }
       };
-      img.onerror = rej;
-      img.src = e.target.result;
+      img.onerror = e => { done(); rej(e && e.type ? new Error("图片解不出来") : e); };
+      img.src = src;
     };
+    if (typeof URL !== "undefined" && URL.createObjectURL && file instanceof Blob) {
+      const u = URL.createObjectURL(file);
+      draw(u, () => { try { URL.revokeObjectURL(u); } catch (e) {} });
+      return;
+    }
+    const r = new FileReader();
+    r.onload = e => draw(e.target.result, () => {});
     r.onerror = rej;
     r.readAsDataURL(file);
   });
