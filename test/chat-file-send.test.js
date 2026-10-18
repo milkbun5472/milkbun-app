@@ -44,3 +44,19 @@ test("文件里嵌着的图换成一句占位，字数不再被图吃掉；秋�
   assert.equal('url(data:image/svg+xml;base64,PHN2Zy8+)'.replace(re, "图"), 'url(data:image/svg+xml;base64,PHN2Zy8+)', "小的不动");
   assert.match(asst, /pic\.imgs \? "（里面嵌着 " \+ pic\.imgs \+ " 张图/);
 });
+
+// 群里 2026-10-18：「线下生的图找不到」「线上照片也没有」——照片库只收她自己发的，而且收着时永远写 0
+test("数据页：TA 们拍的照片按人认键前缀；本机照片库一进来就数；以前发的真照片能找回来", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(scr, /k\.indexOf\("img_" \+ c\.id \+ "_"\) === 0 \|\| k\.indexOf\("img_pdiary_" \+ c\.id \+ "_"\) === 0/);
+  assert.match(scr, /h\(CharPhotoAlbum, \{ characters: characters \|\| \[\], toast: toast \}\)/);
+  assert.match(scr, /useEffect\(\(\) => \{ refresh\(\); \}, \[open\]\);/, "收着的时候也要数");
+  assert.match(app, /window\.__collectMyOldPhotos = async/);
+  assert.match(app, /m\.role === "user" && m\.kind === "photo" && m\.photoMode !== "describe"/, "只补她自己发的真照片");
+  // 键前缀：c1 不能把 c10 的图算进来
+  const keys = ["img_c1_a", "img_c10_b", "img_pdiary_c1_x", "img_c1_a_raw"].filter(x => !/_raw$/.test(x));
+  const c = { id: "c1" };
+  assert.deepEqual(keys.filter(k => k.indexOf("img_" + c.id + "_") === 0 || k.indexOf("img_pdiary_" + c.id + "_") === 0), ["img_c1_a", "img_pdiary_c1_x"]);
+});
