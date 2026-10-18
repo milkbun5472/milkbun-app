@@ -62,7 +62,7 @@ const run = () => {
   };
   const src = 'function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}\n' +
     'const BLOCK_IDS="ABCDEFGHIJKL".split("");const WD=["周日","周一","周二","周三","周四","周五","周六"];\n' +
-    grab("weekBlocks") + "\n" + grab("blocksToText") + "\n" + grab("seeded") + "\n" + grab("pickOrder") +
+    grab("vt") + "\n" + grab("weekBlocks") + "\n" + grab("blocksToText") + "\n" + grab("seeded") + "\n" + grab("pickOrder") +
     "\nreturn { weekBlocks, blocksToText, pickOrder };";
   return new Function(src)();
 };
