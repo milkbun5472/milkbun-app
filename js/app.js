@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.007";
+const APP_VERSION = "v76.009";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3733,6 +3733,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const n = { ...p, [id]: [{ thought: s.thought, mood: window.MoodLabel ? window.MoodLabel.localize(s.mood) : s.mood, wearing: s.wearing, action: s.action, wearingUpdatedAt: s.wearingUpdatedAt, actionUpdatedAt: s.actionUpdatedAt, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
       n[id][0].turnId = s.turnId || null;
       n[id][0].affinityBefore = s.affinityBefore;
+      if (s.extra) n[id][0].extra = s.extra;
       stateHistRef.current = n;
       saveJSON("x_stateHist", n);
       return n;
@@ -12666,7 +12667,7 @@ mood、action、wearing 与能力字段只记录已经形成的反应、状态�
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
-thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}
+thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
 【实时动作字段·普通角色每轮必填】
 action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
@@ -14015,6 +14016,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (_live.thought && skips >= THOUGHT_SKIP_LIMIT) { st.thought = null; st.thoughtUpdatedAt = 0; }
         }
       }
+      // 她在心声卡里自己加的栏（v76）：只收她定过的那几格，跟心声一起存
+      if (!sideRoom && typeof pickStateExtra === "function") { const _tp = stateTplFor(settingsFor(charId)); if (_tp && _tp.fields.length) st.extra = pickStateExtra(_tp, parsed.extra); }
       if (sideRoom) delete st.thought;
       if (Object.keys(st).length && (!sideRoom || _roomSharesState)) {
         const liveState = statesRef.current[charId] || {};
@@ -32863,6 +32866,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),
       onDelThought: what => delThought(!!roomCard, roomCard ? stateCardRoomKey : scc.id, what),
       wearSets: roomCard ? null : closetSetsOf((carryRef.current || {})[scc.id]),
+      tpl: roomCard || typeof stateTplFor !== "function" ? null : stateTplFor(settingsFor(scc.id)),
       onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast("改好了，下一轮他照这身来"); },
       roomName: roomMeta && roomMeta.name,
       hideWearAction: roomCard,
@@ -33065,6 +33069,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             mcpOff: Array.isArray(s.mcpOff) ? s.mcpOff.filter(x => typeof x === "string").slice(0, 50) : [],
             // 允许TA主动写申请信（v74.732）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
+            stateTpl: typeof cleanStateTpl === "function" ? cleanStateTpl(s.stateTpl) : null,
             dongnianMsgOnly: s.dongnianMsgOnly === true,
             busyHold: s.busyHold === true,
             busyReroll: s.busyReroll === true,
