@@ -31,6 +31,8 @@ test("导出记下这台手机的宽度；按钮挂在「全 App 多大」那一
   const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "theme-studio.js"), "utf8");
   assert.match(src, /if \(myW\) profile\.madeOn = \{ w: myW \};/);
   const ui = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "theme-studio-ui.js"), "utf8");
-  assert.match(ui, /const fit = page === "all" && studio\.fitPlan \? studio\.fitPlan\(draft\) : null;/);
+  assert.match(ui, /const fit = page === "all" \? fitNow : null;/);
+  assert.match(ui, /fitNow \? fitBtn\(fitNow\) : null,/, "导入那一格也要有这颗，不能只藏在「全 App 多大」");
+  assert.match(ui, /madeOn: sel\.css \? inc\.madeOn : cur\.madeOn,/, "导入合并时丢了宽度，按钮就永远不出");
   assert.match(ui, /"data-wk": "themefit"/);
 });

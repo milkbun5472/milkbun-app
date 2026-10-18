@@ -350,7 +350,7 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
   const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
-    try { const look = await importChatLook(txt); onApply(look); toast("导进来了，看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
+    try { const look = await importChatLook(txt); onApply(look); toast("导进来了，顶栏已自动让开这台手机的刘海；看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
     catch (e) { toast((e && e.message) || "导不进来"); return false; }
   };
   const pick = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) f.text().then(take); };
