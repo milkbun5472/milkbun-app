@@ -12649,7 +12649,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       // 双语（v56.56）：常量本身按角色稳定，放进 stable 段不影响历史缓存命中
       const _bilingualOn = !_s.engineerEyes && !!_s.bilingual && typeof bilingualRule === "function";
-      const _biRuleLine = _bilingualOn ? "\n" + bilingualRule("") : "";
+      const _biRuleLine = _bilingualOn ? "\n" + bilingualRule("", hanLangOf(char)) : "";
       // 格式写在【字段本身】上（v56.86）：她 2026-08-27 截图——一轮六条日文，只有第一条带了中译，
       // 后面五条全掉回免费接口。规则单独摆一段，模型照着做一条就忘；写进 word 的字段说明里跑不掉。
       const _biWordSpec = _bilingualOn
@@ -14746,7 +14746,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         && members.some(c => !c.npc && (settingsFor(c.id) || {}).bilingual))
         ? "（开了双语的成员，每一条不是中文的都写成『原文 | 中文』，一条不落）" : "";
       const gBiHint = (typeof bilingualRule === "function"
-        ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => "\n\n" + bilingualRule(c.name) + "（只对 " + c.name + "，别的成员照常写。）").join("")
+        ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => "\n\n" + bilingualRule(c.name, hanLangOf(c)) + "（只对 " + c.name + "，别的成员照常写。）").join("")
         : "");
       const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n") + (groupMaskNote(groupId) ? "\n" + groupMaskNote(groupId) : "");
       let interop = "";

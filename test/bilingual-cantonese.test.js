@@ -28,7 +28,7 @@ test("单聊、群聊、通话三处都把这个人的语言带进去；规则�
   assert.match(app, /splitBilingual\(w, hanLangOf\(char\)\)/);
   assert.match(app, /splitBilingual\(x, hanLangOf\(spk\)\)/);
   assert.match(app, /splitSayLine, hanLangOf\(char\)\)/);
-  assert.match(eng, /右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语/);
+  assert.match(eng, /右边一律写简体、普通话的说法。" \+ \(hanLang \? "粤语、上海话这类本来就用汉字写的话也算外语/);
 });
 
 // 心声里整段粤语也要有译键（她 2026-10-10 截图）：译键认语种走 translatableLang
