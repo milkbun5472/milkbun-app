@@ -16007,9 +16007,89 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
     }
   }, children));
 }
+// ── 心声卡自己写（群里 2026-10-18：「能把整个心声卡片替换掉……能自己写角色的心声怎么显示，然后美化呀交互什么的」）──
+//   { html: 她写的 HTML（留空＝原来那张卡）, fields: [{name, desc}] 自己加的栏，每轮让他多填这几格 }
+//   一个人一套存在他的聊天设置里（stateTpl）；x_stateTplGlobal 是全局那套，谁没单独写就用它。
+const STATE_TPL_MAX_FIELDS = 5, STATE_TPL_HTML_MAX = 60000, STATE_TPL_VAL_MAX = 160;
+function cleanStateTpl(v) {
+  if (!v || typeof v !== "object") return null;
+  const html = String(v.html || "").slice(0, STATE_TPL_HTML_MAX);
+  const seen = {};
+  const fields = (Array.isArray(v.fields) ? v.fields : []).map(f => ({
+    name: String((f && f.name) || "").replace(/[{}"\n\r]/g, "").trim().slice(0, 12),
+    desc: String((f && f.desc) || "").replace(/\s+/g, " ").trim().slice(0, 120)
+  })).filter(f => f.name && !seen[f.name] && (seen[f.name] = 1)).slice(0, STATE_TPL_MAX_FIELDS);
+  return html.trim() || fields.length ? { html, fields } : null;
+}
+// 这个人实际用哪一套：他自己写了就用他的；没写就用全局那套
+function stateTplFor(charSettings) {
+  const own = cleanStateTpl(charSettings && charSettings.stateTpl);
+  if (own) return own;
+  try { return cleanStateTpl(typeof loadJSON === "function" ? loadJSON("x_stateTplGlobal", null) : null); } catch (e) { return null; }
+}
+// 自己加的栏：从模型这一轮交上来的 extra 里只收她定过的那几格
+function pickStateExtra(tpl, extra) {
+  if (!tpl || !tpl.fields || !tpl.fields.length || !extra || typeof extra !== "object") return null;
+  const out = {};
+  tpl.fields.forEach(f => { const v = extra[f.name]; if (v != null && String(v).trim() && String(v).trim().toLowerCase() !== "null") out[f.name] = String(v).trim().slice(0, STATE_TPL_VAL_MAX); });
+  return Object.keys(out).length ? out : null;
+}
+// 每轮的格式要求里多出来的那一段（只有她加了栏才有）
+function stateExtraSpec(tpl) {
+  if (!tpl || !tpl.fields || !tpl.fields.length) return "";
+  return "extra: object，每轮都填，键名照下面原样写：" + tpl.fields.map(f => "「" + f.name + "」" + (f.desc ? "＝" + f.desc : "")).join("；")
+    + "。每格都是你此刻真实的状态，第一人称，一两句话说完；跟 word、thought 不重复。";
+}
+// 把一轮的状态拼成模板能用的那几样
+function stateTplVars(character, state, mood, affinity) {
+  const S = v => String(v == null ? "" : v).trim();
+  const base = { 名字: S(character && character.name), 心情: S(mood && (mood.label || mood)), 心声: S(state && state.thought),
+    动作: S(state && state.action), 穿着: S(state && state.wearing), 好感: typeof affinity === "number" ? String(affinity) : "" };
+  return Object.assign(base, (state && state.extra) || {});
+}
+function stateTplEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+function stateTplFill(html, vars, data) {
+  const body = String(html || "").replace(/\{\{\s*([^{}]{1,16}?)\s*\}\}/g, (m, k) => vars[k] != null ? stateTplEsc(vars[k]) : "");
+  // 给想做翻页、时间线的人：整份数据也递进去（window.STATE），JSON 里的 < 换掉，免得把 script 提前关上
+  return "<script>window.STATE=" + JSON.stringify(data).replace(/</g, "\\u003c") + ";</script>" + body;
+}
+function StateTplCard({ tpl, character, state, mood, affinity, history }) {
+  const vars = stateTplVars(character, state, mood, affinity);
+  const data = { now: vars, history: (history || []).slice(0, 30).map(x => Object.assign({ 心声: x.thought || "", 心情: x.mood && (x.mood.label || x.mood) || "", 动作: x.action || "", 穿着: x.wearing || "", 时间: x.ts || 0 }, x.extra || {})) };
+  return h("div", { "data-wk": "statetplcard", style: { padding: "8px 10px 12px" } }, h(HtmlCard, { html: stateTplFill(tpl.html, vars, data) }));
+}
+// 设置页里那一块：写 HTML、加栏、存成全局
+function StateTplEditor({ value, onChange }) {
+  const t = useTheme();
+  const v = value || { html: "", fields: [] };
+  const fields = Array.isArray(v.fields) ? v.fields : [];
+  const set = patch => onChange(Object.assign({ html: v.html || "", fields }, patch));
+  const inp = { width: "100%", border: "1px solid " + t.line, borderRadius: 10, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, padding: "8px 10px" };
+  const [glob, setGlob] = useState(() => !!(typeof loadJSON === "function" && cleanStateTpl(loadJSON("x_stateTplGlobal", null))));
+  const names = ["名字", "心情", "心声", "动作", "穿着", "好感"].concat(fields.map(f => f.name).filter(Boolean));
+  return h("div", { "data-wk": "statetpledit", style: { paddingTop: 4 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
+      "点他头像弹出来的那张心声卡，可以整张换成你写的 HTML。用 {{心声}} 这种写法留空，打开时填进这一轮的内容；能用的有：" + names.map(n => "{{" + n + "}}").join(" ")
+      + "。想做翻页、往回翻：window.STATE.history 是最近几轮。留空就是原来那张卡。"),
+    h("textarea", { "data-wk": "statetplhtml", value: v.html || "", onChange: e => set({ html: e.target.value }), rows: 7, placeholder: "在这里贴 HTML", style: Object.assign({}, inp, { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 11.5, lineHeight: 1.5 }) }),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, marginTop: 14 } }, "自己加的栏"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "3px 0 8px" } },
+      "每轮他会把这几格也填上，跟心声一起存。名字就是模板里 {{}} 里写的那个；说明写这一格填什么，原样交给他。最多 " + STATE_TPL_MAX_FIELDS + " 栏，每多一栏每轮多花一点。"),
+    fields.map((f, i) => h("div", { key: i, "data-wk": "statetplfield", className: "flex items-start", style: { gap: 6, marginBottom: 6 } },
+      h("input", { value: f.name || "", onChange: e => set({ fields: fields.map((x, j) => j === i ? { ...x, name: e.target.value.slice(0, 12) } : x) }), placeholder: "栏名", style: Object.assign({}, inp, { width: 84, flexShrink: 0 }) }),
+      h("input", { value: f.desc || "", onChange: e => set({ fields: fields.map((x, j) => j === i ? { ...x, desc: e.target.value.slice(0, 120) } : x) }), placeholder: "这一格填什么", style: Object.assign({}, inp, { flex: 1, minWidth: 0 }) }),
+      h("button", { onClick: () => set({ fields: fields.filter((_, j) => j !== i) }), className: "active:opacity-60 shrink-0", style: { padding: "8px 6px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "删"))),
+    fields.length < STATE_TPL_MAX_FIELDS ? h("button", { "data-wk": "statetpladd", onClick: () => set({ fields: fields.concat([{ name: "", desc: "" }]) }), className: "active:opacity-70",
+      style: { padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub, background: "transparent" } }, "＋ 加一栏") : null,
+    h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 14 } },
+      h("button", { "data-wk": "statetplglobal", onClick: () => { const c = cleanStateTpl(v); if (typeof saveJSON === "function") saveJSON("x_stateTplGlobal", c); setGlob(!!c); if (window.__toast) window.__toast(c ? "存成全局了：没单独写的人都用这一套" : "全局那套清掉了"); },
+        className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: "transparent" } }, "把这一套存成全局"),
+      glob ? h("button", { onClick: () => { if (typeof saveJSON === "function") saveJSON("x_stateTplGlobal", null); setGlob(false); if (window.__toast) window.__toast("全局那套清掉了"); },
+        className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent" } }, "清掉全局那套") : null));
+}
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets, tpl
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
@@ -16147,8 +16227,9 @@ function StateCard({
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
       (page === "gaze" && gazeOn && window.GazePage)
         ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: scTa, onSeed: onGazeSeed, seedBusy: gazeSeedBusy, onReview: onGazeReview, reviewBusy: gazeReviewBusy }))
+        : (tpl && String(tpl.html || "").trim() && !showHist) ? h(StateTplCard, { tpl, character, state, mood: dm, affinity: aff, history: hist })
         : body),
-    (page === "now" && !showHist) ? scale : null);
+    (page === "now" && !showHist && !(tpl && String(tpl.html || "").trim())) ? scale : null);
 }
 
 // ============================================================
@@ -20452,6 +20533,7 @@ function ChatSettings({
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
   const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
   const [autoReplySec, setAutoReplySec] = useState(Math.max(0, Number(settings.autoReplySec) || 0)); // 停手几秒自己回，0＝关
+  const [stateTpl, setStateTpl] = useState(() => cleanStateTpl(settings.stateTpl) || { html: "", fields: [] });
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch);
   // 这个角色不要哪几台 MCP（存关掉的，不存开着的：新接一台默认人人都有）
@@ -20674,8 +20756,8 @@ function ChatSettings({
       state: () => { const m = window.VideoApi ? (window.VideoApi.motionAll()[character.id] || {}) : {};
         const on = (window.VideoApi ? window.VideoApi.SCENES : []).filter(x => m[x.id]).map(x => x.zh);
         return on.length ? "挂了 " + on.join("、") : "还是头像"; } },
-    { key: "hear", char: "听", title: "思考链 · 译文 · 通话", tint: "#7a8fa8",
-      state: () => "思考链 " + onOff(showReasoning) + " · 外语中译 " + onOff(bilingual) },
+    { key: "hear", char: "听", title: "思考链 · 心声卡 · 译文 · 通话", tint: "#7a8fa8",
+      state: () => "思考链 " + onOff(showReasoning) + (stateTpl && (String(stateTpl.html || "").trim() || (stateTpl.fields || []).length) ? " · 心声卡自己写了" : "") + " · 外语中译 " + onOff(bilingual) },
     { key: "rooms", char: "房", title: "这一段算哪个房间", tint: "#477f88",
       state: () => (roomNow && roomNow.name) || "主线" },
     { key: "route", char: "线", title: "走哪条线路", tint: "#6693c7",
@@ -20766,6 +20848,7 @@ function ChatSettings({
       webSearch,
       mcpOff,
       noLoveLetter: !loveLetter,
+      stateTpl: cleanStateTpl(stateTpl),
       dongnianMsgOnly,
       busyHold: busyHold,
       busyReroll: busyReroll,
@@ -21158,7 +21241,8 @@ function ChatSettings({
       onDone: L => { setSkin(L.skin || ""); setBubble(L.bubble && typeof L.bubble === "object" ? L.bubble : null);
         const F = window.FontChoice, cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
         setFont(F ? F.clean(L.font, cus) : (L.font || { body: "", display: "" }));
-        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
+        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null),
+  show("hear", { title: "心声卡 · 自己写样子和栏目", ...sec("look-statetpl") }, h(StateTplEditor, { value: stateTpl, onChange: setStateTpl })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
   // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还没开空间时，TA自己想更进一步就能写一封；关掉就不会
   //   名字不叫「主动表白」了（她 2026-10-17：「现在空间不止是情侣」）
   h("div", { className: "flex items-center justify-between pt-5" },
