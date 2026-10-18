@@ -17,3 +17,8 @@ test("引号里的括号跟着话走", () => {
   assert.deepEqual(splitSayLine("……『あたまわるい（褒め言葉）』にしといたから"), [{ speech: "……『あたまわるい（褒め言葉）』にしといたから" }]);
   assert.deepEqual(splitSayLine("（笑）他说「我（真的）没事」"), [{ act: "笑" }, { speech: "他说「我（真的）没事」" }]);
 });
+test("声音标签跟着话走，不当动作", () => {
+  global.TTS_MARK_TAG_RE = /\(\s*(?:sighs|chuckle|breath)\s*\)/gi;
+  assert.deepEqual(splitSayLine("(sighs) 好吧"), [{ speech: "(sighs) 好吧" }]);
+  delete global.TTS_MARK_TAG_RE;
+});

@@ -11467,9 +11467,11 @@ function callActionsFor(msgs, index) {
 //   偏偏中间这块流式字幕只取了 line.text——又是一层写在两处、第二处没跟上。
 // ⚠️中译跟着原文【同一个进度】铺：真的双语字幕是两行一起走的。
 //   整句先摆出来的话，她一眼读完中文，就不用听他说了。
+// 通话台词给人看的那一份：停顿、声音标签是说给语音听的，字幕和气泡上不露（她 2026-10-18：照语音条那样写，显示成正常气泡）
+const callShow = x => typeof ttsMarkStrip === "function" ? ttsMarkStrip(String(x || "")) : String(x || "");
 function CallSubtitle({ line, onPhoto, actions = [] }) {
   const [n, setN] = useState(0);
-  const text = String((line && line.text) || "");
+  const text = typeof ttsMarkStrip === "function" ? ttsMarkStrip(String((line && line.text) || "")) : String((line && line.text) || "");   // 跟 callShow 同一支
   const zh = String((line && line.zh) || "");
   const who = String((line && line.who) || "");
   useEffect(() => {
@@ -12235,7 +12237,7 @@ function CallScreen({
         background: callBubble(isU).background,
         color: callBubble(isU).color
       }
-    }, h(TransText, { text: m.content, isU, zhReady: m.zh, ink: callBubble(isU).color })), canT ? h("button", {
+    }, h(TransText, { text: callShow(m.content), isU, zhReady: m.zh, ink: callBubble(isU).color })), canT ? h("button", {
       disabled: !!bye,
       "aria-label": meP ? "停止这句" : "播放这句",
       onClick: () => {
@@ -13642,7 +13644,7 @@ function CallEndPill({ m, chars, onBg, i, selMode, selected, startPress, endPres
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
         : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
             l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, String(new Date(l.ts).getHours()).padStart(2, "0") + ":" + String(new Date(l.ts).getMinutes()).padStart(2, "0")) : null,
-            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
+            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: callShow(l.content), isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
             l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
@@ -13699,7 +13701,7 @@ function CallLogSheet({ calls, chars, onClose }) {
                 ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
                 : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
                     l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, fmtHM(l.ts)) : null,
-                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: l.content, isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
+                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: callShow(l.content), isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
                     l.role !== "user" ? h(TtsDot, { k: key + "_" + j, text: l.content, spk: spkOf(l), tp }) : null)),
               m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
         })));
