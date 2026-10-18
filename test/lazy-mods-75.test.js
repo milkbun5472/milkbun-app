@@ -24,6 +24,9 @@ test("登记延后的脚本：浏览器不执行、地址带 ?v=、文件都在�
   // 装载器和游戏目录要排在所有业务脚本前面
   assert.ok(html.indexOf("js/lazy-mods.js") < html.indexOf("js/engine.js"));
   assert.ok(html.indexOf("js/games-list.js") < html.indexOf("js/app.js"));
+  // 从大文件里拆出来的「开机那半」放回原文件的位置：它们开机就跑的那几行要用 engine.js 里的东西（文字库 txtVaultReady 之类）。
+  //   2026-10-18 study-core.js 一度排在 engine.js 前面：家里版是跳过了等文字库（迁移白跑），公共版装订成一份直接白屏
+  ["js/study-core.js", "js/ledger-core.js"].forEach(f => assert.ok(html.indexOf(f) > html.indexOf("js/engine.js"), f + " 排到 engine.js 前面了"));
 });
 
 test("每一组都有人接：页面那几组开机放了替身，攻略那组由值班室外面那层和秋秋接", () => {
