@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const app = R("js/app.js"), eng = R("js/engine.js"), phone = R("js/phone.js"), rooms = R("js/chat-rooms.js");
+const app = R("js/app.js"), eng = R("js/engine.js"), phone = (R("js/phone.js") + "\n" + R("js/phone-ui.js")), rooms = R("js/chat-rooms.js");
 const W = require("../js/phone-watch.js");
 const DAY = 86400000;
 

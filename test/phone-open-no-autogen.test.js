@@ -1,7 +1,9 @@
 // 查手机点开 app 不再自己生成（群友 2026-10-09）：先给一页「还没生成」，按了才调模型；桌面图标标出没生成的
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const src = require("node:fs").readFileSync(require.resolve("../js/phone.js"), "utf8");
+// 2026-10-18 起查手机页面那半在 phone-ui.js（用到才加载），两份一起读
+const fs = require("node:fs");
+const src = fs.readFileSync(require.resolve("../js/phone.js"), "utf8") + "\n" + fs.readFileSync(require.resolve("../js/phone-ui.js"), "utf8");
 const body = src.slice(src.indexOf("function PhoneApp("), src.indexOf("function PhoneApp(") + 9000);
 
 test("点开不再自动生成", () => {

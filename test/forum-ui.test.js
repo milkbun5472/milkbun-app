@@ -5,7 +5,7 @@ const path = require("node:path");
 const { loadPhone, LIVE } = require("./helpers/phone-render.js");
 
 const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const forum = screens.slice(screens.indexOf("function Forum({"), screens.indexOf("function CoupleQALog("));
 
 test("主论坛有自己的社区纸张主题，不再是通用白底列表", () => {

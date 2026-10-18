@@ -7,7 +7,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/phone.js", "utf8");
+const SRC = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 // ⚠️两头都要从 NOC 上取。用 NOC 的起点配 SRC 的终点，偏移量对不上——
 //   切出来的那一段既不是这个组件、也不完整（这一处刚绊过一次）。

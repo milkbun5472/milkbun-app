@@ -8,7 +8,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const W = require("../js/phone-watch.js");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const phone = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
 
 test("他知道隔了多久、谁欠谁一条——但去不去点她由他自己定", () => {
   const s = W.watchInstruction({ char: {}, uName: "她", apps: ["wechat"], phone: {},

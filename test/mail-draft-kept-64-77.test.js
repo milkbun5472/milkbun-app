@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const { phoneKeptLine } = require("../js/phone.js");
-const ph = fs.readFileSync(__dirname + "/../js/phone.js", "utf8");
+const ph = (fs.readFileSync(__dirname + "/../js/phone.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/phone-ui.js", "utf8"));
 const D = 86400000;
 
 test("冻过的行有 _ts，就现算天数", () => {

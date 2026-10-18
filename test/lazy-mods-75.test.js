@@ -38,7 +38,8 @@ test("每一组都有人接：页面那几组开机放了替身，攻略那组�
 test("替身的名字就是那份脚本自己挂到 window 上的名字", () => {
   [...stubTable.matchAll(/\["([A-Za-z]+)", "([a-z]+)", "[^"]+"\]/g)].forEach(m => {
     const files = lazy.filter(x => x.group === m[2]).map(x => R(x.src.split("?")[0])).join("\n");
-    assert.match(files, new RegExp("window\\." + m[1] + " = "), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
+    // 挂到 window 上，或者是那份脚本顶层的 function 声明（经典脚本里顶层 function 本来就挂在 window 上，phone-ui.js 那种）
+    assert.match(files, new RegExp("window\\." + m[1] + " = |^function " + m[1] + "\\(", "m"), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
   });
 });
 

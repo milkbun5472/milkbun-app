@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const R = f => require("fs").readFileSync(require("path").join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), ph = R("phone.js");
+const app = R("app.js"), ph = (R("phone.js") + "\n" + R("phone-ui.js"));
 test("查手机里转账渲染成卡，能替TA收下/退回", () => {
   assert.match(app, /m\.kind === "transfer" && m\.tid\) \? \{ kind: "transfer", tid: m\.tid/);
   assert.match(app, /onTfReplyAs: \(char, tid, accept\) => respondTransfer\(char\.id, tid, accept\)/);

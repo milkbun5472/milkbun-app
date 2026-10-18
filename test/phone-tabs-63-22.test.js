@@ -10,7 +10,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const cut = (a, b) => {
   const i = phone.indexOf(a), j = phone.indexOf(b, i);
   assert.ok(i >= 0 && j > i, "切不出来：" + a);

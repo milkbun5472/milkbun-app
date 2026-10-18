@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
 const rd = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const scr = rd("screens.js"), phone = rd("phone.js"), ts = rd("theme-studio.js");
+const scr = rd("screens.js"), phone = (rd("phone.js") + "\n" + rd("phone-ui.js")), ts = rd("theme-studio.js");
 const PAGES = {
   phone: [phone, ["phonepage", "phonerow", "phoneicon", "phonewidget"]],
   listen: [scr, ["listenpage", "listentitle", "listenartist", "listenctrl", "listenlyric", "listentab", "listenbtn", "listenprogress", "listensong", "listenqueue", "listenchip", "listenplaylist"]],

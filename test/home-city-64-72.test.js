@@ -46,7 +46,7 @@ test("群里三处也按人喂——同一个群里的人可能压根不在一�
 });
 
 test("查手机那一处还要额外挡住「界面是中文的所以他在国内」", () => {
-  const phone = R("js/phone.js");
+  const phone = (R("js/phone.js") + "\n" + R("js/phone-ui.js"));
   assert.match(phone, /const PHONE_WORLD_RULE =/, "查手机没有自己那条世界规则");
   const seg = phone.slice(phone.indexOf("const PHONE_WORLD_RULE"), phone.indexOf("const PHONE_ANGLE"));
   assert.match(seg, /这不代表角色人在国内/, "没挑明界面语言 ≠ 人在哪儿");

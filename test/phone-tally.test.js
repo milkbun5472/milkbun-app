@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { loadPhone, FIXTURES } = require("./helpers/phone-render.js");
 
-const SRC = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const SRC = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const P0 = new Function(SRC + "; return { PHONE_APPS, PHONE_ANGLE, PHONE_GROW, PHONE_DIGEST_PICK, PHONE_LIVE_KEYS, PHONE_MONEY_KEYS, phoneProbeSpec, phoneRoundDigest, TALLY_TABS, TALLY_DIR };")();
 const char = { name: "某人" };
 const props = { d: FIXTURES.tally, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };

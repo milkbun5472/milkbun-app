@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
 const K = require(path.join(__dirname, "..", "js", "phone.js"));
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const D = 86400000;
 
 // 她 2026-09-01：「这个日期有 bug」。截图里今天 14:45 那条排在 8月30日 23:45 下面，

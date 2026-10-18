@@ -9,7 +9,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const phone = fs.readFileSync(__dirname + "/../js/phone.js", "utf8");
+const phone = (fs.readFileSync(__dirname + "/../js/phone.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/phone-ui.js", "utf8"));
 
 // 只看便签那一段：两头都钉在代码上（施工规则/anchor-on-code）
 const i = phone.indexOf("    notes: {"), j = phone.indexOf("    calls: {", i);

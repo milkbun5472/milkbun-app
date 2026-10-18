@@ -13,7 +13,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 test("查手机里换掉的那些顶栏，逐页点名（少一处才红）", () => {
   const want = [

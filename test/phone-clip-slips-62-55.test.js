@@ -7,7 +7,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/phone.js", "utf8");
+const SRC = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 const CV = SRC.slice(SRC.indexOf("// ── 剪贴板：一叠纸条"), SRC.indexOf("// 浏览器 —— 仿真浏览器"));
 const CVC = CV.split("\n").map(l => l.split("//")[0]).join("\n");

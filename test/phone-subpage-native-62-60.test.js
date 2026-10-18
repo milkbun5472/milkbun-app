@@ -10,7 +10,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/phone.js", "utf8");
+const SRC = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("照片详情：黑底满幅，不是白底圆角缩略图 + 灰卡", () => {

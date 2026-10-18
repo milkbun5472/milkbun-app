@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const phone = fs.readFileSync(__dirname + "/../js/phone.js", "utf8");
+const phone = (fs.readFileSync(__dirname + "/../js/phone.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/phone-ui.js", "utf8"));
 const seg = (src, a, b) => { const i = src.indexOf(a); assert.ok(i > 0, a); return src.slice(i, src.indexOf(b, i)); };
 
 test("改TA通讯录备注：走 savePhoneApp 就地改、灰字、等她按回复", () => {

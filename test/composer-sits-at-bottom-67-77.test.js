@@ -14,7 +14,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const phone = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
 
 // 真跑这个 hook：假的 useState/useEffect + 假的 visualViewport
 const mkLift = () => {

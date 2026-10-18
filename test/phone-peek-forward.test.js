@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 
 const peekFn = app.match(/const forwardPhonePeekToChat = \(char, peek\) => \{[\s\S]*?\n  \};/);

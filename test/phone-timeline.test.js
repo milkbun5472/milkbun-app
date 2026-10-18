@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const SRC = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const SRC = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 // 只抽纯函数那一段跑，不碰 React。
 // ⚠️vm 里造出来的数组属于另一个 realm，deepStrictEqual 会判「结构相同但不是同一个 Array」，

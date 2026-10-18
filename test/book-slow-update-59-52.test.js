@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = require(path.join(__dirname, "..", "js", "phone.js"));
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const char = { id: "c1", name: "沈屿白", persona: "男" };
 const known = { shelves: [{ name: "老头以为我在读的", books: [
   { title: "光学原理", author: "玻恩", readAt: "第 128/357 页", note: "旧批注" },

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function PlazaView("), ph.indexOf("\n// =====", ph.indexOf("function PlazaView(")));
 
 // 她 2026-09-01：「小红书现在是半屏，帮我弄成点开是全屏样式吧」。

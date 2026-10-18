@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const P = require("../js/character-pronoun.js");
 const K = {phoneTa:P.replace,charTa:P.ta};
 
@@ -33,13 +33,11 @@ test("确实包住了那一批标签，不是只改了两处", () => {
 // ⚠️提示词那一半【不许】被这一套碰：那边的称呼是按 charTa(char) 逐个角色算的，
 // 而 T() 用的是「现在在看谁」——两者混在一起，后台给 A 生成时会用上 B 的称呼。
 test("只包界面那一段，提示词那两头一处都没动", () => {
-  const uiStart = ph.indexOf("function phoneSearch(rows, extra, q) {");
-  const uiEnd = ph.indexOf("const PHONE_ANGLE = {");
-  assert.ok(uiStart > 0 && uiEnd > uiStart);
+  // 2026-10-18 起两半各住一份：界面那半在 phone-ui.js（用到才加载），提示词和数据那半在 phone.js（开机加载）
+  const core = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
   // 注释里写着 T("他的订单") 这个例子，先剥掉注释再看，不然是自己抓自己
   const bare = x => x.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  assert.ok(bare(ph.slice(0, uiStart)).indexOf('T("') < 0, "提示词那一半（前半段）被包进去了");
-  assert.ok(bare(ph.slice(uiEnd)).indexOf('T("') < 0, "提示词那一半（后半段）被包进去了");
+  assert.ok(bare(core).indexOf('T("') < 0, "提示词那一半（phone.js）被包进去了");
   // 提示词仍然走各自角色的那一条
   assert.match(ph, /characterText\(char,/, "提示词应使用当前生成对象");
   assert.match(ph, /instruction: _full/, "拼完的引用不能再整段改写");

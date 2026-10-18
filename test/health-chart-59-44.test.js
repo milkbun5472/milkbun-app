@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = require(path.join(__dirname, "..", "js", "phone.js"));
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function HealthView("), ph.indexOf("// ============", ph.indexOf("function HealthView(")));
 const char = { id: "c1", name: "沈屿白", persona: "男" };
 const D = 86400000, iso = t => new Date(t).toISOString().slice(0, 10);
