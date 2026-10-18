@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.982";
+const APP_VERSION = "v75.983";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2244,6 +2244,21 @@ function App() {
   }, []);
   // 点锁屏通知回到 app：打开对应角色的私聊（index.html 的 SW 监听里会调这个）
   useEffect(() => {
+    // 把以前聊天里她自己发过的真照片补进本机照片库（照片库 10-09 才开始自动收，之前发的没进去）。
+    //   她在照片库里点了才跑；单聊、群聊、线下都翻一遍，已经在库里的不动。返回补进去几张
+    window.__collectMyOldPhotos = async () => {
+      const have = new Set((await idbAlbumEntries()).map(r => r.imageRef));
+      const found = new Map();
+      const scan = (list, where) => (list || []).forEach(m => {
+        if (m && m.role === "user" && m.kind === "photo" && m.photoMode !== "describe" && typeof m.imageRef === "string" && m.imageRef.indexOf("iv_") === 0 && !have.has(m.imageRef) && !found.has(m.imageRef))
+          found.set(m.imageRef, { imageRef: m.imageRef, caption: String(m.desc || "").trim(), source: where, createdAt: m.ts || Date.now() });
+      });
+      Object.values(chatsRef.current || {}).forEach(l => scan(l, "private-chat"));
+      Object.values(groupChatsRef.current || {}).forEach(l => scan(l, "group-chat"));
+      [offlinesRef.current, groupOfflinesRef.current].forEach(o => Object.values(o || {}).forEach(ss => (ss || []).forEach(sess => scan(sess && sess.msgs, "offline"))));
+      for (const row of found.values()) { try { await idbAlbumPut(row); } catch (e) {} }
+      return found.size;
+    };
     window.__openFromNotif = (charId, screen, roomId, groupId) => {
       const c = charId && characters.find(x => x.id === charId);
       if (charId && !c) return; // 冷启动资料未到，待下次角色列表更新重试。
