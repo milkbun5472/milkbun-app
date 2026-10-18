@@ -569,9 +569,21 @@
         participantIds.forEach(function (id) { pushPC(id, ts, line); });
       });
     });
+    // 这一周记进记忆库的条目：整周每件事的摘要，又短又全（她 2026-10-18：周刊只写了刚发生那件事）。
+    //   侧房的记忆本来就存在房里不在这儿；封闭群记下的不读。
+    const mems = { global: [], perChar: {} };
+    (loadJSON("x_memLib", []) || []).forEach(function (e) {
+      if (!e || !e.text || !inWin(e, win)) return;
+      if (e.groupId && !(gset[e.groupId] && gset[e.groupId].memoryInterop)) return;
+      const d = vt(messageTime(e)), row = { ts: messageTime(e), line: (d.getMonth() + 1) + "/" + d.getDate() + " " + String(e.text).trim() };
+      mems.global.push(row);
+      (e.charIds || []).forEach(function (id) { (mems.perChar[id] = mems.perChar[id] || []).push(row); });
+    });
+    mems.global.sort(function (a, b) { return a.ts - b.ts; });
+    Object.keys(mems.perChar).forEach(function (k) { mems.perChar[k].sort(function (a, b) { return a.ts - b.ts; }); });
     global.sort(function (a, b) { return a.ts - b.ts; });
     Object.keys(perChar).forEach(function (k) { perChar[k].sort(function (a, b) { return a.ts - b.ts; }); });
-    return { perChar: perChar, global: global };
+    return { perChar: perChar, global: global, mems: mems };
   }
   // ---- 数据版：全部在本地算，模型只负责写标题和点评，一个数字都不许改 ----
   const STOP2 = ["什么", "这样", "那样", "没有", "可以", "我们", "你们", "他们", "自己", "一个", "一下", "怎么", "知道", "现在", "时候", "因为", "所以", "但是", "如果", "还是", "就是", "不是", "这个", "那个", "已经"];
@@ -649,22 +661,44 @@
     });
   }
   // 分块渲染：预算按块平摊，别让第一块把额度吃光、后面几块只剩标题
+  // 料的字数：整周 30000、一个人 12000（她 2026-10-18：「料为啥只给8000太少了」）
+  const WEEK_CHARS = 30000, CHAR_CHARS = 12000;
+  // 一段太长时掐头留尾会把前面的事整件丢掉——两头各留一半，中间略
+  function squeeze(text, n) {
+    if (!n || text.length <= n) return text;
+    const half = Math.floor(n / 2);
+    return text.slice(0, half) + "\n……（中间略）……\n" + text.slice(text.length - half);
+  }
+  // 分块渲染：预算按块平摊，别让第一块把额度吃光、后面几块只剩标题
   function blocksToText(blocks, maxChars) {
     const list = blocks || [];
     if (!list.length) return "";
-    const per = Math.max(300, Math.floor((maxChars || 8000) / list.length));
+    const per = Math.max(300, Math.floor((maxChars || WEEK_CHARS) / list.length));
     return list.map(function (b) {
-      const body = b.text.length > per ? "……（略去较早部分）\n" + b.text.slice(b.text.length - per) : b.text;
-      return "【素材块 " + b.id + "｜" + b.label + "】\n" + body;
+      return "【素材块 " + b.id + "｜" + b.label + "】\n" + squeeze(b.text, per);
     }).join("\n\n");
   }
+  // 太长时按天平摊：每天都有篇幅，不再只剩最后那一两场
   function linesToText(list, maxChars) {
-    let s = (list || []).map(function (x) { return x.line; }).join("\n");
-    if (maxChars && s.length > maxChars) s = "……（略去较早部分）\n" + s.slice(s.length - maxChars); // 留最近的尾部
-    return s;
+    const rows = list || [];
+    const all = rows.map(function (x) { return x.line; }).join("\n");
+    if (!maxChars || all.length <= maxChars) return all;
+    const days = [];
+    rows.forEach(function (r) {
+      const k = ymd(vt(r.ts)), last = days[days.length - 1];
+      if (last && last.k === k) last.lines.push(r.line); else days.push({ k: k, lines: [r.line] });
+    });
+    const per = Math.max(300, Math.floor(maxChars / days.length));
+    return days.map(function (d) { return squeeze(d.lines.join("\n"), per); }).join("\n\n");
   }
-
-  // ---- 生成：一次 callAI + extractJSON，外层重试 ----------------------
+  // 喂给模型的整份料：先摆这一周记下的事（整周骨架），再摆原文
+  function matText(mat, charId, maxChars) {
+    const m = (mat && mat.mems) || {};
+    const mem = (charId == null ? m.global : (m.perChar || {})[charId]) || [];
+    const raw = charId == null ? (mat && mat.global) : ((mat && mat.perChar) || {})[charId];
+    const head = mem.length ? "【这一周记进记忆库的事 · 整周的骨架，按日子】\n" + squeeze(mem.map(function (x) { return "- " + x.line; }).join("\n"), Math.floor(maxChars / 4)) + "\n\n【这一周的原文】\n" : "";
+    return head + linesToText(raw || [], maxChars - Math.min(head.length, Math.floor(maxChars / 4)));
+  }
   // ⚠️genJSON 的第四个参数【就是 maxTokens】，只是位置传参。
   //   v59.96 全 app 扫额度时我只认 `maxTokens: 数字` 这个写法，把这里六处漏了
   //   （采访、语录、来信、小报、头版都卡在 6000 以下）。这里兜一道底线：
@@ -837,7 +871,7 @@
     // 比"告诉它别写"硬得多。剩下的块不够了才退回全量素材 + 文字避让。
     const o = opts || {};
     const free = (o.blocks || []).filter(function (b) { return (o.usedBlocks || []).indexOf(b.id) < 0; });
-    if (free.length) material = blocksToText(free, 8000);
+    if (free.length) material = blocksToText(free, WEEK_CHARS);
     const sys =
       ANTI_CLICHE + "\n\n" + CB() +
       "\n\n【媒体腔 · " + voice.name + "（本版块叙述者的世界观与声纹，是最高创作框架，全程严格遵守）】\n" + voice.world + PLAIN_CORE +
@@ -1015,7 +1049,7 @@
   async function generateIssue(active, characters, groups, userName, win, issueNumber, onProgress) {
     const mat = weekMaterial(win, characters, groups, userName);
     const charsWithMat = (characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
-    const globalText = linesToText(mat.global, 8000);
+    const globalText = matText(mat, null, WEEK_CHARS);
     const empty = mat.global.length === 0;
     const blocks = weekBlocks(mat.global); // 带编号的素材块：各版面轮流认领，认走的别人看不到
     const weekVoices = voicesForWeek(win.key, loadIssues(), win.start); // 每期三块，整池轮抽
@@ -1047,7 +1081,7 @@
     for (const c of picked) {
       tick("采访 " + c.name);
       try {
-        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id] || [], 4000), userName, win.label, interviewer);
+        const iv = await genInterview(active, c, matText(mat, c.id, CHAR_CHARS), userName, win.label, interviewer);
         entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv));
       } catch (e) { /* 单角色硬失败就跳过，不拖垮整期 */ }
       done++;
@@ -1057,7 +1091,7 @@
     let batch = {};
     try {
       batch = await genMediaBatch(active, weekVoices, personasFor(charsWithMat, userName),
-        blocks.length >= 2 ? blocksToText(blocks, 8000) : globalText, empty, blocks, win.key);
+        blocks.length >= 2 ? (globalText.indexOf("【这一周的原文】") >= 0 ? globalText.slice(0, globalText.indexOf("【这一周的原文】")) : "") + blocksToText(blocks, WEEK_CHARS) : globalText, empty, blocks, win.key);
     } catch (e) { batch = {}; }
     // 批量那次已经在一个上下文里把事分完了；补洞的单版调用看不见别的版，
     // 所以必须把已被占掉的事显式喂给它，否则补出来的又是最扎眼的那件。
@@ -1148,7 +1182,7 @@
     genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate,
     loadIssues: loadIssues, saveIssues: saveIssues, orderedIssues: orderedIssues, shelfIssues: shelfIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     missedWindows: missedWindows,
-    weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
+    weekMaterial: weekMaterial, linesToText: linesToText, matText: matText, WEEK_CHARS: WEEK_CHARS, CHAR_CHARS: CHAR_CHARS, personasFor: personasFor,
     genCover: genCover, genInterview: genInterview, interviewerFor: interviewerFor, interviewerOfIssue: interviewerOfIssue, genMedia: genMedia, generateIssue: generateIssue,
     claimedEvents: claimedEvents, claimedBlocks: claimedBlocks, eventKey: eventKey,
     weekBlocks: weekBlocks, blocksToText: blocksToText, pickOrder: pickOrder,
@@ -1796,7 +1830,7 @@
         const charsWithMat = ((props.autoCharacters || props.characters || [])).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const personasBlock = window.Weekly.personasFor(charsWithMat, props.userName);
         const empty = mat.global.length === 0;
-        const fresh = await window.Weekly.genCover(props.active, personasBlock, window.Weekly.linesToText(mat.global, 8000), empty);
+        const fresh = await window.Weekly.genCover(props.active, personasBlock, window.Weekly.matText(mat, null, window.Weekly.WEEK_CHARS), empty);
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) { return s.id === sec.id ? Object.assign({}, s, fresh) : s; });
           return iss;
@@ -1810,8 +1844,7 @@
       setBusyUnit("add_" + char.id);
       try {
         const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
-        const lines = mat.perChar[char.id] || [];
-        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(lines, 4000), props.userName, win.label, window.Weekly.interviewerOfIssue(issue));
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.matText(mat, char.id, window.Weekly.CHAR_CHARS), props.userName, win.label, window.Weekly.interviewerOfIssue(issue));
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (sec) {
             if (sec.type !== "interview") return sec;
@@ -1829,7 +1862,7 @@
       setBusyUnit(entry.id);
       try {
         const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
-        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(mat.perChar[char.id], 4000), props.userName, win.label, window.Weekly.interviewerOfIssue(issue));
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.matText(mat, char.id, window.Weekly.CHAR_CHARS), props.userName, win.label, window.Weekly.interviewerOfIssue(issue));
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) {
             if (s.type !== "interview") return s;
@@ -1849,7 +1882,7 @@
         const empty = mat.global.length === 0;
         // 重刷一版时，本期别的版已经报过的事要避开——否则重刷出来的还是那件最扎眼的
         const avoid = window.Weekly.claimedEvents(issue.sections, sec.id);
-        const articles = await window.Weekly.genMedia(props.active, voiceOf(sec.voiceId), personasBlock, window.Weekly.linesToText(mat.global, 8000), empty, avoid,
+        const articles = await window.Weekly.genMedia(props.active, voiceOf(sec.voiceId), personasBlock, window.Weekly.matText(mat, null, window.Weekly.WEEK_CHARS), empty, avoid,
           { blocks: window.Weekly.weekBlocks(mat.global), usedBlocks: window.Weekly.claimedBlocks(issue.sections, sec.id) });
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) { return s.id === sec.id ? Object.assign({}, s, { articles: articles }) : s; });
@@ -1867,7 +1900,7 @@
         const charsWithMat = ((props.autoCharacters || props.characters || [])).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const articles = await window.Weekly.genMedia(
           props.active, v, window.Weekly.personasFor(charsWithMat, props.userName),
-          window.Weekly.linesToText(mat.global, 8000), mat.global.length === 0,
+          window.Weekly.matText(mat, null, window.Weekly.WEEK_CHARS), mat.global.length === 0,
           window.Weekly.claimedEvents(issue.sections), // 手动补版同样避开已报过的事
           { blocks: window.Weekly.weekBlocks(mat.global), usedBlocks: window.Weekly.claimedBlocks(issue.sections) }
         );
