@@ -8,7 +8,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/phone.js", "utf8");
+const SRC = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 const nocom = x => x.split("\n").map(l => l.split("//")[0]).join("\n");
 const SV = SRC.slice(SRC.indexOf("function ShoppingView("), SRC.indexOf("// 外卖 —— TA怎么把自己喂饱"));
 const SVC = nocom(SV);

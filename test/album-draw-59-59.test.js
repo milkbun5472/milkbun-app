@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const ph = fs.readFileSync(path.join(root, "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(root, "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "phone-ui.js"), "utf8"));
 const ap = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
 const view = ph.slice(ph.indexOf("function AlbumView("), ph.indexOf("function ReadingView("));
 const { phonePhotoSig } = require(path.join(root, "js", "phone.js"));
@@ -122,7 +122,7 @@ test("画好的图要存进【图库】，不是聊天自拍那个仓", () => {
   // 图库写不进去就退回内联，别把一个画不出来的键存下来
   assert.match(draw, /if \(String\(ref\)\.indexOf\("iv_"\) !== 0\) \{ url = du; ref = ""; \}/);
   // v66.61 之前存下的那些 img_ 键：读的时候异步捞一把，不用她再花一枪重画
-  const ph2 = fs.readFileSync("js/phone.js", "utf8");
+  const ph2 = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
   assert.match(ph2, /const legacy = String\(ref \|\| ""\)\.indexOf\("img_"\) === 0;/);
   assert.match(ph2, /idbImgGet\(k\)\.then\(b => \{/);
 });

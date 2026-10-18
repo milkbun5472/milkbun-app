@@ -9,7 +9,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/phone.js", "utf8");
+const SRC = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 // ⚠️断言别撞上我自己写的中文注释——注释里提一句「HEALTH_HUES 删掉了」，
 // doesNotMatch 就会当成它还在（这一处今天已经绊过一次）。
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");

@@ -23,8 +23,8 @@ const R = f => fs.readFileSync(path.join(root, f), "utf8");
 const NOT_A_BAR = [
   ["js/components.js", 'paddingTop: safeTop(8),', "Head 自己（挂点就长在它身上）"],
   ["js/components.js", 'return Object.assign({ paddingTop: safeTop(0) },', "一个算 padding 的工具函数，不是元素"],
-  ["js/phone.js", 'h("div", { className: "shrink-0 px-6", style: { paddingTop: safeTop(30) } },', "查手机锁屏上那块大时钟，不是顶栏"],
-  ["js/phone.js", 'aspectRatio: "16 / 9"', "视频封面那一格（返回键浮在图上，不是一条栏）"],
+  ["js/phone-ui.js", 'h("div", { className: "shrink-0 px-6", style: { paddingTop: safeTop(30) } },', "查手机锁屏上那块大时钟，不是顶栏（2026-10-18 起页面那半在 phone-ui.js）"],
+  ["js/phone-ui.js", 'aspectRatio: "16 / 9"', "视频封面那一格（返回键浮在图上，不是一条栏）"],
   ["js/yanqiu.js", 'paddingTop: safeTop(10)', "言秋的文件，不归这个窗口动（界面装修工单里也这么记着）"]
 ];
 
@@ -65,8 +65,10 @@ test("换成共用 Head 的那几页，是真的换了", () => {
   want.forEach(([f, re, zh]) => assert.match(R(f), re, zh + "那一页又变回手写顶栏了"));
   // 记账那几条顶栏是同一个形状，一次全换了（v74.282 加了账户编辑页、v74.283 加了周期账单编辑页，都用共用 Head）
   // v74.375 的账单分享角色选择页也复用 Head。
-  assert.equal((R("js/ledger.js").match(/h\(Head, \{ zh:/g) || []).length, 9, "记账那九条顶栏没都换过来");
-  assert.ok(!/safeTop\(/.test(R("js/ledger.js")), "记账里还剩着手写顶栏");
+  // 记账 2026-10-18 拆成两份：ledger-core.js（开机加载，bookPage 那一条顶栏在这儿）＋ ledger.js（页面）
+  const ledgerAll = R("js/ledger-core.js") + R("js/ledger.js");
+  assert.equal((ledgerAll.match(/h\(Head, \{ zh:/g) || []).length, 9, "记账那九条顶栏没都换过来");
+  assert.ok(!/safeTop\(/.test(ledgerAll), "记账里还剩着手写顶栏");
 });
 
 test("故意保留原样的那几条，写清了为什么，而且真的只加了属性", () => {
@@ -76,7 +78,7 @@ test("故意保留原样的那几条，写清了为什么，而且真的只加�
     ["js/components.js", "这一条【不换成公共 Head】：它没有居中标题"],
     ["js/debate.js", "这一条【不换成公共 Head】：它没有标题"],
     ["js/weekly.js", "封面这一条【不换成 Head】：它是刊头"],
-    ["js/phone.js", "查手机里这些内层 app【不换成公共 Head】"],
+    ["js/phone-ui.js", "查手机里这些内层 app【不换成公共 Head】"],   // 2026-10-18 起页面那半在 phone-ui.js
     ["js/screens.js", "信纸这两页【不换成公共 Head】"]
   ];
   cases.forEach(([f, why]) => assert.ok(R(f).indexOf(why) >= 0, f + " 里那条「为什么不换」的理由没了：" + why));

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起TA手机的第一眼"));
 
 // 她 2026-09-01：「时间线现在是打开看到接下来排好的下滑完一周接下来的才能看到

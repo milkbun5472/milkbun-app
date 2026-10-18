@@ -1,6 +1,7 @@
+// 算账那一半 2026-10-18 搬去 js/ledger-core.js（开机加载），页面那一半还在 ledger.js；源码两份一起读
 // 记账：日均支出＋流水按天分组（群里反馈 2026-09-27「记账那里可以添加一个每日花费吗」）
 const assert = require("node:assert/strict");
-const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+const src = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
 const grab = n => { const i = src.indexOf("function " + n + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
 const { dailyAvg, groupByDay, dayLabel } = new Function("const pad=n=>String(n).padStart(2,'0');" + src.match(/const isTransfer = [^;]+;/)[0] + src.match(/const refundSum = [^\n]+/)[0] + src.match(/const netAmt = [^\n]+/)[0] + grab("fmtDay") + grab("dailyAvg") + grab("groupByDay") + grab("dayLabel") + "return {dailyAvg,groupByDay,dayLabel};")();
 const today = new Date(2026, 8, 27);

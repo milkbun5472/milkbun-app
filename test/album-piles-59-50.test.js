@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function AlbumView("), ph.indexOf("function ReadingView("));
 
 // 她 2026-09-01：「选的相册叫个人收藏、最近保存、最近删除、私密这些也都是照抄，

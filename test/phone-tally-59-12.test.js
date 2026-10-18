@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const ph = R("phone.js"), app = R("app.js");
+const ph = (R("phone.js") + "\n" + R("phone-ui.js")), app = R("app.js");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 // ⚠️核【拼出来的那份提示词】，不是源码里的字符串——源码里一句话常被 + 断成好几段，
 // 照源码写断言既难写又冻长相。

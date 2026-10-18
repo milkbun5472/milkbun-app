@@ -2,10 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const grab = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, "抠不出：" + a); return src.slice(i, j); };
+// HEALTH_SLOTS 在 phone.js（开机那半，刷手机的提示词要用），分组和 HealthView 在 phone-ui.js（2026-10-18 拆开）
+const topBlock = (head) => { const i = src.indexOf(head); assert.ok(i >= 0, "抠不出：" + head); const m = /\n(?:async function|function|const|let) /.exec(src.slice(i + head.length)); return src.slice(i, m ? i + head.length + m.index : src.length); };
 const { healthGroupOf, HEALTH_GROUPS } =
-  new Function(grab("const HEALTH_GROUPS = [", "function HealthView") + "\nreturn { healthGroupOf, HEALTH_GROUPS };")();
+  new Function(topBlock("const HEALTH_SLOTS") + "\n" + grab("const HEALTH_GROUPS = [", "function HealthView") + "\nreturn { healthGroupOf, HEALTH_GROUPS };")();
 const KEYS = HEALTH_GROUPS.map(g => g.key);
 // 界面就是这么分档的：卡按 group 分到各个 tab，分不到任何一档＝这张卡永远翻不到
 const visible = cards => KEYS.flatMap(k => cards.filter(c => healthGroupOf(c) === k));

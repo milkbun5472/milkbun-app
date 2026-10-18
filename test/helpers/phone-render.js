@@ -5,7 +5,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const SRC = fs.readFileSync(path.join(__dirname, "..", "..", "js", "phone.js"), "utf8");
+// 查手机 2026-10-18 拆成两份：phone.js（开机那一半）＋ phone-ui.js（页面那一半，用到才加载）。浏览器里是先后两个脚本共用全局，这儿拼成一份跑
+const SRC = fs.readFileSync(path.join(__dirname, "..", "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "..", "js", "phone-ui.js"), "utf8");
 
 function makeEnv(forceState) {
   let stateIdx = 0;

@@ -2,11 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const grab = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, "抠不出：" + a); return src.slice(i, j); };
 const APPS = new Function(grab("const PHONE_APPS = [{", "const PHONE_LABEL") + "\nreturn PHONE_APPS;")().map(a => a.key);
 const { PHONE_DESKTOP_LAYOUTS: LS, PHONE_DECOR: DECOR } =
-  new Function(grab("const PHONE_DECOR = [", "const phoneStableHash") + "\nreturn { PHONE_DESKTOP_LAYOUTS, PHONE_DECOR };")();
+  // 2026-10-18 起：PHONE_DECOR、PHONE_DESKTOP_LAYOUTS 在 phone-ui.js，后面那个 phoneStableHash 留在 phone.js——切到下一个顶层声明为止
+  new Function((() => { const ui = fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"); const i = ui.indexOf("const PHONE_DECOR = ["); assert.ok(i >= 0); let j = i; const re = /\n(?:function|const|let) ([A-Za-z_$][\w$]*)/g; re.lastIndex = i + 10; let m; while ((m = re.exec(ui)) && (m[1] === "PHONE_DESKTOP_LAYOUTS" || m[1] === "PHONE_DECOR")) j = m.index; m = /\n(?:function|const|let) /.exec(ui.slice(j + 1)); return ui.slice(i, m ? j + 1 + m.index : ui.length); })() + "\nreturn { PHONE_DESKTOP_LAYOUTS, PHONE_DECOR };")();
 const iconsOf = (l, p) => (l.pages[p] || []).filter(k => !(l.widgets[p] || []).some(w => w.key === k));
 
 // 她 2026-08-30：「加了一堆新功能之后这四种分别怎么排比较好」

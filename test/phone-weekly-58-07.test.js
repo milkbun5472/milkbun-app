@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 // phoneWeekKey 真跑
 const weekKey = new Function(phone.slice(phone.indexOf("function phoneWeekKey(d)"),
   phone.indexOf("// 周刊式刷新时告诉模型取材的时间窗")) + "\nreturn phoneWeekKey;")();

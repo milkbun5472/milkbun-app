@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 test("查手机桌面是全屏双页、可横滑并保留底部 Dock", () => {
   assert.match(src, /const PHONE_DESKTOP_LAYOUTS = \[/);

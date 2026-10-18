@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { loadPhone, FIXTURES } = require("./helpers/phone-render.js");
-const SRC = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const SRC = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const P = new Function(SRC + "; return { TALLY_TABS, TALLY_DIR, tallyEntries };")();
 const view = SRC.slice(SRC.indexOf("function TallyView({"), SRC.indexOf("// 时间线视图"));
 const props = { d: FIXTURES.tally, char: { name: "某人" }, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
