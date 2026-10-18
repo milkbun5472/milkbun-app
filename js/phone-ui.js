@@ -5871,7 +5871,7 @@ function PhoneCarry({
   // 以前所有组件共用一套：一行灰标签 + 一行黑字。音乐、健康、相册、日历长得一模一样，
   // 摆四个上去就是四个一样的白盒子，谁是谁得读字才知道（她 2026-08-30 报的就是这个）。
   // 下面给认得出来的那几个各自的样子；剩下的还走那套通用的（它们本来也只有一句话可说）。
-  const wRows = k => { const d = data[k]; if (!d || typeof d !== "object") return []; 
+  const wRows = k => { const d = data[k]; if (!d || typeof d !== "object") return [];
     const arr = ["items", "chats", "history", "photos", "inbox", "orders", "cart", "timeline", "posts"]
       .map(x => Array.isArray(d[x]) ? d[x] : null).filter(Boolean)[0];
     return Array.isArray(arr) ? arr.filter(x => x && typeof x === "object") : []; };
