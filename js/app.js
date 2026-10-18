@@ -22082,7 +22082,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
-        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）"; }
+        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）" + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
