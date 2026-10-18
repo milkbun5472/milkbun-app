@@ -26,7 +26,7 @@ test("在一起那一刻只写一份：她邀请他答应、他写信她答应�
 test("闸：已在一起／邀请挂着／关了／刚分手／再想想不到 3 天／一天一封／还有一封没拆", () => {
   const ready = app.slice(app.indexOf("const loveLetterReady"), app.indexOf("const markLoveLetter"));
   assert.match(ready, /settingsFor\(charId\)\.noLoveLetter/);
-  assert.match(ready, /cp\.status === "together" \|\| cp\.status === "pending"/);
+  assert.match(ready, /cp\.status === "together" \|\| \(cp\.status === "pending" && coupleInviteCardLive\(charId\)\)/);
   assert.match(ready, /7 \* 864e5/);
   assert.match(app, /const LOVE_LETTER_DECLINE_COOL_MS = 3 \* 864e5;/);
   assert.match(ready, /rec\.declinedTs/);
