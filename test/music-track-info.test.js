@@ -23,7 +23,7 @@ test('两格式同时存在保留原优先级，空字段不偷偷替换', () =>
   assert.equal(info({}).artist, ''); assert.equal(info({}).cover, undefined);
 });
 test('业务入口接公共映射，存档 ID 和候选回退仍由调用方决定', () => {
-  const app = read('app.js'), screens = read('screens.js');
+  const app = read('app.js'), screens = (read('screens.js') + "\n" + read('screens-ui.js'));
   assert.equal((app.match(/neteaseTrackInfo\(/g) || []).length, 6);   // v75.909 音乐广场点歌是第六处
   assert.match(screens, /neteaseTrackInfo\(s, \{ preferShort: true \}\)/);
   assert.doesNotMatch(app, /\(\w+\.artists \|\| \w+\.ar \|\| \[\]\)\.map/);

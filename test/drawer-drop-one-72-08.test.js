@@ -7,7 +7,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("一颗一直看得见的 ✕，不是长按", () => {

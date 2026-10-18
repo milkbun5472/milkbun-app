@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "../js/" + f), "utf8");
-const eng = R("engine.js"), app = R("app.js"), scr = R("screens.js");
+const eng = R("engine.js"), app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
 
 test("常用语言：中文／留空一个字不发；别的说主要说什么", () => {
   const src = eng.slice(eng.indexOf("function charLangLine("), eng.indexOf("function groupPersonaText("));

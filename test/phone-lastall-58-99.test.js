@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), ph = (R("phone.js") + "\n" + R("phone-ui.js")), scr = R("screens.js");
+const app = R("app.js"), ph = (R("phone.js") + "\n" + R("phone-ui.js")), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
 let clock = new Date(2026, 8, 7, 12, 0).getTime();
 class ClockDate extends Date { static now() { return clock; } }
 const L = new Function("T", "Date", ph.slice(ph.indexOf("function phoneLastAllLabel(ts) {"), ph.indexOf("function phoneSearch(")) + "\nreturn phoneLastAllLabel;")(x => x, ClockDate);

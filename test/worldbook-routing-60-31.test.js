@@ -7,7 +7,7 @@ const vm = require("node:vm");
 
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const study = fs.readFileSync(path.join(root, "js/study.js"), "utf8");
 const read = fs.readFileSync(path.join(root, "js/read.js"), "utf8");

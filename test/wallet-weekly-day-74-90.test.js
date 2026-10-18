@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 test("每周结算：只补到最近一个过完的周日", () => {
   assert.match(app, /if \(weekly\) \{ const d = schedParseKey\(cutoffKey\); d\.setDate\(d\.getDate\(\) - d\.getDay\(\)\); cutoffKey = schedDayKey\(d\); \}/);
   // 周三看：昨天周二 → 退到上周日；周一看：昨天周日 → 就是昨天

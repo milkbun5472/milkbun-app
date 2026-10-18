@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const R = f => fs.readFileSync(path.join(root, f), "utf8");
-const scr = R("js/screens.js"), app = R("js/app.js"), core = R("js/core.js");
+const scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), app = R("js/app.js"), core = R("js/core.js");
 
 // ── ② 纪念日的年份 ──────────────────────────────────────────
 // 原来【只有月和日】。不重复的那一档只能拿建的那天去猜是哪一年，规矩是

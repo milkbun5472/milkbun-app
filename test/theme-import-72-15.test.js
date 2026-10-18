@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const ui = P("js/theme-studio-ui.js"), screens = P("js/screens.js");
+const ui = P("js/theme-studio-ui.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 test("所有文件口子点之前都先看 ref 在不在", () => {
   const hits = ui.match(/([A-Za-z]+)\.current\.click\(\)/g) || [];

@@ -48,7 +48,7 @@ test("文件里嵌着的图换成一句占位，字数不再被图吃掉；秋�
 // 群里 2026-10-18：「线下生的图找不到」「线上照片也没有」——照片库只收她自己发的，而且收着时永远写 0
 test("数据页：TA 们拍的照片按人认键前缀；本机照片库一进来就数；以前发的真照片能找回来", () => {
   const fs = require("node:fs"), path = require("node:path");
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(scr, /k\.indexOf\("img_" \+ c\.id \+ "_"\) === 0 \|\| k\.indexOf\("img_pdiary_" \+ c\.id \+ "_"\) === 0/);
   assert.match(scr, /h\(CharPhotoAlbum, \{ characters: characters \|\| \[\], toast: toast \}\)/);

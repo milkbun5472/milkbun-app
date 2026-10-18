@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
 const rd = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const comp = rd("components.js"), eng = rd("engine.js"), scr = rd("screens.js"), app = rd("app.js");
+const comp = rd("components.js"), eng = rd("engine.js"), scr = (rd("screens.js") + "\n" + rd("screens-ui.js")), app = rd("app.js");
 
 test("聊天输入框是会长高的多行框，回车发送、Shift+回车换行、输入法选词不发", () => {
   const a = comp.indexOf("function DraftInput("), b = comp.indexOf("function ReplyKey(", a);

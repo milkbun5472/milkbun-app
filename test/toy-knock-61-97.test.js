@@ -13,7 +13,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const HEAD = comp.slice(comp.indexOf("function Head({"), comp.indexOf("function AvatarPicker({"));
 
 test("Head 收得下这个挂钩，而且挂在【标题】上", () => {

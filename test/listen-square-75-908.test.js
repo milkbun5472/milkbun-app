@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert');const fs=require('fs');
-const app=fs.readFileSync(__dirname+'/../js/app.js','utf8'),sc=fs.readFileSync(__dirname+'/../js/screens.js','utf8'),lq=fs.readFileSync(__dirname+'/../js/listen-square.js','utf8'),sh=fs.readFileSync(__dirname+'/../js/shua.js','utf8');
+const app=fs.readFileSync(__dirname+'/../js/app.js','utf8'),sc=(fs.readFileSync(__dirname+'/../js/screens.js','utf8') + "\n" + fs.readFileSync(__dirname+'/../js/screens-ui.js','utf8')),lq=fs.readFileSync(__dirname+'/../js/listen-square.js','utf8'),sh=fs.readFileSync(__dirname+'/../js/shua.js','utf8');
 const seg=(src,a,b)=>src.slice(src.indexOf(a),src.indexOf(b,src.indexOf(a)));
 test('广场与歌评：她点了才打、不进后台、每枪 8000',()=>{
   const g=seg(app,'const genSquare = async','const genCharPlaylist = async');

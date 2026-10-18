@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const cut = (from, to, what) => {
   const i = src.indexOf(from); assert.ok(i > 0, "抠不出" + what);
   const j = src.indexOf(to, i); assert.ok(j > i, "抠不出" + what + "的结尾");

@@ -7,5 +7,5 @@ const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 test("generateSelfieImage 认 opts.api，测试键把正在编辑的那一站递进去", () => {
   assert.match(P("js/engine.js"), /const a = \(opts && opts\.api\) \? Object\.assign\(\{\}, IMG_API_DEFAULTS, opts\.api\) : loadImgApi\(\);/);
-  assert.match(P("js/screens.js"), /api: Object\.assign\(\{\}, c, \{ enabled: true \}/);
+  assert.match((P("js/screens.js") + "\n" + P("js/screens-ui.js")), /api: Object\.assign\(\{\}, c, \{ enabled: true \}/);
 });

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const cut = (s, a, b) => { const i = s.indexOf(a); assert.ok(i >= 0, a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 // 群里 2026-10-16：「备份不下来了，秋秋说可能是内存太大了」——图和视频拼成一整串，手机撑不住

@@ -12,7 +12,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 
-const src = fs.readFileSync("js/screens.js", "utf8");
+const src = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 // 只看情侣空间那一段的【代码】，注释里出现这些字是在说明病情，不算犯规
 const seg = (() => {
   const a = src.indexOf("function Us({ characters, couples,");

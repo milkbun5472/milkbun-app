@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const LT = scr.slice(scr.indexOf("function ListenTogether("), scr.indexOf("function CoupleQAConfig("));
 
 test("补封面那条路在，两处都接上了：播放时、刚贴进来时", () => {

@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 // 桩照【写那一单的地方】：外卖卡和在途礼物，两个写入方的字面量先钉住
 test("桩的字段照写入方：外卖卡、在途礼物", () => {

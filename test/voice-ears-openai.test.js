@@ -3,7 +3,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 
 test("公共的语音识别接口单独一页，书房耳朵原样不动", () => {
   assert.match(eng, /async function sttTranscribe[\s\S]{0,700}\/audio\/transcriptions/);

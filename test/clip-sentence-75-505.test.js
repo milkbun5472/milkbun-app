@@ -14,7 +14,7 @@ test("超长按 n 截再退到句末；整段没句末的原样留", () => {
 });
 test("拍照和显示两处都用它", () => {
   const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
-  const scr = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
   assert.match(app, /"。此刻：" \+ clipAtSentence\(last, 200\)/);
   assert.match(scr, /clipAtSentence\(big\.scene \|\| ""\)/);
 });

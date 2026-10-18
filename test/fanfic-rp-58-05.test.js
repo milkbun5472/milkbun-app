@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const fic = R("fanfic.js"), engine = R("engine.js"), screens = R("screens.js");
+const fic = R("fanfic.js"), engine = R("engine.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js"));
 // rpMessages 是纯函数，抠出来真跑
 const M = (() => {
   const a = fic.indexOf("  const RP_WINDOW_CHARS = 9000;");

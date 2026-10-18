@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8");
-const scr = fs.readFileSync(require.resolve("../js/screens.js"), "utf8");
+const scr = (fs.readFileSync(require.resolve("../js/screens.js"), "utf8") + "\n" + fs.readFileSync(require.resolve("../js/screens-ui.js"), "utf8"));
 
 test("换上写进状态卡的穿着，一路接到衣柜详情", () => {
   const seg = app.slice(app.indexOf("const wearFromCloset = "), app.indexOf("const closetGiftToChar = "));

@@ -1,7 +1,7 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("fs");
 const X = require("../js/ext-mem.js");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8"),
-  cr = fs.readFileSync(__dirname + "/../js/chat-rooms.js", "utf8"), sc = fs.readFileSync(__dirname + "/../js/screens.js", "utf8"), idx = fs.readFileSync(__dirname + "/../index.html", "utf8");
+  cr = fs.readFileSync(__dirname + "/../js/chat-rooms.js", "utf8"), sc = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8")), idx = fs.readFileSync(__dirname + "/../index.html", "utf8");
 const T = (raw, props, req) => ({ name: "m1__" + raw, raw, input_schema: { properties: props, required: req || [] } });
 test("认出搜和记那两件、放文字的格子", () => {
   const tools = [T("search_memory", { query: { type: "string" }, limit: { type: "number" } }), T("add_memory", { content: { type: "string" } }), T("delete_memory", { id: { type: "string" } }), { name: "m2__search", raw: "search", input_schema: { properties: { q: { type: "string" } } } }];

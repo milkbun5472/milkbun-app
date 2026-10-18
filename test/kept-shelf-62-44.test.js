@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const R = f => fs.readFileSync(path.join(root, f), "utf8");
-const scr = R("js/screens.js"), cap = R("js/capsule.js");
+const scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), cap = R("js/capsule.js");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 // ── 时光胶囊：不许再有 emoji ────────────────────────────────
@@ -110,7 +110,7 @@ test("那两块纯黑药丸换成了各自这一页的材质", () => {
 
 // ── v64.24：情书那张皮现在两页共用，单独钉一条 ──────────────
 test("情书那圈斜条只有一处，两页都从它拿", () => {
-  const scr2 = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr2 = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(scr2, /const letterSkin = t => \(\{ background: t\.bg,\n\s*backgroundImage: "repeating-linear-gradient\(45deg,rgba\(176,141,82,\.055\)/,
     "那圈斜条不在 letterSkin 里了");
   assert.equal((scr2.match(/repeating-linear-gradient\(45deg,rgba\(176,141,82/g) || []).length, 1,

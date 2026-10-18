@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 test("桌子只画一次，同族四处共用同一张", () => {
   // 不新发明材质：DESK 就是编辑页那张 dossierDeskBg 包一层

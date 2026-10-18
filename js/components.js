@@ -1766,7 +1766,9 @@ function lazyScreen(name, group, zh) {
   window[name] = Stub;
 }
 [["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
- ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
+ ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"],
+ // 下面这一排都在 screens-ui.js（screens.js 的页面那一半，2026-10-18 拆出来）：点开其中哪一页，整组一起装上
+ ["Cast", "screens", "人格档案馆"], ["CastForm", "screens", "角色档案"], ["Ties", "screens", "关系网"], ["WorldBook", "screens", "世界书"], ["ForumAnonWrap", "screens", "匿名"], ["Shop", "screens", "购物"], ["Takeout", "screens", "外卖"], ["MyKinPage", "screens", "亲属卡"], ["KinshipBill", "screens", "亲属卡账单"], ["ListenTogether", "screens", "一起听"], ["Config", "screens", "设置"], ["MemoryLib", "screens", "记忆库"], ["Diary", "screens", "日记"], ["MyWallet", "screens", "钱包"], ["CharWallet", "screens", "TA 的钱包"], ["EmoteMatrix", "screens", "表情包"], ["Favorites", "screens", "收藏"], ["Carry", "screens", "随身"], ["MyCloset", "screens", "衣柜"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
   const list = (items || []).filter(x => x && x.src);
   const [i, setI] = useState(Math.min(Math.max(0, at || 0), Math.max(0, list.length - 1)));

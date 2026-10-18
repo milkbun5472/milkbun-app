@@ -2,7 +2,7 @@
 const fs = require("fs"), assert = require("assert");
 const strip = s => s.replace(/\/\/[^\n]*/g, "");
 const app = strip(fs.readFileSync(__dirname + "/../js/app.js", "utf8"));
-const scr = strip(fs.readFileSync(__dirname + "/../js/screens.js", "utf8"));
+const scr = strip((fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8")));
 // 1. 淘汰闸不动挂了 keptFrom 的帖
 const ev = app.indexOf("const evictable = x =>"); assert(ev > 0);
 assert(/!x\.keptFrom/.test(app.slice(ev, ev + 200)), "evictable must skip keptFrom");

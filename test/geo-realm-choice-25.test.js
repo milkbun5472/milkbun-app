@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Map = require("../js/map.js");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = read("app.js"), engine = read("engine.js"), screens = read("screens.js");
+const app = read("app.js"), engine = read("engine.js"), screens = (read("screens.js") + "\n" + read("screens-ui.js"));
 
 // 桩照写入方：pinWorld 写 pins[charId]=node（她自己的 id 是 __me），doRequestGeo 写 {lat,lng,label}
 const world = { id: "w1", name: "银冠王国", regions: [{ name: "王都", terrain: "平原", nodes: [{ name: "白塔街" }] }], pins: { __me: "白塔街" } };

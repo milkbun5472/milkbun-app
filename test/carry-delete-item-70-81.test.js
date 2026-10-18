@@ -6,7 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 const run = (carry, pins, charId, key, name) => {
   const i = app.indexOf("  const carryItemName = it =>");

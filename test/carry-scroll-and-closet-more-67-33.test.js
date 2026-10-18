@@ -19,7 +19,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const screens = R("js/screens.js"), app = R("js/app.js");
+const screens = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), app = R("js/app.js");
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const S = strip(screens), A = strip(app);
 

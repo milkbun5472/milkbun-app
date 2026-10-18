@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const a = src("app.js"), s = src("screens.js");
+const a = src("app.js"), s = (src("screens.js") + "\n" + src("screens-ui.js"));
 test("后台选「无」：自己跑的一律关，自动抽记忆也停", () => {
   // 免打扰时段（v75.906）也算「后台不跑」，后面多了一截 quietNow("bg")
   assert.match(a, /const bgOff = \(\) => loadJSON\("x_bgApi", null\) === "__off__"( \|\| quietNow\("bg"\))?;/);

@@ -40,7 +40,7 @@ test("IDB 文字仓的键不许直接 localStorage.getItem", () => {
 });
 
 test("建全向量索引读的是 loadJSON，不是裸 localStorage", () => {
-  const screens = read("screens.js");
+  const screens = (read("screens.js") + "\n" + read("screens-ui.js"));
   const i = screens.indexOf("const runRebuild = async");
   assert.ok(i > 0);
   const seg = screens.slice(i, screens.indexOf("const inSt =", i));

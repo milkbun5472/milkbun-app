@@ -5,7 +5,7 @@ const path = require("node:path");
 
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 // 她 2026-08-21：删掉一篇之后想把那天重新补回来，没有任何入口——
 // 补齐是「一次补最近 14 天全部漏掉的」，全有或全无。

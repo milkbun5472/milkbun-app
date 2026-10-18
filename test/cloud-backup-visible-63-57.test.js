@@ -12,7 +12,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const cloud = R("cloud.js"), engine = R("engine.js"), app = R("app.js"),
-      screens = R("screens.js"), components = R("components.js");
+      screens = (R("screens.js") + "\n" + R("screens-ui.js")), components = R("components.js");
 const bare = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const slice = (src, from, to) => src.slice(src.indexOf(from), src.indexOf(to, src.indexOf(from)));
 const autoPush = bare(slice(cloud, "async autoPush()", "\n    },"));

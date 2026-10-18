@@ -12,13 +12,20 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const screens = R("js/screens.js"), app = R("js/app.js");
+const screens = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), app = R("js/app.js");
+// 2026-10-18 起 screens.js 拆成两半：衣柜那几支纯函数里，closetGiftLike…clothFigure 这一串搬去了 screens-ui.js，
+// 原来那段「CLOSET_MAX_OCCASIONS → carryProbeSpec」要把这一串拼回来才是整份
+const closetUiPart = (() => {
+  const i = screens.indexOf("function closetGiftLike("), f = screens.indexOf("function clothFigure(", i);
+  const k = screens.slice(f + 1).search(/\n(?:async function |function |const |let )/);
+  return screens.slice(i, k < 0 ? screens.length : f + 1 + k);
+})();
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const S = strip(screens), A = strip(app);
 
 // 真跑那几支纯函数（抠法照 carry-scroll-and-closet-more-67-33 那一份）
 const F = (() => {
-  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec"));
+  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec")) + "\n" + closetUiPart;
   return new Function(head + "\nreturn { closetGroups, closetCount, closetRoom, closetMerge, closetGiftLike };")();
 })();
 

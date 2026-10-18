@@ -6,7 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 // ── ① 钱包这一屏：手机上的单本来一处都不显示 ──────────────────
 // applyWalletDay 把外卖/网购落成 kind:"order"（带 srcKey），日常推演落成 kind:"daily"。

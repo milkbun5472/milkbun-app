@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const grab = (src, a, b, why) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i >= 0 && j > i, "抠不出：" + why); return src.slice(i, j); };
 
 // 她 2026-08-30：「我记得你以前格式把秘密改成划掉了，但是一直没生效」

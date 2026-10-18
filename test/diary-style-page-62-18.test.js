@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 

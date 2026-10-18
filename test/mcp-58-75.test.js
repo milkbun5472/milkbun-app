@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const mcp = R("mcp.js"), eng = R("engine.js"), app = R("app.js"), scr = R("screens.js"), comp = R("components.js");
+const mcp = R("mcp.js"), eng = R("engine.js"), app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), comp = R("components.js");
 const { qualify, unqualify } = require("../js/mcp.js");
 const grab = (src, a, b, cap) => {
   const i = src.indexOf(a), j = src.indexOf(b, i);

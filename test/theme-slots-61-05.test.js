@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const comp = R("js/components.js"), ui = R("js/theme-studio-ui.js"), st = R("js/theme-studio.js"), scr = R("js/screens.js");
+const comp = R("js/components.js"), ui = R("js/theme-studio-ui.js"), st = R("js/theme-studio.js"), scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
 
 // ①「行程这个颜色改不了，改成跟随框的颜色」
 test("此刻行程那条不再写死主题底色，透明＝跟着底下那层走", () => {

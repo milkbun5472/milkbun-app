@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const screens = R("screens.js"), app = R("app.js"), components = R("components.js"), engine = R("engine.js");
+const screens = (R("screens.js") + "\n" + R("screens-ui.js")), app = R("app.js"), components = R("components.js"), engine = R("engine.js");
 
 // 她 2026-08-29：「做我的 app 的购物看看怎么样弄好点然后把界面做好看可以参考淘宝配色」
 test("购物页有自己的一套配色，不跟主题的米白走", () => {

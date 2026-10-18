@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const read = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const dream = read("js/dream.js"), app = read("js/app.js"), engine = read("js/engine.js"), screens = read("js/screens.js");
+const dream = read("js/dream.js"), app = read("js/app.js"), engine = read("js/engine.js"), screens = (read("js/screens.js") + "\n" + read("js/screens-ui.js"));
 
 function loadDream() {
   const g = { window: null, loadJSON: () => ({}), saveJSON: () => true, useState: v => [typeof v === "function" ? v() : v, () => {}], useRef: () => ({ current: null }), useEffect: () => {}, React: { Fragment: "f" },

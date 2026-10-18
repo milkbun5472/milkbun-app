@@ -22,7 +22,7 @@ test("日记以角色选择性记忆写作，不再逐条拼聊天摘要", () =>
 // 每篇长度都差不多。前两个都是提示词自己给的最省力路径。
 test("日记的标题、秘密、长短都不许塌缩成同一个模子", () => {
   const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-  const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   // 界面本来就用日期兜底，所以提示词不该再把日期当成可选标题
   // v58.41 起日期【永远】单独写在页首那一行（不再拿它冒充标题），
   // 所以「不取标题的人也不会开天窗」这条契约反而更硬了
@@ -61,7 +61,7 @@ test("日记自动补写不依赖进入日记页", () => {
 // 新增两种段落与补齐(2026-08-18 Lisa 选 1/2/4 + 一键补齐)
 test("涂改段、贴纸段、真实位置与逐天补齐", () => {
   const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-  const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(engine, /【涂掉的那一句 \/ struck】/);
   assert.match(engine, /它出现在事情中间，不是结尾/, "涂改句不能变成新的收尾套路");

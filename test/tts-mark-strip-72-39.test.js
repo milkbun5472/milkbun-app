@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js", "engine.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "screens-ui.js"), "utf8"));
 
 // 真跑那一段：锚只钉常量名/函数名（施工规则/anchor-on-code.md）
 const load = () => {

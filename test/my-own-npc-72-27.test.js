@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const app = P("js/app.js"), screens = P("js/screens.js"), engine = P("js/engine.js");
+const app = P("js/app.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js")), engine = P("js/engine.js");
 
 // v75.27x：落成什么收进 addNpcLinked 一处（配角页新建、秋秋建配角也走它），addMyNpc 只是老入口的薄壳——两段一起看
 const addMy = (() => {

@@ -5,7 +5,7 @@ const plain=x=>JSON.parse(JSON.stringify(x));
 function fixture(){
  const e={Date,JSON,Math};e.window=e;vm.createContext(e);
  for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','js/char-day-link.js','apps/fairy-garden/day/kitchen.js','js/char-day-life.js','js/char-day.js'])vm.runInContext(read(f),e);
- vm.runInContext(cut(read('js/screens.js'),'function schedFillEnds(','function schedTzShiftMin('),e);
+ vm.runInContext(cut((read('js/screens.js') + "\n" + read('js/screens-ui.js')),'function schedFillEnds(','function schedTzShiftMin('),e);
  let stored={},writes=[],fail=false;e.schedulesRef={current:stored};e.setSchedules=v=>{stored=typeof v==='function'?v(stored):v;};e.saveJSON=(key,value)=>{if(fail)return false;writes.push({key,value:plain(value)});return true;};
  vm.runInContext(cut(app,'  const saveSchedDay =','  const applySchedChange =')+'this.save=saveSchedDay;',e);
  vm.runInContext(cut(app,'  const editSchedSeq =','  const schedWeekKeysFrom =')+'this.edit=editSchedSeq;',e);

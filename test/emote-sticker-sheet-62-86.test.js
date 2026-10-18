@@ -9,7 +9,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const seg = src.slice(src.indexOf("const RELEASE_PAPER = t =>"), src.indexOf("function importEmotesOk("));
 const paperSrc = src.slice(src.indexOf("const RELEASE_PAPER = t =>"), src.indexOf("\nconst STICKER_PAPER"));
 const RELEASE_PAPER = new Function("return " + paperSrc.replace(/^const RELEASE_PAPER = /, "").replace(/;\s*$/, ""))();

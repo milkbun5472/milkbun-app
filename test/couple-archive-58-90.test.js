@@ -57,7 +57,7 @@ test("没在一起就没有「你俩」这回事，也不许发", () => {
   // 档案存在 coupleHome[cid].archive 这一层，顶层并排放的是 wishes。
   // 第一版读成了顶层，node --check 和整套测试都没话说，浏览器里一看是空的。
   assert.match(fn, /\)\[charId\] \|\| \{\}\)\.archive \|\| \{\}/, "读错了一层——档案在 .archive 底下");
-  const scr2 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr2 = (require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(scr2, /data: home\.archive \|\| \{\}, onSave: archive => onSaveCoupleHome\(partner\.id, cur => \(\{ \.\.\.cur, archive \}\)\)/,
     "界面存的层变了,读的那一头要跟着改");
   assert.match(fn, /COUPLE_ARCHIVE_FIELD_CAP\)/, "单栏没封顶，她写长了会撑爆上下文");
@@ -66,7 +66,7 @@ test("没在一起就没有「你俩」这回事，也不许发", () => {
 
 // 栏名必须跟界面上那几个对得上：她是照着界面的提示写的，换个说法等于换了问题
 test("栏名跟界面上那七栏一一对上", () => {
-  const scr = R("screens.js");
+  const scr = (R("screens.js") + "\n" + R("screens-ui.js"));
   const ui = scr.slice(scr.indexOf("const COUPLE_ARCHIVE_FIELDS = ["), scr.indexOf("function CoupleArchive("));
   const keys = [...ui.matchAll(/\["([a-zA-Z]+)", "/g)].map(m => m[1]);
   assert.equal(keys.length, 7, "界面上不是七栏了");

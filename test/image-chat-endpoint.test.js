@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("image api can post to chat/completions", () => {
   assert.match(eng, /apiFormat: "auto"/);
   assert.match(eng, /body\.modalities = \["image", "text"\][\s\S]{0,300}root \+ "\/chat\/completions"/);

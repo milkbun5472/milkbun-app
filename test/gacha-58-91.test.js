@@ -4,7 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const G = require("../js/gacha.js");
-const app = R("app.js"), scr = R("screens.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
+// 2026-10-18 起 screens.js 拆成两半：「切到文件尾」只切它所在的 screens.js 那一半，别切进 screens-ui.js
+const scrCore = R("screens.js");
 const cut = (a, b) => app.slice(app.indexOf(a), app.indexOf(b));
 const redeem = cut("  const gachaRedeem = async card => {", "  const coupleLineFor = (charId, uName) => {");
 const pullFn = cut("  const gachaPull = (char, n, byTa) => {", "  const gachaStamp = (cardId, result) => {");
@@ -98,7 +100,7 @@ test("只活在情侣空间里：主屏一点痕迹都没有", () => {
 
 // 每个恋爱角色单独一份：这一页只认它自己那位，不再有角色选择条
 test("每个恋人各一份，页面上不再挑角色", () => {
-  const ui = scr.slice(scr.indexOf("function Gacha({"));
+  const ui = scrCore.slice(scrCore.indexOf("function Gacha({"));
   // ⚠️核的是【这一页只认 partner】，不是把参数表冻死：v68.31 加一个 onShow 就把它红了，
   //   而那跟「会不会自己挑角色」半点关系没有。
   assert.match(ui, /function Gacha\(\{ partner, /, "这一页不是按恋人开的了");
@@ -149,7 +151,7 @@ test("两个入口都在给点数", () => {
 
 // 施工规则/no-half-sheet.md：新界面一律整页
 test("整页，不是半窗；标题栏是紧凑那种", () => {
-  const ui = scr.slice(scr.indexOf("function Gacha({"));
+  const ui = scrCore.slice(scrCore.indexOf("function Gacha({"));
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");
   assert.match(ui, /className: "h-full flex flex-col"/);
   assert.match(ui, /className: "flex-1 min-h-0 overflow-y-auto/, "正文不是唯一的主滚动容器");

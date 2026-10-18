@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const screens = fs.readFileSync(path.resolve(__dirname, "../js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.resolve(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "../js/screens-ui.js"), "utf8"));
 
 test("五感诊断台覆盖四通道、状态报告和 CC 回流来源", () => {
   assert.match(screens, /function SomaticDiagnosticSheet/);

@@ -10,7 +10,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const K = require(path.join(root, "js/gacha.js"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 test("盒子在池子里，而且是 SSR", () => {
   assert.equal(K.byId.x_box.act, "box");

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 // ⚠️抠出来的这段现在会调 userName(profile)：真的那一个从 core.js 抠出来递进去，
 //   别在这儿抄一份兜底（stub-from-the-writer.md）。
 const { userName } = require("./_user-name.js");

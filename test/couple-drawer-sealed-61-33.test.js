@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 
-const scr = fs.readFileSync("js/screens.js", "utf8");
+const scr = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const app = fs.readFileSync("js/app.js", "utf8");
 const drawer = (() => {
   const a = scr.indexOf("function CoupleDrawer({");

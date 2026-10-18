@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const R = f => fs.readFileSync(__dirname + "/../js/" + f, "utf8");
-const app = R("app.js"), scr = R("screens.js"), comp = R("components.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), comp = R("components.js");
 const wallet = scr.slice(scr.indexOf("function MyWallet("), scr.indexOf("const CUR_PRESETS"));
 
 test("每一笔记账都带出处（凭证）", () => {

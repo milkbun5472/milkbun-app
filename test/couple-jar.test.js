@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const ts = fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8");
 
 function load({ together = true, wallet = 500, charBal = 300, jar } = {}) {

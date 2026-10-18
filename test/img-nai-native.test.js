@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const core = fs.readFileSync(__dirname + "/../js/core.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const naiSrc = eng.slice(eng.indexOf("const naiFetch = async"), eng.indexOf("const isMinimax ="));
 const zipSrc = core.slice(core.indexOf("async function openZip"), core.indexOf("async function epubToText"));
 class FileReader { readAsDataURL(b) { b.arrayBuffer().then(ab => { this.result = "data:" + b.type + ";base64," + Buffer.from(ab).toString("base64"); this.onload(); }); } }

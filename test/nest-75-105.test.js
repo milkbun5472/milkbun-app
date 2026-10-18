@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
 const nest = R("js/nest.js"), app = R("js/app.js"), comp = R("js/components.js"), html = R("index.html"),
-  screens = R("js/screens.js"), ts = R("js/theme-studio.js"), tsui = R("js/theme-studio-ui.js"), engine = R("js/engine.js");
+  screens = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), ts = R("js/theme-studio.js"), tsui = R("js/theme-studio-ui.js"), engine = R("js/engine.js");
 
 function loadNest(store) {
   const g = { StylePresets: null };

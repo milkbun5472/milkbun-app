@@ -100,7 +100,7 @@ test("两个页面只接公共发送链，不另写入库流程", () => {
   }
 });
 test("结局冲突页只保留现行实现，旧草稿不能藏进注释", () => {
-  const screens = read("screens.js");
+  const screens = (read("screens.js") + "\n" + read("screens-ui.js"));
   assert.equal((screens.match(/function MemoryRepairConflictSheet\(/g) || []).length, 1);
   assert.match(screens, /disabled: !!busy \|\| !mem/);
 });

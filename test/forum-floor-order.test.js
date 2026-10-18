@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 const seg = screens.slice(screens.indexOf("const forumFloorArrivedAt"), screens.indexOf("function fmtNum"));

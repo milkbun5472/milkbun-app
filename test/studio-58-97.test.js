@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), scr = R("screens.js"), eng = R("engine.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), eng = R("engine.js");
 const cut = (s, a, b) => s.slice(s.indexOf(a), s.indexOf(b));
 const fit = cut(app, "  const genDateOutfits = async (char, hint) => {", "  // 拍一张。走的是线下那条已经调好的出图链");
 const shoot = cut(app, "  const studioShoot = async (char, opt) => {", "  const DRAWER_CAP");

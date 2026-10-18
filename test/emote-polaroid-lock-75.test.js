@@ -2,7 +2,7 @@
 const assert = require("node:assert");
 const fs = require("node:fs"), path = require("node:path");
 const rd = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = rd("app.js"), scr = rd("screens.js"), comp = rd("components.js");
+const app = rd("app.js"), scr = (rd("screens.js") + "\n" + rd("screens-ui.js")), comp = rd("components.js");
 // 表情包：九宫格切开，进抠图那一组；抠图存表情时关键词别再被包名盖掉
 assert.match(app, /const makeEmoteSet = async \(charId, setOpt\) =>/);
 assert.match(app, /你的表情包里已经有这些了/);

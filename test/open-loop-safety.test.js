@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 
 test("时间、低召回和情绪变淡不能批量关闭 open", () => {
   assert.equal(app.includes("autoClosedTs"), false);

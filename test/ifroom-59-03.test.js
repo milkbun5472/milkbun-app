@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const K = require("../js/ifroom.js");
-const app = R("app.js"), scr = R("screens.js"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 // ⚠️结尾必须从起点【之后】找："\n}\n" 这种结尾在文件更前面到处都是，
 // 从头 indexOf 会切出一段空的，断言就变成永远不成立（或永远成立）。
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };

@@ -10,7 +10,7 @@ const M = require("../js/money.js");
 
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const phone = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");

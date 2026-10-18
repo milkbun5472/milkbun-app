@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 test("两根新拉条有默认值，而且跟老默认一模一样（老存档不变味）", () => {
   const m = app.match(/const MEM_CFG_DEFAULT = \{([^}]*)\}/);

@@ -3,13 +3,14 @@
 const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
-const sc = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const sc = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 let store = [];
 const box = { loadJSON: () => store, FORUM_SKIN: { accent: "#000", soft: "x" }, FORUM_BOARDS: ["吐槽吧"] };
 vm.createContext(box);
 const grab = (a, b) => { const i = sc.indexOf(a); assert(i >= 0, a); return sc.slice(i, sc.indexOf(b, i)); };
-vm.runInContext(grab("const FORUM_BOARD_SKIN = {", "// ── 她自己开的吧").replace(/const /g, "var ") + grab("function forumCustomBoards()", "// 吧名统一成") + grab("function forumHash(", "\n") + "\n", box);
+// 2026-10-18 起吧色那几条在 screens-ui.js、吧表那几条留在 screens.js：各按各自那一半的终点切
+vm.runInContext(grab("const FORUM_BOARD_SKIN = {", "function forumRulesFromText(").replace(/const /g, "var ") + grab("function forumCustomBoards()", "// FORUM_AV_EMOJI") + grab("function forumRulesFromText(", "\n") + "\n" + grab("function forumHash(", "\n") + "\n", box);
 store = [{ name: "足球吧" }, { name: "猫猫吧" }, { name: "摄影吧", skin: 3 }];
 assert.notStrictEqual(String(box.forumBoardSkin("足球吧")), String([box.FORUM_SKIN.accent, box.FORUM_SKIN.soft]), "她开的吧不再落到论坛主色");
 assert.strictEqual(String(box.forumBoardSkin("足球吧")), String(box.forumBoardSkin("足球吧")), "同一个吧永远同一个色");

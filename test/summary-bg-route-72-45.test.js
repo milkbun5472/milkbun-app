@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "screens-ui.js"), "utf8"));
 
 test("选路只有一份，九处总结都问它要", () => {
   assert.equal((app.match(/const sumRoute = /g) || []).length, 1, "选路不许有第二份");
