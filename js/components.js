@@ -20750,14 +20750,14 @@ function ChatSettings({
         + " · 点进来先" + (defaultOffline ? "线下" : "线上") + " · 动描 " + onOff(actDesc) },
     // 「窗」原来一格装了八节（她 2026-09-30：「太长了分一分」）——长相和那几样「看不见的层」各自拉一个抽屉
     { key: "dress", char: "衣", title: "TA 的聊天长相", tint: "#b0708f",
-      state: () => "皮肤 " + (skin || "跟随全局") + (bubble ? " · 单挑了气泡" : "") + (customCSS ? " · 自己写了 CSS" : "") + (chatBg ? " · 有背景图" : "") },
+      state: () => "皮肤 " + (skin || "跟随全局") + (bubble ? " · 单挑了气泡" : "") + (customCSS ? " · 自己写了 CSS" : "") + (stateTpl && (String(stateTpl.html || "").trim() || (stateTpl.fields || []).length) ? " · 自己写了心声卡" : "") + (chatBg ? " · 有背景图" : "") },
     // 动态形象（她 2026-10-05）：平时 / 专注时 / 通话时各挂一张图或一段视频，番茄钟和视频通话都从这儿取
     { key: "motion", char: "影", title: "TA 动起来的样子", tint: "#718567",
       state: () => { const m = window.VideoApi ? (window.VideoApi.motionAll()[character.id] || {}) : {};
         const on = (window.VideoApi ? window.VideoApi.SCENES : []).filter(x => m[x.id]).map(x => x.zh);
         return on.length ? "挂了 " + on.join("、") : "还是头像"; } },
-    { key: "hear", char: "听", title: "思考链 · 心声卡 · 译文 · 通话", tint: "#7a8fa8",
-      state: () => "思考链 " + onOff(showReasoning) + (stateTpl && (String(stateTpl.html || "").trim() || (stateTpl.fields || []).length) ? " · 心声卡自己写了" : "") + " · 外语中译 " + onOff(bilingual) },
+    { key: "hear", char: "听", title: "思考链 · 译文 · 通话", tint: "#7a8fa8",
+      state: () => "思考链 " + onOff(showReasoning) + " · 外语中译 " + onOff(bilingual) },
     { key: "rooms", char: "房", title: "这一段算哪个房间", tint: "#477f88",
       state: () => (roomNow && roomNow.name) || "主线" },
     { key: "route", char: "线", title: "走哪条线路", tint: "#6693c7",
@@ -21227,7 +21227,7 @@ function ChatSettings({
         callBg ? h("button", { onClick: () => setCallBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: callBgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0];
           if (f) resizeImageFile(f, 1200, 0.82).then(d => typeof imgToVault === "function" ? imgToVault(d) : d).then(r => setCallBg(r)); e.target.value = ""; } })))),
-  show("dress", { title: "自己写 CSS · 整套导出导入", ...sec("look-css") },
+  show("dress", { title: "自己写 CSS · 心声卡 · 整套导出导入", ...sec("look-css") },
     h(ChatLookPack, { fileBase: (settings.remark || (character && character.name) || "TA"),
       getLook: () => ({ skin, bubble, font, chatBg, layout, customCSS }),
       onApply: L => { if (L.skin != null) setSkin(L.skin); if (L.bubble != null) setBubble(L.bubble); if (L.font != null) setFont(L.font);
@@ -21241,8 +21241,10 @@ function ChatSettings({
       onDone: L => { setSkin(L.skin || ""); setBubble(L.bubble && typeof L.bubble === "object" ? L.bubble : null);
         const F = window.FontChoice, cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
         setFont(F ? F.clean(L.font, cus) : (L.font || { body: "", display: "" }));
-        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null),
-  show("hear", { title: "心声卡 · 自己写样子和栏目", ...sec("look-statetpl") }, h(StateTplEditor, { value: stateTpl, onChange: setStateTpl })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
+        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null,
+    // 心声卡自己写（她 2026-10-18：放「TA 的聊天长相」里）——跟自己写 CSS 同一节：都是「自己动手写它长什么样」
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginTop: 22, paddingTop: 14, borderTop: "1px solid " + t.line } }, "心声卡自己写"),
+    h(StateTplEditor, { value: stateTpl, onChange: setStateTpl })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
   // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还没开空间时，TA自己想更进一步就能写一封；关掉就不会
   //   名字不叫「主动表白」了（她 2026-10-17：「现在空间不止是情侣」）
   h("div", { className: "flex items-center justify-between pt-5" },
