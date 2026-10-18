@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const g = require("../js/games.js");
 const src = fs.readFileSync(__dirname + "/../js/games.js", "utf8");
+// 游戏目录（GAMES）2026-10-18 搬去 js/games-list.js（开机就加载的那一小份），盒子、桌面这些还在 games.js
+const catalog = fs.readFileSync(__dirname + "/../js/games-list.js", "utf8");
 const seq = arr => { let i = 0; return () => arr[i++ % arr.length]; };
 const P = n => Array.from({ length: n }, (_, i) => ({ key: i ? "c" + i : "user", name: i ? "角色" + i : "我", isUser: !i }));
 
@@ -66,7 +68,7 @@ test("故事接龙：三圈写完收工，第一句是开头，没用上抽到�
 
 test("架子、盒面、桌布、入口都接上了；故事接龙的战报不分输赢", () => {
   for (const k of ["liar", "story"]) {
-    assert.match(src, new RegExp('\\{ key: "' + k + '", emoji:'));
+    assert.match(catalog, new RegExp('\\{ key: "' + k + '", emoji:'));
     assert.match(src, new RegExp("\\n    " + k + ": +\\{ paper:"));
     assert.match(src, new RegExp("\\n    " + k + ": \\[\"#"));
     assert.match(src, new RegExp("\\n      " + k + ": \\["));

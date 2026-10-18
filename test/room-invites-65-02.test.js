@@ -58,7 +58,10 @@ test("隔离房里上的课不算数，开了写回口子的才算", () => {
 
 test("小游戏那个开关不再是空的：同一张卡、同一条路", () => {
   // 报菜名不在聊天那边再抄一份清单
-  assert.match(games, /Games\.LIST = GAMES\.map/);
+  // 目录那张表（2026-10-18 起）在 js/games-list.js：开机就加载，聊天读 window.GamesList；games.js 也认这一份
+  const list = fs.readFileSync("js/games-list.js", "utf8");
+  assert.match(list, /const LIST = GAMES\.map/);
+  assert.match(games, /Games\.LIST = \(typeof window !== "undefined" && window\.GamesList\)/);
   assert.match(app, /openCaps\.push\("gameInvite"\)/);
   assert.match(app, /kind: "gameinvite", gameKey: def\.key/);
   // 他不许声称已经开局

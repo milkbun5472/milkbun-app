@@ -1,0 +1,81 @@
+// 用到才加载（她 2026-10-18：「来吧宝宝开始瘦身」）。
+//   群里报开机白屏、白屏跳黑屏、要重进好几次：一百五十几个脚本开机一口气执行完，内存小的 iPhone 撑不住。
+//   第一批搬出开机的：攻略手册、小游戏一整组、周刊、擂台、一起读、梦境、解梦馆、小剧场。
+//   这一份钉住：index.html 里登记的那几份浏览器不执行、地址带版本号、文件都在；每一组都有人接（替身或外面那层）；
+//   开机就要的那一小块已经拆出来（游戏目录、两个主屏图标）；问秋秋之前先把攻略装上。
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+const html = R("index.html"), comp = R("js/components.js"), app = R("js/app.js"), asst = R("js/assistant.js");
+
+// 替身那一张表（components.js 里 lazyScreen 那几行）
+const stubTable = comp.slice(comp.indexOf("function lazyScreen("), comp.indexOf(".forEach(a => lazyScreen("));
+const lazy = [...html.matchAll(/<script type="text\/lazy" data-lazy="([a-z]+)" data-src="([^"]+)"><\/script>/g)].map(m => ({ group: m[1], src: m[2] }));
+
+test("登记延后的脚本：浏览器不执行、地址带 ?v=、文件都在，不会同时又当普通脚本加载一遍", () => {
+  assert.ok(lazy.length >= 12, "只认出 " + lazy.length + " 份");
+  lazy.forEach(x => {
+    assert.match(x.src, /^js\/[a-z0-9-]+\.js\?v=\d+\.\d+$/, x.src);
+    assert.ok(fs.existsSync(path.join(__dirname, "..", x.src.split("?")[0])), "文件不在：" + x.src);
+    assert.ok(!html.includes('<script src="' + x.src.split("?")[0]), "又当普通脚本加载了：" + x.src);
+  });
+  // 装载器和游戏目录要排在所有业务脚本前面
+  assert.ok(html.indexOf("js/lazy-mods.js") < html.indexOf("js/engine.js"));
+  assert.ok(html.indexOf("js/games-list.js") < html.indexOf("js/app.js"));
+});
+
+test("每一组都有人接：页面那几组开机放了替身，攻略那组由值班室外面那层和秋秋接", () => {
+  const groups = new Set(lazy.map(x => x.group));
+  const stubbed = [...stubTable.matchAll(/\["([A-Za-z]+)", "([a-z]+)", "[^"]+"\]/g)].map(m => m[2]);
+  [...groups].filter(g => g !== "manual").forEach(g => assert.ok(stubbed.includes(g), g + " 没有替身：点进去会报「没定义」"));
+  assert.match(app, /screen === "codex"\) body = h\(LazyGate, \{ key: "lazy-manual", group: "manual"/);
+  assert.match(asst, /if \(window\.LazyMods\) await window\.LazyMods\.load\("manual"\)/, "问秋秋之前没先装攻略");
+  assert.match(asst, /p\.target === "open" && window\.LazyMods && !window\.LazyMods\.isLoaded\("manual"\)/, "「带你去那一页」没先装攻略");
+});
+
+test("替身的名字就是那份脚本自己挂到 window 上的名字", () => {
+  [...stubTable.matchAll(/\["([A-Za-z]+)", "([a-z]+)", "[^"]+"\]/g)].forEach(m => {
+    const files = lazy.filter(x => x.group === m[2]).map(x => R(x.src.split("?")[0])).join("\n");
+    assert.match(files, new RegExp("window\\." + m[1] + " = "), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
+  });
+});
+
+test("开机就要的那一小块留在开机：游戏目录走 games-list.js，两个主屏图标在 components.js", () => {
+  assert.doesNotMatch(app, /window\.Games\.LIST/, "聊天那头又去读 games.js 的目录了（那份点进小游戏才有）");
+  assert.match(app, /Array\.isArray\(window\.GamesList\)/);
+  assert.match(R("js/games.js"), /const GAMES = \(typeof window !== "undefined" && window\.GamesCatalog\)/);
+  assert.match(comp, /window\.GTheater = /);
+  assert.match(comp, /window\.GDreamBook = /);
+  assert.doesNotMatch(R("js/theater.js"), /window\.GTheater = /);
+  assert.doesNotMatch(R("js/dreamjournal.js"), /window\.GDreamBook = /);
+});
+
+// 装载器本身：同一组只装一次、按登记顺序装、断网失败下次能重试、闲下来只下载不执行
+test("装载器：按顺序挂、只装一次、失败了能重来", async () => {
+  const added = [];
+  let fail = true;
+  const tags = [
+    { attrs: { type: "text/lazy", "data-lazy": "g", "data-src": "js/a.js?v=1" } },
+    { attrs: { type: "text/lazy", "data-lazy": "g", "data-src": "js/b.js?v=1" } }
+  ].map(t => ({ getAttribute: k => t.attrs[k], setAttribute: (k, v) => { t.attrs[k] = v; } }));
+  const document = {
+    querySelectorAll: () => tags,
+    createElement: () => ({}),
+    head: { appendChild: s => { added.push(s.src); setTimeout(() => (s.src === "js/b.js?v=1" && fail) ? s.onerror() : s.onload(), 0); } }
+  };
+  const g = { addEventListener() {} };
+  new Function("window", "document", "globalThis", R("js/lazy-mods.js"))(g, document, g);
+  const L = g.LazyMods;
+  await assert.rejects(L.load("g"), /没下载下来/);
+  assert.deepEqual(added, ["js/a.js?v=1", "js/b.js?v=1"]);
+  assert.equal(L.isLoaded("g"), false);
+  fail = false;
+  await L.load("g");
+  assert.deepEqual(added, ["js/a.js?v=1", "js/b.js?v=1", "js/b.js?v=1"], "重来时把已经跑过的 a 又跑了一遍");
+  assert.equal(L.isLoaded("g"), true);
+  await L.load("g");
+  assert.equal(added.length, 3, "装好了还在重复装");
+  assert.equal(L.isLoaded("没登记的组"), true, "没登记延后的组当它本来就在");
+});

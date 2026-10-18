@@ -1,0 +1,50 @@
+// ============================================================
+// 小游戏目录（从 js/games.js 搬出来，她 2026-10-18 瘦身）
+// ============================================================
+// games.js 改成点进小游戏才加载；可聊天拼提示词（房间里「TA可以拉你玩点什么」）和认模型回的邀请卡
+//   开机就要知道有哪些游戏、几个人玩——那就只把这张纯数据的目录留在开机加载，games.js 也从这儿读，不另抄一份。
+// 各游戏规格。min/max 是「总玩家数」上下限。
+(function (g) {
+  const GAMES = [
+    { key: "spy", emoji: "🕵️", zh: "谁是卧底", en: "Who's the Spy", min: 3, max: 12,
+      desc: "每人拿到一个词，卧底的词略有不同。轮流描述、投票揪出卧底。", rule: "3~12 人 · 1~2 名卧底 · 词系统出" },
+    { key: "haigui", emoji: "🐢", zh: "海龟汤", en: "Lateral Puzzle", min: 2, max: 8,
+      desc: "主持人给一个诡异「汤面」，你们只能问是 / 否问题，一步步还原真相。", rule: "2~8 人 · 题目系统出" },
+    { key: "q25", emoji: "❓", zh: "25 问", en: "20 Questions", min: 2, max: 8,
+      desc: "系统心里想一个东西，你们轮流问是 / 否问题，25 问内猜出来。", rule: "2~8 人 · 题目系统出" },
+    { key: "tod", emoji: "🎲", zh: "真心话大冒险", en: "Truth or Dare", min: 2, max: 10,
+      desc: "转瓶子，指到谁就选真心话或大冒险，题目由在场的人出。", rule: "2~10 人" },
+    { key: "werewolf", emoji: "🐺", zh: "狼人杀", en: "Werewolf", min: 5, max: 12,
+      desc: "狼人夜里行凶，好人白天靠推理投票放逐。当前板子：狼人 + 预言家 + 平民。", rule: "5~12 人 · 预言家局 · 不翻牌" },
+    { key: "avalon", emoji: "⚔️", zh: "阿瓦隆", en: "Avalon", min: 5, max: 10,
+      desc: "正义与邪恶的任务对抗，梅林认得坏人、刺客要在结局刺杀梅林。", rule: "5~10 人 · 任务制" },
+    { key: "monopoly", emoji: "🏙️", zh: "大富翁", en: "Monopoly", min: 2, max: 6,
+      desc: "绕城买地、收租和抽事件。角色会按人设谈买卖、拌嘴、结盟和记仇，不会只沉默掷骰子。", rule: "2~6 人 · 买地收租 · 破产淘汰" },
+    { key: "gomoku", emoji: "⚫", zh: "五子棋", en: "Gomoku", min: 2, max: 2,
+      desc: "十五路棋盘，先连成五子的赢。你执黑先手，TA 执白，边下边说话；观战就看两个角色对下（只选一个就跟电脑下）。", rule: "你和一个角色 · 观战两个角色 · 可悔棋" },
+    { key: "draw", emoji: "🎨", zh: "你画我猜", en: "Draw & Guess", min: 2, max: 2,
+      desc: "轮流画，一个画一个猜。TA 画的时候一段一段画、边画边吐槽，画完一段停下来等你猜；你画的拿给 TA 看图猜。词库可以按主题一次生成一批。观战选两个角色就看他俩互相画、互相猜。", rule: "你和一个角色 · 观战两个角色 · 三轮 · TA 看你的画要识图模型" },
+    { key: "uno", emoji: "🟥", zh: "UNO", en: "UNO", min: 2, max: 6,
+      desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" },
+    { key: "liar", emoji: "🎲", zh: "骗子骰", en: "Liar's Dice", min: 2, max: 6,
+      desc: "每人五颗骰子扣着，轮流叫「桌上至少有几个几」，觉得上家在吹就开。1 点万能，每人三条命，撑到最后的赢。", rule: "2~6 人 · 每人 5 颗骰子 · 3 条命" },
+    { key: "poker", emoji: "♠️", zh: "德州扑克", en: "Texas Hold'em", min: 2, max: 6,
+      desc: "每人两张底牌，桌上五张公共牌，翻牌前、翻牌、转牌、河牌四轮下注，凑最大的五张。可以弃、跟、加注、全下，诈唬也算本事。", rule: "2~6 人 · 每人 1000 筹码 · 盲注 10/20 · 打十手" },
+    { key: "oldmaid", emoji: "🃏", zh: "抽鬼牌", en: "Old Maid", min: 2, max: 4,
+      desc: "一副牌加一张鬼牌发完，成对的先扔掉。轮流从下家手里抽一张，凑成对就扔，手里先空的上岸，最后捏着鬼牌的输。", rule: "2~4 人 · 53 张 · 最后拿鬼牌的输" },
+    { key: "blackjack", emoji: "🂡", zh: "21 点", en: "Blackjack", min: 2, max: 4,
+      desc: "庄家发牌，大家各自跟庄比：要牌、停牌、加倍，点数越接近 21 越好，爆了就输。A 算 1 或 11，JQK 算 10。", rule: "2~4 人 · 手机或 TA 坐庄 · 每人 100 筹码 · 打八手" },
+    { key: "doudizhu", emoji: "🂮", zh: "斗地主", en: "Dou Dizhu", min: 3, max: 3,
+      desc: "三个人，叫分抢地主，地主一个人拿底牌对两个农民。顺子、连对、飞机、炸弹、王炸，谁先出完谁那边赢；农民是一伙的，会帮着压也会互相埋怨。", rule: "正好 3 人 · 叫分 1~3 · 炸弹翻倍 · 打五局" },
+    { key: "date", emoji: "✉️", zh: "各怀心思的约会", en: "Secret Date", min: 2, max: 2,
+      desc: "你和 TA 各抽一张秘密任务，有的看你们去了哪、做了什么，有的看你们聊了什么。每局的去处从一大堆地方里抽，路上还会撞上小意外；每到一站 TA 都会接话、替你挑东西。收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
+    { key: "tetris", emoji: "🧱", zh: "俄罗斯方块", en: "Tetris", min: 2, max: 2,
+      desc: "你玩，TA 坐旁边看着说话；或者一人一块板子对战，消多行往对面塞垃圾行。TA 那块由本地棋手照你挑的水平下。", rule: "你和一个角色" },
+    { key: "story", emoji: "📖", zh: "故事接龙", en: "Story Chain", min: 2, max: 8,
+      desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" }
+  ];
+  const LIST = GAMES.map(function (x) { return { key: x.key, zh: x.zh, min: x.min, max: x.max, rule: x.rule }; });
+  g.GamesCatalog = GAMES;
+  g.GamesList = LIST;
+  if (typeof module === "object" && module.exports) module.exports = { GAMES: GAMES, LIST: LIST };
+})(typeof window !== "undefined" ? window : globalThis);

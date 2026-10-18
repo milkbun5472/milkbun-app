@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "games.js"), "utf8");
+// 游戏目录（GAMES）2026-10-18 搬去 js/games-list.js（开机就加载的那一小份），盒子、桌面这些还在 games.js
+const catalog = fs.readFileSync(path.join(__dirname, "..", "js", "games-list.js"), "utf8");
 const i = src.indexOf("  const GMK_N = 15;"), j = src.indexOf("  function GomokuGame(props) {");
 const E = new Function(src.slice(i, j) + "\nreturn { gmkEmpty, gmkWins, gmkBestMove, gmkThreat, GMK_N };")();
 
@@ -35,7 +37,7 @@ test("空棋盘第一手下天元", () => {
 });
 
 test("接进游戏架；TA 开口走模型，落子不走", () => {
-  assert.match(src, /\{ key: "gomoku", emoji: "⚫", zh: "五子棋"/);
+  assert.match(catalog, /\{ key: "gomoku", emoji: "⚫", zh: "五子棋"/);
   assert.match(src, /if \(session\.game\.key === "gomoku"\) return h\(GomokuGame, engineProps\);/);
   const g = src.slice(j, src.indexOf("  const DRAW_POOL_KEY"));
   // 两处：说话；以及她开局选了「TA 自己下」时的落子（默认本地棋手不调）

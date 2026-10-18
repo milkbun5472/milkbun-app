@@ -9,10 +9,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "games.js"), "utf8");
+// 游戏目录（GAMES）2026-10-18 搬去 js/games-list.js（开机就加载的那一小份），盒子、桌面这些还在 games.js
+const catalog = fs.readFileSync(path.join(__dirname, "..", "js", "games-list.js"), "utf8");
 
 test("每一局都有自己的桌面，而且是从盒面延续下来的", () => {
   // 八个游戏一个都不能少（跟 GAMES 对齐；新加游戏忘了配桌面，这条当场红）
-  const keys = [...src.matchAll(/\{ key: "([a-z0-9]+)", emoji:/g)].map(m => m[1]);
+  const keys = [...catalog.matchAll(/\{ key: "([a-z0-9]+)", emoji:/g)].map(m => m[1]);
   assert.ok(keys.length >= 8, "GAMES 找不全了");
   const hueSeg = src.slice(src.indexOf("const TABLE_HUE = {"), src.indexOf("function gameTable("));
   keys.forEach(k => assert.ok(new RegExp("^\\s*" + k + ":", "m").test(hueSeg), "「" + k + "」没有桌面颜色"));

@@ -1714,6 +1714,59 @@ function fitFont(text, base, fits, min) {
 //     actions(item, i)：底下那排按钮 [{ label, onClick, danger, wk }]——各处要哪颗传哪颗（存相册、删、在上面画…）；
 //     zoomable：点图在「整屏」和「原尺寸（能拖着看）」之间切（小世界相框要）；不开就点图也是关。
 //   好几张时：手指左右划、‹ ›、「2 / 3」。点黑底关。挂在 body 上、层级最高，不会被页面里别的浮层盖住。
+// ── 用到才加载的那几个功能，主屏图标留在这儿（她 2026-10-18 瘦身：脚本点进去才加载，图标得开机就画得出来）──
+if (typeof window !== "undefined") {
+  // 小剧场：两片小幕布 + 星
+  window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
+  // 解梦馆：月亮抱着一本摊开的书（和「梦境」app 的图标区分开）
+  window.GDreamBook = function (props) {
+    const size = (props && props.size) || 34, color = (props && props.color) || "#1b1a17";
+    return h("svg", { width: size, height: size, viewBox: "0 0 48 48", fill: "none" },
+      h("path", { d: "M31 7a13 13 0 1 0 10 20 15 15 0 1 1-10-20z", stroke: color, strokeWidth: 2.6, strokeLinejoin: "round" }),
+      h("path", { d: "M10 32c4-2 8-2 12 0 4-2 8-2 12 0", stroke: color, strokeWidth: 2.6, strokeLinecap: "round" }),
+      h("path", { d: "M10 32v7c4-2 8-2 12 0 4-2 8-2 12 0v-7", stroke: color, strokeWidth: 2.6, strokeLinecap: "round", strokeLinejoin: "round" }),
+      h("path", { d: "M22 32v7", stroke: color, strokeWidth: 2, strokeLinecap: "round" }));
+  };
+}
+// ── 用到才加载的功能，进门那一层（她 2026-10-18 瘦身；装载器在 js/lazy-mods.js）────────────
+//   这一组还没加载完：先给一页带返回键的「在打开…」，加载完再画真页面；网断了给「再试一次」，不白屏。
+//   render 是个函数：里面才写 h(那个功能的组件, …)——那个组件的名字要等它的脚本跑完才有，提前取会报错。
+function LazyGate({ group, render, onBack, zh }) {
+  const t = useTheme();
+  const L = window.LazyMods;
+  // 每次画都现问一遍这一组到底到位没有，不靠记下来的状态（几个功能共用这一层，换页时 React 会把上一个的状态带过来）
+  const ready = !L || L.isLoaded(group);
+  const [, bump] = useState(0);
+  const [err, setErr] = useState("");
+  const go = () => { setErr(""); L.load(group).then(() => bump(n => n + 1), e => setErr((e && e.message) || String(e))); };
+  useEffect(() => { if (!ready) go(); }, [group]);
+  if (ready) return render();
+  // 不自己铺底：就是一层过渡页，透出 App 本来那层底（mobile-ui-layout §3.5 那套外壳归真页面）
+  return h("div", { "data-wk": "lazygate", className: "h-full flex flex-col" },
+    h(Head, { zh: zh || "", onBack: onBack, bg: "transparent" }),
+    h("div", { className: "flex-1 flex flex-col items-center justify-center", style: { gap: 12, padding: 24, textAlign: "center" } },
+      !err
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "在打开……")
+        : h(React.Fragment, null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.7 } }, "没打开：网好像断了。", h("br"), err),
+            h("button", { "data-wk": "lazyretry", onClick: go, className: "active:opacity-60",
+              style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14 } }, "再试一次"))));
+}
+// 用到才加载的那几页：开机先放一个「替身」占住它的名字（app.js 里照旧写 h(Debate, {…})，一个字不用改）。
+//   点进去时替身给出 LazyGate 那一层、把这一组装上；脚本跑完会把 window.Debate 换成真的，替身就直接画真页面。
+//   ⚠️只放【开机和后台都用不到】的页面；名字必须是那份脚本自己挂到 window 上的那个。
+function lazyScreen(name, group, zh) {
+  if (typeof window === "undefined" || window[name]) return;
+  const Stub = function (props) {
+    const Real = window[name];
+    if (Real && Real !== Stub) return h(Real, props);
+    return h(LazyGate, { group, zh, onBack: props && props.onBack,
+      render: () => { const R = window[name]; return R && R !== Stub ? h(R, props) : null; } });
+  };
+  window[name] = Stub;
+}
+[["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
+ ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
   const list = (items || []).filter(x => x && x.src);
   const [i, setI] = useState(Math.min(Math.max(0, at || 0), Math.max(0, list.length - 1)));

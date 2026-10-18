@@ -12523,10 +12523,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 小游戏跟一起学同一个形状：房里开了这一条，TA才能开口约你玩，
       // 而且【只出一张卡】，最终由 Lisa 点卡片才真进游戏——TA不许声称已经开局。
       const roomGamesOn = roomActionOn("games");
-      if (roomGamesOn && window.Games && Array.isArray(window.Games.LIST)) {
+      // 游戏目录读开机就有的那份 js/games-list.js（games.js 本体点进小游戏才加载，这时还没有）
+      if (roomGamesOn && Array.isArray(window.GamesList)) {
         openCaps.push("gameInvite");
         capState.push("gameInvite：只有你此刻真的想约对方玩一局才填写。格式 {gameKey:\"下面列表里的真实 key\",say:\"为什么此刻想玩这个、想跟对方玩哪一局\"}。不能声称已经开局或界面已经打开，最终由对方点卡片确认；不想玩就省略。可选："
-          + window.Games.LIST.map(g => g.key + "=" + g.zh + "（" + g.min + "-" + g.max + "人）").join("；"));
+          + window.GamesList.map(g => g.key + "=" + g.zh + "（" + g.min + "-" + g.max + "人）").join("；"));
       }
       // ── 一起读（她 2026-09-12）──────────────────────────────────────
       // ⚠️TA只能拉你【接着读这间房里已经有的那本】，不能凭空开一本：
@@ -13361,7 +13362,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       if (roomGamesOn && parsed.gameInvite && typeof parsed.gameInvite === "object") {
         const gv = parsed.gameInvite;
-        const def = (window.Games && Array.isArray(window.Games.LIST) ? window.Games.LIST : []).find(g => String(g.key) === String(gv.gameKey || ""));
+        const def = (Array.isArray(window.GamesList) ? window.GamesList : []).find(g => String(g.key) === String(gv.gameKey || ""));
         if (def) {
           pChat(chatKey, p => [...p, {
             role: "assistant", kind: "gameinvite", gameKey: def.key,
@@ -31739,11 +31740,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     affinities: affinities,
     toast: toast,
     onBack: () => setScreen("home")
-  });else if (screen === "codex") body = h(window.CodexApp, {
+  });else if (screen === "codex") body = h(LazyGate, { key: "lazy-manual", group: "manual", zh: "值班室", onBack: () => setScreen("home"), render: () => h(window.CodexApp, {
     onBack: () => setScreen("home"),
     // 攻略顶上那句「不会就问秋秋」要能直接把她送过去（她 2026-09-04）
     onAskAssistant: () => setScreen("assistant")
-  });else if (screen === "memo") body = h(window.Memo, {
+  }) });else if (screen === "memo") body = h(window.Memo, {
     active: bgActive,
     characters: liveChars,
     profile: profile,
