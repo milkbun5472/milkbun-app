@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.998";
+const APP_VERSION = "v76.003";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22082,7 +22082,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
-        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）"; }
+        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）" + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
@@ -22874,6 +22874,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (a.id === b.id) continue;
       const r = rels[a.id + "->" + b.id];
       if (r && r.label) lines.push("「" + a.name + "」眼中的「" + b.name + "」：" + r.label + (r.note ? "（" + r.note + "）" : ""));
+      // 配角认识自己跟着的那个人（她 2026-10-18：「我以前配角是认识角色的啊」）：配角跟TA的牵连记在 ownerId 上、不在关系表里，
+      //   原来这里只翻关系表，论坛楼里配角就成了不认识楼主的路人
+      else if (a.npc && String(a.ownerId) === String(b.id)) lines.push("「" + a.name + "」是「" + b.name + "」身边的人，认识TA、知道TA是谁" + (a.persona ? "（照「" + a.name + "」的人设里写的那层关系）" : ""));
     }
     return lines;
   };
@@ -22922,7 +22925,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 给足，不掐字数（她 2026-09-20：「按次收费跟这个没有关系，以后也不要想着省钱」）。
   const forumCharGrounding = (ch, post, role, extraQuery) => {
     if (!ch) return "";
-    // 楼主那一份给足：身份、家境这种常写在人设后半截，截在 600 字就看不到（2026-10-18「知道他很富还说他穷」）
+    // 楼主那一份给足：人设后半截写的设定，截在 600 字就看不到
     const persona = String(ch.persona || "").replace(/\s+/g, " ").slice(0, role === "楼主" ? 1500 : 600);
     return "\n【" + (role ? role + "「" + ch.name + "」" : "「" + ch.name + "」") + "本人的真实设定与经历——回帖／补充细节时【必须】依据这些真实情况，绝不能编造没发生过的事、不存在的经历、或不符人设的细节】\n人设：" + persona
       + charLivedGrounding(ch, { title: post && post.title, body: (post && post.body || "") + " " + String(extraQuery || "") });
@@ -23011,9 +23014,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "") + forumMutualRule(meOwn, opKnowers)
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan
-      // 认识楼主的人照他的真实处境说话（群里 2026-10-18：「明明知道我的 char 真实身份很富，还在论坛里说他很穷」）：
-      //   路人只看得到这一帖，可以照帖子猜；认识他的人（关系里写着的、他身边的人）知道他是谁、家里什么样，不照帖子表面去猜他
-      + (opChar ? "\n【认识楼主的人和路人看到的不一样】路人只看得到这一帖，照帖子说话；认识「" + opName + "」的人（下面关系里写着的、他身边的人）知道他真实的身份、家境和处境——照下面他的真实设定来，不照帖子表面去猜他，也别说出跟他真实情况对不上的话。" : "");
+      // 认识楼主的人照他的真实设定说话，路人才照帖子猜（群里 2026-10-18 那次是「知道他很富还说他穷」）。
+      //   ⚠️只写这条通则，不点名哪一类事：她 2026-10-18「家境有问题就加家境，下次新问题再加新的，根本加不过来」
+      + (opChar ? "\n【认识楼主的人和路人看到的不一样】路人只看得到这一帖，照帖子说话；认识「" + opName + "」的人（下面关系里写着的、他身边的人）知道他是怎样一个人——说起他，一律照下面他的真实设定和经历，不照帖子表面去猜；跟他设定对不上的话，认识他的人不会说。" : "");
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
     if (opts.round2) {
       const repliedCells = opts.repliedChars || [];

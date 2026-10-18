@@ -583,5 +583,5 @@
   }
 
   // 页面那份（ledger.js）要用的算账家伙什，原样递过去
-  window.LedgerCore = { fmtMoney, ACCENT, GOLD, EXP, INC, PAPER, paperBg, bookTab, AC, CB, NAC, CUR_COLORS, DEFAULT_CURS, loadData, saveData, pad, todayStr, monthKey, todayKey, thisMonthKey, fmtMonth, shiftMonth, dailyAvg, budgetState, groupByDay, dayLabel, fmtDay, fmtNum, fmtAmt, ACCT_TYPES, acctType, isTransfer, refundSum, netAmt, isExpense, acctBalance, creditState, recurWeekStart, runRecurring, recurNext, ledgerCSV, convertTotal, goalSaved, goalState, catBudgetOf, yearStats, acctName, summarize, detectTxnEvent };
+  window.LedgerCore = { fmtMoney, ACCENT, GOLD, EXP, INC, PAPER, paperBg, bookTab, AC, CB, NAC, CUR_COLORS, DEFAULT_CURS, loadData, saveData, pad, todayStr, monthKey, todayKey, thisMonthKey, fmtMonth, shiftMonth, dailyAvg, budgetState, groupByDay, dayLabel, fmtDay, fmtNum, fmtAmt, ACCT_TYPES, acctType, isTransfer, refundSum, netAmt, isExpense, acctBalance, creditState, recurWeekStart, runRecurring, recurNext, ledgerCSV, convertTotal, goalSaved, goalState, catBudgetOf, yearStats, acctName, summarize, detectTxnEvent, genComments };
 })();
