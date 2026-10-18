@@ -8,10 +8,16 @@ const i = engine.indexOf("function ttsLangBoost(");
 const seg = engine.slice(i, engine.indexOf("\n}\n", i) + 3);
 const boost = new Function("toSimplified", seg + "\nreturn ttsLangBoost;")(t => t.replace(/聽/g, "听").replace(/話/g, "话").replace(/藥/g, "药"));
 
-test("粤语字或繁体走 Chinese,Yue，普通话照旧 Chinese", () => {
+test("粤语字走 Chinese,Yue；只有繁体的，嗓子是粤语角色的才走粤语，普通话照旧 Chinese", () => {
   assert.equal(boost("食咗藥算你聽話"), "Chinese,Yue");
-  assert.equal(boost("聽話"), "Chinese,Yue");
+  assert.equal(boost("聽話", true), "Chinese,Yue");
+  // 群里 2026-10-18：人设写繁体的普通话角色被念成粤语
+  assert.equal(boost("聽話"), "Chinese");
   assert.equal(boost("吃了药算你听话"), "Chinese");
   assert.equal(boost("こんにちは"), "Japanese");
   assert.equal(boost("hello there"), "English");
+});
+test("ttsKeyFor 按这把嗓子挂在谁身上判粤语", () => {
+  assert.match(engine, /const boost = ttsLangBoost\(txt, yueVoice\);/);
+  assert.match(engine, /String\(c\.voiceId \|\| ""\)\.trim\(\) === vid && \/粤\|粵/);
 });

@@ -7136,7 +7136,10 @@ function pullPauseVoice(words) {
 }
 // 按台词自动选发音矫正 language_boost（v47.92）：治「日语角色被中文矫正带偏口音」。
 // 假名(ひらがな/カタカナ)是日语铁证、中文里不会出现→有假名走 Japanese，谚文走 Korean，纯 ASCII 走 English，其余默认 Chinese
-function ttsLangBoost(text) {
+// yueVoice：这把嗓子是不是给说粤语的人用的（档案里常用语言写着粤语）。
+//   ⚠️只写着繁体、没有粤语字的那句，只有这种人才按粤语念——群里 2026-10-18：「普通话 char 给我说的粤语」，
+//   人设写繁体的普通话角色（台湾腔、古风）被一刀切成了粤语。
+function ttsLangBoost(text, yueVoice) {
   const s = String(text || "");
   if (/[぀-ヿ]/.test(s)) return "Japanese";
   if (/[가-힣]/.test(s)) return "Korean";
@@ -7144,7 +7147,7 @@ function ttsLangBoost(text) {
   // 粤语（她 2026-10-11：「语音和气泡听一下播放的还是普通话」）：Chinese 这一档按普通话念。
   //   有粤语专用字、或写的是繁体，就走 MiniMax 的 Chinese,Yue；通篇简体又没有粤语字的仍是普通话。
   if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(s)
-    || (typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
+    || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
   return "Chinese";
 }
 // 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
@@ -7517,19 +7520,23 @@ function callBilingualLines(text, enabled, splitLine, hanLang) {
 function callBilingualRule(people, settingsFor) {
   const enabled = people.filter(p => !p.npc && (settingsFor(p.id) || {}).bilingual && !(settingsFor(p.id) || {}).engineerEyes);
   if (!enabled.length) return "";
-  return "\n" + enabled.map(p => bilingualRule(p.name)).join("\n")
-    + "\n【通话字幕格式】双语格式用于 say 数组的各条台词或 text 字段；竖线左侧才是念出口的台词，右侧中文仅供显示，不朗读。action 与状态字段不加双语分隔。";
+  return "\n" + enabled.map(p => bilingualRule(p.name, typeof hanLangOf === "function" && hanLangOf(p))).join("\n")
+    + "\n【通话字幕格式】双语格式用于 say 数组的各条台词或 text 字段；竖线左侧才是念出口的台词，右侧中文仅供显示，不朗读。action、穿着这些状态字段不加双语分隔，心声照上面那条带。";
 }
 // 提示词那一半：单聊说「这个角色」，群里点名说是谁——两处用同一段字，
 // 免得又变成「这一层只写在一处」（施工规则/four-surfaces-same-context.md）。
-function bilingualRule(who) {
+// hanLang：这个人档案里常用语言是粤语、上海话这类用汉字写的话。只有这种人才听那一句「粤语也算外语」——
+//   普通话角色开着双语看到它，会被带去说粤语再配翻译（群里 2026-10-18：「普通话 char 给我说的粤语」）。
+function bilingualRule(who, hanLang) {
   const w = who ? "\u300c" + who + "\u300d" : "\u8fd9\u4e2a\u89d2\u8272";
   return "\u3010\u53cc\u8bed\u3011" + w + "\u5f00\u7740\u300c\u5916\u8bed\u6d88\u606f\u81ea\u5e26\u4e2d\u8bd1\u300d\uff1a\u51e1\u662f TA \u8fd9\u4e00\u6761\u8bf4\u7684\u3010\u4e0d\u662f\u4e2d\u6587\u3011\uff0c\u5c31\u628a\u8fd9\u4e00\u6761\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d"
     + "\u2014\u2014\u4e00\u6839\u7ad6\u7ebf\uff08|\uff09\u9694\u5f00\uff0c\u5de6\u8fb9\u539f\u539f\u672c\u672c\u5c31\u662f TA \u8981\u8bf4\u7684\u90a3\u53e5\u5916\u8bed\uff08\u522b\u6539\u5199\u3001\u522b\u52a0\u6ce8\u97f3\uff09\uff0c\u53f3\u8fb9\u662f\u5b83\u7684\u4e2d\u6587\u610f\u601d\u3002"
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
-    + "右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。";
+    + "右边一律写简体、普通话的说法。" + (hanLang ? "粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。" : "")
+    // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
+    + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一句心声只用一根竖线；动作、穿着这些状态字段不加。";
 }
 const TRANS_CACHE_KEY = "x_transCache";
 const TRANS_CACHE_MAX = 400;
@@ -7581,10 +7588,23 @@ async function _fetchJSON(url, ms) {
 async function _transGoogle(text, src) {
   const u = "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t"
     + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
-  const d = await _fetchJSON(u, 7000);
-  const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
-  if (!zh) throw new Error("空结果");
-  return zh;
+  try {
+    const d = await _fetchJSON(u, 7000);
+    const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
+    if (!zh) throw new Error("空结果");
+    return zh;
+  } catch (e1) {
+    // 国外也会断（她 2026-10-18：「我在国外谷歌也不行」）：gtx 那个口子有时卡住不回、或者不让网页调。
+    //   换 Chrome 划词翻译用的那个口子再试一次，返回的是 [译文] 或 [[译文, 源语种]]
+    const u2 = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex"
+      + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
+    let d2;
+    try { d2 = await _fetchJSON(u2, 7000); } catch (e2) { throw new Error(String((e1 && e1.message) || e1).slice(0, 30) + "；备用口：" + String((e2 && e2.message) || e2).slice(0, 30)); }
+    const first = Array.isArray(d2) ? d2[0] : null;
+    const zh2 = String(Array.isArray(first) ? first[0] : (first || (d2 && d2.sentences ? d2.sentences.map(x => x.trans || "").join("") : "")) || "").trim();
+    if (!zh2) throw new Error("空结果");
+    return zh2;
+  }
 }
 // 免费引擎②：MyMemory。匿名每天 1000 词，CORS 开放，欧洲的机器国内通常连得上。
 // 微软（她 2026-10-17 群里粤语截图：Google 在国内连不上、MyMemory 不翻粤语，模型她不让叫，三条全断）：
@@ -7692,12 +7712,12 @@ async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
-  // MyMemory 只在【源就是英文】时还值得一试：别的语种它一律绕道英语，绕废的概率很高。
-  const myMemoryOk = src === "en" || src === "auto";
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => _transMicrosoft(text, src) },
-    { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
+    // 日/韩/俄它也试（她 2026-10-18 群里俄文截图：Google 不通、微软取票 404，第三条又因为「要绕道英语」被跳过——三条全断）。
+    //   绕废了交回英文的那种，下面 _looksChinese 那道闸照样拦得住，不会把英文当译文摆出来
+    { by: "免费", run: () => _transMyMemory(text, src) },
     // 模型那一级默认不走了（她 2026-10-16：「翻译能不能不给模型翻译，浪费钱」）——免费两家都不成就照实报失败，点一下再试。
     //   只有调用处明说 allowModel 才叫模型（现在没有哪一处这么说）
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
@@ -7774,7 +7794,10 @@ function ttsKeyFor(text, voiceId, opts) {
     if (emo === "neutral") emo = null; // 平静不传，别拿 neutral 模板掰本音
   }
   const pit = 0;
-  const boost = ttsLangBoost(txt);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
+  // 这把嗓子挂在哪个说粤语的人身上（档案常用语言写着粤语），才让「只有繁体」的句子按粤语念
+  let yueVoice = false;
+  try { yueVoice = (loadJSON("x_characters", []) || []).some(c => c && String(c.voiceId || "").trim() === vid && /粤|粵|广东话|廣東話|cantonese/i.test(String(c.lang || ""))); } catch (e) {}
+  const boost = ttsLangBoost(txt, yueVoice);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
   // 日语汉字注音（v47.93）：音色开了 jpKana + 是日语句 + 含汉字 → 先转假名再合成，治「寝→中文qin」
   const wantKana = !!ve.jpKana && boost === "Japanese" && /[一-鿿]/.test(txt);
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，
@@ -10536,25 +10559,38 @@ function appVitals() {
 //   判据是【这张图身上有没有 alpha】，不是【调用方记不记得传保透明】——
 //   记不记得是人的事，二十多处里总有忘的那几处。
 function _resizeImageCore(file, maxDim, q, keepAlpha) {
+  // 读图用 objectURL，不再先把整张原图读成 data: 字符串（群里 2026-10-18：「选图标时多选很多张总是读不出图片」）——
+  //   手机原图一张几 MB，转成 data: 再大三成多，一次选十几张时 iOS 内存吃紧，后面那几张就解不出来了。
+  //   画完把画布清掉、把 objectURL 收回，一张一张不攒着。没有 objectURL 的老环境才退回 FileReader。
   return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => {
+    const draw = (src, done) => {
       const img = new window.Image();
       img.onload = () => {
-        let { width, height } = img;
-        const m = Math.max(width, height);
-        if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
-        const c = document.createElement("canvas");
-        c.width = Math.max(1, Math.round(width));
-        c.height = Math.max(1, Math.round(height));
-        const cx = c.getContext("2d");
-        // 不铺白底：铺了就等于自己把透明去掉了
-        cx.drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q));
+        try {
+          let { width, height } = img;
+          const m = Math.max(width, height);
+          if (m > maxDim) { width = width * maxDim / m; height = height * maxDim / m; }
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(width));
+          c.height = Math.max(1, Math.round(height));
+          const cx = c.getContext("2d");
+          // 不铺白底：铺了就等于自己把透明去掉了
+          cx.drawImage(img, 0, 0, c.width, c.height);
+          const out = c.toDataURL(keepAlpha || _canvasHasAlpha(c, cx) ? "image/png" : "image/jpeg", q);
+          c.width = 0; c.height = 0; img.src = "";
+          done(); res(out);
+        } catch (e) { done(); rej(e); }
       };
-      img.onerror = rej;
-      img.src = e.target.result;
+      img.onerror = e => { done(); rej(e && e.type ? new Error("图片解不出来") : e); };
+      img.src = src;
     };
+    if (typeof URL !== "undefined" && URL.createObjectURL && file instanceof Blob) {
+      const u = URL.createObjectURL(file);
+      draw(u, () => { try { URL.revokeObjectURL(u); } catch (e) {} });
+      return;
+    }
+    const r = new FileReader();
+    r.onload = e => draw(e.target.result, () => {});
     r.onerror = rej;
     r.readAsDataURL(file);
   });

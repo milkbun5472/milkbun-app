@@ -2,7 +2,10 @@
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
 const dir = path.join(__dirname, "..", "js");
-assert.match(fs.readFileSync(path.join(dir, "core.js"), "utf8"), /const ANY_FILE = "\*\/\*";/);
+// 2026-10-18 起安卓 Edge 例外（它见到 */* 只弹相机）：只在它身上换成一串后缀，别处照旧 */*
+{ const core = fs.readFileSync(path.join(dir, "core.js"), "utf8");
+  assert.match(core, /const ANY_FILE = \(typeof navigator !== "undefined" && \/EdgA\\\/\/\.test\(navigator\.userAgent \|\| ""\)\)/);
+  assert.match(core, /\n  : "\*\/\*";/, "除了安卓 Edge 以外还得是全部放行"); }
 const bad = [];
 fs.readdirSync(dir).filter(f => f.endsWith(".js") && f !== "assistant-manual.js").forEach(f => {
   const s = fs.readFileSync(path.join(dir, f), "utf8");

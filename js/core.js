@@ -57,7 +57,11 @@ const F_DISPLAY = "var(--f-display,'Fraunces',serif)";
 // 所有「选一份文件」的地方都用这一个（她 2026-10-14：「把全部能发文件的地方都弄成公共的全部放行」）：
 //   iPhone／小米的选择器照后缀清单把 .css、.epub、.srt 这类不认识的类型变灰，点都点不了；
 //   所以一律放行，读进来以后由各处自己看是不是能用的（解析不出就提示换一份）。图片、视频那几处不走这个。
-const ANY_FILE = "*/*";
+// ⚠️安卓 Edge 例外（群里 2026-10-18：「导入文件只能选相册」——点了弹「No camera access」）：它见到 */* 会把这当成要拍照，
+//   不给文件夹选。只在它身上换成一串后缀，后缀写宽一点，app 里各处会收的文件类型都在里面。
+const ANY_FILE = (typeof navigator !== "undefined" && /EdgA\//.test(navigator.userAgent || ""))
+  ? ".json,.txt,.md,.css,.csv,.srt,.log,.html,.htm,.epub,.docx,.pdf,.zip,.ttf,.otf,.woff,.woff2,.mp3,.m4a,.wav,application/json,text/plain,application/octet-stream"
+  : "*/*";
 const F_BODY = "var(--f-body,'Archivo','Noto Serif SC',system-ui,sans-serif)";
 // wk：主题工作室的挂点（不传就没有）。stroke 是【属性】不是行内样式，
 // 所以皮肤那边 `stroke: X !important` 盖得住 color 传进来的那个值。
