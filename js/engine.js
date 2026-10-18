@@ -2850,8 +2850,10 @@ function rerollDirLine() {
 function onlineRerollHint(avoid) {
   const a = String(avoid || "").trim();
   if (!a) return "";
-  return "\n\n〔重写〕下面是上一版回复，已经被删掉了，不属于发生过的对话：『" + offlineRerollExcerpt(a) + "』。"
-    + "这一次重新决定怎么回：别把上一版的意思换个说法再说一遍，也别沿用它的开头和收尾；同义替换、把同一件事说得更长，都不算重写。"
+  const many = a.indexOf("——更早被删掉的一版——") >= 0;
+  return "\n\n〔重写〕下面是" + (many ? "她这一句已经被删掉的几版回复" : "上一版回复") + "，都已经删掉了，不属于发生过的对话：『" + (many ? a.split("\n——更早被删掉的一版——\n").map(offlineRerollExcerpt).join("』『") : offlineRerollExcerpt(a)) + "』。"
+    + "这一次重新决定怎么回：别把" + (many ? "这几版" : "上一版") + "的意思换个说法再说一遍，也别沿用它的开头和收尾；同义替换、把同一件事说得更长，都不算重写。"
+    + (many ? "这几版要是走的是同一副骨架（先怎么接、中间扯到谁、最后落在哪），这次连骨架一起换：从她这句里挑一个它们都没碰的地方接。" : "")
     + "上一版之前已经成立的事实照旧，其余由你此刻重新想。" + rerollDirLine();
 }
 
@@ -4877,6 +4879,8 @@ async function idbImgPut(k, blob) { await idbImgPutOnly(k, blob); await nativeMe
 async function idbImgGetOnly(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 async function idbImgGet(k) { const own = await idbImgGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("selfies", k); if (native) { try { await idbImgPutOnly(k, native); } catch (e) {} return native; } const far = await remoteMediaGet("selfies", k); if (far && far.size) { try { await idbImgPutOnly(k, far); } catch (e) {} return far; } return null; }
 async function idbImgDel(k) { const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); await remoteMediaDel("selfies", k); }
+// 只要键不要图（「TA 们拍的照片」按人数张数用；整仓连图读出来太重）
+async function idbImgKeys() { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").getAllKeys(); rq.onsuccess = () => res((rq.result || []).map(String)); rq.onerror = () => res([]); }); }
 // 自拍整仓遍历（备份 v3 用）：[[key, blob], ...]
 async function idbImgEntries() { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
 async function hydrateNativeSelfies() {

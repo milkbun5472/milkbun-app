@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 // v59.50：那三个页签名是别人家系统相册的原话（她 2026-09-01：「甚至都叫精选集」）。
 // 这条要证的没变——**三页都在、三个 key 没动**；改的只是它们叫什么。

@@ -39,7 +39,7 @@ test("天象和好日子接进日历与聊天那一行；群榜能发到群里",
   assert.match(astro, /\["chart", "星盘"\], \["group", "群榜"\], \["ask", "问星"\]/);
 });
 test("查手机里有星测：接真数据、不生成；日子取 TA 上次真打开那天（刷新、看TA玩点开）", () => {
-  const phone = read("phone.js"), app = read("app.js"), astro = read("astro.js");
+  const phone = (read("phone.js") + "\n" + read("phone-ui.js")), app = read("app.js"), astro = read("astro.js");
   assert.match(phone, /const PHONE_LIVE_KEYS = \[[^\]]*"astro"\]/);
   assert.match(phone, /if \(key === "astro"\) return/);
   assert.match(app, /opened\.indexOf\("astro"\) >= 0 && window\.Astro && window\.Astro\.markSeen/);

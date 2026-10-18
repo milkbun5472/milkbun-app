@@ -4,7 +4,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "study.js"), "utf8");
+// 存储、复习到点、某人的课、挪课进房这几支 2026-10-18 搬去 js/study-core.js（开机就加载那份），切函数从两份里一起找
+const src = fs.readFileSync(path.join(__dirname, "..", "js", "study-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "study.js"), "utf8");
 const fn = name => { const i = src.indexOf("function " + name + "("); assert.ok(i > 0, "抠不出 " + name); return src.slice(i, src.indexOf("\n  }\n", i) + 4); };
 const cst = name => { const i = src.indexOf("const " + name + " = "); assert.ok(i > 0, "抠不出 " + name); return src.slice(i, src.indexOf(";\n", i) + 2); };
 

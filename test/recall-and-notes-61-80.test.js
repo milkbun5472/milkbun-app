@@ -86,7 +86,7 @@ test("居中那几行系统小字都挂上了点", () => {
   assert.match(pill, /m\.sum && !open \? h\("div", \{ "data-wk": "note"/, "挂断小结那一行没挂点——她报的就是这一行");
   assert.match(pill, /wk: "noteink"/, "回执里那个话筒图标没挂点，皮肤一换它还是灰的");
   // 图标的挂点得能透下去：收得下【而且】真的递给了 Svg——少哪一半都等于没挂
-  const phone = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+  const phone = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
   const pg = phone.slice(phone.indexOf("function PGlyph({"), phone.indexOf("function PGlyph({") + 9000);
   assert.match(pg, /color = "#1b1a17",\n\s*wk\n\}\)/, "PGlyph 收不了挂点");
   assert.match(pg, /return h\(Svg, \{\n\s*size,\n\s*color,\n\s*wk,/, "PGlyph 收下了却没递给 Svg");

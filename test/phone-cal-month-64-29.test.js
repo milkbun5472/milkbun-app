@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const view = src.slice(src.indexOf("function CalendarView({"), src.indexOf("// 便签 —— 备忘录和录音合成一个"));
 
 test("默认落在今天这个月，不再按「哪个月的条目多」来挑", () => {

@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert');const fs=require('fs');
-const app=fs.readFileSync(__dirname+'/../js/app.js','utf8'),ph=fs.readFileSync(__dirname+'/../js/phone.js','utf8');
+const app=fs.readFileSync(__dirname+'/../js/app.js','utf8'),ph=(fs.readFileSync(__dirname+'/../js/phone.js','utf8') + "\n" + fs.readFileSync(__dirname+'/../js/phone-ui.js','utf8'));
 test('你俩之间真花过的钱：一格 moneyWithHer 走 buildBundle，聊天、查手机、钱包档案都吃到；方向写死',()=>{
   const eng=fs.readFileSync(__dirname+'/../js/engine.js','utf8');
   assert.match(app,/moneyWithHer: \(typeof moneyWithHerLine === "function" \? moneyWithHerLine\(char\) : ""\)/);

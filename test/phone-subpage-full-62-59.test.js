@@ -7,7 +7,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/phone.js", "utf8");
+const SRC = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("整页外壳只有一份，七处都用它", () => {
@@ -16,7 +16,8 @@ test("整页外壳只有一份，七处都用它", () => {
   assert.ok((NOC.match(/h\(PhoneSubPage, \{/g) || []).length >= 5,
     "共用壳的用处不到五处，说明有人又自己写了一份");
   // 壳自己得是整页：h-full + 自己的滚动区
-  const fn = NOC.slice(NOC.indexOf("function PhoneSubPage("), NOC.indexOf("function PGlyph("));
+  // 切到下一个顶层声明为止（2026-10-18 起后面那个 PGlyph 留在 phone.js，不在同一份里了）
+  const fn = (() => { const i = NOC.indexOf("function PhoneSubPage("); const m = /\n(?:async function|function|const|let) /.exec(NOC.slice(i + 10)); return NOC.slice(i, m ? i + 10 + m.index : NOC.length); })();
   assert.match(fn, /className: "absolute inset-0 h-full min-h-0 flex flex-col"/);
   assert.match(fn, /className: "flex-1 min-h-0 overflow-y-auto"/);
   // 返回键 40px 可点区（mobile-ui-layout §1）

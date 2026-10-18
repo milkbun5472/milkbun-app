@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const appSrc = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const phoneSrc = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phoneSrc = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const P = new Function(phoneSrc + "; return { phoneMoneyBlock, PHONE_MONEY_KEYS, phoneProbeSpec };")();
 const char = { name: "某人" };
 

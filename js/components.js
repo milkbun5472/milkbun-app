@@ -1714,6 +1714,59 @@ function fitFont(text, base, fits, min) {
 //     actions(item, i)：底下那排按钮 [{ label, onClick, danger, wk }]——各处要哪颗传哪颗（存相册、删、在上面画…）；
 //     zoomable：点图在「整屏」和「原尺寸（能拖着看）」之间切（小世界相框要）；不开就点图也是关。
 //   好几张时：手指左右划、‹ ›、「2 / 3」。点黑底关。挂在 body 上、层级最高，不会被页面里别的浮层盖住。
+// ── 用到才加载的那几个功能，主屏图标留在这儿（她 2026-10-18 瘦身：脚本点进去才加载，图标得开机就画得出来）──
+if (typeof window !== "undefined") {
+  // 小剧场：两片小幕布 + 星
+  window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
+  // 解梦馆：月亮抱着一本摊开的书（和「梦境」app 的图标区分开）
+  window.GDreamBook = function (props) {
+    const size = (props && props.size) || 34, color = (props && props.color) || "#1b1a17";
+    return h("svg", { width: size, height: size, viewBox: "0 0 48 48", fill: "none" },
+      h("path", { d: "M31 7a13 13 0 1 0 10 20 15 15 0 1 1-10-20z", stroke: color, strokeWidth: 2.6, strokeLinejoin: "round" }),
+      h("path", { d: "M10 32c4-2 8-2 12 0 4-2 8-2 12 0", stroke: color, strokeWidth: 2.6, strokeLinecap: "round" }),
+      h("path", { d: "M10 32v7c4-2 8-2 12 0 4-2 8-2 12 0v-7", stroke: color, strokeWidth: 2.6, strokeLinecap: "round", strokeLinejoin: "round" }),
+      h("path", { d: "M22 32v7", stroke: color, strokeWidth: 2, strokeLinecap: "round" }));
+  };
+}
+// ── 用到才加载的功能，进门那一层（她 2026-10-18 瘦身；装载器在 js/lazy-mods.js）────────────
+//   这一组还没加载完：先给一页带返回键的「在打开…」，加载完再画真页面；网断了给「再试一次」，不白屏。
+//   render 是个函数：里面才写 h(那个功能的组件, …)——那个组件的名字要等它的脚本跑完才有，提前取会报错。
+function LazyGate({ group, render, onBack, zh }) {
+  const t = useTheme();
+  const L = window.LazyMods;
+  // 每次画都现问一遍这一组到底到位没有，不靠记下来的状态（几个功能共用这一层，换页时 React 会把上一个的状态带过来）
+  const ready = !L || L.isLoaded(group);
+  const [, bump] = useState(0);
+  const [err, setErr] = useState("");
+  const go = () => { setErr(""); L.load(group).then(() => bump(n => n + 1), e => setErr((e && e.message) || String(e))); };
+  useEffect(() => { if (!ready) go(); }, [group]);
+  if (ready) return render();
+  // 不自己铺底：就是一层过渡页，透出 App 本来那层底（mobile-ui-layout §3.5 那套外壳归真页面）
+  return h("div", { "data-wk": "lazygate", className: "h-full flex flex-col" },
+    h(Head, { zh: zh || "", onBack: onBack, bg: "transparent" }),
+    h("div", { className: "flex-1 flex flex-col items-center justify-center", style: { gap: 12, padding: 24, textAlign: "center" } },
+      !err
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "在打开……")
+        : h(React.Fragment, null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.7 } }, "没打开：网好像断了。", h("br"), err),
+            h("button", { "data-wk": "lazyretry", onClick: go, className: "active:opacity-60",
+              style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14 } }, "再试一次"))));
+}
+// 用到才加载的那几页：开机先放一个「替身」占住它的名字（app.js 里照旧写 h(Debate, {…})，一个字不用改）。
+//   点进去时替身给出 LazyGate 那一层、把这一组装上；脚本跑完会把 window.Debate 换成真的，替身就直接画真页面。
+//   ⚠️只放【开机和后台都用不到】的页面；名字必须是那份脚本自己挂到 window 上的那个。
+function lazyScreen(name, group, zh) {
+  if (typeof window === "undefined" || window[name]) return;
+  const Stub = function (props) {
+    const Real = window[name];
+    if (Real && Real !== Stub) return h(Real, props);
+    return h(LazyGate, { group, zh, onBack: props && props.onBack,
+      render: () => { const R = window[name]; return R && R !== Stub ? h(R, props) : null; } });
+  };
+  window[name] = Stub;
+}
+[["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
+ ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
   const list = (items || []).filter(x => x && x.src);
   const [i, setI] = useState(Math.min(Math.max(0, at || 0), Math.max(0, list.length - 1)));
@@ -8686,6 +8739,15 @@ function NameCardMsg({ m, characters, onOpen }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "5px 13px 7px", borderTop: "1px solid " + t.line } }, "个人名片"));
 }
 // 朋友圈投票：每个选项一条，条有多长＝几票，底下写谁投的
+// 「提醒了谁看」那一行：动态流和个人页同一个
+function MomentRemindLine({ m, characters }) {
+  const t = useTheme();
+  const ids = (m && m.remind) || [];
+  if (!ids.length) return null;
+  const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+  const names = ids.map(nm).filter(Boolean);
+  return names.length ? h("div", { "data-wk": "moremindline", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "提醒了 ", h("span", { style: { color: t.tint } }, names.join("、")), " 看") : null;
+}
 function MomentPoll({ poll, characters }) {
   const t = useTheme();
   const votes = poll.votes || {}, names = Object.keys(votes), total = names.length;
@@ -8713,6 +8775,9 @@ function MomentCompose({
   const [img, setImg] = useState("");
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
+  // 提醒谁看（群里许咏安 2026-10-18：「朋友圈可不可以加一个提醒谁看」）：点名的人一定刷到、知道是她特意叫的
+  const [remind, setRemind] = useState([]);
+  const toggleRemind = id => setRemind(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   // 用哪张面具发（她 2026-10-11）：只有一张面具时这一行不出现
   const maskList = (typeof window !== "undefined" && window.__momentMasks) ? window.__momentMasks() : [];
   const [mask, setMask] = useState("");
@@ -8737,7 +8802,8 @@ function MomentCompose({
     onPost({
       content: body,
       image,
-      visibleTo: vis === "all" ? null : sel,
+      visibleTo: vis === "all" ? null : [...new Set([...sel, ...remind])],   // 提醒了谁，谁就得看得见
+      remind: remind.length ? remind : null,
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
       mask: mask || undefined
     });
@@ -8830,6 +8896,14 @@ function MomentCompose({
         h(Avatar, { character: { name: mk.name, avatarImage: mk.avatarImage, color: mk.color }, size: 28, radius: 999 }), mk.name + (mk.id ? "" : "（主面具）"));
     })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "没挑「谁可以看」的话，跟你用这张面具聊的人刷得到。")) : null,
+  h(Eyebrow, { style: { margin: "6px 0 8px" } }, "提醒谁看"),
+  h("div", { "data-wk": "moremind", className: "flex flex-wrap gap-2 mb-1" }, characters.map(c => {
+    const on = remind.includes(c.id);
+    return h("button", { key: c.id, "data-on": on ? "1" : "0", onClick: () => toggleRemind(c.id), className: "active:opacity-70 flex items-center gap-2",
+      style: { minHeight: 40, padding: "4px 12px 4px 5px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 13 } },
+      h(Avatar, { character: c, size: 28, radius: 999 }), (on ? "@" : "") + (c.remark || c.name));
+  })),
+  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "0 0 12px", lineHeight: 1.5 } }, remind.length ? "点了的人一定刷得到这条，也知道是你特意叫 TA 看的；选了「部分可见」也会自动把 TA 加进去。" : "不点就照常：谁刷到、回不回看各人。"),
   h(Eyebrow, {
     style: {
       margin: "6px 0 8px"
@@ -9363,7 +9437,7 @@ function MomentsFeed({
     }, "收进时刻"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }
-    }, "删除")), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
+    }, "删除")), h(MomentRemindLine, { m, characters }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -9585,6 +9659,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "评论"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "删除")),
+    h(MomentRemindLine, { m, characters }),
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
     (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm }))))) : null,

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const W = require("../js/phone-watch.js");
 const app = fs.readFileSync("js/app.js", "utf8");
-const phone = fs.readFileSync("js/phone.js", "utf8");
+const phone = (fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8"));
 const watchSrc = fs.readFileSync("js/phone-watch.js", "utf8");
 
 // 她 2026-09-09 提、2026-09-10 定案：「查手机」的另一面——他在，我旁观他自己玩手机。
@@ -183,7 +183,7 @@ test("便签是【改】不是【新写一条】：按标题认人", () => {
   assert.equal(r.d.items[0].body, "改开头，再补一段结尾");
   assert.equal(r.d.items[0].title, "周四交稿", "标题被改掉了——那就不是同一条便签了");
   // 便签是名册（PHONE_RETIRE 里登记着），身份就是标题
-  assert.match(fs.readFileSync("js/phone.js", "utf8"), /notes: \{ items: "便签" \}/);
+  assert.match((fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8")), /notes: \{ items: "便签" \}/);
   // 原来那份不许被就地改坏
   assert.equal(d.items[0].body, "记得改开头");
   // 认不到就当新写一条（他确实可能随手记一句）
@@ -264,7 +264,7 @@ test("浏览器：搜一次＝两层各动各的", () => {
   assert.equal(r.d.tabs[0].title, "写作课", "刚打开那一页没顶到最前面");
   assert.equal(r.d.tabs.length, 2, "旧标签页被抹掉了——tabs 是快照不是清空重来");
   // tabs 不在 PHONE_GROW 里＝它本来就是 ♻️（这份桩钉在写入方上）
-  assert.match(fs.readFileSync("js/phone.js", "utf8"), /browser: \{ searches: 44, marks: 14, private: 10 \}/);
+  assert.match((fs.readFileSync("js/phone.js", "utf8") + "\n" + fs.readFileSync("js/phone-ui.js", "utf8")), /browser: \{ searches: 44, marks: 14, private: 10 \}/);
   // 搜了但什么都没点开，也是真会发生的一下
   assert.equal(W.applyWrite("browser", b0, "半夜睡不着", "", 999).d.searches[0].opened, "");
 });
@@ -1094,6 +1094,6 @@ require("node:test")("看他玩手机：外语心声自带中文，带到屏幕�
   const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone-watch.js"), "utf8");
   assert.match(src, /think 里再加一栏 zh/);
   assert.match(src, /p\.zh \? p\.text \+ "（" \+ p\.zh \+ "）"/);
-  const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+  const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
   assert.match(ph, /thoughtZh: a\.zh \|\| ""/);
 });

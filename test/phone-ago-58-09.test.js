@@ -2,13 +2,18 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+// 切出一个顶层声明：从它开头到下一个顶在行首的 function/const/let 为止
+const topBlock = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, "抠不出：" + head); const m = /\n(?:async function|function|const|let) /.exec(src.slice(i + head.length)); return src.slice(i, m ? i + head.length + m.index : src.length); };
 const F = (() => {
-  const a = phone.indexOf("const phoneNum = v => {");
-  const b = phone.indexOf("// 新的并进旧的：新的在前");
+  // 2026-10-18 起：phoneNum / phoneFreezeTime / phoneWhenTs 在 phone.js（开机那半，存档和刷新要用），phoneAgo 在 phone-ui.js（只界面上显示「几分钟前」）
+  const core = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+  const a = core.indexOf("const phoneNum = v => {");
+  const b = core.indexOf("// 新的并进旧的：新的在前");
   assert.ok(a > 0 && b > a, "抠不出时间那几个函数");
-  return new Function(phone.slice(a, b) + "\nreturn { phoneAgo, phoneFreezeTime, phoneWhenTs };")();
+  const ui = fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8");
+  return new Function(core.slice(a, b) + "\n" + topBlock(ui, "function phoneAgo(x, nowTs) {") + "\nreturn { phoneAgo, phoneFreezeTime, phoneWhenTs };")();
 })();
 const DAY = 86400000;
 // 存进去时是「1小时前」，agoDays 天之前存的

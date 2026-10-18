@@ -10,7 +10,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const W = require("../js/phone-watch.js");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const phone = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
 
 test("app 那一头的记性只记上一段＝严格轮流，在两拨之间来回倒", () => {
   const has = ["wechat", "album", "notes", "music", "mail", "bili"];

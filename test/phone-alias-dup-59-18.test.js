@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const P = require("../js/phone.js");
-const app = R("app.js"), ph = R("phone.js");
+const app = R("app.js"), ph = (R("phone.js") + "\n" + R("phone-ui.js"));
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 test("别名认得出是同一个人", () => {

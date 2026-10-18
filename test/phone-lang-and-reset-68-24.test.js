@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const K = require(path.join(root, "js/phone.js"));
-const phoneSrc = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+const phoneSrc = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
 const appSrc = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 
 const spec = (key, lang) => K.phoneProbeSpec(key, { name: "甲" }, [], "", [], null, null, false, "", lang).instruction;
@@ -57,7 +57,7 @@ test("名册的名字和身份字段原样照抄——改了名字会攒成两�
     assert.match(s, /会被当成新的攒进去，变成两份/, m);   // 说了理由，不是光下禁令
   });
   // 这条规矩的另一头真的在代码里：名册按名字认人（施工规则/phone-data-layers.md）
-  const src = fs.readFileSync(path.join(root, "js/phone.js"), "utf8");
+  const src = (fs.readFileSync(path.join(root, "js/phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/phone-ui.js"), "utf8"));
   assert.match(src, /phoneGrowList/);
 });
 

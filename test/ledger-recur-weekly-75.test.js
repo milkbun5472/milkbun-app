@@ -1,7 +1,8 @@
+// 算账那一半 2026-10-18 搬去 js/ledger-core.js（开机加载），页面那一半还在 ledger.js；源码两份一起读
 // 周期账单能选每周／每两周（群友 2026-10-15「想要一周一周进帐」，她：「收入支出都搞可以选周期」）
 const test = require("node:test");
 const assert = require("assert");
-const src = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+const src = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
 const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, a); return src.slice(i, j); };
 const code = [cut("function pad(n)", "function todayStr"), cut("function shiftMonth(", "function dailyAvg"),
   cut("const ACCT_TYPES", "function summarize(")].join("\n");

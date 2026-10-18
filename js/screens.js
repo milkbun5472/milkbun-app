@@ -12094,6 +12094,39 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=localStorage 大头(≥0.5MB)；标有「文字金库」的项目住在 IDB，不挤占 5MB。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
     info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
 }
+// TA 们拍的照片（群里 2026-10-18：「线下生的图找不到」「线上照片也没有」）：
+//   他在单聊、群聊、线下生的图都存在 x_selfies，键是 img_<他的id>_<那条消息>（照片日记是 img_pdiary_<他的id>_…）。
+//   这儿只按键前缀认人、数张数，点进谁才把谁的图读出来；一次摆 30 张，往下再要。不另存一份目录。
+function CharPhotoAlbum({ characters, toast }) {
+  const t = useTheme();
+  const [keys, setKeys] = useState(null), [who, setWho] = useState(null), [shown, setShown] = useState(30);
+  const [urls, setUrls] = useState({}), [at, setAt] = useState(-1);
+  useEffect(() => { let live = true; (typeof idbImgKeys === "function" ? idbImgKeys() : Promise.resolve([])).then(k => { if (live) setKeys(k.filter(x => !String(x).endsWith("_raw"))); }); return () => { live = false; }; }, []);
+  const mine = c => (keys || []).filter(k => k.indexOf("img_" + c.id + "_") === 0 || k.indexOf("img_pdiary_" + c.id + "_") === 0).reverse();
+  const people = (characters || []).filter(c => c && !c.npc).map(c => ({ c, n: mine(c).length })).filter(x => x.n);
+  const list = who ? mine(who).slice(0, shown) : [];
+  useEffect(() => {
+    let live = true; const made = [];
+    (async () => { for (const k of list) { if (urls[k]) continue; const b = await idbImgGet(k).catch(() => null); if (!live) return; if (b && b.size) { const u = URL.createObjectURL(b); made.push(u); setUrls(x => Object.assign({}, x, { [k]: u })); } } })();
+    return () => { live = false; };
+  }, [who && who.id, shown, keys && keys.length]);
+  useEffect(() => () => { Object.values(urls).forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); }, []);
+  const save = k => window.saveImgOriginal ? window.saveImgOriginal(k, (who && who.name) || "照片").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")) : toast && toast("这台设备存不了图");
+  return h("div", { "data-wk": "charphotos", style: { margin: "18px 0", border: "1px solid " + t.line, borderRadius: 12, padding: 14 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, who ? h("button", { onClick: () => { setWho(null); setShown(30); setAt(-1); }, style: { color: t.ink } }, "← " + who.name + " 拍的 · " + mine(who).length) : "TA 们拍的照片"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "他们在单聊、群聊、线下发的照片和照片日记都在这儿，按人分开，新的在前。点开能左右划、存到手机。图只在这台手机上，换手机前先导出全部数据。"),
+    keys == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "在数……")
+    : !who ? (people.length ? h("div", { style: { marginTop: 10 } }, people.map(({ c, n }) => h("button", { key: c.id, "data-wk": "charphotowho", onClick: () => setWho(c), className: "w-full flex items-center justify-between active:opacity-70",
+        style: { minHeight: 44, borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, h("span", { className: "truncate" }, c.name), h("span", { style: { fontSize: 12, color: t.fog } }, n + " 张 ›"))))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "还没有谁拍过照片。"))
+    : h(React.Fragment, null,
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, marginTop: 12 } },
+        list.map((k, i) => h("button", { key: k, "data-wk": "charphoto", onClick: () => setAt(i), style: { aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } },
+          urls[k] ? h("img", { src: urls[k], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null))),
+      mine(who).length > shown ? h("button", { onClick: () => setShown(s => s + 30), className: "w-full active:opacity-60", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "再看 30 张") : null,
+      at >= 0 && typeof ImageViewer === "function" ? h(ImageViewer, { onClose: () => setAt(-1), at: at, items: list.map(k => ({ src: urls[k] || "", key: k })),
+        actions: item => [{ label: "⬇ 保存到手机（原图）", wk: "charphotosave", onClick: () => save(item.key) }] }) : null));
+}
 function LocalPhotoLibrary({ toast }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -12103,7 +12136,16 @@ function LocalPhotoLibrary({ toast }) {
   const [sharing, setSharing] = useState(false);
   const ref = useRef(null);
   const refresh = async () => setRows(await idbAlbumEntries());
-  useEffect(() => { if (open) refresh(); }, [open]);
+  // 一进来就数一遍：原来收着的时候不数，标题上永远写着「· 0」，看着像空的（群里 2026-10-18）
+  useEffect(() => { refresh(); }, [open]);
+  const [digging, setDigging] = useState(false);
+  const dig = async () => {
+    if (!window.__collectMyOldPhotos) return;
+    setDigging(true);
+    try { const n = await window.__collectMyOldPhotos(); await refresh(); setOpen(true); toast && toast(n ? "从以前的聊天里找回了 " + n + " 张" : "以前的聊天里没有没收进来的照片了"); }
+    catch (e) { toast && toast("没找成：" + (e.message || e)); }
+    setDigging(false);
+  };
   useEffect(() => { setShareCaption(preview && preview.caption || ""); }, [preview && preview.imageRef]);
   const add = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
@@ -12119,6 +12161,7 @@ function LocalPhotoLibrary({ toast }) {
       h("button", { onClick: () => setOpen(v => !v), style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "本机照片库 · " + rows.length + (open ? " ▴" : " ▾")),
       h("button", { onClick: () => ref.current && ref.current.click(), style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "＋ 添加照片")),
     h("input", { ref, type: "file", accept: "image/*", className: "hidden", onChange: add }),
+    h("button", { "data-wk": "block", onClick: dig, disabled: digging, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginTop: 6 } }, digging ? "在翻以前的聊天……" : "把以前聊天里我发过的照片也找回来"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "聊天里发过的真实照片会自动归到这里。像素只在本机图库，不会自动上传云端；移出照片库也不会删掉聊天里的图。"),
     open ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginTop: 12 } },
       rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }), r.bridgeId ? h("span", { style: { position: "absolute", right: 4, bottom: 4, fontSize: 15, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))" } }, "📮") : null)) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
@@ -12238,7 +12281,7 @@ function DataConfig({
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "在这里查看每个角色的余温影响，并一次给全部角色开启前台试点。"),
     button("打开 E 余温与潮汐仪表", () => setInnerLifeOpen(true), true));
   if (part === "storage") content = h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld });
-  if (part === "photos") content = h(LocalPhotoLibrary, { toast: toast });
+  if (part === "photos") content = h(React.Fragment, null, h(LocalPhotoLibrary, { toast: toast }), h(CharPhotoAlbum, { characters: characters || [], toast: toast }));
   if (part === "cloud") content = h(CloudSync, { toast: toast, onExport: onExport });
   if (part === "rescue") content = h(LostCharacterRescue, { characters: characters || [], onRescue: onRescueChar, toast: toast });
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },

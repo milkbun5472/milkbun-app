@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
@@ -95,7 +95,8 @@ test("行内引用那几处传了 inline，不出卡片", () => {
   // 光算出 _card 不算数，得真的画出去（这条是变异测出来补的：删掉这一行原来全绿）
   assert.match(head, /return h\(HtmlCard, \{ html: _card \}\)/);
   // 线下引用那两行 + 查手机摘录：三处都得标上
-  const quoted = comp.match(/h\(TransText, \{ text: l\.content[^)]*inline: true \}\)/g) || [];
+  // v75.981 线下那两处先过 callShow 剥语气标记：text: callShow(l.content)
+  const quoted = comp.match(/h\(TransText, \{ text: (?:callShow\()?l\.content\)?[^)]*inline: true \}\)/g) || [];
   assert.equal(quoted.length, 2, "线下引用那两处没标 inline");
   assert.match(phone, /h\(TransText, \{ text: s, ink: "currentColor", inline: true \}\)/);
 });

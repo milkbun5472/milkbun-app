@@ -5,7 +5,7 @@ const path = require("node:path");
 // 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
 const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
-const ph = fs.readFileSync(path.join(root, "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(root, "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function TallyView({"), ph.indexOf("// 时间线视图"));
 const tabs = view.slice(view.indexOf("TALLY_TABS.map(x => h(\"button\""), view.indexOf("h(\"div\", { className: \"flex-1 min-h-0 overflow-y-auto px-5\""));
 

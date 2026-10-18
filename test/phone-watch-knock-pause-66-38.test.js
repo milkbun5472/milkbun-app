@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const phone = R("js/phone.js"), wk = R("js/phone-watch.js");
+const phone = (R("js/phone.js") + "\n" + R("js/phone-ui.js")), wk = R("js/phone-watch.js");
 const W = require("../js/phone-watch.js");
 
 test("⑥ 敲完插一段真的停住，梯度跟 knockStep 那四档对得上", () => {

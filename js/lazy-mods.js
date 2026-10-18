@@ -1,0 +1,61 @@
+// ============================================================
+// 用到才加载（她 2026-10-18：「来吧宝宝开始瘦身」）
+// ============================================================
+// 群里报「打开秋秋机白屏，或者白屏跳黑屏，要重进好几次」——不是她东西多，是 app 自己越长越大：
+//   开机要一口气读完、执行完一百五十几个脚本（公共版装订完 9MB），内存小的 iPhone 撑不住就把页面杀掉。
+//   大部分人开机那一刻一个大功能都用不到（小游戏、周刊、辩论、攻略……），却每次都得先把它们全执行一遍。
+//
+// 做法：
+//   · index.html 里这些脚本照样写着，只是 type 换成 "text/lazy"（浏览器不执行），data-lazy 写它属于哪一组，
+//     地址放在 data-src。版本号 ?v= 照旧在 index.html 里，ship.mjs 换指纹那一套一个字都不用改。
+//   · 点进那个功能时 LazyMods.load("组名")：按 index.html 里的先后顺序一份份挂成真脚本、等它执行完。
+//     同一组只加载一次；网断了加载失败，下次再点会重试（不会卡在「失败」上）。
+//   · 开机后闲下来（20 秒后、页面在前台），把这些文件【只下载不执行】走一遍，service worker 按 ?v= 存下：
+//     断网也能打开，开机又不用为它们花内存。
+//   · 页面那一层用 components.js 的 LazyGate：没加载完先显示「在打开…」，加载完再画。
+//
+// ⚠️能放进来的只有【开机和后台都用不到】的那部分。挑之前先查谁在用它（聊天拼提示词、后台提醒、主屏小组件、
+//   聊天里的分享卡都算开机就要）。要用的那一小块先拆出来留在开机加载（例：js/games-list.js 的游戏目录）。
+(function (g) {
+  const loaded = {}, pending = {};
+  const tagsOf = group => [...document.querySelectorAll('script[type="text/lazy"][data-lazy]')]
+    .filter(s => s.getAttribute("data-lazy") === group);
+  const groups = () => [...new Set([...document.querySelectorAll('script[type="text/lazy"][data-lazy]')].map(s => s.getAttribute("data-lazy")))];
+  const addScript = src => new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = src; s.async = false;
+    s.onload = () => ok();
+    s.onerror = () => { try { s.remove(); } catch (e) {} no(new Error("没下载下来：" + src.split("?")[0])); };
+    document.head.appendChild(s);
+  });
+  function load(group) {
+    if (loaded[group]) return Promise.resolve();
+    if (pending[group]) return pending[group];
+    const tags = tagsOf(group);
+    if (!tags.length) { loaded[group] = true; return Promise.resolve(); }   // 这一组没登记延后（比如测试或老版本页面）：当它本来就在
+    pending[group] = (async () => {
+      for (const t of tags) {
+        if (t.getAttribute("data-done") === "1") continue;
+        await addScript(t.getAttribute("data-src"));
+        t.setAttribute("data-done", "1");   // 半路断了，下次从没跑过的那份接着来，跑过的不重跑
+      }
+      loaded[group] = true;
+    })().finally(() => { delete pending[group]; });
+    return pending[group];
+  }
+  // 闲下来只下载不执行：浏览器 / service worker 存下来，下次点进去不用等网，断网也打得开
+  function warm() {
+    const srcs = [...document.querySelectorAll('script[type="text/lazy"][data-src]')].map(s => s.getAttribute("data-src"));
+    let i = 0;
+    const next = () => {
+      if (i >= srcs.length || document.hidden) return;
+      fetch(srcs[i++], { credentials: "same-origin" }).catch(() => {}).finally(() => setTimeout(next, 400));
+    };
+    next();
+  }
+  try {
+    if (typeof window !== "undefined" && typeof document !== "undefined")
+      window.addEventListener("load", () => setTimeout(() => { (window.requestIdleCallback || (f => setTimeout(f, 0)))(warm); }, 20000), { once: true });
+  } catch (e) {}
+  g.LazyMods = { load, isLoaded: group => !!loaded[group] || !tagsOf(group).length, groups };
+})(typeof window !== "undefined" ? window : globalThis);

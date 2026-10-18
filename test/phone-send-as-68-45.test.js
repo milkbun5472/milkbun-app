@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 test("落盘那一头：只认 actual: 开头的会话", () => {
   assert.match(app, /const phoneSendAs = \(char, session, text\) => \{/);
@@ -134,7 +134,7 @@ test("等对面回话的时候，末尾挂三个点", () => {
   // 原来全库散着六份（Spinner、通话「正在说」、两处 sending、群聊、主聊天）——
   // 抽公共的时候已有的那几处也一起搬了（施工规则/one-public-mechanism）
   assert.equal((comps.match(/rounded-full animate-pulse/g) || []).length, 1, "三个点只该有一份");
-  assert.equal((fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8").match(/rounded-full animate-pulse/g) || []).length, 0);
+  assert.equal(((fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8")).match(/rounded-full animate-pulse/g) || []).length, 0);
   assert.match(phone, /h\(TypingDots, \{ color: "#9a9a9a" \}\)/);
   // 新气泡要滚得到（她 2026-09-10 报过的老毛病）
   assert.match(phone, /\}, \[driveCount, driveChat, actualCount, sendAsWaiting, thread && thread\.id, thread && thread\.name\]\);/);
