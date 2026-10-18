@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.991";
+const APP_VERSION = "v75.992";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10972,7 +10972,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : p.alt ? "（用她的小号「" + cut(p.authorName, 12) + "」发的——平时没人知道这是她）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
     }
     if (on("money")) {
-      const log = (walletLog || []).filter(w => !maskTrace(w.label)).slice(0, 10);
+      // 按 id 也挡一道（群里 2026-10-18：「不能查到我给别人点的」）：备注改过、名字没写进 label 的那几笔照样露
+      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && w.ref.charId && maskSet.has(String(w.ref.charId)))).slice(0, 10);
       // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
       const vName = nameOf(viewerId);
       const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
@@ -10988,8 +10989,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n"));
     }
     if (on("shop")) {
-      const od = (orders || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId)))).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
-      const tk = (takeoutLog || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId)))).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
+      const od = (orders || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
+      const tk = (takeoutLog || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
       // 分两块写：混在一起时TA会在购物里念外卖的单（她 2026-10-01：「有些是外卖他也说是购物里的」）
       if (od.length) out.push("【购物 app 里的订单】\n" + od.join("\n"));
       if (tk.length) out.push("【外卖 app 里的订单】\n" + tk.join("\n"));
@@ -30454,7 +30455,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "wallet") body = h(MyWallet, {
     recur: myRecur, onSaveRecur: upsertMyRecur,
     balance: wallet,
-    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, w.charId)) : walletLog,
+    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,
@@ -30945,7 +30946,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     payAs: asPhonePay,
     wallet: wallet,
     cart: cart,
-    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
+    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
     inventory: inventory,
     characters: liveChars,
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
@@ -30979,8 +30980,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: "takeout:" + takeoutNav + (asPhone ? ":as" : ""),
     initialNav: takeoutNav,
     wallet: wallet,
-    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
-    log: peekMaskView() ? takeoutLog.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : takeoutLog,
+    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
+    log: peekMaskView() ? takeoutLog.filter(o => !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
     characters: liveChars,
     groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
