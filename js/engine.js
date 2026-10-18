@@ -7136,7 +7136,10 @@ function pullPauseVoice(words) {
 }
 // 按台词自动选发音矫正 language_boost（v47.92）：治「日语角色被中文矫正带偏口音」。
 // 假名(ひらがな/カタカナ)是日语铁证、中文里不会出现→有假名走 Japanese，谚文走 Korean，纯 ASCII 走 English，其余默认 Chinese
-function ttsLangBoost(text) {
+// yueVoice：这把嗓子是不是给说粤语的人用的（档案里常用语言写着粤语）。
+//   ⚠️只写着繁体、没有粤语字的那句，只有这种人才按粤语念——群里 2026-10-18：「普通话 char 给我说的粤语」，
+//   人设写繁体的普通话角色（台湾腔、古风）被一刀切成了粤语。
+function ttsLangBoost(text, yueVoice) {
   const s = String(text || "");
   if (/[぀-ヿ]/.test(s)) return "Japanese";
   if (/[가-힣]/.test(s)) return "Korean";
@@ -7144,7 +7147,7 @@ function ttsLangBoost(text) {
   // 粤语（她 2026-10-11：「语音和气泡听一下播放的还是普通话」）：Chinese 这一档按普通话念。
   //   有粤语专用字、或写的是繁体，就走 MiniMax 的 Chinese,Yue；通篇简体又没有粤语字的仍是普通话。
   if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(s)
-    || (typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
+    || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
   return "Chinese";
 }
 // 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
@@ -7787,7 +7790,10 @@ function ttsKeyFor(text, voiceId, opts) {
     if (emo === "neutral") emo = null; // 平静不传，别拿 neutral 模板掰本音
   }
   const pit = 0;
-  const boost = ttsLangBoost(txt);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
+  // 这把嗓子挂在哪个说粤语的人身上（档案常用语言写着粤语），才让「只有繁体」的句子按粤语念
+  let yueVoice = false;
+  try { yueVoice = (loadJSON("x_characters", []) || []).some(c => c && String(c.voiceId || "").trim() === vid && /粤|粵|广东话|廣東話|cantonese/i.test(String(c.lang || ""))); } catch (e) {}
+  const boost = ttsLangBoost(txt, yueVoice);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
   // 日语汉字注音（v47.93）：音色开了 jpKana + 是日语句 + 含汉字 → 先转假名再合成，治「寝→中文qin」
   const wantKana = !!ve.jpKana && boost === "Japanese" && /[一-鿿]/.test(txt);
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，
