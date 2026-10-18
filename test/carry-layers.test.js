@@ -3,19 +3,26 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), engine = R("engine.js"), screens = R("screens.js");
+const app = R("app.js"), engine = R("engine.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js"));
+// 2026-10-18 起 screens.js 拆成两半：衣柜那几支纯函数里，closetGiftLike…clothFigure 这一串搬去了 screens-ui.js，
+// 原来那段「CLOSET_MAX_OCCASIONS → carryProbeSpec」要把这一串拼回来才是整份
+const closetUiPart = (() => {
+  const i = screens.indexOf("function closetGiftLike("), f = screens.indexOf("function clothFigure(", i);
+  const k = screens.slice(f + 1).search(/\n(?:async function |function |const |let )/);
+  return screens.slice(i, k < 0 ? screens.length : f + 1 + k);
+})();
 
 // 把 screens.js 里那几个纯函数抠出来真跑（它们不碰 React、不碰 DOM）
 const F = (() => {
   const a = screens.indexOf("// 给出图端的衣柜");
   const b = screens.indexOf("function carryProbeSpec");
   assert.ok(a > 0 && b > a, "抠不出随身物那几个纯函数");
-  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec"));
+  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec")) + "\n" + closetUiPart;
   return new Function(head + "\nreturn { closetGroups, carryFlatItems, carryItemKey, carryClosetText, carryContextText, carryEvolveMerge, carryKnownBlock };")();
 })();
 // clothTone 那几个也抠出来跑（纯函数，不碰 React）
 const F2 = (() => {
-  const head = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("// 给出图端的衣柜"));
+  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("// 给出图端的衣柜")) + "\n" + closetUiPart;   // 2026-10-18 起 CLOTH_TONES 那串在 screens-ui.js
   return new Function(head + "\nreturn { clothTone, clothShift, clothIsDark };")();
 })();
 const bodyOfFn = head => {
@@ -372,7 +379,7 @@ test("caseOpen 这个动画真的定义过（只写在 style 里等于没有）"
 test("包内认材质，不认形状", () => {
   const F3 = (() => {
     const head = screens.slice(screens.indexOf("const STUFF_TONES"), screens.indexOf("// 一件挂着的衣服"));
-    const pre = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));
+    const pre = screens.slice(screens.indexOf("const clothHex"), screens.indexOf("function carryClosetText")) + "\n" + screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));   // 2026-10-18 起 clothHex…toneOf 留在 screens.js，两段拼起来
     return new Function(pre + head + "\nreturn { stuffTone, stuffTilt };")();
   })();
   const w = (n, note) => F3.stuffTone({ name: n, note: note || "" }, 0).word;
@@ -513,7 +520,7 @@ test("判词跟着翻的是什么走，不再写死「手机」", () => {
 // 她 2026-08-29 真机截图抓出来的三个
 test("材质词表认得现代的东西，「金属」不是「金」", () => {
   const F4 = (() => {
-    const pre = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));
+    const pre = screens.slice(screens.indexOf("const clothHex"), screens.indexOf("function carryClosetText")) + "\n" + screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));   // 2026-10-18 起 clothHex…toneOf 留在 screens.js，两段拼起来
     const head = screens.slice(screens.indexOf("const STUFF_TONES"), screens.indexOf("// 一件挂着的衣服"));
     return new Function(pre + head + "\nreturn { stuffTone, stuffColumns };")();
   })();
@@ -532,7 +539,7 @@ test("材质词表认得现代的东西，「金属」不是「金」", () => {
 
 test("两列按高度分，不是按奇偶分", () => {
   const F5 = (() => {
-    const pre = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));
+    const pre = screens.slice(screens.indexOf("const clothHex"), screens.indexOf("function carryClosetText")) + "\n" + screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));   // 2026-10-18 起 clothHex…toneOf 留在 screens.js，两段拼起来
     const head = screens.slice(screens.indexOf("const STUFF_TONES"), screens.indexOf("// 一件挂着的衣服"));
     return new Function(pre + head + "\nreturn stuffColumns;")();
   })();
@@ -553,7 +560,7 @@ test("两列按高度分，不是按奇偶分", () => {
 // ── 同一件东西不许在两处（她 2026-08-29 真机截图：包内和珍藏里都有
 //    立牌、徽章、小本子）。四栏各自生成、谁也不知道别栏写过什么。
 const F6 = (() => {
-  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec"));
+  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec")) + "\n" + closetUiPart;
   return new Function(head + "\nreturn { carrySameThing, carryDedupe, carryElsewhere, carryAvoidBlock, carryNameNorm };")();
 })();
 

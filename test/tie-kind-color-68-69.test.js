@@ -6,7 +6,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const grab = re => { const m = screens.match(re); assert.ok(m, "找不到：" + re); return m[0]; };
 const color = new Function(grab(/const TIE_KINDS = \[[\s\S]*?\n\}\n/) + ";return tieKindColor;")();
 

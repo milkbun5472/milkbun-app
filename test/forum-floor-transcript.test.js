@@ -1,5 +1,5 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('fs');
-const scr=fs.readFileSync('js/screens.js','utf8'),app=fs.readFileSync('js/app.js','utf8');
+const scr=(fs.readFileSync('js/screens.js','utf8') + "\n" + fs.readFileSync('js/screens-ui.js','utf8')),app=fs.readFileSync('js/app.js','utf8');
 test('继续刷楼、回层主时给模型的楼层是整段原文（不截 60/80 字、不只给最后几层、楼中楼也在）',()=>{
  const i=scr.indexOf('function forumFloorTranscript'),j=scr.indexOf('\n}\n',i)+3;
  const forumWithPhoto=(t)=>String(t||'');const fn=new Function('forumWithPhoto',scr.slice(i,j)+';return forumFloorTranscript;')(forumWithPhoto);

@@ -14,7 +14,7 @@ const html = fs.readFileSync(P("index.html"), "utf8");
 const app = fs.readFileSync(P("js/app.js"), "utf8");
 const comp = fs.readFileSync(P("js/components.js"), "utf8");
 const eng = fs.readFileSync(P("js/engine.js"), "utf8");
-const scr = fs.readFileSync(P("js/screens.js"), "utf8");
+const scr = (fs.readFileSync(P("js/screens.js"), "utf8") + "\n" + fs.readFileSync(P("js/screens-ui.js"), "utf8"));
 
 test("D 要用的那份作息还有人算：C 的两个 script 必须在 index.html 里", () => {
   assert.match(html, /js\/inner-life-c-sleep-core\.js/, "C core 不在了，window.InnerLifeCSleepCore 就是 undefined");

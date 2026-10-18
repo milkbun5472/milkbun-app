@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const engine = P("js/engine.js"), screens = P("js/screens.js");
+const engine = P("js/engine.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 // 照【真正在跑的那份源码】取函数，不另抄一份实现（stub-from-the-writer）
 const cleanBaseUrl = (() => {

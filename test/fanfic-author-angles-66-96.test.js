@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const Axes = require("../js/axes.js");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 // ⚠️注释里写着这次的病历（那四个格子的原话），不 strip 的话「已经删掉了」永远断不出来
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const code = strip(fic);

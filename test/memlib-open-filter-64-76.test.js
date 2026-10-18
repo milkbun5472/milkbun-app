@@ -4,7 +4,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 
 test("记忆库多一格筛子：只看「没绑角色」的那些", () => {

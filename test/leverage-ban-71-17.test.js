@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const P = f => path.join(__dirname, "..", f);
 const eng = fs.readFileSync(P("js/engine.js"), "utf8");
-const fic = fs.readFileSync(P("js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(P("js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(P("js/fanfic-core.js"), "utf8"));
 const grab = n => (eng.match(new RegExp("const " + n + " = `([\\s\\S]*?)`;")) || [])[1] || "";
 const LEV = grab("LEVERAGE_BAN"), SEE = grab("SEE_THROUGH_BAN"), COND = grab("CONDESCENDING_TONE_BAN"), CANNED = grab("CANNED_PHRASE_BAN");
 

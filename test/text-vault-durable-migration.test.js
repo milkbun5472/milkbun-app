@@ -5,7 +5,7 @@ const fs = require("node:fs");
 
 const engine = fs.readFileSync("js/engine.js", "utf8");
 const weekly = fs.readFileSync("js/weekly.js", "utf8");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const keys = ["x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger"];
 const growingKeys = ["x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_schedules", "x_charWallet"];
 const coupleKeys = [

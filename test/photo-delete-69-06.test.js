@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const app = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
-const screens = fs.readFileSync(path.join(__dirname, '../js/screens.js'), 'utf8');
+const screens = (fs.readFileSync(path.join(__dirname, '../js/screens.js'), 'utf8') + "\n" + fs.readFileSync(path.join(__dirname, '../js/screens-ui.js'), 'utf8'));
 const del = app.slice(app.indexOf('  const deleteDuoPhoto = (cid, photo) => {'), app.indexOf('  const confirmDeleteDuoPhoto'));
 
 test('四个来源都带着出处上墙，删的时候才找得回它住哪儿', () => {

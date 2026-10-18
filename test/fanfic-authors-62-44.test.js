@@ -4,7 +4,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
+const fic = (fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/fanfic-core.js", "utf8"));
 const core = fs.readFileSync(__dirname + "/../js/core.js", "utf8");
 
 test("作者是单独一份名册，清空版块清不掉她们", () => {

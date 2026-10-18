@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const engine = R("engine.js"), app = R("app.js"), screens = R("screens.js"), comps = R("components.js");
+const engine = R("engine.js"), app = R("app.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js")), comps = R("components.js");
 const grab = name => { const i = engine.indexOf("function " + name + "("); assert.ok(i >= 0, name); return engine.slice(i, engine.indexOf("\n}\n", i) + 3); };
 const win = {};
 const E = new Function("window", ["vclockState", "vclockUse", "vclockCfg", "vclockSeg", "vclockMap", "vclockNow", "vclockYear", "vclockLabel", "fmtClock", "fmtStampAI"].map(grab).join("")

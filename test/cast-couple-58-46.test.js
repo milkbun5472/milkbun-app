@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const screens = R("screens.js"), comp = R("components.js"), app = R("app.js");
+const screens = (R("screens.js") + "\n" + R("screens-ui.js")), comp = R("components.js"), app = R("app.js");
 const cast = screens.slice(screens.indexOf("function Cast("), screens.indexOf("function CastForm("));
 
 // ── 人格档案馆 ──────────────────────────────────────────

@@ -9,7 +9,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const CFG = src.slice(src.indexOf("function Config(props)"), src.indexOf("function ApiConfig"));
 const CODE = CFG.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 

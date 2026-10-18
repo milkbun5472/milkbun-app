@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), scr = R("screens.js"), cmp = R("components.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), cmp = R("components.js");
 
 // ── ① 通话皮肤 ──────────────────────────────────────────────────────────────
 // 那几个纯函数真跑一遍：写死的 #16330a / #fff 正是「深色主题白底白字」那条

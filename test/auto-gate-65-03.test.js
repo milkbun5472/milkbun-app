@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), engine = R("engine.js"), screens = R("screens.js"), gateSrc = R("auto-gate.js");
+const app = R("app.js"), engine = R("engine.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js")), gateSrc = R("auto-gate.js");
 
 // 真跑一遍，不是只看长相
 function fresh() {

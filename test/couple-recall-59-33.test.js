@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const bare = x => x.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 // 她 2026-09-01：「这个他记得的一直是空的，点进去刷新也没有提示有没有在刷，

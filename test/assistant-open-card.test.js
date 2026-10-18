@@ -27,7 +27,7 @@ test("open 卡：照攻略那一条的 app 开页面，不认得的就报错，�
   assert.match(app, /onOpenPage: \(app, entryId, sub\) => \{/);
   assert.match(app, /if \(parts\[0\] === "data" && parts\[1\]\) window\.__dataPart = parts\[1\];/);
   assert.match(app, /openChatById\(hit\.id, entryId === "group" \? "group" : "char"\)/);
-  const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
   assert.match(scr, /const p0 = w\.__dataPart \|\| ""; w\.__dataPart = "";/);
   const as = fs.readFileSync(path.join(root, "js/assistant.js"), "utf8");
   assert.match(as, /p\.target === "open" \? \(String\(p\.text/);

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const comps = R("components.js"), screens = R("screens.js"), engine = R("engine.js");
+const comps = R("components.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js")), engine = R("engine.js");
 
 test("认不认得出只问 birthdaySolarDate（跟到日子记不记得同一个判据）", () => {
   const grab = (src, name) => { const i = src.indexOf("function " + name + "("); return src.slice(i, src.indexOf("\n}\n", i) + 3); };

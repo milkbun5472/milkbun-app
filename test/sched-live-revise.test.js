@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const screens = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const screens = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const engine = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 function load() {

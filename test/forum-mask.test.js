@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const A = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
-const S = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const S = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 
 test("帖、楼、楼中楼都记面具；只有同一张面具的角色认得出", () => {
   assert.match(A, /const forumKnows = \(charId, x\) => String\(\(x && x\.mask\) \|\| ""\) === maskKeyOf\(charId\);/);

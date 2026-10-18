@@ -48,7 +48,7 @@ test("三个入口都走排序：加载、角色日记、我的日记", () => {
 
 // v53.87：显示层兜底。存储顺序对不对都不该影响显示。
 test("显示层自己排一次，不依赖存储顺序", () => {
-  const screens = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
+  const screens = (fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/screens-ui.js"), "utf8"));
   assert.match(screens, /const sortByDay = list => \(list \|\| \[\]\)\.slice\(\)\.sort/);
   assert.match(screens, /const entriesOf = id => sortByDay\(diaries\[id\]\);/);
   assert.doesNotMatch(screens, /const entriesOf = id => diaries\[id\] \|\| \[\];/, "不许再有裸取");

@@ -6,7 +6,7 @@ const vm = require("node:vm");
 
 const engine = fs.readFileSync("js/engine.js", "utf8");
 const app = fs.readFileSync("js/app.js", "utf8");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 
 test("真实聊天留下可读但不持久化的最终召回快照", () => {
   const start = engine.indexOf("function noteMemoryRecallSnapshot");

@@ -12,5 +12,5 @@ test('后台不跑走 bgOff 那一道闸；主动消息在 replyNow 一处挡、
   const s=fs.readFileSync(__dirname+'/../js/app.js','utf8');
   assert.match(s,/const bgOff = \(\) => loadJSON\("x_bgApi", null\) === "__off__" \|\| quietNow\("bg"\);/);
   assert.match(s,/!opts\.remind && quietNow\("pro"\)\) return false;/);
-  assert.match(fs.readFileSync(__dirname+'/../js/screens.js','utf8'),/h\(QuietHoursBox, \{ t: t, toast: toast \}\)/);
+  assert.match((fs.readFileSync(__dirname+'/../js/screens.js','utf8') + "\n" + fs.readFileSync(__dirname+'/../js/screens-ui.js','utf8')),/h\(QuietHoursBox, \{ t: t, toast: toast \}\)/);
 });

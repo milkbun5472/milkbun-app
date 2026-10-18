@@ -53,7 +53,7 @@ test("清除 / 重置：按类挑，设置类永远留着；两个入口都开�
   const ch = comp.slice(comp.indexOf("function ResetChooser("), comp.indexOf("function ChatSettings("));
   assert.ok(ch.includes("先去 设置 → 数据 → 导入与导出 → 导出全部数据"));
   assert.ok(/CATS\.map\(c => h\("div", \{ key: c\.id, "data-reset-cat": c\.id/.test(ch) && /h\(Toggle, \{ on: on\.has\(c\.id\)/.test(ch));
-  assert.ok(fs.readFileSync(__dirname + "/../js/screens.js", "utf8").includes('"data-wk": "castfreset", onClick: () => onReset(initial.id)'));
+  assert.ok((fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8")).includes('"data-wk": "castfreset", onClick: () => onReset(initial.id)'));
 });
 
 test("重置／删除也扫得到：我钱包里跟TA有关的流水、TA送的订单外卖、TA发的朋友圈和论坛帖（她 2026-10-10）", () => {

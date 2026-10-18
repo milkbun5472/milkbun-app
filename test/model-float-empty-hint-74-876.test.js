@@ -7,7 +7,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const scr = fs.readFileSync("js/screens.js", "utf8");
+const scr = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const app = fs.readFileSync("js/app.js", "utf8");
 
 test("① 旋钮的规矩没动：一条存好的线路都没有就不出现", () => {

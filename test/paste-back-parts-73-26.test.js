@@ -116,7 +116,7 @@ test("段头被删了、只剩 base64：直说那一行别删，不当成整份�
 });
 
 test("贴之前就说清：段头别删、别从输入法剪贴板点、几段要同一次导出", () => {
-  const screens = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+  const screens = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
   assert.match(screens, /每段开头那一行段头原样带着，别删/);
   assert.match(screens, /别从输入法的剪贴板列表里点/);
   assert.match(screens, /几段得是同一次导出的/);

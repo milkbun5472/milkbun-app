@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const src = fs.readFileSync("js/fanfic.js", "utf8");
+const src = (fs.readFileSync("js/fanfic.js", "utf8") + "\n" + fs.readFileSync("js/fanfic-core.js", "utf8"));
 
 const bag = new Map();
 global.localStorage = {
@@ -17,6 +17,7 @@ global.React = { createElement: noop, useState: () => [null, noop], useEffect: n
 global.window = { React: global.React };
 global.loadJSON = (k, d) => { try { const v = JSON.parse(bag.get(k)); return v == null ? d : v; } catch (_) { return d; } };
 global.saveJSON = (k, v) => { bag.set(k, JSON.stringify(v)); return true; };
+require("../js/fanfic-core.js");   // 2026-10-18 起数据和 window.Fanfic 在 fanfic-core.js，先载它
 require("../js/fanfic.js");
 const F = global.window.Fanfic;
 

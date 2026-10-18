@@ -13,7 +13,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync("js/app.js", "utf8");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const order = new Function(
   screens.match(/const forumFloorArrivedAt = [^\n]+/)[0] + ";" +
   screens.match(/function forumFloorOrder\(floors\) \{[\s\S]*?\n\}/)[0] + ";return forumFloorOrder;")();

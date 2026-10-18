@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const P = f => fs.readFileSync(f, "utf8");
-const studioSrc = P("js/theme-studio.js"), ui = P("js/theme-studio-ui.js"), screens = P("js/screens.js");
+const studioSrc = P("js/theme-studio.js"), ui = P("js/theme-studio-ui.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 function loadStudio() {
   const memory = new Map();

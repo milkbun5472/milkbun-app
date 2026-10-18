@@ -11,7 +11,7 @@ const root = path.join(__dirname, "..");
 const K = require(path.join(root, "js/gacha.js"));
 const P = require(path.join(root, "js/phone.js"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const gac = fs.readFileSync(path.join(root, "js/gacha.js"), "utf8");
 
 test("R 不再是大头，但「抽是抽、兑是兑」没被破", () => {

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 // ficTagStyle 真跑（skinRGB 从 core 借过来）。
 // ⚠️v61.12 起 feed 不再是深浅交替的卡片（她点名去掉框，改成翻开这一本的目录页），

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = read("app.js"), engine = read("engine.js"), screens = read("screens.js");
+const app = read("app.js"), engine = read("engine.js"), screens = (read("screens.js") + "\n" + read("screens-ui.js"));
 
 const i = screens.indexOf("function schedFillEnds(");
 const _sched = new Function('function pad2(n){return String(n).padStart(2,"0")}\n'

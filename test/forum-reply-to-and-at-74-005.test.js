@@ -3,7 +3,7 @@ const assert = require("assert");
 const fs = require("fs");
 const vm = require("vm");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const sc = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const sc = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const i = app.indexOf("const forumValidTo = ");
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext("var forumValidTo = " + app.slice(i + "const forumValidTo = ".length, app.indexOf("};", i) + 2), ctx);

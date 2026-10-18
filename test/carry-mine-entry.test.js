@@ -1,5 +1,5 @@
 const fs = require("fs"), assert = require("assert");
-const S = fs.readFileSync(__dirname + "/../js/screens.js", "utf8"), A = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const S = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8")), A = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 assert.match(S, /function Carry\(\{ characters, onOpenMine,/);
 assert.match(S, /"data-wk": "carrymine", onClick: onOpenMine/);
 assert.match(S, /useState\(initialNav \|\| "home"\); \/\/ home \| cart \| my/, "购物得能直接落在「我的」");

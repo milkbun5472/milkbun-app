@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 
-const s = src("screens.js");
+const s = (src("screens.js") + "\n" + src("screens-ui.js"));
 const fn = s.slice(s.indexOf("function forumAnonView("), s.indexOf("function ForumAnonWrap("));
 const forumAnonView = new Function(fn + "; return forumAnonView;")();
 

@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs"), path = require("path");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/screens-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
 test("角色新帖跨吧列在首页最上面", () => {
   assert.match(scr, /const forumNewCharPosts = \(posts \|\| \[\]\)\.filter\(p => forumVisible\(p\) && (?:\(p\.fmt === "xhs"\) === cardLayout && )?String\(p\.authorType \|\| ""\)\.startsWith\("character"\)/);

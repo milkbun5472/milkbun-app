@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const sc = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
+const sc = (fs.readFileSync(path.join(root, "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "screens-ui.js"), "utf8"));
 const ap = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 const floorRow = cut(sc, "function floorRow(post, cm, i)", "\n  const sendReply");

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const A = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
-const S = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const S = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 
 function run(list, now) {
   const src = A.slice(A.indexOf("  const WEEK_ZH = "), A.indexOf("  useEffect(() => {\n    if (!loaded) return;\n    const t0 = setTimeout(payMyRecur"));

@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const phone = (read("phone.js") + "\n" + read("phone-ui.js")), screens = read("screens.js"), comp = read("components.js");
+const phone = (read("phone.js") + "\n" + read("phone-ui.js")), screens = (read("screens.js") + "\n" + read("screens-ui.js")), comp = read("components.js");
 
 test("邮件三页＝文件夹的标签舌，跟浏览器那条标签条分得开", () => {
   const seg = phone.slice(phone.indexOf("三页＝吊挂文件夹的标签舌"), phone.indexOf("      null),", phone.indexOf("三页＝吊挂文件夹的标签舌")));

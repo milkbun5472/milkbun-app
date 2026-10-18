@@ -18,7 +18,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const screens = R("js/screens.js"), html = R("index.html");
+const screens = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), html = R("index.html");
 const sheet = (() => {
   const i = screens.indexOf("// ── 这一片重排（v64.26");
   const j = screens.indexOf('}, "收起整理工具")', i);

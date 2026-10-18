@@ -4,7 +4,7 @@ const cut=(s,a,b)=>{const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>i);r
 function setup(){
   const env={Date,JSON,Math,window:{}};env.window=env;vm.createContext(env);
   vm.runInContext(read('js/schedule-clock.js'),env);
-  vm.runInContext(cut(read('js/screens.js'),'function schedFillEnds(', 'function schedTzShiftMin('),env);
+  vm.runInContext(cut((read('js/screens.js') + "\n" + read('js/screens-ui.js')),'function schedFillEnds(', 'function schedTzShiftMin('),env);
   vm.runInContext(read('apps/fairy-garden/day/catalog.js'),env);
   vm.runInContext(read('js/char-day-link.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/social.js'),env);

@@ -14,7 +14,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const app = R("js/app.js"), gaze = R("js/gaze.js"), screens = R("js/screens.js");
+const app = R("js/app.js"), gaze = R("js/gaze.js"), screens = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("报错要说清是哪条线路——不说的话她只能挨条去试", () => {

@@ -7,7 +7,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 // ⚠️切片两头钉函数名，不钉注释（注释会被删，indexOf 一变 -1 就一路吃到文件末尾）。
 // 见 施工规则/anchor-on-code.md。
 const LTi = src.indexOf("function ListenTogether("), LTj = src.indexOf("function CotConfig(", LTi);

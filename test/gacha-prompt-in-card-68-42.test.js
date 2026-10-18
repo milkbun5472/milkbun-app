@@ -10,7 +10,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const K = require(path.join(root, "js/gacha.js"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 test("提示词搬进卡表了，app.js 里不许再留第二份", () => {
   assert.doesNotMatch(app, /GACHA_SR_ASK|GACHA_SSR_ASK/, "旧那两张表还在，就是又多了一处要同步的地方");

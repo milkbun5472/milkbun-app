@@ -11,7 +11,7 @@ const root = path.join(__dirname, "..");
 const K = require(path.join(root, "js/gacha.js"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const branch = act => {
   const i = app.indexOf('if (card.act === "' + act + '"');
   assert.ok(i > 0, act);

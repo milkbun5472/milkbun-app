@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 
 test("封面往上长到顶栏后面，正文一格没动", () => {

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("参考照真的发出去：attemptWith 先拷一份再清（传进来的就是 refBlobs 本身）", () => {
   const fn = eng.slice(eng.indexOf("const attemptWith = async"), eng.indexOf("const attempt = async"));
   assert.ok(/use = Array\.from\(blobs \|\| \[\]\)/.test(fn) && /use\.forEach\(b => refBlobs\.push\(b\)\)/.test(fn));

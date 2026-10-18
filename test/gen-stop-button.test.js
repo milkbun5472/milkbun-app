@@ -15,7 +15,7 @@ test("callAI 按 signal 当场放手，自己断的不重试不报失败", async
   assert.strictEqual(calls, 1);
 });
 test("单聊、群聊、线下、群线下登记断点、气泡挂叉、设置里有开关", () => {
-  const app = read("app.js"), comp = read("components.js"), scr = read("screens.js");
+  const app = read("app.js"), comp = read("components.js"), scr = (read("screens.js") + "\n" + read("screens-ui.js"));
   assert.ok(app.includes('laneAbortBegin("c:" + chatKey)'));
   assert.ok(app.includes('laneAbortBegin("c:" + scopeKey)'));
   assert.ok(app.includes('laneAbortBegin("g:" + group.id)'));

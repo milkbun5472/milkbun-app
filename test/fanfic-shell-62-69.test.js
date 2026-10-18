@@ -7,7 +7,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const SRC = fs.readFileSync("js/fanfic.js", "utf8");
+const SRC = (fs.readFileSync("js/fanfic.js", "utf8") + "\n" + fs.readFileSync("js/fanfic-core.js", "utf8"));
 const NOC = SRC.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("每一个 Head 都让底透上来，一个都不许漏", () => {

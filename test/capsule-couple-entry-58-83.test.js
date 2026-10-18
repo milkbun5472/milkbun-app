@@ -7,7 +7,7 @@ const root = path.join(__dirname, "..");
 const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
 test("时光胶囊只搬入口、不搬数据，并从情侣空间原路返回", () => {
-  const screens = read("js/screens.js");
+  const screens = (read("js/screens.js") + "\n" + read("js/screens-ui.js"));
   const app = read("js/app.js");
   const capsule = read("js/capsule.js");
 

@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), scr = R("screens.js"), comp = R("components.js"), core = R("core.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), comp = R("components.js"), core = R("core.js");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 test("有正门：在微信「我」那一屏，一条路由、一页", () => {

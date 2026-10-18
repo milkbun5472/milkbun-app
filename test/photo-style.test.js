@@ -6,7 +6,7 @@ const path = require("node:path");
 
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 test("角色档案提供独立照片画风并保存", () => {
   assert.match(screens, /initial && initial\.photoStyle \|\| "realistic"/);

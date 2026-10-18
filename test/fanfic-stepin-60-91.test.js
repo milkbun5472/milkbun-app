@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 // ⚠️v67.02：**「魂穿」整套删掉了**（她 2026-09-11：「加笔本来就不应该有魂穿这种东西，
 //   那是以前的玩法现在应该删掉了」）。所以原来钉 RP_MODES／rpModeShort 的那两条
 //   跟着删了——功能没了，断言不留（不是改成断言它不存在）。

@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const grab = name => {
   const i = engine.indexOf("function " + name + "(") >= 0 ? engine.indexOf("function " + name + "(") : engine.indexOf("async function " + name + "(");
   const k = engine.lastIndexOf("async ", i) === i - 6 ? i - 6 : i;

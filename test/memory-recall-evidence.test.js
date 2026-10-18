@@ -76,7 +76,7 @@ test("空召回只在真实聊天注入诚实状态，后台预览保持空", ()
 });
 
 test("诊断页展示入选分解、落选原因和权限隔离计数", () => {
-  const screens = fs.readFileSync("js/screens.js", "utf8");
+  const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
   assert.match(screens, /查看没进来的候选/);
   assert.match(screens, /没有词面或足够语义证据/);
   assert.match(screens, /权限隔离/);

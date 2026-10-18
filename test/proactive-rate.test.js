@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
 const P = require("../js/auto-refresh-policy.js");
-const app = R("js/app.js"), scr = R("js/screens.js");
+const app = R("js/app.js"), scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
 
 test("主动私聊有低中高三档，缺省中频＝原来那套；存进去读回来不丢", () => {
   const p0 = P.normalize({});

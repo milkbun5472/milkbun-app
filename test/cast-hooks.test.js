@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const ts = fs.readFileSync(path.join(__dirname, "..", "js", "theme-studio.js"), "utf8");
 const HOOKS = ["castpage", "castcount", "castcard", "castspine", "castavatar", "castname", "castsum", "castinfo", "castheart"];
 

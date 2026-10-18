@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const studio = P("js/theme-studio.js"), ui = P("js/theme-studio-ui.js"), comps = P("js/components.js"), screens = P("js/screens.js");
+const studio = P("js/theme-studio.js"), ui = P("js/theme-studio-ui.js"), comps = P("js/components.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 // ⚠️气泡皮肤原来有两处各写一份 Object.assign + setItem + 重刷 CSS（换预设、设置页保存）。
 //   主题包要接上就是第三份 → 先合成一处再接（施工规则/one-public-mechanism）。

@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const R = f => fs.readFileSync(path.join(root, f), "utf8");
-const scr = R("js/screens.js"), app = R("js/app.js"), asst = R("js/assistant.js");
+const scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), app = R("js/app.js"), asst = R("js/assistant.js");
 const noComment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("那一屏删干净了：组件、路由、跟着零引用的两个helper，一个都不剩", () => {
