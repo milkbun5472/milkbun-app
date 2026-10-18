@@ -320,12 +320,16 @@
     const living = livingList(box);
     const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜当前分量" + (e.weight || 0).toFixed(2) + "｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "\n    做过的：" + e.tracks.map(tk => tk.text).join("→") : "")).join("\n");
     const recentMono = box.log.slice(0, 3).map(l => "· " + l.text).join("\n");
+    // 已经长出来的那几条（她 2026-10-18：陆衍七条全是「我是一个提前替她安排好的人」）：
+    //   原来长成这一枪看不到它们，每条念想单独写一句，替她办的事一多，就把同一面写了七遍。
+    const persNow = (box.persona || []).map(p => "· " + p.text).join("\n");
     return {
       instruction: AC + "每隔一阵子，「" + char.name + "」会把心上的这些盘一盘——哪些念想更重了、哪些淡了、哪些已经做到了、哪些想明白了不要了。这不是大扫除，是小校准。\n【心上现在有这些】\n" + listTxt +
-        (recentMono ? "\n【TA 最近发呆时想的】\n" + recentMono : "") + briefsTxt(box) + avoidTxt(box) +
+        (recentMono ? "\n【TA 最近发呆时想的】\n" + recentMono : "") + (persNow ? "\n【TA 已经长出来的自我（之前亲笔写下的）】\n" + persNow : "") + briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次盘点：" +
         "\ntune：分量微调 [{id, weight}]——【只校准不大改】，每条相对现在最多上下浮动 0.15，依据是最近它被想起的频率、做过的、聊天里的热度、TA 现在的生活重心（旁人若递了「对立」纸条——写着的和做的相反——通常该降）。没变化的不用列，多数日子只微动一两条。" +
         "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有谁长成，没有就 null）。**只有被想起多次、做过的扎实的才够资格申请**；还没动手的绝不许算长成。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念——可以自然带上它攒了多久、被碰过多少次这样的真实数字，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
+        (persNow ? "\n  graduate 里那句 persona 先跟上面【已经长出来的自我】对一下：说的要是跟其中哪条是同一面的自己（换了件事、换了说法，底下还是那一面），persona 就填 null——念想照样长成、小诗照样写，只是不再叠一条同样意思的；真长出了新的一面才写。" : "") +
         "\nwither：TA 想明白了【彻底不想要了】的念想 id 数组（最多 1 条，罕见；不是没空做，是不要了；没有给 []）。" +
         "\n【铁律】说谁长成了要有真凭实据（做过的/对话/独白里真的做了），诗和自我认知都是 TA 的手笔，要有 TA 的性格。",
       schemaHint: "{\"tune\":[{\"id\":\"念想id\",\"weight\":0.6}],\"graduate\":{\"id\":\"念想id\",\"poem\":\"小诗\",\"persona\":\"我是一个…的人\"},\"wither\":[\"念想id\"]}（graduate 没有时填 null，wither 没有时 []）",
@@ -356,7 +360,7 @@
         e.status = "graduated";
         e.gradTs = Date.now();
         e.poem = g.poem ? String(g.poem).trim().slice(0, 90) : "";
-        const pText = String((g && g.persona) || "").trim().slice(0, 40);
+        const pText = String((g && g.persona) || "").trim().replace(/^null$/i, "").slice(0, 40);
         if (pText) box.persona = [...box.persona, {
           id: "p" + Date.now().toString(36),
           text: pText,
