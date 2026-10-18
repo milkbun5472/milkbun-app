@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const codex = read("codex.js"), debate = read("debate.js"), fanfic = read("fanfic.js"), phone = read("phone.js");
+const codex = read("codex.js"), debate = read("debate.js"), fanfic = read("fanfic.js"), phone = (read("phone.js") + "\n" + read("phone-ui.js"));
 
 // ⚠️这道闸原来只认【写在一行里】的 `style: { background: t.bg }`。
 //   而 `Messages` 那一页是跨行写的——

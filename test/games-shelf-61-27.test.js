@@ -9,6 +9,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "games.js"), "utf8");
+// 游戏目录（GAMES）2026-10-18 搬去 js/games-list.js（开机就加载的那一小份），盒子、桌面这些还在 games.js
+const catalog = fs.readFileSync(path.join(__dirname, "..", "js", "games-list.js"), "utf8");
 
 const shelf = (() => {
   const a = src.indexOf("  // ============================================================\n  // 游戏盒面");
@@ -16,7 +18,7 @@ const shelf = (() => {
   assert.ok(a > 0 && b > a, "抠不出游戏架那一段");
   return src.slice(a, b);
 })();
-const gameKeys = [...src.matchAll(/\{ key: "([a-z0-9]+)", emoji:/g)].map(m => m[1]);
+const gameKeys = [...catalog.matchAll(/\{ key: "([a-z0-9]+)", emoji:/g)].map(m => m[1]);
 
 test("每一盒都有自己的封面，而且是画出来的", () => {
   assert.ok(gameKeys.length >= 8, "GAMES 里的游戏找不全了");

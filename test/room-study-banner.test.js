@@ -6,7 +6,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const study = read("study.js"), app = read("app.js"), comp = read("components.js"), rooms = read("chat-rooms.js");
+// 存储、复习到点、某人的课、挪课进房这几支 2026-10-18 搬去 js/study-core.js（开机就加载那份），切函数从两份里一起找
+const study = read("study-core.js") + "\n" + read("study.js"), app = read("app.js"), comp = read("components.js"), rooms = read("chat-rooms.js");
 const fn = name => { const i = study.indexOf("function " + name + "("); assert.ok(i > 0, "抠不出 " + name); return study.slice(i, study.indexOf("\n  }\n", i) + 4); };
 
 // 桩照写存档那几段：课由 createCur 写（character_ids / teacher_id / roomId），

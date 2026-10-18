@@ -1,8 +1,9 @@
+// 算账那一半 2026-10-18 搬去 js/ledger-core.js（开机加载），页面那一半还在 ledger.js；源码两份一起读
 // ⚠️2026-09-28 素材从 PNG 换成 WebP（19.5MB → 4.7MB）：这一份钉的事情一件没变
 //   （素材得在、得用真图、满柱要裁不要压扁），只是扩展名跟着换了。
 // 记账改版（她 2026-09-28 给的晶透样张）：四格底栏 + 记一笔键盘 + 账单/日历/统计 + 小票，两套皮共用一份排版
 const fs = require("fs"), assert = require("node:assert/strict"), vm = require("vm");
-const src = fs.readFileSync(__dirname + "/../js/ledger.js", "utf8");
+const src = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
 const grab = n => { const i = src.indexOf("function " + n + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
 // 金额：两位小数、负号在符号前
 const sb = {}; vm.runInNewContext(grab("fmtMoney") + ";this.f=fmtMoney;", sb);
@@ -39,7 +40,7 @@ assert.match(src, /h\("style", null, JELLY_CSS\)/);
 console.log("ledger reference structure ok");
 // 第九轮（她：「要开始给东西做材质，不是上颜色」）：三级玻璃材质 + 环境光，卡片不再是白色实体
 {
-  const s2 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s2 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s2, /const GLASS = \{\s*A: \{/, "没有统一的玻璃材质了");
   // 第十三轮去卡片化：账单条和摘要不再是玻璃卡，而是机身表面 + 细线（见下面 ledger-decard）
   assert.match(s2, /style: glass \? Object\.assign\(glassTinted\(a, b\)/, "三颗主键不是透明亚克力");
@@ -50,7 +51,7 @@ console.log("ledger reference structure ok");
 console.log("ledger-material ok");
 // 第十轮（她：统计和账单打通；emoji 全换成自己画的）
 {
-  const s3 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s3 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s3, /onOpenCat: \(cat, kind, mk\) => push\(\{ k: "bills", cat, kind, mk \}\)/, "排行点不进账单了");
   assert.match(s3, /const \[catF, setCatF\] = useState\(props\.initCat \|\| ""\)/);
   assert.match(s3, /"data-ledger-catfilter": catF/);
@@ -62,7 +63,7 @@ console.log("ledger-material ok");
 console.log("ledger-icons ok");
 // 第十一轮（她：「每个框都搞外面的线，做不出真的玻璃反而很土」）：B、C 两级和键一条线都不画
 {
-  const s4 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s4 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   const G = s4.slice(s4.indexOf("const GLASS = {"), s4.indexOf("function ledgerSkin("));
   assert.equal((G.match(/border: "none"/g) || []).length, 4, "玻璃材质又描边了");
   assert.ok(!/0 0 0 1px/.test(G), "玻璃材质又加了一圈轮廓线");
@@ -70,7 +71,7 @@ console.log("ledger-icons ok");
 console.log("ledger-noline ok");
 // 第十二轮（她：六样 Y2K 记号全都要，英文可以破例）
 {
-  const s5 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s5 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s5, /\.lg-gloss::before\{[^}]*radial-gradient\(ellipse 52% 100% at 50% 0%/, "高光不是她选的那种柔光了");
   assert.match(s5, /-5px -4px 14px rgba\(255,186,226/, "虹彩光没了");
   ["function Heart(", "function Bunny(", "function Clip(", "function WordMark("].forEach(n => assert.ok(s5.indexOf(n) > 0, n));
@@ -81,7 +82,7 @@ console.log("ledger-noline ok");
 console.log("ledger-y2k-marks ok");
 // 第十三轮（她：「下一轮目标是去卡片化」）：信息直接印在机身上，细线分区；粉只给操作/选中
 {
-  const s6 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s6 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s6, /card: Object\.assign\(\{\}, FLAT, \{ borderBottom: "1px solid " \+ LINE \}\), shell: Object\.assign\(\{\}, FLAT, \{ borderTop: "1px solid " \+ LINE \}\)/, "又回到一个模块一个圆角矩形了");
   assert.match(s6, /backgroundColor: pageColor\("ledger", "bg", "#e9e9f2"\)/, "机身不是样张的冷白了");
   assert.match(s6, /lilac: \["#e4e3f2", "#a9a7cc"\]/, "账单键又变回紫粉了");
@@ -90,7 +91,7 @@ console.log("ledger-y2k-marks ok");
 console.log("ledger-decard ok");
 // 第十四轮（她：别再删了，往骨架上装透明硬件零件）
 {
-  const s7 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s7 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   assert.match(s7, /"data-ledger-rail": true/, "预算不是凹槽了");
   assert.equal((s7.match(/rail: true \}\)/g) || []).length, 3, "钱包和统计的预算、存钱目标都要是凹槽");
   assert.match(s7, /"data-ledger-cd": true/, "统计没有光盘仪表了");
@@ -102,7 +103,7 @@ console.log("ledger-decard ok");
 console.log("ledger-hardware ok");
 // 第十五轮（她：「抄作业吧」，给了一整张首页样张）：首页照样张逐块做
 {
-  const s8 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const s8 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   ["function WalletHomeY2K(", "Keep going :)", 'const IMG = "assets/ledger/"', 'IMG + "card.webp"', '"k1", "记一笔"', 'IMG + "note.webp"', 'IMG + "tube.webp"', 'IMG + "stub.webp"', 'pic("foot", 60, 850'].forEach(k => assert.ok(s8.indexOf(k) > 0, k));
   assert.match(s8, /h\(sk\.id === "glass" \? WalletHomeY2K : WalletHome,/, "玻璃皮首页没走样张那版");
 }
@@ -112,13 +113,13 @@ console.log("ledger-home-mock ok");
 console.log("ledger-home-assets ok");
 // 第二页素材（她 2026-09-29 给的）：玻璃面板九宫格、滑轨、标题、星星、挂件
 ["panel", "rail", "slider", "title-stats", "star-gold", "star-purple", "charm1", "charm4"].forEach(n => assert.ok(require("fs").existsSync(__dirname + "/../assets/ledger/" + n + ".webp"), n));
-assert.match(require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8"), /border-image:url\(assets\/ledger\/panel\.webp\?v=\d+\) 120 fill/);
+assert.match(require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8"), /border-image:url\(assets\/ledger\/panel\.webp\?v=\d+\) 120 fill/);
 console.log("ledger-stats-assets ok");
 
 // 六个月柱子：她给的空柱 / 满柱素材，满柱按金额从上裁（不再九宫格挤压）
 {
   const fs2 = require("fs"), path2 = require("path");
-  const src2 = fs2.readFileSync(path2.join(__dirname, "..", "js", "ledger.js"), "utf8");
+  const src2 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   for (const f of ["col-empty.webp", "col-full.webp"]) {
     if (!fs2.existsSync(path2.join(__dirname, "..", "assets", "ledger", f))) throw new Error("missing " + f);
   }
@@ -128,7 +129,7 @@ console.log("ledger-stats-assets ok");
 
 // 光污染收一档 + 装饰不对称（她 2026-09-29）
 {
-  const src3 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+  const src3 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   const a = src3.indexOf("function CurView"), body = src3.slice(a, src3.indexOf("\n  function ", a + 10));
   if (!/\.lg-pnl::before\{[^}]*opacity:\.[0-9]+/.test(src3) && /h\("style", null, PNL_CSS\)/.test(body)) throw new Error("panel glass must be dimmed via ::before opacity");
   if (!/lg-pnl-hero::before\{[^}]*mask-image/.test(src3)) throw new Error("hero panel must fade its lower corners");
@@ -139,7 +140,7 @@ console.log("ledger-stats-assets ok");
 
 // 装饰不许把统计页撑长；玻璃皮统计页顶栏不再写「统计」（标题图已经说了）
 {
-  const src4 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+  const src4 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   if (!/className: "px-5 pb-8 lg-stats", style: \{ position: "relative", overflow: glassP \? "clip"/.test(src4)) throw new Error("stats page must clip deco on both axes");
   if (!/zh: sk\.id === "glass" \? "" : tabTitle/.test(src4)) throw new Error("glass stats header must drop duplicate title");
   console.log("ok stats clip & no dup title");
@@ -147,7 +148,7 @@ console.log("ledger-stats-assets ok");
 
 // 月份切换在玻璃皮下是一枚胶囊，不再是裸的一行
 {
-  const src5 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "ledger.js"), "utf8");
+  const src5 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   const i = src5.indexOf("const MonthNav");
   if (!/rail\.webp/.test(src5.slice(i, i + 700))) throw new Error("glass MonthNav must sit on the rail asset");
   console.log("ok monthnav capsule");
@@ -155,7 +156,7 @@ console.log("ledger-stats-assets ok");
 
 // 日历页素材（她 2026-09-29 给的）：标题、三种键帽、邮戳、圆孔、便签
 {
-  const fs6 = require("fs"), src6 = fs6.readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const fs6 = require("fs"), src6 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   ["tag", "title-cal", "day-hi", "day-lo", "day-today", "stamp", "holes", "note-good"].forEach(n => { if (!fs6.existsSync(__dirname + "/../assets/ledger/" + n + ".webp")) throw new Error("missing " + n); });
   const i = src6.indexOf("function CalView"), body = src6.slice(i, src6.indexOf("function MeView"));
   if (!/"day-today" : lit \? \(lv > \.5 \? "day-hi" : "day-lo"\)/.test(body)) throw new Error("day caps must follow spend level");
@@ -166,7 +167,7 @@ console.log("ledger-stats-assets ok");
 
 // 「我的」页素材（她 2026-09-29 给的）
 {
-  const fs7 = require("fs"), src7 = fs7.readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const fs7 = require("fs"), src7 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   ["note-glad", "bubble-nice", "title-me", "skin-glass", "skin-paper", "ic-piggy", "ic-lock", "ic-coin", "ic-folder", "side-tabs"].forEach(n => { if (!fs7.existsSync(__dirname + "/../assets/ledger/" + n + ".webp")) throw new Error("missing " + n); });
   const i = src7.indexOf("function MeView"), body = src7.slice(i, src7.indexOf("function TxnRow"));
   if (!/"✓ 当前使用"/.test(body) || !/props\.onSkin\(x\.id\)/.test(body)) throw new Error("skin cards must stay tappable with current mark");
@@ -176,7 +177,7 @@ console.log("ledger-stats-assets ok");
 
 // 她 2026-09-29「然后做3」：代码画的点缀色接主题工作台（sk.accent / sk.pink），提示那句话照实说
 {
-  const src8 = require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
+  const src8 = require("fs").readFileSync(__dirname + "/../js/ledger-core.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/ledger.js", "utf8");
   for (const bad of ['"#9d8fd6"', '"rgba(132,108,196,.85)"', '"rgba(118,100,176,.9)"', '"2px solid #ee8fb6"', '"1px solid #9fb6e6"']) if (src8.includes(bad)) throw new Error("hardcoded glass accent left: " + bad);
   if (!/玻璃和贴纸是图片，不跟着变/.test(src8)) throw new Error("note must say images don't follow theme");
   console.log("ok glass accents follow theme");

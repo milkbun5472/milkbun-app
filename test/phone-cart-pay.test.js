@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const a = read("app.js"), p = read("phone.js");
+const a = read("app.js"), p = (read("phone.js") + "\n" + read("phone-ui.js"));
 
 test("购物车每件有「替TA付」，点两下才付；付了的那件不再出现", () => {
   assert.match(p, /const cart = A\(data\.cart\)\.filter\(it => !paidT\.includes\(String\(it\.title \|\| ""\)\)\);/);

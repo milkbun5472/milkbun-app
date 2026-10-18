@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const ph = fs.readFileSync(path.join(root, "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(root, "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function TimelineView("), ph.indexOf("// 锁屏：拿起TA手机的第一眼"));
 const { loadPhone } = require("./helpers/phone-render.js");
 

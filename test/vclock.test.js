@@ -65,7 +65,7 @@ test("设置页按面具挑钟，悬浮球拨的是这个人认的那张面具�
 
 // 她 2026-10-11：「查手机看看能不能也跟着虚拟时间」
 test("查手机：TA 翻我的手机时「今天是哪天」、TA 手机的锁屏和日历都照那只钟", () => {
-  const phone = R("phone.js");
+  const phone = (R("phone.js") + "\n" + R("phone-ui.js"));
   assert.match(app, /if \(typeof vclockCfg === "function" && vclockCfg\(charId\)\) return "\\n今天是" \+ vclockLabel\(Date\.now\(\), charId\)/);
   assert.equal((phone.match(/const now = new Date\(char && typeof vclockMap === "function" \? vclockMap\(Date\.now\(\), char\.id\) : Date\.now\(\)\);/g) || []).length, 2);
   // TA 手机里的内容走 runProbe → buildBundle，那一处本来就照这只钟报时

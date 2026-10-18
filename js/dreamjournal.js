@@ -416,15 +416,7 @@
     );
   }
 
-  // 主屏图标：月亮抱着一本摊开的书（和「梦境」app 的图标区分开）
-  window.GDreamBook = function (props) {
-    const size = (props && props.size) || 34, color = (props && props.color) || "#1b1a17";
-    return h("svg", { width: size, height: size, viewBox: "0 0 48 48", fill: "none" },
-      h("path", { d: "M31 7a13 13 0 1 0 10 20 15 15 0 1 1-10-20z", stroke: color, strokeWidth: 2.6, strokeLinejoin: "round" }),
-      h("path", { d: "M10 32c4-2 8-2 12 0 4-2 8-2 12 0", stroke: color, strokeWidth: 2.6, strokeLinecap: "round" }),
-      h("path", { d: "M10 32v7c4-2 8-2 12 0 4-2 8-2 12 0v-7", stroke: color, strokeWidth: 2.6, strokeLinecap: "round", strokeLinejoin: "round" }),
-      h("path", { d: "M22 32v7", stroke: color, strokeWidth: 2, strokeLinecap: "round" }));
-  };
+  // 主屏图标 GDreamBook 搬到 components.js 了（这份点进解梦馆才加载，图标得开机就有）
 
   window.DreamJournalApp = DreamJournalApp;
 })();

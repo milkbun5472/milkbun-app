@@ -383,6 +383,9 @@
 <script src="js/character-pronoun.js?v=74.732"></script>
 <script src="js/back-guard.js?v=68.29"></script>
 <script src="js/core.js?v=75.984"></script>
+<!-- 用到才加载（js/lazy-mods.js）：type="text/lazy" 的那几份浏览器不执行，点进那个功能时才按这里的顺序挂上；版本号照旧在这儿换 -->
+<script src="js/lazy-mods.js?v=75.984"></script>
+<script src="js/games-list.js?v=75.984"></script>
 <script src="js/auto-refresh-policy.js?v=75.617"></script>
 <script src="js/auto-gate.js?v=75.413"></script>
 <script src="js/style-presets.js?v=75.984"></script>
@@ -438,12 +441,12 @@
 <script src="js/char-purge.js?v=75.272"></script>
 <script src="js/ambient-material.js?v=55.26"></script>
 <script src="js/schedule-clock.js?v=75.906"></script>
-<script src="js/theater.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="theater" data-src="js/theater.js?v=75.984"></script>
 <script src="js/shike.js?v=75.880"></script>
 <script src="js/impression.js?v=75.880"></script>
 <script src="js/style-lab.js?v=75.984"></script>
 <script src="js/nest.js?v=75.945"></script>
-<script src="js/assistant-manual.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="manual" data-src="js/assistant-manual.js?v=75.984"></script>
 <script src="js/assistant-extras.js?v=75.967"></script>
 <script src="js/assistant.js?v=75.984"></script>
 <script src="js/grown-sync.js?v=67.86"></script>
@@ -456,32 +459,35 @@
 <script src="js/components.js?v=75.984"></script>
     <script src="js/phone-watch.js?v=75.878"></script>
     <script src="js/phone.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="phone" data-src="js/phone-ui.js?v=75.984"></script>
 <script src="js/mcp.js?v=75.971"></script>
 <script src="js/music-source.js?v=68.15"></script>
 <script src="js/axes.js?v=67.86"></script>
 <script src="js/video-api.js?v=75.880"></script>
 <script src="js/screens.js?v=75.984"></script>
 <script src="js/theme-studio-ui.js?v=75.984"></script>
-<script src="js/study.js?v=75.957"></script>
-<script src="js/dreamjournal.js?v=75.880"></script>
+<script src="js/study-core.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="study" data-src="js/study.js?v=75.957"></script>
+<script type="text/lazy" data-lazy="dreamjournal" data-src="js/dreamjournal.js?v=75.880"></script>
 <script src="js/yanqiu.js?v=75.880"></script>
 <script src="js/yanqiu-cc-tools.js?v=54.42"></script>
 <script src="js/cc-seat.js?v=74.732"></script>
 <script src="js/fanfic.js?v=75.984"></script>
-<script src="js/weekly.js?v=75.880"></script>
-<script src="js/read.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="weekly" data-src="js/weekly.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="read" data-src="js/read.js?v=75.880"></script>
 <script src="js/listen-talk.js?v=75.880"></script>
 <script src="js/watch.js?v=75.880"></script>
 <script src="js/live.js?v=75.912"></script>
 <script src="js/shua.js?v=75.968"></script>
 <script src="js/listen-square.js?v=75.913"></script>
 <script src="js/xhs-card.js?v=75.973"></script>
-<script src="js/debate.js?v=75.880"></script>
-<script src="js/dream.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="debate" data-src="js/debate.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="dream" data-src="js/dream.js?v=75.880"></script>
 <script src="js/tarot.js?v=75.880"></script>
 <script src="js/astro.js?v=75.880"></script>
 <script src="js/health.js?v=75.880"></script>
-<script src="js/ledger.js?v=75.880"></script>
+<script src="js/ledger-core.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="ledger" data-src="js/ledger.js?v=75.880"></script>
 <script src="js/memo.js?v=75.880"></script>
 <script src="js/recent-widget.js?v=66.64"></script>
 <script src="js/dwell.js?v=75.880"></script>
@@ -489,12 +495,12 @@
 <script src="js/companion.js?v=75.956"></script>
 <script src="js/ambience.js?v=74.808"></script>
 <script src="js/pomodoro.js?v=75.880"></script>
-<script src="js/uno-core.js?v=75.984"></script>
-<script src="js/date-game-core.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="games" data-src="js/uno-core.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="games" data-src="js/date-game-core.js?v=75.984"></script>
 <script src="js/poster-layout.js?v=75.851"></script>
-<script src="js/date-game.js?v=75.880"></script>
-<script src="js/tetris-core.js?v=75.984"></script>
-<script src="js/games.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="games" data-src="js/date-game.js?v=75.880"></script>
+<script type="text/lazy" data-lazy="games" data-src="js/tetris-core.js?v=75.984"></script>
+<script type="text/lazy" data-lazy="games" data-src="js/games.js?v=75.880"></script>
 <script src="apps/fairy-garden/clock.js?v=fg-88cac7af3e4d62b4"></script>
 <script src="apps/fairy-garden/rules.js?v=fg-88cac7af3e4d62b4"></script>
 <script src="apps/fairy-garden/day/home-hobbies.js?v=fg-88cac7af3e4d62b4"></script>

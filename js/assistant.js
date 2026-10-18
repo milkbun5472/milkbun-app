@@ -1137,6 +1137,8 @@
   async function ask(active, ctx, history, text, pic, signal) {
     // 门在最前面：命中就当场回绝，一次调用都不花
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
+    // 攻略手册改成用到才加载（她 2026-10-18 瘦身）：问之前等它到位，不然这一问就没攻略可翻
+    if (window.LazyMods) await window.LazyMods.load("manual").catch(() => {});
     // 她发的图（她 2026-09-30）：只跟着【这一句】发给模型；历史里只留一张小缩略图给她看，不再回传——一张图每轮重发太贵
     // 附件两种：图（只跟这一句走）、文件（她发来的 CSS/文本，内容接在这一句后面）
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
@@ -1677,6 +1679,13 @@
     };
     const applyOne = p => {
       if (p.done === "已应用" || p.done === "应用中…") return;           // 记忆库会加两遍、改一小段会找不到原文
+      // 「带你去那一页」要翻攻略手册认那一页；手册用到才加载（她 2026-10-18 瘦身），没到位就先装上再应用
+      if (p.target === "open" && window.LazyMods && !window.LazyMods.isLoaded("manual")) {
+        A.markPatch(p.pid, "应用中…");
+        window.LazyMods.load("manual").then(() => { A.markPatch(p.pid, ""); applyOne(Object.assign({}, p, { done: "" })); },
+          e => A.markPatch(p.pid, "没应用：" + ((e && e.message) || "攻略没加载上，再点一次")));
+        return;
+      }
       try {
         const n = A.apply(p, ctx);
         // 有的写口是要等落盘的（小世界那支 durable 写口）：等它回来再说成没成

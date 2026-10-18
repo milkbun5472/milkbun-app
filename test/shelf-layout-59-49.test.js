@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = require(path.join(__dirname, "..", "js", "phone.js"));
-const ph = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const ph = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 const view = ph.slice(ph.indexOf("function ReadingView("), ph.indexOf("function ShoppingView("));
 
 // 她 2026-09-01：「书架也是……we can keep the prompt of what we generate,

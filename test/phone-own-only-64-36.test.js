@@ -7,7 +7,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const ph = fs.readFileSync(__dirname + "/../js/phone.js", "utf8");
+const ph = (fs.readFileSync(__dirname + "/../js/phone.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/phone-ui.js", "utf8"));
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 
 test("查手机的取材比聊天窄一圈：别人的话不进他手机", () => {

@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const app=fs.readFileSync(__dirname+'/../js/app.js','utf8'),phone=fs.readFileSync(__dirname+'/../js/phone.js','utf8');
+const app=fs.readFileSync(__dirname+'/../js/app.js','utf8'),phone=(fs.readFileSync(__dirname+'/../js/phone.js','utf8') + "\n" + fs.readFileSync(__dirname+'/../js/phone-ui.js','utf8'));
 test('实际照相馆调用带两边选中单品描述、不带未选衣柜且保留合照存档',async()=>{
  const start=app.indexOf('  const studioShoot = async '),end=app.indexOf('  const DRAWER_CAP',start);
  let scene,options,record;

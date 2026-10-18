@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 // 群友 2026-10-06：「为什么我收藏的照片都没有了，我没有换设备呀」——
 // 相册收藏和动态「收着」共用 x_phoneKeep，动态那颗一按就把照片数组摊成对象、相册读成 0 张。

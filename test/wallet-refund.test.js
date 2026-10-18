@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
 
 const onDay = app.match(/const phoneOrdersOnDay = \(charId, dayKey\) => \{[\s\S]*?\n  \};/)[0];
 const refund = app.match(/const phoneReconcile = charId => \{[\s\S]*?\n  \};/);
@@ -90,7 +90,7 @@ test("本月消费/单数从钱包流水求和，不用模型编的那两个数"
   assert.match(ms[0], /if \(e\.refundOf\) \{[\s\S]{0,120}spend = r2\(out\[src\]\.spend - /, "退款没从本月消费里减掉");
   assert.match(ms[0], /if \(out\[k\]\.spend < 0\) out\[k\]\.spend = 0;/, "退上个月的单会让本月消费变成负数");
   // 界面以钱包为准，钱包没建档才退回模型那份
-  const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+  const phone = (fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "phone-ui.js"), "utf8"));
   // ⚠️v59.38：那一排「本月消费／本月订单／积分」统计块删掉了（电商「我的」页的部件），
   // 但这条不变——**同一屏不许两处说着不同的钱**。数改成一句话摆在「合起来看」里，
   // 核的还是【以钱包为准、钱包没建档才退回模型那份】这个先后。

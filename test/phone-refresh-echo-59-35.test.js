@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const ph = R("phone.js"), app = R("app.js");
+const ph = (R("phone.js") + "\n" + R("phone-ui.js")), app = R("app.js");
 const K = require(path.join(__dirname, "..", "js", "phone.js"));
 
 // ① 她 2026-09-01：「手动刷新了一下，刷新的时候没有提醒（我怀疑全部查手机每个 app

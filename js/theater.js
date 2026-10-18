@@ -14,8 +14,7 @@
   const settingStyle = () => [CB(), ANTI_CLICHE, CHARCARD_RULE,
     "【设定写法】身份与世界用清楚的事实说明，开场用可观察的动作、对话与环境推进。不要用强度副词叠加性格标签，不替读者宣布人物多么聪明、冷静、精准或危险；这些特质只有人设支持时才通过具体表现成立。人物可以迟疑、热情、笨拙或平常，不统一写成掌控局面的强者。每句话提供新的处境信息，不用抽象评语、隐喻堆砌或悬念口号充数。规则不改变本次 JSON 字段与叙述人称。"].join("\n\n") + "\n\n";
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
-  // 图标:两片小幕布 + 星(挂进 REG 的 window.GTheater)
-  window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
+  // 主屏图标 GTheater 搬到 components.js 了（这份点进小剧场才加载，图标得开机就有）
 
   const load = () => {
     try {
