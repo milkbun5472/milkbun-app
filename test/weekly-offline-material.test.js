@@ -25,3 +25,8 @@ assert.match(all, /【一群·线下】阿：群线下/);
 assert.doesNotMatch(all, /太早|幕后话|隔离的不许进|封闭群不许进/);
 assert.ok(m.perChar.a.some(x => /群线下/.test(x.line)));
 console.log("ok");
+// 周刊显示的日子照主面具那只钟；哪一周算上周仍按现实
+{ assert.match(src, /function vt\(x\)[^\n]*vclockMainMap/);
+  assert.match(src, /function fmtRange\(a, b\) \{ a = vt\(a\); b = vt\(b\);/);
+  assert.match(src, /const d = vt\(r\.ts\), key = ymd\(d\);/);
+  assert.doesNotMatch(src, /setDate\(start\.getDate\(\) - 7\);[\s\S]{0,40}vt\(/); }

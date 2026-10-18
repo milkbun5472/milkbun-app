@@ -10,14 +10,17 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const engine = R("engine.js"), app = R("app.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js")), comps = R("components.js");
 const grab = name => { const i = engine.indexOf("function " + name + "("); assert.ok(i >= 0, name); return engine.slice(i, engine.indexOf("\n}\n", i) + 3); };
 const win = {};
-const E = new Function("window", ["vclockState", "vclockUse", "vclockCfg", "vclockSeg", "vclockMap", "vclockNow", "vclockYear", "vclockLabel", "fmtClock", "fmtStampAI"].map(grab).join("")
-  + "\nreturn { vclockUse, vclockCfg, vclockMap, vclockNow, vclockYear, vclockLabel, fmtStampAI };")(win);
+const E = new Function("window", ["vclockState", "vclockUse", "vclockCfg", "vclockSeg", "vclockMap", "vclockMapBy", "vclockMainMap", "vclockNow", "vclockYear", "vclockLabel", "fmtClock", "fmtStampAI"].map(grab).join("")
+  + "\nreturn { vclockUse, vclockCfg, vclockMap, vclockMainMap, vclockNow, vclockYear, vclockLabel, fmtStampAI };")(win);
 
 test("一张面具一只钟：TA 认哪张面具就走哪只；没开就是现实", () => {
   const now = Date.now(), base = new Date(1999, 11, 31, 23, 0).getTime();
   win.__vclock = { active: null, maskOf: id => id === "b" ? "m2" : "", clocks: { main: { on: true, base, at: now - 3600e3, speed: 2 }, m2: { on: false } } };
   assert.equal(E.vclockMap(now, "a"), base + 7200e3, "主面具那只：现实一小时、两倍速＝两小时");
   assert.equal(E.vclockMap(now, "b"), now, "另一张面具没开：照现实");
+  win.__vclock.active = "b";
+  assert.equal(E.vclockMainMap(now), base + 7200e3, "周刊这类不属于谁的：永远照主面具，不看这一轮在替谁拼");
+  win.__vclock.active = null;
   win.__vclock.clocks.main.speed = 0;
   assert.equal(E.vclockMap(now, "a"), base, "停住");
   E.vclockUse("a");

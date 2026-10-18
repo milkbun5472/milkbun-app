@@ -10684,8 +10684,15 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
-function vclockMap(ts, id) {
-  const c0 = vclockCfg(id, ts); if (!c0) return Number(ts);
+function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+// 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
+function vclockMainMap(ts) {
+  const W = vclockState(); if (!W) return Number(ts);
+  const c = W.on !== undefined && !W.clocks ? W : (W.clocks || {}).main;
+  return vclockMapBy(c && c.on && isFinite(Number(c.base)) ? c : null, ts);
+}
+function vclockMapBy(c0, ts) {
+  if (!c0) return Number(ts);
   const c = vclockSeg(c0, ts);
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算

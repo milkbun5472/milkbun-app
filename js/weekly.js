@@ -391,7 +391,9 @@
 
   // ---- 报道周窗口 & 闸门 ---------------------------------------------
   function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  function fmtRange(a, b) { return (a.getMonth() + 1) + "/" + a.getDate() + "–" + (b.getMonth() + 1) + "/" + b.getDate(); }
+  // 显示用的日子照主面具那只钟（她 2026-10-18）；哪一周算「上周」仍按现实划，内容不漏
+  function vt(x) { const ts = x instanceof Date ? x.getTime() : Number(x); try { return new Date(typeof vclockMainMap === "function" ? vclockMainMap(ts) : ts); } catch (e) { return new Date(ts); } }
+  function fmtRange(a, b) { a = vt(a); b = vt(b); return (a.getMonth() + 1) + "/" + a.getDate() + "–" + (b.getMonth() + 1) + "/" + b.getDate(); }
   // 报道窗口 = 最近一个【已完整结束】的周一~周日。
   // 边界在「周日半夜」(= 周一 WEEKLY_REFRESH_HOUR:00)：本周还没跨过这个边界就不算完整，
   // 只报上一整周（周一0点~周日24点），绝不把本周（刷新前）的记录带进来。
@@ -403,8 +405,7 @@
     if (b.getTime() > now.getTime()) b.setDate(b.getDate() - 7); // 还没到本周一边界 → 退到上周一
     // b = 最近一个已到达的「周一 REFRESH_HOUR」= 报道窗口的结束边界（不含 b 本身）
     const start = new Date(b); start.setDate(start.getDate() - 7);    // 报道周的周一
-    const endSun = new Date(b); endSun.setDate(endSun.getDate() - 1); // 报道周的周日（label 用）
-    return { start: start.getTime(), end: b.getTime() - 1, key: ymd(start), label: fmtRange(start, endSun) };
+    return { start: start.getTime(), end: b.getTime() - 1, key: ymd(start), label: fmtRange(start, b.getTime() - 1) };
   }
   // 下一期刷新时刻 = 下一个「周日半夜」边界（= 本报道周期结束边界 + 7 天，DST 安全）
   function nextRefreshTime(now) {
@@ -442,8 +443,7 @@
     }).map(function (key) {
       const start = new Date(weekKeys[key]);
       const next = new Date(start); next.setDate(next.getDate() + 7);
-      const endSun = new Date(next); endSun.setDate(endSun.getDate() - 1);
-      return { start: start.getTime(), end: next.getTime() - 1, key: key, label: fmtRange(start, endSun) };
+      return { start: start.getTime(), end: next.getTime() - 1, key: key, label: fmtRange(start, next.getTime() - 1) };
     }).sort(function (a, b) { return b.start - a.start; });
   }
   // 期数动态算：= 这一期的周距【最早那一期】相差几周 + 1（锚定最早一期）。
@@ -618,7 +618,7 @@
     let blocks = [];
     let cur = null;
     rows.forEach(function (r) {
-      const d = new Date(r.ts), key = ymd(d);
+      const d = vt(r.ts), key = ymd(d);
       if (!cur || cur.key !== key) {
         cur = { key: key, label: (d.getMonth() + 1) + "/" + d.getDate() + " " + WD[d.getDay()], rows: [] };
         blocks.push(cur);
@@ -1997,7 +1997,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, "这一周在照相馆拍下的 " + pics.length + " 张"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", columnGap: 10, rowGap: 20, margin: "0 -8px" } },
           pics.map(function (r, i) {
-            const d = new Date(r.ts);
+            const d = vt(r.ts);
             const k = i % 3, wide = k === 0 || (k === 1 && i === pics.length - 1);
             return h("figure", { key: r.id || i, "data-wk": "wklypic", "data-part": wide ? "wide" : "half", style: { margin: 0, gridColumn: wide ? "1 / -1" : "auto", minWidth: 0 } },
               h(WeeklyPhoto, { imgKey: r.imgKey, imgUrl: r.imgUrl, alt: r.scene || "" }),
