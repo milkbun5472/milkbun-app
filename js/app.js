@@ -22874,6 +22874,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (a.id === b.id) continue;
       const r = rels[a.id + "->" + b.id];
       if (r && r.label) lines.push("「" + a.name + "」眼中的「" + b.name + "」：" + r.label + (r.note ? "（" + r.note + "）" : ""));
+      // 配角认识自己跟着的那个人（她 2026-10-18：「我以前配角是认识角色的啊」）：配角跟TA的牵连记在 ownerId 上、不在关系表里，
+      //   原来这里只翻关系表，论坛楼里配角就成了不认识楼主的路人
+      else if (a.npc && String(a.ownerId) === String(b.id)) lines.push("「" + a.name + "」是「" + b.name + "」身边的人，认识TA、知道TA是谁" + (a.persona ? "（照「" + a.name + "」的人设里写的那层关系）" : ""));
     }
     return lines;
   };
