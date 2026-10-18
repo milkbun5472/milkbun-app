@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.973";
+const APP_VERSION = "v75.976";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1015,8 +1015,27 @@ function App() {
   //   开关和名单在天气页底下（x_wxShare：{on, who:[]＝全部, nudge}）。
   const wxShareCfg = () => loadJSON("x_wxShare", {}) || {};
   const wxShareOn = (charId, cfg) => { const c = cfg || wxShareCfg(); return !!c.on && (!Array.isArray(c.who) || !c.who.length || c.who.includes(charId)); };
+  // 架空世界跟着哪座现实城市（x_worldWxFollow：{世界id:{label,lat,lng}}，天气页底下设）。
+  //   挂进 WorldWeather 一处：地图、天气页、日程、聊天里说的那个世界的天气全跟着变。
+  const worldWxFollowOf = wid => { const f = (loadJSON("x_worldWxFollow", {}) || {})[wid]; return f && typeof f.lat === "number" ? f : null; };
+  if (typeof WorldWeather !== "undefined" && WorldWeather.setFollow) WorldWeather.setFollow(wid => {
+    const f = worldWxFollowOf(wid);
+    if (!f || typeof weatherCached !== "function") return null;
+    const w = weatherCached(f.lat, f.lng);
+    if (!w) { try { weatherFor(f.lat, f.lng); } catch (e) {} }
+    return w;
+  });
   const userWxFor = charId => {
     if (!wxShareOn(charId)) return null;
+    // 天气卡按哪边发（她 2026-10-17）：cardFrom＝"world" 且她对这个人在架空世界里 → 发那个世界那一处的天气，不带任何现实地名
+    if (wxShareCfg().cardFrom === "world") {
+      const r = myRealm(charId);
+      if (r && r.kind === "world" && typeof WorldWeather !== "undefined") {
+        const ww = WorldWeather.dayOf(r.world.id + "|" + (r.node || ""), r.terrain, new Date());
+        const place = String(r.node || r.world.name || "").slice(0, 16);
+        return { w: ww, place, line: weatherLine(ww) };
+      }
+    }
     const g = loadJSON("x_geo", null) || geo;
     if (!g || typeof g.lat !== "number" || typeof weatherCached !== "function") return null;
     const w = weatherCached(g.lat, g.lng);
@@ -7800,13 +7819,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       try {
         const _wc = wxShareCfg();
         if (_wc.on && _wc.nudge && loadJSON("x_wxNudgeDay", "") !== dayKey) {
-          const ug = loadJSON("x_geo", null);
-          const uw = ug && typeof ug.lat === "number" ? weatherCached(ug.lat, ug.lng) : null;
-          const usp = uw ? (wxSpecial(uw) || (uw.pp != null && uw.pp >= 60 ? "可能下雨" : null)) : null;
+          // 天气按哪边算跟着天气卡走（userWxFor 一处说了算）：现实那边，或她在这个人那儿所在的架空世界
+          const spOf = x => x ? (wxSpecial(x) || (x.pp != null && x.pp >= 60 ? "可能下雨" : null)) : null;
           const nowHr = new Date().getHours();
-          if (usp && nowHr >= 7 && nowHr <= 21) {
-            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id);
+          if (nowHr >= 7 && nowHr <= 21) {
+            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id && spOf((userWxFor(c.id) || {}).w));
             const c = npool.length ? npool.slice().sort((a2, b2) => (affinities[b2.id] || 50) - (affinities[a2.id] || 50))[0] : null;
+            const uw = c ? userWxFor(c.id).w : null, usp = c ? spOf(uw) : null;
             if (c && !pSkip("wxu:" + c.id)) {
               pOnce("wxu:" + c.id, "weatheru:" + dayKey,
                 () => replyNow(c.id, "", null, { proactive: true, wx: { kind: usp, line: weatherLine(uw), forUser: true } }),
@@ -8271,7 +8290,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   }, [screen]);
   // 开了「让他们知道我这边的天气」：开机拉一次、之后每小时拉一次（weatherFor 自己两小时内不重取）
   useEffect(() => {
-    const tick = () => { try { const c = wxShareCfg(), g = loadJSON("x_geo", null); if (c.on && g && typeof g.lat === "number" && typeof weatherFor === "function") weatherFor(g.lat, g.lng).catch(() => {}); } catch (e) {} };
+    const tick = () => { try { const c = wxShareCfg(), g = loadJSON("x_geo", null); if (c.on && g && typeof g.lat === "number" && typeof weatherFor === "function") weatherFor(g.lat, g.lng).catch(() => {});
+      // 跟着现实城市的那几个架空世界也每小时拉一次
+      Object.values(loadJSON("x_worldWxFollow", {}) || {}).forEach(f => { if (f && typeof f.lat === "number" && typeof weatherFor === "function") weatherFor(f.lat, f.lng).catch(() => {}); }); } catch (e) {} };
     const k = setTimeout(tick, 5000), id = setInterval(tick, 3600000);
     return () => { clearTimeout(k); clearInterval(id); };
   }, []);

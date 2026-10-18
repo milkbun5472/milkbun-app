@@ -8,7 +8,7 @@ test("四宫格：一次生图、切格放大、单格拍清楚", () => {
   assert.match(s, /big\.grid === "2x2" \? h\(GridCells/);
 });
 test("照片日记：只有点了才拍，一次生图", () => {
-  assert.match(a, /const genPhotoDiary = async \(charId, entry\) =>/);
+  assert.match(a, /const genPhotoDiary = async \(charId, entry(, wish)?\) =>/);   // v75.970 多一个 wish：改了画面描述再画
   // 只从日记页那颗按钮进来，别处不调
   assert.equal((a.match(/genPhotoDiary\b/g) || []).length, 2);
   assert.match(s, /onClick: \(\) => onPhotoDiary\(entry\)/);

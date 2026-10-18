@@ -4743,7 +4743,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
     }, tg))),
     open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, PTX(open.thought)) : null,
     onPeek ? h("button", {
-      onClick: () => onPeek({ tier: "hidden", label: "深夜台", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
+      onClick: () => onPeek({ tier: "hidden", label: "深夜台", hiddenWhat: "深夜一个人偷偷看的成人视频（「深夜台」是那个视频站，不是备忘录也不是自己写的东西）", lead: "[我翻了你的手机]在你深夜偷偷看片的那个站（深夜台）的观看记录里看到了：", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
       style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(192,86,109,.5)", color: HOT }
     }, T("摆到 TA 面前 · 这是他藏起来的")) : null) : null;

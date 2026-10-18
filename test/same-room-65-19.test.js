@@ -144,7 +144,8 @@ test("她自己打的括号一律留在气泡里，那条改道整个撤掉了",
   assert.ok(!/actInner/.test(app), "「整条括号→居中行」那个判据还留着");
   assert.ok(!/asUserLine/.test(app), "她那两个入口还绕着改道那一层走");
   // 两个入口都回到普通 user 消息，一个字都不动
-  assert.match(app, /const pushUser = \(charId, text, chatKey\) => \{[\s\S]{0,260}?role: "user",\n\s*content: text,/);
+  // v75.973 中间多了一行小红书分享卡的字段（kind: "xhsshare"），正文照旧是她打的原话
+  assert.match(app, /const pushUser = \(charId, text, chatKey\) => \{[\s\S]{0,600}?role: "user",(\n[^\n]*xhsshare[^\n]*)?\n\s*content: text,/);
   assert.match(app, /if \(extraText != null && extraText !== ""\) \{\n\s*const um = \{\n\s*role: "user",\n\s*content: extraText,/);
   // 提示词里也不该再有「整条被一对括号包住」那种说法
   assert.ok(!/整条被一对括号/.test(eng), "还在说「整条包住」，跟她实际打的字对不上了");
