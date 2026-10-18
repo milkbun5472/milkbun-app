@@ -24467,10 +24467,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   现在一周内也能复合，但得写一封信，TA 拆开自己决定；好感、分开几天、当初怎么分的只当 TA 的参考（askCoupleInvite 那段）。
   //   挡住的只剩一样：上一封被退回来不到一天，不许接着递。
   const REJOIN_COOL_DAYS = 7, REJOIN_DECLINE_COOL_MS = 864e5;
+  // 卡没了还挂着「待邀请」（群里 2026-10-18：早先删掉邀请卡的，卡删了状态没跟着撤）：聊天里找不到那张还在等的卡，就当没发过
+  const coupleInviteCardLive = id => Object.keys(chatsRef.current || {}).some(k => (k === id || k.indexOf(id + "::") === 0)
+    && (chatsRef.current[k] || []).some(m => m && m.kind === "couple_invite" && (m.status === "pending" || m.status === "failed")));
   const sendCoupleInvite = async (char, rel, role, letter) => {
     const rk = typeof spaceRelKey === "function" ? spaceRelKey(rel) : "lover", rl = typeof spaceRel === "function" ? spaceRel(rk) : { space: "情侣空间", invite: "想和你在一起" };
     if (!active) { toast("请先到设置配置 API"); return; }
-    if (couples[char.id]) { toast(couples[char.id].status === "together" ? "你们已经在一起了" : "邀请已发出，等 TA 回应"); return; }
+    if (couples[char.id] && couples[char.id].status === "pending" && !coupleInviteCardLive(char.id)) setCoupleFor(char.id, null);
+    else if (couples[char.id]) { toast(couples[char.id].status === "together" ? "你们已经在一起了" : "邀请已发出，等 TA 回应"); return; }
     const bk = coupleBreakup[char.id];
     let note = "";
     if (bk) {
@@ -24683,7 +24687,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const loveLetterReady = charId => {
     if (settingsFor(charId).noLoveLetter) return false;
     const cp = (couplesRef.current || {})[charId];
-    if (cp && (cp.status === "together" || cp.status === "pending")) return false;
+    if (cp && (cp.status === "together" || (cp.status === "pending" && coupleInviteCardLive(charId)))) return false;
     const bk = (loadJSON("x_coupleBreakup", {}) || {})[charId];
     if (bk && Date.now() - Number(bk.ts || 0) < 7 * 864e5) return false;
     const rec = (loadJSON("x_loveLetter", {}) || {})[charId] || {};
@@ -30204,6 +30208,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(threadKey, p => p.map(m => m && failed.has(m.ledgerKey) ? { ...m, recalled: false } : m));
         toast("跨端消息云端没删成，已恢复，请联网后重试：" + String((e && e.message) || e));
       });
+      // 删掉的是还没回的空间邀请卡（群里 2026-10-18：「邀请完想让他主动，把消息删了，空间还是待邀请」）：邀请一起撤回
+      if (picked.some(m => m && m.kind === "couple_invite" && (m.status === "pending" || m.status === "failed"))
+        && couplesRef.current[activeChar.id] && couplesRef.current[activeChar.id].status === "pending") {
+        setCoupleFor(activeChar.id, null);
+        toast("已删除 " + indices.length + " 条，空间邀请也撤回了");
+        return;
+      }
       toast("已删除 " + indices.length + " 条");
     },
     onForward: (msgs, destination) => {
