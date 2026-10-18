@@ -162,7 +162,7 @@
       const cap = list.find(x => x.id === view);
       if (!cap) { setView(null); return null; }
       const who = cap.dir === "toSelf" ? "写给未来的自己" : cap.dir === "toChar" ? "写给 " + cap.charName : cap.charName + " 埋给你的";
-      return h("div", { className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
+      return h("div", { "data-wk": "capsulepage", "data-part": "capsuleapp", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
         h(Head, { zh: "时光胶囊", en: activeChar ? activeChar.name : "", bg: "transparent", onBack: () => setView(null), right: h("button", { onClick: () => delCap(cap.id), className: "active:opacity-50" }, h(ITrash, { size: 18, color: t.fog })) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 12 } }, who + " · 埋于 " + fmtD(cap.createdTs) + " · 拆于 " + fmtD(cap.openedTs || cap.openTs)),
@@ -230,7 +230,7 @@
             : "拆于 " + fmtD(cap.openedTs || cap.openTs))),
         kind === "due" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "#a5642c", flexShrink: 0 } }, "拆封") : null);
     };
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
+    return h("div", { "data-wk": "capsulepage", "data-part": "capsuleapp", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
       h(Head, { zh: "时光胶囊", en: activeChar ? activeChar.name : "", bg: "transparent", onBack: props.onBack, right: activeChar ? h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) : null }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
         !activeChar ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "没有找到当前情侣对象。\n返回情侣空间后，从对应的人那里重新打开。") : null,
@@ -273,7 +273,7 @@
             : null),
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? "#8a5f3a" : t.fog, marginTop: 6 } }, label));
     };
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
+    return h("div", { "data-wk": "capsulepage", "data-part": "capsulecompose", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
       h(Head, { zh: "埋一颗胶囊", en: char ? (char.remark || char.name) : "", bg: "transparent", onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 0 9px" } }, "哪一天拆开"),

@@ -422,7 +422,7 @@
             background: "linear-gradient(160deg, " + (c.color || t.tint) + ", " + t.ink + ")", fontFamily: F_DISPLAY, fontSize: 96, color: "rgba(255,255,255,.85)" } }, (c.name || "?").slice(0, 1));
     };
 
-    if (!chars.length) return h("div", { className: "h-full flex flex-col", style: shell(t) },
+    if (!chars.length) return h("div", { "data-wk": "shikepage", "data-part": "shikeapp", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "时刻", onBack: props.onBack, bg: "transparent" }),
       h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }));
 

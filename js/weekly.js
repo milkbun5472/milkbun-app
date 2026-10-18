@@ -1466,7 +1466,7 @@
         h("button", { onClick: function () { props.onMode("interviews"); }, className: "active:opacity-60", style: baseButton, "data-wk": "wklyweeklytoolssheetbtn", "data-part": "4" }, "补采访"));
     }
     return h("div", { "data-weekly-space": "tools", style: Object.assign({ position: "absolute", inset: 0, zIndex: 50, color: L.ink, overflow: "hidden" }, pageBackground(L)), "data-wk": "wklyweeklytoolssheet", "data-part": "r3" },
-      h("div", { className: "h-full flex flex-col" },
+      h("div", { "data-wk": "weeklypage", "data-part": "weeklytoolssheet", className: "h-full flex flex-col" },
         // 工具面板那一条也走 Head。顺带撤掉「EDITOR'S DESK」那行英文眉标
         //（施工规则/no-english-titles.md：删掉之后这一页照样说得明白，那它就是装饰）。
         h(Head, { zh: panelTitle, ink: L.ink, subInk: L.muted, lineInk: pageColor("weekly", "line", paletteAlpha(L.tint, "30")), bg: "transparent",

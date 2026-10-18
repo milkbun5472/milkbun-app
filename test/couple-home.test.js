@@ -29,7 +29,7 @@ test("共同档案与愿望板沿用紧凑顶栏和单一滚动容器", () => {
   for (const source of [archive, wishes]) {
     // v62.14 起愿望板外壳带软木底纹（style 挂在外壳上、Head 透明）——结构照旧核，
     // 但不锁 style 有没有、也不锁左右 padding 的具体值
-    assert.match(source, /h\("div", \{ className: "h-full flex flex-col"[,\s}]/);
+    assert.match(source, /h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col"[,\s}]/);
     assert.match(source, /h\(Head, \{/);
     assert.match(source, /className: "flex-1 min-h-0 overflow-y-auto px-\d+ pb-10"/);
   }

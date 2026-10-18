@@ -4004,7 +4004,7 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
   };
   const visSet = per.visibleTo || [];
   // 底纹铺在【最外那层外壳】上，Head 透上来（mobile-ui-layout.md §3.5）
-  return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
+  return h("div", { "data-wk": "periodpage", "data-part": "periodbook", className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "月事本",
       sub: cur ? ("这一轮第 " + cur.day + " 天") : (nextIn != null && nextIn >= 0 ? ("离下次大约还有 " + nextIn + " 天") : "还没记过"),
       onBack: onBack }),
@@ -9684,7 +9684,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   // ⚠️那一处的平色是【有意的】，代码里写着理由：「它现实里就是手机上那种聊天 app，
   //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
   //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
-  return h("div", { className: "h-full flex flex-col", style: msgAppBg(t) },
+  return h("div", { "data-wk": "momprofilepage", "data-part": "momentsprofile", className: "h-full flex flex-col", style: msgAppBg(t) },
     h("div", { ref: coverBoxRef, "data-wk": "mocover", "data-on": cover ? "1" : undefined, onPointerDown: adjDown, onPointerMove: adjMove, onPointerUp: adjUp, onPointerCancel: adjUp, style: { position: "relative", height: 210, flexShrink: 0, touchAction: adj ? "none" : undefined, cursor: adj ? "grab" : undefined, background: cover ? (posNow + "/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
       adj && cover ? h("div", { "data-wk": "mocoveradj", style: { position: "absolute", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 16px 14px", gap: 8, pointerEvents: "none", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.7)" } },
         h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "4px 12px" } }, "拖动封面调位置"),
@@ -14655,7 +14655,7 @@ function KinshipCardFace({ character, limit, used, note, width }) {
 function PeekCutPage({ character, cut, byName, onBack, onRestore }) {
   const t = useTheme();
   const nm = character.remark || character.name || "TA", un = cut.kind === "unfriend";
-  return h("div", { className: "h-full flex flex-col" },
+  return h("div", { "data-wk": "peekcutpage", "data-part": "peekcutpage", className: "h-full flex flex-col" },
     h(Head, { zh: nm, onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center", style: { padding: "0 32px", textAlign: "center" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, lineHeight: 1.8 } }, un ? "你和「" + nm + "」已经不是好友了" : "「" + nm + "」已被拉黑"),
@@ -19727,21 +19727,23 @@ function offlineSubSkin(t, withHead) {
 // pages: [{ key, char, title, tint, state() }]
 function SettingCatalog({ pages, onOpen, note }) {
   const t = useTheme();
-  return h("div", { style: { marginTop: 6 } },
+  // 挂点（群里 2026-10-18：「这个界面要是能改就好了，还有他点开的页面」）：目录、每张卡、卡里三样、底下那张说明
+  return h("div", { "data-wk": "setcatalog", style: { marginTop: 6 } },
     // ⚠️不是两列大卡：一眼扫不完的东西，不管怎么分类都难找（线上那次的教训）。
     h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pages.map(page => h("button", {
       key: page.key,
+      "data-wk": "setcard", "data-key": page.key,
       onClick: () => onOpen(page.key),
       className: "w-full flex items-center active:opacity-70",
       style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
     },
-      h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
+      h("span", { "data-wk": "setcardicon", style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
       h("span", { className: "flex-1 min-w-0" },
-        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
-        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
+        h("span", { "data-wk": "setcardtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
+        h("span", { "data-wk": "setcardsub", style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "\u203a")
     ))),
-    note ? h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
+    note ? h("div", { "data-wk": "setnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
 }
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
@@ -19749,16 +19751,16 @@ function SettingSection({ title, open, onToggle, danger, children }) {
   //   光靠发丝线分隔的几行字浮在纹理上，看着像还没画完（她 2026-09-05：
   //   「聊天设置里面的子页也还是白屏很无聊」——无聊的一半是这个）。
   //   卡片压在纸上才立得住，也才对得上这一页「一叠档案卡」的样子。
-  return h("div", { style: { borderRadius: 15, border: "1px solid " + t.line,
+  return h("div", { "data-wk": "setsection", "data-on": open ? "1" : "0", style: { borderRadius: 15, border: "1px solid " + t.line,
     // ⚠️skinAlpha 收的是【两位十六进制后缀】，不是 0-1 的小数：传 .82 会拼出
     //   "#xxxxxx0.82" 这种废值（六位色号才拼，所以只有真拼上的时候才坏，
     //   非六位的反而原样返回——正是 v59.62 那种只在某些主题下静默出错的长相）。
     background: skinAlpha(t.bg2, open ? "f5" : "d4"), marginBottom: 9, overflow: "hidden",
     boxShadow: open ? "0 3px 14px rgba(40,34,26,.07)" : "none", transition: "box-shadow .2s" } },
-    h("button", { onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
+    h("button", { "data-wk": "setsectionhead", onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: danger ? t.accent : t.ink } }, title),
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
-    open ? h("div", { style: { padding: "0 14px 12px" } }, children) : null);
+    open ? h("div", { "data-wk": "setsectionbody", style: { padding: "0 14px 12px" } }, children) : null);
 }
 function RoomResume({ room, messages, character }) {
   const t = useTheme(), lines = window.ChatRooms.resumeLines(messages);
@@ -20706,11 +20708,11 @@ function ChatSettings({
       })
     : { background: t.bg };
   // 「影」那一格直接是动态形象编辑页（整页，自己有顶栏），不套设置页的外壳
-  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
+  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
     h(window.MotionEditor, { character: character, scene: "default", onBack: () => { setSettingsTab(""); setOpenSec(""); }, onSaved: () => {}, toast: m => window.__toast && window.__toast(m, 3000) })), document.body);
   return ReactDOM.createPortal(h(React.Fragment, null,
     lookPeek ? h(ThemePeekBar, { zh: cNm + " 的聊天长相（还没保存）", onBack: endPeek }) : null,
-    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin, lookPeek ? { display: "none" } : null) },
+    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin, lookPeek ? { display: "none" } : null) },
     h(Head, {
       bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",

@@ -5,7 +5,7 @@
   function LoungeEntryApp({ onBack }) {
     const t = useTheme();
     const [loaded, setLoaded] = useState(false);
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg, color: t.ink } },
+    return h("div", { "data-wk": "loungepage", "data-part": "loungeentryapp", className: "h-full flex flex-col", style: { background: t.bg, color: t.ink } },
       h("div", { className: "shrink-0 px-3", style: { paddingTop: "calc(7px + env(safe-area-inset-top))", paddingBottom: 7, borderBottom: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 8 } },
         h("button", { onClick: onBack, style: { width: 40, height: 40, display: "grid", placeItems: "center" } }, h(IArrow, { size: 18, color: t.ink })),
         h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18 } }, "三席会客"), h("div", { style: { fontFamily: F_BODY, color: t.fog, fontSize: 10.5 } }, "Lisa · 言秋老窗口 · VPS Codex")),

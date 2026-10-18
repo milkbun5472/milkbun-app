@@ -514,7 +514,7 @@
       // 这一页是【TA自己的本子】，而且顶栏那句写着「你只是碰巧看见了」。
       // 所以底不是通用米白，是一张带着这个盒子自己颜色（旧木盒的暖棕）的纸——
       // 判据：这一页搬到别的 app 里还成立吗？一张匿名米白成立，这一张不成立。
-      h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 },
+      h("div", { "data-wk": "heartpage", "data-part": "timelineof", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 },
         typeof pageSkin === "function"
           ? pageSkin("paper", t, { base: (typeof skinMix === "function" ? skinMix(t.bg, ACCENT, .06) : t.bg), tint: (typeof skinRGB === "function" ? skinRGB(ACCENT).join(",") : ""), strength: 1.15 })
           : { background: t.bg }) },

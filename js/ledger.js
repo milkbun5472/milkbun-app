@@ -451,7 +451,7 @@
             background: glass ? "transparent" : (on ? "#fff" : "transparent"), border: "none", boxShadow: glass ? "none" : (on ? "0 1px 3px rgba(0,0,0,.08)" : "none") }, "data-wk": "ldgcandyseg", "data-part": "r2", "data-on": on ? "1" : "0" }, zh); }));
   };
   // 整页壳：外壳铺底，顶栏透明（mobile-ui-layout §3.5）
-  const ledgerPage = (sk, title, onBack, right, body, footer, extra) => h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page, extra || {}) },
+  const ledgerPage = (sk, title, onBack, right, body, footer, extra) => h("div", { "data-wk": "ledgerpage", "data-part": "cells", className: "h-full flex flex-col", style: Object.assign({}, sk.page, extra || {}) },
     h(Head, { zh: title, onBack: onBack, ink: sk.ink, bg: "transparent", noLine: true, right: right || null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overscrollBehavior: "contain" } }, body),
     footer || null);
@@ -625,7 +625,7 @@
     const curSwitch = curs.length > 1 ? h("button", { onClick: () => { const i = curs.findIndex(c => c.code === code); setSetting({ viewCur: curs[(i + 1) % curs.length].code }); }, "aria-label": "换币种", className: "active:opacity-60",
       style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent }, "data-wk": "ldgpagebtn", "data-part": "换币种" }, cur.label) : null;
 
-    const main = h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
+    const main = h("div", { "data-wk": "ledgerpage", "data-part": "ledger", className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
       h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: sk.id === "glass" ? "" : tabTitle, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch }),
         // 第一页标题也换成她出的图（2026-09-29）；放在顶栏这一格里，下面钱包的一切位置都不用跟着挪
         tab === "wallet" && sk.id === "glass" ? h("img", { src: "assets/ledger/title-wallet.webp?v=279", alt: "MY WALLET", draggable: false, "data-ledger-title": "wallet", style: { display: "block", width: "72%", height: "auto", margin: "-34px 0 0 12%" } }) : null),
@@ -1714,7 +1714,7 @@
 
     // 整页，不用半窗（施工规则/no-half-sheet.md）
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" }, "data-wk": "ldgaddsheetsave" },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
+      h("div", { "data-wk": "ledgerpage", "data-part": "addsheet", className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
         h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: sk.ink, bg: "transparent", noLine: true,
           right: h("button", { onClick: save, disabled: !canSave, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "lilac" : "clear", !canSave, { minWidth: 56, height: 34, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, color: canSave ? sk.ink : sk.fog }), "data-wk": "ldgaddsheetbtn", "data-part": "3" }, "完成") }),
         h("div", { style: { padding: "0 20px 10px" } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"], ["transfer", "转账"]], value: type, onChange: v => { setType(v); setCat(null); }, sk })),
@@ -1833,7 +1833,7 @@
 
     // 整页，不用半窗：三个 tab、一屋子币种和分类，半窗里一次只看得见三四行
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" }, "data-wk": "ldgsettingssheet" },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative", overflow: "hidden" }, props.sk ? props.sk.page : paperBg()) },
+      h("div", { "data-wk": "ledgerpage", "data-part": "settingssheet", className: "h-full flex flex-col", style: Object.assign({ position: "relative", overflow: "hidden" }, props.sk ? props.sk.page : paperBg()) },
         g ? h("style", null, PNL_CSS) : null,
         g ? decoImg("note-better", { right: -8, top: -6, width: 74, transform: "rotate(7deg)", zIndex: 0 }) : null,
         h(Head, { zh: g ? "" : "记账设置", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
@@ -2014,7 +2014,7 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
       color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) }, "data-wk": "ldgrecureditorbtn", "data-part": "1", "data-on": on ? "1" : "0" }, txt);
     const wrap = kids => h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, kids);
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 58, display: "flex", flexDirection: "column" }, "data-wk": "ldgrecureditorsave" },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
+      h("div", { "data-wk": "ledgerpage", "data-part": "recureditor", className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
         h(Head, { zh: isNew ? "添加周期账单" : "改周期账单", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: isNew ? null : h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这条周期账单", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 }, "data-wk": "ldgrecureditorbtn", "data-part": "删掉这条周期账单" }, h(ITrash, { size: 18, color: t.sub })) }),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 20px" } },
@@ -2064,7 +2064,7 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
     const pill = (on, txt, onClick, tint) => h("button", { onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
       color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) }, "data-wk": "ldgaccteditorbtn", "data-part": "1", "data-on": on ? "1" : "0" }, txt);
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 58, display: "flex", flexDirection: "column" }, "data-wk": "ldgaccteditorsave" },
-      h("div", { className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
+      h("div", { "data-wk": "ledgerpage", "data-part": "accteditor", className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
         h(Head, { zh: isNew ? "添加账户" : "改账户", onBack: props.onClose, ink: props.sk ? props.sk.ink : pageColor("ledger", "ink", "#33322c"), bg: "transparent", noLine: true,
           right: isNew ? null : h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这个账户", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 }, "data-wk": "ldgaccteditorbtn", "data-part": "删掉这个账户" }, h(ITrash, { size: 18, color: t.sub })) }),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 20px" } },

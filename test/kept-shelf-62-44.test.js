@@ -64,7 +64,7 @@ test("说好的每条是一张字据，日子挂在旁边", () => {
   assert.match(c, /fontFamily: F_DISPLAY, fontSize: 17 \} \}, "践"\)/, "那枚朱印没了");
   assert.match(c, /transform: "rotate\(-7deg\)"/, "印是正的——盖章不会盖得那么正");
   // 底纹铺外壳、顶栏透上来（施工规则/mobile-ui-layout.md §3.5）
-  assert.match(c, /h\("div", \{ className: "h-full flex flex-col", style: \{ background: t\.bg,/);
+  assert.match(c, /h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col", style: \{ background: t\.bg,/);
   assert.match(c, /repeating-linear-gradient\(90deg,rgba\(140,115,70,\.05\)/, "契纸的竖格没了");
   assert.match(c, /h\(Head, \{ zh: "我们说好的", en: partner\.name, onBack: onBack, bg: "transparent" \}\)/);
   assert.match(c, /className: "flex-1 min-h-0 overflow-y-auto/);

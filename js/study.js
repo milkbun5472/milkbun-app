@@ -4373,7 +4373,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: skin.accent, marginBottom: 4 } }, "还没挖出来的——" + c.name + " 到现在都以为："),
           left.map(function (m) { return h("div", { key: m.id, style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink, lineHeight: 1.6 } }, "「" + m.text + "」"); })) : null);
     }) : null;
-    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk, position: "relative" } },
+    return h("div", { "data-wk": "studypage", "data-part": "tbthread", className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk, position: "relative" } },
       h(StudyHead, { zh: s.subject, en: stus.map(function (c) { return c.name; }).join("、") + " 当学生", mode: "tb", onBack: props.onBack,
         right: stage === "class" && !s.quiz ? h("button", { onClick: function () { setStage("quiz"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: skin.accent } }, "下课") : null }),
       // 误解进度：挖出来的亮出原文，没挖出来的是问号；两个人时按人分两行

@@ -91,7 +91,7 @@ function manualSkin(t) {
       // offsetTop 量的是离 offsetParent 多远，不一定是这个滚动框——按屏幕上的位置差算才准
       if (el) box.scrollTop = Math.max(0, el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8);
     }, [open, jumpTo]);
-    if (!M) return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
+    if (!M) return h("div", { "data-wk": "codexpage", "data-part": "codexapp", className: "h-full flex flex-col", style: manualSkin(t) },
       h(Head, { zh: "攻略", sub: "这台手机的说明书", bg: "transparent", onBack: props.onBack }),
       h("div", { "data-wk": "cxempty", style: { padding: "40px 24px", fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.9 } },
         "说明书没加载出来。\n退出去再进一次。"));

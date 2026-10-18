@@ -206,7 +206,7 @@
     const perf = pos => h("div", { "aria-hidden": "true", style: Object.assign({ position: "absolute", left: 0, right: 0, height: 8,
       background: "radial-gradient(circle at 6px 4px, transparent 3.4px, #fffdf7 3.6px) 0 0/12px 8px repeat-x" },
       pos === "top" ? { top: -4, transform: "scaleY(-1)" } : { bottom: -4 }) });
-    return h("div", { className: "h-full flex flex-col", style: { background: DESKC,
+    return h("div", { "data-wk": "pompage", "data-part": "resultcard", className: "h-full flex flex-col", style: { background: DESKC,
       backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESKC,
       boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
       h(Head, { zh: isDone ? "一起坐住了" : "这一轮先收桌", onBack: onClose, bg: "transparent" }),
@@ -850,7 +850,7 @@
           transform: on ? "translateY(-2px)" : "none", transition: "transform .16s ease" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#3a3024" } }, x.name),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a7a5e", lineHeight: 1.55, marginTop: 4 } }, x.desc)); };
-    return h("div", { className: "h-full flex flex-col", style: { background: DESK,
+    return h("div", { "data-wk": "pompage", "data-part": "pomodoro", className: "h-full flex flex-col", style: { background: DESK,
       backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESK,
       boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
       h(Head, { zh: "番茄钟", onBack: props.onBack, right: archiveRight, bg: "transparent" }),

@@ -198,7 +198,7 @@
     })();
     const sectionTitle = (label, sub) => h("div", { style: { margin: "4px 2px 10px", display: "flex", alignItems: "baseline", gap: 8 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, label), sub ? h("span", { style: { fontSize: 11.5, color: t.fog } }, sub) : null);
-    if (!char || (props.isEngineer && props.isEngineer(char.id))) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "各怀心思的约会", onBack: props.onBack }), card(t, "这一局的角色不可用。存档还留着，可以返回重新选人。"));
+    if (!char || (props.isEngineer && props.isEngineer(char.id))) return h("div", { "data-wk": "dategamepage", "data-part": "run", className: "h-full flex flex-col" }, h(Head, { zh: "各怀心思的约会", onBack: props.onBack }), card(t, "这一局的角色不可用。存档还留着，可以返回重新选人。"));
     // TA 的心情条（她 2026-10-14）：座位卡上一颗心＋数，最近一次涨跌跟在后面
     const mood = C.moodOf(s), lastMood = (s.moodLog || []).slice(-1)[0];
     const moodLine = (mood >= 80 ? "💗" : mood >= 60 ? "🙂" : mood >= 40 ? "😐" : "😕") + " 心情 " + mood + (lastMood && lastMood.round === s.round ? (lastMood.d > 0 ? " ↑" : " ↓") : "");

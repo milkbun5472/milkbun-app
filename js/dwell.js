@@ -457,7 +457,7 @@
     //   所以那句话是压在图上的一张纸。看得见的写在图上，心里那句写在纸上。
     if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r5" },
       backdrop(open),
-      h("div", { className: "relative flex flex-col h-full" },
+      h("div", { "data-wk": "dwellpage", "data-part": "back", className: "relative flex flex-col h-full" },
         overBar(zone ? zone.name : open.name, open.name),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: OVER_SUB, marginTop: 24 } }, (zone ? zone.name : open.name) + "上摆着的"),
@@ -476,7 +476,7 @@
     // 底下仍是这处地方那张图：进了屋不该看不见屋。
     if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r6" },
       backdrop(open),
-      h("div", { className: "relative flex flex-col h-full" },
+      h("div", { "data-wk": "dwellpage", "data-part": "back", className: "relative flex flex-col h-full" },
         overBar(open.name, char ? char.name : ""),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
           placePhoto(open, 116),
@@ -531,7 +531,7 @@
       const zs = (open.zones || []).slice(0, 6);
       return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r10" },
         backdrop(open),
-        h("div", { className: "relative flex flex-col h-full" },
+        h("div", { "data-wk": "dwellpage", "data-part": "back", className: "relative flex flex-col h-full" },
           overBar("去处", char ? char.name : ""),
           h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
             placeHero(open, zs),

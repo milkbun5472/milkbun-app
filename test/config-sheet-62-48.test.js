@@ -15,7 +15,7 @@ const CODE = CFG.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("外壳是一张工程格纸，铺在最外层、顶栏透上来", () => {
   // 铺在滚动区上的话顶栏那一条还是平色，顶上横一道没盖住的带子（mobile-ui-layout §3.5）
-  assert.match(CFG, /return h\("div", \{ className: "h-full flex flex-col", style: sheet \}/, "底纹没铺在最外那层外壳上");
+  assert.match(CFG, /return h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col", style: sheet(?:, "data-wk": "configpage")? \}/, "底纹没铺在最外那层外壳上");
   assert.match(CFG, /bg: "transparent"/, "顶栏没让底纹透上来");
   assert.match(CFG, /className: "flex-1 min-h-0 overflow-y-auto/);
   // 细格 + 每五格一道重线：只有一套等距线的话那是稿纸，不是工程格纸
