@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const cloud = fs.readFileSync(path.join(__dirname, "../js/cloud.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 
 test("退出前云备份失败必须中止，不得继续清空本机", () => {
   const body = cloud.match(/async signOut\(\) \{([\s\S]*?)\n    \},\n\n    \/\/ 把本地存档推到云端/);

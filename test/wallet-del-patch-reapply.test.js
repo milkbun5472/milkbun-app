@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const a = src("app.js"), s = src("screens.js"), q = src("assistant.js");
+const a = src("app.js"), s = (src("screens.js") + "\n" + src("screens-ui.js")), q = src("assistant.js");
 test("钱包：删一笔、清空全部，只删记录不动余额", () => {
   assert.match(s, /"data-wk": "walletdel"/);
   assert.match(s, /"data-wk": "walletclear"/);

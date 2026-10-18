@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 // 群里有人问「有打算 fish audio 语音接入吗」，她 2026-10-02：「fish 和 eleven lab 能接吗」「做吧」。
 // 一个开关三选一，后面的语音条、通话、庭院全走同一条 ttsSynth，不各接一份。

@@ -92,7 +92,7 @@ test("engineerEyes chat carries a lean volatile baggage budget", () => {
   assert.match(source, /isLeanYanqiuChat \? 3/);
   assert.match(source, /slice\(0, 3\)\.map/);
   assert.match(source, /slice\(0, 240\)/);
-  const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(screens, /缓存由 CLI 引擎管理/);
 });
 

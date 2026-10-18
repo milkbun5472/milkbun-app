@@ -38,7 +38,7 @@ test('大整数任务编号保持原值',async()=>{
 test('新编辑页标准 Head/单滚动区与安全区，语音点播不创建视频',()=>{
  assert.match(src,/h\(Head, \{ zh: "动态形象"/);assert.match(src,/flex-1 min-h-0 overflow-y-auto px-5/);assert.match(src,/safe-area-inset-bottom\) \* 0\.4/);
  const pom=fs.readFileSync(path.join(__dirname,'../js/pomodoro.js'),'utf8');assert.match(pom,/戳一戳陪伴画面/);assert.match(pom,/tp\.toggle\("pmd-note-/);assert.doesNotMatch(pom,/VideoApi\.(create|poll)\(/);
- const screens=fs.readFileSync(path.join(__dirname,'../js/screens.js'),'utf8');assert.match(screens,/page === "apiVideo"/);assert.match(screens,/MINIMAX_API_SITES\.map/);
+ const screens=(fs.readFileSync(path.join(__dirname,'../js/screens.js'),'utf8') + "\n" + fs.readFileSync(path.join(__dirname,'../js/screens-ui.js'),'utf8'));assert.match(screens,/page === "apiVideo"/);assert.match(screens,/MINIMAX_API_SITES\.map/);
 });
 
 test('H3 每个整数时长与画质；旧配置保留，新配置默认4秒',()=>{
@@ -90,7 +90,7 @@ test('复制下载链接留在编辑页，复用公共复制，不再导航原�
 test("视频设置页底下能自己搭 MiniMax 中转：同一个 RelayHelp，按国际/国内站出代码，放行 GET 查询", () => {
   const fs = require("fs"), path = require("path");
   const v = fs.readFileSync(path.join(__dirname, "../js/video-api.js"), "utf8");
-  const s = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  const s = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
   assert.match(v, /h\(RelayHelp, \{[^}]*hosts: MINIMAX_API_SITES/);
   assert.match(s, /"Access-Control-Allow-Methods": "GET, POST, OPTIONS"/);
 });

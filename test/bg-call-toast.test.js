@@ -22,7 +22,7 @@ test("同时跑两件不挑一个猜，照实列出来", async () => {
 test("callAI 成没成都广播 bg-call，app 那头弹提示、设置里有开关", () => {
   const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(eng, /new CustomEvent\("bg-call"/);
   assert.match(app, /addEventListener\("bg-call"/);
   assert.match(scr, /x_bgToast/);

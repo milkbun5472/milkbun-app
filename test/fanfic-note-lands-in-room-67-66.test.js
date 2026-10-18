@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const fanfic = fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8");
+const fanfic = (fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/fanfic-core.js"), "utf8"));
 
 // 真跑 roomOfFic：桩照【真存档】给——房间对象是 ChatRooms 自己造的，
 // 消息上那一格叫 ficId（写卡那一头 app.js 就是这么写的，见最后一条断言）

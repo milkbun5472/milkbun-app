@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const Clock = require('../js/schedule-clock.js');
 const components = fs.readFileSync(__dirname + '/../js/components.js', 'utf8');
-const screens = fs.readFileSync(__dirname + '/../js/screens.js', 'utf8');
+const screens = (fs.readFileSync(__dirname + '/../js/screens.js', 'utf8') + "\n" + fs.readFileSync(__dirname + '/../js/screens-ui.js', 'utf8'));
 const app = fs.readFileSync(__dirname + '/../js/app.js', 'utf8');
 function fn(src, name) {
   const line = src.split('\n').find(x => x.startsWith('function ' + name + '('));

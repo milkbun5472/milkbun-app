@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const LT = src.slice(src.indexOf("function ListenTogether("), src.indexOf("function CoupleQAConfig("));
 const HOME = LT.slice(LT.indexOf("  const homeTab = h("), LT.indexOf("  // ============ 我的 tab"));
 const CLOUD = LT.slice(LT.indexOf("  const cloudTab = h("), LT.indexOf("  // ── 底：唱片自己的那圈纹"));

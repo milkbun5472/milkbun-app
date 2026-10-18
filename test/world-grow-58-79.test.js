@@ -2,9 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { normRegions, mapBuild } = require("../js/trpg.js");
+const { normRegions, mapBuild } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const map = R("map.js"), app = R("app.js"), trpg = R("trpg.js");
+const map = R("map.js"), app = R("app.js"), trpg = (R("trpg-core.js") + "\n" + R("trpg.js"));
 const grab = (src, a, b, cap) => {
   const i = src.indexOf(a), j = src.indexOf(b, i);
   assert.ok(i > 0 && j > i && (!cap || j - i < cap), "抠不出：" + a);

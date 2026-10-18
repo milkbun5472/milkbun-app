@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 test("照相馆场景加成：开关开着才写画面、带地点和场景图；题材换画风漫画不加", () => {
   const i = app.indexOf("const studioShoot = async"), j = app.indexOf("const out = await generateSelfieImage(", i);
   assert.ok(i > 0 && j > i, "抠不出 studioShoot");

@@ -1,10 +1,11 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const engine=fs.readFileSync('js/engine.js','utf8'),app=fs.readFileSync('js/app.js','utf8'),host=fs.readFileSync('js/fairy-garden.js','utf8'),components=fs.readFileSync('js/components.js','utf8');
+const engine=fs.readFileSync('js/engine.js','utf8'),app=fs.readFileSync('js/app.js','utf8'),host=(fs.readFileSync('js/fairy-garden-core.js','utf8')+'\n'+fs.readFileSync('js/fairy-garden.js','utf8')),components=fs.readFileSync('js/components.js','utf8');
 function between(s,a,b){const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>i,a);return s.slice(i,j);}
 function fn(s,name){const i=s.indexOf('function '+name+'('),j=s.indexOf('\n}',i);assert.ok(i>=0&&j>i,name);return (s.slice(i-6,i)==='async '?'async ':'')+s.slice(i,j+2);}
 function setup(){
  const c={window:{},calls:[],extractJSON:JSON.parse};vm.createContext(c);
- vm.runInContext(between(host,'  const WORLDS =','  const INDEX_KEY')+';window.FairyWorlds=WORLDS;',c);
+ vm.runInContext(between(host,'  const WORLDS =','  root.FairyWorlds=WORLDS')/* 2026-10-18 起 WORLDS 在 fairy-garden-core.js */+';window.FairyWorlds=WORLDS;',c);
  vm.runInContext(between(engine,'function gameChatSource(','async function summarizeGroup('),c);
  c.callAI=async(p,sys,msg,opts)=>{c.calls.push({p,sys,msg,opts});return '[]';};
  for(const name of ['summarizeGroup','extractMemories','extractGroupMemories','summarizeChat','summarizeChatBlock'])vm.runInContext(fn(engine,name),c);

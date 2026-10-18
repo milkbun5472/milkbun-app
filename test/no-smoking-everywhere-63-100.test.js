@@ -20,7 +20,7 @@ const SELF = /ContentBoundaries\s*\.\s*prompt|\bCB\(\)/;
 test("禁烟的原话只有一份，别处不许自己抄一遍", () => {
   const cb = read("content-boundaries.js");
   assert.match(cb, /所有角色默认都没有吸烟习惯/);
-  const others = ["engine.js", "dream.js", "dreamjournal.js", "weekly.js", "theater.js", "fanfic.js"];
+  const others = ["engine.js", "dream.js", "dreamjournal.js", "weekly.js", "theater.js", "fanfic.js", "fanfic-core.js"];   // 2026-10-18 起提示词那半在 fanfic-core.js
   others.forEach(f => assert.doesNotMatch(read(f), /所有角色默认都没有吸烟习惯/, f + " 自己抄了一份——改一处另一处就落单"));
 });
 
@@ -47,9 +47,9 @@ const SURFACES = [
   ["study.js", "自己 push"],
   ["memo.js", "自己 push"],
   ["ledger.js", "自己 push"],
-  ["pomodoro.js", "自己 push"],
-  ["impression.js", "自己 push"],
-  ["fanfic.js", "narrativeCore（同人文正文和穿书都走它）"],
+  ["pomodoro-core.js", "自己 push"],   // 2026-10-18 起陪伴台词那几枪在 pomodoro-core.js（番茄钟拆出来的开机那半）
+  ["impression-core.js", "自己 push"],   // 2026-10-18 起写印象那几枪在 impression-core.js
+  ["fanfic-core.js", "narrativeCore（同人文正文和穿书都走它）"],   // 2026-10-18 起这段在 fanfic-core.js（fanfic.js 拆出来的提示词那半）
   // ⚠️games.js 是 Codex 的地盘，她 2026-09-05 亲口让动的（「你动吧宝宝」）才碰。
   //   这一处的写法和别处不同：AC 在这个文件里是【无条件的 prompt 头】，所以并进 AC 是安全的
   //   （v55.90 警告的是「挂在会消失的可选块上」，不是「挂在永远都发的头上」）。

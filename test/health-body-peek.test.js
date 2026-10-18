@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const SRC = fs.readFileSync(path.join(__dirname, "..", "js", "health.js"), "utf8");
+const SRC = (fs.readFileSync(path.join(__dirname, "..", "js", "health-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "health.js"), "utf8"));
 function boot(data) {
   const store = { x_health: JSON.stringify(data) };
   const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };

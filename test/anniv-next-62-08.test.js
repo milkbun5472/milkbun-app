@@ -8,7 +8,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const core = fs.readFileSync(path.join(root, "js/core.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 const i = core.indexOf("function annivNext(");
 assert.ok(i > 0, "core.js 里抠不出 annivNext");

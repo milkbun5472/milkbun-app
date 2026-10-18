@@ -92,8 +92,8 @@ test("关键删除先写保险仓，失败时不准碰实时镜像", () => {
 
 test("其余本机删除也必须先写成，失败时不准退出详情或改列表", () => {
   const capsule = read("capsule.js"), debate = read("debate.js"), dream = read("dream.js");
-  const dwell = read("dwell.js"), fanfic = read("fanfic.js"), impression = read("impression.js");
-  const screens = read("screens.js"), rooms = read("chat-rooms.js");
+  const dwell = (read("dwell-core.js") + "\n" + read("dwell.js")), fanfic = (read("fanfic.js") + "\n" + read("fanfic-core.js")), impression = (read("impression-core.js") + "\n" + read("impression.js"));
+  const screens = (read("screens.js") + "\n" + read("screens-ui.js")), rooms = read("chat-rooms.js");
   assert.match(capsule, /const next = allList\.filter[\s\S]{0,120}if \(!save\(next\)\) return[\s\S]{0,120}setAllList\(next\); setView\(null\)/);
   for (const src of [debate, dream]) assert.match(src, /if \(persist\([\s\S]{0,100}\) && view === id\) setView\("home"\)/);
   assert.match(dwell, /const next = dropPlace[\s\S]{0,160}if \(!next\) return[\s\S]{0,120}setPlaces\(next\)/);

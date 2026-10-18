@@ -1,7 +1,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
-const source = read('js/fanfic.js'), app = read('js/app.js');
+const source = (read('js/fanfic.js') + "\n" + read('js/fanfic-core.js')), app = read('js/app.js');
 const Rooms = require('../js/chat-rooms.js');
 // 邀请与交稿字段钉在app的写入方，非新造的待办存档。
 const invite = (id, ts) => ({ role: 'assistant', kind: 'ficinvite', ficId: id, subject: id, ts });
@@ -32,7 +32,8 @@ function fixture() {
       return JSON.stringify({ content: '正文', add: '续段', endHook: '新现场', facts: [], seed: '', paid: [],
         writerBrief: {voice:'执笔测试笔法', angle:'测试切入', stance:'测试立场', choice:'测试选择'} });
     } };
-  vm.runInNewContext(source, box);
+  // 2026-10-18 起 fanfic.js 开头要取 window.FanficCore：按页面里的顺序先跑 fanfic-core.js
+  vm.runInNewContext(read('js/fanfic-core.js') + "\n" + read('js/fanfic.js'), box);
   return {K: box.window.Fanfic, calls, store};
 }
 

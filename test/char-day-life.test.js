@@ -1,6 +1,7 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const read=p=>fs.readFileSync(p,'utf8');
-function setup(){const env={window:null,Date,JSON,Math};env.window=env;vm.createContext(env);vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);vm.runInContext(read('js/char-day.js'),env);let stored={version:3,styles:{other:'dusk'},future:{keep:1},kitchens:{other:{ingredients:{egg:8}}}},writes=0,fail=false;env.loadJSON=()=>stored;env.commitJSONDurable=async(k,v)=>{assert.equal(k,'x_charDayHomes');if(fail)return {durable:false,live:false};stored=JSON.parse(JSON.stringify(v));writes++;return {durable:true,live:true};};return {L:env.CharDayLife,K:env.CharDayKit,get:()=>stored,writes:()=>writes,fail:v=>fail=v};}
+function setup(){const env={window:null,Date,JSON,Math};env.window=env;vm.createContext(env);vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);vm.runInContext((read('js/char-day-core.js')+'\n'+read('js/char-day.js')),env);let stored={version:3,styles:{other:'dusk'},future:{keep:1},kitchens:{other:{ingredients:{egg:8}}}},writes=0,fail=false;env.loadJSON=()=>stored;env.commitJSONDurable=async(k,v)=>{assert.equal(k,'x_charDayHomes');if(fail)return {durable:false,live:false};stored=JSON.parse(JSON.stringify(v));writes++;return {durable:true,live:true};};return {L:env.CharDayLife,K:env.CharDayKit,get:()=>stored,writes:()=>writes,fail:v=>fail=v};}
 function cooked(L,job){const auto={...job,cooking:{...job.cooking,mode:'auto'}};let p=job.cooking.progress;for(let i=0;i<1600&&p.index<3;i++)p=L.stepCooking(auto,p,{kind:'tick',dt:.1});assert.equal(p.index,3);return p;}
 test('料理通过真实home writer补材料、预备、中止，完成只扣一次并留下两人份',async()=>{
  const {L,K,get}=setup(),write=a=>K.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a));
@@ -43,7 +44,7 @@ test('共用相机适配真正投影、刘海卡片与横屏，平移不改视�
  for(const [width,height]of [[320,400],[390,680],[844,245]]){const fit=orthographicFrame({minX:-1,maxX:1,minY:-1,maxY:1,zoom:1.6,halfWidth:7*width/height,halfHeight:7,width,height,rightX:.848,rightZ:-.53,upX:-.267,upZ:-.427,insets:{top:130,bottom:30,left:18,right:18},maxZoom:2});assert.ok(fit.zoom>0&&fit.zoom<=2);assert.ok(Number.isFinite(fit.x)&&Number.isFinite(fit.z));assert.ok(2*fit.zoom/1.6<=2*(height-130-30)/height+.00001);}
 });
 test('菜单保留现场、进度来自两人到位；拍照共用离屏readback且不新开模型或聊天writer',()=>{
- const page=read('js/char-day.js'),scene=read('apps/fairy-garden/day/scene.mjs');assert.match(scene,/shared\.phase==='active'/);assert.match(scene,/CharDayKitchen\.cookingStage/);assert.match(scene,/renderPhoto\(T,renderer,scene,view/);assert.match(scene,/setCameraMode\(solo\?'me':'both'\)/);assert.match(page,/saveHomeChange\(char\.id,'kitchens',raw=>L\.kitchenChange/);assert.doesNotMatch(page+read('js/char-day-life.js'),/callAI\(|runProbe\(|localStorage\./);assert.match(read('apps/pets/photo-render.mjs'),/export \{renderPhoto,visibleBounds\} from/);assert.ok(read('index.html').indexOf('js/char-day-life.js')<read('index.html').indexOf('js/char-day.js'));
+ const page=(read('js/char-day-core.js')+'\n'+read('js/char-day.js')),scene=read('apps/fairy-garden/day/scene.mjs');assert.match(scene,/shared\.phase==='active'/);assert.match(scene,/CharDayKitchen\.cookingStage/);assert.match(scene,/renderPhoto\(T,renderer,scene,view/);assert.match(scene,/setCameraMode\(solo\?'me':'both'\)/);assert.match(page,/saveHomeChange\(char\.id,'kitchens',raw=>L\.kitchenChange/);assert.doesNotMatch(page+read('js/char-day-life.js'),/callAI\(|runProbe\(|localStorage\./);assert.match(read('apps/pets/photo-render.mjs'),/export \{renderPhoto,visibleBounds\} from/);assert.ok(read('index.html').indexOf('js/char-day-life.js')<read('index.html').indexOf('js/char-day.js'));
 });
 test('32道菜六类七种做法都经实际home writer做成；收藏菜单与三道上桌持久且只扣一次',async()=>{
  const f=setup(),{L,K}=f,write=a=>K.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a));
@@ -105,7 +106,7 @@ test('旧桌的未知口味与分工不猜；收起、坏菜谱或没有这一�
  assert.match(L.kitchenMealHint({courses:[{recipeId:'egg-noodle',variation:{},lead:''}]}),/口味：未记录/);assert.match(L.kitchenMealHint({courses:[{recipeId:'egg-noodle',variation:{spice:'hot'},lead:''}]}),/口味：香辣；分工：未记录/);assert.equal(L.kitchenMealHint(null),'');assert.equal(L.kitchenMealFor(null,'a','meal'),null);assert.equal(L.kitchenMealFor(homes,'a',null),null);
 });
 test('手动聊这桌菜只打开独立厨房书签，不改主聊天也不替TA当场开口',()=>{
- const src=read('js/char-day.js'),a=src.indexOf('const shareKitchenMeal='),b=src.indexOf('const runKitchen=',a);assert.ok(a>0&&b>a);
+ const src=(read('js/char-day-core.js')+'\n'+read('js/char-day.js')),a=src.indexOf('const shareKitchenMeal='),b=src.indexOf('const runKitchen=',a);assert.ok(a>0&&b>a);
  const seg=src.slice(a,b);assert.match(seg,/saveHomeChange\(char.id,'kitchenChats'/);assert.match(seg,/setKitchenView\('chat'\)/);assert.doesNotMatch(seg,/callAI|\.ask\(|onKitchenShare|waitForHer|pChat|mainChat/);
  assert.doesNotMatch(read('js/app.js'),/kitchenHint|onKitchenShare:/);
 });

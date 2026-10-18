@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const scr = fs.readFileSync("js/screens.js", "utf8");
+const scr = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const cut = (a, b) => scr.slice(scr.indexOf(a), scr.indexOf(b, scr.indexOf(a)));
 const TEXT = cut("function ApiConfig({", "\nfunction ");
 const IMG = cut("function ImageApiConfig({ toast })", "\n// 独立 embedding API 配置");

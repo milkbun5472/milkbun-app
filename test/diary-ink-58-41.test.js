@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const grab = (a, b, why) => { const i = scr.indexOf(a), j = scr.indexOf(b, i); assert.ok(i >= 0 && j > i, "抠不出：" + why); return scr.slice(i, j); };
 const load = (a, b, ret) => new Function(grab(a, b, a) + "\nreturn " + ret + ";")();
 

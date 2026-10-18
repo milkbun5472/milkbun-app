@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const imp = fs.readFileSync(path.join(__dirname, "..", "js/impression.js"), "utf8");
+const imp = (fs.readFileSync(path.join(__dirname, "..", "js/impression-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/impression.js"), "utf8"));
 
 test("开关只管这一趟，不写进设置", () => {
   assert.match(imp, /const \[withArt, setWithArt\] = useState\(true\);/, "默认还是带剪影");

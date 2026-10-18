@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs"), path = require("path");
 const comp = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
-const astro = fs.readFileSync(path.join(__dirname, "../js/astro.js"), "utf8");
+const astro = (fs.readFileSync(path.join(__dirname, "../js/astro-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/astro.js"), "utf8"));
 test("顶栏头像不再包 AstroHalo，光圈挂在头像自己身上", () => {
   assert.ok(!/h\(window\.AstroHalo, \{ size: 36 \}/.test(comp));
   assert.match(comp, /halo: !!\(window\.Astro && window\.Astro\.isGoodDay && window\.Astro\.isGoodDay\(character\)\)/);

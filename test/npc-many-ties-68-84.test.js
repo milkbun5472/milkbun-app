@@ -10,7 +10,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync("js/app.js", "utf8");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const engine = fs.readFileSync("js/engine.js", "utf8");
 
 test("⚠️ownerId 仍然是一个人，没被改成数组", () => {

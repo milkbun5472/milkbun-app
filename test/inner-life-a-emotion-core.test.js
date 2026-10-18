@@ -280,7 +280,7 @@ test("这一栏一路接到诊断台上，没有半路断掉（v55.95 那个形�
   //   把它从 row 里删掉这条照样绿（变异验的时候当场逃掉过一次）。
   assert.match(R("js/inner-life-a-shadow.js"), /moodMatched,moodViaMorpheme,unmatchedMoodLabel/, "算了但没写进存的那一行");
   assert.match(R("js/inner-life-a-shadow.js"), /morphemeMoodCount:rows\.filter\(x=>x\.moodViaMorpheme\)\.length/, "报表没算");
-  assert.match(R("js/screens.js"), /line\("其中靠拆字接住", String\(r\.morphemeMoodCount \|\| 0\)\)/, "诊断台没显示");
+  assert.match((R("js/screens.js") + "\n" + R("js/screens-ui.js")), /line\("其中靠拆字接住", String\(r\.morphemeMoodCount \|\| 0\)\)/, "诊断台没显示");
 });
 
 // ── 十条轴的中文名：全 app 只有一份（v64.68，她 2026-09-06 拍板）──────────
@@ -299,7 +299,7 @@ test("轴名只有 dongnian 那一份，别处一律引用它", () => {
     const src = R(f).split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
     assert.ok(!/connection:\s*"[^"]+",\s*pride:\s*"/.test(src), f + " 里又抄了一份轴名表");
   });
-  assert.match(R("js/screens.js"), /window\.DongnianEmotionA\.displayLabels/, "诊断台没引用那一份");
+  assert.match((R("js/screens.js") + "\n" + R("js/screens-ui.js")), /window\.DongnianEmotionA\.displayLabels/, "诊断台没引用那一份");
   assert.match(R("js/components.js"), /window\.DongnianEmotionA\.displayLabels/, "脾气页没引用那一份");
 });
 
@@ -429,7 +429,7 @@ test("A 的思念不再投影、不再显示、也不再被写", () => {
 test("「哪几条轴算数」也只有一份定义，面板引用它", () => {
   const fs = require("node:fs"), path = require("node:path");
   const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-  assert.match(R("js/screens.js"), /window\.DongnianEmotionA\.projectedAxes/, "诊断台没引用");
+  assert.match((R("js/screens.js") + "\n" + R("js/screens-ui.js")), /window\.DongnianEmotionA\.projectedAxes/, "诊断台没引用");
   assert.match(R("js/components.js"), /window\.DongnianEmotionA\.projectedAxes/, "脾气页没引用");
   // 别处不许再铺一份轴名清单
   ["js/screens.js", "js/components.js"].forEach(f => {

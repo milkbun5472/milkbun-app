@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 test("⚠️泄压排在出口【落地之后】——空返回不许把这一次白白花掉", () => {
   // 原来是先泄 0.28 再选出口，而「留东西」那一路模型返回空就 return false：

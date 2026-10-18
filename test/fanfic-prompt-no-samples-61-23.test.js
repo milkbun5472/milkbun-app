@@ -7,7 +7,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 
 test("正面示例那一栏不再给成句：✓ 那半边是判据，不是范文", () => {
   const seg = src.slice(src.indexOf("  const FANFIC_GOOD_EXAMPLES ="), src.indexOf("  const INTIMACY_WORLDNOTE ="));

@@ -5,7 +5,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 // 她 2026-09-02：「这个格式不对。而且本来买东西也不应该调用啊。
 //                 应该做成系统通知放聊天里然后等我按回复他才反应」。

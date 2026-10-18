@@ -29,7 +29,7 @@ test("小房间一律不摆卡、不刷卡；钱包空着时叫她直接问TA要
   assert.match(app, /const _myKin = _kinRoomOk \? myKinOf\(charId\) : null;/);
   assert.match(app, /myKinOf\(charId\) && !sideRoom\) \{/);
   assert.match(app, /\|亲属卡\|副卡\/\.test\(recentUserText\)/);
-  const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(screens, /想要就直接在聊天里问 TA 要/);
   assert.doesNotMatch(screens, /允许角色给我亲属卡/);
 });

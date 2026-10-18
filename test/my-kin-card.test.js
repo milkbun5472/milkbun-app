@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const A = R("app.js"), C = R("components.js"), S = R("screens.js");
+const A = R("app.js"), C = R("components.js"), S = (R("screens.js") + "\n" + R("screens-ui.js"));
 test("刷的是她的钱，三道闸：冻结 / 额度 / 她钱包", () => {
   const i = A.indexOf("const spendMyKin = ");
   const body = A.slice(i, A.indexOf("\n  };\n", i));

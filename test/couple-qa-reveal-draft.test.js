@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const src = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("TA出的题：揭题草稿认题不认页，交的一定是她写的那道", () => {
   assert.doesNotMatch(src, /revealVal/);
   assert.match(src, /value: revealDraft\.id === e\.id \? revealDraft\.text : ""/);

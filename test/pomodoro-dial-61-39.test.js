@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const src = fs.readFileSync("js/pomodoro.js", "utf8");
+const src = (fs.readFileSync("js/pomodoro-core.js", "utf8") + "\n" + fs.readFileSync("js/pomodoro.js", "utf8"));
 const code = src.split("\n").map(l => l.split("//")[0]).join("\n");
 
 test("时长是一个真的发条盘，不是四颗药丸", () => {

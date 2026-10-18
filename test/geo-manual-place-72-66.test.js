@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const P = f => fs.readFileSync(__dirname + "/../" + f, "utf8");
-const eng = P("js/engine.js"), map = P("js/map.js"), app = P("js/app.js"), screens = P("js/screens.js");
+const eng = P("js/engine.js"), map = P("js/map.js"), app = P("js/app.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 // engine.js 整份太大，只把这三支抠出来跑
 function loadGeo(fetchImpl) {

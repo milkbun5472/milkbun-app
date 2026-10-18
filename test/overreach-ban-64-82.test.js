@@ -8,7 +8,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
+const fic = (fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/fanfic-core.js", "utf8"));
 
 test("温度由人设定，不由禁令定", () => {
   // 三件套那条也补了对称的一句：它原来只说「该怎么关心还怎么关心」，

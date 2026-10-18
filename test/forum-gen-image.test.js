@@ -2,7 +2,7 @@
 const fs = require("fs"), assert = require("assert");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 assert.ok(/const forumGenImage = async \(itemId, quiet, force, newDesc\)/.test(app));
 // ⚠️原来这儿钉的是 drawFromDesc 的【整串参数表】，v74.435 加了第三个参数 ph.who
 //   （让发帖的人自己说画面里有没有人）就断了——参数表不该当锚（施工规则/anchor-on-code）。

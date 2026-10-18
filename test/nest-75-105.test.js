@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
 const nest = R("js/nest.js"), app = R("js/app.js"), comp = R("js/components.js"), html = R("index.html"),
-  screens = R("js/screens.js"), ts = R("js/theme-studio.js"), tsui = R("js/theme-studio-ui.js"), engine = R("js/engine.js");
+  screens = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), ts = R("js/theme-studio.js"), tsui = R("js/theme-studio-ui.js"), engine = R("js/engine.js");
 
 function loadNest(store) {
   const g = { StylePresets: null };
@@ -23,10 +23,11 @@ function loadNest(store) {
 
 test("接线：主屏有图标、路由进得去、脚本先于 app.js 加载", () => {
   assert.match(comp, /nest: \{ kind: "app", zh: "秋秋小窝", G: window\.GNest/);
-  assert.match(nest, /window\.GNest = /);
+  // 2026-10-18 瘦身第八批：小窝整份点进去才加载，主屏图标搬到 components.js（开机就要画）
+  assert.match(comp, /window\.GNest = /);
+  assert.doesNotMatch(nest, /window\.GNest = /);
   assert.match(app, /screen === "nest"\) body = h\(window\.NestApp, \{/);
-  const i = html.indexOf("js/nest.js?v="), j = html.indexOf("js/app.js?v=");
-  assert.ok(i > 0 && j > i, "nest.js 没加载，或者排在 app.js 后面");
+  assert.match(html, /<script type="text\/lazy" data-lazy="nest" data-src="js\/nest\.js\?v=/, "nest.js 没登记成点进去才加载");
 });
 
 test("走秋秋机自己的前门：包里不许有 Worker 真地址、不许有她的名字", () => {

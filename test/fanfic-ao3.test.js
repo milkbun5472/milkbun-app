@@ -2,13 +2,15 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 // 那几个纯函数抠出来真跑（不碰 React、不碰 DOM）
 const F = (() => {
   const a = fic.indexOf("  function fmtNum(n)");
   const b = fic.indexOf("  // cp token：charId");
   assert.ok(a > 0 && b > a, "抠不出同人文那几个纯函数");
-  return new Function(fic.slice(a, b) + "\nreturn { fmtNum, ficHash, ficTagKind, ficPenName, ficWords, ficHasMe };")();
+  // 2026-10-18 起 ficHash…ficWords 搬去了 fanfic-core.js：两段拼起来才是原来那一段
+  const _u = fic.indexOf("  // CP 下拉里的选项", a), _c = fic.indexOf("  function ficHash(s)");
+  return new Function(fic.slice(a, _u) + "\n" + fic.slice(_c, b) + "\nreturn { fmtNum, ficHash, ficTagKind, ficPenName, ficWords, ficHasMe };")();
 })();
 
 // 她 2026-08-30：「参考 ao3 的页面再加点我们之间的设计」

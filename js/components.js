@@ -1718,6 +1718,10 @@ function fitFont(text, base, fits, min) {
 if (typeof window !== "undefined") {
   // 小剧场：两片小幕布 + 星
   window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
+  // 秋秋小窝的主屏图标：一个小屋檐底下三格格子（js/nest.js 点进去才加载，2026-10-18 瘦身第八批搬来）
+  window.GNest = p => h(Svg, p,
+    h("path", { d: "M3 10l9-6 9 6" }), h("path", { d: "M5 9v11h14V9" }),
+    h("path", { d: "M5 14h14" }), h("path", { d: "M12 14v6" }));
   // 解梦馆：月亮抱着一本摊开的书（和「梦境」app 的图标区分开）
   window.GDreamBook = function (props) {
     const size = (props && props.size) || 34, color = (props && props.color) || "#1b1a17";
@@ -1766,7 +1770,13 @@ function lazyScreen(name, group, zh) {
   window[name] = Stub;
 }
 [["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
- ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
+ ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"], ["FanficApp", "fanfic", "同人文"], ["FairyGardenApp", "garden", "小世界"],
+ // 下面这一排都在 screens-ui.js（screens.js 的页面那一半，2026-10-18 拆出来）：点开其中哪一页，整组一起装上
+ // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
+ // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
+ ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
+ ["NestApp", "nest", "秋秋小窝"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
+ ["Cast", "screens", "人格档案馆"], ["CastForm", "screens", "角色档案"], ["Ties", "screens", "关系网"], ["WorldBook", "screens", "世界书"], ["ForumAnonWrap", "screens", "匿名"], ["Shop", "screens", "购物"], ["Takeout", "screens", "外卖"], ["MyKinPage", "screens", "亲属卡"], ["KinshipBill", "screens", "亲属卡账单"], ["ListenTogether", "screens", "一起听"], ["Config", "screens", "设置"], ["MemoryLib", "screens", "记忆库"], ["Diary", "screens", "日记"], ["MyWallet", "screens", "钱包"], ["CharWallet", "screens", "TA 的钱包"], ["EmoteMatrix", "screens", "表情包"], ["Favorites", "screens", "收藏"], ["Carry", "screens", "随身"], ["MyCloset", "screens", "衣柜"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
   const list = (items || []).filter(x => x && x.src);
   const [i, setI] = useState(Math.min(Math.max(0, at || 0), Math.max(0, list.length - 1)));
@@ -13258,7 +13268,14 @@ function useImgCutout(src) {
       const W = 24, H = 24, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
       const g = cv.getContext("2d"); g.drawImage(im, 0, 0, W, H);
       const a = (x, y) => g.getImageData(x, y, 1, 1).data[3];
-      const v = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
+      // 只看四个角会把【圆角方图】（四角透明、四边实心的 png 头像）错当成抠图，原样画出来就是一块方（群里 2026-10-18「我的秋秋怎么变方了」）。
+      //   抠好的人/物四边中点大多也是透明的；圆角方、圆形头像四边中点都是实心的——再数一遍四边中点，至少两处透明才算抠图
+      const corners = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
+      const mids = [a(W >> 1, 0), a(0, H >> 1), a(W - 1, H >> 1), a(W >> 1, H - 1)].filter(x => x < 20).length;
+      // 再往里收一圈看（群里 2026-10-18 又一张：外头留了一圈透明边、里面是一整块方图）：
+      //   角上往里两成那四个点，抠好的人/物大多还是透明的；带透明边的方图、圆角方图这里是实心的——实心就当普通图，照旧裁圆
+      const k = Math.round(W * 0.2), inner = [a(k, k), a(W - 1 - k, k), a(k, H - 1 - k), a(W - 1 - k, H - 1 - k)].filter(x => x < 20).length;
+      const v = corners && mids >= 2 && inner >= 2;
       _alphaSeen[src] = v; if (!dead) setCut(v);
     } catch (e) { _alphaSeen[src] = false; } };
     im.src = src;
@@ -16001,9 +16018,89 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
     }
   }, children));
 }
+// ── 心声卡自己写（群里 2026-10-18：「能把整个心声卡片替换掉……能自己写角色的心声怎么显示，然后美化呀交互什么的」）──
+//   { html: 她写的 HTML（留空＝原来那张卡）, fields: [{name, desc}] 自己加的栏，每轮让他多填这几格 }
+//   一个人一套存在他的聊天设置里（stateTpl）；x_stateTplGlobal 是全局那套，谁没单独写就用它。
+const STATE_TPL_MAX_FIELDS = 5, STATE_TPL_HTML_MAX = 60000, STATE_TPL_VAL_MAX = 160;
+function cleanStateTpl(v) {
+  if (!v || typeof v !== "object") return null;
+  const html = String(v.html || "").slice(0, STATE_TPL_HTML_MAX);
+  const seen = {};
+  const fields = (Array.isArray(v.fields) ? v.fields : []).map(f => ({
+    name: String((f && f.name) || "").replace(/[{}"\n\r]/g, "").trim().slice(0, 12),
+    desc: String((f && f.desc) || "").replace(/\s+/g, " ").trim().slice(0, 120)
+  })).filter(f => f.name && !seen[f.name] && (seen[f.name] = 1)).slice(0, STATE_TPL_MAX_FIELDS);
+  return html.trim() || fields.length ? { html, fields } : null;
+}
+// 这个人实际用哪一套：他自己写了就用他的；没写就用全局那套
+function stateTplFor(charSettings) {
+  const own = cleanStateTpl(charSettings && charSettings.stateTpl);
+  if (own) return own;
+  try { return cleanStateTpl(typeof loadJSON === "function" ? loadJSON("x_stateTplGlobal", null) : null); } catch (e) { return null; }
+}
+// 自己加的栏：从模型这一轮交上来的 extra 里只收她定过的那几格
+function pickStateExtra(tpl, extra) {
+  if (!tpl || !tpl.fields || !tpl.fields.length || !extra || typeof extra !== "object") return null;
+  const out = {};
+  tpl.fields.forEach(f => { const v = extra[f.name]; if (v != null && String(v).trim() && String(v).trim().toLowerCase() !== "null") out[f.name] = String(v).trim().slice(0, STATE_TPL_VAL_MAX); });
+  return Object.keys(out).length ? out : null;
+}
+// 每轮的格式要求里多出来的那一段（只有她加了栏才有）
+function stateExtraSpec(tpl) {
+  if (!tpl || !tpl.fields || !tpl.fields.length) return "";
+  return "extra: object，每轮都填，键名照下面原样写：" + tpl.fields.map(f => "「" + f.name + "」" + (f.desc ? "＝" + f.desc : "")).join("；")
+    + "。每格都是你此刻真实的状态，第一人称，一两句话说完；跟 word、thought 不重复。";
+}
+// 把一轮的状态拼成模板能用的那几样
+function stateTplVars(character, state, mood, affinity) {
+  const S = v => String(v == null ? "" : v).trim();
+  const base = { 名字: S(character && character.name), 心情: S(mood && (mood.label || mood)), 心声: S(state && state.thought),
+    动作: S(state && state.action), 穿着: S(state && state.wearing), 好感: typeof affinity === "number" ? String(affinity) : "" };
+  return Object.assign(base, (state && state.extra) || {});
+}
+function stateTplEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+function stateTplFill(html, vars, data) {
+  const body = String(html || "").replace(/\{\{\s*([^{}]{1,16}?)\s*\}\}/g, (m, k) => vars[k] != null ? stateTplEsc(vars[k]) : "");
+  // 给想做翻页、时间线的人：整份数据也递进去（window.STATE），JSON 里的 < 换掉，免得把 script 提前关上
+  return "<script>window.STATE=" + JSON.stringify(data).replace(/</g, "\\u003c") + ";</script>" + body;
+}
+function StateTplCard({ tpl, character, state, mood, affinity, history }) {
+  const vars = stateTplVars(character, state, mood, affinity);
+  const data = { now: vars, history: (history || []).slice(0, 30).map(x => Object.assign({ 心声: x.thought || "", 心情: x.mood && (x.mood.label || x.mood) || "", 动作: x.action || "", 穿着: x.wearing || "", 时间: x.ts || 0 }, x.extra || {})) };
+  return h("div", { "data-wk": "statetplcard", style: { padding: "8px 10px 12px" } }, h(HtmlCard, { html: stateTplFill(tpl.html, vars, data) }));
+}
+// 设置页里那一块：写 HTML、加栏、存成全局
+function StateTplEditor({ value, onChange }) {
+  const t = useTheme();
+  const v = value || { html: "", fields: [] };
+  const fields = Array.isArray(v.fields) ? v.fields : [];
+  const set = patch => onChange(Object.assign({ html: v.html || "", fields }, patch));
+  const inp = { width: "100%", border: "1px solid " + t.line, borderRadius: 10, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, padding: "8px 10px" };
+  const [glob, setGlob] = useState(() => !!(typeof loadJSON === "function" && cleanStateTpl(loadJSON("x_stateTplGlobal", null))));
+  const names = ["名字", "心情", "心声", "动作", "穿着", "好感"].concat(fields.map(f => f.name).filter(Boolean));
+  return h("div", { "data-wk": "statetpledit", style: { paddingTop: 4 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
+      "点他头像弹出来的那张心声卡，可以整张换成你写的 HTML。用 {{心声}} 这种写法留空，打开时填进这一轮的内容；能用的有：" + names.map(n => "{{" + n + "}}").join(" ")
+      + "。想做翻页、往回翻：window.STATE.history 是最近几轮。留空就是原来那张卡。"),
+    h("textarea", { "data-wk": "statetplhtml", value: v.html || "", onChange: e => set({ html: e.target.value }), rows: 7, placeholder: "在这里贴 HTML", style: Object.assign({}, inp, { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 11.5, lineHeight: 1.5 }) }),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, marginTop: 14 } }, "自己加的栏"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "3px 0 8px" } },
+      "每轮他会把这几格也填上，跟心声一起存。名字就是模板里 {{}} 里写的那个；说明写这一格填什么，原样交给他。最多 " + STATE_TPL_MAX_FIELDS + " 栏，每多一栏每轮多花一点。"),
+    fields.map((f, i) => h("div", { key: i, "data-wk": "statetplfield", className: "flex items-start", style: { gap: 6, marginBottom: 6 } },
+      h("input", { value: f.name || "", onChange: e => set({ fields: fields.map((x, j) => j === i ? { ...x, name: e.target.value.slice(0, 12) } : x) }), placeholder: "栏名", style: Object.assign({}, inp, { width: 84, flexShrink: 0 }) }),
+      h("input", { value: f.desc || "", onChange: e => set({ fields: fields.map((x, j) => j === i ? { ...x, desc: e.target.value.slice(0, 120) } : x) }), placeholder: "这一格填什么", style: Object.assign({}, inp, { flex: 1, minWidth: 0 }) }),
+      h("button", { onClick: () => set({ fields: fields.filter((_, j) => j !== i) }), className: "active:opacity-60 shrink-0", style: { padding: "8px 6px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "删"))),
+    fields.length < STATE_TPL_MAX_FIELDS ? h("button", { "data-wk": "statetpladd", onClick: () => set({ fields: fields.concat([{ name: "", desc: "" }]) }), className: "active:opacity-70",
+      style: { padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub, background: "transparent" } }, "＋ 加一栏") : null,
+    h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 14 } },
+      h("button", { "data-wk": "statetplglobal", onClick: () => { const c = cleanStateTpl(v); if (typeof saveJSON === "function") saveJSON("x_stateTplGlobal", c); setGlob(!!c); if (window.__toast) window.__toast(c ? "存成全局了：没单独写的人都用这一套" : "全局那套清掉了"); },
+        className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: "transparent" } }, "把这一套存成全局"),
+      glob ? h("button", { onClick: () => { if (typeof saveJSON === "function") saveJSON("x_stateTplGlobal", null); setGlob(false); if (window.__toast) window.__toast("全局那套清掉了"); },
+        className: "active:opacity-70", style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent" } }, "清掉全局那套") : null));
+}
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought, onSetWearing, wearSets, tpl
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
@@ -16141,8 +16238,9 @@ function StateCard({
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
       (page === "gaze" && gazeOn && window.GazePage)
         ? h("div", { style: { padding: "13px 15px 18px" } }, h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: scTa, onSeed: onGazeSeed, seedBusy: gazeSeedBusy, onReview: onGazeReview, reviewBusy: gazeReviewBusy }))
+        : (tpl && String(tpl.html || "").trim() && !showHist) ? h(StateTplCard, { tpl, character, state, mood: dm, affinity: aff, history: hist })
         : body),
-    (page === "now" && !showHist) ? scale : null);
+    (page === "now" && !showHist && !(tpl && String(tpl.html || "").trim())) ? scale : null);
 }
 
 // ============================================================
@@ -19727,21 +19825,23 @@ function offlineSubSkin(t, withHead) {
 // pages: [{ key, char, title, tint, state() }]
 function SettingCatalog({ pages, onOpen, note }) {
   const t = useTheme();
-  return h("div", { style: { marginTop: 6 } },
+  // 挂点（群里 2026-10-18：「这个界面要是能改就好了，还有他点开的页面」）：目录、每张卡、卡里三样、底下那张说明
+  return h("div", { "data-wk": "setcatalog", style: { marginTop: 6 } },
     // ⚠️不是两列大卡：一眼扫不完的东西，不管怎么分类都难找（线上那次的教训）。
     h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pages.map(page => h("button", {
       key: page.key,
+      "data-wk": "setcard", "data-key": page.key,
       onClick: () => onOpen(page.key),
       className: "w-full flex items-center active:opacity-70",
       style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
     },
-      h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
+      h("span", { "data-wk": "setcardicon", style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
       h("span", { className: "flex-1 min-w-0" },
-        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
-        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
+        h("span", { "data-wk": "setcardtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
+        h("span", { "data-wk": "setcardsub", style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
       h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "\u203a")
     ))),
-    note ? h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
+    note ? h("div", { "data-wk": "setnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
 }
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
@@ -19749,16 +19849,16 @@ function SettingSection({ title, open, onToggle, danger, children }) {
   //   光靠发丝线分隔的几行字浮在纹理上，看着像还没画完（她 2026-09-05：
   //   「聊天设置里面的子页也还是白屏很无聊」——无聊的一半是这个）。
   //   卡片压在纸上才立得住，也才对得上这一页「一叠档案卡」的样子。
-  return h("div", { style: { borderRadius: 15, border: "1px solid " + t.line,
+  return h("div", { "data-wk": "setsection", "data-on": open ? "1" : "0", style: { borderRadius: 15, border: "1px solid " + t.line,
     // ⚠️skinAlpha 收的是【两位十六进制后缀】，不是 0-1 的小数：传 .82 会拼出
     //   "#xxxxxx0.82" 这种废值（六位色号才拼，所以只有真拼上的时候才坏，
     //   非六位的反而原样返回——正是 v59.62 那种只在某些主题下静默出错的长相）。
     background: skinAlpha(t.bg2, open ? "f5" : "d4"), marginBottom: 9, overflow: "hidden",
     boxShadow: open ? "0 3px 14px rgba(40,34,26,.07)" : "none", transition: "box-shadow .2s" } },
-    h("button", { onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
+    h("button", { "data-wk": "setsectionhead", onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 14px" } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: danger ? t.accent : t.ink } }, title),
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
-    open ? h("div", { style: { padding: "0 14px 12px" } }, children) : null);
+    open ? h("div", { "data-wk": "setsectionbody", style: { padding: "0 14px 12px" } }, children) : null);
 }
 function RoomResume({ room, messages, character }) {
   const t = useTheme(), lines = window.ChatRooms.resumeLines(messages);
@@ -20444,6 +20544,7 @@ function ChatSettings({
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
   const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
   const [autoReplySec, setAutoReplySec] = useState(Math.max(0, Number(settings.autoReplySec) || 0)); // 停手几秒自己回，0＝关
+  const [stateTpl, setStateTpl] = useState(() => cleanStateTpl(settings.stateTpl) || { html: "", fields: [] });
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch);
   // 这个角色不要哪几台 MCP（存关掉的，不存开着的：新接一台默认人人都有）
@@ -20660,7 +20761,7 @@ function ChatSettings({
         + " · 点进来先" + (defaultOffline ? "线下" : "线上") + " · 动描 " + onOff(actDesc) },
     // 「窗」原来一格装了八节（她 2026-09-30：「太长了分一分」）——长相和那几样「看不见的层」各自拉一个抽屉
     { key: "dress", char: "衣", title: "TA 的聊天长相", tint: "#b0708f",
-      state: () => "皮肤 " + (skin || "跟随全局") + (bubble ? " · 单挑了气泡" : "") + (customCSS ? " · 自己写了 CSS" : "") + (chatBg ? " · 有背景图" : "") },
+      state: () => "皮肤 " + (skin || "跟随全局") + (bubble ? " · 单挑了气泡" : "") + (customCSS ? " · 自己写了 CSS" : "") + (stateTpl && (String(stateTpl.html || "").trim() || (stateTpl.fields || []).length) ? " · 自己写了心声卡" : "") + (chatBg ? " · 有背景图" : "") },
     // 动态形象（她 2026-10-05）：平时 / 专注时 / 通话时各挂一张图或一段视频，番茄钟和视频通话都从这儿取
     { key: "motion", char: "影", title: "TA 动起来的样子", tint: "#718567",
       state: () => { const m = window.VideoApi ? (window.VideoApi.motionAll()[character.id] || {}) : {};
@@ -20758,6 +20859,7 @@ function ChatSettings({
       webSearch,
       mcpOff,
       noLoveLetter: !loveLetter,
+      stateTpl: cleanStateTpl(stateTpl),
       dongnianMsgOnly,
       busyHold: busyHold,
       busyReroll: busyReroll,
@@ -21136,7 +21238,7 @@ function ChatSettings({
         callBg ? h("button", { onClick: () => setCallBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: callBgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0];
           if (f) resizeImageFile(f, 1200, 0.82).then(d => typeof imgToVault === "function" ? imgToVault(d) : d).then(r => setCallBg(r)); e.target.value = ""; } })))),
-  show("dress", { title: "自己写 CSS · 整套导出导入", ...sec("look-css") },
+  show("dress", { title: "自己写 CSS · 心声卡 · 整套导出导入", ...sec("look-css") },
     h(ChatLookPack, { fileBase: (settings.remark || (character && character.name) || "TA"),
       getLook: () => ({ skin, bubble, font, chatBg, layout, customCSS }),
       onApply: L => { if (L.skin != null) setSkin(L.skin); if (L.bubble != null) setBubble(L.bubble); if (L.font != null) setFont(L.font);
@@ -21150,7 +21252,10 @@ function ChatSettings({
       onDone: L => { setSkin(L.skin || ""); setBubble(L.bubble && typeof L.bubble === "object" ? L.bubble : null);
         const F = window.FontChoice, cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
         setFont(F ? F.clean(L.font, cus) : (L.font || { body: "", display: "" }));
-        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
+        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null,
+    // 心声卡自己写（她 2026-10-18：放「TA 的聊天长相」里）——跟自己写 CSS 同一节：都是「自己动手写它长什么样」
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginTop: 22, paddingTop: 14, borderTop: "1px solid " + t.line } }, "心声卡自己写"),
+    h(StateTplEditor, { value: stateTpl, onChange: setStateTpl })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
   // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还没开空间时，TA自己想更进一步就能写一封；关掉就不会
   //   名字不叫「主动表白」了（她 2026-10-17：「现在空间不止是情侣」）
   h("div", { className: "flex items-center justify-between pt-5" },

@@ -17,7 +17,8 @@ const lazy = [...html.matchAll(/<script type="text\/lazy" data-lazy="([a-z]+)" d
 test("登记延后的脚本：浏览器不执行、地址带 ?v=、文件都在，不会同时又当普通脚本加载一遍", () => {
   assert.ok(lazy.length >= 12, "只认出 " + lazy.length + " 份");
   lazy.forEach(x => {
-    assert.match(x.src, /^js\/[a-z0-9-]+\.js\?v=\d+\.\d+$/, x.src);
+    // 小世界那组（2026-10-18）里有 apps/fairy-garden/ 下的几份，版本号是游戏构建那一套（fg-…）
+    assert.match(x.src, /^(js\/[a-z0-9-]+|apps\/fairy-garden\/(day\/)?[a-z0-9-]+)\.js\?v=(\d+\.\d+|fg-[0-9a-f]+)$/, x.src);
     assert.ok(fs.existsSync(path.join(__dirname, "..", x.src.split("?")[0])), "文件不在：" + x.src);
     assert.ok(!html.includes('<script src="' + x.src.split("?")[0]), "又当普通脚本加载了：" + x.src);
   });
@@ -26,7 +27,7 @@ test("登记延后的脚本：浏览器不执行、地址带 ?v=、文件都在�
   assert.ok(html.indexOf("js/games-list.js") < html.indexOf("js/app.js"));
   // 从大文件里拆出来的「开机那半」放回原文件的位置：它们开机就跑的那几行要用 engine.js 里的东西（文字库 txtVaultReady 之类）。
   //   2026-10-18 study-core.js 一度排在 engine.js 前面：家里版是跳过了等文字库（迁移白跑），公共版装订成一份直接白屏
-  ["js/study-core.js", "js/ledger-core.js"].forEach(f => assert.ok(html.indexOf(f) > html.indexOf("js/engine.js"), f + " 排到 engine.js 前面了"));
+  ["js/study-core.js", "js/ledger-core.js", "js/fanfic-core.js", "js/char-day-core.js", "js/fairy-garden-core.js"].forEach(f => assert.ok(html.indexOf(f) > html.indexOf("js/engine.js"), f + " 排到 engine.js 前面了"));
 });
 
 test("每一组都有人接：页面那几组开机放了替身，攻略那组由值班室外面那层和秋秋接", () => {
@@ -42,7 +43,12 @@ test("替身的名字就是那份脚本自己挂到 window 上的名字", () => 
   [...stubTable.matchAll(/\["([A-Za-z]+)", "([a-z]+)", "[^"]+"\]/g)].forEach(m => {
     const files = lazy.filter(x => x.group === m[2]).map(x => R(x.src.split("?")[0])).join("\n");
     // 挂到 window 上，或者是那份脚本顶层的 function 声明（经典脚本里顶层 function 本来就挂在 window 上，phone-ui.js 那种）
-    assert.match(files, new RegExp("window\\." + m[1] + " = |^function " + m[1] + "\\(", "m"), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
+    // 2026-10-18 起 garden 那组的 fairy-garden.js 是 (function (root) {…})(window) 包着的：root 就是 window，root.X = 也算挂上
+    const viaRoot = /\}\)\(window\);/.test(files) ? "|^\\s*root\\." + m[1] + " = " : "";
+    // 健康、星测、时刻那几份顶上写的是 const g = typeof window !== "undefined" ? window : globalThis：g.X = 也算
+    //   拆开以后页面那半的 g 是从开机那半递过来的（const { g, … } = (typeof window …).XCore），同一个东西
+    const viaG = /const g = typeof window !== "undefined" \? window : globalThis|const \{[^}]*\bg\b[^}]*\} = \(typeof window !== "undefined" \? window : globalThis\)/.test(files) ? "|^\\s*g\\." + m[1] + " = " : "";
+    assert.match(files, new RegExp("window\\." + m[1] + " = |^function " + m[1] + "\\(" + viaRoot + viaG, "m"), m[1] + " 在 " + m[2] + " 那组里没有挂到 window 上");
   });
 });
 
@@ -82,4 +88,54 @@ test("装载器：按顺序挂、只装一次、失败了能重来", async () =>
   await L.load("g");
   assert.equal(added.length, 3, "装好了还在重复装");
   assert.equal(L.isLoaded("没登记的组"), true, "没登记延后的组当它本来就在");
+});
+
+// 拆成「开机那半 + 页面那半」的几份：页面那半用到的、开机那半里定义的名字，必须一个不落地递过去。
+//   2026-10-18 记账拆完漏了 genComments（async function 那种写法当时没认出来），选角色批注一点就报找不到。
+test("拆开的两半：页面那半用到的开机那半的名字，全都递过去了（async function、一行几个 const 也算）", () => {
+  const nocom = t => t.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  [["js/ledger-core.js", "js/ledger.js", "LedgerCore"], ["js/fanfic-core.js", "js/fanfic.js", "FanficCore"], ["js/shua-core.js", "js/shua.js", "ShuaCore"], ["js/pomodoro-core.js", "js/pomodoro.js", "PomoCore"], ["js/trpg-core.js", "js/trpg.js", "TrpgCore"], ["js/health-core.js", "js/health.js", "HealthCore"], ["js/astro-core.js", "js/astro.js", "AstroCore"], ["js/shike-core.js", "js/shike.js", "ShikeCore"], ["js/dwell-core.js", "js/dwell.js", "DwellCore"], ["js/watch-core.js", "js/watch.js", "WatchCore"]].forEach(([cf, uf, v]) => {
+    if (!fs.existsSync(path.join(__dirname, "..", cf))) return;
+    const core = R(cf), ui = R(uf);
+    const names = new Set();
+    core.split("\n").forEach(l => {
+      let m = /^  (?:const|let|var)\s+(.*)$/.exec(l);
+      // 只认最外层的「名字 =」：一行里箭头函数自己的局部变量（const r = x => …）不算（2026-10-18 健康那份就有）
+      if (m) { let d = 0, seg = ""; for (const ch of m[1] + ",") {
+        if ("([{".includes(ch)) d++; else if (")]}".includes(ch)) d--;
+        if (d === 0 && ch === ",") { const mm = /^\s*([A-Za-z_$][\w$]*)\s*=/.exec(seg); if (mm) names.add(mm[1]); seg = ""; } else seg += ch;
+      } }
+      m = /^  (?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(l);
+      if (m) names.add(m[1]);
+    });
+    const dm = new RegExp("const \\{ ([^}]*) \\} = (?:window|\\(typeof window !== \"undefined\" \\? window : globalThis\\))\\." + v + ";").exec(ui);
+    assert.ok(dm, uf + " 没从 window." + v + " 取");
+    const have = new Set(dm[1].split(",").map(x => x.trim()));
+    const own = new Set([...ui.matchAll(/^  (?:async\s+)?(?:function|const|let)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]));
+    const body = nocom(ui.replace(dm[0], ""));
+    const miss = [...names].filter(n => !have.has(n) && !own.has(n) && new RegExp("(?<![\\w$.])" + n.replace(/\$/g, "\\$") + "(?![\\w$])").test(body));
+    assert.deepEqual(miss, [], uf + " 用到了却没从 " + cf + " 递过来：" + miss.join("、"));
+  });
+});
+
+// 页面那半拿到的是 const 解构出来的一份，给它重新赋值就是「Assignment to constant variable」，整页打不开。
+//   2026-10-18 同人文拆完，FanficApp 每次画都给 ficMeOf / ficProfile 赋值，当场炸；改成经 setFicMe 递回开机那半。
+//   同名的局部 const（页面里自己声明的那种）不算。
+test("拆开的两半：页面那半不给共用的名字重新赋值", () => {
+  [["js/ledger.js", "LedgerCore"], ["js/fanfic.js", "FanficCore"], ["js/shua.js", "ShuaCore"], ["js/pomodoro.js", "PomoCore"], ["js/trpg.js", "TrpgCore"], ["js/health.js", "HealthCore"], ["js/astro.js", "AstroCore"], ["js/shike.js", "ShikeCore"], ["js/dwell.js", "DwellCore"], ["js/watch.js", "WatchCore"]].forEach(([uf, v]) => {
+    if (!fs.existsSync(path.join(__dirname, "..", uf))) return;
+    const ui = R(uf).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+    const dm = new RegExp("const \\{ ([^}]*) \\} = (?:window|\\(typeof window !== \"undefined\" \\? window : globalThis\\))\\." + v + ";").exec(ui);
+    if (!dm) return;
+    const body = ui.replace(dm[0], "");
+    const hit = dm[1].split(",").map(x => x.trim()).filter(n => {
+      const re = new RegExp("(^|[^\\w$.])" + n.replace(/\$/g, "\\$") + "\\s*(=(?!=)|\\+=|-=|\\+\\+|--)", "m");
+      const m = re.exec(body);
+      if (!m) return false;
+      // 那一行是 const/let 声明（局部同名）就放过
+      const line = body.slice(body.lastIndexOf("\n", m.index) + 1, body.indexOf("\n", m.index));
+      return !new RegExp("\\b(const|let|var)\\s+[^=]*\\b" + n + "\\b").test(line);
+    });
+    assert.deepEqual(hit, [], uf + " 给共用的名字重新赋值了：" + hit.join("、"));
+  });
 });

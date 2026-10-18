@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const fic = R("js/fanfic.js"), app = R("js/app.js");
+const fic = (R("js/fanfic.js") + "\n" + R("js/fanfic-core.js")), app = R("js/app.js");
 const Axes = require("../js/axes.js");
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const F_ = strip(fic), A = strip(app);

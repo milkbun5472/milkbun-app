@@ -83,7 +83,7 @@ test("导出全部数据不再无条件报「已导出」", () => {
 
 // 拿不到她那份布局，主屏的毛病就只能靠猜。这条路不许依赖导出文件。
 test("主屏布局排查：读盘、说清楚 app 现在在哪儿", () => {
-  const src = grab(read("screens.js"), "  const build = () => {\n    let L = {}, F = {}, S = {};", "  const go = async () => {", "HomeLayoutProbe.build");
+  const src = grab((read("screens.js") + "\n" + read("screens-ui.js")), "  const build = () => {\n    let L = {}, F = {}, S = {};", "  const go = async () => {", "HomeLayoutProbe.build");
   const store = {
     x_homeLayout: JSON.stringify({ 0: ["f_1", "cast", "sp_0_1"], 1: ["phone"] }),
     x_homeFolders: JSON.stringify({ f_1: { name: "杂物", keys: ["shop", "dwell"] }, f_2: { name: "飘着的", keys: ["memo"] } }),

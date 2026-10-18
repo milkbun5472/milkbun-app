@@ -1,7 +1,7 @@
 // 贴吧配图（她 2026-09-24：「贴吧能不能也支持上传图片或者写假图描述跟聊天一样。然后角色也可以（不要强制）」）
 const fs = require("fs"), assert = require("assert"), vm = require("vm");
 const strip = s => s.replace(/^\s*\/\/[^\n]*$/gm, "");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const cmp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 

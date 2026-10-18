@@ -3,7 +3,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const i = eng.indexOf("async function generateNpc"), src = eng.slice(i, eng.indexOf("\n}\n", i) + 2);
 const mk = raw => new Function("callAI", "parseJSONLoose", src + ";return generateNpc;")(async () => raw, () => null);
 test("NPC generation survives stray quotes and truncation", async () => {

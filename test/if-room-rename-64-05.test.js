@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const scr = read("screens.js"), man = read("assistant-manual.js"), app = read("app.js");
+const scr = (read("screens.js") + "\n" + read("screens-ui.js")), man = read("assistant-manual.js"), app = read("app.js");
 
 test("看得见的字都换了", () => {
   assert.match(scr, /h\(Head, \{ zh: "另一种我们", bg: "transparent", noLine: true, ink: IF_INK/, "页面标题没改");

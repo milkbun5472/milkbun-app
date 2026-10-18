@@ -34,10 +34,10 @@ test("一起听里说话也更新状态卡：心情/动作/心声跟 say 同一�
 test("选人底下那格：开着就不落单聊，房里进来的照旧落房；播放页能翻「刚才说的」", () => {
   assert.match(app, /if \(!inRoom && listen\.talkStay\) \{[\s\S]{0,200}pChat\(charId, p => \{[\s\S]{0,300}last\.kind === "listenlog" && last\.stay[\s\S]{0,600}kind: "listenlog", stay: true[\s\S]{0,200}return;/);
   assert.match(app, /onSetTalkStay: on => saveListen\(p => \(\{ \.\.\.p, talkStay: !!on \}\)\)/);
-  assert.match(rd("screens.js"), /"说的话只留在一起听里"/);
+  assert.match((rd("screens.js") + "\n" + rd("screens-ui.js")), /"说的话只留在一起听里"/);
   assert.match(rd("listen-talk.js"), /"刚才说的"/);
 });
 test("小条也能关：talkNote 关掉单聊一个字都不落", () => {
   assert.match(app, /if \(listen\.talkNote === false\) return;/);
-  assert.match(rd("screens.js"), /"单聊里留一张小条"/);
+  assert.match((rd("screens.js") + "\n" + rd("screens-ui.js")), /"单聊里留一张小条"/);
 });

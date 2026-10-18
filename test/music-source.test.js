@@ -66,7 +66,7 @@ test('原接口仍用原地址和账号；不开 GD 不产生 GD 请求', async 
   await assert.rejects(f.api.request({ provider: 'netease', base: '' }, '/search?keywords=x'), /先配置/);
 });
 test('写入方保留 GD 元数据，收藏/歌单/唱片不会丢；旧网易云 ID 不迁移', () => {
-  const app = read('app.js'), engine = read('engine.js'), screens = read('screens.js');
+  const app = read('app.js'), engine = read('engine.js'), screens = (read('screens.js') + "\n" + read('screens-ui.js'));
   assert.match(app, /const resultToSong = s => \(\{[^\n]*source: "netease", neteaseId: String\(s.id\)[^\n]*gdPicId: s.gdPicId, gdLyricId: s.gdLyricId/);
   assert.match(app, /const cloneSong = s => \(\{ \.\.\.s,/);
   assert.match(app, /added.push\(\{[^\n]*gdPicId: info.gdPicId, gdLyricId: info.gdLyricId/);

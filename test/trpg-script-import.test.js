@@ -4,9 +4,9 @@ const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
-const T = require("../js/trpg.js");
-const src = fs.readFileSync(path.join(__dirname, "../js/trpg.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const T = (require("../js/trpg-core.js"), require("../js/trpg.js"));
+const src = (fs.readFileSync(path.join(__dirname, "../js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/trpg.js"), "utf8"));
+const screens = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 // 分节那把刀从 screens.js 原样取出来跑(角色卡导入和剧本导入共用这一份)
 const ctx = {};
 vm.createContext(ctx);

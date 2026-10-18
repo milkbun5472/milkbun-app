@@ -74,7 +74,7 @@ test("换成共用 Head 的那几页，是真的换了", () => {
 test("故意保留原样的那几条，写清了为什么，而且真的只加了属性", () => {
   // ⚠️「不换 Head」是可以的，但必须写下理由——不然下一个人分不清是【有意】还是【漏了】。
   const cases = [
-    ["js/screens.js", "【不换成公共 Head】，理由写在这儿：它扮的是淘宝那条搜索栏"],
+    ["js/screens-ui.js", "【不换成公共 Head】，理由写在这儿：它扮的是淘宝那条搜索栏"],   // 2026-10-18 起这段在 screens-ui.js（screens.js 拆出来的页面那半）
     ["js/components.js", "这一条【不换成公共 Head】：它没有居中标题"],
     ["js/debate.js", "这一条【不换成公共 Head】：它没有标题"],
     ["js/weekly.js", "封面这一条【不换成 Head】：它是刊头"],
@@ -83,7 +83,7 @@ test("故意保留原样的那几条，写清了为什么，而且真的只加�
   ];
   cases.forEach(([f, why]) => assert.ok(R(f).indexOf(why) >= 0, f + " 里那条「为什么不换」的理由没了：" + why));
   // 淘宝那条搜索栏：形状没动（橙描边＋橙搜索钮还在），只是多了属性
-  const sc = R("js/screens.js");
+  const sc = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
   // v74.179 起这条搜索栏是购物和外卖共用的 searchTopBar，橙色从购物那边传进去
   assert.match(sc, /border: "1\.5px solid " \+ accent/, "淘宝那条搜索栏被改坏了");
   assert.match(sc, /searchTopBar\(\{ onBack, search, setSearch, onGo: \(\) => doGen\(false\), busy, placeholder: "搜索宝贝…",(?: underStrip: !!payAs,)?\s+accent: MSHOP\.orange/, "购物那条不是橙色了");

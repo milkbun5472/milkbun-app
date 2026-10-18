@@ -84,14 +84,15 @@ test("App 那一层：把 __appPromptOpen 挂上去，并且真的渲染 PromptD
 
 test("这一轮换掉的那几处，逐个点名（少一处才红）", () => {
   const want = [
+    // 2026-10-18 起下面这几处都在 screens-ui.js（screens.js 拆出来的页面那半）
     ["theme-studio-ui.js", 'requestAppPrompt("给这一套起个名字"', "5 套预设槽位——她这次报的就是这颗"],
-    ["screens.js", 'requestAppPrompt("歌单改名"', "歌单改名"],
-    ["screens.js", 'requestAppPrompt("给这套思考方式起个名字"', "思考方式存预设"],
-    ["screens.js", 'requestAppPrompt("退回给执笔人"', "退回给执笔人（多行）"],
-    ["screens.js", 'requestAppConfirm("用「" + pr.name + "」替换当前内容？"', "小稿检查方式的内置预设"],
-    ["screens.js", 'requestAppConfirm("本机现在一个角色都没有"', "空存档覆盖云端那道闸"],
-    ["screens.js", 'requestAppConfirm("云端那份比这台设备新得多"', "过期设备覆盖云端那道闸"],
-    ["screens.js", "requestAppConfirm(q, body, () => onSettleDebt(char.id, d.id)", "钱包结清一笔"],
+    ["screens-ui.js", 'requestAppPrompt("歌单改名"', "歌单改名"],
+    ["screens-ui.js", 'requestAppPrompt("给这套思考方式起个名字"', "思考方式存预设"],
+    ["screens-ui.js", 'requestAppPrompt("退回给执笔人"', "退回给执笔人（多行）"],
+    ["screens-ui.js", 'requestAppConfirm("用「" + pr.name + "」替换当前内容？"', "小稿检查方式的内置预设"],
+    ["screens-ui.js", 'requestAppConfirm("本机现在一个角色都没有"', "空存档覆盖云端那道闸"],
+    ["screens-ui.js", 'requestAppConfirm("云端那份比这台设备新得多"', "过期设备覆盖云端那道闸"],
+    ["screens-ui.js", "requestAppConfirm(q, body, () => onSettleDebt(char.id, d.id)", "钱包结清一笔"],
     ["style-lab.js", 'requestAppPrompt("粘贴模块包"', "粘贴模块包（多行）"],
     ["style-lab.js", 'requestAppPrompt("搬哪一条过来？"', "从旧文风搬一条"],
     ["theater.js", 'requestAppConfirm("重开此线？"', "小剧场重开此线"],
@@ -104,7 +105,7 @@ test("这一轮换掉的那几处，逐个点名（少一处才红）", () => {
 });
 
 test("两道云端防呆闸：拦下来之后不许直接备份，得等她自己点", () => {
-  const src = read("screens.js");
+  const src = (read("screens.js") + "\n" + read("screens-ui.js"));
   const seg = src.slice(src.indexOf("const doPush = () =>"), src.indexOf("const doPull ="));
   // 空存档那一支：弹完就 return，不许往下走
   assert.match(seg, /requestAppConfirm\("本机现在一个角色都没有"[\s\S]{0,320}?\n      return;/, "空存档那一支弹完还往下走了");

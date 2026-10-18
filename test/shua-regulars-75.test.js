@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
-const src = fs.readFileSync(__dirname + "/../js/shua.js", "utf8"), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/shua-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/shua.js", "utf8")), app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("同一批人：论坛常驻网友都有 shua 网名和习惯，匿名吧那几位没有", () => {
   const reg = app.slice(app.indexOf("const FORUM_NPC_REGISTRY = ["), app.indexOf("];", app.indexOf("const FORUM_NPC_REGISTRY = [")));
   const rows = reg.split("\n").filter(l => /\{ id: "npc_/.test(l));

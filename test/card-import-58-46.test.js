@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 // 把解析器那一段原样跑起来
 function loadParser() {
@@ -126,7 +126,8 @@ test("不是 JSON 的文本不许被 cardFromJSON 认走", () => {
 // 她 2026-10-05：格式有时候拆错，预览每一栏都要能手动改，还要能直接选 docx 文件
 test("预览每一栏都能改，改过的带进导入；能从文件导入", () => {
   const i = screens.indexOf("function CardImportSheet");
-  const j = screens.indexOf("function MemImportSheet", i);
+  // 2026-10-18 起 MemImportSheet 在 screens-ui.js，切到下一个顶格声明为止
+  const j = i + 1 + screens.slice(i + 1).search(/\n(?:async function |function |const |let )/);
   assert.ok(i > 0 && j > i, "抠不出导入页");
   const sheet = screens.slice(i, j);
   for (const k of ["name", "tagline", "persona", "longMem", "seeds", "greeting"]) {
@@ -141,7 +142,8 @@ test("预览每一栏都能改，改过的带进导入；能从文件导入", ()
 // no-half-sheet.md：这一页要装粘贴框＋预览＋一串提醒，半窗先扣掉一半屏幕
 test("导入页是整页，不是半窗", () => {
   const i = screens.indexOf("function CardImportSheet");
-  const j = screens.indexOf("function MemImportSheet", i);
+  // 2026-10-18 起 MemImportSheet 在 screens-ui.js，切到下一个顶格声明为止
+  const j = i + 1 + screens.slice(i + 1).search(/\n(?:async function |function |const |let )/);
   const sheet = screens.slice(i, j);
   assert.doesNotMatch(sheet, /h\(Sheet,/, "又改回半窗了");
   assert.match(sheet, /h-full flex flex-col/);

@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const app = fs.readFileSync("js/app.js", "utf8");
-const scr = fs.readFileSync("js/screens.js", "utf8");
+const scr = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 
 test("两个数存一处，读写共用同一把收口尺", () => {
   assert.match(app, /const clampFx = \(v, dflt, max\) =>/);

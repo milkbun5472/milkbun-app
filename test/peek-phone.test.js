@@ -73,7 +73,7 @@ test("钱包从信息 →「我」→「我的钱包」点进去；找人前先�
 test("论坛先去「我」、日记先翻到她那本；钱包流水从她这边说清给了谁；书名号不挡找字", () => {
   assert.match(p, /forum: \{ dock: "论坛", path: \[\{ text: "我", exact: true/);
   assert.match(p, /diary: \{ dock: "日记", path: \[\{ call: "diaryMine" \}\] \}/);
-  assert.match(src("screens.js"), /window\.__diaryNav = \{ openMine: \(\) => openEntries\("__me"\) \};/);
+  assert.match((src("screens.js") + "\n" + src("screens-ui.js")), /window\.__diaryNav = \{ openMine: \(\) => openEntries\("__me"\) \};/);
   assert.match(a, /【她的钱包流水——是她的钱进进出出】/);
   assert.match(a, /"她转给" \+ who\(m\[1\]\)/);
   assert.match(a, /（就是你）/);
@@ -100,7 +100,7 @@ test("消息列表也是一处看点；退出来才想的那句挪回退出之�
   const s2 = P.cleanScript({ steps: [{ do: "open", app: "forum" }, { do: "think", text: "帖" }] }, ["forum"], { forum: [{ title: "匿名的帖", anon: true }] });
   const taps = s2.filter(x => x.do === "tap").map(x => x.text);
   assert.deepStrictEqual(taps, ["匿名的帖"], "匿名帖现在就在她的「我」里，不用绕");
-  assert.match(src("screens.js"), /isMe \? \(p\.authorType === "me" && !!p\.alt === !!onAlt[^\n]*?\) : \(p\.authorId === profileId && p\.authorType === "character" && !p\.anon\)/);   // v74.909：挂着小号时「我」只列小号的帖
+  assert.match((src("screens.js") + "\n" + src("screens-ui.js")), /isMe \? \(p\.authorType === "me" && !!p\.alt === !!onAlt[^\n]*?\) : \(p\.authorId === profileId && p\.authorType === "character" && !p\.anon\)/);   // v74.909：挂着小号时「我」只列小号的帖
   assert.match(p, /messages: \{ dock: "信息"/);
   assert.match(p, /const IN_MSG = \["chat", "messages", "wallet"\];/);
   assert.match(a, /【她的消息列表（一打开「信息」就看得到，从上往下）】/);
@@ -342,7 +342,7 @@ test("翻手机：换了面具聊的人默认查不到（连钱包购物痕迹�
   const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
   assert.match(a, /const peekMaskOthers = viewerId =>/);
   assert.match(a, /const maskIds = allMasks \? \[\] : peekMaskOthers\(charId\);/);
-  assert.match(a, /\(walletLog \|\| \[\]\)\.filter\(w => !maskTrace\(w\.label\)\)/);
+  assert.match(a, /\(walletLog \|\| \[\]\)\.filter\(w => !maskTrace\(w\.label\) && !\(w\.ref && w\.ref\.charId && maskSet\.has/);
   assert.match(a, /const userHide = new Set\(\(hideIds \|\| \[\]\)\.map\(String\)\);/);
   assert.match(c, /"别的面具聊的也给看"/);
   assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
@@ -351,7 +351,7 @@ test("翻手机：换了面具聊的人默认查不到（连钱包购物痕迹�
 test("翻手机：递手机单子分三格折叠（能翻的几样／单独藏起几个人／更多），用公共 FoldRow，论坛设置也是它", () => {
   const fs = require("fs"), path = require("path");
   const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
-  const sc = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  const sc = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
   assert.match(c, /function FoldRow\(\{ title, state, open, onToggle, children \}\)/);
   assert.match(c, /h\(FoldRow, \{ title: "能翻的几样"/);
   assert.match(c, /h\(FoldRow, \{ title: "单独藏起几个人"/);

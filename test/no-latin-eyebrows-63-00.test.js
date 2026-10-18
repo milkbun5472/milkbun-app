@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 // 全库一起问。以前这条只管 screens.js，v63.01 起 Lisa 把别的文件也交过来了。
 // 例外分三类，每一类都写着理由——不是"看着顺眼就放过"：
@@ -44,7 +44,7 @@ test("全库不许再有大写拉丁眉标", () => {
   const bad = [];
   fs.readdirSync(dir).filter(f => f.endsWith(".js")).forEach(f => {
     // games.js 是 Codex 的地盘、trpg.js 和 yanqiu.js 是言秋的，都不碰
-    if (["games.js", "trpg.js", "yanqiu.js"].includes(f)) return;
+    if (["games.js", "trpg.js", "trpg-core.js", "yanqiu.js"].includes(f)) return;
     // ② pageSkin 的 word 是页脚那个 5% 的大水印，是背景装饰不是标题——先摘掉它再问。
     //    ⚠️别写成「这个词在这个文件里放行」：那样连【显示出来的副标题】也一起放行了
     //    （dwell 的 topBar("去处","PLACES") 就是这么漏过去的）。
@@ -65,7 +65,7 @@ test("「英文 · 中文」夹着写的也算——中文那半已经把话说�
   const dir = path.join(__dirname, "..", "js");
   const bad = [];
   fs.readdirSync(dir).filter(f => f.endsWith(".js")).forEach(f => {
-    if (["games.js", "trpg.js", "yanqiu.js"].includes(f)) return;
+    if (["games.js", "trpg.js", "trpg-core.js", "yanqiu.js"].includes(f)) return;
     // 提示词里给模型看的枚举、技术名词和说明文字不算——它们不是界面上的眉标
     if (["engine.js", "app.js", "phone.js", "assistant.js", "assistant-manual.js", "codex.js",
       "fanfic.js", "mcp.js", "read.js", "style-presets.js", "theme-studio.js", "theme-studio-ui.js",
@@ -80,7 +80,7 @@ test("「英文 · 中文」夹着写的也算——中文那半已经把话说�
       const caps = x.match(/\b[A-Z]{3,}(?:[ ][A-Z]{2,})*\b/g) || [];
       caps.forEach(c => {
         // 技术名词 / 产品名 / 中文圈里就这么写的词 / 主屏装饰件上的印刷字
-        if (/^(DOCX|TXT|PDF|CSS|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI|WPS|ADMIT TWO)$/.test(c)) return;
+        if (/^(DOCX|TXT|PDF|CSS|HTML|SSE|CORS|RPC|TTS|CLI|OCR|JSON|HTTP|API|URL|UTF|SVG|PNG|VAPID|MUSIC|LLM|MAX|IMG|LINE|OOC|ADMIT|EVIDENCE|ARCHIVED|PHOTO|BOOTH|WEEKEND|SMALL|STORY|CABINET|MOMENTS|SSR|VIP|VPS|START|MES|JSON|CODEX|LISA|MCP|NPC|ANTHROPIC|DZZI|WPS|ADMIT TWO)$/.test(c)) return;
         bad.push("js/" + f + " → " + x.slice(0, 40));
       });
     });
@@ -110,7 +110,7 @@ test("拼出来的大写英文也算——上面那两条正则都查不到它",
 });
 
 test("pageSkin 的 word 放行的只是水印，不是顺带把那个词整篇放行", () => {
-  const dwell = fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8");
+  const dwell = (fs.readFileSync(path.join(__dirname, "..", "js", "dwell-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "dwell.js"), "utf8"));
   // 去处那三页的顶栏副标题原来写着 PLACES——它是显示出来的字，跟水印不是一回事
   assert.ok(!/topBar\("[^"]*", "[A-Z]/.test(dwell), "顶栏副标题又塞了一行英文");
   assert.equal((dwell.match(/word: "PLACES"/g) || []).length, 3, "页脚那个水印不该被顺手删掉");

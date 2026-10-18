@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const ph = (R("phone.js") + "\n" + R("phone-ui.js")), scr = R("screens.js");
+const ph = (R("phone.js") + "\n" + R("phone-ui.js")), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
 const P = require("../js/character-pronoun.js");
 const K = { phoneTa: P.replace, charTa: P.ta };
 

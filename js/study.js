@@ -359,6 +359,7 @@
     if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
     if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
     if (typeof WHOLE_CARD_RULE !== "undefined") parts.push(WHOLE_CARD_RULE);
+    voiceGuards([ctx.directives], [{ sr: ctx.studyRules }]).forEach(function (x) { parts.push(x); });
     if (VOICE()) parts.push(VOICE());
     if (ctx.beside) parts.push(ctx.beside + BESIDE_TAIL);
     else if (profile.name || profile.persona)
@@ -1773,6 +1774,41 @@
   // ⚠️「有中文标题就不发那行英文副题」那道闸不用在这儿再写一遍——Head 里就有同一道
   //   （判据同样是「这串字里有没有汉字」），各写一份迟早只改一处。
   // 桌面那张纸是这一页自己的底，所以底色和分隔线照旧从这儿传进去。
+  // 学习准则这一页（整页）：每位老师/同学一块——教学风格一段话，规矩一条条加、一条条删。
+  //   只有一起学读；聊天、线下不带。存在 TA 的聊天设置里（studyStyle / studyRules）。
+  function StudyRulesPage(props) {
+    const chars = props.chars || [];
+    const init = {}; chars.forEach(function (c) { const sr = props.studyRulesFor ? props.studyRulesFor(c) : null; init[c.id] = { style: (sr && sr.style) || "", rules: (sr && sr.rules) || [], draft: "" }; });
+    const [d, setD] = useState(init);
+    const save = function (id, patch) { const cur = Object.assign({}, d[id], patch); setD(Object.assign({}, d, { [id]: cur })); props.onSave && props.onSave(id, { studyStyle: cur.style, studyRules: cur.rules }); };
+    const field = { width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 12, border: "1px solid " + STUDY_SKIN.line, background: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 14, color: STUDY_SKIN.ink, outline: "none" };
+    return h("div", { "data-wk": "studyrules", className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "上课规矩", mode: props.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.ink, opacity: .7, lineHeight: 1.7, margin: "12px 2px 4px" } },
+          "这里立的只在一起学里算：讲课的风格、上课的规矩。聊天、线下都不带。在聊天里出戏立的长期准则，一起学里也照样算。"),
+        chars.map(function (c) {
+          const x = d[c.id] || { style: "", rules: [], draft: "" };
+          const add = function () { const t = String(x.draft || "").trim(); if (!t) return; save(c.id, { rules: x.rules.concat([{ id: "sr_" + Date.now(), text: t, ts: Date.now() }]), draft: "" }); };
+          return h("section", { key: c.id, "data-wk": "studycard", style: { marginTop: 14, padding: "14px 14px 12px", borderRadius: 18, background: studyPaperA(.92), border: "1px solid " + STUDY_SKIN.line } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: STUDY_SKIN.ink } }, c.remark || c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.ink, opacity: .65, margin: "10px 0 6px" } }, "教学风格（怎么讲、什么节奏、什么口气）"),
+            h("textarea", { "data-wk": "studyinput", rows: 3, value: x.style, placeholder: "比如：先让我自己试，错了再讲；讲得慢一点，多举生活里的例子",
+              onChange: function (e) { setD(Object.assign({}, d, { [c.id]: Object.assign({}, x, { style: e.target.value }) })); },
+              onBlur: function (e) { save(c.id, { style: e.target.value }); }, style: Object.assign({}, field, { resize: "vertical" }) }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.ink, opacity: .65, margin: "12px 0 6px" } }, "规矩（一条一条）"),
+            x.rules.map(function (r, i) {
+              return h("div", { key: r.id || i, className: "flex items-start", style: { gap: 8, padding: "7px 0", borderBottom: "1px dashed " + STUDY_SKIN.line } },
+                h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: STUDY_SKIN.ink } }, (i + 1) + ". " + ((r && r.text) || r)),
+                h("button", { onClick: function () { save(c.id, { rules: x.rules.filter(function (_, j) { return j !== i; }) }); }, className: "active:opacity-60",
+                  style: { minWidth: 40, minHeight: 32, fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.ink, opacity: .6 } }, "删"));
+            }),
+            h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
+              h("input", { "data-wk": "studyinput", value: x.draft, placeholder: "比如：讲课的时候别撩我", onChange: function (e) { setD(Object.assign({}, d, { [c.id]: Object.assign({}, x, { draft: e.target.value }) })); },
+                onKeyDown: function (e) { if (e.key === "Enter") add(); }, style: Object.assign({}, field, { flex: 1 }) }),
+              h("button", { onClick: add, className: "active:opacity-70", style: { minWidth: 56, minHeight: 40, borderRadius: 12, background: STUDY_SKIN.ink, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "加一条")));
+        })));
+  }
   function StudyHead(props) {
     const skin = studyModeSkin(props.mode);
     return h(Head, {
@@ -2782,6 +2818,8 @@
     if (bookOpen === "test") return h(UnitTest, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
       worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
+    if (bookOpen === "rules") return h(StudyRulesPage, { chars: chars, studyRulesFor: props.studyRulesFor, onSave: props.onSaveStudyRules, toast: props.toast, mode: cur.mode,
+      onBack: function () { setBookOpen(false); } });
     if (bookOpen === "mats") return h(MaterialShelf, { curriculum: cur, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     if (bookOpen === "flash") return h(FlashDeck, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
@@ -2790,7 +2828,9 @@
     if (bookOpen) return h(MistakeBook, { mode: bookOpen, curriculum: cur, sessions: sess, active: props.active, bgActive: props.bgActive, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     return h("div", { "data-wk": "studypage", className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
-      h(StudyHead, { zh: cur.subject, en: modeTag(cur.mode), mode: cur.mode, onBack: props.onBack }),
+      h(StudyHead, { zh: cur.subject, en: modeTag(cur.mode), mode: cur.mode, onBack: props.onBack,
+        right: props.studyRulesFor && chars.length ? h("button", { "data-wk": "studyrulesbtn", onClick: function () { setBookOpen("rules"); }, className: "active:opacity-60",
+          style: { minWidth: 44, minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: 13, color: studyModeSkin(cur.mode).accent } }, "规矩") : null }),
       h("div", { ref: props.scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
         h("section", { "data-wk": "studycard", style: { position: "relative", overflow: "hidden", marginTop: 11, padding: "18px 16px 16px 27px", borderRadius: "5px 20px 20px 5px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "5px solid " + accent, boxShadow: "0 10px 24px " + STUDY_SKIN.shadow } },
           h(StudyHoles),
@@ -3253,6 +3293,8 @@
         profile: (props.profileFor && char ? props.profileFor(char.id) : null) || props.profile,
         beside: props.besideFor && char ? props.besideFor(char) : "",
         grown: me && me.grown || "", grownEvolve: !!(me && me.evolve), relFor: props.relFor,
+        directives: props.directivesFor && char ? props.directivesFor(char) : [],
+        studyRules: props.studyRulesFor && char ? props.studyRulesFor(char) : null,
         worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, recent].filter(Boolean).join("\n")) : props.worldbook
       });
     }
@@ -3940,7 +3982,7 @@
       });
     }
     // 我来教：她当老师，角色当学生
-    const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
+    const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
     if (view === "tbNew") return h(TbNew, { characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
       onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
     if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, bgActive: props.bgActive, toast: props.toast, ctx: tbCtx,
@@ -3968,6 +4010,7 @@
       if (!cur) { setView("home"); return null; }
       return h(CurriculumConsole, {
         curriculum: cur, sessions: sessions, characters: props.characters,
+        studyRulesFor: props.studyRulesFor, onSaveStudyRules: props.onSaveStudyRules,
         active: props.active, bgActive: props.bgActive, worldbook: props.worldbook, worldbookFor: props.worldbookFor,
         scrollRef: consoleScrollRef,
         onRefresh: refresh, toast: props.toast,
@@ -3987,7 +4030,7 @@
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
-        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, profileFor: props.profileFor, besideFor: props.besideFor, relFor: props.relFor, toast: props.toast,
+        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, profileFor: props.profileFor, besideFor: props.besideFor, relFor: props.relFor, directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, toast: props.toast,
         onBack: function () { refresh(); if (!sess.curriculum_id && fromRoomAt(sess.id)) return props.onBack(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });
@@ -4077,6 +4120,26 @@
   function tbAns(x, id, s) { return (x.ans && x.ans[id]) || (tbIds(s)[0] === id && x.a != null ? { a: x.a, ok: x.ok } : null); }
   function tbReviewOf(s, id) { return (s.reviews || {})[id] || (tbIds(s)[0] === id ? s.review : null) || null; }
   function tbMisOf(s, id) { const ids = tbIds(s); return (s.misconceptions || []).filter(function (m) { return (m.who || ids[0]) === id; }); }
+  // 跟单聊同一份的两块（群里 2026-10-18：「一起学里开始油腻了」）：
+  //   「别拿现成的说法替你开口」——一起学原来没有，一对一辅导＋恋人就掉进「男友家教」那套现成腔；
+  //   她在聊天里出戏立的长期准则——原来也没带，所以在聊天里说了「别油腻」到这儿不管用。
+  function voiceGuards(dirLists, studyList) {
+    const out = [];
+    if (typeof CANNED_PHRASE_BAN !== "undefined") out.push(CANNED_PHRASE_BAN);
+    const dirs = [].concat.apply([], (dirLists || []).map(function (l) { return Array.isArray(l) ? l : []; }))
+      .map(function (d) { return (typeof d === "string" ? d : d && d.text) || ""; }).filter(function (x) { return x.trim(); });
+    if (dirs.length && typeof directivesBlock === "function") out.push(directivesBlock(dirs));
+    // 学习准则：她专门给一起学立的，聊天里不带。教学风格＋几条规矩，跟长期准则同一个分量
+    (studyList || []).forEach(function (x) {
+      if (!x || !x.sr) return;
+      const st = String(x.sr.style || "").trim(), rs = (x.sr.rules || []).map(function (r) { return (typeof r === "string" ? r : r && r.text) || ""; }).filter(function (t) { return t.trim(); });
+      if (!st && !rs.length) return;
+      out.push("【" + (x.name ? x.name + " 的" : "") + "学习准则·她专门给一起学立的，压过上面的一般写法】"
+        + (st ? "\n教学风格：" + st : "") + (rs.length ? "\n" + rs.map(function (t, i) { return (i + 1) + ". " + t; }).join("\n") : "")
+        + "\n这些只管上课这件事；你还是你，照这几条的意思来讲、来学。");
+    });
+    return out;
+  }
   function tbPersonas(stus, ctx) {
     const parts = [];
     if (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
@@ -4086,6 +4149,8 @@
       parts.push("【" + stus[0].name + " 和 " + stus[1].name + "】" + (r && (r.mine || r.theirs) ? [r.mine ? stus[0].name + " 眼里对方是：" + r.mine : "", r.theirs ? stus[1].name + " 眼里对方是：" + r.theirs : ""].filter(Boolean).join("；") : "之前没设定过关系：照不太熟的同学来"));
     }
     if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    voiceGuards(stus.map(function (c) { return ctx.directivesFor ? ctx.directivesFor(c) : []; }),
+      stus.map(function (c) { return { name: stus.length > 1 ? c.name : "", sr: ctx.studyRulesFor ? ctx.studyRulesFor(c) : null }; })).forEach(function (x) { parts.push(x); });
     if (VOICE()) parts.push(VOICE());
     if (ctx.besideFor) stus.forEach(function (c) {
       const b = ctx.besideFor(c);

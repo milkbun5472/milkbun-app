@@ -1,3 +1,4 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 // 她 2026-09-16：「专门做一间房只给庭院的，能选进哪一档存档，在庭院的东西包括进度聊天
 // 啥的也能同步进来，然后要接主聊天的话也调下设置就行，然后主房想知道的时候就开房间
 // 记忆互通或者总结出去」。
@@ -8,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const rd = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const app = rd('js/app.js'), garden = rd('js/fairy-garden.js'), comp = rd('js/components.js');
+const app = rd('js/app.js'), garden = (rd('js/fairy-garden-core.js')+'\n'+rd('js/fairy-garden.js')), comp = rd('js/components.js');
 
 global.window = {};
 require('../js/chat-rooms.js');

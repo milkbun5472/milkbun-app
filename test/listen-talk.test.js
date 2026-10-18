@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const src = R("js/listen-talk.js"), app = R("js/app.js"), scr = R("js/screens.js"), comp = R("js/components.js");
+const src = R("js/listen-talk.js"), app = R("js/app.js"), scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), comp = R("js/components.js");
 const P = require("../js/auto-refresh-policy.js");
 
 test("上下文走 companionHead（整份 bundle），调用上限不压低", () => {

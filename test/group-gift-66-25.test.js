@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const app = R("js/app.js"), comp = R("js/components.js"), scr = R("js/screens.js");
+const app = R("js/app.js"), comp = R("js/components.js"), scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
 
 test("挑人那一屏：选了群不是送给群，是换一屏挑群里的谁", () => {
   const sheet = scr.slice(scr.indexOf('} else if (sheet === "gift") {'), scr.indexOf('} else if (sheet === "paylater") {'));

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const screens = fs.readFileSync(path.resolve(__dirname, "../js/screens.js"), "utf8");
+const screens = (fs.readFileSync(path.resolve(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "../js/screens-ui.js"), "utf8"));
 const cast = screens.slice(screens.indexOf("function Cast("), screens.indexOf("function CastForm("));
 const form = screens.slice(screens.indexOf("function CastForm("), screens.indexOf("// TIES (directed)"));
 

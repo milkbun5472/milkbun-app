@@ -1,3 +1,4 @@
+// 小世界页面那一半：开机那一小份（世界名单、世界对话、主屏图标）在 js/fairy-garden-core.js，这份点进小世界才加载（js/lazy-mods.js，组名 garden）。
 // 微光庭院有两种进法（她 2026-09-16 定的第二种）：
 //   · 首页那个入口＝架空试玩：一个公共存档，全文人设＋公共文风，主线一概不读写。
 //   · 【庭院房】＝角色的一间侧房：一间房一个存档，进门带什么由这间房的开关说了算，
@@ -7,9 +8,8 @@
 //   mainline（已经过这间房认知闸的主线底子）、record（这间房的记录与写回）。
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
-  "use strict";
+  const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS } = root.FairyCore;
   const KEY = "x_fairyGarden", BUILD = "fg-88cac7af3e4d62b4", hosts = new WeakMap();
-  const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -182,23 +182,6 @@
           kit.promiseSummaries(archive.worlds?.train||{}).slice().reverse().map(p=>h('section',{key:p.id,style:{borderBottom:'1px solid '+G.line,padding:'8px 0',marginBottom:12}},h('h3',{style:{fontSize:14,fontWeight:500}},'第 '+p.trip+' 趟 · 拍照约定'),h('p',{style:{fontSize:12}},'你：'+p.you.theme+' · '+p.you.status),p.companion&&h('p',{style:{fontSize:12}},p.companion.name+'：'+p.companion.theme+' · '+p.companion.status))),rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label),x.kind==='photo'&&h('span',{style:{fontSize:11,color:G.soft,padding:5}},kit.photographerLabel(x)))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
         message&&h('p',{role:'status',style:{fontSize:12,lineHeight:1.8,color:G.deep,marginTop:14}},message)));
   }
-  // One record, partitioned by archive and world. Untagged old replies remain readable,
-  // but cannot establish which world they happened in and never enter a world prompt.
-  const DIALOG_WORLDS = new Set(['garden','train','pets']);
-  const dialogStamp = (world, archiveId) => {
-    if(!DIALOG_WORLDS.has(world)||!String(archiveId||''))throw Error('对话来源异常，暂未写入。');
-    return {gameWorld:world,gameArchiveId:String(archiveId)};
-  };
-  const scopedDialog = (m, world, archiveId) => !!m && m.gameWorld===world && String(m.gameArchiveId||'')===String(archiveId||'');
-  const selectDialogs = (rows, world, archiveId) => (Array.isArray(rows)?rows:[]).filter(m=>scopedDialog(m,world,archiveId));
-  // Only garden ever wrote untagged pending/failed requests; completed legacy turns are ambiguous.
-  const oldGardenRequest = m => m && !m.gameWorld && m.role==='user' && ['pending','failed'].includes(m.status);
-  const localDialogs = (d,cid,world) => ((d.dialogs||{})[cid]||[]).filter(m=>scopedDialog(m,world,d.id)||(world==='garden'&&oldGardenRequest(m)));
-  function replaceDialogs(d,cid,world,rows,limit=200){
-    const old=(d.dialogs||{})[cid]||[],stamp=dialogStamp(world,d.id);
-    const kept=old.filter(m=>!scopedDialog(m,world,d.id)&&!(world==='garden'&&oldGardenRequest(m)));
-    return {...d,dialogs:{...(d.dialogs||{}),[cid]:kept.concat(rows.slice(-limit).map(m=>({...m,...stamp})))}};
-  }
   const worldRecord=(p,key,world,d)=>{
     const raw=p.record||(p.recordFor?p.recordFor(key):null);if(!raw)return null;
     return {history:raw.historyFor?raw.historyFor(world,d.id):selectDialogs(raw.history,world,d.id),
@@ -214,8 +197,6 @@
     if(record?.onTurn)record.onTurn({text,reply:out.reply,parts});
     else{const d=current();write(key,replaceDialogs(d,cid,world,[...localDialogs(d,cid,world),...(text?[{role:'user',content:text,status:'done'}]:[]),...parts.map(content=>({role:'assistant',content,status:'done'}))],limit));}
   }
-  const worldCognition = world => (root.FairyWorlds||[]).find(w=>w.id===world)?.cognition||'';
-  root.FairyWorldDialogs={stamp:dialogStamp,select:selectDialogs,local:localDialogs,replace:replaceDialogs,cognition:worldCognition};
   function LegacyWorldDialogs({record,archive,cid}){
     const rows=record?record.legacy:((archive.dialogs||{})[cid]||[]).filter(m=>m&&!m.gameWorld&&m.status==='done').slice(-100);
     if(!rows.length)return null;
@@ -1282,8 +1263,6 @@
   //   换成三颗大小不一的星子：只说「好几个小世界」。
   // 陪伴（js/companion.js）的换装面板也是这一份：它有自己的一身，但控件和规则不另写（one-public-mechanism）
   root.GardenDressControls = DressControls;
-  root.GFairyGarden = p => h(Svg, p, h("path", {
-    d: "M5 14a4 4 0 1 0 8 0a4 4 0 1 0 -8 0M13 7.5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M3.9 6.2a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0" }));
   // 一局庭院（选好世界与存档之后的那一屏）。外面那层选择页在 FairyGardenApp。
   // 一份色板：原来 GardenSession 和 FairyGardenApp 各写了一份，改一处永远漏一处。
   const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", paper: "#fffef5", deep: "#55704f" };
@@ -2305,18 +2284,6 @@
             h("input", { "data-wk": "fginput", "data-part": "chat", "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
             h("button", { "data-wk": "fgsend", type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5, opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
   }
-
-  // ── 进门那两页（她 2026-09-16：「先做个进入页面…再来到存档…新建或者开启已有」）──
-  // 一层是【去哪个世界】，一层是【开哪一档】。庭院房那条路不走这儿：
-  // 一间房就是一个世界一个存档，进门直接落到桌上（见 app.js 的 storeKey/lockPartnerId）。
-  // ⚠️她 2026-09-18：占位的那三个世界全删了。原来摆在那儿是「这地方以后会长」的意思，
-  //   可它们许的是三件谁都没在做的事——别人打开秋秋机，看见的就是三张空头支票。
-  //   撤掉一件东西就把它删掉，不许留在原地当死代码（那三行连着灰卡片那一档渲染一起走）。
-  const WORLDS = [
-    { id: "garden", name: "微光庭院", label: "庭院", note: "种花、下井、和同行者一起把日子过下去" },
-    { id: "train", name: "远行列车", label: "列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" },
-    { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子", cognition: "【绒绒小镇】这里是你和对方共同生活、一起养宠的日常。家、街区、店铺和家里的猫狗都是这个生活场景的一部分；照料、家务、职业与带回家的东西会成为你们共同的小日子。以眼前的状态和已经完成的记录承接经历，尚在路上或准备做的事按当前阶段理解。你怎样看待宠物、愿不愿照料、如何相处，沿你完整的人设、喜好与实际经历自然生发；两人可以商量、分工，也会有不同意见。其他往事沿这间房准许的上下文承接。" }
-  ];
   const DAY_WORLD = { id: "day", name: "TA的一天", note: "跟着TA看看今天" };
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
@@ -2557,5 +2524,4 @@
           style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
           world.id === "train" ? "＋ 选同行者，开新房间" : "＋ 新开一段"))));
   };
-  root.FairyWorlds=WORLDS;
 })(window);

@@ -1,16 +1,17 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8'),app=read('js/app.js');
 const cut=(s,a,b)=>{const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>i);return s.slice(i,j);};
 function setup(){
   const env={Date,JSON,Math,window:{}};env.window=env;vm.createContext(env);
   vm.runInContext(read('js/schedule-clock.js'),env);
-  vm.runInContext(cut(read('js/screens.js'),'function schedFillEnds(', 'function schedTzShiftMin('),env);
+  vm.runInContext(cut((read('js/screens.js') + "\n" + read('js/screens-ui.js')),'function schedFillEnds(', 'function schedTzShiftMin('),env);
   vm.runInContext(read('apps/fairy-garden/day/catalog.js'),env);
   vm.runInContext(read('js/char-day-link.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/social.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);
   vm.runInContext(read('js/char-day-thoughts.js'),env);
-  vm.runInContext(read('js/char-day.js'),env);
+  vm.runInContext((read('js/char-day-core.js')+'\n'+read('js/char-day.js')),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));
   const c={id:'c1',name:'甲',tz:8};
@@ -68,7 +69,7 @@ test('主App接真实日程与已有陪伴样貌，日历使用现有角色入�
   assert.deepEqual(calls,[['world','day'],['sched','c1'],['screen','calendar']]);assert.equal(env.calReturnRef.current.screen,'fairyGarden');
 });
 test('新世界入口独立于三游戏旅程，移动外壳沿公共Head和单滚动/底安全区',()=>{
-  const source=read('js/char-day.js'),host=read('js/fairy-garden.js'),html=read('index.html');
+  const source=(read('js/char-day-core.js')+'\n'+read('js/char-day.js')),host=(read('js/fairy-garden-core.js')+'\n'+read('js/fairy-garden.js')),html=read('index.html');
   assert.match(host,/WORLDS\.concat\(\[DAY_WORLD, null\]\)/);assert.match(host,/world\?\.id === "day"/);
   assert.match(source,/h\(Head,/);assert.match(source,/flex-1 min-h-0 overflow-y-auto/);assert.match(source,/safe-area-inset-bottom\) \* 0\.4/);
   assert.ok(html.indexOf('js/char-day.js')<html.indexOf('js/fairy-garden.js'));
@@ -371,11 +372,11 @@ test('今天的小相册：更多里能进，没拍时给「拍今天」，配�
   const app=read('js/app.js'),i=app.indexOf('generateDiary: (c, photos, identity) =>'),seg=app.slice(i,i+900);assert.ok(i>0);
   assert.match(seg,/ctxFor\(c,/);assert.match(seg,/maxTokens:65000/);assert.match(seg,/albumInstruction\(photos\)/);
   const scene=read('apps/fairy-garden/day/scene.mjs');assert.match(scene,/function captureSolo\(\)\{/);assert.match(scene,/capturePhoto,captureSolo,/);
-  const day=read('js/char-day.js');assert.match(day,/commitJSONDurable\("x_charDayAlbums",next\)/);assert.match(day,/slice\(-7\)/);
+  const day=(read('js/char-day-core.js')+'\n'+read('js/char-day.js'));assert.match(day,/commitJSONDurable\("x_charDayAlbums",next\)/);assert.match(day,/slice\(-7\)/);
 });
 
 test('拍小相册时场景直接站到每一段的位置，不先走出门、不从门口走进来',()=>{
-  const scene=read('apps/fairy-garden/day/scene.mjs'),day=read('js/char-day.js');
+  const scene=read('apps/fairy-garden/day/scene.mjs'),day=(read('js/char-day-core.js')+'\n'+read('js/char-day.js'));
   assert.match(scene,/else if\(data\.albumShot&&map&&map!==needed&&!changing\)\{enter\(needed,token\);\}/);
   assert.match(scene,/else if\(\(initial\|\|snapshot\.albumShot\)&&\(snapshot\.presentation\.action==='sleep'\|\|snapshot\.albumShot\|\|/);
   assert.match(day,/albumShot: !!albumShoot,/);
@@ -401,6 +402,6 @@ test('TA的样貌：更多里有入口，写明跟陪伴同步，点了交给陪
   assert.deepEqual(calls,['c1']);
   const app=read('js/app.js');assert.match(app,/onEditLook: c => \{\n\s*const cfg = loadJSON\("x_companion", \{\}\) \|\| \{\};\n\s*companionReturnRef\.current = \{ charId: c\.id, prevCharId: cfg\.charId \|\| "" \};/);
   assert.match(app,/setGardenEntryWorld\("day"\); setGardenDayCharId\(String\(back\.charId\)\); setScreen\("fairyGarden"\);/);
-  assert.match(read('js/char-day.js'),/"在「陪伴」里改，两边同步"/);
+  assert.match((read('js/char-day-core.js')+'\n'+read('js/char-day.js')),/"在「陪伴」里改，两边同步"/);
   assert.match(read('js/companion.js'),/function lookFor\(char, moods, cfg = load\(\)\)/);
 });

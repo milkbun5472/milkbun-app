@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const rd = f => fs.readFileSync(require.resolve("../js/" + f), "utf8");
-const eng = rd("engine.js"), app = rd("app.js"), th = rd("theater.js"), rpg = rd("trpg.js"), scr = rd("screens.js");
+const eng = rd("engine.js"), app = rd("app.js"), th = rd("theater.js"), rpg = rd("trpg.js"), scr = (rd("screens.js") + "\n" + rd("screens-ui.js"));
 
 test("开关只有一处：engine 的 failRetryOn，默认开", () => {
   assert.match(eng, /function failRetryOn\(\) \{ try \{ return loadJSON\("x_failRetry", true\) !== false;/);

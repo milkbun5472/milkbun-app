@@ -13,7 +13,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync("js/app.js", "utf8");
-const scr = fs.readFileSync("js/screens.js", "utf8");
+const scr = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 
 const photoOf = (() => {
   const i = scr.indexOf("function forumPhotoOf("), j = scr.indexOf("function forumWithPhoto(");

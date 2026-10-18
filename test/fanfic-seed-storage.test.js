@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const source = fs.readFileSync(path.join(__dirname, '../js/fanfic.js'), 'utf8');
+const source = (fs.readFileSync(path.join(__dirname, '../js/fanfic.js'), 'utf8') + "\n" + fs.readFileSync(path.join(__dirname, '../js/fanfic-core.js'), 'utf8'));
 
 test('同人文预设只住代码，存储只保留用户自定义版块', () => {
   assert.match(source, /return SEED_TABS\.concat\(custom\)/);

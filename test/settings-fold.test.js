@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
-const screens = fs.readFileSync(require("node:path").join(__dirname, "../js/screens.js"), "utf8");
+const screens = (fs.readFileSync(require("node:path").join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(require("node:path").join(__dirname, "../js/screens-ui.js"), "utf8"));
 
 // v61.99 重排：首页十张平级大卡换成一列窄行（她「设置页也还是好乱找不到东西」），
 // 标题也从「东西的名字」换成「她来找什么」。这条钉的是【每一样都还进得去】——
@@ -48,7 +48,9 @@ test("语音页不再误挂图像站点编辑状态", () => {
   const tts = screens.slice(screens.indexOf("function TtsApiConfig"), screens.indexOf("function CacheStatCard"));
   assert.doesNotMatch(tts, /图像站点/);
   assert.doesNotMatch(tts, /setEditing/);
-  const image = screens.slice(screens.indexOf("function ImageApiConfig"), screens.indexOf("function CtxDebug"));
+  // 2026-10-18 起 ImageApiConfig 在 screens-ui.js、CtxDebug 留在 screens.js：切到下一个顶格声明为止
+  const _i = screens.indexOf("function ImageApiConfig"), _k = screens.slice(_i + 1).search(/\n(?:async function |function |const |let )/);
+  const image = screens.slice(_i, _k < 0 ? screens.length : _i + 1 + _k);
   assert.match(image, /已保存 " \+ store\.profiles\.length \+ " 条/);
   assert.match(image, /返回图像站点/);
 });
