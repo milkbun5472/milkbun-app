@@ -10,7 +10,7 @@
 // ============================================================
 (function () {
   // 数据、格式化、统计、开机那几支（周期账单、小组件、给角色的开销摘要、替你记一笔）住在 js/ledger-core.js（开机加载），这儿只取不另写
-  const { fmtMoney, ACCENT, GOLD, EXP, INC, PAPER, paperBg, bookTab, AC, CB, NAC, CUR_COLORS, DEFAULT_CURS, loadData, saveData, pad, todayStr, monthKey, todayKey, thisMonthKey, fmtMonth, shiftMonth, dailyAvg, budgetState, groupByDay, dayLabel, fmtDay, fmtNum, fmtAmt, ACCT_TYPES, acctType, isTransfer, refundSum, netAmt, isExpense, acctBalance, creditState, recurWeekStart, runRecurring, recurNext, ledgerCSV, convertTotal, goalSaved, goalState, catBudgetOf, yearStats, acctName, summarize, detectTxnEvent } = window.LedgerCore;
+  const { fmtMoney, ACCENT, GOLD, EXP, INC, PAPER, paperBg, bookTab, AC, CB, NAC, CUR_COLORS, DEFAULT_CURS, loadData, saveData, pad, todayStr, monthKey, todayKey, thisMonthKey, fmtMonth, shiftMonth, dailyAvg, budgetState, groupByDay, dayLabel, fmtDay, fmtNum, fmtAmt, ACCT_TYPES, acctType, isTransfer, refundSum, netAmt, isExpense, acctBalance, creditState, recurWeekStart, runRecurring, recurNext, ledgerCSV, convertTotal, goalSaved, goalState, catBudgetOf, yearStats, acctName, summarize, detectTxnEvent, genComments } = window.LedgerCore;   // genComments 是 async function，拆的时候漏递了（2026-10-18 补：选角色批注一点就报找不到）
 
   // ============================================================
   // 小工具：风格统一的字段输入弹窗（增/改币种、增/改分类都用它，替掉原生 prompt）

@@ -83,3 +83,27 @@ test("装载器：按顺序挂、只装一次、失败了能重来", async () =>
   assert.equal(added.length, 3, "装好了还在重复装");
   assert.equal(L.isLoaded("没登记的组"), true, "没登记延后的组当它本来就在");
 });
+
+// 拆成「开机那半 + 页面那半」的几份：页面那半用到的、开机那半里定义的名字，必须一个不落地递过去。
+//   2026-10-18 记账拆完漏了 genComments（async function 那种写法当时没认出来），选角色批注一点就报找不到。
+test("拆开的两半：页面那半用到的开机那半的名字，全都递过去了（async function、一行几个 const 也算）", () => {
+  const nocom = t => t.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  [["js/ledger-core.js", "js/ledger.js", "LedgerCore"], ["js/fanfic-core.js", "js/fanfic.js", "FanficCore"]].forEach(([cf, uf, v]) => {
+    if (!fs.existsSync(path.join(__dirname, "..", cf))) return;
+    const core = R(cf), ui = R(uf);
+    const names = new Set();
+    core.split("\n").forEach(l => {
+      let m = /^  (?:const|let|var)\s+(.*)$/.exec(l);
+      if (m) for (const mm of m[1].matchAll(/(?:^|,\s*)([A-Za-z_$][\w$]*)\s*=/g)) names.add(mm[1]);
+      m = /^  (?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(l);
+      if (m) names.add(m[1]);
+    });
+    const dm = new RegExp("const \\{ ([^}]*) \\} = window\\." + v + ";").exec(ui);
+    assert.ok(dm, uf + " 没从 window." + v + " 取");
+    const have = new Set(dm[1].split(",").map(x => x.trim()));
+    const own = new Set([...ui.matchAll(/^  (?:async\s+)?(?:function|const|let)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]));
+    const body = nocom(ui.replace(dm[0], ""));
+    const miss = [...names].filter(n => !have.has(n) && !own.has(n) && new RegExp("(?<![\\w$.])" + n.replace(/\$/g, "\\$") + "(?![\\w$])").test(body));
+    assert.deepEqual(miss, [], uf + " 用到了却没从 " + cf + " 递过来：" + miss.join("、"));
+  });
+});
