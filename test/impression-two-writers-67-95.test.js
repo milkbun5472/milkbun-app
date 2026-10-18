@@ -9,7 +9,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const imp = fs.readFileSync(path.join(__dirname, "..", "js/impression.js"), "utf8");
+const imp = (fs.readFileSync(path.join(__dirname, "..", "js/impression-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/impression.js"), "utf8"));
 
 test("取料一律现读存档，不许再读闭包里那份 book", () => {
   // v67.95：这本册子有两个写手——这一页，和 app.js 里那条自动出卡（它直接 M.load/M.save）。

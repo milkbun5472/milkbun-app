@@ -1,3 +1,4 @@
+// 一起看页面那半（2026-10-18 瘦身第九批）：开机那半在 js/watch-core.js（测试里要先 require 它）。
 // ============================================================
 // 一起看（watch）—— 导入一部电影和它的字幕，在秋秋机里放；放到哪，那一段台词就喂给TA。
 // 她 2026-09-25 群里有人问「可以搞一起看电影嘛」，她：「做吧宝宝做一版试试，然后页面也弄好看点」。
@@ -10,6 +11,7 @@
 //   记忆走宿主的 onAddMemory（keepWhereItHappened），不在这儿另写一份（施工规则/one-public-mechanism.md）。
 // ============================================================
 (function () {
+  const { clock, cleanLine, parseSubs, recentLines, cueAt, parseSay, parseOnlineLink, biliSrc } = (typeof window !== "undefined" ? window : globalThis).WatchCore;
   const _store = makeTextStore("WatchTogetherDB", "films");
   const KEY = "x_watch_films";
   const TALK_KEEP = 80, TALK_FEED = 14, FRAME_THUMBS = 10;
@@ -17,37 +19,18 @@
   const FOLD_AT = 40, FOLD_TAKE = 24;
   // 片子往前走了多少分钟，TA可以自己开一次口（不是必须开口）。她自己拉（她 2026-09-25：「自己开口要不要搞个拉条」）
   const AUTO_MIN = 1, AUTO_MAX = 20, AUTO_DEFAULT = 5;
-  const SUB_WINDOW = 90;     // 喂给TA的是【刚放过的】这一段台词
   // 放映厅的色：这一页有自己的夜色，不吃主题（跟月度印象、一起听的播放页一样，Head 传 ink/bg）
   const W = {
     bg: "#16141b", bg2: "#1f1c26", card: "#27232f", line: "rgba(255,255,255,.08)",
     ink: "#f3ece0", sub: "rgba(243,236,224,.64)", fog: "rgba(243,236,224,.38)",
     amber: "#e8b566", amberInk: "#2a2016", red: "#d06a5c"
   };
-
-  // 看完一段回到单聊，那边的TA知道「我们刚一起看了一会儿」（她 2026-09-25：「加吧」）。
-  //   单聊里落一条 watchlog；喂给模型的这一句只写在这儿——单聊回话、recentChat、聊天卡片三处都调它
-  //   （施工规则/one-public-mechanism.md）。
-  // ⚠️只交接【看到哪、最后那几句原话】，不是摘要也不是记忆：那还是「记住」那条路的事。
-  function watchLogText(m, uName, cName) {
-    const u = uName || "她", c = cName || "你";
-    const span = clock(m.from || 0) + " 看到 " + clock(m.to || 0) + (m.done ? "（看完了）" : "（还没看完）");
-    const said = (m.lines || []).map(function (x) { return (x.who === "user" ? u : c) + "：" + String(x.text || ""); }).join("\n");
-    return "【你们俩在「一起看」里并排看了一会儿电影《" + (m.title || "一部片子") + "》：从 " + span + "。这件事发生在这个位置，现在回到了聊天】"
-      + (said ? "\n【当时边看边说的最后几句·原话】\n" + said : "");
-  }
-  window.watchLogText = watchLogText;
   function loadFilms() { const v = loadJSON(KEY, []); return Array.isArray(v) ? v : []; }
   function saveFilms(list) { return saveJSON(KEY, list); }
   function patchFilm(id, fn) {
     const list = loadFilms().map(function (f) { return f.id === id ? Object.assign({}, f, fn(f)) : f; });
     saveFilms(list);
     return list;
-  }
-  function clock(sec) {
-    const s = Math.max(0, Math.floor(Number(sec) || 0)), h0 = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60;
-    const two = function (n) { return String(n).padStart(2, "0"); };
-    return (h0 ? h0 + ":" + two(m) : String(m)) + ":" + two(ss);
   }
   function sizeLabel(n) { const mb = (Number(n) || 0) / 1048576; return mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : Math.max(1, Math.round(mb)) + " MB"; }
 
@@ -56,57 +39,12 @@
     try { return new TextDecoder("utf-8", { fatal: true }).decode(buf).replace(/^﻿/, ""); }
     catch (e) { try { return new TextDecoder("gb18030").decode(buf).replace(/^﻿/, ""); } catch (e2) { return new TextDecoder().decode(buf); } }
   }
-  function stamp(s) {
-    const m = /(?:(\d+):)?(\d{1,2}):(\d{1,2})[.,](\d{1,3})/.exec(String(s || ""));
-    if (!m) return NaN;
-    return (Number(m[1]) || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number((m[4] + "00").slice(0, 3)) / 1000;
-  }
-  function cleanLine(t) {
-    return String(t || "").replace(/\{[^}]*\}/g, "").replace(/\\[Nn]/g, " ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-  }
-  function parseSubs(text) {
-    const src = String(text || "").replace(/\r/g, "");
-    const out = [];
-    if (/^\s*\[Script Info\]/m.test(src) || /^Dialogue:/m.test(src)) {
-      src.split("\n").forEach(function (line) {
-        const m = /^Dialogue:\s*[^,]*,([^,]+),([^,]+),(?:[^,]*,){6}(.*)$/.exec(line);
-        if (!m) return;
-        const s = stamp(m[1]), e = stamp(m[2]), t = cleanLine(m[3]);
-        if (t && s === s && e === e) out.push({ s: s, e: e, t: t });
-      });
-    } else {
-      src.split(/\n\s*\n/).forEach(function (block) {
-        const lines = block.split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
-        const at = lines.findIndex(function (l) { return l.indexOf("-->") > 0; });
-        if (at < 0) return;
-        const parts = lines[at].split("-->"), s = stamp(parts[0]), e = stamp(parts[1]);
-        const t = cleanLine(lines.slice(at + 1).join(" "));
-        if (t && s === s && e === e) out.push({ s: s, e: e, t: t });
-      });
-    }
-    return out.sort(function (a, b) { return a.s - b.s; });
-  }
-  // 刚放过的那一段（到此刻为止，不往后看——不替她剧透，也不让TA「预知」下一句）
-  function recentLines(cues, at) {
-    return (cues || []).filter(function (c) { return c.s <= at && c.s >= at - SUB_WINDOW; }).slice(-40).map(function (c) { return "[" + clock(c.s) + "] " + c.t; });
-  }
-  function cueAt(cues, at) {
-    const list = cues || [];
-    for (let i = list.length - 1; i >= 0; i--) { if (list[i].s <= at) return list[i].e >= at ? list[i].t : ""; }
-    return "";
-  }
   function grabFrame(video, maxW) {
     if (!video || !video.videoWidth) return "";
     const w = Math.min(maxW, video.videoWidth), hh = Math.round(video.videoHeight * w / video.videoWidth);
     const c = document.createElement("canvas"); c.width = w; c.height = hh;
     c.getContext("2d").drawImage(video, 0, 0, w, hh);
     try { return c.toDataURL("image/jpeg", 0.8); } catch (e) { return ""; }
-  }
-  function parseSay(raw) {
-    const s = String(raw || "").trim();
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) { try { const d = JSON.parse(m[0]); const arr = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []); return arr.map(function (x) { return String(x || "").trim(); }).filter(Boolean); } catch (e) {} }
-    return s && !/^[\[{]/.test(s) ? [s] : [];
   }
 
   // ---- 模型：TA坐在旁边一起看 ----
@@ -221,34 +159,6 @@
       background: o.primary ? W.amber : "rgba(255,255,255,.04)", color: o.primary ? W.amberInk : W.ink,
       fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0
     }, o.style || {}) }, label);
-  }
-  // ---- 网上的片子：B 站 / YouTube（她 2026-09-26：「做一个b站和youtube的吧」）----
-  // 不走后端，所以只能嵌它们自己的播放器：
-  //   · YouTube 的播放器会告诉我们播到哪 → 进度自动跟；
-  //   · B 站的不告诉 → 放映厅下面有一块「我这边也按一下」的表，TA 按这块表猜进度。
-  //   字幕两家都读不到（浏览器不让），想让 TA 跟台词就自己导 srt；画面也截不了。
-  // ⚠️b23.tv 短链要先去 B 站那边问一次才知道是哪个视频，没后端问不了：让她贴完整链接。
-  function parseOnlineLink(raw) {
-    const u = String(raw || "").trim();
-    if (!u) return null;
-    let m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(u);
-    if (m) {
-      const t = /[?&#](?:t|start)=(\d+)/.exec(u);
-      return { source: "youtube", vid: m[1], start: t ? Number(t[1]) : 0 };
-    }
-    m = /(BV[0-9A-Za-z]{10})/.exec(u) || /bilibili\.com\/video\/(av\d+)/i.exec(u);
-    if (m) {
-      const p = /[?&]p=(\d+)/.exec(u);
-      return { source: "bilibili", vid: m[1], page: p ? Number(p[1]) : 1 };
-    }
-    if (/b23\.tv\//i.test(u)) return { source: "bilibili", short: true };
-    return null;
-  }
-  function biliSrc(film, at) {
-    const id = /^av/i.test(film.vid) ? "aid=" + String(film.vid).slice(2) : "bvid=" + film.vid;
-    // ⚠️她 2026-09-26「一起看 b 站链接打开黑屏」：B 站的外链播放器现在要带 isOutside=true 才肯在别人家的页面里放，
-    //   不带就是一整块黑；分 P 用的是 p（page 留着给老播放器）。
-    return "https://player.bilibili.com/player.html?isOutside=true&" + id + "&p=" + (film.page || 1) + "&page=" + (film.page || 1) + "&autoplay=0&high_quality=1&danmaku=0" + (at > 3 ? "&t=" + Math.floor(at) : "");
   }
   // YouTube 的官方播放器脚本只拉一次，谁先要谁触发
   let ytReady = null;
@@ -780,6 +690,4 @@
           : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.fog, padding: "26px 0" } }, "票夹还是空的")));
   }
   window.WatchTogether = WatchTogether;
-  // 给测试用：纯函数
-  window.WatchKit = { parseOnlineLink: parseOnlineLink, biliSrc: biliSrc, parseSubs: parseSubs, recentLines: recentLines, cueAt: cueAt, clock: clock, parseSay: parseSay };
 })();

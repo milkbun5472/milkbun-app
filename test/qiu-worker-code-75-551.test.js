@@ -10,7 +10,7 @@ test("code 字段只认 health / fish，代码取自 HealthCtx.GATEWAY_WORKER �
   assert.match(src, /"code":"（可选）health \/ fish \/ mcp"/);
 });
 test("那两段代码真在：health.js 挂出去了、screens.js 是顶层常量", () => {
-  assert.match(fs.readFileSync(path.join(__dirname, "../js/health.js"), "utf8"), /g\.HealthCtx = \{ GATEWAY_WORKER,/);
+  assert.match((fs.readFileSync(path.join(__dirname, "../js/health-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/health.js"), "utf8")), /g\.HealthCtx = \{ GATEWAY_WORKER,/);
   assert.match((fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8")), /^const FISH_RELAY_CODE = relayCodeFor\(/m);
 });
 test("MCP 转接也能发：跟设置里那颗同一份文件", () => {

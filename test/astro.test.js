@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
-const src = read("js/astro.js"), eng = read("js/engine.js");
+const src = (read("js/astro-core.js") + "\n" + read("js/astro.js")), eng = read("js/engine.js");
 
 // 她 2026-10-03 画在「每日看」里的那一格：星座配对指数 / 星宿关系 / 每日运势 / 幸运色。
 function load() {
@@ -92,7 +92,7 @@ test("挂上了：主屏、每日看、路由、页名、手册；点评走 runP
   assert.match(app, /screen === "astro"\) body = h\(window\.AstroApp, \{/);
   assert.match(core, /astro: "星测"/);
   assert.match(man, /\{ id: "astro", app: "astro", zh: "星测"/);
-  assert.match(html, /<script src="js\/astro\.js\?v=[\d.]+"><\/script>/);
+  assert.match(html, /<script src="js\/astro-core\.js\?v=[\d.]+"><\/script>/);
   assert.match(src, /runProbe\(p, ctx, \{ voice: true, instruction: instruction \+ (?:reroll \+ )?voiceTail\(\)/);
   assert.match(src, /maxTokens: 65000/);
   assert.match(src, /h\(Head, \{ zh: "星测"/, "顶栏走共用 Head");

@@ -1,15 +1,17 @@
 // 一起看（她 2026-09-25：「做吧宝宝做一版试试，然后页面也弄好看点」）
 const fs = require("fs"), assert = require("assert"), vm = require("vm");
-const src = fs.readFileSync(__dirname + "/../js/watch.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/watch-core.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/watch.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const cmp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 const html = fs.readFileSync(__dirname + "/../index.html", "utf8");
 
 // 1. 字幕：srt / vtt / ass，台词清干净；GBK 字幕按 GB18030 再读一遍
-const i = src.indexOf("function clock("), j = src.indexOf("function grabFrame(");
+const i = src.indexOf("function clock("), j = src.indexOf("// 给测试用：纯函数", i)   // 2026-10-18 起 clock 那几个在 watch-core.js;
 assert.ok(i > 0 && j > i, "抠不出字幕那几件");
 const ctx = { TextDecoder, SUB_WINDOW: 90 }; vm.createContext(ctx);
-vm.runInContext(src.slice(i, j) + ";this.parseSubs=parseSubs;this.recentLines=recentLines;this.cueAt=cueAt;this.decodeText=decodeText;this.clock=clock;", ctx);
+// decodeText 只有页面那半用（读字幕文件），留在 watch.js：单独抠出来一起跑
+const di = src.indexOf("function decodeText("), dj = src.indexOf("\n  function ", di + 10);
+vm.runInContext(src.slice(i, j) + "\n" + src.slice(di, dj) + ";this.parseSubs=parseSubs;this.recentLines=recentLines;this.cueAt=cueAt;this.decodeText=decodeText;this.clock=clock;", ctx);
 const srt = ctx.parseSubs("1\r\n00:00:01,500 --> 00:00:03,000\r\n<i>你好</i>\r\n\r\n2\r\n00:01:02,000 --> 00:01:04,000\r\n第二句\r\n第二行\r\n");
 assert.strictEqual(srt.length, 2);
 assert.strictEqual(srt[0].t, "你好", "html 标签没剥");
@@ -46,7 +48,7 @@ assert.match(cmp, /watch: \{ kind: "app", zh: "一起看", G: IFilm \}/);
 assert.match(cmp, /keys: \["study", "read", "watch", "pomodoro"\]/);
 assert.match(app, /screen === "watch"\) body = h\(WatchTogether, \{/);
 assert.match(app, /entry: \{ source: "watch", tags: \["一起看"\] \}/);
-assert.match(html, /<script src="js\/watch\.js\?v=[\d.]+"><\/script>/);
+assert.match(html, /<script src="js\/watch-core\.js\?v=[\d.]+"><\/script>/);
 // 6. 触控位 40px、底栏吃 0.4 安全区
 assert.match(src, /minHeight: 40/);
 assert.match(src, /paddingBottom: COMPOSER_PAD_BOTTOM/);
@@ -122,7 +124,7 @@ assert.match(src, /const ios = \/iP\(hone\|ad\|od\)\/\.test\(navigator\.userAgen
 assert.match(src, /if \(!ios && el && el\.requestFullscreen\) el\.requestFullscreen\(\)/);
 console.log("ok watch-together");
 // v74.110：B 站外链播放器要 isOutside=true，不抹来源；黑屏还能去 B 站放
-{ const w = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "watch.js"), "utf8");
+{ const w = (require("fs").readFileSync(require("path").join(__dirname, "..", "js", "watch-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "..", "js", "watch.js"), "utf8"));
   require("node:assert/strict").match(w, /player\.bilibili\.com\/player\.html\?isOutside=true&/);
   require("node:assert/strict").ok(!/referrerPolicy: "no-referrer", title: film\.title/.test(w));
   require("node:assert/strict").match(w, /黑屏？去 B 站放/); }

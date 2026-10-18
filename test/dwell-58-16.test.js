@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const dwell = R("dwell.js"), app = R("app.js"), comp = R("components.js"), core = R("core.js");
+const dwell = (R("dwell-core.js") + "\n" + R("dwell.js")), app = R("app.js"), comp = R("components.js"), core = R("core.js");
 const idx = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const D = (() => {
   const store = {}; const w = {};
@@ -89,7 +89,7 @@ test("判断用哪个 API、就拿哪个去调——别一个判断一个调用"
 });
 
 test("挂进去了：脚本、图标、路由", () => {
-  assert.match(idx, /<script src="js\/dwell\.js\?v=/);
+  assert.match(idx, /<script src="js\/dwell-core\.js\?v=/);
   assert.match(comp, /dwell: \{ kind: "app", zh: "去处", G: GDwell \}/);
   assert.match(core, /const GDwell = p =>/);
   const r = app.indexOf('screen === "dwell"');

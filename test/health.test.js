@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
-const src = read("js/health.js"), app = read("js/app.js"), eng = read("js/engine.js"), comp = read("js/components.js");
+const src = (read("js/health-core.js") + "\n" + read("js/health.js")), app = read("js/app.js"), eng = read("js/engine.js"), comp = read("js/components.js");
 
 // 她 2026-10-03：「按你说的先做健康app吧，页面简洁点方便操作但是不要没有设计感光秃秃」
 // 存档是健康页自己写的（save → saveJSON("x_health")），桩就用它自己的 save 写进去（stub-from-the-writer.md）
@@ -115,7 +115,7 @@ test("注册齐：REG、每日看、老用户搬一次、色相、名字、说�
   assert.match(read("js/core.js"), /health: "健康",/);
   assert.match(read("js/assistant.js"), /health: "health",/);
   assert.match(read("js/assistant-manual.js"), /\{ id: "health", app: "health", zh: "健康",/);
-  assert.match(read("index.html"), /<script src="js\/health\.js\?v=[\d.]+"><\/script>/);
+  assert.match(read("index.html"), /<script src="js\/health-core\.js\?v=[\d.]+"><\/script>/);
   assert.match(app, /screen === "health"\) body = h\(window\.HealthApp, \{/);
   const ts = read("js/theme-studio.js");
   for (const k of src.match(/"data-wk": "(health\w*)"|wk: "(health\w*)"|wk \|\| "(health\w*)"/g).map(s => s.match(/health\w*/)[0]))
