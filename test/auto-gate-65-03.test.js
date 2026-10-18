@@ -94,8 +94,10 @@ test("六条链逐个点名走公共闸（少一处才红）", () => {
     ['window.AutoGate.due("impression|" + char.id, monthKey)', "月度印象·闸"],
     ['window.AutoGate.mark("impression|" + char.id, monthKey, _impOk)', "月度印象·记账"],
     ['window.AutoGate.run("desire|" + c.id, today', "心上"],
-    ['window.AutoGate.due("schedule|" + c.id, weekKey)', "角色日程·闸"],
-    ['window.AutoGate.run("schedule|" + j.c.id, j.weekKey', "角色日程·跑"],
+    ['window.AutoGate.due(gateKey, weekKey)', "角色日程·闸"],
+    ['pick("schedule|" + c.id + "|next", nextMon', "角色日程·排下周单独一格"],
+    ['pick("schedule|" + c.id, thisMon', "角色日程·补本周"],
+    ['window.AutoGate.run(j.gateKey, j.weekKey', "角色日程·跑"],
     ['window.AutoGate.mark("schedule|" + c.id, schedMondayOf(today), ok)', "角色日程·她手动重排那一下"],
     ['window.AutoGate.due("phone|" + c.id, wk, { maxTries: 1 })', "查手机·闸"],
     ['window.AutoGate.claim("phone|" + due.id, wk)', "查手机·先占坑"]
