@@ -58,7 +58,7 @@ test("④ 旧数据和乱填的，一律当没说（退回去猜，不许瞎认�
 test("⑤ 整条链接上了：发帖带上 photoWho，生图时递给公共那一层", () => {
   assert.match(app, /photo: d\.photo, photoWho: d\.photoWho/,
     "角色发帖那一处把 photoWho 丢了，链在落盘前就断");
-  assert.match(app, /drawFromDesc\(char \|\| null, ph\.desc, ph\.who\)/,
+  assert.match(app, /drawFromDesc\(char \|\| null, desc, ph\.who\)/,
     "生图时没把 who 递下去，等于白存");
   // 不许在贴吧这儿另写一套判法——公共那一层已经认第三个参数
   const i = app.indexOf("const forumGenImage = async"), j = app.indexOf("window.forumGenImage");

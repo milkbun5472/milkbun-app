@@ -365,6 +365,7 @@
     { key: "selfP", zh: "他称自己", type: "pick", opts: { first: "我", third: "他／她" }, def: "third", what: "叙述里他用第一人称还是第三人称。" },
     { key: "userP", zh: "称呼你", type: "pick", opts: { second: "你", third: "她／他（第三人称）" }, def: "second", what: "叙述里怎么称呼你。" },
     { key: "describeMe", zh: "替我写动作", type: "bool", def: false, what: "开了会写你的动作和反应；关着只写他，你的那份留给你。" },
+    { key: "noAutoShot", zh: "不让他自己拍照", type: "bool", def: false, what: "开了他在戏里不会顺手拍照生图；她点「拍一张」照样能拍。" },
     { key: "tastePace", zh: "节奏", type: "pick", opts: { auto: "自然", slow: "慢慢磨", forward: "往前走" }, def: "auto", what: "慢慢磨＝细细地在一个场景里待着；往前走＝推剧情。" },
     { key: "tasteFocus", zh: "侧重", type: "pick", opts: { auto: "自然", dialogue: "对话", action: "动作", atmosphere: "氛围" }, def: "auto", what: "多写对白、多写动作，还是多写环境气氛。" },
     { key: "tasteDensity", zh: "密度", type: "pick", opts: { auto: "自然", airy: "留白", rich: "浓密" }, def: "auto", what: "句子松一点留白，还是写得满一点。" },

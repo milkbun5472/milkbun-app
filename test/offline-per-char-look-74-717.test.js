@@ -44,8 +44,9 @@ test("③ 不安全的 CSS 不许挂上去", () => {
 
 test("④ 挂 style 那个动作收成一份，三处共用", () => {
   assert.match(C, /function mountStyle\(id, css\)/, "公共件不见了");
-  assert.match(C, /function applyGroupLook\(css\) \{ mountStyle\("wk-group-look-css", css\); \}/, "群那层没搬过来");
-  assert.match(C, /function applyOfflineLook\(css\) \{ mountStyle\("wk-offline-look-css", css\); \}/, "线下那层没走公共件");
+  // v75.944 安全模式也停这几层：传进去的是 lookSafe() ? "" : css
+  assert.match(C, /function applyGroupLook\(css\) \{ mountStyle\("wk-group-look-css", (lookSafe\(\) \? "" : )?css\); \}/, "群那层没搬过来");
+  assert.match(C, /function applyOfflineLook\(css\) \{ mountStyle\("wk-offline-look-css", (lookSafe\(\) \? "" : )?css\); \}/, "线下那层没走公共件");
   assert.match(C, /const put = mountStyle;/, "单聊那几层还留着自己那份手抄的");
 });
 

@@ -156,7 +156,7 @@ test("戏份对半：卡的长短不是戏份的事", () => {
 
 test("四种局面都接上了：一人配原创、双人、三人同框、群像", () => {
   const cb = grab("cpBlock");
-  assert.equal(cb.split("worldIdentityLine(cpChars) + evenSidesLine(cpChars)").length - 1, 4,
+  assert.equal(cb.split("worldIdentityLine(cpChars) + evenSidesLine(cpChars)").length - 1, 5,
     "少接一支，换个 CP 形状就又回到老样子（一人配原创／双人／三人同框／群像）");
   // 两位都得真的在场——这一条是另一族：上面那几条管的是别拉读者进来、别对调左右位
   assert.match(cb, /const bothPresent = "\\n【这两位都得真的在场】/);

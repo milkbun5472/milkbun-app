@@ -2643,7 +2643,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const liveThread = thread ? (watchPick(chats, thread.name, c => c && c.name) || thread) : null;
   const meName = userName(profile);
   const selfNames = new Set([char.name, d.me && d.me.wechatName, "我", "本人"].filter(Boolean));
-  const person = (name, avatarImage) => ({ name: name || "?", avatarImage, color: strColor(name) });
+  // 联系人的脸（群里 2026-10-17 许愿）：她给这一位换过的那张 → 同名的配角／角色那张 → 没有就是色块
+  const [, bumpFace] = useState(0);
+  const faceOf = name => (typeof window !== "undefined" && typeof window.__phoneFaceOf === "function") ? window.__phoneFaceOf(char && char.id, name) : null;
+  const person = (name, avatarImage) => ({ name: name || "?", avatarImage: faceOf(name) || avatarImage, color: strColor(name) });
   const avatarForMessage = (m, c) => m.avatarImage || (selfNames.has(m.from) ? char.avatarImage : m.from === meName ? profile && profile.avatarImage : c.avatarImage);
   // ⚠️查手机里这些内层 app【不换成公共 Head】：它们扮的是真手机上的微信、便签、相册……
   //   换成这个 app 自己的标题栏，扮演就散了（界面装修工单：「判据在这一处是反过来的」）。
@@ -2830,7 +2833,15 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       innerHead(thread.remark || thread.name, null, () => setThread(null)),
       h("div", { className: "flex-1 overflow-y-auto", style: { paddingBottom: 28 } },
         block(h("div", { className: "flex items-center", style: { gap: 14, padding: "18px 16px" } },
-          h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 }),
+          // 点头像换一张（配角的脸跟配角页走，在那边换）
+          (window.__phoneFaceIsNpc && window.__phoneFaceIsNpc(char && char.id, thread.name)) || drive
+            ? h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 })
+            : h("label", { "data-wk": "pcontactface", style: { cursor: "pointer", position: "relative", display: "block" } },
+                h(Avatar, { character: person(thread.name, thread.avatarImage), size: 60, radius: 6 }),
+                h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], ref => {
+                  const all = loadJSON("x_phoneContactAv", {}) || {}; const mine = Object.assign({}, all[char.id] || {}); mine[thread.name] = ref;
+                  saveJSON("x_phoneContactAv", Object.assign({}, all, { [char.id]: mine })); bumpFace(x => x + 1);
+                }) })),
           h("div", { style: { minWidth: 0 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#191919" } }, thread.remark || thread.name),
             thread.remark && thread.remark !== thread.name
@@ -3072,9 +3083,14 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     onPhotoEdit(next);
     if (how === "gone") closePhoto(); else setPhoto({ ...p, category: how });
   };
-  const drawPhoto = p => {
+  const editDrawPhoto = p => {
+    if (!onDrawPhoto || typeof requestAppPrompt !== "function") return;
+    const cur = [p.caption, p.desc].map(x => String(x || "").trim()).filter(Boolean).join("｜");
+    requestAppPrompt("改画面描述再画", "写这张照片上该看见什么，照新的画。", cur, txt => { if (String(txt || "").trim()) drawPhoto(p, String(txt)); }, "照这个画", { multiline: true });
+  };
+  const drawPhoto = (p, override) => {
     if (!onDrawPhoto) return;
-    Promise.resolve(onDrawPhoto(p, sig(p))).then(() => {
+    Promise.resolve(onDrawPhoto(p, sig(p), override)).then(() => {
       const k = phoneKeepLoad();
       setKeep(k);
       // ⚠️她 2026-09-10：「TA说画好了但是图不会动，要我重开 app 进一次才会替换」。
@@ -3157,6 +3173,13 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
         }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
           : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
+        isSaved(photo) && onDrawPhoto && (drawnRef(photo) || drawnUrl(photo)) ? h("button", {
+          "data-wk": "palbumedit",
+          onClick: () => editDrawPhoto(photo),
+          disabled: !!drawing,
+          className: "w-full active:opacity-60 disabled:opacity-45",
+          style: { marginTop: 10, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" }
+        }, "改画面描述再画") : null,
         // ── 回收站进出（她 2026-09-10）──────────────────────────
         // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在TA手机上被删掉。
         (onPhotoEdit && tab !== "saved") ? h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
@@ -4720,7 +4743,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
     }, tg))),
     open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, PTX(open.thought)) : null,
     onPeek ? h("button", {
-      onClick: () => onPeek({ tier: "hidden", label: "深夜台", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
+      onClick: () => onPeek({ tier: "hidden", label: "深夜台", hiddenWhat: "深夜一个人偷偷看的成人视频（「深夜台」是那个视频站，不是备忘录也不是自己写的东西）", lead: "[我翻了你的手机]在你深夜偷偷看片的那个站（深夜台）的观看记录里看到了：", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
       style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(192,86,109,.5)", color: HOT }
     }, T("摆到 TA 面前 · 这是他藏起来的")) : null) : null;
@@ -6915,7 +6938,7 @@ function PhoneCarry({
     onPeek: pk => onPeek && onPeek(char, pk),
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
     // 的指纹，不是 true/false——同屏两张的按钮不能一起转圈。
-    onDrawPhoto: (photo, key) => onDrawPhoto && onDrawPhoto(char, photo, key),
+    onDrawPhoto: (photo, key, override) => onDrawPhoto && onDrawPhoto(char, photo, key, override),
     onPhotoEdit: items => onPhotoEdit && onPhotoEdit(char, items),
     drawing: drawingPhoto || ""
   };
@@ -8051,7 +8074,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "· 要不要有情节、有没有对话，还是根本不需要；\n"
         + characterText(char, "· 他代入的是哪一边——也可能哪边都不代入，只是在旁边看着。\n")
         + characterText(char, "【这一栏最容易写坏的地方】不要默认每个人的欲望都往「支配 / 占有 / 强势」那一头去。那是最省事的答案，**也是换成任何一个角色都照样成立的答案——照样成立就等于没写**。有人要的是被照顾，有人要的是自己失控，有人要的是被当成平等的人，有人只是想有一段不必说话的时间。他要哪一种，从他的人设长出来，不从这个题材的惯例长出来。\n")
-        + characterText(char, "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。"),
+        + characterText(char, "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。")
+        // 群里 2026-10-17：「深夜台有时候会自己脑补 bl、一直嗑 char」——没交代他喜欢谁，模型就拿他认识的别的角色互相配起来
+        + characterText(char, "\n【他被谁吸引，照他自己的人设】性向和偏好以人设、关系里写的为准，没写就别替他另定一个方向，也别因为题材默认往哪一边写。"
+          + "「跟某个具体的人有关」只能是他人设或关系里真对其有感觉的那个人；**别把他认识的其他角色拉进来互相配对**，那是旁观者在嗑 CP，不是他自己深夜会点开的东西。"),
       schemaHint: "{\"me\":{\"uid\":\"u_7741903\",\"lastAt\":\"前天 03:12\",\"note\":\"一句旁白\"},\"items\":[{\"title\":\"标题\",\"duration\":\"00:18:42\",\"tags\":[\"tag1\",\"tag2\"],\"views\":\"3.2万\",\"thought\":\"想法\"}]}"
     },
     mail: {

@@ -687,6 +687,7 @@
   //   不然那一处又会是「一层写在四处、第四处没跟上」的那一处。
   function ficOpts(fic, opts) {
     const o = Object.assign({}, opts || {}, { groupWay: groupWayOf(fic, opts) });
+    if ((opts && opts.noCP) || (fic && fic.noCP)) o.noCP = true;   // 无 CP 跟着这篇文走，续写也不长出感情线
     // 「他俩 × 我」那种三人文（她 2026-10-17 群友：续写时 U 的外貌又丢了）：原来只有新写那一枪知道要带上「我」，
     //   文上没记，续写、写长一点、请原作者回来都照「只写他俩」写——「我」整个被挤出去，外貌更不用说。现在记在文上（withMe），这几枪都跟着带
     if (fic && fic.withMe && o.includeMe == null) {
@@ -739,7 +740,11 @@
   function cpBlock(cpChars, opts) {
     opts = opts || {};
     if (!cpChars || !cpChars.length)
-      return "【CP】未指定具体 CP——写原创向/群像向短篇，主角自拟，别硬凑现有角色。";
+      // 群里 2026-10-17：「不选 CP 的话出来的都是 bl，我都变成男的了」——「同人」两个字让模型默认写成男男，
+      //   还把读者写进去当了其中一个男主。性向和读者都不替她预设。
+      return "【CP】未指定具体 CP——写原创向/群像向短篇，主角自拟，别硬凑现有角色。"
+        + "主角的性别和这一对的性向都别预设：不因为是「同人」就默认写成男男，也不默认写成男女；看这个分区的设定和文风来定，没写就各篇自己挑、别篇篇一样。"
+        + "这是原创向，读者本人不在文里：别用「你」把读者写成主角之一。";
     // 左右位铁律（v47.78 她点名修）：CP 的书写顺序=左右位，严格左攻右受，
     // 绝不许按「谁人设强势谁当攻」自行对调——人设强势的右位就是「强势受」，反差才是萌点。
     // ⚠️v66.79 把「同性 CP 才算攻受、异性 CP 顺序只代表叙事重心」那个分叉**删掉了**
@@ -757,6 +762,15 @@
     //   在里头指定了一对——她选「无 CP」的时候尤其荒唐。
     // ⚠️三个人以上，模型的默认写法是【点名册】：一人一段轮流发言、每人都得有戏。
     //   所以得明说不是每个人都要出场——这一条不写，群像就写成了通讯录。
+    // 无 CP（她 2026-10-17）：挑了人、不要感情线——就是这几个人（挑了「我」也有我）的故事。不发左右位、不发爱情向。
+    if (opts.noCP) {
+      return "【无 CP：" + cpChars.map(function (c) { return c.name; }).join("、") + "】"
+        + "这一篇写这几个人的故事，**不是 CP 文，默认没有感情线**：他们之间是什么关系照各自的设定和这一篇的剧情来，"
+        + "不许写成恋爱、不许往暧昧上带，也别在里头挑两个配成一对。\n"
+        + cpChars.map(function (c) { return "· " + sideDesc(c); }).join("\n")
+        + (cpChars.length >= 2 ? "\n⚠️几个人说话的调子、在意的事、动手的方式都得分得开，不许共用一种语气。" : "")
+        + worldIdentityLine(cpChars) + evenSidesLine(cpChars);
+    }
     if (cpChars.length >= 3) {
       const way = String((opts.groupWay || "")).trim();
       return "【群像：" + cpChars.map(function (c) { return c.name; }).join("、") + "】"
@@ -1057,8 +1071,11 @@
       "收在一个没人回答的问题上"
     ] }
   ];
-  function ficAxesBlock(n, nonce) {
-    const rolled = Axes.batch([{ axes: FIC_AXES }], Math.max(1, Number(n) || 1), [nonce]);
+  // 完结短篇（oneShot）不掷「收在哪儿」：那一轴全是开放式收法（没做完的动作、没人回答的问题），
+  //   一掷就把「写完」顶掉了（她 2026-10-18 截图：完结短篇停在解了一半的盘扣上）。
+  function ficAxesBlock(n, nonce, oneShot) {
+    const axes = oneShot ? FIC_AXES.filter(function (a) { return a.key !== "close"; }) : FIC_AXES;
+    const rolled = Axes.batch([{ axes: axes }], Math.max(1, Number(n) || 1), [nonce]);
     const lines = rolled.map(function (g, i) {
       const o = g[0];
       return "· 第 " + (i + 1) + " 篇：" + ((o.free || !o.rows.length)
@@ -1130,14 +1147,21 @@
       + "\n⚠️authorBio 讲【这个人】，authorStyle 讲【她的文长什么样】，两栏别串味——挑枪手是照 authorStyle 那一栏挑人的。"
       + "⚠️底下给每位写了【简介和路数写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，别硬塞细节凑长度。"
       + authorAnglesBlock(n, angleNonce(), "篇的那位");
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock
-      + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce()) + byBlock + authorCPRule + "\n\n" +
+    // 写成完结短篇（群里 2026-10-17 许愿：「给他一个剧情、设定多少字、发一篇出来」）：不当连载的开头写
+    //   ⚠️这一段放在整份提示词【最后】：夹在中间会被后面那一长串冲淡，写出来还是连载开头（她 2026-10-18）
+    const one = !!(opts && opts.oneShot);
+    const oneShotBlock = one ? "\n\n【" + (n > 1 ? "这 " + n + " 篇每一篇都是" : "这一篇是") + "写完的短篇，不是连载开头——这条压过上面所有写法要求】把每篇的剧情在这一篇里完整写完：有起有落，结尾落在故事真正结束的地方，读完不需要下一章。不留给下一章的悬念、不写「未完待续」、不在最后抛一个新的问题或新的人物。"
+      + "\n上面说的「结尾可以停在余波里」只管最后那一笔的手法，不是许你把事情写到一半：这篇最要紧的那件事（这段关系、这场冲突、这桩事）在正文里必须已经有了结果。停在一个正要发生的动作、一场正要开始的对峙、一个刚抛出来的问题上，都算没写完。"
+      + "\n先在 ending 里写定这篇的结局，再写正文；正文要一直写到那个结局真的发生。字数不够就把前面写紧，不许砍掉结局。" : "";
+    const fillAvoid = opts.fillAvoid && opts.fillAvoid.length ? "\n\n【这一批已经写好了这几篇，这一篇要跟它们不一样】" + opts.fillAvoid.map(function (t) { return "《" + t + "》"; }).join("、") : "";
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + fillAvoid
+      + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce(), one) + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
-      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"" + authorFields + "}]\n" +
+      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"]," + (one ? "\"ending\":\"这篇的结局，一句话：最要紧的那件事最后落成了什么样（先定好，正文写到这儿）\"," : "") + "\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"" + (one ? "这篇在哪儿收的尾：一句话写它结束时人物落在什么处境（它已经写完了，不是悬念）" : "结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续") + "\"" + authorFields + "}]\n" +
       "每篇 title 别重复、别都一个套路；禁止只是换背景与人名却复用同一情节拍（开局位置、时间跨度、叙述距离、收尾形状那几样，上面已经按篇分好了，照各自那一条来）。" + (by ? "author 每篇都是同一位（见上）；" : "author 每篇各不同；") + "tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
-      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
-    const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
+ (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL) + oneShotBlock;
+    const user = (one ? "写 " + n + " 篇完结短篇，每篇都一次写完、" : "写 " + n + " 篇") + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
       const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(FIC_TOKEN_MAX * 4, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
@@ -1153,6 +1177,16 @@
     if (!arr || !arr.length) arr = await once("\n\n（上一次输出没能解析成合法 JSON 数组，请务必严格只输出 JSON 数组、别加任何解释文字。）");
     if (!arr || !arr.length) throw new Error("生成失败：模型没有返回可解析的篇目，可重试或换模型");
     const kept = arr.filter(function (x) { return x && (x.title || x.body); }).slice(0, n);
+    // 要了 n 篇只回来几篇（一枪写不下、或模型只交了一篇）：缺的那几篇一篇一篇补，补不上就交已经有的（她 2026-10-18「我要三篇只给了我一篇」）
+    if (kept.length < n && !opts._fill) {
+      for (let k = kept.length; k < n; k++) {
+        try {
+          const more = await genBatch(active, tab, cpChars, 1, userName, worldbook, Object.assign({}, opts, { _fill: true, briefs: [briefs[k] || ""],
+            fillAvoid: kept.map(function (x) { return String(x.title || ""); }).filter(Boolean) }));
+          if (more && more[0]) kept.push(Object.assign({ _done: true }, more[0]));
+        } catch (e) { break; }
+      }
+    }
     function draftFor(i) {
       if (!batchCot) return null;
       const re = new RegExp("【第" + (i + 1) + "篇】([\\s\\S]*?)(?=【第\\d+篇】|$)");
@@ -1160,6 +1194,7 @@
       return m && m[1].trim() ? m[1].trim() : (kept.length === 1 ? batchCot : null);
     }
     return kept.map(function (x, i) {
+      if (x._done) { const y = Object.assign({}, x); delete y._done; return y; }   // 补的那几篇已经整理过了
       // 每一篇的作者都落进作者库：指定了谁就还是谁，没指定就把它顺带交的那份简介收下。
       // 「没写简介」也照样落一条：先有这个人，简介以后再补（空值不许抹掉旧值）。
       const nm = by ? authorName(by) : String(x.author || "佚名").slice(0, 20);
@@ -3227,6 +3262,8 @@
     const [includeMe, setIncludeMe] = useState(false); // 俩角色 CP 时：带上「我」写成 A×我×B
     // 这一篇「我」用哪张面具（她 2026-10-17）：空＝跟着那位角色认的那张
     const [meMask, setMeMask] = useState("");
+    const [noCP, setNoCP] = useState(false);
+    const [oneShot, setOneShot] = useState(false);   // 写成完结短篇：一篇写完，不当连载开头   // 无 CP：挑的人都在，默认不写感情线
     const allMasks = (function () { try { return (loadJSON("x_masks", []) || []).filter(function (m) { return m && m.id; }); } catch (e) { return []; } })();
     // 群像：点进去的那几个人（点的先后＝顺序），和这几个人之间是什么关系
     const [cast, setCast] = useState([]);
@@ -3298,6 +3335,12 @@
         sec("n", "写几篇 · 每篇写什么", n + " 篇 · " + (briefN ? briefN + " 篇写了梗" : "都自由发挥"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "生成篇数　" + n + " 篇"),
           h("input", { type: "range", min: 1, max: 8, value: n, onChange: function (e) { setN(Number(e.target.value)); }, className: "w-full mb-4", "data-wk": "ficgensheetinput", "data-part": "1" }),
+          h("button", { "data-wk": "ficoneshot", "data-on": oneShot ? "1" : "0", onClick: function () { setOneShot(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: oneShot ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (oneShot ? t.ink : t.line), borderRadius: 12, marginBottom: 14 } },
+            h("div", { style: { textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, oneShot ? "写成完结短篇" : "写成连载开头"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, oneShot ? "照下面写的剧情一篇写完，有头有尾，不留悬念" : "点一下改成完结短篇：给一段剧情，一篇写完")),
+            h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (oneShot ? t.ink : t.line), background: oneShot ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, oneShot ? "✓" : "")),
 
           // 每篇一个框：想好了就写，没写的那篇自由发挥。
           // ⚠️框数跟着篇数走，但 briefs 不随之截断——她把篇数调小再调回来，
@@ -3343,7 +3386,13 @@
               allMasks.map(function (m) { return h("option", { key: m.id, value: m.id }, m.name || "未命名面具"); }))) : null,
 
           // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
-          (!isGroup && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+          (chosenCP().length && !isGroup) ? h("button", { "data-wk": "ficnocp", "data-on": noCP ? "1" : "0", onClick: function () { setNoCP(function (v) { return !v; }); }, className: "w-full active:opacity-80",
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: noCP ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (noCP ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 10 } },
+            h("div", { style: { textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, noCP ? "无 CP：只写他们的故事" : "写成 CP"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, noCP ? "挑的人都在（挑了「我」也有你），默认不写感情线" : "点一下改成无 CP：不写感情线")),
+            h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (noCP ? t.ink : t.line), background: noCP ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, noCP ? "✓" : "")) : null,
+          (!isGroup && !noCP && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
             style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 }, "data-wk": "ficgensheetbtn", "data-part": "2" },
             h("div", { style: { textAlign: "left" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, includeMe ? "带上我（他俩 × 我 的三人）" : "只写他俩的 CP"),
@@ -3401,7 +3450,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0, oneShot); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -3790,7 +3839,7 @@
         metaRow((f.cp || []).length >= 3 ? "这几个" : "这一对",
           h("div", null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } },
-              cpLabel(f.cp, props.characters, props.userName) + (String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : "")),
+              cpLabel(f.cp, props.characters, props.userName) + (f.noCP ? " · 无CP" : String(f.groupWay || "").trim() ? " · " + String(f.groupWay).trim() : "")),
             cpEdit ? null : h("button", { onClick: function () { setCpEdit((f.cp || []).slice()); }, className: "active:opacity-60",
               style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "none", padding: "0 10px", minHeight: 40 }, "data-wk": "ficreaderbtn", "data-part": "15" }, "改"),
             cpEdit ? h("div", { style: { marginTop: 6 } },
@@ -5564,7 +5613,7 @@
     function chapterShared(fic, ch, chapNo) { props.onNotifyChapter && props.onNotifyChapter(fic, ch, chapNo, fic.sharedTo || []); }
 
     // 生成
-    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask) {
+    async function doGen(n, cp, styleIds, includeMe, briefs, byAuthor, groupWay, meMask, noCP, oneShot) {
       // ⚠️**用 cast 不是 characters**（她 2026-09-11 那三篇的病根就在这一行）：
       //   characters 是【真人角色】那一份，不含配角；cast 才是含配角的全量。
       //   挑人那一格用的是 cast（所以她挑得到「萧成烨」），可这一枪用的是 characters，
@@ -5605,9 +5654,9 @@
         const briefList = Array.isArray(briefs) ? briefs : [];
         const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
-          includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我",
+          includeMe: !!includeMe && !noCP, meName: (props.profile && props.profile.name) || userName || "我",
           mePersona: ((ficMeProfile(cp, props.profile, meMask) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile, meMask) || {}).appearance) || "",
-          groupWay: String(groupWay || "").trim() };
+          groupWay: String(groupWay || "").trim(), noCP: !!noCP, oneShot: !!oneShot };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
         // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
         // 每篇完成立刻落库；中途失败也不赔掉已经写好的篇目。普通文风仍是一批一次调用。
@@ -5619,7 +5668,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: oneShot ? ["完结"].concat((x.tags || []).filter(function (g) { return g !== "完结"; })) : x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset

@@ -127,6 +127,16 @@
   }
 
   // 工具名要带上服务器前缀：两台服务器都叫 search 的时候，模型说 search 我们不知道找谁。
+  // 每台最近一次通没通（只记在这次开机的内存里）：秋秋帮她看「MCP 哪里没弄好」时读这一份
+  const lastErr = {}, lastOk = {};
+  const note = (srv, e) => { if (!srv) return; if (e) lastErr[srv.url] = { at: Date.now(), msg: String((e && e.message) || e).slice(0, 300) }; else { delete lastErr[srv.url]; lastOk[srv.url] = Date.now(); } };
+  const host = u => { try { return new URL(u).host + new URL(u).pathname; } catch (e) { return String(u || "").slice(0, 80); } };
+  function status() {
+    const rl = relay();
+    return { 转接: rl && rl.url ? { 地址: host(rl.url), 填了密钥: !!rl.key } : "（没填转接地址）",
+      服务器: servers().map(s => ({ 名字: s.name || "", 地址: host(s.url), 开着: s.on !== false, 填了令牌: !!s.token, 是旧的sse: isSse(s),
+        这次开机: lastErr[s.url] ? "失败：" + lastErr[s.url].msg : lastOk[s.url] ? "连通过" : "还没试过" })) };
+  }
   const qualify = (srv, name) => (srv.id || "mcp") + "__" + name;
   const unqualify = full => { const i = String(full || "").indexOf("__"); return i < 0 ? { sid: "", name: String(full || "") } : { sid: full.slice(0, i), name: full.slice(i + 2) }; };
 
@@ -143,8 +153,8 @@
         c.tools.forEach(t => out.push(t));
         continue;
       }
-      await handshake(srv);
-      const res = await send(srv, "tools/list", {});
+      let res;
+      try { await handshake(srv); res = await send(srv, "tools/list", {}); note(srv); } catch (e) { note(srv, e); throw e; }
       const tools = ((res && res.tools) || []).map(t => ({
         name: qualify(srv, t.name),
         raw: t.name,
@@ -169,6 +179,7 @@
     try {
       await handshake(srv);
       const res = await send(srv, "tools/call", { name: name, arguments: args || {} });
+      note(srv);
       const text = (((res && res.content) || []).map(b => {
         if (!b) return "";
         if (b.type === "text") return String(b.text || "");
@@ -177,21 +188,21 @@
       }).filter(Boolean).join("\n")).trim();
       return { text: text || "（这次没返回内容）", isError: !!(res && res.isError) };
     } catch (e) {
-      return { text: "（工具没调通：" + String((e && e.message) || e) + "）", isError: true };
+      return { text: "（工具没调通：" + String((e && e.message) || e) + "）", isError: true, _err: note(srv, e) };
     }
   }
 
   // 试一台：设置页那颗「测一下」按钮用，让她当场看得见通没通、有几件工具
   async function probe(srv) {
     delete sessions[srv.url]; delete shook[srv.url];
-    await handshake(srv);
-    const res = await send(srv, "tools/list", {});
+    let res;
+    try { await handshake(srv); res = await send(srv, "tools/list", {}); note(srv); } catch (e) { note(srv, e); throw e; }
     return ((res && res.tools) || []).map(t => t.name);
   }
 
   if (typeof window !== "undefined") window.MCP = {
     relay: relay, setRelay: v => { save(RELAY_KEY, v && v.url ? { url: String(v.url).trim(), key: String(v.key || "").trim() } : null); }, isSse: isSse,
-    servers: servers, enabled: enabled, sid: sid, listTools: listTools, callTool: callTool, probe: probe,
+    servers: servers, enabled: enabled, sid: sid, listTools: listTools, callTool: callTool, probe: probe, status: status,
     forget: () => { save(CACHE_KEY, {}); Object.keys(sessions).forEach(k => delete sessions[k]); Object.keys(shook).forEach(k => delete shook[k]); },
     qualify: qualify, unqualify: unqualify, PROTO: PROTO
   };

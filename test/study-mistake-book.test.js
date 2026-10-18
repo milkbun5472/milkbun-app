@@ -168,7 +168,7 @@ test("一起学可以发图：图进图库、课页只存引用；出话时临�
   assert.match(src, /pushEntry\(\{ id: "u_" \+ Date\.now\(\), role: "user", content: txt, imageRef: ref, ts: Date\.now\(\) \}\);/);
   assert.match(src, /last\._imageRefs = \(last\._imageRefs \|\| \[\]\)\.concat\(\[m\.imageRef\]\)/);
   assert.equal((src.match(/const msgs = await withImages\(toMessages\(/g) || []).length, 2, "单老师和老师+同学两条路都要看得到图");
-  assert.match(src, /expandMessageImages\(msgs, 2\)/);
+  assert.match(src, /expandMessageImages\(msgs, 1\)/);   // 只附最新那一张（2026-10-17：两张一起附，第二页认成第一页）
   assert.match(src, /h\(ICamera, \{ size: 18, color: accent \}\)/);
   assert.match(src, /m\.imageRef \? h\("img", \{ src: typeof resolveImg === "function" \? resolveImg\(m\.imageRef\)/);
 });

@@ -80,7 +80,8 @@
       "giftLog", "usedLog", "carryLog", "listenLog",
       "dreamKeep",      // 从梦里带出来的东西——她和 Ta 两个人之间的
       "capsuleWait",    // 埋着的时光胶囊
-      "financeNote", "ownWalletNote", "memoNote"   // 主线里攒出来的TA的日常账目/备忘
+      "financeNote", "ownWalletNote", "memoNote",   // 主线里攒出来的TA的日常账目/备忘
+      "moneyWithHer"    // 你俩之间真花过的钱（v75.940）：谁给谁转过、买过——跟账目同一档，关了正式记忆的房间里不带
     ],
     // 你们处到哪一步了
     innerLife: [

@@ -5,6 +5,6 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
 assert.match(app, /querySelectorAll\("\[data-desc\]"\)/);
 assert.match(app, /（她屏幕上露着的图）/);
-assert.match(app, /photoStrip: \{ imgKey, imgUrl, ts: Date\.now\(\), desc: stripDesc \}/);
+assert.match(app, /photoStrip: \{ imgKey, imgUrl, ts: Date\.now\(\), desc: stripDesc[ }]/);   // v75.970 起后面可以接她指定的画面（wish）
 assert.match(scr, /"data-desc": desc/);
 console.log("ok");

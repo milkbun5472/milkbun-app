@@ -16,7 +16,9 @@ test("壳叫小世界，主屏那颗图标也是", () => {
   assert.match(comp, /fairyGarden: \{ kind: "app", zh: "小世界"/);
   assert.match(manual, /\{ id: "fairyGarden", app: "fairyGarden", zh: "小世界", where: "主屏上的「小世界」"/);
   // 手册搜「微光庭院」也要搜得到——名字换了，东西还是那个
-  assert.match(manual, /kw: \["小世界"[^\]]*"微光庭院"/);
+  //   （关键词顺序不管：v75.924 在前面加了工作那一串）
+  const fg = manual.slice(manual.indexOf('{ id: "fairyGarden", app: "fairyGarden"'));
+  assert.match(fg.slice(0, fg.indexOf("\n    { id: ")), /kw: \[[^\]]*"小世界"[^\]]*"微光庭院"/);
 });
 
 // ⚠️进了世界以后仍旧是【那个世界自己的名字】：GardenSession 那三处不许跟着改

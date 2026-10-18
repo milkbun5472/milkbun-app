@@ -889,6 +889,8 @@
     return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"],
+      ...(/mcp|MCP|转接|工具.{0,4}(连|调|用)不/.test(String(focus || "")) && typeof window !== "undefined" && window.MCP && window.MCP.status ? { MCP现状: window.MCP.status(),
+        MCP怎么看: "对着「这次开机」那栏说哪台卡在哪：提到跨域/CORS 或连不上＝服务端没放行网页，填转接地址绕过去；是旧的sse 又没填转接＝网页直连不了，得先搭转接；HTTP 401/403＝令牌没填或填错；404＝地址路径不对；转接连不上＝Worker 没部署好或地址抄错。还没试过＝让她去设置里那台点「测一下」再来。别编没看到的原因。" } : {}),
       ...(typeof window !== "undefined" && window.AssistExtras ? pruneExtra(window.AssistExtras.snapshotExtra(ctx, hot), focus) : {}) };
   }
 
@@ -936,12 +938,26 @@
         + "  这一页要整个换个样子，走 pagecolor（那一栏不靠挂点，每一页都成立）。\n";
     } catch (e) { return ""; }
   }
-  function themeCssNote() {
+  // ⚠️专有挂点只带【这回聊到的那几页】（她 2026-10-17：秋秋做个气泡超过十分钟没答上来）：
+  //   原来每一枪都把五十多页、两千六百多个挂点整份塞进去，十万字的提示词，光读就要好几分钟。
+  //   聊到哪一页（页名、或者她开着的那一页）才带那一页的全表；别的页只列个名字，她一提下一轮就带上。
+  const WK_ALIAS = { "聊天页": /聊天|气泡|单聊|对话框|输入框|顶栏/ };
+  function themeCssNote(focus, pageKey) {
     const ts = TS(); if (!ts || !ts.WK_COMMON) return "";
+    const f = String(focus || "");
     const fmt = function (arr) { return (arr || []).map(function (h) { return "    [data-wk=\"" + h[0] + "\"] " + h[1]; }).join("\n"); };
-    const scoped = (ts.WK_SCOPED || []).map(function (g) {
+    const hit = function (g) {
+      if (pageKey && (g.pages || []).indexOf(pageKey) >= 0) return true;
+      const zh = String(g.zh || "");
+      return (zh && f.indexOf(zh) >= 0) || (zh.length > 2 && /页$/.test(zh) && f.indexOf(zh.slice(0, -1)) >= 0) || (WK_ALIAS[zh] && WK_ALIAS[zh].test(f))
+        || (g.pages || []).some(function (pk) { return pk && pk.length > 2 && f.indexOf(pk) >= 0; });
+    };
+    const groups = ts.WK_SCOPED || [];
+    const on = groups.filter(hit), off = groups.filter(function (g) { return !hit(g); });
+    const scoped = on.map(function (g) {
       return "  【只有" + g.zh + "（" + (g.pages || []).join(" / ") + "）才有】\n" + fmt(g.hooks);
-    }).join("\n");
+    }).join("\n") + (off.length ? "\n  【这几页也有自己专有的挂点，这回没带全表】" + off.map(function (g) { return g.zh; }).join("、")
+      + "——要改其中哪一页，跟她说一声是哪页，她一提那一页的名字，下一轮就把那一页的挂点带上；别凭空猜挂点名。" : "");
     return "  ⚠️写 CSS 之前必须知道这三件事，不然写出来【一条都不会生效】：\n"
       + "  ① 这个 App 的样式几乎全是【内联 style】，行内赢过普通规则——**每一条声明都要带 !important**，不带就等于没写。\n"
       + "  ② 页面 CSS 会被系统【自动加上作用域】。你只管写普通选择器，**绝不要自己加 .theme-xxx 或 [data-page=...] 这类前缀**，加了就永远匹配不到。\n"
@@ -985,8 +1001,14 @@
     const hits = M.find(question, 4).filter(x => !page.some(p => p.id === x.id));
     hits.unshift.apply(hits, page);
     (extraIds || []).map(id => M.byId(id)).filter(x => x && !hits.some(h0 => h0.id === x.id)).forEach(x => hits.unshift(x));
+    // 详细限一个总量（她 2026-10-17 查秋秋还塞不塞太多：问「聊天气泡」会顺带进三万多字的小世界那一条）：
+    //   排在前面的照放；后面沾边的放不下就只留名字，真要再用 lookup 翻。点名要翻的那几条（extraIds）不受限。
+    const BUDGET = 16000; let used = 0; const keep = [], skip = [];
+    hits.forEach((x, i) => { const tx = M.textOf(x); const must = i === 0 || (extraIds || []).indexOf(x.id) >= 0;
+      if (must || used + tx.length <= BUDGET) { keep.push(tx); used += tx.length; } else skip.push(x); });
     return "【这个 App 有哪些东西 · 目录】\n" + M.index()
-      + (hits.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + hits.map(M.textOf).join("\n\n") : "");
+      + (keep.length ? "\n\n【她这次多半在问这几样 · 详细】\n" + keep.join("\n\n") : "")
+      + (skip.length ? "\n\n（也沾边、这回没放全文的：" + skip.map(x => "[" + x.id + "] " + (x.zh || "")).join("、") + "——要用就 lookup）" : "");
   }
 
   function buildSystem(ctx, question, history, extraIds) {
@@ -1032,7 +1054,11 @@
       + "  ⚠️快照里每张角色卡都带一栏【这张卡是否完整】。为 true 就是全文，放心照它出 patch、别再说自己看不到；"
       + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
-      + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
+      + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote(focus, ctx && ctx.page)
+      // 她 2026-10-17 截图：说「把天气、木鱼都删了」，秋秋写了一份 CSS 去藏，还说「拿不准就长按拖去删除区」——
+      //   主屏本来就有「从桌面移走」。界面上点得出来的事，答案是那一步在哪儿点，不是一张改动稿。
+      + "  ⚠️她要的事界面上本来就能点出来（删/移走/放回一个组件、换图、开关某一样），先翻攻略找到那一步，直接告诉她在哪儿点；"
+      + "别拿 CSS 去藏一个本来就能删的东西（藏起来的还占着位置、也没法放回），攻略里没写的步骤也别猜一个出来。只有界面上真做不到的样子，才出 theme。\n"
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
       + (typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.docLines() : "")
@@ -1091,6 +1117,7 @@
       + "改已有的规则用 find（逐字抄那一条规则）；加新规则用 \"append\":true，text 只写新加的那几条，会接在最后。"
       + "选择器要窄到只命中她说的那一处：共用的挂点（note、card…）看挂点说明里的 data-part／data-kind，连它一起写。"
       + "只有她说「整体重做」「全部换掉」时才整份重写，并且要填 \"whole\":true——不填的话整份重写会被拦下。\n"
+      + "她要把某个人／某个群／某个人线下的 CSS 清空、恢复默认：出一张那一格的卡，填 \"whole\":true，text 留空字符串——就是整份换成空。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【reply 一定要写话】不管出没出卡，reply 都是你跟" + uName + "说的话：先接住她这句（她在抱怨、在问、在吐槽就先回应那个），出卡的话再用一两句说清这张卡改了什么、为什么这么改。reply 永远不许空着、也不许只写「改动稿在下面」。\n\n"
@@ -1114,7 +1141,7 @@
     // 附件两种：图（只跟这一句走）、文件（她发来的 CSS/文本，内容接在这一句后面）
     const isFile = pic && typeof pic === "object" && pic.kind === "file";
     const img = isFile ? null : pic;
-    const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
+    const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.imgs ? "（里面嵌着 " + pic.imgs + " 张图，你这儿看到的是占位那一句；她直接导入原文件时图都在）" : "") + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
     // 旧记录里只剩一句「改动稿在下面。」的那几条：换成卡上写的改了什么，别让它照着自己学成只发卡
     const itText = m => m.role !== "me" && /^改动稿在下面。?$/.test(String(m.text || "").trim()) && Array.isArray(m.patches) && m.patches.length
       ? m.patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n") : String(m.text || "");
@@ -1171,7 +1198,12 @@
     });
     // 关系那一条 text 空着＝删掉这条线，是正经的一张卡
     const relDrop = x => x.target === "rel" && String(x.id || "").trim();
-    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x) || (typeof window !== "undefined" && window.AssistExtras && window.AssistExtras.okWithoutText(x))))
+    // 清空某一格 CSS（她 2026-10-17 截图：秋秋连着四次「改动稿格式不对」）＝整份换成空：
+    //   whole 填了、text 是空的那张卡是合法的，原来被「没正文」这道一起丢了
+    const CSS_CLEAR_OK = { chatcss: 1, offlinecss: 1, groupcss: 1 };
+    const S0id = x => String((x && x.id) || "").trim();
+    const cssClear = x => !!(CSS_CLEAR_OK[x.target] && (x.whole === true || x.whole === "true") && S0id(x));
+    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || cssClear(x) || loreMetaOnly(x) || relDrop(x) || (typeof window !== "undefined" && window.AssistExtras && window.AssistExtras.okWithoutText(x))))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
       // 导世界书、把一串人连起来：全是世界书／关系／配角的那一轮放宽到 12 张
       .slice(0, (rawPatches.length && rawPatches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
@@ -1400,8 +1432,14 @@
       const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
       return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
     }
-    if (CSS_T[p.target] && !p.find && !p.whole && String(before(p, ctx) || "").trim())
-      throw new Error("这一栏原来有 CSS，这条却是整份重写——别处会被跟着改掉。让它改用「改一小段」或「在后面加」；真要整体重做，跟它说清楚「整体重做」");
+    // 原来有 CSS、这条却是整份写的（群里 2026-10-17：「我已经弹了好几次了」——原来是直接拒，她只能一遍遍按「再试一次」，秋秋还照样整份写）：
+    //   不再拒。新的那份里已经把旧的原样包进去了，就当整份收下；不然就把它接在旧的后面——
+    //   CSS 后写的赢，她要改的那几处照新的来，没提到的旧规则一条不少，别处不会被跟着改掉。
+    if (CSS_T[p.target] && !p.find && !p.whole && String(before(p, ctx) || "").trim()) {
+      const cur = String(before(p, ctx) || "").replace(/\s+$/, ""), nx = String(p.text || "");
+      if (nx.indexOf(cur.trim()) >= 0) return T.write(p.id, p, ctx);
+      return T.write(p.id, Object.assign({}, p, { text: cur + "\n\n" + nx.replace(/^\s+/, "") }), ctx);
+    }
     if (p.append && !p.find) {
       if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌、档案和美化 CSS 那几栏能接着往后写");
       const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
@@ -2074,6 +2112,8 @@
     const swallowIfDragged = () => { if (movedRef.current) { movedRef.current = false; return true; } return false; };
     const dragProps = { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: endDrag, onPointerCancel: endDrag };
 
+    const ballSrc = cfg.avatarImage ? (typeof resolveImg === "function" ? resolveImg(cfg.avatarImage) : cfg.avatarImage) : "";
+    const ballCut = typeof window.useImgCutout === "function" ? window.useImgCutout(ballSrc) : false;
     if (!cfg.ballOn) return null;
     const base = { position: "fixed", zIndex: 940, touchAction: "none" };
 
@@ -2081,14 +2121,17 @@
     if (!open) return h("div", { "data-wk": "qqdockball", ...dragProps,
       onClick: () => { if (!swallowIfDragged()) setOpen(true); },
       "data-assistant-dock": "1",
-      // 换了自己的图（群友 2026-10-17：透明 png 想无边框无阴影）：圆底、边框、阴影都去掉，图长什么样就是什么样
-      style: cfg.avatarImage
+      // 普通头像照旧放进圆里（她 2026-10-17：一律去框那版大家的秋秋都变方了）；
+      //   抠好的透明图（四角透明）才不要圆底、边框和阴影，原样站在那儿
+      // 不透明的自己的图（她 2026-10-17「不透明的不能没有框吗」）：裁成圆，但不要底、边框和阴影
+      style: ballCut
         ? { ...base, left: a.x, top: a.y, width: BALL, height: BALL, display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }
+        : ballSrc ? { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }
         : { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
         background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.22)",
         display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "grab" } },
-      cfg.avatarImage
-        ? h("img", { src: typeof resolveImg === "function" ? resolveImg(cfg.avatarImage) : cfg.avatarImage, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" } })
+      ballSrc
+        ? h("img", { src: ballSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: ballCut ? "contain" : "cover", borderRadius: ballCut ? 0 : "50%", pointerEvents: "none" } })
         : h(QiuFace, { cfg: cfg, size: 40, radius: 999 }));
 
     // 展开的样子：一扇能拖的小窗

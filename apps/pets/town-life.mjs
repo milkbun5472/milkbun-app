@@ -1,14 +1,16 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-ba8b7ad855ac00e7';
-import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-ba8b7ad855ac00e7';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-ba8b7ad855ac00e7';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-ba8b7ad855ac00e7';
+import {workroomFurniture} from './resident-workroom.mjs?v=fg-88cac7af3e4d62b4';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-88cac7af3e4d62b4';
+import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-88cac7af3e4d62b4';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-88cac7af3e4d62b4';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-88cac7af3e4d62b4';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
-export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
-import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-ba8b7ad855ac00e7';
-export {roomDoor} from './room-layout.mjs?v=fg-ba8b7ad855ac00e7';
+export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist','workroom'];
+import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-88cac7af3e4d62b4';
+export {roomDoor} from './room-layout.mjs?v=fg-88cac7af3e4d62b4';
 // Footprints come from the existing Blender furniture, converted from Z-up.
 const footprints={
+
  cafe:[[1.03,-1.24,3.61,1.2],[-2.62,.48,.82,2.08],[-.73,1.29,1,1],[1.67,1.35,1,1],[-1.35,1.29,.44,.44],[-.11,1.29,.44,.44],[1.05,1.35,.44,.44],[2.29,1.35,.44,.44],[2.88,.92,.36,.36],[-2.4,-1.98,.44,.44]],
  store:[[.4,-2.26,4.8,.74],[1.68,-.1,2.26,1.13],[.25,-.02,.65,.7],[-2.32,-1.63,1.3,1.03],[-2.41,.15,.65,.62],[-1.62,-.1,.65,.62],[-1.7,.85,.72,.65],[.85,1.67,.53,.37],[2.77,1.51,.38,.38]],
  alley:[[-1.83,-2.18,2.75,.9],[1.43,-2.18,3.35,.9],[1.8,1.45,1.7,.8],[-1.56,1.44,1.45,.62],[-2.62,-.45,.98,.13],[-2.7,2.05,.46,.46],[.05,1.7,.6,.5]],
@@ -16,14 +18,14 @@ const footprints={
  florist:[[1.15,-1.22,2.5,1.03],[.12,-.65,.6,.6],[.7,-2.35,4.05,.58],[1.75,1.65,1.9,.64],[2.72,.5,.5,.5],[-2.6,-1.8,.56,.56],[-1.85,-1.8,.56,.56],[-2.6,-.9,.56,.56],[-1.85,-.9,.56,.56],[-2.6,0,.56,.56]]
 };
 const footprintZones={cafe:['bar','window','tables','tables','tables','tables','tables','tables','welcome','shelves'],store:['groceries','checkout','checkout','fridge','delivery','delivery','delivery','entrance','entrance'],alley:['facades','facades','stall','rest','clues','rest','rest'],bakery:['counter','oven','oven','perch','seating','seating','seating','seating','seating','seating'],florist:['worktable','worktable','plants','bench','bench','bouquets','bouquets','bouquets','bouquets','bouquets']};
-export function createTownNavigation(id,size=1){if(id==='home')return createHomeNavigation(size);const b=roomBounds(id),pad=.16*size,obstacles=(footprints[id]||[]).map(([x,z,w,d],i)=>roomPoint(id,footprintZones[id][i],{x,z,w,d}));const walkable=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&x>b.minX+pad&&x<b.maxX-pad&&z>b.minZ+pad&&z<b.maxZ-pad&&!obstacles.some(o=>Math.abs(x-o.x)<o.w/2+pad&&Math.abs(z-o.z)<o.d/2+pad);const clear=(a,b,map,avoid=[])=>walkable(a.x,a.z)&&walkable(b.x,b.z)&&!obstacles.some(o=>segmentIntersectsRect(a,b,o,pad))&&clearActorSegment(a,b,avoid);const navigator=createNavigator({room:{radius:5}},walkable,clear,walkable,{step:.08});return {walkable,ground:()=>.047,path:(a,b,avoid=[])=>navigator(a,b,'room',avoid),restore:p=>walkable(p?.x,p?.z)?point(p):roomDoor(id)};}
+export function createTownNavigation(id,size=1,variant='office'){if(id==='home')return createHomeNavigation(size);const b=roomBounds(id),pad=.16*size,obstacles=id==='workroom'?workroomFurniture(variant): (footprints[id]||[]).map(([x,z,w,d],i)=>roomPoint(id,footprintZones[id][i],{x,z,w,d}));const walkable=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&x>b.minX+pad&&x<b.maxX-pad&&z>b.minZ+pad&&z<b.maxZ-pad&&!obstacles.some(o=>Math.abs(x-o.x)<o.w/2+pad&&Math.abs(z-o.z)<o.d/2+pad);const clear=(a,b,map,avoid=[])=>walkable(a.x,a.z)&&walkable(b.x,b.z)&&!obstacles.some(o=>segmentIntersectsRect(a,b,o,pad))&&clearActorSegment(a,b,avoid);const navigator=createNavigator({room:{radius:5}},walkable,clear,walkable,{step:.08});return {walkable,ground:()=>.047,path:(a,b,avoid=[])=>navigator(a,b,'room',avoid),restore:p=>walkable(p?.x,p?.z)?point(p):roomDoor(id)};}
 export function restoreTownLife(raw){if(!raw||!TOWN_PLACES.includes(raw.place))return null;return {place:raw.place,position:point(raw.position),heading:bound(raw.heading,-Math.PI*4,Math.PI*4,0),phase:['idle','exit','travel','visit','stroll'].includes(raw.phase)?raw.phase:'idle',target:TOWN_PLACES.includes(raw.target)?raw.target:'home',goal:point(raw.goal),stop:point(raw.stop),time:bound(raw.time,0,600,0),idle:bound(raw.idle,0,600,0),hold:bound(raw.hold,0,120,0),rng:bound(raw.rng,1,4294967295,97531),duration:bound(raw.duration,10,60,24),wait:bound(raw.wait,80,240,120),returning:raw.returning===true,manual:raw.manual===true};}
 export function newTownLife(place,position,rng){return restoreTownLife({place,position,rng,wait:95+(rng%70)});}
 export function townSummary(s,title=id=>id){return s.phase==='exit'?'准备出门走走':s.phase==='travel'?(s.target==='home'?'散步结束，正在回家':'正去'+title(s.target)):s.place==='outside'?(s.phase==='stroll'?'在街区慢慢散步':'在街区歇歇看看'):s.place!=='home'?'在'+title(s.place)+'闲逛':null;}
 // Pet and companion share one itinerary and one path executor. Room boundaries
 // are crossed only after reaching their doorway; outdoor legs use the real town.
-export function createTownLife(state,{world,size=()=>1,actor=()=>({kind:'pet',size:size()}),actors=()=>[],onChange=()=>{}}){let route=[],routeKey='',speed=0,retry=0,blockedTime=0,failedGoal='';const navigators=new Map();
- const navigation=place=>{const key=place+':'+size();if(!navigators.has(key))navigators.set(key,createActorNavigation(place==='outside'?world:createTownNavigation(place,size()),{actor:()=>({...actor(),place}),actors}));return navigators.get(key);};
+export function createTownLife(state,{world,size=()=>1,actor=()=>({kind:'pet',size:size()}),actors=()=>[],onChange=()=>{},roomVariant=()=> 'office'}){let route=[],routeKey='',speed=0,retry=0,blockedTime=0,failedGoal='';const navigators=new Map();
+ const navigation=place=>{const key=place+':'+size()+(place==='workroom'?':'+roomVariant():'');if(!navigators.has(key))navigators.set(key,createActorNavigation(place==='outside'?world:createTownNavigation(place,size(),roomVariant()),{actor:()=>({...actor(),place}),actors}));return navigators.get(key);};
  const nav=(place=state.place)=>navigation(place);
  if(!nav().walkable(state.position?.x,state.position?.z)){state.position=state.place==='outside'?world.restore({position:state.position}).position:nav().restore(state.position);state.phase='idle';state.goal=null;}if(state.phase==='travel'&&state.target==='outside'&&!state.stop||state.phase==='exit'&&state.place==='outside'){state.phase='visit';state.goal=null;}
  const key=()=>state.place+':'+JSON.stringify(state.goal);
@@ -46,5 +48,8 @@ export function createTownLife(state,{world,size=()=>1,actor=()=>({kind:'pet',si
  }
  function walkTo(p){const n=nav(),q=point(p)&&n.freePoint(p,state.position);if(state.place==='outside'||!q||!n.walkable(q.x,q.z))return false;const request=state.place+':'+JSON.stringify(q);if(failedGoal===request&&retry>0)return false;if(!n.path(state.position,q)){failedGoal=request;retry=.45;return false;}state.hold=0;state.manual=true;state.target=state.place;state.phase='stroll';state.time=0;state.stop=null;goal(q);onChange();return true;}
  function go(target,stop=null,{manual=false}={}){if(!TOWN_PLACES.includes(target))return false;if(target==='outside'){if(!point(stop)||!world.walkable(stop.x,stop.z)||state.place==='outside'&&Math.hypot(state.position.x-stop.x,state.position.z-stop.z)<.15)return false;state.manual=manual;state.hold=0;state.stop=point(stop);if(state.place==='outside'){state.target='outside';state.phase='stroll';state.time=0;goal(stop);onChange();}else depart('outside');return true;}if(state.place===target)return !!point(stop)&&Math.hypot(state.position.x-stop.x,state.position.z-stop.z)>=.15&&walkTo(stop);state.manual=manual;state.stop=null;state.hold=0;if(state.place==='outside')travel(target);else depart(target);return true;}
- return {state,tick,sync,go,walkTo,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
+ // A destination in another room is approached from its real entrance, never
+ // from a blocked work surface or a null origin.
+ function reachablePoint(place,desired,maxOffset=1.2){const from=place===state.place?state.position:place==='outside'?world.building(state.place)?.approach:roomDoor(place);return from&&point(desired)?nav(place).freePoint(desired,from,maxOffset,true):null;}
+ return {state,tick,sync,go,walkTo,reachablePoint,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
 }

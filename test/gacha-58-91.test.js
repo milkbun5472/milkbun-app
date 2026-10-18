@@ -7,7 +7,7 @@ const G = require("../js/gacha.js");
 const app = R("app.js"), scr = R("screens.js");
 const cut = (a, b) => app.slice(app.indexOf(a), app.indexOf(b));
 const redeem = cut("  const gachaRedeem = async card => {", "  const coupleLineFor = (charId, uName) => {");
-const pullFn = cut("  const gachaPull = (char, n) => {", "  const gachaStamp = (cardId, result) => {");
+const pullFn = cut("  const gachaPull = (char, n, byTa) => {", "  const gachaStamp = (cardId, result) => {");
 const stamp = cut("  const gachaStamp = (cardId, result) => {", "  // 兑换。三档在这一处分路");
 
 // 她 2026-08-31 定的形状：**抽是抽，兑是兑**。抽卡永远 0 次调用——抽到的是一张兑换券，
@@ -105,7 +105,7 @@ test("每个恋人各一份，页面上不再挑角色", () => {
   assert.ok(ui.slice(0, ui.indexOf("\n")).indexOf("characters") < 0, "又把整份角色表递进来了");
   assert.match(ui, /c\.charId === partner\.id/, "卡册没按这位恋人筛");
   assert.match(ui, /\(pts \|\| \{\}\)\[partner\.id\]/, "点数没按这位恋人取");
-  assert.match(ui, /onPull\(partner, n\)/, "抽的时候没指名是谁");
+  assert.match(ui, /onPull\(partner, n(, byTa)?\)/, "抽的时候没指名是谁");
   assert.ok(ui.indexOf("setCid") < 0, "角色选择条没删干净");
 });
 
@@ -260,4 +260,13 @@ test("印象卡那张改的是真卡，不是自己另存一份", () => {
   assert.match(ask, /上面已经发给你了/, "没说清卡已经在上下文里——模型会以为要从零编一张");
   assert.match(ask, /整块盖掉旧的那版/, "没说清是整块重写，模型会写成补丁");
   assert.match(ask, /换个角色照样成立的就是写坏了/, "没立那条判据");
+});
+
+// 每十抽至少一张 SR，单抽也数（她 2026-10-17：「单抽十次不也应该算吗」）
+test("单抽十次也保底一张 SR", () => {
+  for (let k = 0; k < 30; k++) {
+    let st = { pulls: 0, sinceSSR: 0 }, got = false;
+    for (let i = 0; i < 10; i++) { const r = G.pull(1, st, {}, () => 0.999); st = r.state; if (r.cards.some(c => G.RANK[c.r] >= 1)) got = true; }
+    assert.ok(got, "单抽十次一张 SR 都没有");
+  }
 });

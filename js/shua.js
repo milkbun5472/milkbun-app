@@ -137,7 +137,8 @@
   // ── 熟面孔（她 2026-10-16：「论坛有意思是因为有一套熟人系统…片刻里面没有」）──────────────
   //   就是论坛那批常驻网友，换了片刻上的网名和刷视频的习惯。跟她的碰面账两边共用。
   //   regs：[{id,name,voice,tie}]；pairs：他们之间的交情；me：她这次用的号名
-  function regularsBlock(regs, pairs, me) {
+  // doing：这个平台上大家在干什么。片刻是「刷视频、发评论」，一起听广场是「听歌、写歌评」——同一批人、同一份交情，一段话两处用
+  function regularsBlock(regs, pairs, me, doing) {
     if (!regs || !regs.length) return "";
     const pick = regs.filter(r => r.tie && r.tie.encounters).concat(regs.filter(r => !(r.tie && r.tie.encounters)).sort(() => Math.random() - 0.5)).slice(0, 6);
     const ids = new Set(pick.map(r => r.id));
@@ -145,7 +146,7 @@
       const how = (t.warm || 0) >= (t.spar || 0) * 2 && t.warm > 1 ? "，碰上多半聊得来" : (t.spar || 0) >= (t.warm || 0) * 2 && t.spar > 1 ? "，碰上多半要抬两句杠" : "";
       return "；跟 @" + me + " 在评论区碰过 " + n0 + " 次" + how + "，再遇见认得出这个号，可以接着以前的调子（但不知道她的私生活）"; };
     const ps = (pairs || []).filter(p => ids.has(p.a) && ids.has(p.b)).map(p => "· " + p.line);
-    return "\n\n【这个平台上的熟面孔】下面几位是常在这儿刷视频、发评论的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
+    return "\n\n【这个平台上的熟面孔】下面几位是常在这儿" + (doing || "刷视频、发评论") + "的老网友：\n" + pick.map(r => "· 「" + r.name + "」：" + r.voice + tieOf(r)).join("\n")
       + (ps.length ? "\n他们彼此之间：\n" + ps.join("\n") + "\n同一条底下碰见了可以接旧梗、互损，别每次重新认识。" : "")
       + "\n写评论时大约三分之一可以是他们（name 照抄上面的网名，同一串里一个人最多两条，tone 填 warm＝聊得来 / spar＝抬杠），其余是路人（tone 留空）。";
   }
@@ -205,7 +206,7 @@
   }
 
   // ── 一条视频（整屏那一格）─────────────────────────────────
-  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
+  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, onEditDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
     const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
     const [more, setMore] = useState(false);   // 「⋯」：扔掉、画出来收在这儿，右边那排才不会顶到状态栏
     // 双击画面点赞、冒一颗心（只点亮，不会因为双击把赞取消掉；跟抖音一样）
@@ -251,6 +252,7 @@
           h("button", { "data-wk": "shuamorebtn", onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { minWidth: 44, minHeight: 40, color: INK, fontSize: 22, lineHeight: "40px", textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, drawing ? "…" : "⋯"),
           more ? h("div", { "data-wk": "shuamoremenu", style: { position: "absolute", right: 48, bottom: 0, minWidth: 120, borderRadius: 10, background: "rgba(28,28,34,.96)", padding: "4px 0", boxShadow: "0 6px 20px rgba(0,0,0,.4)" } },
             onDraw ? h("button", { "data-wk": "shuamoreitem", "data-part": "draw", onClick: () => { setMore(false); if (!drawing) onDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, drawing ? "画着…" : (src ? "重画" : "画出来")) : null,
+            onEditDraw && !drawing ? h("button", { "data-wk": "shuamoreitem", "data-part": "editdraw", onClick: () => { setMore(false); onEditDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, "改画面描述再画") : null,
             onDel ? h("button", { "data-wk": "shuamoreitem", "data-part": "del", onClick: () => { setMore(false); onDel(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, "扔掉这条") : null) : null) : null),
       h("div", { "data-wk": "shuacaption", style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { "data-wk": "shuaauthor", style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
@@ -436,7 +438,7 @@
         h("input", { "data-wk": "shuachargeinput", value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
         h("button", { "data-wk": "shuachargebtn", disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
   }
-  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply, onMore, moreBusy }) {
+  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, onEditDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply, onMore, moreBusy }) {
     const [text, setText] = useState("");
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
     const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
@@ -465,6 +467,7 @@
           (onDel || onDraw) ? h("button", { onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { position: "absolute", right: 6, top: 4, width: 40, height: 40, color: "#fff", fontSize: 20, lineHeight: "40px" } }, "⋯") : null,
           more ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: 44, zIndex: 5, minWidth: 130, borderRadius: 10, background: B.card, boxShadow: "0 6px 20px rgba(0,0,0,.25)", padding: "4px 0" } },
             onDraw ? moreItem(drawing ? "画着…" : (imgOf(v) ? "重画封面" : "画出来"), drawing ? null : onDraw) : null,
+            onEditDraw && !drawing ? moreItem("改画面描述再画", () => { setMore(false); onEditDraw(); }) : null,
             onDel ? moreItem("扔掉这条", onDel) : null) : null)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 10 } },
         h("div", { "data-wk": "shuabinfo", style: { background: B.card, padding: "12px 14px" } },
@@ -891,16 +894,22 @@
       } catch (e) { toast("评论区还空着：" + ((e && e.message) || "")); }
       finally { setBusy(null); }
     };
-    const draw = async v => {
+    // scene2：她改过的画面描述（她 2026-10-17：片刻也要能改描述再画）
+    const draw = async (v, scene2) => {
       setDrawing(v.id);
       try {
-        const ref = v.withCharId && props.drawDuo ? await props.drawDuo(v.withCharId, v.scene) : await props.draw(v.by === "char" ? v.charId : null, v.scene, v.who);
-        patchV(v.id, x => Object.assign({}, x, { img: ref }));
+        const sc = String(scene2 || "").trim() || v.scene;
+        const ref = v.withCharId && props.drawDuo ? await props.drawDuo(v.withCharId, sc) : await props.draw(v.by === "char" ? v.charId : null, sc, v.who);
+        patchV(v.id, x => Object.assign({}, x, { img: ref }, sc !== v.scene ? { scene: sc } : {}));
       }
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
       finally { setDrawing(null); }
     };
     // 扔掉不想要的那条（ooc 的、写坏的）。先问一句，删了就没了
+    const editDraw = v => {
+      if (typeof requestAppPrompt !== "function") return;
+      requestAppPrompt("改画面描述再画", "改这一段，照新的画一张封面。", v.scene || "", txt => { if (String(txt || "").trim()) draw(v, txt); }, "照这个画", { multiline: true });
+    };
     const del = v => {
       const go = () => { save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.filter(x => x.id !== v.id) })); setPage(p => p && p.id === v.id ? (p.back || null) : p); toast("扔掉了"); };
       if (props.confirm) props.confirm("扔掉这条视频？", "扔了就找不回来了" + (v.img ? "，画出来的那张图也一起不要了" : "") + "。", go); else go();
@@ -1002,7 +1011,7 @@
       const v = db.videos.find(x => x.id === page.id);
       if (v) return h(BDetail, { v, charOf, seriesOn: !!(v.series && v.charId && ((dbRef.current.me || {}).series || {})[v.charId + "|" + v.series]),
         onFollowSeries: v.series && v.charId && v.by === "char" ? () => { const k = v.charId + "|" + v.series, me = dbRef.current.me || {}, sr = Object.assign({}, me.series); if (sr[k]) delete sr[k]; else sr[k] = true; save(Object.assign({}, dbRef.current, { me: Object.assign({}, me, { series: sr }) })); toast(sr[k] ? "追更了，出新一期会在消息里提醒你" : "不追了"); } : null, busy: busy === "reply" || busy === "more:" + v.id, onMore: props.ask ? () => moreComments(v.id) : null, moreBusy: busy === "more:" + v.id, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
-        onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
+        onDraw: props.canDraw ? () => draw(v) : null, onEditDraw: props.canDraw ? () => editDraw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
@@ -1076,7 +1085,7 @@
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
         onSame: v.by !== "me" ? () => setPage({ kind: "post", same: v }) : null,
-        onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id })) : empty);
+        onDraw: props.canDraw ? () => draw(v) : null, onEditDraw: props.canDraw ? () => editDraw(v) : null, drawing: drawing === v.id })) : empty);
     const gridView = (vids, empty) => h("div", { "data-wk": "shuagrid", ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
     const emptyFeed = h("div", { "data-wk": "shuaempty", style: { height: "100%", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 30px" } },
@@ -1343,5 +1352,5 @@
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;
-  window.ShuaKit = { tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };
 })();

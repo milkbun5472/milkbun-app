@@ -139,5 +139,12 @@
     out.sort((x, y) => (toMin(x.time) || 0) - (toMin(y.time) || 0));
     return out.map((q, i) => ({ ...q, seq: i + 1 }));
   };
-  return { mirrorJoint, formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, shiftDayKey, currentSeqIdx, currentSlot };
+  // 她自己的作息 · 免打扰（她 2026-10-17）：cfg = { on, from:"HH:MM", to:"HH:MM", noPro, noBg }，按这台手机的钟算，跨零点也行
+  const quietActive = (cfg, kind, date) => {
+    if (!cfg || !cfg.on || !(kind === "pro" ? cfg.noPro : cfg.noBg)) return false;
+    const a = toMin(cfg.from), b = toMin(cfg.to); if (a == null || b == null || a === b) return false;
+    const d = date || new Date(), n = d.getHours() * 60 + d.getMinutes();
+    return a < b ? (n >= a && n < b) : (n >= a || n < b);
+  };
+  return { quietActive, mirrorJoint, formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, shiftDayKey, currentSeqIdx, currentSlot };
 });

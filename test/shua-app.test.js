@@ -149,7 +149,8 @@ test("播放页一排五个带图标，扔掉和画出来进「⋯」；收藏�
 
 test("片刻／直播多人那一段走群聊公共的人设拼法，不另起一套", () => {
   const app = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
-  const blk = app.slice(app.indexOf("briefFor: (c, _i, all)"), app.indexOf("pay: (delta, label) => changeWallet"));
+  assert.match(app, /briefFor: charPublicBrief,/);
+  const blk = app.slice(app.indexOf("const charPublicBrief = (c, _i, all, about) =>"), app.indexOf("// ── 音乐广场与歌评"));
   assert.ok(blk.length > 50);
   assert.match(blk, /groupPersonaText\(c\.persona, groupPersonaBudget\(/);
   assert.match(blk, /groupNowSegs\(c, /);

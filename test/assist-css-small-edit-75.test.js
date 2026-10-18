@@ -17,7 +17,12 @@ try { vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", "assistan
 const A = ctx.Assistant; console.log("has", !!A, A && Object.keys(A.TARGETS).includes("theme"));
 ctx.ThemeStudio.compile = () => {}; ctx.ThemeStudio.commit = v => { saved = v; };
 const run = p => { try { A.apply(p, {}); return "OK " + JSON.stringify(saved.pageCSS.chat); } catch (e) { return "ERR " + e.message; } };
-assert.match(run({ target: "theme", id: "chat", text: ".b{}" }), /^ERR 这一栏原来有 CSS/);
+// 原来有 CSS、这条整份写的：不拒（她 2026-10-17 群里弹了好几次），接在旧的后面，旧规则一条不少
+assert.match(run({ target: "theme", id: "chat", text: ".b{}" }), /^OK .*\.a\{color:red\}.*font-size:11px.*\.b\{\}/);
+saved.pageCSS.chat = ".a{color:red}\n[data-wk=\"note\"]{font-size:11px}";
+// 新的那份把旧的原样包进去了：当整份收下，不再重复一遍
+assert.equal(run({ target: "theme", id: "chat", text: ".a{color:red}\n[data-wk=\"note\"]{font-size:11px}\n.d{}" }), "OK " + JSON.stringify(".a{color:red}\n[data-wk=\"note\"]{font-size:11px}\n.d{}"));
+saved.pageCSS.chat = ".a{color:red}\n[data-wk=\"note\"]{font-size:11px}";
 assert.equal(run({ target: "theme", id: "chat", find: "font-size:11px", text: "font-size:13px" }), "OK " + JSON.stringify(".a{color:red}\n[data-wk=\"note\"]{font-size:13px}"));
 assert.match(run({ target: "theme", id: "chat", append: true, text: "[data-wk=\"note\"][data-part=\"busy\"]{color:blue}" }), /^OK .*\.a\{color:red\}.*data-part/);
 assert.equal(run({ target: "theme", id: "chat", whole: true, text: ".c{}" }), "OK " + JSON.stringify(".c{}"));

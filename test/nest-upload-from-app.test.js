@@ -15,10 +15,19 @@ const chatLookClean = new Function(cleanSrc + "; return chatLookClean;")();
 function load(store, extra) {
   const g = Object.assign({}, extra || {});
   const loadJSON = (k, d) => (k in store ? store[k] : d);
-  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", "fetch", "qqDeviceId", "chatLookClean", "chatLookShelf", "bubbleSkinSnapshot", nest)(
+  // 桩照 nest.js 真用到的写：保险箱取图 imgVaultFetchBlob(ref)→Blob、FileReader 读成 dataURL、打包 packChatLook（components.js 那份）
+  const vault = (extra && extra.__vault) || {};
+  const imgVaultFetchBlob = async ref => vault[ref] ? new Blob([vault[ref]], { type: "image/png" }) : null;
+  class FileReader { readAsDataURL(b) { b.arrayBuffer().then(ab => { this.result = "data:" + b.type + ";base64," + Buffer.from(ab).toString("base64"); this.onload(); }); } }
+  const packChatLook = async (look, name) => {
+    const clean = chatLookClean(look), assets = {};
+    for (const ref of [...new Set(JSON.stringify(clean).match(/iv_[A-Za-z0-9_-]+/g) || [])]) { const b = await imgVaultFetchBlob(ref); if (b) assets[ref] = "data:image/png;base64," + Buffer.from(await b.arrayBuffer()).toString("base64"); }
+    return { kind: "chat-look", v: 1, name, look: clean, assets };
+  };
+  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", "fetch", "qqDeviceId", "chatLookClean", "chatLookShelf", "bubbleSkinSnapshot", "imgVaultFetchBlob", "FileReader", "packChatLook", nest)(
     g, { useState: () => [], useEffect: () => {}, useRef: () => ({}) }, () => null, () => null, loadJSON, () => true,
     { getItem: () => null, setItem() {}, removeItem() {} }, async () => ({}), () => "dev-1",
-    chatLookClean, () => (store.x_chatLooks || []), () => ({ ai: { bg: "#fff" } }));
+    chatLookClean, () => (store.x_chatLooks || []), () => ({ ai: { bg: "#fff" } }), imgVaultFetchBlob, FileReader, packChatLook);
   return g.Nest;
 }
 
@@ -33,38 +42,34 @@ test("美化能挑的：存过的、聊天窗、群；没动过美化的聊天�
   assert.equal(rows[1].name, "阿明的聊天窗");
 });
 
-test("打出来的美化包：chat-look、assets 空；背景是自己的图就拿掉，CSS 里有图就不收", () => {
-  const N = load({});
-  const r = N.packLook({ name: "x", look: { skin: "pink", chatBg: "iv_abc" } });
+test("打出来的美化包：头像框、挂件、背景这些自己传的图一起装进 assets（她 2026-10-17「直接开放」）", async () => {
+  const N = load({}, { __vault: { iv_frame: "PNG1", iv_bg: "PNG2" } });
+  const r = await N.packLook({ name: "x", look: { skin: "pink", chatBg: "iv_bg", layout: { deco: { me: { frame: "iv_frame" } } } } });
   const d = JSON.parse(r.payload);
-  assert.equal(d.kind, "chat-look"); assert.deepEqual(d.assets, {}); assert.equal(r.dropped, true);
-  assert.equal(d.look.chatBg, undefined); assert.equal(d.look.skin, "pink");
-  assert.throws(() => N.packLook({ name: "y", look: { customCSS: "a{background:url(iv_zz)}" } }), /不收图/);
-  assert.throws(() => N.packLook({ name: "z", look: { chatBg: "iv_only" } }), /只有一张背景图/);
+  assert.equal(d.kind, "chat-look"); assert.equal(d.look.chatBg, "iv_bg");
+  assert.deepEqual(Object.keys(d.assets).sort(), ["iv_bg", "iv_frame"]);
 });
 
-test("主题直接用正用着的：走主题工作台的 exportPackage，不带壁纸；有自定义图标就不勾图标", async () => {
+test("主题直接用正用着的：图标、壁纸都勾上；只有自己传了字体文件才不勾字体", async () => {
   let got = null;
-  const TS = { normalize: p => p, load: () => ({ icons: { chat: "iv_1" }, customFonts: [] }),
+  const TS = { normalize: p => p, load: () => ({ icons: { chat: "iv_1" }, customFonts: [{ ref: "iv_f" }] }),
     exportPackage: async x => { got = x; return JSON.stringify({ kind: "qq-theme", assets: {} }); } };
-  const N = load({ x_theme: { accent: "#123" } }, { ThemeStudio: TS });
-  const text = await N.packCurrentTheme();
-  assert.equal(JSON.parse(text).kind, "qq-theme");
-  assert.equal(got.pick.wall, false); assert.equal(got.pick.icons, false); assert.equal(got.pick.fonts, true);
+  const N = load({ x_theme: { accent: "#123" }, x_wallpaper: "iv_w" }, { ThemeStudio: TS });
+  assert.equal(JSON.parse(await N.packCurrentTheme()).kind, "qq-theme");
+  assert.equal(got.pick.icons, true); assert.equal(got.pick.wall, true); assert.equal(got.wallpaper, "iv_w"); assert.equal(got.pick.fonts, false);
   assert.deepEqual(got.baseTheme, { accent: "#123" }); assert.ok(got.bubbleSkin);
-  TS.exportPackage = async () => JSON.stringify({ kind: "qq-theme", assets: { iv_9: "data:" } });
-  await assert.rejects(() => N.packCurrentTheme(), /不收图/);
 });
 
-test("CSS 也能直接挑：全 App、每一页、聊天窗、线下、群；空的不列，带图的不收", () => {
+test("CSS 也能直接挑：全 App、每一页、聊天窗、线下、群；空的不列；本机图库的图换成图本身嵌进去", async () => {
   const TS = { PAGES: [["all", "全 App"], ["thread", "聊天页"]], normalize: p => p,
     load: () => ({ globalCSS: "body{}", pageCSS: { thread: ".b{}" } }) };
   const N = load({ x_chatSettings: { a: { customCSS: ".c{}" } }, x_offlineSettings: { a: { customCSS: "" } },
-    x_groups: [{ id: "g1", name: "宿舍", customCSS: ".g{}" }] }, { ThemeStudio: TS });
+    x_groups: [{ id: "g1", name: "宿舍", customCSS: ".g{}" }] }, { ThemeStudio: TS, __vault: { iv_x: "PNG" } });
   const rows = N.cssSources([{ id: "a", name: "明" }]);
   assert.deepEqual(rows.map(r => r.id), ["t:all", "t:thread", "c:a", "g:g1"]);
-  assert.equal(N.packCss(rows[2]), ".c{}");
-  assert.throws(() => N.packCss({ css: "a{background:url(iv_x)}" }), /不收图/);
+  assert.equal(await N.packCss(rows[2]), ".c{}");
+  assert.match(await N.packCss({ css: "a{background:url(iv_x)}" }), /url\(data:image\/png;base64,/);
+  await assert.rejects(() => N.packCss({ css: "a{background:url(iv_gone)}" }), /图库里找不到/);
 });
 
 test("留言板：第八格、写帖子就是一段字、没有导入和复制、她能盖收到／修好", () => {
@@ -88,4 +93,25 @@ test("编辑：同一页改；没碰内容就不发；截图原来的用 keep；
   assert.match(nest, /x\.keep != null \? \{ keep: x\.keep \} : x\.full/);
   assert.match(nest, /\(it\.edited \? "\?v=" \+ it\.edited : ""\)/);
   assert.match(nest, /top\.v === "edit"\) return h\(Upload, \{ t, props, edit: top\.item/);
+});
+
+test("退回和称号：管理模式才有退回键、要写原因；作者改好保存就清掉退回；称号印章跟着署名、留言、借书证走", () => {
+  assert.match(nest, /admin && !it\.returned \? \(retOpen/);
+  assert.match(nest, /api\("\/admin\/return", \{ method: "POST", body: \{ item: it\.id, reason \} \}\)/);
+  assert.match(nest, /onDone\(edit\.id, kind, \{ returned: ""/);
+  assert.match(nest, /self && adminToken\(\) \? h\(BadgeSet/);
+  ["\"by \" + (it.nick || \"无名\"), h(Badge, { b: it.badge })", "c.name, h(Badge, { b: c.badge })", "d.user.name, h(Badge, { b: d.user.badge })"].forEach(x => assert.ok(nest.includes(x), x));
+});
+
+test("嵌进去的图：小 SVG、压得下的位图都能传；大 SVG、字体、超过 12 张拦下，说是哪种、在哪段后面", () => {
+  const N = load({});
+  const svg = 'url("data:image/svg+xml;utf8,<svg/>")';
+  assert.equal(N.imgProblem('[data-wk="bubble"]::after{background:' + svg + '}'), "");
+  assert.equal(N.imgProblem('.tail{background:url(data:image/png;base64,iVBOR=)}'), "");
+  const big = N.imgProblem('.tail{width:8px;background:url("data:image/svg+xml,' + "x".repeat(9000) + '")}');
+  assert.match(big, /KB 的矢量图（超过 8KB）/); assert.match(big, /「background:url\("?」后面/);
+  assert.match(N.imgProblem("@font-face{src:url(data:font/woff2;base64,AA)}"), /字体/);
+  assert.match(N.imgProblem(Array.from({ length: 13 }, () => "a{b:url(data:image/png;base64,AA)}").join("")), /最多 12 张/);
+  // JSON 包里（主题、整套美化）引号是转义过的，也认得出
+  assert.match(N.imgProblem(JSON.stringify({ look: { customCSS: 'a{b:url("data:image/tiff;base64,AAA=")}' } })), /tiff/);
 });

@@ -2298,8 +2298,10 @@
     // 选了人→走小剧场同款 buildPhotoPrompt 锁脸管道,她自己有参考照就自动合照双锁;
     // 其余队友一律退到远景虚化。没选人→旧的纯场景版。多于两张脸仍然不锁——
     // 锁一半更吓人,这条底线不动。
-    const genShot = async ch => {
+    // custom：她在「改画面描述再画」里亲手写的画面，有就顶替从正文里摘的那段
+    const genShot = async (ch, custom) => {
       if (!camp || busy) return;
+      const customDesc = typeof custom === "string" ? custom.trim() : "";
       if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
       setPlusOpen(false); setShotPick(false); setBusy(true); setBusyWhat(ch ? "正在画这一拍(锁" + ch.name + "的脸)…" : "正在画这一拍的画面…");
       props.toast("开始画这一拍了,出图要等一会儿…", 6000);
@@ -2307,8 +2309,8 @@
         const rows = camp.msgs.filter(m => m.role === "gm" || m.role === "user").slice(-4).map(m => (m.role === "user" ? uName : "") + String(m.content || ""));
         const kept = shotSafeLines(rows).join("\n").slice(-240);
         const hadCut = kept.length < rows.join("\n").length;
-        const recent = kept || ("队伍此刻正在" + (camp.place || "路上") + ",气氛紧绷。");
-        const cutNote = hadCut ? "\n【这一拍要画相邻的一瞬】原文里有激烈的内容,已从描述里拿掉;改画紧挨着它之前或之后的一个瞬间,把那股劲留在环境、距离和光线上。" : "";
+        const recent = customDesc || kept || ("队伍此刻正在" + (camp.place || "路上") + ",气氛紧绷。");
+        const cutNote = hadCut && !customDesc ? "\n【这一拍要画相邻的一瞬】原文里有激烈的内容,已从描述里拿掉;改画紧挨着它之前或之后的一个瞬间,把那股劲留在环境、距离和光线上。" : "";
         const duo = !!(ch && ch.refPhoto && props.profile && props.profile.refPhoto);
         let prompt, minimalPrompt, refs;
         let out = null;
@@ -2371,12 +2373,16 @@
         if (ch && out.degraded) props.toast(out.degraded === "duo-single-ref" ? "只锁了 " + ch.name + " 的脸" : "没用上参考照——脸可能不像" + (out.refError ? ":" + out.refError : ""), 7000);
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
-        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "photo", img: ref, lockChar: ch ? ch.id : undefined, ts: Date.now() }]) })));
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "photo", img: ref, lockChar: ch ? ch.id : undefined, desc: recent, ts: Date.now() }]) })));
         galAdd({ campId: camp.id, campTitle: camp.title, img: ref, ts: Date.now(), kind: "shot" });
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 重画沿用同一位入镜人(锁谁的脸记在图上)
-    const rerollShot = m => { if (busy) return; const lockCh = m.lockChar ? charOf(m.lockChar) : null; update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.filter(x => x.id !== m.id) }))); setTimeout(() => genShot(lockCh), 60); };
+    const editRerollShot = m => {
+      if (busy || typeof requestAppPrompt !== "function") return;
+      requestAppPrompt("改画面描述再画", "写这一张画面上该看见什么，照新的重画。", m.desc || "", txt => { if (String(txt || "").trim()) rerollShot(m, String(txt)); }, "照这个画", { multiline: true });
+    };
+    const rerollShot = (m, custom) => { if (busy) return; const lockCh = m.lockChar ? charOf(m.lockChar) : null; update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.filter(x => x.id !== m.id) }))); setTimeout(() => genShot(lockCh, custom), 60); };
     // 存进手机系统相册:iOS 在分享单里选「存储图像」(小剧场同款)
     const saveToAlbum = async ref => {
       try {
@@ -2908,8 +2914,9 @@
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重画这张", () => { const m = photoMenu; setPhotoMenu(null); rerollShot(m); }],
+           ["改画面描述再画", () => { const m = photoMenu; setPhotoMenu(null); editRerollShot(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
-           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "block", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "block", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: label === "取消" ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       // 大图查看器(objectFit:contain 看整张,可存相册)
       // 看大图走全库那一份 ImageViewer（2026-10-16 九处并一处）
       const bigViewer = bigView && h(ImageViewer, { onClose: () => setBigView(null),

@@ -57,7 +57,24 @@
   // 日轮曲线：凌晨 4 点最低、下午 4 点最高
   function curve(hr) { return (1 - Math.cos((hr - 4) / 24 * Math.PI * 2)) / 2; }
   // 一天的天气：{code,hi,lo,t}
+  // 跟着现实城市走（她 2026-10-17：某个架空世界的天气可以照一座现实城市来）。
+  //   follow(世界 id) 给回那座城今天的真实天气（形状同真实天气那条线）或 null；只顶【今天】，别的日子照旧现算。
+  let follow = null;
+  function setFollow(fn) { follow = typeof fn === "function" ? fn : null; }
+  function followed(seed, date) {
+    if (!follow) return null;
+    const x = date instanceof Date ? date : new Date(date || Date.now());
+    if (dayKey(x) !== dayKey(new Date())) return null;
+    let w = null;
+    try { w = follow(String(seed == null ? "" : seed).split("|")[0]); } catch (e) { w = null; }
+    if (!w || !isFinite(w.t) || !isFinite(w.hi) || !isFinite(w.lo)) return null;
+    const code = w.code != null ? w.code : w.dayCode;
+    const isNow = x.getHours() === new Date().getHours();
+    return { code: code, hi: w.hi, lo: w.lo, t: isNow ? w.t : Math.round(w.lo + (w.hi - w.lo) * curve(x.getHours())) };
+  }
   function dayOf(seed, terrain, date) {
+    const fw = followed(seed, date);
+    if (fw) return fw;
     const c = climateOf(terrain);
     const r = rngOf(seed + "|" + dayKey(date));
     const mid = c.base + seasonAdj(date) + (r() - .5) * 7;
@@ -133,5 +150,5 @@
     return out;
   }
   function windOf(terrain) { return climateOf(terrain).wind; }
-  return { CLIMATE: CLIMATE, climateOf: climateOf, dayOf: dayOf, forecast: forecast, hours: hours, placesOf: placesOf, windOf: windOf, _hash: hash };
+  return { CLIMATE: CLIMATE, climateOf: climateOf, dayOf: dayOf, forecast: forecast, hours: hours, placesOf: placesOf, windOf: windOf, setFollow: setFollow, _hash: hash };
 });
