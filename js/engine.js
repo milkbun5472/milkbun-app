@@ -7521,7 +7521,7 @@ function callBilingualRule(people, settingsFor) {
   const enabled = people.filter(p => !p.npc && (settingsFor(p.id) || {}).bilingual && !(settingsFor(p.id) || {}).engineerEyes);
   if (!enabled.length) return "";
   return "\n" + enabled.map(p => bilingualRule(p.name)).join("\n")
-    + "\n【通话字幕格式】双语格式用于 say 数组的各条台词或 text 字段；竖线左侧才是念出口的台词，右侧中文仅供显示，不朗读。action 与状态字段不加双语分隔。";
+    + "\n【通话字幕格式】双语格式用于 say 数组的各条台词或 text 字段；竖线左侧才是念出口的台词，右侧中文仅供显示，不朗读。action、穿着这些状态字段不加双语分隔，心声照上面那条带。";
 }
 // 提示词那一半：单聊说「这个角色」，群里点名说是谁——两处用同一段字，
 // 免得又变成「这一层只写在一处」（施工规则/four-surfaces-same-context.md）。
@@ -7532,7 +7532,9 @@ function bilingualRule(who) {
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
-    + "右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。";
+    + "右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。"
+    // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
+    + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一句心声只用一根竖线；动作、穿着这些状态字段不加。";
 }
 const TRANS_CACHE_KEY = "x_transCache";
 const TRANS_CACHE_MAX = 400;
