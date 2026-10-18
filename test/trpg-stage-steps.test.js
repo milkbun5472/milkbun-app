@@ -3,8 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
-const { applyTurnPayload, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS } = require("../js/trpg.js");
+const src = (fs.readFileSync(path.join(root, "js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/trpg.js"), "utf8"));
+const { applyTurnPayload, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
 // 章里的坎(她 2026-09-04 报:守密人节奏很赶,经常一两拍就让她过了下一章)

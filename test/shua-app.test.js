@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const S = R("js/shua.js"), A = R("js/app.js");
+const S = (R("js/shua-core.js") + "\n" + R("js/shua.js")), A = R("js/app.js");
 test("名字只写在一处，不叫抖音", () => {
   assert.match(S, /const APP_NAME = "片刻";/);
   assert.ok(!/抖音/.test(S.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n")), "代码里（注释以外）出现了抖音");
@@ -127,7 +127,7 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
 });
 
 test("关注和推荐不重样；底栏收藏格带文件夹；消息挪进「我」", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   assert.match(src, /feed === "rec" \? v\.by !== "char" : v\.by === "char"/);
   assert.match(src, /tabBtn\("fav", "收藏"\)/);
   assert.doesNotMatch(src, /tabBtn\("msg"/);
@@ -137,7 +137,7 @@ test("关注和推荐不重样；底栏收藏格带文件夹；消息挪进「�
 });
 
 test("播放页一排五个带图标，扔掉和画出来进「⋯」；收藏长按挑文件夹，不用系统下拉框", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   const bd = src.slice(src.indexOf("function BDetail"), src.indexOf("function ShuaApp") > 0 ? src.indexOf("function ShuaApp") : undefined);
   assert.match(src, /const icon = \(k, c, size, on\)/);
   assert.match(bd, /"aria-label": "更多"/);
@@ -158,7 +158,7 @@ test("片刻／直播多人那一段走群聊公共的人设拼法，不另起�
 });
 
 test("收藏夹那一排是文件夹，不是药丸", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   assert.match(src, /function FolderTab\(/);
   const fav = src.slice(src.indexOf('tab === "fav"'), src.indexOf('tab === "msg"'));
   assert.doesNotMatch(fav, /borderRadius: 999/);
@@ -166,7 +166,7 @@ test("收藏夹那一排是文件夹，不是药丸", () => {
 });
 
 test("文案说清楚是作者配的那段话，竖着刷底下一定露出来", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   assert.match(src, /const CAPTION_FACT = /);
   assert.equal((src.match(/文案 caption（" \+ CAPTION_FACT|caption 文案（" \+ CAPTION_FACT/g) || []).length, 2, "TA 发和路人发两处都要讲清");
   assert.match(src, /\(v\.caption \|\| arr\(v\.tags\)\.length\) \?/);
@@ -174,7 +174,7 @@ test("文案说清楚是作者配的那段话，竖着刷底下一定露出来",
 
 test("同城算上架空世界；刷新在同城就刷这座城；带今天日期；右边那排压矮；分享一排四个", () => {
   const fs = require("fs"), path = require("path");
-  const src = fs.readFileSync(path.join(__dirname, "../js/shua.js"), "utf8");
+  const src = (fs.readFileSync(path.join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/shua.js"), "utf8"));
   const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
   assert.match(app, /const shuaCities = \(\) =>/);
   assert.match(app, /K\.charRealm\(c, worldsRef\.current/);
@@ -189,21 +189,21 @@ test("同城算上架空世界；刷新在同城就刷这座城；带今天日�
 });
 
 test("聊天里的视频卡画面铺满卡宽", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   const card = src.slice(src.indexOf("function ShuaShareCard"), src.indexOf("window.ShuaShareCard"));
   assert.doesNotMatch(card, /aspectRatio/);
   assert.match(card, /width: "100%", height: v\.skin === "b"/);
 });
 
 test("同城那排限宽能横滑；在同城打开刷新页，刷路人刷的是这座城", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   assert.match(src, /maxWidth: "calc\(100% - 120px\)", minWidth: 0/);
   assert.match(src, /overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x"/);
   assert.match(src, /onNpc: \(\) => genNpc\(feed === "city" && cities\.length \? cityNow : ""\)/);
 });
 
 test("消息记着是哪条视频，点进去就是那条", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   assert.match(src, /const note = \(text, vid\) =>/);
   // 评论回复那一串（crowd）里记的是 vid（2026-10-15 换写法），一起数
   assert.equal((src.match(/note\([^;]*, (?:v\.id|vid)\)/g) || []).length, 3, "每处提醒都带上视频");
@@ -212,7 +212,7 @@ test("消息记着是哪条视频，点进去就是那条", () => {
 });
 
 test("聊天里的视频卡点开就是片刻里那一条，返回回到聊天", () => {
-  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const src = (require("fs").readFileSync(require("path").join(__dirname, "../js/shua-core.js"), "utf8") + "\n" + require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8"));
   assert.match(src, /const shareSnap = v => Object\.assign\(\{ id: v\.id \|\| null,/);
   assert.match(src, /onClick: \(\) => window\.__openShuaVideo\(v\)/);
   assert.match(src, /vids\.find\(x => x\.author === sn\.author && x\.scene === sn\.scene\)/, "旧卡没 id 按作者＋画面认");

@@ -3,8 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
-const { applyTurnPayload } = require("../js/trpg.js");
+const src = (fs.readFileSync(path.join(root, "js/trpg-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/trpg.js"), "utf8"));
+const { applyTurnPayload } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
 
 // ============================================================
 // 夜谈(她 2026-09-04:跑团还是单调)——休整拍不再是「各提一句对下一步的看法」,

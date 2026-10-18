@@ -47,7 +47,7 @@ const SURFACES = [
   ["study.js", "自己 push"],
   ["memo.js", "自己 push"],
   ["ledger.js", "自己 push"],
-  ["pomodoro.js", "自己 push"],
+  ["pomodoro-core.js", "自己 push"],   // 2026-10-18 起陪伴台词那几枪在 pomodoro-core.js（番茄钟拆出来的开机那半）
   ["impression.js", "自己 push"],
   ["fanfic-core.js", "narrativeCore（同人文正文和穿书都走它）"],   // 2026-10-18 起这段在 fanfic-core.js（fanfic.js 拆出来的提示词那半）
   // ⚠️games.js 是 Codex 的地盘，她 2026-09-05 亲口让动的（「你动吧宝宝」）才碰。

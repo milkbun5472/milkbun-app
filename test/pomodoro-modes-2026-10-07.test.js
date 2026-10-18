@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "pomodoro.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "pomodoro-core.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "pomodoro.js"), "utf8"));
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const gacha = fs.readFileSync(path.join(__dirname, "..", "js", "gacha.js"), "utf8");
 function loadLogic() {
