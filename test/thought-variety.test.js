@@ -4,9 +4,10 @@ test("不把最近几条心声摆给TA对照（10-04、10-18 两回都照着学�
   assert.doesNotMatch(eng, /function thoughtVarietyBlock/);
   assert.doesNotMatch(app, /recentThoughts/);
 });
-test("心声定义：四样留着，但不是每句都要交一个打算", () => {
+test("心声定义：问的是没说出口的那部分，拿他刚说出口的对照", () => {
   const TM = (eng.match(/const THOUGHT_MEANING = "([^"]+)";/) || [])[1];
   assert.ok(TM);
-  assert.match(TM, /想要的、在意的、藏着的、打算的/);
-  assert.match(TM, /不是每句都要落成一个打算/);
+  assert.match(TM, /没说出口的那一句/);
+  assert.match(TM, /跟他刚才嘴上说的、做出来的对照/);
+  assert.doesNotMatch(TM, /打算做什么|落点在他自己身上/);
 });
