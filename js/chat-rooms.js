@@ -86,7 +86,7 @@
     // 你们处到哪一步了
     innerLife: [
       "rels",         // 有方向的关系网；关掉时给空表，不能给 null 把引擎撞断
-      "moodLabel", "moodNote", "aMood", "gazeText", "personaGrown", "personaEvolve",
+      "moodLabel", "moodNote", "aMood", "recentThoughts", "gazeText", "personaGrown", "personaEvolve",
       "affinity",       // 好感度
       "shikeNote",      // 时刻 · 快到的日子（认识/在一起第几天、周年、生日）——你们处到哪一步的那种事
       "coupleStatus",   // 是不是恋人、在一起多少天 ← 她这次看见的就是它
