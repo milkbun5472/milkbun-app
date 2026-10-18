@@ -10728,6 +10728,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
   // 连续几轮「要了却没拍」的计数，按角色分开（只用来判断要不要提示，不落库）
   const noPhotoStreakRef = useRef({});
+  // 同一句话连着重 roll 时，被删掉的那几版都记着（她 2026-10-18：一直重 roll，版版都是同一副骨架）——
+  //   原来只把【上一版】递过去，第三版躲开第二版、又走回第一版的老路。按「哪个窗 + 她哪一句」记，最多三版，只在内存里
+  const rerollHistRef = useRef({});
   // 她开口要照片 → 冷却让路。说法放宽（她 2026-10-01：「没到冷却我让他拍也是可以的啊」）：
   //   「拍腹肌给我」「看看腹肌」「发个图」都算；「拍一拍」那个动作不算。
   const PHOTO_REQUEST_RE = /(?:照片|自拍|(?<!拍一)拍(?!一拍)|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看|看一下|合照|photo|selfie|picture|pic)/i;
@@ -14346,13 +14349,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const turnId = m.turnId;
       let rerollAvoid = "";
+      const _herLast = msgs.slice(0, idx).filter(x => x && x.role === "user").slice(-1)[0];
+      const _rhKey = threadKey + "|" + ((_herLast && _herLast.ts) || "");
+      const withPast = cur => {
+        const past = (rerollHistRef.current[_rhKey] || []).filter(v => v && v !== cur);
+        rerollHistRef.current = { [_rhKey]: [...past, cur].filter(Boolean).slice(-3) };
+        return rerollHistRef.current[_rhKey].join("\n——更早被删掉的一版——\n");
+      };
       const avoidOf = rm => (rm || []).filter(x => x && (x.role === "assistant" || x.who === "char") && x.content && !x.recalled).map(x => String(x.content)).join("\n");
       if (turnId) {
         const branch=window.RerollBranch&&window.RerollBranch.truncateChatBranch
           ?window.RerollBranch.truncateChatBranch(msgs,idx,turnId)
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[turnId]};
         const removed=branch.removed,removedTurns=branch.turnIds;
-        rerollAvoid = avoidOf(removed);
+        rerollAvoid = withPast(avoidOf(removed));
         // 留版：要在下面回滚状态【之前】把这一版的心情心声好感拍下来
         const _keepAlt = !isSideRoom && settingsFor(activeChar.id).keepRerolls === true && rerollKeepable(removed) ? { msgs: removed, st: charStateSnap(activeChar.id) } : null;
         // 共享账本也只做软删；离线时进入专用 outbox，联网后补盖 deleted_at。
@@ -14383,7 +14393,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const branch=window.RerollBranch&&window.RerollBranch.truncateChatBranch
           ?window.RerollBranch.truncateChatBranch(msgs,idx,null)
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[]};
-        rerollAvoid = avoidOf(branch.removed);
+        rerollAvoid = withPast(avoidOf(branch.removed));
         const removedTurns=branch.turnIds||[],journal=loadJSON("x_rerollMemoryJournal",{}),doomed=new Set();
         removedTurns.forEach(id=>(journal[activeChar.id+"|"+id]||[]).forEach(memId=>doomed.add(String(memId))));
         if(!isSideRoom&&doomed.size)saveMemLib(memLibRef.current.filter(e=>!doomed.has(String(e&&e.id))));

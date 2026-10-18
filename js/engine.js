@@ -2850,8 +2850,10 @@ function rerollDirLine() {
 function onlineRerollHint(avoid) {
   const a = String(avoid || "").trim();
   if (!a) return "";
-  return "\n\n〔重写〕下面是上一版回复，已经被删掉了，不属于发生过的对话：『" + offlineRerollExcerpt(a) + "』。"
-    + "这一次重新决定怎么回：别把上一版的意思换个说法再说一遍，也别沿用它的开头和收尾；同义替换、把同一件事说得更长，都不算重写。"
+  const many = a.indexOf("——更早被删掉的一版——") >= 0;
+  return "\n\n〔重写〕下面是" + (many ? "她这一句已经被删掉的几版回复" : "上一版回复") + "，都已经删掉了，不属于发生过的对话：『" + (many ? a.split("\n——更早被删掉的一版——\n").map(offlineRerollExcerpt).join("』『") : offlineRerollExcerpt(a)) + "』。"
+    + "这一次重新决定怎么回：别把" + (many ? "这几版" : "上一版") + "的意思换个说法再说一遍，也别沿用它的开头和收尾；同义替换、把同一件事说得更长，都不算重写。"
+    + (many ? "这几版要是走的是同一副骨架（先怎么接、中间扯到谁、最后落在哪），这次连骨架一起换：从她这句里挑一个它们都没碰的地方接。" : "")
     + "上一版之前已经成立的事实照旧，其余由你此刻重新想。" + rerollDirLine();
 }
 
