@@ -7692,12 +7692,12 @@ async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
-  // MyMemory 只在【源就是英文】时还值得一试：别的语种它一律绕道英语，绕废的概率很高。
-  const myMemoryOk = src === "en" || src === "auto";
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => _transMicrosoft(text, src) },
-    { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
+    // 日/韩/俄它也试（她 2026-10-18 群里俄文截图：Google 不通、微软取票 404，第三条又因为「要绕道英语」被跳过——三条全断）。
+    //   绕废了交回英文的那种，下面 _looksChinese 那道闸照样拦得住，不会把英文当译文摆出来
+    { by: "免费", run: () => _transMyMemory(text, src) },
     // 模型那一级默认不走了（她 2026-10-16：「翻译能不能不给模型翻译，浪费钱」）——免费两家都不成就照实报失败，点一下再试。
     //   只有调用处明说 allowModel 才叫模型（现在没有哪一处这么说）
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }

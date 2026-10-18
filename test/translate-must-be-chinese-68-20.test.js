@@ -42,10 +42,11 @@ test("判据写在跑链条那一处，每一级都要过", () => {
   assert.match(seg, /catch \(e\) \{ errs\.push\(names\[i\] \+ "：" \+/);
 });
 
-test("日/韩/俄这类源直接跳过 MyMemory，省一次白跑", () => {
+// 2026-10-18 改：日/韩/俄也试 MyMemory（前两家都不通时它是最后一条免费的路），绕回英文的照样被「得是中文」那道闸拦下
+test("日/韩/俄这类源也试 MyMemory，不再整条跳过", () => {
   const seg = eng.slice(eng.indexOf("async function translateToZh("), eng.indexOf("// 日语汉字 → 假名读音"));
-  assert.match(seg, /const myMemoryOk = src === "en" \|\| src === "auto";/);
-  assert.match(seg, /myMemoryOk \? _transMyMemory\(text, src\) : Promise\.reject/);
+  assert.ok(!/myMemoryOk/.test(seg));
+  assert.match(seg, /run: \(\) => _transMyMemory\(text, src\) \}/);
   // Google 和模型那两级没被动
   assert.match(seg, /_transGoogle\(text, src\)/);
   assert.match(seg, /_transModel\(text\)/);
