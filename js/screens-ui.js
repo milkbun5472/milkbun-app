@@ -9951,7 +9951,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 34, lineHeight: 1.2, color: t.ink, wordBreak: "break-word" } }, char.remark || char.name),
             char.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 5 } }, char.name) : null,
             h("div", { style: { height: 1, background: "rgba(" + iRGB + ",.14)", margin: "14px 0 11px" } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, list.length ? "收了 " + list.length + " 篇" : "还是空的"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, list.length ? "收了 " + list.length + " 篇" + (list.filter(e => e.unread).length ? " · " + list.filter(e => e.unread).length + " 篇没看" : "") : "还是空的"),
             lastStr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, "最后写于 " + lastStr) : null),
           char.avatarImage ? h("div", { style: { position: "absolute", right: "9%", bottom: "7%", width: 74, height: 74, borderRadius: 4, overflow: "hidden", transform: "rotate(3deg)", border: "3px solid rgba(255,255,255,.8)", boxShadow: "0 4px 12px rgba(0,0,0,.16)" } },
             h("img", { src: (typeof resolveImg === "function" ? resolveImg(char.avatarImage) : char.avatarImage), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
@@ -10066,7 +10066,7 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
@@ -10075,6 +10075,12 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   const [view, setView] = useState("archive"); // archive(默认大图) | home(目录) | entries | entry | compose
   const [curId, setCurId] = useState(characters[0] ? characters[0].id : "__me");
   const [curEntry, setCurEntry] = useState(null);
+  // 看过没有（群里 2026-10-18 许愿）：TA 新写的带 unread，翻到那一篇就算看过；翻页翻到的也算
+  useEffect(() => {
+    if (view !== "entry" || !curEntry || curId === "__me" || !onMarkRead) return;
+    const e = ((diaries || {})[curId] || []).find(x => x.id === curEntry);
+    if (e && e.unread) onMarkRead(curId, [e.id]);
+  }, [view, curEntry, curId]);
   // 翻页：flip 记着这一下往哪边翻、翻到哪一篇；flipRef 存手指按下时的位置
   const [flip, setFlip] = useState(null);
   const flipRef = useRef(null);
@@ -10292,6 +10298,8 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.05, color: t.ink } }, d.getDate()),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, (d.getMonth() + 1) + "月 · 周" + wd)),
             h("div", { className: "flex-1 min-w-0" },
+              e.unread ? h("div", { "data-wk": "diunread", style: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 4 } },
+                h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, display: "inline-block" } }), "没看") : null,
               titleMain ? h("div", { "data-wk": "dititle", className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
               h("div", { "data-wk": "dibody", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
               (marks.length || (isMe && (e.comments || []).length)) ? h("div", { "data-wk": "dimarks", className: "flex items-center", style: { gap: 7, marginTop: 10 } },
@@ -10309,6 +10317,9 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       onBack: () => setView("archive")
     }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-10 pt-1" },
+      (onMarkRead && characters.some(c => entriesOf(c.id).some(e => e.unread)))
+        ? h("button", { "data-wk": "diallread", onClick: () => characters.forEach(c => { const ids = entriesOf(c.id).filter(e => e.unread).map(e => e.id); if (ids.length) onMarkRead(c.id, ids); }),
+            className: "active:opacity-60", style: { display: "block", marginLeft: "auto", marginTop: 6, fontFamily: F_BODY, fontSize: 12, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } }, "全部标为已读") : null,
       authors.map(c => {
         const list = entriesOf(c.id); const last = list[0]; const gb = busy[c.id]; const cur = c.id === curId;
         return h("div", {
@@ -10322,7 +10333,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
               h("div", { "data-wk": "diname", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
               cur && h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".05em", padding: "2px 6px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, "当前")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } },
-              gb ? "正在记录今天…" : list.length ? "共 " + list.length + " 篇 · 最后 " + new Date(last.ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
+              gb ? "正在记录今天…" : list.length ? (list.filter(e => e.unread).length ? list.filter(e => e.unread).length + " 篇没看 · " : "") + "共 " + list.length + " 篇 · 最后 " + new Date(last.ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
           gb ? h(IPulse, { size: 18, color: t.fog }) : h(IChevR, { size: 16, color: t.fog }));
       })));
 }
