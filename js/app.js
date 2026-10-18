@@ -4521,6 +4521,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 自动来源（抽取/总结）去重，别把同一件事塞好几条；手动记的放行（用户自己要加就加）
     if (entry.source !== "manual" && isDupMem(entry.text, entry.charIds, null, entry)) return;
     saveMemLib([entry, ...pruneSubsumed(memLibRef.current, [entry])]);
+    // 外置记忆库开着「写回」：这一条也往那边记一份（不等它、失败不影响本地）
+    if (window.ExtMem) window.ExtMem.push(entry, (entry.charIds || []).map(id => { const c = (characters || []).find(x => x && x.id === id); return c ? c.name : ""; }));
     return entry;   // v58.83：加约定那条路要拿 id 去挂到期日；老调用方一律忽略返回值
   };
   // 长文导入（v48.83，她要「把总结的一切放进记忆库、能被 app 小克搜到」）：把一大段文本切成离散条目、绑角色、
@@ -6601,6 +6603,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     directives: directives[char.id] || [],
     memory: memories[char.id],
+    // 外置记忆库这一轮搜到的（js/ext-mem.js；回复前已经搜好，这儿只读）
+    extMem: ctxOpts && ctxOpts.noMemory ? "" : (window.ExtMem ? window.ExtMem.textFor(char.id) : ""),
     memLib: (() => {
       // 这一轮根本不要记忆（隔离房把 formalMemory 关了）：直接不检索。
       // ⚠️原来是「照检索、之后再被那道闸清掉」，于是两件坏事：
@@ -8802,6 +8806,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 引擎那头空场会发 OFFLINE_OPEN_SCENE 当触发句，不是「（继续）」。
     const _abort = laneAbortBegin("c:" + scopeKey);
     try {
+      // 外置记忆库：拿这一场她最近那句去搜（隔离房的闸照样在 gateRoomContext 那一道）
+      if (window.ExtMem) { const _oq = ((workSess && workSess.msgs) || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0]; await window.ExtMem.prefetch(char, String((_oq && _oq.content) || "")); }
       let oCtx = ctxFor(char, sideRoom && window.ChatRooms && window.ChatRooms.memCutoff ? { memCutoff: window.ChatRooms.memCutoff(sideRoom) } : undefined);
       if (sideRoom) {
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
@@ -11679,6 +11685,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     const char = characters.find(c => c.id === charId);
     let base = chatsRef.current[chatKey] || [];
+    // 外置记忆库：拿她这句（没有就拿最近她说的那句）去搜一下，最多等 6 秒；隔离房不带记忆就不搜
+    if (char && window.ExtMem && roomReads("formalMemory")) {
+      const _q = extraText || ((base.filter(m => m && m.role === "user" && m.content).slice(-1)[0] || {}).content || "");
+      await window.ExtMem.prefetch(char, String(_q));
+    }
     if (extraText != null && extraText !== "") {
       const um = {
         role: "user",

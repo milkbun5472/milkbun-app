@@ -10715,7 +10715,50 @@ function McpConfig({ toast }) {
     h("button", { onClick: () => persist([...list, { id: "m_" + Date.now(), name: "", url: "", token: "", on: true }]), className: "w-full active:opacity-70",
       style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0" } }, "＋ 加一台 MCP 服务器"),
     list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 10 } },
-      "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给TA。默认谁都不发。") : null);
+      "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给TA。默认谁都不发。") : null,
+    list.length ? h(ExtMemBox, { list: list, toast: toast }) : null);
+}
+// 外置记忆库（js/ext-mem.js）：挑一台接好的 MCP，认出它「搜记忆」「记一条」那两件工具。
+//   跟「让 Ta 能上网」无关：这是 App 自己每轮去搜、自己写回，不用 TA 想起来调。
+function ExtMemBox({ list, toast }) {
+  const t = useTheme();
+  const EM = window.ExtMem;
+  const [c, setC] = useState(() => (EM ? EM.cfg() : {}) || {});
+  const [tools, setTools] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const put = patch => { const n = { ...c, ...patch }; setC(n); EM && EM.setCfg(n); };
+  const load = async (sid, guessNow) => {
+    if (!EM || !sid) { setTools([]); return; }
+    setBusy(true);
+    const ts = await EM.toolsOf(sid);
+    setTools(ts); setBusy(false);
+    if (!ts.length) { toast && toast("这台没取到工具：先在上面点它的「测一下」"); return; }
+    if (guessNow) { const g = EM.guess(ts, sid); put({ sid, search: g.search, add: g.add }); if (!g.search) toast && toast("没认出哪件是搜记忆，下面自己点一下"); }
+  };
+  useEffect(() => { if (c.sid) load(c.sid, false); }, []);
+  if (!EM) return null;
+  const servers = (list || []).filter(s => s && s.url);
+  const chip = (label, on, onClick, key) => h("button", { key: key || label, onClick, className: "active:opacity-70",
+    style: { minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, label);
+  const sub = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 6px" } }, txt);
+  const toolRow = which => h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+    tools.map(tl => chip(tl.raw || tl.name, c[which] === tl.name, () => put({ [which]: c[which] === tl.name ? "" : tl.name }), which + tl.name)));
+  return h("div", { "data-wk": "extmem", style: { marginTop: 16, padding: "13px 13px 12px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "外置记忆库"),
+      h(Toggle, { on: !!c.on, onChange: () => put({ on: !c.on }) })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+      "挑一台接好的记忆服务（MCP）。打开后：每次 TA 回你之前，App 先拿你这句话去它那儿搜一下，搜到的跟本地记忆库一起带给 TA，不多花模型调用，只多等一两秒；记忆库里新记下的条目，也会往它那儿写一份。别的前端接同一台，记忆就是通的。不用开「让 Ta 能上网」。"),
+    sub("用哪一台"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6 } }, servers.map(sv => chip(sv.name || sv.url, c.sid === sv.id, () => { if (c.sid === sv.id) return; put({ sid: sv.id, search: "", add: "" }); load(sv.id, true); }, sv.id))),
+    c.sid ? h(Fragment, null,
+      busy ? sub("取工具中…") : null,
+      tools.length ? h(Fragment, null,
+        sub("哪件是搜记忆（必选）"), toolRow("search"),
+        sub("哪件是记一条（不选就只搜不写）"), toolRow("add"),
+        h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "新记忆写回那边"),
+          h(Toggle, { on: c.writeBack !== false, onChange: () => put({ writeBack: c.writeBack === false }) }))) : null) : null);
 }
 
 function ModelFloatImgRow({ t, toast }) {

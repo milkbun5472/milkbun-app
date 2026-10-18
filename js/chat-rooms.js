@@ -75,7 +75,7 @@
     ],
     // 你们一起经历过的事
     formalMemory: [
-      "memory", "memLib", "ccContinuity", "yanqiuWall",
+      "memory", "memLib", "extMem", "ccContinuity", "yanqiuWall",
       "coupleArchive",  // 情侣空间那七栏：称呼、梗、小仪式、安慰说明书、边界、喜欢清单、第一次们
       "giftLog", "usedLog", "carryLog", "listenLog",
       "dreamKeep",      // 从梦里带出来的东西——她和 Ta 两个人之间的
