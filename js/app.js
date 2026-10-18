@@ -6604,8 +6604,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     directives: directives[char.id] || [],
     memory: memories[char.id],
-    // 最近三条心声（engine thoughtVarietyBlock：骨架重了就换）。小房间在 gateRoomContext 里换成本房自己那份
-    recentThoughts: (stateHistRef.current[char.id] || []).slice(0, 3).map(x => x && x.thought).filter(Boolean),
     // 外置记忆库这一轮搜到的（js/ext-mem.js；回复前已经搜好，这儿只读）
     extMem: ctxOpts && ctxOpts.noMemory ? "" : (window.ExtMem ? window.ExtMem.textFor(char.id) : ""),
     memLib: (() => {
@@ -16367,8 +16365,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (window.ChatRooms && window.ChatRooms.memOnly && window.ChatRooms.memOnly(room)) gated.memLib = Array.isArray(ctx.memLib) ? ctx.memLib : [];
     // 拉黑按聊天键落库；本房发生的事在主线认知关闭时也应知道，不继承主房的拉黑。
     gated.blockLine = blockLineFor(chatKey);
-    // 心声各房各记：对照的是本房最近那几条
-    if (room && !room.main) gated.recentThoughts = ((typeof roomStateHistRef !== "undefined" && roomStateHistRef.current[chatKey]) || []).slice(0, 3).map(x => x && x.thought).filter(Boolean);
     return gated;
   };
   // 请进村的那位邻居带着什么（她 2026-09-18 的 b／a）。
