@@ -1145,15 +1145,18 @@
       + "⚠️底下给每位写了【简介和路数写多长】，那是硬的：轮到「很短」的那几位就真只写十来个字，别硬塞细节凑长度。"
       + authorAnglesBlock(n, angleNonce(), "篇的那位");
     // 写成完结短篇（群里 2026-10-17 许愿：「给他一个剧情、设定多少字、发一篇出来」）：不当连载的开头写
-    const oneShotBlock = opts && opts.oneShot ? "\n\n【这一篇是写完的短篇，不是连载开头】照上面「每篇写什么」把这段剧情在这一篇里完整写完：有起有落，结尾落在故事真正结束的地方，不留给下一章的悬念、不写「未完待续」。endHook 照实写它停在了哪儿就行。" : "";
-    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + oneShotBlock
+    //   ⚠️这一段放在整份提示词【最后】：夹在中间会被后面那一长串冲淡，写出来还是连载开头（她 2026-10-18）
+    const one = !!(opts && opts.oneShot);
+    const oneShotBlock = one ? "\n\n【" + (n > 1 ? "这 " + n + " 篇每一篇都是" : "这一篇是") + "写完的短篇，不是连载开头——这条压过上面所有写法要求】把每篇的剧情在这一篇里完整写完：有起有落，结尾落在故事真正结束的地方，读完不需要下一章。不留给下一章的悬念、不写「未完待续」、不在最后抛一个新的问题或新的人物。" : "";
+    const fillAvoid = opts.fillAvoid && opts.fillAvoid.length ? "\n\n【这一批已经写好了这几篇，这一篇要跟它们不一样】" + opts.fillAvoid.map(function (t) { return "《" + t + "》"; }).join("、") : "";
+    const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + fillAvoid
       + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce()) + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
-      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"" + authorFields + "}]\n" +
+      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"" + (one ? "这篇在哪儿收的尾：一句话写它结束时人物落在什么处境（它已经写完了，不是悬念）" : "结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续") + "\"" + authorFields + "}]\n" +
       "每篇 title 别重复、别都一个套路；禁止只是换背景与人名却复用同一情节拍（开局位置、时间跨度、叙述距离、收尾形状那几样，上面已经按篇分好了，照各自那一条来）。" + (by ? "author 每篇都是同一位（见上）；" : "author 每篇各不同；") + "tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
-      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
-    const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
+ (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL) + oneShotBlock;
+    const user = (one ? "写 " + n + " 篇完结短篇，每篇都一次写完、" : "写 " + n + " 篇") + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
       const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(FIC_TOKEN_MAX * 4, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
@@ -1169,6 +1172,16 @@
     if (!arr || !arr.length) arr = await once("\n\n（上一次输出没能解析成合法 JSON 数组，请务必严格只输出 JSON 数组、别加任何解释文字。）");
     if (!arr || !arr.length) throw new Error("生成失败：模型没有返回可解析的篇目，可重试或换模型");
     const kept = arr.filter(function (x) { return x && (x.title || x.body); }).slice(0, n);
+    // 要了 n 篇只回来几篇（一枪写不下、或模型只交了一篇）：缺的那几篇一篇一篇补，补不上就交已经有的（她 2026-10-18「我要三篇只给了我一篇」）
+    if (kept.length < n && !opts._fill) {
+      for (let k = kept.length; k < n; k++) {
+        try {
+          const more = await genBatch(active, tab, cpChars, 1, userName, worldbook, Object.assign({}, opts, { _fill: true, briefs: [briefs[k] || ""],
+            fillAvoid: kept.map(function (x) { return String(x.title || ""); }).filter(Boolean) }));
+          if (more && more[0]) kept.push(Object.assign({ _done: true }, more[0]));
+        } catch (e) { break; }
+      }
+    }
     function draftFor(i) {
       if (!batchCot) return null;
       const re = new RegExp("【第" + (i + 1) + "篇】([\\s\\S]*?)(?=【第\\d+篇】|$)");
@@ -1176,6 +1189,7 @@
       return m && m[1].trim() ? m[1].trim() : (kept.length === 1 ? batchCot : null);
     }
     return kept.map(function (x, i) {
+      if (x._done) { const y = Object.assign({}, x); delete y._done; return y; }   // 补的那几篇已经整理过了
       // 每一篇的作者都落进作者库：指定了谁就还是谁，没指定就把它顺带交的那份简介收下。
       // 「没写简介」也照样落一条：先有这个人，简介以后再补（空值不许抹掉旧值）。
       const nm = by ? authorName(by) : String(x.author || "佚名").slice(0, 20);
@@ -5649,7 +5663,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: oneShot ? ["完结"].concat((x.tags || []).filter(function (g) { return g !== "完结"; })) : x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset
