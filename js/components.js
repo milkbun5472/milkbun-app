@@ -13264,7 +13264,10 @@ function useImgCutout(src) {
       //   抠好的人/物四边中点大多也是透明的；圆角方、圆形头像四边中点都是实心的——再数一遍四边中点，至少两处透明才算抠图
       const corners = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
       const mids = [a(W >> 1, 0), a(0, H >> 1), a(W - 1, H >> 1), a(W >> 1, H - 1)].filter(x => x < 20).length;
-      const v = corners && mids >= 2;
+      // 再往里收一圈看（群里 2026-10-18 又一张：外头留了一圈透明边、里面是一整块方图）：
+      //   角上往里两成那四个点，抠好的人/物大多还是透明的；带透明边的方图、圆角方图这里是实心的——实心就当普通图，照旧裁圆
+      const k = Math.round(W * 0.2), inner = [a(k, k), a(W - 1 - k, k), a(k, H - 1 - k), a(W - 1 - k, H - 1 - k)].filter(x => x < 20).length;
+      const v = corners && mids >= 2 && inner >= 2;
       _alphaSeen[src] = v; if (!dead) setCut(v);
     } catch (e) { _alphaSeen[src] = false; } };
     im.src = src;
