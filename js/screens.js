@@ -10548,7 +10548,8 @@ function Config(props) {
     "repeating-linear-gradient(0deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)",
     "repeating-linear-gradient(90deg," + t.ink + "00 0 39px," + t.ink + "14 39px 40px)"
   ].join(",") };
-  return h("div", { className: "h-full flex flex-col", style: sheet },
+  // 外层挂点（她 2026-10-18 转群里：「设置的格子背景改不了」）——原来最外层没有 data-wk，主题 CSS 抓不住这层底纹
+  return h("div", { className: "h-full flex flex-col", style: sheet, "data-wk": "configpage" },
     h(Head, { zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" ? toyKnock : undefined }),
     h("div", { key: page || "home", ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
       page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 }, "data-wk": "cfhome" },
