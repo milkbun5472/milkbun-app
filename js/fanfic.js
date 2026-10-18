@@ -737,6 +737,16 @@
       + "卡上写得长的那一位不许因此多占篇幅，写得短的那一位也不是背景板——"
       + "卡的长短是卡的事，不是戏份的事。\n";
   }
+  // 左右位放在整份提示词最后再说一遍（群里 2026-10-18：「gl 同人文上下位总是反，想看什么填好了还是会反」）：
+  //   铁律本身在 cpBlock 里，可它夹在中间，后面跟着几千字文风、角度、格式，到动笔时已经被冲淡了——
+  //   完结短篇那一条也是这么栽的（oneShotBlock）。这里只是把同一条【挪到离动笔最近的地方】再念一遍，不是加新规矩。
+  function posTail(cpChars, opts) {
+    opts = opts || {};
+    if (!cpChars || !cpChars.length || cpChars.length > 2 || opts.noCP) return "";
+    const l = cpChars[0].name, r = cpChars.length === 2 ? cpChars[1].name : "原创对象";
+    return "\n\n【左右位，动笔前再看一眼】「" + l + "」是左位、主导，「" + r + "」是右位、承受——亲密场面里谁主动、谁被动、谁在上，全照这个顺序写，"
+      + "跟谁更强势、谁更年长、性别是什么都没关系。";
+  }
   function cpBlock(cpChars, opts) {
     opts = opts || {};
     if (!cpChars || !cpChars.length)
@@ -1164,7 +1174,7 @@
     const user = (one ? "写 " + n + " 篇完结短篇，每篇都一次写完、" : "写 " + n + " 篇") + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
-      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(FIC_TOKEN_MAX * 4, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
+      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(FIC_TOKEN_MAX * 4, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       if (sp.cot) batchCot = sp.cot; // 整批一次思考，挂到第一篇
       const d = parseJSONLoose(sp.clean);
@@ -1885,7 +1895,7 @@
     async function once(extra) {
       // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
       //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
-      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }],
+      const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)) + (extra || ""), [{ role: "user", content: userMsg }],
         { maxTokens: 65000, timeout: 300000 });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
@@ -1941,7 +1951,7 @@
       + "\"paid\":[\"这一段回收掉的伏笔，原样抄回来；没收就空数组\"]}\n" + BIBLE_WHAT +
       (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
       + (byChar ? charVoiceTail(byChar, opts.style) : "");
-    const raw = await callAI(active, sys, [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
+    const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)), [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
       { maxTokens: 65000, timeout: 300000 });
     const d = parseJSONLoose(raw);
     let add = d && d.add ? String(d.add).trim() : "";
