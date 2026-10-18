@@ -15,3 +15,9 @@ test("单聊线下都经 buildBundle；小房间对照本房自己那几条；�
   assert.match(app, /gated\.recentThoughts = \(\(typeof roomStateHistRef !== "undefined" && roomStateHistRef\.current\[chatKey\]\) \|\| \[\]\)\.slice\(0, 3\)/);
   assert.match(cr, /"aMood", "recentThoughts",/);
 });
+test("心声定义：四样留着，但不是每句都要交一个打算", () => {
+  const TM = (eng.match(/const THOUGHT_MEANING = "([^"]+)";/) || [])[1];
+  assert.ok(TM);
+  assert.match(TM, /想要的、在意的、藏着的、打算的/);
+  assert.match(TM, /不是每句都要落成一个打算/);
+});
