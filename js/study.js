@@ -359,6 +359,7 @@
     if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
     if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
     if (typeof WHOLE_CARD_RULE !== "undefined") parts.push(WHOLE_CARD_RULE);
+    voiceGuards([ctx.directives]).forEach(function (x) { parts.push(x); });
     if (VOICE()) parts.push(VOICE());
     if (ctx.beside) parts.push(ctx.beside + BESIDE_TAIL);
     else if (profile.name || profile.persona)
@@ -3253,6 +3254,7 @@
         profile: (props.profileFor && char ? props.profileFor(char.id) : null) || props.profile,
         beside: props.besideFor && char ? props.besideFor(char) : "",
         grown: me && me.grown || "", grownEvolve: !!(me && me.evolve), relFor: props.relFor,
+        directives: props.directivesFor && char ? props.directivesFor(char) : [],
         worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, recent].filter(Boolean).join("\n")) : props.worldbook
       });
     }
@@ -3940,7 +3942,7 @@
       });
     }
     // 我来教：她当老师，角色当学生
-    const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
+    const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, directivesFor: props.directivesFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
     if (view === "tbNew") return h(TbNew, { characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
       onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
     if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, bgActive: props.bgActive, toast: props.toast, ctx: tbCtx,
@@ -3987,7 +3989,7 @@
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
-        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, profileFor: props.profileFor, besideFor: props.besideFor, relFor: props.relFor, toast: props.toast,
+        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, profileFor: props.profileFor, besideFor: props.besideFor, relFor: props.relFor, directivesFor: props.directivesFor, toast: props.toast,
         onBack: function () { refresh(); if (!sess.curriculum_id && fromRoomAt(sess.id)) return props.onBack(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });
@@ -4077,6 +4079,17 @@
   function tbAns(x, id, s) { return (x.ans && x.ans[id]) || (tbIds(s)[0] === id && x.a != null ? { a: x.a, ok: x.ok } : null); }
   function tbReviewOf(s, id) { return (s.reviews || {})[id] || (tbIds(s)[0] === id ? s.review : null) || null; }
   function tbMisOf(s, id) { const ids = tbIds(s); return (s.misconceptions || []).filter(function (m) { return (m.who || ids[0]) === id; }); }
+  // 跟单聊同一份的两块（群里 2026-10-18：「一起学里开始油腻了」）：
+  //   「别拿现成的说法替你开口」——一起学原来没有，一对一辅导＋恋人就掉进「男友家教」那套现成腔；
+  //   她在聊天里出戏立的长期准则——原来也没带，所以在聊天里说了「别油腻」到这儿不管用。
+  function voiceGuards(dirLists) {
+    const out = [];
+    if (typeof CANNED_PHRASE_BAN !== "undefined") out.push(CANNED_PHRASE_BAN);
+    const dirs = [].concat.apply([], (dirLists || []).map(function (l) { return Array.isArray(l) ? l : []; }))
+      .map(function (d) { return (typeof d === "string" ? d : d && d.text) || ""; }).filter(function (x) { return x.trim(); });
+    if (dirs.length && typeof directivesBlock === "function") out.push(directivesBlock(dirs));
+    return out;
+  }
   function tbPersonas(stus, ctx) {
     const parts = [];
     if (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
@@ -4086,6 +4099,7 @@
       parts.push("【" + stus[0].name + " 和 " + stus[1].name + "】" + (r && (r.mine || r.theirs) ? [r.mine ? stus[0].name + " 眼里对方是：" + r.mine : "", r.theirs ? stus[1].name + " 眼里对方是：" + r.theirs : ""].filter(Boolean).join("；") : "之前没设定过关系：照不太熟的同学来"));
     }
     if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    voiceGuards(stus.map(function (c) { return ctx.directivesFor ? ctx.directivesFor(c) : []; })).forEach(function (x) { parts.push(x); });
     if (VOICE()) parts.push(VOICE());
     if (ctx.besideFor) stus.forEach(function (c) {
       const b = ctx.besideFor(c);

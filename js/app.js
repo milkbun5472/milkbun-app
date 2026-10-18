@@ -31349,6 +31349,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return lines.join("\n\n");
       } catch (e) { return ""; }
     },
+    // 她出戏立的长期准则：跟单聊同一份（一起学里也算数）
+    directivesFor: c => (c && directives[c.id]) || [],
     // 三人课堂：两位角色之间设定过的关系（有方向：a->b 是 a 眼里的 b）
     relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,
