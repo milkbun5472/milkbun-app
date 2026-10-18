@@ -15,3 +15,9 @@ test("要几篇就补齐几篇，补的跟已写的不一样", () => {
 test("完结短篇落库带「完结」标签", () => {
   assert.match(src, /tags: oneShot \? \["完结"\]/);
 });
+test("完结短篇不掷开放式收法，先定结局再写", () => {
+  assert.match(src, /function ficAxesBlock\(n, nonce, oneShot\)/);
+  assert.match(src, /oneShot \? FIC_AXES\.filter\(function \(a\) \{ return a\.key !== "close"; \}\)/);
+  assert.match(gb, /one \? "\\"ending\\":/);
+  assert.match(gb, /停在一个正要发生的动作/);
+});

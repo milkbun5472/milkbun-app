@@ -94,7 +94,7 @@ test("avoid 单子只带标题和那一句设定，正文一个字都不进去",
 });
 
 test("两样都真的接进了出一批文那一枪", () => {
-  assert.match(code, /\+ ficAvoidBlock\(tab, loadFics\(\)\) \+ ficAxesBlock\(n, angleNonce\(\)\) \+ byBlock/);
+  assert.match(code, /\+ ficAvoidBlock\(tab, loadFics\(\)\) \+ ficAxesBlock\(n, angleNonce\(\), one\) \+ byBlock/);
   // 种子带时间：同一版连着出两批，不许两批掷到同一组角度
   assert.match(code, /function angleNonce\(\) \{ return String\(Date\.now\(\)\) \+ ":" \+ Math\.random\(\); \}/);
 });

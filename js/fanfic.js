@@ -1071,8 +1071,11 @@
       "收在一个没人回答的问题上"
     ] }
   ];
-  function ficAxesBlock(n, nonce) {
-    const rolled = Axes.batch([{ axes: FIC_AXES }], Math.max(1, Number(n) || 1), [nonce]);
+  // 完结短篇（oneShot）不掷「收在哪儿」：那一轴全是开放式收法（没做完的动作、没人回答的问题），
+  //   一掷就把「写完」顶掉了（她 2026-10-18 截图：完结短篇停在解了一半的盘扣上）。
+  function ficAxesBlock(n, nonce, oneShot) {
+    const axes = oneShot ? FIC_AXES.filter(function (a) { return a.key !== "close"; }) : FIC_AXES;
+    const rolled = Axes.batch([{ axes: axes }], Math.max(1, Number(n) || 1), [nonce]);
     const lines = rolled.map(function (g, i) {
       const o = g[0];
       return "· 第 " + (i + 1) + " 篇：" + ((o.free || !o.rows.length)
@@ -1147,13 +1150,15 @@
     // 写成完结短篇（群里 2026-10-17 许愿：「给他一个剧情、设定多少字、发一篇出来」）：不当连载的开头写
     //   ⚠️这一段放在整份提示词【最后】：夹在中间会被后面那一长串冲淡，写出来还是连载开头（她 2026-10-18）
     const one = !!(opts && opts.oneShot);
-    const oneShotBlock = one ? "\n\n【" + (n > 1 ? "这 " + n + " 篇每一篇都是" : "这一篇是") + "写完的短篇，不是连载开头——这条压过上面所有写法要求】把每篇的剧情在这一篇里完整写完：有起有落，结尾落在故事真正结束的地方，读完不需要下一章。不留给下一章的悬念、不写「未完待续」、不在最后抛一个新的问题或新的人物。" : "";
+    const oneShotBlock = one ? "\n\n【" + (n > 1 ? "这 " + n + " 篇每一篇都是" : "这一篇是") + "写完的短篇，不是连载开头——这条压过上面所有写法要求】把每篇的剧情在这一篇里完整写完：有起有落，结尾落在故事真正结束的地方，读完不需要下一章。不留给下一章的悬念、不写「未完待续」、不在最后抛一个新的问题或新的人物。"
+      + "\n上面说的「结尾可以停在余波里」只管最后那一笔的手法，不是许你把事情写到一半：这篇最要紧的那件事（这段关系、这场冲突、这桩事）在正文里必须已经有了结果。停在一个正要发生的动作、一场正要开始的对峙、一个刚抛出来的问题上，都算没写完。"
+      + "\n先在 ending 里写定这篇的结局，再写正文；正文要一直写到那个结局真的发生。字数不够就把前面写紧，不许砍掉结局。" : "";
     const fillAvoid = opts.fillAvoid && opts.fillAvoid.length ? "\n\n【这一批已经写好了这几篇，这一篇要跟它们不一样】" + opts.fillAvoid.map(function (t) { return "《" + t + "》"; }).join("、") : "";
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + briefBlock + fillAvoid
-      + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce()) + byBlock + authorCPRule + "\n\n" +
+      + ficAvoidBlock(tab, loadFics()) + ficAxesBlock(n, angleNonce(), one) + byBlock + authorCPRule + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
-      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"" + (one ? "这篇在哪儿收的尾：一句话写它结束时人物落在什么处境（它已经写完了，不是悬念）" : "结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续") + "\"" + authorFields + "}]\n" +
+      "[{\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"]," + (one ? "\"ending\":\"这篇的结局，一句话：最要紧的那件事最后落成了什么样（先定好，正文写到这儿）\"," : "") + "\"premise\":\"本篇核心设定一句话：他俩是什么关系（谁欠谁、见面为什么别扭、这段关系卡在哪儿）+各自的身份+这个世界观里最要紧的那条规矩——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"" + (one ? "这篇在哪儿收的尾：一句话写它结束时人物落在什么处境（它已经写完了，不是悬念）" : "结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续") + "\"" + authorFields + "}]\n" +
       "每篇 title 别重复、别都一个套路；禁止只是换背景与人名却复用同一情节拍（开局位置、时间跨度、叙述距离、收尾形状那几样，上面已经按篇分好了，照各自那一条来）。" + (by ? "author 每篇都是同一位（见上）；" : "author 每篇各不同；") + "tags 2-4 个：站在读者角度，这几个标签要能让人一眼判断【要不要点进去】——结局走向、雷点预警、题材形状各占一个方向，别几篇共用同一套万能标签。别为了凑数量把正文压短——宁可写满。" +
  (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL) + oneShotBlock;
     const user = (one ? "写 " + n + " 篇完结短篇，每篇都一次写完、" : "写 " + n + " 篇") + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
