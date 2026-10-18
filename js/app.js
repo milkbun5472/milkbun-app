@@ -17570,10 +17570,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             if (w.length === 1) return "这一天他穿：" + w[0].w + "；三格都是这一身。";
             return "这一天他换过几身（按时间）：" + w.map(x => x.t + " " + x.w).join("；") + "。每一格穿那个时刻对应的那一身，别混搭。"; })()
         + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
-        + "\n这篇日记：\n" + body
+        // 她改过描述就只发她写的，日记原文一个字都不递（她 2026-10-18：「为啥有些人一直敏感」——
+        //   日记整篇原样发给生图站，里面哪句被审核看上了，怎么重拍都是同一句在挨拒）
+        + (wish ? "\n这一天的三格拍这些（照这段拍，从早到晚）：\n" + wish : "\n这篇日记：\n" + body)
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
         + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
-      const sceneFinal = wish ? scene + "\n【她指定的这三格拍什么（最优先，压过上面从日记里挑时刻的说法；穿着和地方照旧）】\n" + wish : scene;
+      const sceneFinal = scene;
       const prompt = buildPhotoPrompt(char, sceneFinal, st, { kind: "other", closet: closetTextFor(charId, 240), panels: 3,
         lead: "【最重要·整张图的版式】这一张不是一张照片，是一条竖着的三格胶片：从上到下三格一样大、格子之间留一道粗白边，三格拍的是这一天的三个时刻。必须画成三格，不许只画一张。" });
       // 给看得见这一页的人（半窗里的他）一句话：这三张拍的是什么
@@ -17588,7 +17590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now(), desc: stripDesc + (wish ? "；她指定拍：" + wish.slice(0, 120) : ""), wish: wish || undefined } } : e) };
         saveJSON("x_diaries", n); return n;
       });
-    } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
+    } catch (e) { toast("照片日记没拍成：" + (e.message || "重试") + (/safety|policy|内容政策|sensitive|reject|moderat/i.test(String(e && e.message || "")) ? "。点「改画面描述再拍」把日记里那几句换掉再拍" : ""), 9000); }
     finally { setPhotoDiaryBusy(""); }
   };
   // 删掉照片日记那张图（她 2026-10-16「能不能搞删除」）：日记还在，只拿掉这张、连图库里那份一起清

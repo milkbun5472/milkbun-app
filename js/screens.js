@@ -14111,7 +14111,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub, background: "transparent" } },
           photoBusy ? "在冲洗这一天…" : entry.photoStrip ? "重拍这一天（再生成一次图）" : "把这一天拍成照片日记（生成一次图）"),
         // 她自己定这三格拍什么（2026-10-17「改画面描述再画」）：写下的那段压过日记里挑的时刻
-        h("button", { "data-wk": "photodiaryedit", onClick: () => typeof requestAppPrompt === "function" && requestAppPrompt("改画面描述再拍", "写这三格各拍什么（从早到晚），照你写的拍。", (entry.photoStrip && entry.photoStrip.wish) || "", txt => { if (String(txt || "").trim()) onPhotoDiary(entry, String(txt).trim()); }, "照这个拍", { multiline: true }),
+        h("button", { "data-wk": "photodiaryedit", onClick: () => typeof requestAppPrompt === "function" && requestAppPrompt("改画面描述再拍", "这就是发去拍照的那段（日记原文）。改成你想要的三格，或者删掉会被审核拦的句子，只照这段拍。", (entry.photoStrip && entry.photoStrip.wish) || (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900), txt => { if (String(txt || "").trim()) onPhotoDiary(entry, String(txt).trim()); }, "照这个拍", { multiline: true }),
           disabled: !!photoBusy, className: "w-full mt-2 active:opacity-70 disabled:opacity-50",
           style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "transparent" } }, "改画面描述再拍")) : null));
 }
