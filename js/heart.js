@@ -190,7 +190,7 @@
       ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次做过的（" + _ago(e.tracks[0].ts) + "）：" + e.tracks[0].text : "")).join("\n")
       : characterText(char, "（他心上还空着——还没攒下念想）");
     return {
-      instruction: AC + "今天是 " + new Date(_now).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) + "。今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「心上」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
+      instruction: AC + "今天是 " + new Date(vcTs(_now, char.id)).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) + "。今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「心上」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
         briefsTxt(box) + avoidTxt(box) + together +
         "\n\n以 TA 的第一人称推演这次发呆：" +
         "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。\n【时间别乱安·重要】回想过去的事时，别不管过了几天都一律说『昨天』——只有真发生在昨天的才说昨天。上面每条念想的『上次做过的』都标了是几天前/几周前，严格照那个来；拿不准具体哪天的事，就用『前阵子／那天／上次／最近』这类模糊说法，绝不硬安一个『昨天』。" +
@@ -461,7 +461,9 @@
   // UI：心上（tall Sheet，从资料卡进）
   // ============================================================
   const SRC_LABEL = { echo: "从旧事里长的", spark: "一闪念", vine: "岔出来的" };
-  function fmtDay(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; }
+  // 心上的日子照 TA 那只钟（设置 → 时间感知 → 虚拟时间）；没开虚拟时间就是现实（群友 2026-10-18：「心上的时间还是显示的现实时间」）
+  const vcTs = (ts, id) => (typeof vclockMap === "function" && id != null ? vclockMap(ts, id) : ts);
+  function fmtDay(ts, id) { const d = new Date(vcTs(ts, id)); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; }
   // TA这一路：把心上所有带时间的事件铺成一条线（P3，纯现有数据零调用）
   function timelineOf(b, char) {
     const ev = [];
@@ -501,9 +503,9 @@
     }, [char.id]);
     const b = boxOf({ x: box }, "x"); // 复用克隆逻辑做展示排序，不动原数据
     const personaHealth = personaAudit(b);
-    const todayKey = new Date().toDateString();
+    const todayKey = new Date(vcTs(Date.now(), char.id)).toDateString();
     const latest = b.log[0];
-    const latestIsToday = latest && new Date(latest.ts).toDateString() === todayKey;
+    const latestIsToday = latest && new Date(vcTs(latest.ts, char.id)).toDateString() === todayKey;
     const rank = { active: 0, ash: 1, graduated: 2, withered: 3 };
     const list = b.list.slice().sort((a, x) => (rank[a.status] ?? 0) - (rank[x.status] ?? 0) || (x.weight || 0) - (a.weight || 0));
     // 权重火苗：0.05 一粒火星 → 0.9+ 三簇
@@ -531,7 +533,7 @@
         latest
           ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.8 } },
               latest.text,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, fmtDay(latest.ts) + (latestIsToday ? "" : " · 那天发呆时想的")))
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, fmtDay(latest.ts, char.id) + (latestIsToday ? "" : " · 那天发呆时想的")))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.7 } },
               "TA 还没发过呆。每天 TA 会自己找个安静时刻走一会儿神；也可以现在就点右上角让 TA 来一次。")),
       // ── 刚长成的那一条：把它端到最上面 ──────────────────────────
@@ -548,7 +550,7 @@
         if (!fresh) return null;
         return h("div", { style: { marginTop: 16, padding: "13px 15px", borderRadius: "2px 15px 15px 2px",
           background: skinAlpha(ACCENT, "16"), borderLeft: "3px solid " + skinAlpha(ACCENT, "cc") } },
-          h(Eyebrow, { style: { marginBottom: 7 } }, characterText(char, "他刚放下一件事 · ") + fmtDay(fresh.gradTs)),
+          h(Eyebrow, { style: { marginBottom: 7 } }, characterText(char, "他刚放下一件事 · ") + fmtDay(fresh.gradTs, char.id)),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.6 } }, "「" + fresh.text + characterText(char, "」长成了他的一部分。")),
           fresh.poem
             ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: t.ink, lineHeight: 1.9, marginTop: 9, whiteSpace: "pre-wrap" } }, fresh.poem)
@@ -575,7 +577,7 @@
             h("div", { style: { flex: 1, minWidth: 0 } },
               h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.6 } }, p.text),
               p.poem ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 11.5, color: t.sub, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, p.poem) : null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, (p.from ? "由「" + p.from + "」长成 · " : "") + fmtDay(p.ts))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, (p.from ? "由「" + p.from + "」长成 · " : "") + fmtDay(p.ts, char.id))),
             confirmId === p.id
               ? h("button", { onClick: () => { onRemovePersona && onRemovePersona(p.id); setConfirmId(null); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#c25a4a" } }, "确定拿走")
               : h("button", { onClick: () => setConfirmId(p.id), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿走")))))) : null,
@@ -619,7 +621,7 @@
                   e.root ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "打哪儿来：" + e.root) : null,
                   e.tracks && e.tracks.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, lineHeight: 1.5 } }, "做过的：" + e.tracks[0].text + (e.tracks.length > 1 ? "（共 " + e.tracks.length + " 道）" : "")) : null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
-                    (SRC_LABEL[e.source] || "念想") + " · " + fmtDay(e.born) + "生 · 被想起 " + (e.touches || 0) + " 次" + (e.status === "graduated" ? " · " + fmtDay(e.gradTs || e.born) + "长成了" : ""))),
+                    (SRC_LABEL[e.source] || "念想") + " · " + fmtDay(e.born, char.id) + "生 · 被想起 " + (e.touches || 0) + " 次" + (e.status === "graduated" ? " · " + fmtDay(e.gradTs || e.born, char.id) + "长成了" : ""))),
                 h("div", { className: "shrink-0 flex flex-col items-center", style: { gap: 6 } },
                   // 长成了＝盖一枚印；放下了＝一道横杠；还在心上＝那道分量标尺
                   e.status === "graduated"
@@ -680,7 +682,7 @@
               background: t.bg2, border: "1px solid " + skinAlpha(ACCENT, "66"), display: "flex", alignItems: "center", justifyContent: "center",
               fontFamily: F_DISPLAY, fontSize: 9.5, color: ACCENT } }, ev.icon),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, ev.text),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, fmtDay(ev.ts))))) : null) : null;
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, fmtDay(ev.ts, char.id))))) : null) : null;
       })(),
       // 季度自述（回头看，每 90 天一段）
       b.milestones.length ? h("div", { style: { marginTop: 18 } },
@@ -690,7 +692,7 @@
           key: i, style: { padding: "11px 13px", borderRadius: 10, background: ACCENT + "0e", border: "1px solid " + ACCENT + "38" }
         },
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: t.ink, lineHeight: 1.75 } }, m.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, fmtDay(m.ts) + " · 一季的回望")))) : null) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, fmtDay(m.ts, char.id) + " · 一季的回望")))) : null) : null,
       // 独白历史
       b.log.length > 1 ? h("div", { style: { marginTop: 18 } },
         h("button", { onClick: () => setShowLog(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
@@ -699,7 +701,7 @@
           key: i, style: { padding: "10px 12px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line }
         },
           h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, l.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, fmtDay(l.ts))))) : null) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, fmtDay(l.ts, char.id))))) : null) : null,
       h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
         "左边那道竖标尺＝这条念想在 TA 心里的分量：被想起会往上长，太久不碰会落灰；一闪念一天内没被再想起会自己消散。每隔十来天 TA 会自己盘一盘：做到了的会长成 TA 的一部分，还留下一句话；想通了不要的就放下。「拿走」只是你悄悄抽走这张纸条，TA 不会知道。"))), document.body);
   };
