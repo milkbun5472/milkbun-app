@@ -13,8 +13,9 @@ test("钟的键按时段认：开着那段走 c:角色id，关了照旧面具；
   assert.equal(clockKeyOf("c2", 150), "m2");
   assert.equal(clockKeyOf("g:x", 150), "m2");
 });
+// 2026-10-18 起 vclockMap 拆成「挑哪只钟」+ vclockMapBy「照这只钟换算」（周刊要用主面具那只），按消息时间问键这件事不变
 test("接线：引擎按消息时间问键；悬浮球拨的是这只；设置里有开关、存 spans", () => {
-  assert.ok(/W\.maskOf\(String\(who\), ts\)/.test(eng) && /const c0 = vclockCfg\(id, ts\)/.test(eng));
+  assert.ok(/W\.maskOf\(String\(who\), ts\)/.test(eng) && /function vclockMap\(ts, id\) \{ return vclockMapBy\(vclockCfg\(id, ts\), ts\); \}/.test(eng));
   assert.ok(/maskOf: clockKeyOf \}/.test(app));
   assert.equal((app.match(/activeChar && clockKeyOf\(activeChar\.id\)\) \|\| "main"/g) || []).length, 2);
   assert.ok(/ownClockSpans: ownClockSpansNext\(activeChar\.id, s\.ownClock\)/.test(app));
