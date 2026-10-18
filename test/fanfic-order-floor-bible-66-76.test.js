@@ -9,7 +9,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 // 纯函数抠出来跑：桩照【源码本身】走，不另抄一份实现（stub-from-the-writer.md）
 const grab = name => {

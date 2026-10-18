@@ -16,7 +16,7 @@ const debate = fs.readFileSync(path.join(root, "js/debate.js"), "utf8");
 const dream = fs.readFileSync(path.join(root, "js/dream.js"), "utf8");
 const tarot = fs.readFileSync(path.join(root, "js/tarot.js"), "utf8");
 const games = fs.readFileSync(path.join(root, "js/games.js"), "utf8");
-const fanfic = fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8");
+const fanfic = (fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/fanfic-core.js"), "utf8"));
 const ledger = fs.readFileSync(path.join(root, "js/ledger.js"), "utf8");
 const memo = fs.readFileSync(path.join(root, "js/memo.js"), "utf8");
 

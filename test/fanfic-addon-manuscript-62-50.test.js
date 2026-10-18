@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
+const fic = (fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/fanfic-core.js", "utf8"));
 
 // 把纯函数抠出来跑（它们不碰 DOM）
 function grab(name) {

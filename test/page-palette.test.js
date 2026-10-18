@@ -37,7 +37,9 @@ test('接入的六页解除拦截，地图仍有明确原因', () => {
   const p=setup();
   for(const name of ['tarot','ledger','weekly','dreamjournal','impression','fanfic']) {
     assert.equal(p.api.OWN_PALETTE[name],undefined);
-    assert.match(fs.readFileSync('js/'+name+'.js','utf8'),new RegExp('page(?:Palette|Color)\\("'+name+'"'));
+    // 2026-10-18 起同人文那张色盘在 fanfic-core.js（fanfic.js 拆出来的开机那半），两份一起看
+    const src=fs.readFileSync('js/'+name+'.js','utf8')+(name==='fanfic'?'\n'+fs.readFileSync('js/fanfic-core.js','utf8'):'');
+    assert.match(src,new RegExp('page(?:Palette|Color)\\("'+name+'"'));
   }
   assert.match(p.api.OWN_PALETTE.map,/地图/);
 });

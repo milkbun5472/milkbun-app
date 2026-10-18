@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
-const fanfic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fanfic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 
 // 真跑：把 pageSkin 那一段抠出来（不碰 React、不碰 DOM）
 const S = (() => {

@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const fan = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fan = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 const cut = (a, b) => { const i = fan.indexOf(a), j = fan.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出 " + a); return fan.slice(i, j); };
 
 // ── ① 每一篇能单独删 ────────────────────────────────────────────────

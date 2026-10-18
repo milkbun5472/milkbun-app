@@ -5,7 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 
 const names = (block) => (block.match(/name: "([^"]+)"/g) || []).map(x => x.slice(7, -1));
 const seedBlock = src.slice(src.indexOf("  const SEED_TABS = ["), src.indexOf("  const RETIRED_TABS = ["));

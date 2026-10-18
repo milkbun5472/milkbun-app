@@ -15,7 +15,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const fic = R("js/fanfic.js"), app = R("js/app.js"), rooms = R("js/chat-rooms.js"), man = R("js/assistant-manual.js"), asst = R("js/assistant.js");
+const fic = (R("js/fanfic.js") + "\n" + R("js/fanfic-core.js")), app = R("js/app.js"), rooms = R("js/chat-rooms.js"), man = R("js/assistant-manual.js"), asst = R("js/assistant.js");
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const grab = name => {
   const i = fic.indexOf("function " + name + "(");

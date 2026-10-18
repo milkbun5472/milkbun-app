@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const parseJSONLoose = require('./_model-json');
-const src = fs.readFileSync(path.join(__dirname, '../js/fanfic.js'), 'utf8');
+const src = (fs.readFileSync(path.join(__dirname, '../js/fanfic.js'), 'utf8') + "\n" + fs.readFileSync(path.join(__dirname, '../js/fanfic-core.js'), 'utf8'));
 function generation(name, reply) {
   const start = src.indexOf('  async function ' + name + '(');
   const end = src.indexOf('\n  }', start) + 4;

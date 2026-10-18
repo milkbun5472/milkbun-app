@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 
 const seg = (() => {
   const a = src.indexOf("  function TabBar(props) {");

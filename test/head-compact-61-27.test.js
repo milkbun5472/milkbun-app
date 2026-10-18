@@ -58,7 +58,7 @@ test("这条规矩指名了落点，下一个人不用再想一遍", () => {
 
 test("公共的那条改好了，就不许再各自另写一条", () => {
   // 穿书那处原来自己写了一份（当时 Head 还是大标题），现在撤了。
-  const fic = fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8");
+  const fic = (fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/fanfic-core.js"), "utf8"));
   const th = fic.slice(fic.indexOf("  // 穿书会话（互动叙事）"), fic.indexOf("  // ---------- 底 nav ----------"));
   assert.match(th, /h\(Head, \{/, "穿书那一页没用公共的 Head");
   assert.doesNotMatch(th, /paddingTop: safeTop\(8\)/, "自己那份紧凑栏还留着，成了第二个实现");

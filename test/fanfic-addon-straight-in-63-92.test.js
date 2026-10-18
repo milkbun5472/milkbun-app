@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
+const fic = (fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/fanfic-core.js", "utf8"));
 
 test("那一屏整个没了：view 只剩 list | pick | thread", () => {
   const app = fic.slice(fic.indexOf("  function RPApp(props) {"), fic.indexOf("  // 书脊：这一版书被你改成什么样"));

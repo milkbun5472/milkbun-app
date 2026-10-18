@@ -8,7 +8,7 @@ const path = require("node:path");
 // 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
 const { ruleText } = require("./_rules.js");
 const root = path.join(__dirname, "..");
-const fic = fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(root, "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/fanfic-core.js"), "utf8"));
 const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const rule = ruleText("four-surfaces-same-context");
 

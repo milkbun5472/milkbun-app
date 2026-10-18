@@ -6,12 +6,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const P = f => path.resolve(__dirname, "..", f);
-const fan = fs.readFileSync(P("js/fanfic.js"), "utf8");
+const fan = (fs.readFileSync(P("js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(P("js/fanfic-core.js"), "utf8"));
 const cut = (a, b) => { const i = fan.indexOf(a), j = fan.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出 " + a); return fan.slice(i, j); };
 
 // 把那三个纯函数抠出来跑（cpLabel 是它们的依赖，一起带上）
 function load(cps) {
-  const seg = cut("  function cpLabel(", "  // CP 下拉里的选项")
+  const seg = cut("  function cpLabel(", "  let ficMeOf")   // 2026-10-18 起 cpLabel 在 fanfic-core.js，后面紧跟的是 ficMeOf
     + cut("  function allowedCPLabels(", "  // ---- 请一批新作者进来");
   const sandbox = { loadCPs: () => cps || [] };
   vm.createContext(sandbox);
@@ -112,7 +112,7 @@ test("正字是按笔顺一笔笔划的，五笔一个字", () => {
 });
 
 test("闲章刻的是笔名末一个字——头一个已经在圆头像上了", () => {
-  const seal = cut("  function authorSeal(name, size)", "  // ⚠️这一页不是");
+  const seal = cut("  function authorSeal(name, size)", "  // ---- 暴露")   // 2026-10-18 起 authorSeal 在 fanfic-core.js 末尾;
   assert.match(seal, /const ch = nm\.slice\(-1\) \|\| "\?";/, "两处刻同一个字，那枚印就白盖了");
   const face = cut("  function authorFace(name, size)", "  // 同人站上作者页那一行数");
   assert.match(face, /String\(name \|\| "\?"\)\.trim\(\)\.slice\(0, 1\)/);

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 const F = (() => {
   const a = fic.indexOf("  const FIC_PAPERS = [");

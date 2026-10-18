@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const eng = R("js/engine.js"), app = R("js/app.js"), rooms = R("js/chat-rooms.js"), th = R("js/theater.js"), ff = R("js/fanfic.js");
+const eng = R("js/engine.js"), app = R("js/app.js"), rooms = R("js/chat-rooms.js"), th = R("js/theater.js"), ff = (R("js/fanfic.js") + "\n" + R("js/fanfic-core.js"));
 
 test("公共判断句存在且不带内容样例", () => {
   const m = eng.match(/const SETTING_AS_BACKGROUND = [\s\S]*?;\n/)[0];

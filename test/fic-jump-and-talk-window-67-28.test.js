@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
-const app = R("js/app.js"), fic = R("js/fanfic.js"), comp = R("js/components.js");
+const app = R("js/app.js"), fic = (R("js/fanfic.js") + "\n" + R("js/fanfic-core.js")), comp = R("js/components.js");
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const A = strip(app), F = strip(fic), C = strip(comp);
 

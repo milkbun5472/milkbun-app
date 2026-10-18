@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const P = f => path.join(__dirname, "..", f);
 const eng = fs.readFileSync(P("js/engine.js"), "utf8");
-const fic = fs.readFileSync(P("js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(P("js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(P("js/fanfic-core.js"), "utf8"));
 const BAN = (eng.match(new RegExp("const CANNED_PHRASE_BAN = `([\\s\\S]*?)`;")) || [])[1] || "";
 
 test("三族都点了名", () => {

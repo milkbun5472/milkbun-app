@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const BG = require("../js/background-generation.js");
 const fs = require("node:fs");
 const path = require("node:path");
-const fanficSource = fs.readFileSync(path.join(__dirname, "../js/fanfic.js"), "utf8");
+const fanficSource = (fs.readFileSync(path.join(__dirname, "../js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/fanfic-core.js"), "utf8"));
 const tarotSource = fs.readFileSync(path.join(__dirname, "../js/tarot.js"), "utf8");
 const dreamJournalSource = fs.readFileSync(path.join(__dirname, "../js/dreamjournal.js"), "utf8");
 

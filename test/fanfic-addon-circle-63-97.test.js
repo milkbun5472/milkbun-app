@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 
 // 纯函数抠出来真跑（同 fanfic-spine-60-97 的那把钥匙）
 const F = (() => {

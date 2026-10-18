@@ -20,7 +20,7 @@ const path = require("node:path");
 const P = f => path.join(__dirname, "..", f);
 const eng = fs.readFileSync(P("js/engine.js"), "utf8");
 const app = fs.readFileSync(P("js/app.js"), "utf8");
-const fic = fs.readFileSync(P("js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(P("js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(P("js/fanfic-core.js"), "utf8"));
 const BAN = (eng.match(/const EMPTY_COMFORT_BAN = `([\s\S]*?)`;/) || [])[1] || "";
 
 test("这一条存在，而且是【判据】不是【台词】", () => {

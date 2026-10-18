@@ -1,5 +1,5 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("fs");
-const src = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
+const src = (fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/fanfic-core.js", "utf8"));
 const gb = src.slice(src.indexOf("  async function genBatch("), src.indexOf("  // ── 记进房间"));
 test("完结短篇那一段压在提示词最后，endHook 不再要悬念", () => {
   assert.match(gb, /FANFIC_ANTI_CLICHE_TAIL\) \+ oneShotBlock;/);
