@@ -1,5 +1,6 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
-const src=fs.readFileSync('js/components.js','utf8'),app=fs.readFileSync('js/app.js','utf8'),kit=fs.readFileSync('js/char-day.js','utf8');
+const src=fs.readFileSync('js/components.js','utf8'),app=fs.readFileSync('js/app.js','utf8'),kit=(fs.readFileSync('js/char-day-core.js','utf8')+'\n'+fs.readFileSync('js/char-day.js','utf8'));
 test('TA在干嘛小组件：放在最后一页，一次一位，默认轮换可钉住，读同一份 dayState/aroundNow，点了进那位的TA的一天',()=>{
   const i=src.indexOf('function TaDayWidget(');assert.ok(i>0,'抠不出 TaDayWidget');
   const body=src.slice(i,src.indexOf('\n}\n',i));

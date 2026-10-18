@@ -1,3 +1,4 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 // 花笺那一枪（她 2026-09-16：「种花那条先做吧」）。游戏内部的规则钉在
 // apps/fairy-garden/seeds.test.mjs；这一份钉【提示词与调用】那一侧。
 const test = require('node:test');
@@ -6,7 +7,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const rd = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const host = rd('js/fairy-garden.js');
+const host = (rd('js/fairy-garden-core.js')+'\n'+rd('js/fairy-garden.js'));
 const game = rd('apps/fairy-garden/game.mjs');
 
 function service(callAI) {

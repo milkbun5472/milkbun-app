@@ -1,5 +1,6 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const host=fs.readFileSync('js/fairy-garden.js','utf8'),engine=fs.readFileSync('js/engine.js','utf8'),app=fs.readFileSync('js/app.js','utf8');
+const host=(fs.readFileSync('js/fairy-garden-core.js','utf8')+'\n'+fs.readFileSync('js/fairy-garden.js','utf8')),engine=fs.readFileSync('js/engine.js','utf8'),app=fs.readFileSync('js/app.js','utf8');
 function between(s,a,b){const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>i,a);return s.slice(i,j);}
 function service(extra={}){const c={React:{},WeakMap,JSON,Error,extractJSON:JSON.parse,narrativeCore:()=> '原文风',CONDESCENDING_TONE_BAN:'',REGISTER_FOLLOWS_SCENE:'',STOCK_REPLY_BAN:'',ECHO_QUESTION_BAN:'',userName:p=>p?.name||'你',calls:[],...extra};c.window=c;c.callAI=async(...args)=>{c.calls.push(args);return JSON.stringify({reply:['我过去看看。'],action:{kind:'pet',petId:'active'}});};vm.runInNewContext(fs.readFileSync('apps/fairy-garden/rules.js','utf8'),c);vm.runInNewContext(host,c);vm.runInNewContext(between(engine,'function gameChatSource(','async function summarizeGroup('),c);return c;}
 test('manual and event pet replies share the living premise, full persona/permitted context and unchanged pending facts',async()=>{

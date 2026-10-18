@@ -1,3 +1,4 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 "use strict";
 // 相处册＋礼物簿（她 2026-09-18：「先把那六个按钮修回来，然后做1和2」）
 const test = require("node:test");
@@ -8,7 +9,7 @@ const rd = p => fs.readFileSync(p, "utf8");
 const world = rd("apps/fairy-garden/world.mjs");
 const game = rd("apps/fairy-garden/game.mjs");
 const companion = rd("apps/fairy-garden/companion.mjs");
-const host = rd("js/fairy-garden.js");
+const host = (rd("js/fairy-garden-core.js")+'\n'+rd("js/fairy-garden.js"));
 const rules = rd("apps/fairy-garden/rules.js");
 const html = rd("apps/fairy-garden/index.html");
 function service(callAI){const ctx={React:{},WeakMap,JSON,Error,extractJSON:JSON.parse,callAI,narrativeCore:()=> '共同文风',CONDESCENDING_TONE_BAN:'公共规则',REGISTER_FOLLOWS_SCENE:'',STOCK_REPLY_BAN:'',OVERREACH_BAN:'',ECHO_QUESTION_BAN:'',userName:p=>p.name};ctx.window=ctx;vm.runInNewContext(rules,ctx);vm.runInNewContext(host,ctx);return ctx.FairyGardenService;}

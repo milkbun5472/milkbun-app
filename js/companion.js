@@ -223,6 +223,9 @@
       const next = g ? g.merge(cur, patch) : Object.assign({}, cur, patch);
       const extra = patch && patch.face ? { autoFace: false } : {};   // 在面板里点了表情＝我来选
       set(Object.assign({ looks: Object.assign({}, load().looks || {}, { [char.id]: next }) }, extra)); };
+    // 换装控件住在小世界那组里（2026-10-18 瘦身后点进小世界才加载）：陪伴页一打开就顺手装上，装好再画一次
+    const [, setDressReady] = useState(0);
+    useEffect(() => { if (!window.GardenDressControls && window.LazyMods) window.LazyMods.load("garden").then(() => setDressReady(n => n + 1), () => {}); }, []);
     const Dress = window.GardenDressControls;
     const chip = (on, label, onClick, key) => h("button", { "data-wk": "compchip", "data-on": on ? "1" : "0", key, onClick, className: "active:opacity-70",
       style: { flexShrink: 0, padding: "7px 14px", borderRadius: 16, fontFamily: F_BODY, fontSize: 13,

@@ -1,3 +1,4 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -26,7 +27,7 @@ test('32菜的自动伙伴完成，炒煎沙拉共用食材事件，其他方法
  const j={...job('mushroom-chicken'),cooking:K.cookingSession('mushroom-chicken',{swaps:{chicken:'shrimp'}})};assert.ok(j.cooking.progress.table.items.some(q=>q.ingredient==='shrimp'));assert.ok(!j.cooking.progress.table.items.some(q=>q.ingredient==='chicken'));
 });
 test('沿真实home writer保存切块和摆盘，失败重试、重进、收好一次、别角色与主档隔离',async()=>{
- const env={window:null,Date,JSON,Math};env.window=env;vm.createContext(env);for(const f of ['apps/fairy-garden/day/kitchen.js','js/char-day-life.js','js/char-day.js'])vm.runInContext(fs.readFileSync(f,'utf8'),env);
+ const env={window:null,Date,JSON,Math};env.window=env;vm.createContext(env);for(const f of ['apps/fairy-garden/day/kitchen.js','js/char-day-life.js','js/char-day-core.js','js/char-day.js'])vm.runInContext(fs.readFileSync(f,'utf8'),env);
  let homes={version:3,kitchens:{other:{ingredients:{egg:8}}},future:{keep:1}},fail=false;env.loadJSON=()=>homes;env.commitJSONDurable=async(k,v)=>{assert.equal(k,'x_charDayHomes');if(fail)return {durable:false,live:false};homes=JSON.parse(JSON.stringify(v));return {durable:true,live:true};};const L=env.CharDayLife,write=a=>env.CharDayKit.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a));
  await write({kind:'shop',recipeId:'fruit-salad'});await write({kind:'begin',id:'dish',recipeId:'fruit-salad',choices:{mode:'auto',lead:'me'}});const j=homes.kitchens.a.pending;let p=j.cooking.progress;for(let i=0;i<1200&&p.index<3;i++)p=L.stepCooking(j,p,{kind:'tick',dt:.1});assert.equal(p.index,3);const before=JSON.stringify(homes);await assert.rejects(write({kind:'progress',id:j.id,progress:{index:3,rev:1}}));assert.equal(JSON.stringify(homes),before);await assert.rejects(write({kind:'ready',id:j.id}));fail=true;await assert.rejects(write({kind:'progress',id:j.id,progress:p}));assert.equal(JSON.stringify(homes),before);fail=false;
  await write({kind:'progress',id:j.id,progress:p});assert.deepEqual(homes.kitchens.a.pending.cooking.progress.table,JSON.parse(JSON.stringify(p.table)));await write({kind:'finish',id:j.id,at:123});assert.ok(homes.kitchens.a.dishes[0].tabletop.sealed);assert.equal(homes.kitchens.a.ingredients.apple,0);await assert.rejects(write({kind:'finish',id:j.id,at:124}));assert.equal(homes.kitchens.other.ingredients.egg,8);assert.equal(homes.future.keep,1);

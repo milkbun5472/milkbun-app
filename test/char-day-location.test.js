@@ -1,10 +1,11 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8'),app=read('js/app.js');
 const cut=(s,a,b)=>{const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>i,a);return s.slice(i,j);};
 const plain=x=>JSON.parse(JSON.stringify(x));
 function fixture(){
  const e={Date,JSON,Math};e.window=e;vm.createContext(e);
- for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','js/char-day-link.js','apps/fairy-garden/day/kitchen.js','js/char-day-life.js','js/char-day.js'])vm.runInContext(read(f),e);
+ for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','js/char-day-link.js','apps/fairy-garden/day/kitchen.js','js/char-day-life.js','js/char-day-core.js','js/char-day.js'])vm.runInContext(read(f),e);
  vm.runInContext(cut((read('js/screens.js') + "\n" + read('js/screens-ui.js')),'function schedFillEnds(','function schedTzShiftMin('),e);
  let stored={},writes=[],fail=false;e.schedulesRef={current:stored};e.setSchedules=v=>{stored=typeof v==='function'?v(stored):v;};e.saveJSON=(key,value)=>{if(fail)return false;writes.push({key,value:plain(value)});return true;};
  vm.runInContext(cut(app,'  const saveSchedDay =','  const applySchedChange =')+'this.save=saveSchedDay;',e);
@@ -121,7 +122,7 @@ test('指定具体位置后不被日程阶段和短暂休息挪开，原自动�
  assert.equal(activityPhase({map:'dayOffice',spot:'computer',action:'work'},slot,1000).spot,'entrance');
 });
 test('手机位置编辑复用整页公共Head、单滚动正文与56px安全区底栏；示例和试玩不写真实日程',()=>{
- const src=read('js/char-day.js'),editor=cut(src,'    const positionScene=','    return outer(h(React.Fragment, null, h("div",');
+ const src=(read('js/char-day-core.js')+'\n'+read('js/char-day.js')),editor=cut(src,'    const positionScene=','    return outer(h(React.Fragment, null, h("div",');
  assert.match(editor,/className:"absolute inset-0 flex flex-col"/);assert.match(editor,/h\(Head,/);assert.match(editor,/menuBody\(/);assert.match(editor,/style:footerStyle/);
  assert.match(src,/minHeight:56/);assert.match(src,/safe-area-inset-bottom\) \* 0\.4/);assert.match(src,/menuPositions\.current\[menuKey\]/);
  assert.match(src,/const controlsOpen=!!positionEdit\|\|book/);assert.match(src,/scenePaused:!!\([^\n]*positionEdit/);
