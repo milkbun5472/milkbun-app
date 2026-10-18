@@ -13258,7 +13258,11 @@ function useImgCutout(src) {
       const W = 24, H = 24, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
       const g = cv.getContext("2d"); g.drawImage(im, 0, 0, W, H);
       const a = (x, y) => g.getImageData(x, y, 1, 1).data[3];
-      const v = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
+      // 只看四个角会把【圆角方图】（四角透明、四边实心的 png 头像）错当成抠图，原样画出来就是一块方（群里 2026-10-18「我的秋秋怎么变方了」）。
+      //   抠好的人/物四边中点大多也是透明的；圆角方、圆形头像四边中点都是实心的——再数一遍四边中点，至少两处透明才算抠图
+      const corners = a(0, 0) < 20 && a(W - 1, 0) < 20 && a(0, H - 1) < 20 && a(W - 1, H - 1) < 20;
+      const mids = [a(W >> 1, 0), a(0, H >> 1), a(W - 1, H >> 1), a(W >> 1, H - 1)].filter(x => x < 20).length;
+      const v = corners && mids >= 2;
       _alphaSeen[src] = v; if (!dead) setCut(v);
     } catch (e) { _alphaSeen[src] = false; } };
     im.src = src;
