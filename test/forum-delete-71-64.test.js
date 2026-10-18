@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const app = P("js/app.js"), screens = P("js/screens.js");
+const app = P("js/app.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 const drop = () => {
   const i = app.indexOf("  const forumDropPosts = ids => {"), j = app.indexOf("\n  };", i);

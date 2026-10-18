@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.join(__dirname, "..", "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "fanfic-core.js"), "utf8"));
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 // 她 2026-10-16：同人文生图——头图、画手产粮、出本，都是点了才画
 test("三样都只在她点的那颗键里画，app 那头接得上", () => {

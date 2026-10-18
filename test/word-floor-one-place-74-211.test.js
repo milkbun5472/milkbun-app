@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const sp = R("style-presets.js"), comp = R("components.js"), fic = R("fanfic.js"), th = R("theater.js");
+const sp = R("style-presets.js"), comp = R("components.js"), fic = (R("fanfic.js") + "\n" + R("fanfic-core.js")), th = R("theater.js");
 
 global.window = global.window || {};
 require("../js/style-presets.js");

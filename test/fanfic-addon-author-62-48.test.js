@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
-const fic = fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8");
+const fic = (fs.readFileSync(__dirname + "/../js/fanfic.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/fanfic-core.js", "utf8"));
 
 // ⚠️v63.92 挪了地方：她的脾气改在【请她进名册】那一枪就定下来
 //（她 2026-09-05：「在生成作者的时候已经有了」）——一个人的脾气不该每开一局重长一次。

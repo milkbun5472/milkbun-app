@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs"), path = require("path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js/engine.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/screens-ui.js"), "utf8"));
 const load = store => new Function("localStorage", src.slice(src.indexOf("function _transStrip("), src.indexOf("// iOS 刘海（v56.63）")) + "; return translatableLang;")({ getItem: k => store[k] || null });
 test("颜文字不算外语，真日文照旧", () => {
   const T = load({});

@@ -46,7 +46,7 @@ test("恋人向的地方只认恋人空间：群聊那句、梦、抽卡、旁�
 
 // 她 2026-10-16「可以就这样」：闺蜜 / 挚友 / 家人空间撤掉恋人专属的——婚纱结婚题材、亲密合照姿势、恋爱向的问答题
 test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小本翻不到 love 题", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(app, /wedding:  \{ zh: "婚纱照", lover: true,/);
   assert.match(app, /marriage: \{ zh: "结婚登记照", lover: true,/);
   assert.match(app, /const theme = theme0 && theme0\.lover && notLover \? null : theme0;/);
@@ -57,7 +57,7 @@ test("非恋人空间：没有婚纱结婚题材，不抽 ♥ 姿势，问答小
 
 // 她 2026-10-16「本子的 1234 可以做」：黑历史案卷、军师观察簿（闺蜜）、人生选择册（挚友）、报平安簿（家人）
 test("空间本子：一张表管四本，按关系各拿各的；TA 接话走 runProbe + relSay；存进 IDB 大仓", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const i = eng.indexOf("const SPACE_BOOKS = {"), j = eng.indexOf("function spaceBooksFor(", i);
   assert.ok(i > 0 && j > i, "抠不出 SPACE_BOOKS");
   const B = new Function(eng.slice(i, j) + "; return SPACE_BOOKS;")();
@@ -81,7 +81,7 @@ test("家人细分：role 进关系那句，只说身份、不写怎么当", () 
 
 // 她 2026-10-16「每个 ui 都弄好看点，判据是如果在别的 app 成立那就是做坏了」：八本各长各的
 test("本子各长各的：卷宗、诉状、批注、对照卡、岔路、签名页、一路的站、账本", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
   assert.ok(i > 0 && j > i);
   const f = scr.slice(i, j);
@@ -90,7 +90,7 @@ test("本子各长各的：卷宗、诉状、批注、对照卡、岔路、签�
 
 // 她：「你这只是换了个颜色喂」——四本换的是形状：档案袋点开成卷宗、诉状点开分原告被告席、卡片能翻面、车票带一条路
 test("本子长成那样东西：档案袋、庭审两边、翻面卡、车票", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
   const f = scr.slice(i, j);
   assert.match(f, /"← 合上卷宗"/); assert.match(f, /"原告席 · "/); assert.match(f, /rotateY\(180deg\)/); assert.match(f, /\["出门", "路上", "到了"\]/);
@@ -99,7 +99,7 @@ test("本子长成那样东西：档案袋、庭审两边、翻面卡、车票",
 
 // 她：「但是背景都还是这种纸张」——四本各有自己的布景，不铺那张纸
 test("本子布景：木桌、小法庭、软木板、站台", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const i = scr.indexOf("function SpaceBook("), j = scr.indexOf("function CoupleFirstsBook(", i);
   const f = scr.slice(i, j);
   ["blackcase", "complain", "mouth", "safe"].forEach(k => assert.match(f, new RegExp("    " + k + ": \\{ ink: ")));
@@ -116,7 +116,7 @@ test("空间门口：spaceDoor 进 coupleStatusLines，x_spaceHome 走 IndexedDB
   assert.match(app, /const spaceDoorLine = \(char, uN\) =>/);
   assert.match(app, /const lightLit = x =>/);
   assert.match(app, /if \(pl\.edit === "me"\) throw new Error/);
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const i = scr.indexOf("function SpaceDoor("), j = scr.indexOf("function Us(", i);
   assert.ok(i > 0 && j > i);
   ["usplaque", "usthing", "uslight", "usplaqueta"].forEach(k => assert.ok(scr.slice(i, j).includes('"data-wk": "' + k + '"'), k));

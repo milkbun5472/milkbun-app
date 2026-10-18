@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const ts = fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8");
 test("随身物顶上多一颗「我的衣柜」，进的是同一个 MyCloset，返回回随身物", () => {
   assert.match(scr, /"data-wk": "carrymycloset", onClick: onOpenMyCloset/);

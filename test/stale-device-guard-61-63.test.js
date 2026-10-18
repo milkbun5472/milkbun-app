@@ -9,7 +9,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 
 const cloud = fs.readFileSync("js/cloud.js", "utf8");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const app = fs.readFileSync("js/app.js", "utf8");
 const nocomment = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 

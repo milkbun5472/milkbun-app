@@ -1,7 +1,7 @@
 const fs = require("fs");
 const assert = require("assert");
 
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 
 assert(screens.includes('const [dailyOpen, setDailyOpen] = useState(false)'), "daily spending must start collapsed");
 assert(screens.includes('const [dailyDate, setDailyDate] = useState("")'), "daily spending needs a date filter");

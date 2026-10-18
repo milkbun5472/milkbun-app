@@ -9,7 +9,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const ap = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
 const co = fs.readFileSync(path.join(root, "js", "components.js"), "utf8");
-const sc = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
+const sc = (fs.readFileSync(path.join(root, "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "screens-ui.js"), "utf8"));
 
 test("只挂在 bumpUnread 这一处：单聊、群聊、旁观群、线下冒泡全都从这儿过", () => {
   // ⚠️五个来处早就各自算过「来了新消息、而且她没在看这一屏」，在那五处各挂一次

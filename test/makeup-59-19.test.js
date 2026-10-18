@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const K = require("../js/makeup.js");
-const app = R("app.js"), scr = R("screens.js"), eng = R("engine.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), eng = R("engine.js");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 const now = 1700000000000;

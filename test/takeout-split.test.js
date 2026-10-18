@@ -112,7 +112,7 @@ test("聊天里 takeout 画成外卖小票，不是礼物盒", () => {
 });
 
 // ── 外卖 app 本体（她 2026-09-27：「可以，来吧」）──
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
 
 test("饭点：打开时按现在几点停在对应那一格，凌晨算夜宵", () => {

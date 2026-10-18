@@ -6,7 +6,7 @@ const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const components = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 const rooms = fs.readFileSync(path.join(__dirname, "..", "js", "chat-rooms.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 test("character time awareness overrides the global default with inherit/on/off", () => {
   assert.match(app, /const timeAwareFor = id => \{/);

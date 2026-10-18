@@ -3,10 +3,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const fic = R("fanfic.js"), app = R("app.js");
+const fic = (R("fanfic.js") + "\n" + R("fanfic-core.js")), app = R("app.js");
 const F = (() => {
   const a = fic.indexOf("  function fmtNum(n)"), b = fic.indexOf("  // cp token：charId");
-  return new Function(fic.slice(a, b) + "\nreturn { ficHasMe };")();
+  // 2026-10-18 起 ficHash…ficWords 搬去了 fanfic-core.js：两段拼起来才是原来那一段
+  const _u = fic.indexOf("  // CP 下拉里的选项", a), _c = fic.indexOf("  function ficHash(s)");
+  return new Function(fic.slice(a, _u) + "\n" + fic.slice(_c, b) + "\nreturn { ficHasMe };")();
 })();
 
 // ── 她 2026-08-30 点的三个 bug ──

@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const Axes = require("../js/axes.js");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 const code = fic.split("\n").map(l => l.split("//")[0]).join("\n");
 const grab = name => {
   const i = fic.indexOf("function " + name + "(");

@@ -1,3 +1,4 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 "use strict";
 // 他带路、日历、今天想做的、生日（她 2026-09-18：「引路那几句都放一天，用自己的口气；日历也做；生日按人格档案馆换算」）
 const test = require("node:test");
@@ -6,7 +7,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const rd = p => fs.readFileSync(p, "utf8");
 const game = rd("apps/fairy-garden/game.mjs");
-const host = rd("js/fairy-garden.js");
+const host = (rd("js/fairy-garden-core.js")+'\n'+rd("js/fairy-garden.js"));
 const rules = rd("apps/fairy-garden/rules.js");
 const book = rd("apps/fairy-garden/season-book.mjs");
 const html = rd("apps/fairy-garden/index.html");

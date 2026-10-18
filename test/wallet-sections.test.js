@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 // 两个清洗器抽出来真跑
 const W = (() => {

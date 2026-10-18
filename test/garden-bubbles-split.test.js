@@ -1,9 +1,10 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
-const host = fs.readFileSync("js/fairy-garden.js", "utf8");
+const host = (fs.readFileSync("js/fairy-garden-core.js", "utf8")+'\n'+fs.readFileSync("js/fairy-garden.js", "utf8"));
 const engine = fs.readFileSync("js/engine.js", "utf8");
 const guard = fs.readFileSync("js/group-identity-guard.js", "utf8");
 

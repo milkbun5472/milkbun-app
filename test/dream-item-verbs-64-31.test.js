@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const scr = R("screens.js"), app = R("app.js");
+const scr = (R("screens.js") + "\n" + R("screens-ui.js")), app = R("app.js");
 
 // 那张半窗里动词的那一段
 const menu = scr.slice(scr.indexOf('row(invItem.onMe ? "放下" : "带在身上"') - 2500,

@@ -1,7 +1,7 @@
 // 改日程不再一刀切（她 2026-10-08「改日程会截断，直接把日程和改日程的字数放开」）
 const assert = require("assert");
 const fs = require("fs");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const i = scr.indexOf("function schedSpliceNow("), j = scr.indexOf("\nfunction ", i + 10);
 const fn = new Function(scr.slice(i, j) + "\nreturn schedSpliceNow;")();
 global.schedFillEnds = x => x;

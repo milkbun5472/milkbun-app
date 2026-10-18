@@ -13,7 +13,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const CFG = scr.slice(scr.indexOf("function Config(props) {"), scr.indexOf("function McpConfig("));
 assert.ok(CFG.length > 6000, "抠不出 Config");
 

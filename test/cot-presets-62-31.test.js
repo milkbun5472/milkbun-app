@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const R = f => fs.readFileSync(__dirname + "/../js/" + f, "utf8");
-const screens = R("screens.js"), engine = R("engine.js"), dream = R("dream.js"), fanfic = R("fanfic.js");
+const screens = (R("screens.js") + "\n" + R("screens-ui.js")), engine = R("engine.js"), dream = R("dream.js"), fanfic = (R("fanfic.js") + "\n" + R("fanfic-core.js"));
 const cot = screens.slice(screens.indexOf("const COT_BUILTIN"), screens.indexOf("// 图像 API（角色自拍）设置"));
 
 test("小稿真正在用的还是那四处，界面上的说明得跟这份名单对得上", () => {

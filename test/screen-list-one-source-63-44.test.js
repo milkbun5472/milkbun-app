@@ -100,7 +100,7 @@ test("子页面：查手机里那二十个、情侣空间那些门，问哪个�
     "手册里没说查手机的「" + n + "」是干嘛的"));
   assert.ok((apps.kw || []).length >= 10, "检索词太少，她直接说某个 app 的名字会翻不到");
   // 情侣空间那些门同理，照 screens.js 里真的分支核
-  const scr = R("screens.js");
+  const scr = (R("screens.js") + "\n" + R("screens-ui.js"));
   const us = scr.slice(scr.indexOf("function Us({"));
   // ⚠️别写成 /sub === "\w+"/：那会把别处的 `cv.sub === "rec"` 也算成一扇门
   // ⚠️也别把 typeof sub === "string" 算成一扇门（v75.791 起本子走 "book:xxx"，那一句是在认这种字符串门牌）

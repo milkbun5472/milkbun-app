@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const s = src("screens.js"), c = src("components.js"), a = src("app.js"), ts = src("theme-studio.js");
+const s = (src("screens.js") + "\n" + src("screens-ui.js")), c = src("components.js"), a = src("app.js"), ts = src("theme-studio.js");
 test("论坛整页和几块面板都挂了钩子，清单里也登记了", () => {
   ["forumpage", "foboards", "forules", "fosort", "fonav", "fonavtab", "fopostpage", "fopostcard"].forEach(k => {
     assert.ok(s.includes('"data-wk": "' + k + '"'), "源码没挂 " + k);

@@ -53,7 +53,7 @@ const offline = comp.slice(c1, c1 + 1200);
 assert.ok(/readTextFileSmart\(file\)/.test(offline), "线下文风/设定集的 txt 没走 readTextFileSmart");
 assert.ok(!/await file\.text\(\)/.test(offline), "线下文风还留着 file.text()——它只认 UTF-8");
 
-const screens = read("js/screens.js");
+const screens = (read("js/screens.js") + "\n" + read("js/screens-ui.js"));
 const s1 = screens.indexOf("function EmoteMatrix(");
 const s2 = screens.indexOf("const note = (zh, right, top)", s1);
 assert.ok(s1 > 0 && s2 > s1, "screens.js 里抠不出 EmoteMatrix 的 readFile");

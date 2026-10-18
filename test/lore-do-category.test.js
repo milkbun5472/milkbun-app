@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 // 她 2026-10-05：冰箱 HTML 世界书 Gemini 能出、Sonnet 不出——世界书被当成事实交出去，模型只是「知道」。
 // 「照做」一类换成指令口气，八个去向都走 loreText 这一处。

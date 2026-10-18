@@ -15,7 +15,7 @@ function envFor(raw){
  e.window=e;vm.createContext(e);
  for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','apps/fairy-garden/day/home-hobbies.js','js/char-day-link.js','js/content-boundaries.js'])vm.runInContext(read(f),e);
  e.pad2=n=>String(n).padStart(2,'0');
- vm.runInContext(cut(read('js/screens.js'),'function schedDayKey(', 'function schedDisplaySeqs('),e);
+ vm.runInContext(cut((read('js/screens.js') + "\n" + read('js/screens-ui.js')),'function schedDayKey(', 'function schedDisplaySeqs('),e);
  vm.runInContext(cut(app,'  const saveSchedDay =','  const applySchedChange =')+'\nglobalThis.saveDay=saveSchedDay;',e);
  vm.runInContext(cut(app,'  const genScheduleDay =','  const SCHED_PLAN_DAYS =')+'\nglobalThis.generateDay=genScheduleDay;',e);
  vm.runInContext(cut(app,'  const genScheduleWeek =','  const schedMondayOf =')+'\nglobalThis.generateWeek=genScheduleWeek;',e);

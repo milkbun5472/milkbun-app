@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 // ⚠️切到【下一个顶格 function】为止。别拿某个具体名字当终点：MemImportSheet 其实定义在
 //   MemoryLib【前面】，用它当终点切出来的是空串，五条断言会一起假绿/假红。

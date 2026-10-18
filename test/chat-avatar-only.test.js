@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("TA 换头像只换聊天里那张，档案那张不动；档案页能用回", () => {
   assert.ok(app.includes("{ ...x, chatAvatar: msg.imageRef }"));
   assert.ok(!app.includes("{ ...x, avatarImage: msg.imageRef }"));

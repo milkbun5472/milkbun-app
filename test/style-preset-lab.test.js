@@ -9,7 +9,7 @@ const lab = R("js/style-lab.js");
 const engine = R("js/engine.js");
 const theater = R("js/theater.js");
 const comp = R("js/components.js");
-const fanfic = R("js/fanfic.js");
+const fanfic = (R("js/fanfic.js") + "\n" + R("js/fanfic-core.js"));
 const app = R("js/app.js");
 const index = R("index.html");
 

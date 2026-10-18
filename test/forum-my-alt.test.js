@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("她能用小号发帖：角色认不出、她自己帖子里回楼也是小号", () => {
   assert.ok(/const postMyForum = \(board, title, body, photo, as\) =>/.test(app));
   assert.ok(/\.\.\.\(altB \? \{ alt: true \} : \{\}\)/.test(app));

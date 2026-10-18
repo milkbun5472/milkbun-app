@@ -34,7 +34,7 @@ test("用他的钱结账：购物每件走他送礼物那条路、外卖走他�
   assert.match(app, /if \(total > asPhoneBal\(cid\)\)/);
 });
 test("没有「我的」那一页；离开就不再挂着他", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
   assert.match(scr, /\.filter\(\(\[k\]\) => !\(payAs && k === "my"\)\)/);
   assert.match(scr, /\.filter\(\(\[k\]\) => !\(payAs && k === "orders"\)\)/);
   assert.match(app, /if \(asPhone && screen !== "shop" && screen !== "takeout"\) setAsPhone\(null\)/);

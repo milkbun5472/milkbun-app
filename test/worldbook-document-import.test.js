@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 const start = src.indexOf("  const importDocument = async e => {", src.indexOf("function WorldBookEntryPage("));
 const end = src.indexOf("\n  };", start);
 assert.ok(start > 0 && end > start);

@@ -13,7 +13,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const src = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/screens-ui.js"), "utf8"));
 
 const grab = (a, b) => {
   const i = src.indexOf(a), j = src.indexOf(b, i);

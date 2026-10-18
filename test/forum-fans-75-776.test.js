@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs"), path = require("path");
 const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "../js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"));
 test("编辑资料里能填粉丝数", () => {
   assert.match(scr, /"data-wk": "forumfans"/);
   assert.match(scr, /followers: Math\.max\(0, parseInt\(emFans, 10\) \|\| 0\)/);

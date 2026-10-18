@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 // ⚠️病历写在注释里（「魂穿」那几个字还得留着说明这次删了什么），
 //   不 strip 的话「已经删干净了」永远断不出来
 const code = fic.split("\n").map(l => l.split("//")[0]).join("\n");

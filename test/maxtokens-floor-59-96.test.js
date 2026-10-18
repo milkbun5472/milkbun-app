@@ -64,9 +64,9 @@ test("没传 maxTokens 时的兜底默认值也不许低于地板", () => {
 test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在那儿封顶", () => {
   const app = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
   const eng = fs.readFileSync(path.join(root, "js", "engine.js"), "utf8");
-  const fic = fs.readFileSync(path.join(root, "js", "fanfic.js"), "utf8");
+  const fic = (fs.readFileSync(path.join(root, "js", "fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "fanfic-core.js"), "utf8"));
   const rd = fs.readFileSync(path.join(root, "js", "read.js"), "utf8");
-  const scr = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(root, "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js", "screens-ui.js"), "utf8"));
   assert.match(app, /maxTokens: Math\.min\(20000, 8500 \+ batch\.length \* 60\)/);
   const groupReply = app.slice(app.indexOf('const replyGroup ='), app.indexOf('const oocGroup ='));
   assert.match(groupReply, /maxTokens: 65000/);

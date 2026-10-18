@@ -94,7 +94,7 @@ test("线下最多拿走三成预算——护栏是【比例】，不是一个�
 });
 
 test("拉条上限放开到 60000，不然这一条改了也拉不到", () => {
-  const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   assert.match(scr, /slider\("短期窗字符预算", c\.recentBudget \|\| 8000, 3000, 60000, 1000/);
   // 说明里得写清楚这根和线下的关系——不写的话没人知道要拉这一根
   assert.match(scr, /线下描写最多占走这里的三成/);

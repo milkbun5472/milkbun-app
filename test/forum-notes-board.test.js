@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("没有笔记吧（她 2026-10-07 叫删）；双列开关管排版也管格式", () => {
   assert.doesNotMatch(scr, /"笔记吧"/);

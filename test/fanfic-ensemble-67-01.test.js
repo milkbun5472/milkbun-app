@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 const code = strip(fic);
 const grab = name => {

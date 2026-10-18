@@ -5,7 +5,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 const app = fs.readFileSync(path.resolve(__dirname, "..", "js/app.js"), "utf8");
 const page = fic.slice(fic.indexOf("function FilePage(props)"), fic.indexOf("  // ---------- 转发选人 sheet ----------"));
 assert.ok(page.length > 1500, "没切到 FilePage");

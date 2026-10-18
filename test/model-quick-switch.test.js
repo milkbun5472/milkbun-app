@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const index = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
 test("optional assistive model switch persists online and offline routes separately", () => {

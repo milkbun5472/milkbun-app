@@ -29,7 +29,7 @@ test("资料卡读的就是这一份；新生成的网名撞了别人的不收",
 });
 
 test("小号主页能换网名：查重、旧帖旧楼一起改署名、也能让它起一个", () => {
-  const scr = require("fs").readFileSync(__dirname + "/../js/screens.js", "utf8");
+  const scr = (require("fs").readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + require("fs").readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
   const fnR = cut("  const renameCharAlt = (charId, name, handle) => {", "\n  };\n");
   assert.match(fnR, /已经有人在用了/);
   assert.match(fnR, /x_forumCharMeta/);

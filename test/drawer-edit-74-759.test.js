@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const app = R("js/app.js"), scr = R("js/screens.js");
+const app = R("js/app.js"), scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
 test("写的那一头：只换这一条，悄悄话顺手清掉旧 title，落盘同一个键", () => {
   const i = app.indexOf("const editDrawerItem = (id, text) =>"), j = app.indexOf("const cSnip =", i);
   assert.ok(i > 0 && j > i);

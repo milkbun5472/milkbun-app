@@ -1,9 +1,11 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync('js/fairy-garden.js','utf8'),app=fs.readFileSync('js/app.js','utf8');
+const source=(fs.readFileSync('js/fairy-garden-core.js','utf8')+'\n'+fs.readFileSync('js/fairy-garden.js','utf8')),app=fs.readFileSync('js/app.js','utf8');
 function kit(){
- const a=source.indexOf('  const DIALOG_WORLDS'),b=source.indexOf('  function LegacyWorldDialogs(',a);assert.ok(a>0&&b>a);
+ // 2026-10-18 起对话分档那几条在 fairy-garden-core.js、worldRecord…storeWorldTurn 留在 fairy-garden.js：两段拼回来
+ const a=source.indexOf('  const DIALOG_WORLDS'),a2=source.indexOf('\n',source.indexOf('  root.FairyWorldDialogs=',a))+1,c=source.indexOf('  const worldRecord=',a2),b=source.indexOf('  function LegacyWorldDialogs(',c);assert.ok(a>0&&a2>a&&c>a2&&b>c);
  const ctx={root:{},write:(key,d)=>{ctx.saved=d;return d;}};vm.createContext(ctx);
- vm.runInContext(source.slice(a,b)+';root.test={worldRecord,worldHistory,storeWorldTurn};',ctx);
+ vm.runInContext(source.slice(a,a2)+source.slice(c,b)+';root.test={worldRecord,worldHistory,storeWorldTurn};',ctx);
  return {ctx,...ctx.root.FairyWorldDialogs,...ctx.root.test};
 }
 function room(k){

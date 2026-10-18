@@ -36,7 +36,7 @@ test("⚠️前任和单向暗恋不算——那两个恰恰含着正词", () =>
   // 这两个都是关系页的预设标签（REL_PRESETS），一定会被用到，光看正词必错。
   ["前男友", "前女友", "前任", "已分手", "离婚", "前妻", "单向暗恋", "暗恋", "单恋"].forEach(l =>
     assert.equal(line(l), "", "「" + l + "」被判成了现任"));
-  assert.match(fs.readFileSync(path.join(root, "js/screens.js"), "utf8"), /"前任", "单向暗恋"/,
+  assert.match((fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8")), /"前任", "单向暗恋"/,
     "这两个不再是预设标签的话，上面那条推理要重写");
 });
 

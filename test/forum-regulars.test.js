@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 test("论坛常驻网友使用稳定 id，并且匿名身份不与公开身份混池", () => {
   const block = app.match(/const FORUM_NPC_REGISTRY = \[([\s\S]*?)\n\];/);

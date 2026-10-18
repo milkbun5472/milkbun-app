@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const fs = require("fs"), path = require("path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const app = R("js/app.js"), scr = R("js/screens.js"), ts = R("js/theme-studio.js");
+const app = R("js/app.js"), scr = (R("js/screens.js") + "\n" + R("js/screens-ui.js")), ts = R("js/theme-studio.js");
 assert.match(scr, /"data-wk": "studiopaint"/);
 assert.match(scr, /onShoot\(\{ scene, mine: [^}]*polaroid, paint(, expand)? \}\)/);
 assert.match(app, /const PAINT = !RESTYLE_ONLY && opt && opt\.paint/);

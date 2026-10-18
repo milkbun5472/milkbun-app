@@ -100,7 +100,7 @@ test("旧壳弹的是「去 Xcode 重 build」，不是「不支持」", () => {
   assert.match(notify, /return oldShell\(\) \? "壳还是旧的：在 Xcode 里重新 build 一次就有通知了" : "此设备\/浏览器不支持通知";/);
   assert.match(notify, /window\.Notify = \{[^}]*whyUnsupported/, "没挂出去，界面拿不到");
   // 界面那头必须用它，而且拿不到时还能退回原来那句
-  const s = R("js/screens.js");
+  const s = (R("js/screens.js") + "\n" + R("js/screens-ui.js"));
   assert.match(s, /if \(!window\.Notify \|\| !window\.Notify\.supported\(\)\) \{ toast && toast\(\(window\.Notify && window\.Notify\.whyUnsupported && window\.Notify\.whyUnsupported\(\)\) \|\| "此设备\/浏览器不支持通知"\); return; \}/,
     "开关那儿还在硬写「不支持」");
   assert.equal((s.match(/"此设备\/浏览器不支持通知"/g) || []).length, 1, "这句话在界面里不止一处");

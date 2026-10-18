@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const rd = f => fs.readFileSync(path.join(root, f), "utf8");
-const engine = rd("js/engine.js"), theater = rd("js/theater.js"), fanfic = rd("js/fanfic.js"), index = rd("index.html");
+const engine = rd("js/engine.js"), theater = rd("js/theater.js"), fanfic = (rd("js/fanfic.js") + "\n" + rd("js/fanfic-core.js")), index = rd("index.html");
 
 // 她 2026-08-22：「把我们线下那一堆提示词确保它接上了同人文和小剧场那堆的」。
 // 审出来三份配方各自漂了：

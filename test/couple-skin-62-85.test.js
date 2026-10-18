@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 const skinSrc = src.slice(src.indexOf("const cpSkin = (t, kind) =>"), src.indexOf("\nfunction CoupleQABook("));
 const cpSkin = new Function("return " + skinSrc.replace(/^const cpSkin = /, "").replace(/;\s*$/, ""))();

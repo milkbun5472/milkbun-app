@@ -1,8 +1,9 @@
+// 2026-10-18 起 char-day.js / fairy-garden.js 拆出 -core.js（开机那半）：读源码、跑沙盒都先带上 core
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const src = fs.readFileSync("js/fairy-garden.js", "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
+const src = (fs.readFileSync("js/fairy-garden-core.js", "utf8")+'\n'+fs.readFileSync("js/fairy-garden.js", "utf8")).replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 
 const i = src.indexOf("root.FairyGardenApp = function FairyGardenApp(");
 assert.ok(i > 0, "抠不出 FairyGardenApp");
@@ -42,7 +43,7 @@ test("入口页是一条左右交替的小路", () => {
 // ⚠️她 2026-09-18 把三个占位世界删了：「许的是三件谁都没在做的事」。
 // 空圈可以留（是她要的），但它不许有名字、介绍，也不许点得进去。
 test("占位那一站不许变成又一张空头支票", () => {
-  const w = src.slice(src.indexOf("const WORLDS = ["), src.indexOf("const DAY_WORLD"));
+  const w = src.slice(src.indexOf("const WORLDS = ["), src.indexOf("root.FairyWorlds=WORLDS"));   // 2026-10-18 起 WORLDS 在 fairy-garden-core.js，DAY_WORLD 留在 fairy-garden.js
   assert.equal((w.match(/\{ id:/g) || []).length, 3, "这里只开放已经接入的庭院、列车和宠物");
   const stop = appFn.slice(appFn.indexOf("const stop = (w, i) =>"), appFn.indexOf("const path = []"));
   assert.ok(stop.length > 200, "抠不出 stop");

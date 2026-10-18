@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => path.join(__dirname, "..", "js", f);
 const app = fs.readFileSync(R("app.js"), "utf8");
-const screens = fs.readFileSync(R("screens.js"), "utf8");
+const screens = (fs.readFileSync(R("screens.js"), "utf8") + "\n" + fs.readFileSync(R("screens-ui.js"), "utf8"));
 const Clock = require("../js/schedule-clock.js");
 
 // screens.js 里那几个纯函数拿出来直接跑

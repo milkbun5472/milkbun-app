@@ -4,12 +4,14 @@ const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 const src = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const s = src("screens.js"), a = src("app.js");
+const s = (src("screens.js") + "\n" + src("screens-ui.js")), a = src("app.js");
+// 2026-10-18 起有几段搬去了 screens-ui.js：按名字取整块（到下一个顶格声明为止）
+const blk = (src, head) => { const i = src.indexOf(head); if (i < 0) return ""; const k = src.slice(i + 1).search(/\n(?:async function |function |const |let )/); return src.slice(i, k < 0 ? src.length : i + 1 + k); };
 
 function loadStore() {
   const mem = {};
   const localStorage = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
-  const code = s.slice(s.indexOf("const CHAR_WORLDS_KEY"), s.indexOf("const FORUM_BOARDS"));
+  const code = s.slice(s.indexOf("const CHAR_WORLDS_KEY"), s.indexOf("const FORUM_BOARDS")) + "\n" + blk(s, "function charWorldsSave(") + "\n" + blk(s, "function forumSetWorld(") + "\n";
   return new Function("localStorage", code + "; return { charWorldsLoad, charWorldsSave, charWorldOf };")(localStorage);
 }
 
@@ -44,7 +46,7 @@ test("论坛按世界分：帖子记 world、视图只显示当前世界、世�
   const W = (() => {
     const mem = {};
     const localStorage = { getItem: k => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
-    const code = s.slice(s.indexOf("const CHAR_WORLDS_KEY"), s.indexOf("const FORUM_BOARDS"));
+    const code = s.slice(s.indexOf("const CHAR_WORLDS_KEY"), s.indexOf("const FORUM_BOARDS")) + "\n" + blk(s, "function charWorldsSave(") + "\n" + blk(s, "function forumSetWorld(") + "\n";
     return new Function("localStorage", "window", code + "; return { charWorldsSave, forumCurWorld, forumSetWorld, forumPostWorld, charWorldLore, forumGenWorld };")(localStorage, { dispatchEvent() {} });
   })();
   W.charWorldsSave({ worlds: [{ id: "g", name: "世界乙", lore: "世界观文字" }], of: { c1: "g" } });

@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-const scr = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(root, "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "js/screens-ui.js"), "utf8"));
 
 test("唱片卡点进去带上【是谁】和【哪一扇门】", () => {
   assert.match(app, /onOpenUs: \(\) => \{ setUsLand\(\{ view: activeChar\.id, sub: "disc" \}\); setScreen\("us"\); \}/);

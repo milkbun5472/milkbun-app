@@ -27,8 +27,9 @@ test("那六处都在用同一颗色圈", () => {
     ["js/components.js", /h\(ColorDot, \{ value: gCol/, "装饰的底"],
     ["js/components.js", /h\(ColorDot, \{ value: accent/, "装饰的强调色"],
     ["js/components.js", /h\(ColorDot, \{ value: s\[key\]/, "气泡皮肤那几栏"],
-    ["js/screens.js", /h\(ColorDot, \{ value: color, onChange: setColor/, "角色底色"],
-    ["js/screens.js", /h\(ColorDot, \{\n?\s*value: th\[k\]/, "主题那八支色"],
+    // 2026-10-18 起这两处在 screens-ui.js（screens.js 拆出来的页面那半）
+    ["js/screens-ui.js", /h\(ColorDot, \{ value: color, onChange: setColor/, "角色底色"],
+    ["js/screens-ui.js", /h\(ColorDot, \{\n?\s*value: th\[k\]/, "主题那八支色"],
     ["js/theme-studio-ui.js", /h\(ColorDot, \{ value: val/, "这一页单独换几支色"],
     ["js/fairy-garden.js", /h\(ColorDot, \{ value: hex/, "庭院染色"]
   ];

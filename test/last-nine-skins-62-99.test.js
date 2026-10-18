@@ -9,9 +9,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const grab = (a, b) => {
-  const i = src.indexOf(a), j = src.indexOf(b);
+  const i = src.indexOf(a), j = src.indexOf(b, i);   // 2026-10-18 起两半拼接，终点从起点往后找
   // ⚠️切不出来就当场炸：indexOf 返回 -1 时 slice 会悄悄切出半个文件，
   //   断言照样"通过"或者报一堆看不懂的错——那比没有这条测试更糟
   assert.ok(i >= 0, "切不到起点：" + a);
@@ -19,11 +19,11 @@ const grab = (a, b) => {
   return src.slice(i, j);
 };
 const _hex6 = t => /^#[0-9a-f]{6}$/i.test(String(t.ink || ""));
-const binderSkin = new Function("_hex6", "return " + grab("const binderSkin = t =>", "\n// 抽卡：")
+const binderSkin = new Function("_hex6", "return " + grab("const binderSkin = t =>", "\n// 分区＝一张有索引页签的活页")   // 2026-10-18 起 binderSkin 在 screens-ui.js
   .replace(/^const binderSkin = /, "").replace(/;\s*$/, ""))(_hex6);
 const foilSkin = new Function("_hex6", "return " + grab("const foilSkin = t =>", "\n// 照相馆：")
   .replace(/^const foilSkin = /, "").replace(/;\s*$/, ""))(_hex6);
-const cycSkin = new Function("_hex6", "return " + grab("const cycSkin = t =>", "\n// 分区＝一张有索引页签的活页")
+const cycSkin = new Function("_hex6", "return " + grab("const cycSkin = t =>", "\n// 配角的简介")
   .replace(/^const cycSkin = /, "").replace(/;\s*$/, ""))(_hex6);
 
 test("screens.js 一处米白外壳都不剩", () => {

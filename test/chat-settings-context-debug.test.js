@@ -5,7 +5,7 @@ const fs = require("node:fs");
 
 const app = fs.readFileSync("js/app.js", "utf8");
 const components = fs.readFileSync("js/components.js", "utf8");
-const screens = fs.readFileSync("js/screens.js", "utf8");
+const screens = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 
 // v61.79 改：诊断不再自己占一格，并进【TA 知道什么】——她去查它，问的正是
 // 「他到底记得什么、这一轮发进去的是什么」。所以这条钉的从「有没有 debug 那一格」

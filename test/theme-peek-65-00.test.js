@@ -15,7 +15,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), comp = R("components.js"), studio = R("theme-studio.js"), ui = R("theme-studio-ui.js"), screens = R("screens.js");
+const app = R("app.js"), comp = R("components.js"), studio = R("theme-studio.js"), ui = R("theme-studio-ui.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js"));
 
 test("预览可以给更长的时间；不传还是 30 秒", () => {
   const i = studio.indexOf("const preview = (p, ms) =>");

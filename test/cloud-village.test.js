@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const scr = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
+const scr = (fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js/screens-ui.js"), "utf8"));
 // ⚠️切【整个一起听】，不是只切云村那一段。v61.42 按「这首歌已经是我的了吗」重排之后，
 // 公共的歌行/歌单行（cloudRow / cvPlRow）挪到了 mineTab 前面——它们本来就是两个 tab
 // 共用的东西，再挂在「云村区」这个名字底下就不对了。切窄了这几条会在真代码没坏的
@@ -95,7 +95,7 @@ test("自动续播连续两次也必须沿队列前进，不能因 React 状态�
 
 test("当前队列页面能解析云村临时批次，重开 App 仍从保存的整队列恢复", () => {
   const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
-  const screens = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/screens.js"), "utf8");
+  const screens = (require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/screens.js"), "utf8") + "\n" + require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/screens-ui.js"), "utf8"));
   assert.match(screens, /const batchSong = \(data\.nowBatch \|\| \[\]\)\.find\(x => x\.id === id\)/,
     "队列 UI 必须从 nowBatch 解析整张云歌单");
   assert.match(screens, /\(player && player\.songId\) \|\| data\.nowId \|\|/,

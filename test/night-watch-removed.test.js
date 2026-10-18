@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const rd = f => fs.readFileSync(path.join(root, f), "utf8");
-const app = rd("js/app.js"), cloud = rd("js/cloud.js"), screens = rd("js/screens.js"),
+const app = rd("js/app.js"), cloud = rd("js/cloud.js"), screens = (rd("js/screens.js") + "\n" + rd("js/screens-ui.js")),
       engine = rd("js/engine.js"), sw = rd("sw.js"), comp = rd("js/components.js");
 
 // v54.67（她 2026-08-22「我就是不想要夜巡了」）：云端定时替角色写信的整条流水线拆掉。

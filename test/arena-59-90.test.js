@@ -5,7 +5,7 @@ const path = require("node:path");
 // 规则原文只从这一处拿（路径写在 test/_rules.js 那一行，搬家改一处就够）
 const { ruleText } = require("./_rules.js");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const dbt = R("debate.js"), comp = R("components.js"), scr = R("screens.js"), ts = R("theme-studio.js"), core = R("core.js");
+const dbt = R("debate.js"), comp = R("components.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), ts = R("theme-studio.js"), core = R("core.js");
 const drm = R("dream.js"), trt = R("tarot.js");
 const live = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 

@@ -1,6 +1,6 @@
 const test = require("node:test"); const assert = require("node:assert");
 const fs = require("fs");
-const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const i = app.indexOf("const cleanDrawSvg"), clean = new Function(app.slice(i, app.indexOf("  };", i) + 4) + ";return cleanDrawSvg;")();
 test("抽屉里TA画的：SVG 洗干净再存，当图片挂", () => {
   const out = clean('<svg viewBox="0 0 300 300"><script>x()</script><path onload="y()" d="M0 0"/><image href="http://e"/></svg>');

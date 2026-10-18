@@ -12,9 +12,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const fic = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const fic = (fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8") + "\n" + fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8"));
 const code = fic.split("\n").map(l => l.split("//")[0]).join("\n");
-const app = fic.slice(fic.indexOf("    const cast = props.allChars || characters;"));
+// 2026-10-18 起 cpChars 的定义搬去 fanfic-core.js：FanficApp 这一段只切到 fanfic.js 末尾，别切进 core
+const ficUi = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic.js"), "utf8");
+const app = ficUi.slice(ficUi.indexOf("    const cast = props.allChars || characters;"));
 assert.ok(app.length > 2000, "没切到 FanficApp");
 
 test("生成那一枪用的是 cast，不是只有真人角色的那一份", () => {

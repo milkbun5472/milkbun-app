@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const S = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const S = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 test("TA那一拍没接上时不会停死", () => {
   assert.match(S, /const stuck = lastBeat && !more && bt\.role === "user" && !line\.endedAt;/);
   assert.match(S, /const myTurn = lastBeat && !more && \(bt\.role === "char" \|\| stuck\);/);

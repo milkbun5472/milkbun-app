@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const app = fs.readFileSync('js/app.js', 'utf8');
-const screens = fs.readFileSync('js/screens.js', 'utf8');
+const screens = (fs.readFileSync('js/screens.js', 'utf8') + "\n" + fs.readFileSync('js/screens-ui.js', 'utf8'));
 const ordering = screens.slice(screens.indexOf('const forumFloorArrivedAt'), screens.indexOf('function fmtNum'));
 const writer = app.slice(app.indexOf('  const buildForumFloor ='), app.indexOf('  // 这帖里已经冒泡过的角色'));
 const manual = app.slice(app.indexOf('  const genMoreComments ='), app.indexOf('  // 角色发帖（可被未来'));

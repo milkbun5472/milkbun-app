@@ -5,8 +5,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 require('../apps/fairy-garden/clock.js');
-const host = fs.readFileSync(path.join(__dirname, '../js/fairy-garden.js'), 'utf8');
-const shell = host.slice(host.indexOf('  const WORLDS = ['), host.indexOf('  root.FairyGardenApp ='));
+// 2026-10-18 起 WORLDS 搬去 fairy-garden-core.js（开机那半）：两半一起读，壳子按两段拼回来
+const core = fs.readFileSync(path.join(__dirname, '../js/fairy-garden-core.js'), 'utf8');
+const ui = fs.readFileSync(path.join(__dirname, '../js/fairy-garden.js'), 'utf8');
+const host = core + '\n' + ui;
+const shell = core.slice(core.indexOf('  const WORLDS = ['), core.indexOf('  // 页面那半要用的'))
+  + ui.slice(ui.indexOf('  const DAY_WORLD'), ui.indexOf('  root.FairyGardenApp ='));
 
 const build = store => {
   const mem = Object.assign({}, store);

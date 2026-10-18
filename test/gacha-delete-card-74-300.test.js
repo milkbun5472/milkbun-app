@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const app = R("app.js"), screens = R("screens.js"), gacha = R("gacha.js");
+const app = R("app.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js")), gacha = R("gacha.js");
 
 global.window = global.window || {};
 require("../js/gacha.js");

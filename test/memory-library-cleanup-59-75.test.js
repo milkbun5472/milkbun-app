@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
-const src = fs.readFileSync("js/screens.js", "utf8");
+const src = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 const start = src.indexOf("function MemoryLib(");
 const end = src.indexOf("function MemCfgSheet(", start);
 const memory = src.slice(start, end);

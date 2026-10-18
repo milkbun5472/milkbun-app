@@ -14,7 +14,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const JS = path.join(__dirname, "..", "js");
 const comp = fs.readFileSync(path.join(JS, "components.js"), "utf8");
-const screens = fs.readFileSync(path.join(JS, "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(JS, "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(JS, "screens-ui.js"), "utf8"));
 
 test("顶栏的副标题和分隔线不再一律当成【深底白字】", () => {
   const i = comp.indexOf("function Head({");

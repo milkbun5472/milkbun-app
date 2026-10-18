@@ -11,7 +11,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 const seg = src.slice(src.indexOf("const LEATHER = t =>"), src.indexOf("// 表情包字典 Emote Matrix"));
 const leatherSrc = src.slice(src.indexOf("const LEATHER = t =>"), src.indexOf("\n// 卡插在卡位里"));
 const LEATHER = new Function("return " + leatherSrc.replace(/^const LEATHER = /, "").replace(/;\s*$/, ""))();

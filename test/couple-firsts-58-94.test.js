@@ -4,7 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const K = require("../js/couple-firsts.js");
-const app = R("app.js"), scr = R("screens.js");
+const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
+// 2026-10-18 起 screens.js 拆成两半：「切到文件尾」只切它所在的 screens.js 那一半，别切进 screens-ui.js
+const scrCore = R("screens.js");
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 7, 31, 12);
 
@@ -89,7 +91,7 @@ test("接进情侣空间，是整页", () => {
   assert.match(scr, /sub === "firsts"\) \{/, "情侣空间里没有这一页");
   assert.match(scr, /(?:wall|spine)\("firsts",|setSub\("firsts"\)/, "首页上没有入口");
   assert.match(app, /coupleFirstsOf: coupleFirstsFor,/, "没传下去");
-  const ui = scr.slice(scr.indexOf("function CoupleFirstsBook({"));
+  const ui = scrCore.slice(scrCore.indexOf("function CoupleFirstsBook({"));
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");
   assert.match(ui, /className: "h-full flex flex-col"/);
   assert.match(ui, /className: "flex-1 min-h-0 overflow-y-auto/);

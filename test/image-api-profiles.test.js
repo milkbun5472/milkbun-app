@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 
 test("image API upgrades the existing x_imgApi key to switchable profiles", () => {
   assert.match(engine, /function loadImgApiProfiles\(/);

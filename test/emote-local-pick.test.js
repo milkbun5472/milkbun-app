@@ -4,7 +4,7 @@ const fs = require("fs");
 const src = f => fs.readFileSync(require("path").join(__dirname, "..", "js", f), "utf8");
 
 test("表情库能从相册选图：存进本机图库，关键词取文件名", () => {
-  const s = src("screens.js");
+  const s = (src("screens.js") + "\n" + src("screens-ui.js"));
   assert.match(s, /onAddImages/);
   assert.match(s, /multiple: true, onChange: pickImages/);
   assert.match(s, /imgToVault/);
@@ -26,7 +26,7 @@ test("app 把 onAddImages 接到表情库", () => {
 });
 
 test("选完先填关键词再贴；已贴的点一下能改关键词", () => {
-  const s = src("screens.js");
+  const s = (src("screens.js") + "\n" + src("screens-ui.js"));
   assert.match(s, /setStaged\(s => \[\.\.\.s, \.\.\.items\]\)/);
   assert.match(s, /stagedReady/);
   assert.match(s, /onRenameEmote\(pack\.id, em\.id, k\)/);

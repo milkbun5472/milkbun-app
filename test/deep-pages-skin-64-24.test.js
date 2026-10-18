@@ -17,7 +17,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
 // ⚠️只切这一个组件：往后一路切到文件末尾的话，别处几十个 Sheet 都会算进来，
 //   「还在走半窗」那条就永远红（第一版就是这么写错的）。
 const page = (() => {
@@ -51,7 +51,9 @@ test("底换了，压在上面的那张汇总卡也得跟着换", () => {
 });
 
 test("binderSkin 在拼不出色号的主题下退回纯色，不留半张废皮", () => {
-  const body = src.slice(src.indexOf("const binderSkin = t =>"), src.indexOf("const letterSkin ="));
+  // 2026-10-18 起 binderSkin 在 screens-ui.js、letterSkin 留在 screens.js：切到下一个顶格声明为止
+  const _i = src.indexOf("const binderSkin = t =>"), _k = src.slice(_i + 1).search(/\n(?:async function |function |const |let )/);
+  const body = src.slice(_i, _k < 0 ? src.length : _i + 1 + _k);
   assert.match(body, /if \(!_hex6\(t\)\) return \{ background: t\.bg \};/);
 });
 

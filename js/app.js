@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.003";
+const APP_VERSION = "v76.006";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17303,18 +17303,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   它写得是对的，但同一层规则活在好几处就是下次改的时候必漏一处——
       //   她 2026-09-06：「以后这种形状都开公共然后合在一起，不要照着已有的新开」。
       //   所以搬进 AutoGate，参数一模一样（MAX_TRIES 3 / COOLDOWN 两小时）。
-      const pick = (weekKey, from, count) => {
-        if (!window.AutoGate.due("schedule|" + c.id, weekKey)) return;
-        jobs.push({ c, from, count, weekKey });
+      // ⚠️「排下周」和「补本周」各记各的格子（群里 2026-10-18「每次登录日程都更新，耗额度」）：
+      //   原来共用 "schedule|角色" 一格，周日两件都要跑，一件记完 p=本周一、另一件一看「换周期了」就从头再来，
+      //   失败次数互相清零——周日一失败，每次开 app 都重打，三次封顶形同虚设。
+      const pick = (gateKey, weekKey, from, count) => {
+        if (!window.AutoGate.due(gateKey, weekKey)) return;
+        jobs.push({ c, from, count, weekKey, gateKey });
       };
-      if (dowMon === 6) pick(nextMon, nextMon, 7);              // 周日 0 点起排下一周
-      if (!have[today]) pick(thisMon, today, 7 - dowMon);       // 引导：补到本周日为止
+      if (dowMon === 6) pick("schedule|" + c.id + "|next", nextMon, nextMon, 7);   // 周日 0 点起排下一周
+      if (!have[today]) pick("schedule|" + c.id, thisMon, today, 7 - dowMon);      // 引导：补到本周日为止
     });
     if (!jobs.length) return;
     schedRunRef.current = true;
     try {
       for (const j of jobs) {
-        await window.AutoGate.run("schedule|" + j.c.id, j.weekKey,
+        await window.AutoGate.run(j.gateKey, j.weekKey,
           () => genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }));
       }
     } finally {

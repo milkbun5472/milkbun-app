@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 const engine = fs.readFileSync(require.resolve("../js/engine.js"), "utf8");
-const screens = fs.readFileSync(require.resolve("../js/screens.js"), "utf8");
+const screens = (fs.readFileSync(require.resolve("../js/screens.js"), "utf8") + "\n" + fs.readFileSync(require.resolve("../js/screens-ui.js"), "utf8"));
 
 test("subscription diagnostics distinguish request evidence from provider usage", () => {
   assert.match(engine, /bridge: !!p\.proxyRef, cacheRequested: cacheHist/);

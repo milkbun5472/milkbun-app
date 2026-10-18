@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
-const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 

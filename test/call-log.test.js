@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const R = f => fs.readFileSync(__dirname + "/../js/" + f, "utf8");
-const eng = R("engine.js"), app = R("app.js"), scr = R("screens.js");
+const eng = R("engine.js"), app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
 
 test("调用记录只在 callAI 这一个出口记：成功、重试成功、失败、她自己断的都记", () => {
   const i = eng.indexOf("async function callAI("), fn = eng.slice(i, eng.indexOf("async function callAIOnce(", i));
