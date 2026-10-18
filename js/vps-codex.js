@@ -32,7 +32,7 @@
       } catch (e) { setErr(String(e && e.message || e)); }
       finally { setSending(false); }
     };
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg, color: t.ink } },
+    return h("div", { "data-wk": "vpscodexpage", "data-part": "vpscodexapp", className: "h-full flex flex-col", style: { background: t.bg, color: t.ink } },
       h("div", { className: "shrink-0 px-4", style: { paddingTop: "calc(8px + env(safe-area-inset-top))", paddingBottom: 8, borderBottom: "1px solid " + t.line, background: t.bg } },
         h("div", { style: { minHeight: 44, display: "flex", alignItems: "center", gap: 9 } },
           h("button", { onClick: onBack, style: { width: 38, height: 38, marginLeft: -7, display: "grid", placeItems: "center" } }, h(IArrow, { size: 18, color: t.ink })),

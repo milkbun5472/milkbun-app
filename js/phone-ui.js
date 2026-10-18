@@ -1138,7 +1138,7 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
         style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "6px 10px", borderRadius: 99, border: "1px solid rgba(159,81,73,.30)" }
       }, "清空") : null);
   };
-  return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
+  return h("div", { "data-wk": "phoneapppage", "data-part": "phonedatasettings", className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
     h(Head, { zh: "手机数据", sub: (char && char.name || "TA") + " 的这一部", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
@@ -1190,7 +1190,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
           ref && h("button", { onClick: () => onPatch({ [kind]: "" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "恢复默认")))));
   };
   const iconPreset = look.iconPreset || "own";   // 设置页高亮的那一档也要跟默认一致，不然看着像选了「主界面彩釉」
-  return h("div", { className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
+  return h("div", { "data-wk": "phoneapppage", "data-part": "phonelooksettings", className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
     h(Head, { zh: "手机外观", sub: (char && char.name || "TA") + " 的这一部", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "壁纸"),
@@ -1247,7 +1247,7 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
     (r.title || r.text || "").slice(0, 22) + ((r.title || r.text || "").length > 22 ? "…" : "")),
   r.text && r.title && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(30,28,24,.6)", lineHeight: 1.55, marginTop: 2, wordBreak: "break-word" } },
     r.text.slice(0, 26) + (r.text.length > 26 ? "…" : "")));
-  return h("div", {
+  return h("div", { "data-wk": "phonelockpage", "data-part": "lockscreen",
     className: "h-full flex flex-col",
     style: lockSrc ? { backgroundImage: "linear-gradient(rgba(246,243,237,.22),rgba(246,243,237,.42)),url(\"" + lockSrc.replace(/\"/g, "%22") + "\")", backgroundSize: "cover", backgroundPosition: "center" }
       : { background: phonePaper(char && char.id, look) }
@@ -1902,7 +1902,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   if (opened) {
     const meta = albums.find(a => a.key === opened);
     const list = items.filter(p => p.category === opened);
-    return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
+    return h("div", { "data-wk": "phoneapppage", "data-part": "albumview", className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
   }
   const library = h("div", { style: { paddingTop: 14, paddingBottom: 26 } }, (() => {
     const groups = [];
@@ -2516,7 +2516,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 整页之后它就是册子里【单独一叶】：一样东西占一叶，理由抄在下面。
   const sheetNode = sheet && sheet.kind === "wish" ? (function () {
     const it = sheet.it || {};
-    return h("div", {
+    return h("div", { "data-wk": "phoneapppage", "data-part": "shoppingview",
       className: "absolute inset-0 h-full min-h-0 flex flex-col",
       style: { background: SHOP_BG, backgroundImage: SHOP_LAID, zIndex: 30 }
     },
@@ -3954,7 +3954,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   // 整页之后还多了一件事能做：把这张纸条摊开成一整张纸铺满屏幕。
   const detail = open ? (function () {
     const isHeld = open.sent === false;
-    return h("div", { className: "absolute inset-0 h-full min-h-0 flex flex-col", style: { background: CLIP_DESK, zIndex: 30 } },
+    return h("div", { "data-wk": "phoneapppage", "data-part": "clipview", className: "absolute inset-0 h-full min-h-0 flex flex-col", style: { background: CLIP_DESK, zIndex: 30 } },
       h(Head, { zh: isHeld ? "没发出去的那张" : "复制过的那张",
         bg: "transparent",
         noLine: true,
@@ -4673,7 +4673,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
       T("等他去论坛发帖或回帖之后再来翻"))));
   if (open) {
     const it = open.item || {}, isPost = open.kind === "post";
-    return h("div", { className: "h-full flex flex-col", style: { background: skin.bg } }, top,
+    return h("div", { "data-wk": "phoneapppage", "data-part": "phoneforumview", className: "h-full flex flex-col", style: { background: skin.bg } }, top,
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
         h("article", { "data-wk": "block", style: { marginTop: 12, borderRadius: 20, padding: "18px 17px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.09)" } },
           h("div", { className: "flex items-center gap-2 flex-wrap" },
@@ -4911,7 +4911,7 @@ function PhoneApp({
       ? (() => { const a = ((live || {}).forumAccounts || []).find(x => x.key === forumTab); return a ? a.label + " · " + (a.name || "") : "论坛"; })()
       : zh;
   // 这台手机里的字都是 TA 的：TA 开着「自带中译」，「译」就直接展开（TransWho）
-  return h(window.TransWho || React.Fragment, window.TransWho ? { id: char && char.id } : null, h("div", {
+  return h(window.TransWho || React.Fragment, window.TransWho ? { id: char && char.id } : null, h("div", { "data-wk": "phoneapppage", "data-part": "phoneapp",
     className: "h-full flex flex-col relative",
     style: phoneAppBg(t)
   },
@@ -5492,7 +5492,7 @@ function PhoneCarry({
       return next;
     });
   };
-  if (!char) return h("div", {
+  if (!char) return h("div", { "data-wk": "phoneapppage", "data-part": "phonecarry",
     className: "h-full flex flex-col"
   }, h(Head, {
     zh: "查手机",

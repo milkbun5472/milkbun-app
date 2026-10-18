@@ -2983,7 +2983,7 @@
         props.toast && props.toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "已经存下来了");
       } catch (er) { props.toast && props.toast("没存成，再试一次"); }
     };
-    return h("div", { onClick: props.onClose, className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
+    return h("div", { "data-wk": "ficartpage", "data-part": "ficartview", onClick: props.onClose, className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
       h(FicImg, { k: props.k, style: { maxWidth: "94%", maxHeight: "74vh", width: "auto", borderRadius: 6 } }),
       h("button", { onClick: save, className: "active:opacity-70", style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "保存这张"));
   }

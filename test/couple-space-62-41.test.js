@@ -49,7 +49,7 @@ test("年份这一层写的和读的对得上，日历那一份也跟着走", ()
   assert.doesNotMatch(app, /saveCalEvent\(char\.id, new Date\(\)\.getFullYear\(\)/, "旧那行硬写今年的还留着");
   // 表单：每年重复的那一档不发这一行——它压根没有「哪一年」这个问题
   assert.match(scr, /onAddAnniv\(partner, an, mo, dy, yearly, link, yearly \? null : yr\)/);
-  assert.match(scr, /yearly \? null : h\("div", \{ className: "flex items-center justify-center", style: \{ background: "#b85252"/,
+  assert.match(scr, /yearly \? null : h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "flex items-center justify-center", style: \{ background: "#b85252"/,
     "年份那一行没有跟着「每年重复」收起来");
 });
 
@@ -79,7 +79,7 @@ test("交换日记是一本本子，不是一张纸", () => {
   // 写字那一页：输入框不许自己再上一层底和边框，字要落在这一页的格子上
   assert.match(page, /background: "transparent", border: "none", padding: 0,\s*\n?\s*fontFamily: "'Noto Serif SC',serif"/);
   // 底纹铺在【外壳】上、Head 透上来（施工规则/mobile-ui-layout.md §3.5）
-  assert.match(page, /h\("div", \{ className: "h-full flex flex-col", style: \{ background: t\.bg,/);
+  assert.match(page, /h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col", style: \{ background: t\.bg,/);
   assert.match(page, /h\(Head, \{ zh: "交换日记", en: partner\.name, onBack, bg: "transparent" \}\)/);
   assert.match(page, /className: "flex-1 min-h-0 overflow-y-auto/);
   // 「写一页」不是一颗实心药丸

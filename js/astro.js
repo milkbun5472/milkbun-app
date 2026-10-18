@@ -654,7 +654,7 @@
       if (!dstAuto) out.dst = false;
       onSave(Object.keys(out).length ? out : null);
     };
-    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
+    return h("div", { "data-wk": "astropage", "data-part": "birthpage", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
       h(Head, { zh: "出生信息", sub: person.name, onBack: onBack, ink: S.ink, bg: "transparent", noLine: true,
         right: h("button", { "data-wk": "block", onClick: save, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: S.tint, background: "transparent", border: "none", minHeight: 40 } }, "存") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 20px 28px" } },

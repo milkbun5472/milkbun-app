@@ -59,6 +59,6 @@ test("日记：目录页和空状态都站在纸上", () => {
   const diary = src.slice(src.indexOf("  // ---- 目录定位：角色列表"));
   assert.match(diary.slice(0, 600), /style: pageSkin\("paper", t, \{ corner: false, strength: \.7 \}\)/, "目录页还是米白");
   assert.match(diary.slice(0, 600), /zh: "目录", sub: "记录对象", bg: "transparent"/, "目录页顶栏还在刷平色");
-  assert.match(src, /if \(!authors\.length\) return h\("div", \{ className: "h-full flex flex-col", style: pageSkin\("paper", t, \{ corner: false, strength: \.7 \}\) \},\s*\n\s*h\(Head, \{ zh: "日记", bg: "transparent", onBack \}\)/,
+  assert.match(src, /if \(!authors\.length\) return h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col", style: pageSkin\("paper", t, \{ corner: false, strength: \.7 \}\) \},\s*\n\s*h\(Head, \{ zh: "日记", bg: "transparent", onBack \}\)/,
     "一个角色都没有时那一屏还是米白");
 });

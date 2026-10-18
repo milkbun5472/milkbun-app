@@ -196,7 +196,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
     style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", lineHeight: 1.6 }
   });
   const count = k => { const v = val(k).trim(); return v ? "（" + v.length + " 字）" : "（无）"; };
-  return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: DESK(t.accent || t.tint) },
+  return h("div", { "data-wk": "cardimportpage", "data-part": "cardimportsheet", className: "absolute inset-0 z-50 h-full flex flex-col", style: DESK(t.accent || t.tint) },
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
@@ -4919,7 +4919,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
 
   // —— 翻一张新题作答 ——
   if (mode === "draw") {
-    return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
+    return h("div", { "data-wk": "uspage", "data-part": "coupleqabook", className: "h-full flex flex-col", style: cpSkin(t, "page") },
       h(Head, { zh: "翻一张题", sub: partner.remark || partner.name, bg: "transparent", onBack: () => { setCur(null); setAns(""); setMode("cover"); } }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 14 } }, "已答 " + mine.length + " / " + bankTotal + " 题。"),
@@ -4937,7 +4937,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
     const has = mine.length > 0;
     const idx = Math.max(0, Math.min(pageIdx, mine.length - 1));
     const e = has ? mine[idx] : null;
-    return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
+    return h("div", { "data-wk": "uspage", "data-part": "coupleqabook", className: "h-full flex flex-col", style: cpSkin(t, "page") },
       h(Head, { zh: bookTitle, sub: has ? "第 " + (idx + 1) + " 页 · 共 " + mine.length + " 页" : null, bg: "transparent", onBack: () => setMode("cover") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8", style: { touchAction: "pan-y" }, onTouchStart: ev => { const tt = ev.touches[0]; swipeRef.current = { x: tt.clientX, y: tt.clientY }; }, onTouchEnd: ev => { const tt = ev.changedTouches[0]; const dx = tt.clientX - swipeRef.current.x, dy = tt.clientY - swipeRef.current.y; if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) { if (dx < 0) setPageIdx(Math.min(mine.length - 1, idx + 1)); else setPageIdx(Math.max(0, idx - 1)); } } },
         !has ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 10 } }, "还没有答过的题。") : h("div", { key: e.id, style: { position: "relative", background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 4, padding: "16px 18px 14px", animation: "fadeUp .3s ease both",
@@ -5006,7 +5006,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
   const deskSkin = { background: t.bg,
     backgroundImage: "radial-gradient(circle,rgba(120,110,80,.14) 1px,rgba(0,0,0,0) 1.2px)", backgroundSize: "17px 17px" };
   if (!book) {
-    return h("div", { className: "h-full flex flex-col", style: deskSkin },
+    return h("div", { "data-wk": "uspage", "data-part": "coupleqabook", className: "h-full flex flex-col", style: deskSkin },
       h(Head, { zh: "问答小本", en: partner.name, onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "6px 0 16px", lineHeight: 1.7 } },
@@ -5051,7 +5051,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
   // —— 书封面（默认）——
   // 这一本躺在【点阵纸】上（v62.44）：本子是本子，桌上那张纸是纸——
   // 底纹铺外壳、顶栏透上来（mobile-ui-layout §3.5），也不跟着滚。
-  return h("div", { className: "h-full flex flex-col", style: deskSkin },
+  return h("div", { "data-wk": "uspage", "data-part": "coupleqabook", className: "h-full flex flex-col", style: deskSkin },
     h(Head, { zh: "问答小本", en: partner.name, onBack: () => setBook(null), bg: "transparent",
       // 加新题原来在【设置】里（她 2026-09-18：「能不能把它搬到问答小本的右上角」）。
       // ⚠️「他出的题」那本没有加题这回事——那是他递过来的，不是她写的池子。
@@ -5242,7 +5242,7 @@ function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
       h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: RULE_H + "px", color: "#4b3f33", whiteSpace: "pre-wrap" } }, STX(e.content)),
       isMe && !e.replied ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a1907a", marginTop: 6, fontStyle: "italic" } }, "写完了，本子递过去了") : null);
   };
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+  return h("div", { "data-wk": "uspage", "data-part": "coupleexdiary", className: "h-full flex flex-col", style: { background: t.bg,
     backgroundImage: "repeating-linear-gradient(135deg,rgba(120,95,70,.03) 0 2px,rgba(0,0,0,0) 2px 7px)" } },
     h(Head, { zh: "交换日记", en: partner.name, onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
@@ -5415,7 +5415,7 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
       h("div", { "data-wk": "block", style: { height: 14, width: 2, background: "linear-gradient(rgba(224,138,160,.35), " + ROAD + ")", marginTop: 2, borderRadius: 2 } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: ROAD_DOT, paddingTop: 3 } },
       "今天 · 第 " + Math.max(1, Math.floor((Date.now() - since) / 86400000) + 1) + " 天")) : null;
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "wall") },
+  return h("div", { "data-wk": "uspage", "data-part": "coupledays", className: "h-full flex flex-col", style: cpSkin(t, "wall") },
     h(Head, { zh: "我们的日子", sub: partner.remark || partner.name, bg: "transparent", onBack,
       right: h("button", { onClick: () => onGen(partner), disabled: gen, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-8" },
@@ -5582,7 +5582,7 @@ function CoupleLetterSettings({ partner, cfg, onSave, onBack }) {
   // 底跟【我们的情书】同一张信封纸（v64.24）：设置是从那一叠里翻出来的一页，
   // 不该退回米白。顶栏也换成公共 Head——原来这儿是手写的一条，
   // 于是「紧凑标题栏」那条规矩每来一页就得重新想起一次（mobile-ui-layout §1）。
-  return h("div", { className: "h-full flex flex-col", style: letterSkin(t) },
+  return h("div", { "data-wk": "uspage", "data-part": "couplelettersettings", className: "h-full flex flex-col", style: letterSkin(t) },
     h(Head, { zh: "情书设置", sub: partner && partner.name ? "写给 " + (partner.remark || partner.name) + " 的那一叠" : "", bg: "transparent", onBack: onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 22px 40px", overscrollBehavior: "contain" } },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 24 } },
@@ -5661,7 +5661,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1.5, color: inkA(0.42) } }, "见 字 如 面"),
           h("div", { style: { width: 34, borderTop: "1px solid " + inkA(0.26), borderBottom: "1px solid " + inkA(0.26), padding: "1.5px 0", margin: "2px 0", fontFamily: F_BODY, fontSize: 10, color: inkA(0.55), textAlign: "center" } }, (dt.getMonth() + 1) + "·" + dt.getDate()),
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: inkA(0.42) } }, dt.getFullYear())));
-      return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
+      return h("div", { "data-wk": "uspage", "data-part": "coupleletters", className: "h-full flex flex-col", style: { background: pp.bg } },
         // 顶栏：透明浮在纸上，只有返回键和一行极轻的落款；右侧等宽占位（mobile-ui-layout §1）
         // ⚠️信纸这两页【不换成公共 Head】：顶上那行不是标题，是信的落款（「寄给 X」／
         //   「X 寄来」），轻到几乎看不见才对。挂点只加属性，长相一个像素没动。
@@ -5747,7 +5747,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     const swatch = (key, bg, ink, line) => h("button", { "data-wk": "block", key, onClick: () => setCPaper(key), "aria-label": "换纸", className: "active:opacity-80 shrink-0", style: { width: 30, height: 38, borderRadius: 2.5, background: bg, border: cPaper === key ? "1.5px solid " + pp.ink : "1px solid " + inkA(0.22), position: "relative", overflow: "hidden" } },
       h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(transparent 0 6px," + line + " 6px 7px)" } }),
       cPaper === key ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, bottom: 0, width: 0, height: 0, borderLeft: "9px solid transparent", borderBottom: "9px solid " + ink } }) : null);
-    return h("div", { className: "h-full flex flex-col", style: { background: pp.bg } },
+    return h("div", { "data-wk": "uspage", "data-part": "coupleletters", className: "h-full flex flex-col", style: { background: pp.bg } },
       h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-3 pb-1", style: { paddingTop: safeTop(8), minHeight: 50 } },
         h("button", { onClick: () => setCompose(false), "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: pp.ink, wk: "headink" })),
         h("div", { "data-wk": "headdim", className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 2, color: inkA(0.42) } }, "写给 " + partner.name),
@@ -5771,7 +5771,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
   // 底纹铺在【外壳】上（v62.44，她 2026-09-04：「收着的这些除了交换日记背景也都没做」）。
   // 情书这一叠底下垫的是【航空信封那圈斜条边】：一道道细斜纹，跟横格的日记本、
   // 竖格的字据一眼分得开。顶栏透明让它透上来（施工规则/mobile-ui-layout.md §3.5）。
-  return h("div", { className: "h-full flex flex-col", style: letterSkin(t) },
+  return h("div", { "data-wk": "uspage", "data-part": "coupleletters", className: "h-full flex flex-col", style: letterSkin(t) },
     h(Head, { zh: "我们的情书", bg: "transparent", onBack,
       right: h("div", { className: "flex items-center" },
         h("button", { onClick: () => setCompose(true), "aria-label": "自己写一封", className: "active:opacity-50 flex items-center justify-center", style: { width: 36, height: 40 } }, h(IPlus, { size: 19, color: t.ink })),
@@ -5914,7 +5914,7 @@ function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
     g.items.push(p);
   });
   const isTwelfth = new Date().getDate() === 12;
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "album") },
+  return h("div", { "data-wk": "uspage", "data-part": "couplealbum", className: "h-full flex flex-col", style: cpSkin(t, "album") },
     h(Head, { zh: "我们的合照", sub: partner.remark || partner.name, bg: "transparent", onBack: onBack,
       right: onUpload ? h("button", { onClick: () => upRef.current && upRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, padding: "6px 4px" } }, "传一张") : null }),
     onUpload ? h("input", { ref: upRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) { setUp({ file: f, url: URL.createObjectURL(f) }); setUpDesc(""); } } }) : null,
@@ -5986,7 +5986,7 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
   // 标签再长也只会省略号，**溢出这件事从形状上就不可能发生**，不是靠挑一个够小的数。
   const TAB_L = i => (i % 3) * 24;
   const TABC = ["#b0885a", "#a06a54", "#8a7a5c", "#7a8a6a", "#6a7a8a", "#8a6a7a", "#9a8a5a"];
-  return h("div", { className: "h-full flex flex-col", style: {
+  return h("div", { "data-wk": "uspage", "data-part": "couplearchive", className: "h-full flex flex-col", style: {
     background: KRAFT,
     backgroundImage: "repeating-linear-gradient(97deg, rgba(120,90,45,.05) 0 2px, transparent 2px 14px), radial-gradient(120% 70% at 50% -8%, rgba(255,248,230,.5), transparent 60%)",
     boxShadow: "inset 0 0 42px rgba(110,80,35,.22)" } },
@@ -6023,7 +6023,7 @@ function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
   const list = (items || []).filter(x => x.characterId === partner.id);
   // 底纹（v62.44）：这一页摊的是【同一件事的两份笔迹】，所以底是一张对折过的大纸——
   // 正中一道竖折痕（暗-亮-暗三层夹出来的），两边各一半。铺在外壳、顶栏透上来。
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+  return h("div", { "data-wk": "uspage", "data-part": "couplerecall", className: "h-full flex flex-col", style: { background: t.bg,
     backgroundImage: "linear-gradient(90deg,rgba(0,0,0,0) calc(50% - 6px),rgba(120,95,55,.07) calc(50% - 2px),rgba(255,255,255,.30) 50%,rgba(120,95,55,.07) calc(50% + 2px),rgba(0,0,0,0) calc(50% + 6px))" } },
     h(Head, { zh: characterText(partner, "他记得的那一版"), en: partner.name, onBack: onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
@@ -6117,7 +6117,7 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
   const inp = { fontFamily: F_BODY, fontSize: 13.5, color: PINK2, background: "rgba(255,255,255,.55)", border: "1px solid " + PLINE2, borderRadius: 4, padding: "10px 12px", width: "100%", outline: "none" };
   // 骑缝：字据右边那条竖线，跟纸一样高
   const creaseAt = (right, bottom) => h("span", { "aria-hidden": "true", style: { position: "absolute", top: 8, bottom: bottom, right: right, width: 1, background: "repeating-linear-gradient(180deg," + PLINE2 + " 0 4px,rgba(0,0,0,0) 4px 8px)" } });
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg,
+  return h("div", { "data-wk": "uspage", "data-part": "couplepacts", className: "h-full flex flex-col", style: { background: t.bg,
     // 契纸的竖格：一条条淡淡的竖线，跟横格的日记本一眼分得开
     backgroundImage: "repeating-linear-gradient(90deg,rgba(140,115,70,.05) 0 1px,rgba(0,0,0,0) 1px 24px)" } },
     h(Head, { zh: "我们说好的", en: partner.name, onBack: onBack, bg: "transparent" }),
@@ -6362,7 +6362,7 @@ function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, 
       fontFamily: F_DISPLAY, fontSize: big ? 12 : 11 } }, label));
   const paperInk = "#4a3d2b", paperFog = "#94856a";
   const tilt = i => [-1.2, 0.8, -0.6, 1.3, -0.9, 0.5][i % 6];
-  return h("div", { className: "h-full flex flex-col", style: {
+  return h("div", { "data-wk": "uspage", "data-part": "couplewishes", className: "h-full flex flex-col", style: {
     background: CORK,
     // 软木的颗粒：三层大小不一的点阵叠出来，不跟着滚（铺在外壳上）
     backgroundImage: "radial-gradient(rgba(120,85,40,.16) 1px, transparent 1.6px), radial-gradient(rgba(255,240,210,.13) 1px, transparent 1.5px), radial-gradient(rgba(90,60,25,.12) 1.4px, transparent 2px)",
@@ -6498,7 +6498,7 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
   const doze = typeof GardenKit !== "undefined" && GardenKit.dozing(g, Date.now());
   const bloomed = !!g.bloomTs;
   const fmtD = ts => { const d = new Date(ts || 0); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "sill") },
+  return h("div", { "data-wk": "uspage", "data-part": "couplegarden", className: "h-full flex flex-col", style: cpSkin(t, "sill") },
     h(Head, { zh: "花房", sub: partner.remark || partner.name, bg: "transparent", onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
       g.species ? h(Fragment, null,
@@ -6642,7 +6642,7 @@ function CoupleTrip({ partner, trips, gen, onPlan, onBook, onBookPick, onBookPay
   const done = (trips || []).filter(x => x && x.status === "done");
   const TIN = "#43371f", TFOG = "#9a8a66", TP = "#f6f0df", TLINE = "rgba(140,115,65,.3)";
   const fmtD = ts => { const d = new Date(ts || 0); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "lining") },
+  return h("div", { "data-wk": "uspage", "data-part": "coupletrip", className: "h-full flex flex-col", style: cpSkin(t, "lining") },
     h(Head, { zh: "旅行", sub: partner.remark || partner.name, bg: "transparent", onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { overscrollBehavior: "contain" } },
       cur ? h(Fragment, null,
@@ -6773,7 +6773,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
   const nextSong = songs.find(x => x.id === nextId) || null;
   // 唱片面上显示的那一首：正在放的 > 下次会接着放的 > 第一首
   const faceSong = nowSong || nextSong || songs[0];
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "velvet") },
+  return h("div", { "data-wk": "uspage", "data-part": "couplediscshelf", className: "h-full flex flex-col", style: cpSkin(t, "velvet") },
     h(Head, { zh: "我们的唱片", sub: partner.remark || partner.name, bg: "transparent", onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
       // ── 唱机台 ──
@@ -7361,7 +7361,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
       // 环和照片之间留一圈极浅的缝：封面再花，这两张脸也分得开
       h("div", { style: { width: A + 2 * GAP, height: A + 2 * GAP, borderRadius: 999, background: "rgba(255,255,255,.92)", display: "flex", alignItems: "center", justifyContent: "center" } },
         h("div", { style: { borderRadius: 999, overflow: "hidden", lineHeight: 0 } }, h(Avatar, { character: ch, size: A, radius: 999 }))));
-    return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: coverBg } },
+    return h("div", { "data-wk": "uspage", "data-part": "us", className: "h-full flex flex-col", style: { position: "relative", background: coverBg } },
       h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: veil, pointerEvents: "none" } }),
       // 顶栏浮在封面上，不跟着滚（返回键任何时候都够得着）
       h(Head, { zh: "我和 " + partner.name, bg: "transparent", noLine: true, ink: "#fff",
@@ -7904,7 +7904,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
       h("div", { style: { position: "absolute", left: "calc(" + (n / maxDays * 100) + "% - 3px)", top: 5,
         width: 6, height: 6, borderRadius: 999, background: "#d16a86" } }));
   };
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "corridor") },
+  return h("div", { "data-wk": "uspage", "data-part": "us", className: "h-full flex flex-col", style: cpSkin(t, "corridor") },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：原来那个 30px 大标题 + US/COUPLE 占掉小半屏
     // 列表里不全是恋人时，标题不叫「情侣」（她 2026-10-16 截图「这里还是显示情侣」）
     h(Head, { zh: entries.some(e => window.spaceRelKey && window.spaceRelKey(e.st) !== "lover") ? "我们的空间" : "情侣", sub: entries.length ? entries.length + " 段 · 最久的走了 " + maxDays + " 天" : "",
@@ -14201,7 +14201,7 @@ function DiaryStylePage({ char, onSave, onClose }) {
         className: "flex flex-col items-center active:opacity-70", style: { gap: 4 } },
         h("span", { style: Object.assign({}, pageSkin(k, t, { corner: false }), { display: "block", width: 44, height: 44, borderRadius: 8, border: (k === paperNow ? "2px solid " + t.ink : "1px solid " + t.line) }) }),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: k === paperNow ? t.ink : t.fog } }, DIARY_PAPER_ZH[k])))));
-  return h("div", { className: "h-full flex flex-col", style: pageSkin(paperNow, t, { corner: false }) },
+  return h("div", { "data-wk": "diarypage", "data-part": "diarystylepage", className: "h-full flex flex-col", style: pageSkin(paperNow, t, { corner: false }) },
     h(Head, { zh: char.isMe ? "我的日记本" : "日记档案", sub: char.remark || char.name, bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
       char.isMe ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
@@ -14244,7 +14244,7 @@ function MyDiaryCompose({ onBack, onSave }) {
   const metaRow = (label, node) => h("div", { className: "flex items-center justify-between py-2.5", style: { borderTop: `1px solid ${t.line}` } }, h(Eyebrow, null, label), node);
   // v64.00：写日记这一页原来是平色米白——一页纸上写字，纸却没有纹理。
   // lined（信纸横线）就是给这种页面预备的那一格。
-  return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("lined", t, { base: t.bg2, corner: false, strength: .7 }) : { background: t.bg2 }) },
+  return h("div", { "data-wk": "diarypage", "data-part": "mydiarycompose", className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("lined", t, { base: t.bg2, corner: false, strength: .7 }) : { background: t.bg2 }) },
     h(Head, { zh: "写日记", bg: "transparent", noLine: true, onBack,
       right: h("button", { onClick: () => onSave({ title, body, location: loc, weather, coords, timeStr: fmtClockShort(now) }), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 15, color: t.accent, padding: "8px 4px" } }, "保存") }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-16" },
@@ -14323,7 +14323,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
 
   // 空状态也别掉底（v64.24）：一个角色都没有时原来是纯米白的一屏，
   // 跟有内容时完全是两个 app。钱包那边早就是对的，照那个来。
-  if (!authors.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: false, strength: .7 }) },
+  if (!authors.length) return h("div", { "data-wk": "diarypage", "data-part": "diary", className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: false, strength: .7 }) },
     h(Head, { zh: "日记", bg: "transparent", onBack }),
     h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }));
 
@@ -14519,7 +14519,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   // ---- 目录定位：角色列表（从大图右上角 INDEX 进入，点一个跳回该角色大图）----
   // 这一页是那一摞日记的目录，底该跟日记本身是同一张纸（v64.24）——
   // 原来只有它是米白，翻进翻出像换了个 app。
-  return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: false, strength: .7 }) },
+  return h("div", { "data-wk": "diarypage", "data-part": "diary", className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: false, strength: .7 }) },
     h(Head, {
       zh: "目录", sub: "记录对象", bg: "transparent",
       onBack: () => setView("archive")
@@ -14904,7 +14904,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     // eslint-disable-next-line
   }, [selId]);
 
-  if (!chars.length) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, h(Head, { zh: "钱包", bg: "transparent", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
+  if (!chars.length) return h("div", { "data-wk": "cwalletpage", "data-part": "charwallet", className: "h-full flex flex-col", style: LEATHER(t) }, h(Head, { zh: "钱包", bg: "transparent", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
 
   // —— 花名册（未选角色）——
   if (!char) return h("div", { "data-wk": "cwpage", "data-view": "list", className: "h-full flex flex-col", style: LEATHER(t) },
@@ -15002,7 +15002,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     onBack: () => setCurOpen(false)
   });
 
-  if (loading && (!rec || !rec.init)) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, header, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在生成 " + char.name + " 的资产…" })));
+  if (loading && (!rec || !rec.init)) return h("div", { "data-wk": "cwalletpage", "data-part": "charwallet", className: "h-full flex flex-col", style: LEATHER(t) }, header, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在生成 " + char.name + " 的资产…" })));
 
   return h("div", { "data-wk": "cwpage", "data-view": "char", className: "h-full flex flex-col", style: LEATHER(t) }, header,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-10" },
@@ -17263,7 +17263,7 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onShow, onPi
       if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); }
     }, 1750);
   };
-  return h("div", { className: "h-full flex flex-col", style: foilSkin(t) },
+  return h("div", { "data-wk": "uspage", "data-part": "gacha", className: "h-full flex flex-col", style: foilSkin(t) },
     // 紧凑标题栏（施工规则/mobile-ui-layout.md §1）
     h(Head, { zh: "抽卡", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
@@ -17398,7 +17398,7 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, onForward, ledge
   const nm = partner.remark || partner.name;
   // 每一样歪一点点，按序号定死（随机的话每次重画都在动）
   const tilt = i => [-1.1, .7, -.5, 1.2, -.8, .4][i % 6];
-  return h("div", { className: "h-full flex flex-col", style: {
+  return h("div", { "data-wk": "uspage", "data-part": "coupledrawer", className: "h-full flex flex-col", style: {
     // 这一页就是【拉开的抽屉，从上往下看】：衬纸打底，四边压一圈内阴影——
     // 有了那圈内阴影，一眼就知道自己是在一个盒子里面，不用画木框去说明。
     background: "#efe6d3",
@@ -17868,7 +17868,7 @@ function CoupleFirstsBook({ partner, items, onBack }) {
     const s = rows[0] && rows[0].key === "since" ? rows[0].ts : 0;
     return s && ts > s ? "第 " + (Math.floor((ts - s) / 86400000) + 1) + " 天" : "";
   };
-  return h("div", { className: "h-full flex flex-col", style: cpSkin(t, "page") },
+  return h("div", { "data-wk": "uspage", "data-part": "couplefirstsbook", className: "h-full flex flex-col", style: cpSkin(t, "page") },
     h(Head, { zh: "第一次们", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       h("div", { style: { borderRadius: 20, border: "1px solid #dfd7ca", background: "#f4f0e8", padding: "15px 15px" } },
@@ -18123,7 +18123,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
         h("button", { onClick: () => { keepStyle(x.name, x.desc); setRolled(rolled.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "收下"),
         h("button", { onClick: () => { setStyleDraft(x.name); setStyleDescDraft(x.desc); setEditOld(""); setRolled(rolled.filter((_, i2) => i2 !== k)); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "改了再收"),
         h("button", { onClick: () => setRolled(rolled.filter((_, i2) => i2 !== k)), "aria-label": "不要", className: "shrink-0 active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 4px" } }, "✕")))) : null);
-  return h("div", { className: "h-full flex flex-col", style: cycSkin(t) },
+  return h("div", { "data-wk": "uspage", "data-part": "photostudio", className: "h-full flex flex-col", style: cycSkin(t) },
     h(Head, { zh: big ? "" : "照相馆", bg: "transparent", noLine: true, onBack: () => big ? setBig(null) : onBack() }),
     big
       ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
@@ -18369,7 +18369,7 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
   const head = h(Head, { zh: "和好间", bg: "transparent", noLine: true, ink: MK_INK, onBack,
     right: data ? h("button", { onClick: () => setEnding(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM, padding: "8px 4px" } }, "过去了") : null });
   if (!data) {
-    return h("div", { className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
+    return h("div", { "data-wk": "uspage", "data-part": "makeuproom", className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         h("div", { style: { borderRadius: 18, border: "1px solid " + MK_LINE, background: "#fff", padding: "20px 18px", marginTop: 6 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.6, color: MK_INK } },
@@ -18382,7 +18382,7 @@ function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBac
           characterText(partner, "⚠️这里说的话不会替你在聊天里说出去。要真的和好，还得你自己去跟他讲。"))));
   }
   const turns = data.turns || [];
-  return h("div", { className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
+  return h("div", { "data-wk": "uspage", "data-part": "makeuproom", className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
     h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 12 } },
       data.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM, padding: "2px 2px 12px" } }, data.why) : null,
       // TA心里那一半：刻意做成【手写的一页】，不是聊天气泡——它不是说给她听的
@@ -18443,7 +18443,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
   }, [line && line.id, beats.length]);
   if (!line) {
     // ── 馆里那一列 ──
-    return h("div", { className: "h-full flex flex-col", style: { background: "#141220" } },
+    return h("div", { "data-wk": "uspage", "data-part": "ifroom", className: "h-full flex flex-col", style: { background: "#141220" } },
       h(Head, { zh: "另一种我们", bg: "transparent", noLine: true, ink: IF_INK, onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
         h("div", { style: { borderRadius: 18, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", padding: "16px 15px" } },
@@ -18521,7 +18521,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
   const bg = line.bgKey || line.bgUrl;
   const tap = () => { if (more) setAt({ beat: at.beat, box: at.box + 1 }); else if (!lastBeat) setAt({ beat: at.beat + 1, box: 0 }); };
   const send = () => { const all = typing.trim() ? drafts.concat([typing.trim()]) : drafts; if (!all.length && !stuck) return; setDrafts([]); setTyping(""); onAdvance(line.id, all); };
-  return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: "#0e0c16" } },
+  return h("div", { "data-wk": "uspage", "data-part": "ifroom", className: "h-full flex flex-col", style: { position: "relative", background: "#0e0c16" } },
     bg ? h("div", { style: { position: "absolute", inset: 0, opacity: 0.4 } }, h(AlbumPhoto, { photo: { imgKey: line.bgKey, imgUrl: line.bgUrl }, cover: true })) : null,
     // 还没生成背景图时原来是一整片死黑。给一层很淡的光晕当底衬——不抢正文，
     // 但至少看着像个场景，不像没加载完。
@@ -18613,7 +18613,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
     // ⚠️名单就是合照墙那一份（duoPhotosFor 已经把聊天/线下/照相馆/情侣空间四处合流），
     //   不在这儿另攒一个列表。点一张就换，不确认——换错了再点一张就是。
     pick ? h("div", { onClick: () => setPick(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 24 } },
-      h("div", { onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "72%", background: "#1b1726", borderTop: "1px solid " + IF_LINE, borderTopLeftRadius: 18, borderTopRightRadius: 18 } },
+      h("div", { "data-wk": "uspage", "data-part": "ifroom", onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "72%", background: "#1b1726", borderTop: "1px solid " + IF_LINE, borderTopLeftRadius: 18, borderTopRightRadius: 18 } },
         h("div", { className: "shrink-0 flex items-center justify-between px-4", style: { paddingTop: 14, paddingBottom: 10, borderBottom: "1px solid " + IF_LINE } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, "挑一张当这条线的底"),
           h("button", { onClick: () => setPick(false), style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM } }, "关掉")),
@@ -18632,7 +18632,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
             "换的只是这一条线的底，照片本身不动"))) ) : null,
     // 侧栏：翻已经过去的那些拍
     side ? h("div", { onClick: () => setSide(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 20 } },
-      h("div", { onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "78%", background: "#15121e", borderLeft: "1px solid " + IF_LINE } },
+      h("div", { "data-wk": "uspage", "data-part": "ifroom", onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "78%", background: "#15121e", borderLeft: "1px solid " + IF_LINE } },
         h("div", { "data-wk": "head", className: "shrink-0 px-4", style: { paddingTop: safeTop(12), paddingBottom: 10, borderBottom: "1px solid " + IF_LINE } },
           h("div", { className: "flex items-center justify-between" },
             h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(line.title)),

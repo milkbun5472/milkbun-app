@@ -429,7 +429,7 @@
     const input = { width: "100%", minWidth: 0, padding: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, borderRadius: 3 };
     const heading = text => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, margin: "18px 0 8px" } }, text);
     const paper = { backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.035) 0 2px,transparent 2px 26px),linear-gradient(163deg," + t.bg + "," + t.bg2 + ")" };
-    if (configOpen) return h("div", { className: "h-full flex flex-col", style: paper }, h(Head, { zh: "视频 API", bg: "transparent", onBack: () => setConfigOpen(false) }), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } }, h(VideoApiConfig)));
+    if (configOpen) return h("div", { "data-wk": "pompage", "data-part": "pomodorovideoeditor", className: "h-full flex flex-col", style: paper }, h(Head, { zh: "视频 API", bg: "transparent", onBack: () => setConfigOpen(false) }), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } }, h(VideoApiConfig)));
     const showRef = record && record.draftRef || existing && existing.imageRef === imageRef && existing.videoRef;
     const exportRef = showRef || existing && existing.videoRef;
     const state = taskState(record, busy);

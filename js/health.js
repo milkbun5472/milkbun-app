@@ -686,7 +686,7 @@
       catch (e) { toast && toast(String(e && e.message || e).split("\n")[0]); }
       finally { setBusy(false); }
     };
-    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+    return h("div", { "data-wk": "healthpage", "data-part": "addmeal", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
       h(Head, { zh: "记一餐", onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "shrink-0 flex", style: { padding: "0 16px 6px", gap: 6 } },
         MEALS.map(m => h("button", { key: m[0], onClick: () => setMeal(m[0]), "aria-pressed": meal === m[0],
@@ -739,7 +739,7 @@
         h("div", { style: { fontSize: 14.5, color: S.ink, fontWeight: 600 } }, title),
         h("div", { style: { fontSize: 12.5, color: S.sub, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, body)));
     const tryPaste = () => { if (!onImport(txt)) toast && toast("没认出来：第一行要是「" + SHORTCUT_MARK + "」，后面每行「名字：数」"); };
-    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+    return h("div", { "data-wk": "healthpage", "data-part": "importpage", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
       h(Head, { zh: "从手机健康导入", onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
         h(Section, { S, title: "这是怎么走的", wk: "healthimport" },
@@ -777,7 +777,7 @@
         whiteSpace: "pre", overflowX: "auto", lineHeight: 1.6, maxHeight: 220, overflowY: "auto" } }, s),
       h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(s); toast && toast(ok ? "已复制" : "没复制上，长按那段自己复制"); },
         style: Object.assign(btnS(S), { marginTop: 8 }) }, label));
-    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+    return h("div", { "data-wk": "healthpage", "data-part": "gatewayguide", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
       h(Head, { zh: "搭一个自己的网关", onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
         h(Section, { S, title: "先说它是什么", wk: "healthgatewayguide" },
@@ -826,7 +826,7 @@
         onChange: e => { const v = e.target.value.replace(/[^\d.]/g, ""); onPatch({ goal: Object.assign({}, d.goal, { [k]: v === "" ? null : Number(v) }) }); },
         style: Object.assign(inputS(S), { width: 90, textAlign: "right" }) }),
       h("span", { style: { width: 34, textAlign: "right", fontSize: 12, color: S.sub } }, unit));
-    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+    return h("div", { "data-wk": "healthpage", "data-part": "watchpage", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
       h(Head, { zh: "谁看着", onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
         h(Section, { S, title: "让角色帮你盯着" },

@@ -4004,7 +4004,7 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
   };
   const visSet = per.visibleTo || [];
   // 底纹铺在【最外那层外壳】上，Head 透上来（mobile-ui-layout.md §3.5）
-  return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
+  return h("div", { "data-wk": "periodpage", "data-part": "periodbook", className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "月事本",
       sub: cur ? ("这一轮第 " + cur.day + " 天") : (nextIn != null && nextIn >= 0 ? ("离下次大约还有 " + nextIn + " 天") : "还没记过"),
       onBack: onBack }),
@@ -9673,7 +9673,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
   // ⚠️那一处的平色是【有意的】，代码里写着理由：「它现实里就是手机上那种聊天 app，
   //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
   //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
-  return h("div", { className: "h-full flex flex-col", style: msgAppBg(t) },
+  return h("div", { "data-wk": "momprofilepage", "data-part": "momentsprofile", className: "h-full flex flex-col", style: msgAppBg(t) },
     h("div", { ref: coverBoxRef, "data-wk": "mocover", "data-on": cover ? "1" : undefined, onPointerDown: adjDown, onPointerMove: adjMove, onPointerUp: adjUp, onPointerCancel: adjUp, style: { position: "relative", height: 210, flexShrink: 0, touchAction: adj ? "none" : undefined, cursor: adj ? "grab" : undefined, background: cover ? (posNow + "/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
       adj && cover ? h("div", { "data-wk": "mocoveradj", style: { position: "absolute", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 16px 14px", gap: 8, pointerEvents: "none", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.7)" } },
         h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "4px 12px" } }, "拖动封面调位置"),
@@ -14644,7 +14644,7 @@ function KinshipCardFace({ character, limit, used, note, width }) {
 function PeekCutPage({ character, cut, byName, onBack, onRestore }) {
   const t = useTheme();
   const nm = character.remark || character.name || "TA", un = cut.kind === "unfriend";
-  return h("div", { className: "h-full flex flex-col" },
+  return h("div", { "data-wk": "peekcutpage", "data-part": "peekcutpage", className: "h-full flex flex-col" },
     h(Head, { zh: nm, onBack, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center", style: { padding: "0 32px", textAlign: "center" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, lineHeight: 1.8 } }, un ? "你和「" + nm + "」已经不是好友了" : "「" + nm + "」已被拉黑"),
@@ -20695,11 +20695,11 @@ function ChatSettings({
       })
     : { background: t.bg };
   // 「影」那一格直接是动态形象编辑页（整页，自己有顶栏），不套设置页的外壳
-  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
+  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
     h(window.MotionEditor, { character: character, scene: "default", onBack: () => { setSettingsTab(""); setOpenSec(""); }, onSaved: () => {}, toast: m => window.__toast && window.__toast(m, 3000) })), document.body);
   return ReactDOM.createPortal(h(React.Fragment, null,
     lookPeek ? h(ThemePeekBar, { zh: cNm + " 的聊天长相（还没保存）", onBack: endPeek }) : null,
-    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin, lookPeek ? { display: "none" } : null) },
+    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin, lookPeek ? { display: "none" } : null) },
     h(Head, {
       bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",
