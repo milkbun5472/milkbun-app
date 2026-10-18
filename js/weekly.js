@@ -517,6 +517,37 @@
         });
       }
     });
+    // 线下也是这一周发生过的事（群友 2026-10-18：整周都走线下，周刊说上周什么都没发生）。
+    //   线下存在 x_offline:<id>（场次数组，每场 msgs）；侧房线下跟侧房线上同一条规矩：只收肯给主房留交接的。
+    const offLines = function (key, label, whoOf, sink) {
+      (loadJSON(key, []) || []).forEach(function (s) {
+        ((s && s.msgs) || []).forEach(function (m) {
+          if (!inWin(m, win)) return;
+          const txt = cleanMsg(m); if (!txt) return;
+          sink(messageTime(m), label + whoOf(m) + "：" + txt);
+        });
+      });
+    };
+    const offWho = function (name) { return function (m) { return m.role === "user" ? uName : m.role === "narration" ? "旁白" : (m.senderName || m.name || name || "某人"); }; };
+    (characters || []).forEach(function (c) {
+      const sink = function (ts, line) { pushPC(c.id, ts, line); global.push({ ts: ts, line: line }); };
+      offLines("x_offline:" + c.id, "【线下】", offWho(c.name), sink);
+      if (typeof window !== "undefined" && window.ChatRooms && typeof window.ChatRooms.list === "function") {
+        window.ChatRooms.list(c.id).filter(function (room) {
+          return room && !room.main && room.writeback && room.writeback.mainSummary;
+        }).forEach(function (room) {
+          offLines("x_offline:" + c.id + "::room::" + room.id, "【线下·" + (room.name || "未命名") + "】", offWho(c.name), sink);
+        });
+      }
+    });
+    (groups || []).forEach(function (g) {
+      if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
+      const ids = (g.memberIds || []).map(String).filter(function (id) { return (characters || []).some(function (c) { return String(c.id) === id; }); });
+      offLines("x_goffline:" + g.id, "【" + g.name + "·线下】", offWho(""), function (ts, line) {
+        global.push({ ts: ts, line: line });
+        ids.forEach(function (id) { pushPC(id, ts, line); });
+      });
+    });
     (groups || []).forEach(function (g) {
       // 封闭群（未开记忆互通）＝记忆不进也不出，绝不喂进周刊的任何版块（她点名）
       if (!(gset[g.id] && gset[g.id].memoryInterop)) return;

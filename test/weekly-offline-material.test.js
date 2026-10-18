@@ -1,0 +1,27 @@
+// 群友 2026-10-18：整周走线下，周刊说上周什么都没发生——weekMaterial 以前不读线下
+const assert = require("node:assert/strict");
+const vm = require("node:vm");
+const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "weekly.js"), "utf8");
+const store = {};
+const win = { start: 1000, end: 9000 };
+store["x_offline:a"] = [{ msgs: [{ role: "user", content: "去海边吧", ts: 2000 }, { role: "char", content: "好。", ts: 3000 }, { role: "user", kind: "ooc", content: "幕后话", ts: 3100 }, { role: "char", content: "太早", ts: 10 }] }];
+store["x_offline:a::room::r1"] = [{ msgs: [{ role: "char", content: "房间里的", ts: 2500 }] }];
+store["x_offline:a::room::r2"] = [{ msgs: [{ role: "char", content: "隔离的不许进", ts: 2500 }] }];
+store["x_goffline:g1"] = [{ msgs: [{ role: "char", senderName: "阿", content: "群线下", ts: 4000 }] }];
+store["x_goffline:g2"] = [{ msgs: [{ role: "char", senderName: "阿", content: "封闭群不许进", ts: 4000 }] }];
+store["x_groupSettings"] = { g1: { memoryInterop: true } };
+const window = { ChatRooms: { list: () => [{ id: "r1", name: "海", writeback: { mainSummary: true } }, { id: "r2", name: "隔", writeback: {} }], chatKey: (a, r) => a + "::room::" + r } };
+const React = new Proxy({}, { get: () => function () {} });
+const isOocMsg = eval("(" + require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8").match(/function isOocMsg[^\n]*/)[0] + ")");
+const ctx = { window, React, isOocMsg, document: { createElement: () => ({ style: {} }), head: { appendChild() {} } }, localStorage: { getItem() { return null; }, setItem() {} }, loadJSON: (k, d) => (k in store ? store[k] : d), saveJSON() {}, console, Date, Math, JSON };
+vm.createContext(ctx);
+vm.runInContext(src, ctx);
+const m = window.Weekly.weekMaterial(win, [{ id: "a", name: "阿" }], [{ id: "g1", name: "一群", memberIds: ["a"] }, { id: "g2", name: "二群", memberIds: ["a"] }], "我");
+const all = m.global.map(x => x.line).join("\n");
+assert.match(all, /【线下】我：去海边吧/);
+assert.match(all, /【线下】阿：好。/);
+assert.match(all, /【线下·海】阿：房间里的/);
+assert.match(all, /【一群·线下】阿：群线下/);
+assert.doesNotMatch(all, /太早|幕后话|隔离的不许进|封闭群不许进/);
+assert.ok(m.perChar.a.some(x => /群线下/.test(x.line)));
+console.log("ok");
