@@ -19682,7 +19682,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 颜文字不是动作（她 2026-10-07：「(ᵔᴥᵔ) 被误判成灰字了」）：括号里一个汉字、一个英文词都没有的，
         //   先换成占位符藏起来，整句照常拆完再换回去——括号原样留着，跟着那句话走。
         const kao = [];
-        const s = String(str || "").replace(/[（(][^（）()\u4e00-\u9fffA-Za-z]{1,24}[）)]/g, m => { kao.push(m); return String.fromCharCode(0xE000 + kao.length - 1); });
+        const hideK = m => { kao.push(m); return String.fromCharCode(0xE000 + kao.length - 1); };
+        // 引号里的括号是那句话自己的（她 2026-10-18 截图：『あたまわるい（褒め言葉）』被拎出去成了一行灰字动作，台词断成两泡）：
+        //   『』「」“”里头的括号一律当原话，不当动作。
+        const s = String(str || "").replace(/[『「“][^『』「」“”\n]{0,120}[』」”]/g, q => q.replace(/[（(][^（）()]{1,40}[）)]/g, hideK))
+          .replace(/[（(][^（）()\u4e00-\u9fffA-Za-z]{1,24}[）)]/g, hideK);
         const unKao = x => x.replace(/[\uE000-\uE0FF]/g, c => kao[c.charCodeAt(0) - 0xE000] || "");
         const re = /[（(]([^（）()]{1,120})[）)]/g;
         let last = 0, mm;
