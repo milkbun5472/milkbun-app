@@ -6,7 +6,7 @@ require("../js/theme-studio.js");
 const S = window.ThemeStudio;
 
 test("顶栏写死的 padding-top / top / padding 简写：自动跟刘海取大的", () => {
-  const out = S.scopeCSS('[data-wk="chathead"]{padding-top:10px !important;color:red}[data-wk="head"]{padding:6px 12px}[data-wk="head"]{top:0}', "X");
+  const out = S.scopeCSS('[data-wk="chathead"]{padding-top:10px !important;color:red}[data-wk="head"]{padding:6px 12px}[data-wk="head"]{position:fixed;top:0}', "X");
   assert.match(out, /padding-top: max\(10px, calc\(var\(--app-safe-top[^;]*\) !important;color:red/);
   assert.match(out, /padding: max\(6px, calc\([^)]*\)[^)]*\) \+ 4px\)\) 12px 6px 12px/);
   assert.match(out, /top: max\(0px, /);   // max() 里不认不带单位的 0（2026-10-19）
@@ -17,7 +17,7 @@ test("别的挂点、已经用了安全区的顶栏：一个字不动", () => {
 });
 test("全局 CSS 也过这一遍；读不懂（不支持的 @ 规则）就原样用，不拖垮主题", () => {
   const p = S.normalize({ globalCSS: '[data-wk="chathead"]{padding-top:8px !important}' });
-  assert.match(S.compile(p), /html \[data-wk="chathead"\]\{padding-top: max\(8px,/);
+  assert.match(S.compile(p), /(^|\n)\[data-wk="chathead"\]\{padding-top: max\(8px,/);
 });
 test("一键适配：按宽度比例乘到「全 App 多大」上，点完记成这台，再点不会越缩越小", () => {
   const plan = S.fitPlan({ madeOn: { w: 430 }, pageZoom: { all: 1.1 } }, 390);
