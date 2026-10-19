@@ -14,3 +14,7 @@ test("别的元素不动，auto 不动", () => {
   assert.equal(fit('[data-wk="bubble"]', "height: 52px"), "height: 52px");
   assert.equal(fit('[data-wk="chathead"]', "height: auto"), "height: auto");
 });
+test("body 落到真的 body 上（聊天页底下那条是 body 的颜色）", () => {
+  const ts = require("fs").readFileSync(require("path").join(__dirname, "../js/theme-studio.js"), "utf8");
+  assert.match(ts, /if \(\/\^body\$\/i\.test\(sel\) && \/\^html\\b\/i\.test\(scope\)\) return scope \+ " body";/);
+});

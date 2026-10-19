@@ -201,8 +201,9 @@
 '  background: ' + o.footBg + ' !important;',
 '  border-top: 1px solid ' + o.line + ' !important;',
 '}',
-'[data-wk="composer"] input,',
-'[data-wk="composer"] textarea {',
+// 输入框套 :where()（群里 2026-10-19）：皮肤这条原来是「composer 里的 textarea」，比她写的 [data-wk="chatinput"] 更具体，
+//   她给输入框写什么都被皮肤压着——白底、描边、占位字全不生效。:where 不算分，她写什么都盖得过
+':where([data-wk="composer"] input, [data-wk="composer"] textarea) {',
 '  background: ' + o.inputBg + ' !important;',
 '  border: none !important;',
 '  border-radius: ' + o.inputRadius + ' !important;',
@@ -213,8 +214,7 @@
 '  color: ' + o.inputInk + ' !important;',
 '  font-size: 16px !important;',
 '}',
-'[data-wk="composer"] input::placeholder,',
-'[data-wk="composer"] textarea::placeholder {',
+':where([data-wk="composer"] input, [data-wk="composer"] textarea)::placeholder {',
 // 占位字不跟着走的话，浏览器拿 color 淡一层——白字淡一层还是白的
 '  color: ' + o.inputHint + ' !important;',
 '  opacity: 1 !important;',
@@ -292,11 +292,11 @@
     tail:false, gap:3, rowGap:9, card:"20px", photo:"20px",
     metaSize:"9px", metaInk:"#8e8e8e", metaTop:"3px", metaInBubble:false,
     footBg:"#ffffff", inputBg:"#ffffff", inputRadius:"999px", inputInk:"#111111", inputHint:"#8e8e8e", send:"#0095f6", sendInk:"#ffffff", sendRadius:"999px" })
-    + '\n[data-wk="composer"] input,\n[data-wk="composer"] textarea {\n  border: 1px solid #dbdbdb !important;\n}';
+    + '\n:where([data-wk="composer"] input, [data-wk="composer"] textarea) {\n  border: 1px solid #dbdbdb !important;\n}';
   // ⚠️内置预设是【拷贝】进她编辑框的，不是引用：我改了内置，她手上那份不会跟着变。
   //   她 2026-09-03 就是这么撞上的——挂点全补好了，她那份 CSS 还是旧选择器，
   //   于是「感觉一个没生效」。改内置时把这个数 +1，界面就会提示她重新灌一次。
-  const SKIN_VER = 5;
+  const SKIN_VER = 6;
   const stamp = (nm, css) => "/* 内置 · " + nm + " · v" + SKIN_VER + " */\n" + css;
   const CHAT_SKINS = [["仿微信", WECHAT_CSS], ["仿 LINE", LINE_CSS], ["仿 Telegram", TELEGRAM_CSS],
     ["仿 WhatsApp", WHATSAPP_CSS], ["仿 Insta DM", INSTA_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);
@@ -857,6 +857,8 @@
       else if (head.startsWith("@")) throw new Error("暂不支持 " + head.split(/\s/)[0]);
       else {
         const sels = head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
+          // body 要落到真的 body 上（群里 2026-10-19：聊天页底下那一条是 body 的米色，写 body 一直刷不到——原来被换成了 html）
+          if (/^body$/i.test(sel) && /^html\b/i.test(scope)) return scope + " body";
           if (/^(html|body|:root)$/i.test(sel)) return scope;
           // html 自己身上的属性（如 html[data-screen-size="short"]）要贴在 scope 那个 html 上，不是当成它下面的元素——
           //   原来一律把开头的 html 削掉，[data-screen-size] 就被当成 html 里面的某个元素，一条都不生效
@@ -1109,7 +1111,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.060",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.062",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
