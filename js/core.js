@@ -9,6 +9,9 @@ const {
   Fragment
 } = React;
 const h = React.createElement; // 简写，供查手机等新模块使用
+// 字号跟着主题工作台「字体 → 字号」那根条走（她 2026-10-20）：只放大字，头像和间距不动。
+//   接上的地方把 fontSize: 13 写成 fontSize: fsz(13)；--app-fs 没设就是 1，原样。
+function fsz(px) { return "calc(" + px + "px * var(--app-fs, 1))"; }
 
 // ============================================================
 // TOKENS — iOS glass home + calm interior. warm neutral base.
