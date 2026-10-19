@@ -15485,20 +15485,26 @@ function TransferCard({
 // 背景图上压的那一层：面纱＋虚化（主屏 v61.38；单聊／群聊背景 她 2026-10-17 群里许愿「和主屏那样可以虚化」）。
 //   滑杆和铺图都只写这一份，三处共用。fx = { veil: 0~60, blur: 0~20 }
 function WallFxRows({ t, fx, onMove, onCommit, veilHint, blurHint, rec }) {
+  // 落盘不再只靠「松手」那一下（群友 2026-10-19：「面纱调过以后保存了但是还会回到这」）：
+  //   iOS 上滑杆的 touchend 有时不来、来了也可能拿的是上一格的值，于是存进去的是旧数。
+  //   改成每挪一下都带着【这一格的值】排一次，停手 400ms 才真写——拖一趟还是只写一两次。
+  const timer = useRef(0);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const move = n => { onMove(n); if (onCommit) { clearTimeout(timer.current); timer.current = setTimeout(() => onCommit(n), 400); } };
   const f = fx || {}, row = (k, zh, max, hint) => h("div", { key: k, style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, zh),
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (Number(f[k]) || 0) + (k === "blur" ? " px" : " %"))),
     h("input", { type: "range", min: 0, max: max, step: 1, value: Number(f[k]) || 0,
-      onChange: e => onMove(Object.assign({}, f, { [k]: Number(e.target.value) })),
-      onMouseUp: () => onCommit && onCommit(), onTouchEnd: () => onCommit && onCommit(),
-      style: { width: "100%", accentColor: t.ink } }),
+      onChange: e => move(Object.assign({}, f, { [k]: Number(e.target.value) })),
+      // 原来只有细细一条，手指按不准（群友：「这个按钮好像调起来好困难」）：整条加高到 40，按哪儿都算
+      style: { width: "100%", height: 40, margin: 0, accentColor: t.ink, touchAction: "pan-y" } }),
     hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } }, hint) : null);
   return h("div", null,
     row("veil", "面纱", 60, veilHint),
     row("blur", "虚化", 20, blurHint),
-    h("button", { onClick: () => { const n = rec || { veil: 0, blur: 0 }; onMove(n); onCommit && onCommit(n); },
-      className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, rec ? "恢复推荐值" : "恢复原图"));
+    h("button", { onClick: () => { const n = rec || { veil: 0, blur: 0 }; clearTimeout(timer.current); onMove(n); onCommit && onCommit(n); },
+      className: "active:opacity-70", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, rec ? "恢复推荐值" : "恢复原图"));
 }
 // 聊天背景铺图：没调过面纱/虚化就跟原来一样直接铺；调过了就在最底下垫一层（虚化要单独一层才不糊到字）
 function chatBgFxOn(fx) { return !!(fx && (Number(fx.veil) > 0 || Number(fx.blur) > 0)); }
