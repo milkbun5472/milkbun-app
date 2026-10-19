@@ -302,10 +302,11 @@ bool beginHttps(HTTPClient& http, WiFiClientSecure& client, const String& url) {
 bool syncClock() {
   if (clockReady) return true;
   // Winnipeg wall time: night-quiet decisions must follow the bedroom clock,
-  // not UTC. POSIX rule keeps CDT/CST switches automatic.
-  setenv("TZ", "CST6CDT,M3.2.0,M11.1.0", 1);
-  tzset();
-  configTime(0, 0, "time.cloudflare.com", "pool.ntp.org");
+  // not UTC. configTime(0, 0, ...) would overwrite TZ back to UTC (confirmed
+  // 2026-10-19: phantom recordings resumed at exactly 02:01 CDT = 07:01 UTC),
+  // so the POSIX rule must go through configTzTime instead.
+  configTzTime("CST6CDT,M3.2.0,M11.1.0",
+               "time.cloudflare.com", "pool.ntp.org");
   const unsigned long deadline = millis() + 12000;
   time_t now = time(nullptr);
   while (now < 1704067200 && millis() < deadline) {
