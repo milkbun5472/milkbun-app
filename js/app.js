@@ -13291,6 +13291,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");
+      // 带声音标签的那一泡【拆完泡以后】再认一遍语音（她 2026-10-19：普通回复里 (snorts)(clear-throat) 掉成了文字泡）：
+      //   上面 markPauseVoice 认的是拆泡【之前】那几项；模型把几句塞进一项、或者 JSON 没解析出来走了兜底，
+      //   带标签的那句是拆完才单独出来的，就漏了。（已经在 _oneLong 里并成一整段的不拆，照它）
+      if (!_oneLong && typeof ttsHasSoundTag === "function" && typeof VOICE_SLOT_TOKEN === "function")
+        words = words.map(w => typeof w === "string" && ttsHasSoundTag(w) ? (_inlineVoice.push({ t: w.trim(), sent: false }), VOICE_SLOT_TOKEN(_inlineVoice.length - 1)) : w);
       // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
