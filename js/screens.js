@@ -87,7 +87,9 @@ function cardFromJSON(text) {
 }
 // 认得出的分节标题：# / ## / **加粗** / 【】 / [] 四种写法，外加「人设：」这种带冒号的。
 // 后三种允许值写在【同一行】上（「【一句话】永安王」），那一段算这一节的正文头。
-const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*(.+?)[ \t]*[:：]?[ \t]*|\*\*(.+?)\*\*[ \t]*[:：]?[ \t]*(.*?)[ \t]*|[【\[〔](.+?)[】\]〕][ \t]*[:：]?[ \t]*(.*?)[ \t]*|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：][ \t]*(.*?)[ \t]*)$/gm;
+// ⚠️每一支只留一段「吃到行尾」，首尾的空格和冒号拿到外面去剥（群里 2026-10-19「角色卡复制粘贴就卡死」）：
+//   原来写成 (.+?)[ \t]*[:：]?[ \t]*$，标题后面跟一长串空格时回溯是平方级以上，3000 个空格就卡一分多钟。
+const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*([^\n]+)|\*\*([^\n]+?)\*\*([^\n]*)|[【\[〔]([^\n]+?)[】\]〕]([^\n]*)|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：]([^\n]*))$/gm;
 // 带冒号那一种太宽（正文里随便一行「TA说：」也像），所以只认这些词
 const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
 // 把一篇文档按分节标题切开：角色卡导入和跑团剧本导入共用这一把刀（one-public-mechanism）。
@@ -98,8 +100,8 @@ function splitDocSections(text, colonKws) {
   const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
   CARD_SEC_RE.lastIndex = 0;
   while ((mm = CARD_SEC_RE.exec(text))) {
-    const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim();
-    const pre = (mm[3] || mm[5] || mm[7] || "").trim();
+    const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim().replace(/[:：]$/, "").trim();
+    const pre = (mm[3] || mm[5] || mm[7] || "").trim().replace(/^[:：]/, "").trim();
     if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
     if (!title) continue;
     if (last) push(last, mm.index);
@@ -115,8 +117,9 @@ function parseCharCard(raw, userName) {
   if (!asJson) {
     const text = text0;
     // 「# X · 角色卡」「名字：X」「【姓名】X」「**姓名**：X」「名字「X」」，最后才退到第一个 # 标题
-    let m = text.match(/^#\s*([^\n·#|]+?)\s*[·|｜]?\s*角色卡/m)
-      || text.match(/^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*|[【\[〔])?[ \t]*(?:名字|姓名|角色名|人物名|name)[ \t]*(?:\*\*|[】\]〕])?[ \t]*[:：]?[ \t]*[「"'\[]?([^\n」"'\]]{1,20})/im)
+    // 「# X · 角色卡」：只在一行里找，名字里不带空格以外的分隔——原来 \s* 能跨行、又跟名字那段的空格重叠，长串空格回溯卡死
+    let m = text.match(/^#[ \t]*([^\n·#|｜ \t][^\n·#|｜]{0,40}?)[ \t]*(?:[·|｜][ \t]*)?角色卡/m)
+      || text.match(/^[ \t]*(?:#{1,6}[ \t]*)?(?:(?:\*\*|[【\[〔])[ \t]*)?(?:名字|姓名|角色名|人物名|name)[ \t]*(?:(?:\*\*|[】\]〕])[ \t]*)?(?:[:：][ \t]*)?[「"'\[]?([^\n」"'\]]{1,20})/im)
       || text.match(/名字[「"']([^」"']+)[」"']/)
       || text.match(/^#[ \t]*([^\n#]{1,20})[ \t]*$/m);
     if (m) out.name = m[1].trim().replace(/[*_`]/g, "");

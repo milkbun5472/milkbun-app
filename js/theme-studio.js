@@ -821,7 +821,9 @@
   const TOP_HOOK = /\[data-wk\s*=\s*["']?(?:head|chathead|[a-z]*head)["']?\s*\]/i;
   const SAFE_MIN = "calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + 4px)";
   const fitTopBody = (sel, body) => {
-    if (!TOP_HOOK.test(sel)) return body;
+    // 只认选中的就是顶栏本身（最后一节是 head 挂点）；顶栏里面的头像、按钮写了高度不能跟着加刘海（群里 2026-10-19：顶栏头像被拉成长条）
+    const isTop = String(sel).split(",").some(one => { const last = one.trim().split(/\s*[>+~]\s*|\s+/).filter(Boolean).pop() || ""; return TOP_HOOK.test(last.replace(/::?[a-z-]+(\([^)]*\))?$/i, "")); });
+    if (!isTop) return body;
     const safe = v => /safe-area|--app-safe-top/i.test(v);
     // max() 里不认不带单位的 0（写成 max(0, …) 整条作废，顶栏照样钻进状态栏）——补成 0px
     const px0 = v => /^[-+]?0+(?:\.0+)?$/.test(String(v).trim()) ? "0px" : String(v).trim();
@@ -1111,7 +1113,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.067",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.070",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
