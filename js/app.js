@@ -12826,7 +12826,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 她这一句点名要换壁纸／锁屏：图是前几条发的也认，往回找最近那一张（她 2026-10-17 转群友：画隔了几句，叫他换，他只嘴上说换了）。
         //   别的时候照旧一个字不提（她 2026-10-13 定的）
         const lastU = [...all].reverse().find(m => m.role === "user" && !m.kind);
-        if (lastU && /壁纸|锁屏|屏保|桌面背景|手机背景/.test(String(lastU.content || ""))) {
+        // 「帮我换上呀」「设成这张」这种没点名壁纸的也算（群里 2026-10-20：叫他「换上」，他说设好了，锁屏没动）——
+        //   只认图就在最近几条里的时候，免得随口一句「换成」就去翻四十条前的图
+        const _askSwap = /壁纸|锁屏|屏保|桌面背景|手机背景/.test(String(lastU && lastU.content || ""))
+          || (/换上|换成|设成|设为|用这张|当背景|设一下/.test(String(lastU && lastU.content || "")) && all.slice(-8).some(m => m && m.role === "user" && m.imageRef));
+        if (lastU && _askSwap) {
           const far = all.slice(-40);
           for (let k = far.length - 1; k >= 0; k--) {
             const m = far[k];
