@@ -6759,13 +6759,19 @@ async function saveTextFile(filename, text, mime) {
 }
 // 一个 File 落到本地：分享面板优先（iOS 唯一走得通的那条），不行再退回普通下载。
 // <a> 必须先插进文档再点、revoke 必须延后，两条都是 Safari 上的硬要求。
+// ⚠️安卓（群友 2026-10-19 截图：一点「导出主题包」就弹「导出取消了」）：不少安卓浏览器／套壳 App
+//   摆着 navigator.share，可一调就当场报 AbortError——面板根本没弹出来，她什么都没按。
+//   原来一律当成「她点了取消」就收手，于是永远导不出来。安卓本来普通下载就能存进「下载」，直接走下载；
+//   别的平台上，「取消」要是一秒内就回来了，也当成面板没起来、改走下载（真的人手点取消没这么快）。
+const _isAndroid = () => { try { return /android/i.test(navigator.userAgent || ""); } catch (e) { return false; } };
 async function saveFile(file) {
-  if (typeof navigator !== "undefined" && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+  if (typeof navigator !== "undefined" && navigator.share && !_isAndroid() && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    const t0 = Date.now();
     try {
       await navigator.share({ files: [file], title: file.name });
       return "share";
     } catch (e) {
-      if (e && (e.name === "AbortError" || /abort|cancel/i.test(String(e.message || "")))) return "cancel";
+      if (e && (e.name === "AbortError" || /abort|cancel/i.test(String(e.message || ""))) && Date.now() - t0 > 1000) return "cancel";
       // 分享面板不吃这个文件（体积过大等），继续往下试普通下载
     }
   }

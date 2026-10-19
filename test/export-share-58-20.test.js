@@ -54,10 +54,23 @@ test("有分享面板就走分享面板；用户取消要如实说取消", async
   assert.deepEqual(shared, ["x.json"]);
   assert.equal(a.clicks.length, 0, "分享成功了还去点下载链接");
 
+  // 真的人手点了取消（面板开着、过了一会儿才回来）
   const err = new Error("canceled"); err.name = "AbortError";
-  const b = runSaveTextFile({ navigator: { share: async () => { throw err; }, canShare: () => true } });
+  const b = runSaveTextFile({ navigator: { share: () => new Promise((_, rej) => global.setTimeout(() => rej(err), 1100)), canShare: () => true } });
   assert.equal(await b.fn("x.json", "{}", "application/json"), "cancel", "用户取消不许当成导出成功");
   assert.equal(b.clicks.length, 0, "取消之后不该偷偷再下载一次");
+});
+
+// 群友 2026-10-19：一点导出就「导出取消了」——面板根本没弹出来，当场就报 AbortError
+test("「取消」当场就回来＝面板没起来，改走下载；安卓直接下载", async () => {
+  const err = new Error("canceled"); err.name = "AbortError";
+  const b = runSaveTextFile({ navigator: { share: async () => { throw err; }, canShare: () => true } });
+  assert.equal(await b.fn("x.json", "{}", "application/json"), "download");
+  assert.deepEqual(b.clicks, [{ inDoc: true }]);
+  let asked = 0;
+  const c = runSaveTextFile({ navigator: { userAgent: "Mozilla/5.0 (Linux; Android 14)", share: async () => { asked++; }, canShare: () => true } });
+  assert.equal(await c.fn("x.json", "{}", "application/json"), "download");
+  assert.equal(asked, 0, "安卓不走分享面板");
 });
 
 test("没有分享面板就退回下载，而且点的时候 <a> 得在文档里", async () => {
