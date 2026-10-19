@@ -61,7 +61,7 @@ test("线上那两格一个字没改坏（它们本来就是对的）", () => {
 
 test("病历留在代码里，别让下一个人又把线下那份抄回去", () => {
   const i = engine.indexOf("const THOUGHT_MEANING = ");
-  const doc = engine.slice(Math.max(0, i - 2400), i);
+  const doc = engine.slice(Math.max(0, i - 2800), i);
   assert.match(doc, /线下那一份是它的一个【短拷贝】/);
   assert.match(doc, /同一个字段第三次了/);
   assert.match(doc, /2026-09-12/);

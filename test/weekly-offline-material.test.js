@@ -9,6 +9,7 @@ store["x_offline:a::room::r1"] = [{ msgs: [{ role: "char", content: "房间里�
 store["x_offline:a::room::r2"] = [{ msgs: [{ role: "char", content: "隔离的不许进", ts: 2500 }] }];
 store["x_goffline:g1"] = [{ msgs: [{ role: "char", senderName: "阿", content: "群线下", ts: 4000 }] }];
 store["x_goffline:g2"] = [{ msgs: [{ role: "char", senderName: "阿", content: "封闭群不许进", ts: 4000 }] }];
+store["x_memLib"] = [{ text: "周一去了海边", charIds: ["a"], ts: 1500 }, { text: "封闭群的事", groupId: "g2", charIds: ["a"], ts: 1600 }, { text: "上周的", charIds: ["a"], ts: 5 }];
 store["x_groupSettings"] = { g1: { memoryInterop: true } };
 const window = { ChatRooms: { list: () => [{ id: "r1", name: "海", writeback: { mainSummary: true } }, { id: "r2", name: "隔", writeback: {} }], chatKey: (a, r) => a + "::room::" + r } };
 const React = new Proxy({}, { get: () => function () {} });
@@ -24,4 +25,21 @@ assert.match(all, /【线下·海】阿：房间里的/);
 assert.match(all, /【一群·线下】阿：群线下/);
 assert.doesNotMatch(all, /太早|幕后话|隔离的不许进|封闭群不许进/);
 assert.ok(m.perChar.a.some(x => /群线下/.test(x.line)));
+// 记忆库这一周的条目放最前；封闭群、窗口外的不读
+{ const W = window.Weekly, t = W.matText(m, "a", W.CHAR_CHARS);
+  assert.ok(t.indexOf("周一去了海边") >= 0 && t.indexOf("周一去了海边") < t.indexOf("【这一周的原文】"));
+  assert.doesNotMatch(t, /封闭群的事|上周的/);
+  assert.equal(W.WEEK_CHARS, 30000);
+  // 超长时按天平摊：第一天的开头还在，不是只剩最后那一天
+  const day = 86400000, rows = [];
+  for (let d = 0; d < 7; d++) for (let i = 0; i < 200; i++) rows.push({ ts: new Date(2026, 9, 12 + d, 10).getTime() + i, line: "第" + d + "天第" + i + "句" + "啊".repeat(30) });
+  const s = W.linesToText(rows, 8000);
+  assert.ok(s.length < 9000);
+  for (let d = 0; d < 7; d++) assert.match(s, new RegExp("第" + d + "天第0句"));
+  void day; }
 console.log("ok");
+// 周刊显示的日子照主面具那只钟；哪一周算上周仍按现实
+{ assert.match(src, /function vt\(x\)[^\n]*vclockMainMap/);
+  assert.match(src, /function fmtRange\(a, b\) \{ a = vt\(a\); b = vt\(b\);/);
+  assert.match(src, /const d = vt\(r\.ts\), key = ymd\(d\);/);
+  assert.doesNotMatch(src, /setDate\(start\.getDate\(\) - 7\);[\s\S]{0,40}vt\(/); }

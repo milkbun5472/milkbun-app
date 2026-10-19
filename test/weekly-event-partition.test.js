@@ -62,7 +62,7 @@ const run = () => {
   };
   const src = 'function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}\n' +
     'const BLOCK_IDS="ABCDEFGHIJKL".split("");const WD=["周日","周一","周二","周三","周四","周五","周六"];\n' +
-    grab("weekBlocks") + "\n" + grab("blocksToText") + "\n" + grab("seeded") + "\n" + grab("pickOrder") +
+    grab("vt") + "\n" + grab("squeeze") + "\n" + grab("weekBlocks") + "\n" + grab("blocksToText") + "\n" + grab("seeded") + "\n" + grab("pickOrder") +
     "\nreturn { weekBlocks, blocksToText, pickOrder };";
   return new Function(src)();
 };
@@ -118,7 +118,7 @@ test("单版重刷直接看不到被认领的块，而不是只被口头劝阻",
   const seg = weekly.slice(weekly.indexOf("async function genMedia(active, voice"),
     weekly.indexOf("async function genMediaBatch"));
   assert.match(seg, /const free = \(o\.blocks \|\| \[\]\)\.filter/);
-  assert.match(seg, /if \(free\.length\) material = blocksToText\(free, 8000\);/, "看不见就写不出来");
+  assert.match(seg, /if \(free\.length\) material = blocksToText\(free, WEEK_CHARS\);/, "看不见就写不出来");
   assert.match(seg, /别的版面已经认领走了其余几块/);
   assert.match(weekly, /usedBlocks: window\.Weekly\.claimedBlocks\(issue\.sections, sec\.id\)/);
   assert.match(weekly, /function claimedBlocks\(sections, exceptSecId\)/);

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
 const pick = name => src.match(new RegExp("function " + name + "\\([\\s\\S]*?\\n}\\n"))[0];
 const g = {}; global.window = g;
-eval(pick("vclockState") + pick("vclockCfg") + pick("vclockSeg") + pick("vclockKeepHist") + pick("vclockMap") + "global.M=vclockMap; global.K=vclockKeepHist;");
+eval(pick("vclockState") + pick("vclockCfg") + pick("vclockSeg") + pick("vclockKeepHist") + pick("vclockMap") + pick("vclockMapBy") + "global.M=vclockMap; global.K=vclockKeepHist;");
 const H = 3600e3, T0 = 1e12, NINE = 9 * H;
 let c = { on: true, base: NINE, at: T0, speed: 1 };                     // 现实 T0 时虚拟 9:00
 g.__vclock = { clocks: { main: c } };

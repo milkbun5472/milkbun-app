@@ -4,11 +4,12 @@ test("不把最近几条心声摆给TA对照（10-04、10-18 两回都照着学�
   assert.doesNotMatch(eng, /function thoughtVarietyBlock/);
   assert.doesNotMatch(app, /recentThoughts/);
 });
-test("心声定义：问的是没说出口的那部分，拿他刚说出口的对照", () => {
+test("心声定义：此刻心里没说出口的那一句；不写「嘴上」「对照」（会被照抄成句式）", () => {
   const TM = (eng.match(/const THOUGHT_MEANING = "([^"]+)";/) || [])[1];
   assert.ok(TM);
   assert.match(TM, /没说出口的那一句/);
-  assert.match(TM, /跟他刚才嘴上说的、做出来的对照/);
-  assert.match(TM, /嘴上已经说了的意思心里不用再说一遍/);
+  assert.match(TM, /没说出口的那一句/);
+  assert.match(TM, /不用落到接下来要做什么/);
+  assert.doesNotMatch(TM, /嘴上|对照/);
   assert.doesNotMatch(TM, /打算做什么|落点在他自己身上/);
 });

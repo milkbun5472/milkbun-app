@@ -214,6 +214,8 @@
         pageTokens: sel.css ? inc.pageTokens : cur.pageTokens,
         // 每页的大小跟着「页面/全局 CSS」那一格走：它跟配色、CSS 一样是「这一页长什么样」
         pageZoom: sel.css ? inc.pageZoom : cur.pageZoom,
+        // 做这份的手机多宽也跟着 CSS 那一格走（「一键适配我的手机」照它算）
+        madeOn: sel.css ? inc.madeOn : cur.madeOn,
         icons: sel.icons ? inc.icons : cur.icons,
         iconPack: sel.icons ? inc.iconPack : cur.iconPack,
         iconBare: sel.icons ? inc.iconBare : cur.iconBare,
@@ -253,6 +255,15 @@
         toast("已接在全局 CSS 草稿后面，预览看看，满意了再保存");
       } else { setSection("package"); applyPack(ho.text); }
     }, []);
+    // 一键适配我的手机：导入那一格、「全 App 多大」那一格两处都放，同一颗
+    const fitNow = studio.fitPlan ? studio.fitPlan(draft) : null;
+    const fitBtn = fit => h("button", { "data-wk": "themefit", onClick: () => {
+        const next = Object.assign({}, draft, fit.patch); setDraft(next);
+        try { studio.preview(next); } catch (_) {}
+        toast("已按这台手机的宽度缩放到 " + Math.round(fit.zoom * 100) + "%，正在预览；不合适去「全 App 多大」拖拉条或点「还原」");
+      },
+      className: "w-full active:opacity-70", style: { minHeight: 44, marginBottom: 10, borderRadius: 12, border: "1px solid " + t.ink, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } },
+      "一键适配我的手机（这份是在宽 " + fit.made + " 的手机上做的，你的是 " + fit.mine + "）");
     const togglePick = k => { const sel = Object.assign({}, pick, { [k]: !pick[k] }); setPick(sel); if (incoming) livePick(incoming, sel); };
     // 「挑哪几样」那一排：导出和导入共用这一份（方块、禁用态、「这份包里没有」都只画在这儿）。
     // parts 来自 studio.packParts()，名字和有没有都是它说了算。
@@ -456,7 +467,10 @@
             if (n === 1) delete one[page]; else one[page] = n;
             patchDraft({ pageZoom: one });
           };
+          // 别人在另一种宽度的手机上做的：一键按宽度比例缩过来（顶栏让刘海那一下是自动的，不用点）
+          const fit = page === "all" ? fitNow : null;
           return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
+            fit ? fitBtn(fit) : null,
             h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
               h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
                 page === "all" ? "全 App 多大" : "这一页多大"),
@@ -625,9 +639,10 @@
         incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } },
             "这份包里带了这些，勾掉的不会动你现在的："),
+          fitNow ? fitBtn(fitNow) : null,
           partRows(studio.packParts(incoming), pick, togglePick, "（这份包里没有）"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
-            "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。")) : null,
+            "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。顶栏会自动让开这台手机的刘海，不会钻进状态栏。")) : null,
         // 贴一份：手机上挑不开文件的时候，这条路永远死不了（照表情包「贴上去」那个先例）
         h("div", { style: { marginTop: 12 } }, h(ThemePackPasteBox, { onText: applyPack }))),
       // 退回上一版（她 2026-10-05：「美化改错了想恢复前一步」）：秋秋改的、自己改的，每次正式应用前那一版都留着。

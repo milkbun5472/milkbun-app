@@ -350,7 +350,7 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
   const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
-    try { const look = await importChatLook(txt); onApply(look); toast("导进来了，看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
+    try { const look = await importChatLook(txt); onApply(look); toast("导进来了，顶栏已自动让开这台手机的刘海；看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
     catch (e) { toast((e && e.message) || "导不进来"); return false; }
   };
   const pick = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) f.text().then(take); };
@@ -15485,20 +15485,26 @@ function TransferCard({
 // 背景图上压的那一层：面纱＋虚化（主屏 v61.38；单聊／群聊背景 她 2026-10-17 群里许愿「和主屏那样可以虚化」）。
 //   滑杆和铺图都只写这一份，三处共用。fx = { veil: 0~60, blur: 0~20 }
 function WallFxRows({ t, fx, onMove, onCommit, veilHint, blurHint, rec }) {
+  // 落盘不再只靠「松手」那一下（群友 2026-10-19：「面纱调过以后保存了但是还会回到这」）：
+  //   iOS 上滑杆的 touchend 有时不来、来了也可能拿的是上一格的值，于是存进去的是旧数。
+  //   改成每挪一下都带着【这一格的值】排一次，停手 400ms 才真写——拖一趟还是只写一两次。
+  const timer = useRef(0);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const move = n => { onMove(n); if (onCommit) { clearTimeout(timer.current); timer.current = setTimeout(() => onCommit(n), 400); } };
   const f = fx || {}, row = (k, zh, max, hint) => h("div", { key: k, style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, zh),
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (Number(f[k]) || 0) + (k === "blur" ? " px" : " %"))),
     h("input", { type: "range", min: 0, max: max, step: 1, value: Number(f[k]) || 0,
-      onChange: e => onMove(Object.assign({}, f, { [k]: Number(e.target.value) })),
-      onMouseUp: () => onCommit && onCommit(), onTouchEnd: () => onCommit && onCommit(),
-      style: { width: "100%", accentColor: t.ink } }),
+      onChange: e => move(Object.assign({}, f, { [k]: Number(e.target.value) })),
+      // 原来只有细细一条，手指按不准（群友：「这个按钮好像调起来好困难」）：整条加高到 40，按哪儿都算
+      style: { width: "100%", height: 40, margin: 0, accentColor: t.ink, touchAction: "pan-y" } }),
     hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } }, hint) : null);
   return h("div", null,
     row("veil", "面纱", 60, veilHint),
     row("blur", "虚化", 20, blurHint),
-    h("button", { onClick: () => { const n = rec || { veil: 0, blur: 0 }; onMove(n); onCommit && onCommit(n); },
-      className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, rec ? "恢复推荐值" : "恢复原图"));
+    h("button", { onClick: () => { const n = rec || { veil: 0, blur: 0 }; clearTimeout(timer.current); onMove(n); onCommit && onCommit(n); },
+      className: "active:opacity-70", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, rec ? "恢复推荐值" : "恢复原图"));
 }
 // 聊天背景铺图：没调过面纱/虚化就跟原来一样直接铺；调过了就在最底下垫一层（虚化要单独一层才不糊到字）
 function chatBgFxOn(fx) { return !!(fx && (Number(fx.veil) > 0 || Number(fx.blur) > 0)); }
@@ -16859,7 +16865,7 @@ function OfflineMode({
         sBg ? h("div", { "data-wk": "block", style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, sBg ? "更换" : "选择"),
         sBg ? h("button", { onClick: () => setSBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setSBg(d)); e.target.value = ""; } })))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => setSBg(d)); e.target.value = ""; } })))),
       offShow("scene", "taste", "本场口味",
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
       offShow("write", "len", "他每一轮写多长",
@@ -17886,7 +17892,7 @@ function GroupOfflineMode({
       sBg ? h("div", { "data-wk": "block", style: { width: 52, height: 52, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
       h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, sBg ? "更换" : "选择"),
       sBg ? h("button", { onClick: () => { setSBg(""); onSaveSettings && onSaveSettings({ bg: "" }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "清除") : null,
-      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } }))),
+      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } }))),
       gShow("scene", "autoshot", "他们会不会自己拍照",
     h("button", { "data-wk": "offautoshot", "data-on": sNoShot ? "0" : "1", onClick: () => setSNoShot(v => !v), className: "w-full pt-5 flex items-center justify-between active:opacity-70", style: { gap: 12, textAlign: "left" } },
       h("div", null,
@@ -19464,7 +19470,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         chatBg ? h("div", { "data-wk": "block", style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + resolveImg(chatBg) + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => setChatBg(d)); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
@@ -21225,7 +21231,7 @@ function ChatSettings({
         chatBg ? h("div", { "data-wk": "block", style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(\"" + resolveImg(chatBg) + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => setChatBg(d)); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     // 通话背景跟聊天背景放同一节（「装扮」一类最多四节，见 test/chat-settings-recut）
     h("div", { className: "flex items-center justify-between pt-5" },

@@ -5501,8 +5501,8 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "🗂 我的音色库" + (vlib.length ? " · " + vlib.length : "")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "克隆成功的音色自动记在这，可试听、写备注、一键指派给角色。以前克过没登记的，补录 voice_id 即可。「移除」只是清单删掉，不影响 MiniMax 账号里的音色。"),
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
-          h("input", { "data-wk": "input", value: manualId, onChange: e => setManualId(e.target.value), placeholder: "补录已有的 voice_id", style: Object.assign({}, inSt, { flex: 1, width: "auto" }) }),
-          h("button", { onClick: () => { addVoice(manualId); setManualId(""); }, disabled: !manualId.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.ink, border: "none", borderRadius: 10, padding: "0 16px", flexShrink: 0 } }, "补录")),
+          h("input", { "data-wk": "input", value: manualId, onChange: e => setManualId(e.target.value), placeholder: "补录已有的 voice_id", style: Object.assign({}, inSt, { flex: 1, width: "auto", minWidth: 0 }) }),   // minWidth:0：输入框默认不肯缩，长 id 会把「补录」挤出屏（她 2026-10-18 截图）
+          h("button", { onClick: () => { addVoice(manualId); setManualId(""); }, disabled: !manualId.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.ink, border: "none", borderRadius: 10, padding: "0 16px", flexShrink: 0, minHeight: 40 } }, "补录")),
         vlib.length === 0 ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, vlib.map(v => {
           // trim 匹配：手填 voiceId 多打空格也算在用（和 ttsSpeak 的沉稳匹配保持一致）
           const users = (characters || []).filter(ch => String(ch.voiceId || "").trim() === String(v.id).trim());
@@ -7245,7 +7245,7 @@ function ThemeConfig({
     e.target.value = "";
     if (!file) return;
     try {
-      const dataUrl = await resizeImageFile(file, 1080, 0.82);
+      const dataUrl = await resizeImageFile(file, screenImageDim(), 0.9);
       onSaveWallpaper(dataUrl);
     } catch (err) {
       onSaveWallpaper && onSaveWallpaper(wallpaper); // 触发 toast 之外无操作

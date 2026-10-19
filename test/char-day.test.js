@@ -133,7 +133,7 @@ function placeViewer(f,initialCharId,extraProps={}){
 
 // Read the same per-mask clock that the settings writer exposes to the app.
 function roleClock(f,clocks,maskOf=id=>id==='c2'?'other':'main'){
- const source=read('js/engine.js'),names=['vclockState','vclockCfg','vclockSeg','vclockMap'];
+ const source=read('js/engine.js'),names=['vclockState','vclockCfg','vclockSeg','vclockMap','vclockMapBy'];
  for(const name of names){const i=source.indexOf('function '+name+'('),j=source.indexOf('\n}\n',i);assert.ok(i>=0&&j>i);vm.runInContext(source.slice(i,j+3),f.env);}
  f.env.__vclock={active:'c2',clocks,maskOf};return f.env.__vclock;
 }

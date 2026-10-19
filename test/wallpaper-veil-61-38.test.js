@@ -38,12 +38,16 @@ test("blur 要往外扩一圈，否则四边一圈淡边", () => {
   assert.match(app, /inset: -\(wallFx\.blur \* 2 \+ 2\)/);
 });
 
-test("设置页有两个滑杆，滑的时候不落盘，松手才写", () => {
+test("设置页有两个滑杆，滑的时候不落盘，停手 400ms 带着这一格的值写（不靠 touchend）", () => {
   // 滑杆搬进公共的 WallFxRows（她 2026-10-17：聊天背景也要），主屏照旧传 commitFx 松手才写
   const comp = require("fs").readFileSync(require("path").join(__dirname, "../js/components.js"), "utf8");
   assert.match(comp, /row\("veil", "面纱", 60,/);
   assert.match(comp, /row\("blur", "虚化", 20,/);
-  assert.match(comp, /onMouseUp: \(\) => onCommit && onCommit\(\), onTouchEnd: \(\) => onCommit && onCommit\(\)/);
+  // 2026-10-19 群友：调过保存了还会回去——iOS 上 touchend 不可靠，改成每挪一下带值排一次
+  assert.match(comp, /timer\.current = setTimeout\(\(\) => onCommit\(n\), 400\)/);
+  assert.match(comp, /onChange: e => move\(Object\.assign\(\{\}, f, \{ \[k\]: Number\(e\.target\.value\) \}\)\)/);
+  assert.doesNotMatch(comp, /onTouchEnd: \(\) => onCommit && onCommit\(\)/);
+  assert.match(comp, /height: 40, margin: 0, accentColor: t\.ink/, "滑杆太细按不准");
   assert.match(scr, /h\(WallFxRows, \{ t, fx, onMove: setFx, onCommit: commitFx/);
   // 缩略图上照着主屏画一遍，滑一格就看得见
   assert.match(scr, /inset: -\(fx\.blur \* 2 \+ 2\)/);

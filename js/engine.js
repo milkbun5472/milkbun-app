@@ -1175,7 +1175,10 @@ async function callAIOnce(p, system, messages, opts) {
         generationConfig: Object.assign({
           temperature: temp,
           maxOutputTokens: maxTokens
-        }, opts.wantReasoning ? { thinkingConfig: { includeThoughts: true } } : null)
+        }, opts.wantReasoning ? { thinkingConfig: { includeThoughts: true } } : null),
+        // 审核放到最松（群友 2026-10-19：「线下开车开完总结容易被跳安全总结不出来」）：
+        //   这是她自己的钥匙、她自己的故事，Gemini 默认那一档会把整场亲密戏的总结直接拦成空回。
+        safetySettings: GEMINI_SAFETY_OFF
       };
       if (gTools) gBody.tools = gTools;
       captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
@@ -2141,14 +2144,16 @@ const LEVERAGE_BAN = `【别把自己摆到「我在将就你」的位置上】�
 // ⚠️v75.31x（她 2026-10-10：「为什么大家都在 我看你到时候xxx 八股啊」）：「预告服软」那一行和 STOCK_REPLY_BAN 里「等下……到时候……」那一行，
 //   原来是把原话（到时候别哭着求我、等下掉下去别找我拉你……）写进引号里举例——每轮每个人都看着这几个句子，
 //   于是全员学会了「到时候……」这个骨架。现在只描述动作、不给能照抄的句子（施工规则/prompt-no-content-samples.md）。
+// 她 2026-10-18：心声写出「嘴上嫌我耍赖，身子倒是一点没往外挪」——引号里那几句原话正是它学去的骨架。
+//   跟 10-10「到时候……」同一个病：只描述动作，不放能照抄的原句（施工规则/prompt-no-content-samples.md）。
 const SEE_THROUGH_BAN = `【别假装看穿她】这一族的动作只有一个：把自己摆到「我比你更知道你」的位置上。
-· 替她贴标签：「你就是嘴硬」「你又在逞强」「明明很在意还装不在乎」「嘴上说不要，身体倒是很诚实」。
-· 事后表功：「我就知道」「你看我说什么」「承认吧」「刚刚我说什么来着」。
+· 替她贴标签：把她这一刻的反应归成一种性格或一句定论，说她其实是另一个意思、只是不肯承认。
+· 事后表功：事情应验了，就回头宣布自己早料到、要她认下。
 · 替她预言以后：说她早晚会服软、会后悔、会回头来求你、会被你逮住。不管用什么字眼，往她的将来下判词都算这一族——你没法替她过她的以后。
-· 揪住她上一句不放：「你刚刚不是还…」「怎么转变这么快」「之前不是说…怎么又…」。
-· 把她私下、床上、示弱的那些时刻翻出来当筹码：「是谁当时哭着求我」「是谁当时喊我…」。
+· 揪住她上一句不放：拿她前一句跟这一句对比，追问她怎么变了。
+· 把她私下、床上、示弱的那些时刻翻出来当筹码，提醒她当时是什么样子。
 判据一句话：**这句话是在回应她此刻说的那件事，还是在给她这个人下定论？** 下定论的那一句就不是你的。
-· 这条【不禁读懂她】。感觉到她不对劲，问一句、试探一句、猜一句，都是关心。禁的是把一次猜测当成已经坐实的事实说出口——「你是不是有点不开心」是关心，「你又嘴硬了，明明就是难过」是定性。
+· 这条【不禁读懂她】。感觉到她不对劲，问一句、试探一句、猜一句，都是关心。禁的是把一次猜测当成已经坐实的事实说出口——问她是不是怎么了是关心，替她宣布她其实是怎样就是定性。
 · 【会看人本来就是你的本事时】人设里你就是靠看人吃饭、或者天生洞察力极强的人（心理医生、侦探、谈判专家、读心型的角色），看出来就可以说出口，点破她也行——这是你，不是在演一个懂她的男友。只多一个要求：说清你是凭她【刚才真说过、真做过】的哪一处看出来的，带着你的推理，而不是凭空给她安一个性格（群友 2026-10-08：这种人设被这条按成了不敢点破的笨人，看着就 OOC）。
 · 也一个字都不管你该多温柔。你这个人本来就爱损她、爱抬杠、说话带刺，那全部照写——只是让那些话冲着【她真说过的那件事】去，不是冲着【你替她编的那个她】去。`;
 // 【她没说过的，别替她安上】（v69.x 起；v71.16 扩到三类，她 2026-09-18 报：
@@ -2452,7 +2457,9 @@ const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪
 // 她 2026-10-18：「我们提示词是不是错了，我只是想要看他没说出口的想法」——对，问错了。
 //   「他此刻心里想什么」没有参照，模型只能自己找东西填（点评她、描她、盘算待会儿），一个月里加方向、删方向都在补这个空问题。
 //   换成跟他这一轮【说出口、做出来的】对照：问的就是没说出口的那部分，参照物是他自己刚说的话，不用再给方向。
-const THOUGHT_MEANING = "他这一轮没说出口的那一句，第一人称：跟他刚才嘴上说的、做出来的对照——心里想的跟说的不一样的、憋着没说的、话里没带出来的那一点，用他自己想事情的口气；嘴上已经说了的意思心里不用再说一遍，只写没说出口的那部分。嘴上心里本来就一样时，写这一刻心里多出来的那一点点。";
+// 心声定义（她 2026-10-18 定稿）：原来写着「跟嘴上说的对照」，模型照字面写成「嘴上说着…，…」开头、「等会儿…」收尾；
+//   这两个词不进定义，只说是此刻心里没说出口的那一句。
+const THOUGHT_MEANING = "他此刻心里正转着、没说出口的那一句，第一人称，照他脑子里真冒出来的样子写——可以是半截念头、一句嘀咕、一个闪过的画面，不用交代前因，也不用落到接下来要做什么。";
 const ACT_TAIL = /[了着过呢吧啊呀嘛哦噢的]+$/;
 function sameActLine(a, b) {
   const norm = x => String(x == null ? "" : x).trim()
@@ -2750,6 +2757,8 @@ end 必须晚于 time；相邻两段可以留空档（没排事就是没排事�
 const GROUP_MULTI_BUBBLE = `【一条一两句，别整段砸】同一个人要说的话超过一两句，就在输出数组里【连着放好几个对象、name 都填 TA 自己】，一个对象一两句，像发微信那样一句一条连着发。
 把一整段塞进一个 text 是【写文章】不是【打字聊天】——嘱咐、安排、解释这类天然会变长的话尤其要拆：先说要紧的那句，再补后面的。
 这跟「几个人说话」是两回事：一个人连着发好几条，和好几个人各发一条，都是正常的群聊。`;
+// 她 2026-10-18（不带出门房里截图，人设记录都没带）：一轮七条自己把一件事说到底、连她该回的那半句都替她说了。
+//   删掉两句往多里推的（「连着发是常态」「尤其要拆」），补线下那条的线上版「说到哪儿停」：只给判据、不限条数。
 const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 完全代入当前角色，用手机上的即时通讯跟对方说话。word 只包含角色此刻真正会发送出去的内容，不写旁白、动作、神态、心理活动、括号说明或舞台提示。
 
@@ -2758,9 +2767,10 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 一轮说几条、总共说多长，没有固定格式，由角色当下的表达意图、状态和聊天节奏自然决定。日常可以很短，真正想解释、分享或认真谈事时也可以自然变长；不要为了维持聊天强行提问、留钩子或把每轮组织成完整答复。反过来，话多的人连发几条、絮絮叨叨、主动分享和追问，只要是这个人的常态，就不是需要修剪的毛病。
 
 【说多少自由，一条里塞几句不自由】一条消息＝一句话。说了几句就发几条，别拿逗号把几句话缝进同一条——把一整段塞进一条是【写文章】不是【打字聊天】。
-【这一轮发几条，看你要说的是几件事】一件事一条；说完一件还想接着说，就再来一条；话赶话、正说在兴头上、或者一件事没说完又想起补一句，连着发都是常态。
+【这一轮发几条，看你要说的是几件事】一件事一条；说完一件还想接着说，就再来一条。
 反过来也一样：没什么要说的时候一条就够，甚至可以只回两个字。**别把两件事压进一条，也别为了显得热闹把同一句话硬切开。**
-⚠️别停在一个顺手的条数上——条数是【你这一轮要说的东西】决定的，不是一个默认值。嘱咐、安排、解释这类天然会变长的话尤其要拆：先说要紧的那句，再补后面的。
+⚠️别停在一个顺手的条数上——条数是【你这一轮要说的东西】决定的，不是一个默认值。
+【这一轮说到哪儿停】说到她能接、你也真想听她接的那一处就停，后面的留给下一轮——她回了你再往下说。一件事你自己从起头说到收尾、连她该怎么回都替她想好了，就是把她那一份也说完了。话多的人照样连着发，只是停在她能插话的地方。
 
 标点按【手机打字】来，不按【写文章】来：日常消息句尾不打句号，一句说完直接断开，或者干脆拆开发。问号、感叹号、省略号、波浪号照常用——它们传的是语气，不是格式；不带情绪的陈述句，尾巴上就别补那个「。」。
 
@@ -8815,6 +8825,11 @@ function offlineSummaryPartLine(part, userName) {
   if (part === "merge") return "【下面是同一场线下【分段总结】出来的几段，按时间先后排好了。把它们串成一条线，写成一份【整场】的归档；别只复述最后一段，也别把同一件事写两遍。】\n";
   return "【这是同一场线下的第 " + part.i + " 段（共 " + part.n + " 段），只是其中一截，不是整场。就事论事地归档你看到的这一截；别去猜前后发生了什么，也别写成「整场总结」。】\n";
 }
+const GEMINI_SAFETY_OFF = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]
+  .map(category => ({ category, threshold: "BLOCK_NONE" }));
+// 被审核拦下的样子：Gemini 是空回＋SAFETY/PROHIBITED_CONTENT，中转站多半报「内容安全／审核」
+const OFFLINE_SUM_BLOCKED = /SAFETY|PROHIBITED|BLOCKLIST|模型返回为空|content[_ ]?policy|moderat|内容安全|安全策略|审核|违规|敏感/i;
+const OFFLINE_SUM_BLOCK_CAP = 6000;     // 被拦了就切到这么小，把拦人的那一截圈小，别的照常总结
 const OFFLINE_SUM_FED_CAP = 24000;      // 退路：一枪打不出去时拆成这么大的块
 const OFFLINE_SUM_ONE_SHOT = 50000;     // 一枪吃得下多少：五万字以内不拆，超了才分段
 // ⚠️v72.03 起这儿【不再切尾巴】：切了的那一版（只喂最后 24000 字＋一份被压过的前情提要）
@@ -8861,14 +8876,22 @@ async function offlineSummaryRunBlock(p, systemFor, body, quota, part) {
   try {
     return await offlineSummaryCall(p, systemFor(quota, part), body, quota);
   } catch (e) {
-    const small = offlineSummaryChunks(body, OFFLINE_SUM_FED_CAP);
-    if (small.length <= 1) throw e;
+    // 被审核拦的：切得更小，拦人的那一截单独记一句「略过」，别让整场一个字都没记下
+    const blocked = OFFLINE_SUM_BLOCKED.test(String((e && e.message) || e || ""));
+    const small = offlineSummaryChunks(body, blocked ? OFFLINE_SUM_BLOCK_CAP : OFFLINE_SUM_FED_CAP);
+    if (small.length <= 1 && !blocked) throw e;
     console.warn("线下总结一枪没打出去，拆成", small.length, "块重来：", (e && e.message) || e);
     const got = [];
+    let skipped = 0;
     for (let i = 0; i < small.length; i++) {
       const q = offlineSummaryQuota(small[i].length);
-      got.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: small.length }), small[i], q));
+      try { got.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: small.length }), small[i], q)); }
+      catch (e2) {
+        if (!blocked || !OFFLINE_SUM_BLOCKED.test(String((e2 && e2.message) || e2 || ""))) throw e2;
+        skipped++; got.push({ summary: "（这一截是亲密场景，被模型的内容审核拦下了，没有细记）", details: [], open: [] });
+      }
     }
+    if (skipped === small.length) throw e;   // 一截都没过：照实告诉她
     const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
     return {
       summary: got.map((x, i) => "第 " + (i + 1) + " 段：" + x.summary).join("\n"),
@@ -10610,6 +10633,13 @@ function _canvasHasAlpha(c, cx) {
 // PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
 function resizeImageAlpha(file, maxDim = 360) { return _resizeImageCore(file, maxDim, 1, true); }
 // 其余全 app 走这一条：有透明就留 PNG，没有才压 JPEG。
+// 铺满一整屏的图（主屏壁纸、聊天背景）要多大（群友 2026-10-19：「壁纸换了不是很清晰」）：
+//   原来压到 1080 / 1200 px，可手机屏幕的长边是 2500~2800 个实际像素，铺满就被放大两倍多，糊了。
+//   照这台手机的长边×像素密度来，最少 1600、最多 2560（再大就只是占地方，屏幕显示不出来）。
+function screenImageDim() {
+  try { const w = window.innerWidth || 0, hh = window.innerHeight || 0, dpr = window.devicePixelRatio || 1;
+    return Math.max(1600, Math.min(2560, Math.round(Math.max(w, hh) * dpr))); } catch (e) { return 1600; }
+}
 function resizeImageFile(file, maxDim = 400, q = 0.85) { return _resizeImageCore(file, maxDim, q, false); }
 function timeAgo(ts) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -10684,8 +10714,15 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
-function vclockMap(ts, id) {
-  const c0 = vclockCfg(id, ts); if (!c0) return Number(ts);
+function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+// 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
+function vclockMainMap(ts) {
+  const W = vclockState(); if (!W) return Number(ts);
+  const c = W.on !== undefined && !W.clocks ? W : (W.clocks || {}).main;
+  return vclockMapBy(c && c.on && isFinite(Number(c.base)) ? c : null, ts);
+}
+function vclockMapBy(c0, ts) {
+  if (!c0) return Number(ts);
   const c = vclockSeg(c0, ts);
   const sp = Number(c.speed);
   // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
