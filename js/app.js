@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.070";
+const APP_VERSION = "v76.071";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28054,11 +28054,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     put([mine]);
     const L = listenRef.current || {}, have = (((L.songTalk || {})[key] || {}).items || []);
     const target = liveChars.find(c => c && to && (c.remark || c.name) === to) || null;
+    // 正在放的就是这首、陪听的人在场，才给他切歌这一栏
+    const nowSong = player && player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null;
+    const partnerSw = nowSong && LQ().songKey(nowSong) === key ? (characters || []).find(c => c.id === L.partnerId) || null : null;
     setGen(g => ({ ...g, songTalk: key }));
     try {
       const cast = sqCast(target || (characters || []).find(c => c.id === L.partnerId) || null, 3, { title: LQ().songLine(song), body: mine.text });
       const d = await sqAsk(LQ().replySystem({ where: "一起听 app 里" + LQ().songLine(song) + "这首歌的评论区。", transcript: LQ().transcriptOf(have), cast, regs: sqRegulars(), pairs: sqPairs(), me: sqMe(),
-        text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: "5-8" }), "歌评");
+        text: mine.text, to: to || "", must: target ? { id: target.id, name: target.remark || target.name } : null, n: "5-8", switchBy: partnerSw ? (partnerSw.remark || partnerSw.name) : "" }), "歌评");
+      // 陪听的那位在歌评区里也能切歌（群友 2026-10-19：单聊里会切，一起听里聊就不会）——跟单聊同一个 taSwitchSong
+      if (partnerSw && d && d.songSwitch && String(d.songSwitch).toLowerCase() !== "null") await taSwitchSong(d.songSwitch);
       const items = (Array.isArray(d.items) ? d.items : []).map(x => sqItem(x, cast)).filter(Boolean).slice(0, 10);
       put(items);
       sqTouch(items.filter(x => x.to === sqMe()), "theirs");
