@@ -2585,7 +2585,9 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay, hasKin
       h("div", { className: "flex", style: { gap: 8 } },
         [["window", "我靠窗"], ["aisle", "我靠过道"]].map(([k, zh]) => h("button", { key: k, "data-on": seat.me === k ? "1" : "0", onClick: () => onBookPick && onBookPick({ seat: k }), className: "flex-1 active:opacity-70",
           style: { minHeight: 40, borderRadius: 10, border: "1.5px solid " + (seat.me === k ? "#43371f" : "#e6dcc4"), background: "#fdfaf1", color: "#3a3226", fontFamily: F_BODY, fontSize: 13 } }, zh))),
-      seat.why && !seat.mine ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, color: "#93707c", marginTop: 6 } }, name + "：「", (typeof TransText === "function" ? h(TransText, { text: seat.why, inline: true }) : seat.why), "」") : null),
+      // 他说的那句一直留着（她 2026-10-19：「换了位置换回来都不见了」）——原来她点过一次就当成「她自己挑的」，那句话就再也不出了；
+      //   那是他说过的话，她换不换座都不该把它抹掉
+      seat.why ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, color: "#93707c", marginTop: 6 } }, name + "：「", (typeof TransText === "function" ? h(TransText, { text: seat.why, inline: true }) : seat.why), "」") : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "住哪 · " + b.nights + " 晚"),
     b.hotels.map((x, i) => row("hotel", x, i)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, margin: "6px 0 8px", textAlign: "right" } }, "两个人" + (backs.length ? "往返" : "") + "的票 + " + b.nights + " 晚 · 共 ¥" + total),
