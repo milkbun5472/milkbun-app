@@ -3273,6 +3273,10 @@
     const [quizConfidence, setQuizConfidence] = useState({});
     const scrollRef = useRef(null);
     const sessRef = useRef(props.session);
+    // 重说（群里 2026-10-18「一起学能不能搞重roll」）：每轮让老师开口之前，把整本课页（对话、进度、大纲）照原样存一份；
+    //   点「重说」就退回那一份再说一遍——这一轮出的题卡、讲义、记下的进度、换掉的材料一起退，不会记两次
+    const rerollSnap = useRef(null);
+    const [canReroll, setCanReroll] = useState(false);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 台词朗读（懒合成，重听免费）
     useEffect(function () { sessRef.current = sess; }, [sess]);
     const [hoView, setHoView] = useState("");   // 正在看老师递来的哪一份
@@ -3598,6 +3602,8 @@
       if (busy) return;
       if (!props.active) { props.toast("请先到设置配置 API"); return; }
       setBusy(true);
+      try { rerollSnap.current = JSON.parse(JSON.stringify(sessRef.current)); } catch (e) { rerollSnap.current = null; }
+      setCanReroll(false);
       try {
         if (sess.mode === "nv1") {
           const peer = chars.find(function (c) { return c.id !== (teacher && teacher.id); });
@@ -3612,9 +3618,18 @@
         } else {
           await runChar(chars[0], sess.mode);
         }
+        // 记下说完时有几条：她之后又发了话、点了别的，条数一变这颗就收起来，免得把她后来那句一起退掉
+        setCanReroll(rerollSnap.current ? (sessRef.current.transcript || []).length : false);
       } catch (e) {
         props.toast("生成失败：" + (e.message || "重试"));
       } finally { setBusy(false); }
+    }
+    function rerollLast() {
+      const snap = rerollSnap.current;
+      if (busy || !snap || canReroll !== (sessRef.current.transcript || []).length) return;
+      commit(snap);
+      setCanReroll(false);
+      setTimeout(function () { replyNow(); }, 60);
     }
 
     function hasExitAnswer(s, ticket) {
@@ -3905,6 +3920,8 @@
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, padding: "4px 2px" } }, "正在翻课页…") : null),
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.97) } },
         bubbles.length ? h("div", { className: "px-4 pt-2 flex gap-2" },
+          canReroll && !busy && canReroll === (sess.transcript || []).length ? h("button", { "data-wk": "studyreroll", onClick: rerollLast, className: "active:opacity-70",
+            style: { flex: "0 0 auto", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.fog, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 10px 4px 4px", padding: "8px 11px" } }, "↻ 重说") : null,
           sess.mode !== "costudy" ? h("button", { onClick: reteach, disabled: busy, className: "active:opacity-70 disabled:opacity-40",
             style: { flex: "0 0 auto", fontFamily: F_BODY, fontSize: 12.5, color: accent, border: "1px solid " + accent, borderRadius: "4px 10px 4px 4px", padding: "8px 11px" } }, "换种讲法") : null,
           h("button", { "data-wk": "block", onClick: replyNow, disabled: busy, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: busy ? STUDY_SKIN.line : accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px", padding: "8px 0", opacity: busy ? 0.8 : 1 } },
