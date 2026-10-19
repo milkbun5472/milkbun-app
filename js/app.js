@@ -25561,7 +25561,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     return false;
   };
-  const AVATAR_COOLDOWN_MS = 7 * 86400000;
+  // 冷却去掉了（她 2026-10-19：「把冷却去掉」——TA刚自己换过头像，她发的情头重 Roll 多少次都不换）。
+  //   闸还留着这一格（=0），换不换照旧由 TA 看照片自己定，只是不再按日子拦。
+  const AVATAR_COOLDOWN_MS = 0;
   const FRESH_PHOTO_LOOKBACK = 6;
   // ⚠️第二个参数是往回看几条。原来写死 6——于是下面「她开口要换」那一档虽然先 slice(-40)，
   //   进来又被砍回 6 条，发完照片聊几轮再说「换成那张」就永远找不到（她 2026-09-30：「过了几轮他就不行了」）。

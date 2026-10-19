@@ -40,7 +40,7 @@ test("三道硬闸：只认刚发的真照片 / 冷却 / 主动轮不发", () =>
   // ⚠️别冻实现形状（v58.100 抽成 freshPhotoIn 给线上线下共用）：要证的是【只翻最近几条】
   assert.match(helpers, /\.slice\(-\(lookback \|\| FRESH_PHOTO_LOOKBACK\)\)/, "翻了整本聊天记录——几个月前那张也会被当成「刚发的」");
   assert.match(helpers, /const FRESH_PHOTO_LOOKBACK = \d+;/, "没有「只看最近几条」这个上限");
-  assert.match(helpers, /const AVATAR_COOLDOWN_MS = 7 \* 86400000;/, "没有冷却");
+  assert.match(helpers, /const AVATAR_COOLDOWN_MS = 0;/, "冷却她 2026-10-19 说去掉");
   assert.match(helpers, /const avatarCoolOk = charId => \(Date\.now\(\) - Number\(\(avatarSwapRef\.current\[charId\] \|\| \{\}\)\.ts \|\| 0\)\) >= AVATAR_COOLDOWN_MS;/, "冷却算错");
   // 冷却里连那半句都不发下去，而且代码这一道也不认
   assert.match(helpers, /\+ \(canAvatar\n      \? "\\n· avatar：/, "冷却里还把 avatar 那半句发下去");
