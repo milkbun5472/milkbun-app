@@ -674,7 +674,8 @@ function App() {
   const [liveCfg, setLiveCfg] = useState(() => loadJSON("x_liveCfg", {}) || {});
   const saveLiveCfg = v => { setLiveCfg(v); saveJSON("x_liveCfg", v); };
   const [neteaseApi, setNeteaseApi] = useState("");
-  const musicProvider = listen.musicProvider === "gd" ? "gd" : "netease";
+  // 默认 GD（她 2026-10-19：没动过的人直接是 GD）；自己挑过网易云的照旧，没挑过但已填了网易云接口的也照旧
+  const musicProvider = listen.musicProvider === "netease" || (!listen.musicProvider && neteaseApi) ? "netease" : "gd";
   const musicReady = musicProvider === "gd" || !!neteaseApi;
   const [neteaseCookie, setNeteaseCookie] = useState(""); // 可选：网易云账号 Cookie（MUSIC_U=…），填了能放 VIP
   const musicRequest = (path, options) => MusicSource.request({ provider: musicProvider, base: neteaseApi, cookie: neteaseCookie }, path, options);

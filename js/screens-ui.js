@@ -4063,7 +4063,7 @@ function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "netease", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenState, onSetTalkStay, onSetTalkNote, listenRoomName, talkKey, listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, musicProvider = "gd", musicReady, onSetMusicProvider, onMusicRequest, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onGenSquare, genSquare, onPlaySquare, onPostSquare, onReplySquare, onMoreSquare, onDelSquare, onDelSquareComment, onDelSongTalk, squareBusy, onShareSquare, onGenSongTalk, onReplySongTalk, songTalkBusy, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   // ⚠️深色/自定义主题下 t.ink 或 t.accent 未必是六位色号，拼透明度后缀会拼出废值、
   //   整层静默消失；两个都验，验不过退回纯色。
@@ -4401,7 +4401,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         setLyrics({});
         setCv(p => ({ ...p, me: null, daily: null, pls: null, open: null, openSongs: null, results: null, likeIds: null, fm: null, recent: null, tops: null, busy: false }));
         onSetMusicProvider(e.target.value);
-      } }, h("option", { value: "netease" }, "网易云 · 原接口"), h("option", { value: "gd" }, "GD 音乐台 · 免 Cookie 试用")),
+      } }, h("option", { value: "gd" }, "GD 音乐台 · 免 Cookie（默认）"), h("option", { value: "netease" }, "网易云 · 自己的接口")),
       gdMusic ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 8 } },
         h("a", { href: "https://music.gdstudio.xyz", target: "_blank", rel: "noopener noreferrer", style: { color: t.tint } }, "来源：GD 音乐台（music.gdstudio.xyz）"),
         "。仅限非商业学习试用，五分钟最多 50 次请求。不发送你的网易云 Cookie；原接口与账号设置保留。到「发现」搜歌。") : null),
