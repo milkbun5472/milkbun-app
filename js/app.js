@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.047";
+const APP_VERSION = "v76.048";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22468,7 +22468,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   模型当然走好走的那条。所以这里把默认那一头换过来，并且两边都说成同样具体的动作。
     // ⚠️吧规拼在这一处：发主帖、首轮刷楼、继续盖楼、回她那条——四路都走 forumNpcRule，
     //   挂在这儿就四路都有（挂在某一路上迟早只剩那一路有，这仓库栽过太多次）。
-    return forumBoardRuleLines(board)
+    // 私信过的网友在别的帖子里碰到她也认得（群里 2026-10-18 那条的另一头）：四路生成都过这里，所以挂这儿就四路都有。
+    //   回她那一条另有 forumPmKnow 按名字点得更准；这里给的是最近私信过的那几位，号对得上才算（匿名吧不认人）。
+    const pmKnown = board === "匿名吧" ? "" : (() => {
+      const alt = forumMe.using === "alt";
+      const names = (forumPMsRef.current || []).filter(t => t && !t.charId && !!t.alt === alt && (t.messages || []).length)
+        .sort((a, b) => Number(b.updatedTs || 0) - Number(a.updatedTs || 0)).slice(0, 3).map(t => t.npcName);
+      return names.length ? forumPmKnow({ board }, names) : "";
+    })();
+    return forumBoardRuleLines(board) + (pmKnown ? "\n" + pmKnown : "")
       + "\n【论坛人口】**每一条都要有自己的 authorName（网名马甲）和 handle（有趣 id）**，一条都别空着。"
       + "\n【id 跟TA这条说什么【没有关系】】真论坛里的网名是这个账号本来就有的，不是为这条评论现配的一件戏服——"
       + "别让名字去呼应TA这一楼的内容、也别让它去标注TA是什么人。它可以完全跑题、可以是半句话、可以莫名其妙；"
@@ -23967,6 +23975,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { if (!quiet) toast("私信照片没生成：" + String(e && e.message || "重试").slice(0, 120)); return false; }
   };
   window.forumPMGenImage = forumPMGenImage;
+  // 私信里也记得评论区（群里 2026-10-18：「NPC 还是没有私信和评论区记忆共通，傻的」）：
+  //   评论区→私信这条原来只有开私信那一刻抄的一份底子（th.ground），之后她跟TA在楼里你来我往，私信这边一句都不知道。
+  //   每回一次私信，就去帖子里现找一遍：她（用同一个号）和TA在哪个帖下面说过什么，最近几句带上。另一头见 forumPmKnow。
+  const forumPublicWith = th => {
+    if (!th || th.charId) return "";
+    const nm = String(th.npcName || ""), alt = !!th.alt, out = [];
+    const mine = x => x && x.authorType === "me" && !!x.alt === alt && !x.anon;
+    const his = x => x && String(x.authorName || "") === nm;
+    const all = forumCommentsRef.current || {};
+    (forumPostsRef.current || []).forEach(p => {
+      if (!p || p.anon || p.board === "匿名吧") return;
+      const fl = all[p.id] || [];
+      const pMine = mine(p), pHis = his(p);
+      fl.forEach(f => {
+        const items = [f, ...(f.replies || [])];
+        const both = (items.some(mine) || pMine) && (items.some(his) || pHis);
+        if (!both) return;
+        items.filter(x => mine(x) || his(x)).forEach(x => out.push({ ts: Number(x.ts || f.ts || p.ts || 0), t: "《" + String(p.title || "").slice(0, 16) + "》" + (mine(x) ? "她" : "你") + "：" + String(x.content || x.text || "").replace(/\s+/g, " ").slice(0, 60) }));
+      });
+    });
+    const last = out.sort((a, b) => a.ts - b.ts).slice(-8);
+    return last.length ? "\n【你俩在评论区碰过面（公开的，大家都看得见）——私信里接得上就行】\n" + last.map(x => x.t).join("\n") + "\n" : "";
+  };
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -24013,7 +24044,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 这份底子是TA在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
           // ⚠️每一轮都把这份底子发回去：不发的话聊三句就退化成「一个网友」，
           //   论坛上那个有脾气的人和私信里这个客服是两个人。
-          + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "")
+          + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "") + forumPublicWith(th)
           + tl + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。")
           + pmPhotoHint(true) + (th.look ? "你之前说过自己长这样，再拍到自己就还是这张脸：" + th.look : ""),
         schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]" + pmPhotoSchema(true) + "}",
@@ -24038,7 +24069,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const firstBy = (asked[0] || {}).from === "me" ? "对方先私信的你" : "是你先私信的对方";
       const d = await runProbeRetry(active, forumWorldCtx(convo), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
-          + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + pmTimeLine(asked)
+          + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + forumPublicWith(th) + pmTimeLine(asked)
           + "这是你和对方的私信记录：\n" + convo + "\n\n对方想加你微信。照你的脾气和你俩聊得怎么样决定加不加（accept），回 1-2 个气泡（say）。"
           + "加的话再给 brief：用第三人称写一段【你自己（「" + th.npcName + "」）】的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。"
           + "⚠️记录里「对方」说的她自己的事（她是什么样的人、她的习惯）是她的，不许写成你的；你俩是怎么聊起来的照记录来：" + firstBy + "。",

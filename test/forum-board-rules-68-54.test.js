@@ -42,7 +42,7 @@ test("规矩只有一份：app.js 不许再抄一张表", () => {
 
 test("吧规挂在四条生成线共用的那一块上", () => {
   // forumNpcRule 是发主帖/首轮刷楼/继续盖楼/回她那条都要过的一块；只挂在其中一条上就是漏
-  assert.match(app, /return forumBoardRuleLines\(board\)\n\s*\+ "\\n【论坛人口】/,
+  assert.match(app, /return forumBoardRuleLines\(board\)( \+ \(pmKnown \? "\\n" \+ pmKnown : ""\))?\n\s*\+ "\\n【论坛人口】/,
     "吧规没接在 forumNpcRule 开头——那样只有部分生成线看得见规矩");
   assert.equal((strip(app).match(/forumBoardRuleLines\(/g) || []).length, 1,
     "吧规该只有共用那一处调用；多出来的那处说明有人把规矩又抄去了某一条生成线");
