@@ -15908,7 +15908,8 @@ function menuItemsForKind(m, canSpeak) {
   }
   if (textLike) return [["copy", "fav", "shike", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall", "del"]];
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
-  if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall", "del"]];
+  // 语音也能改字（群友 2026-10-20 许愿「改单句语音回复」）：改的是转文字那一句，再点 ▶ 就照新字重新念（合成本来就读 m.content）
+  if (k === "voice") return [["copy", "fav", "quote"], ["edit"], ["multi", "recall", "del"]];
   // TA 发的照片：「只重拍这张图」只换像素；「重Roll」照旧把这一轮整个重来
   if (k === "selfie" && m.role === "assistant" && m.sid) return [["fav", "shike"], m.pending ? ["reroll"] : ["edit", "reshoot", "reroll"], ["multi", "recall", "del"]];
   return [[  "fav"], listen, ["multi", "recall", "del"]];
