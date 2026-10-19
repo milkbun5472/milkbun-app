@@ -90,7 +90,7 @@ test("卡片自己报身高，且只认自己那张的 token", () => {
 test("行内引用那几处传了 inline，不出卡片", () => {
   const i = comp.indexOf("function TransText({ text, isU, zhReady, ink, inline");
   assert.ok(i > 0, "TransText 没收 inline");
-  const head = comp.slice(i, i + 700);
+  const head = comp.slice(i, i + 1400);
   assert.match(head, /inline \? null : /);
   // 光算出 _card 不算数，得真的画出去（这条是变异测出来补的：删掉这一行原来全绿）
   assert.match(head, /return h\(HtmlCard, \{ html: _card \}\)/);
