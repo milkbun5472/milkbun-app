@@ -4584,7 +4584,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
             h("button", { onClick: () => setOpenPl(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "‹ 歌单"),
             h("div", { className: "flex-1 min-w-0 flex items-center justify-center gap-1.5" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, openPlObj.name),
-              !isFavView ? h("button", { onClick: () => requestAppPrompt("歌单改名", "", openPlObj.name, function (nv) { if (String(nv || "").trim()) onRenamePlaylist(openPlObj.id, String(nv).trim()); }, "改好了", { maxLength: 24 }), className: "shrink-0 active:opacity-60", style: { fontSize: 12.5, color: t.fog, padding: "0 2px" } }, null) : null),
+              !isFavView ? h("button", { onClick: () => requestAppPrompt("歌单改名", "", openPlObj.name, function (nv) { if (String(nv || "").trim()) onRenamePlaylist(openPlObj.id, String(nv).trim()); }, "改好了", { maxLength: 24 }), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 4px", minHeight: 32 } }, "改名") : null),
             !isFavView ? h("button", { onClick: () => { onDeletePlaylist(openPlObj.id); setOpenPl(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "删除") : h("div", { style: { width: 28 } })),
           (openPlObj.songs || []).length
             ? h("div", null, (openPlObj.songs || []).map((s, i2) => songRow(s, { no: i2 + 1, queue: (openPlObj.songs || []).map(x => x.id), inPlaylist: isFavView ? null : openPlObj.id })))
