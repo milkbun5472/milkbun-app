@@ -1875,7 +1875,7 @@ function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
   const list = (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const groups = [];
   list.forEach(p => {
-    const d = new Date(p.ts || Date.now());
+    const d = vDate(p.ts, partner && partner.id);
     const key = d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月";
     let g = groups.find(x => x.key === key); if (!g) { g = { key, items: [] }; groups.push(g); }
     g.items.push(p);
@@ -1899,7 +1899,7 @@ function CoupleAlbum({ partner, photos, onBack, onDelete, onUpload }) {
     zoom ? h("div", { onClick: () => setZoom(null), style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 } },
       h(AlbumPhoto, { photo: zoom, full: true }),
       zoom.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.85)", marginTop: 14, textAlign: "center", maxWidth: 320, lineHeight: 1.6 } }, STX(zoom.desc)) : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 8 } }, new Date(zoom.ts || 0).toLocaleString("zh-CN")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 8 } }, vDate(zoom.ts, partner && partner.id).toLocaleString("zh-CN")),
       // 存到手机（她 2026-10-17：「合照墙的能不能保存图片」）：主屏幕网页版长按存不了，给一颗明着的键，走公共那条 saveImgOriginal
       (zoom.imgKey || zoom.imgUrl) ? h("button", {
         onClick: e => { e.stopPropagation();
@@ -3244,7 +3244,7 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
       if (m < 60) return m + " 分钟前";
       if (m < 24 * 60) return Math.floor(m / 60) + " 小时前";
       if (m < 48 * 60) return "昨天";
-      return new Date(d).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+      return vDate(d, bCid).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
     };
     (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", label: "情书", text: cleanSnippet(x.title || x.body) }));
     (coupleExDiary || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "d_" + x.id, ts: itemTs(x), sub: "exdiary", label: "交换日记", text: cleanSnippet(x.content) }));
@@ -5753,7 +5753,7 @@ function CoupleFirstsBook({ partner, items, onBack }) {
         rows.map(x => h("div", { key: x.key, style: { position: "relative", paddingBottom: 18 } },
           h("span", { style: { position: "absolute", left: -21, top: 5, width: 9, height: 9, borderRadius: 999, background: /^day/.test(x.key) ? "#c9a227" : t.ink } }),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".1em", color: t.fog } },
-            new Date(x.ts).toLocaleDateString("zh-CN", { year: "numeric", month: "numeric", day: "numeric" })
+            vDate(x.ts, partner.id).toLocaleDateString("zh-CN", { year: "numeric", month: "numeric", day: "numeric" })
             + (days(x.ts) ? " · " + days(x.ts) : "")),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginTop: 2 } }, x.zh),
           x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 3 } }, "「" + x.note + "」") : null))) : null));

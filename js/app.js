@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.104";
+const APP_VERSION = "v76.108";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1248,6 +1248,8 @@ function App() {
   //   于是「你从相处里看出了什么」只能靠复述人设来回答。提示词里那句围栏只降概率；
   //   真正的保证是【材料不够就先不建卡】。她想早点看，状态卡页那个手动按钮照旧随时能按。
   const GAZE_AUTOSEED_MSGS = 30; // 聊够三十条(约十五个来回)才自动建卡:更早建出来的只会是人设复读
+  // 「Ta 眼里」写日期要按这个角色那张面具的钟（虚拟时间），不是现实日期。
+  const gazeTodayLine = id => { const d = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), id) : Date.now()); const p = n => String(n).padStart(2, "0"); return "\n\n【你这边今天的日期】" + d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "（这张卡不用写日期，节点用发生了什么来记；非提到哪天不可，按你这边的日子算，别写现实日期）"; };
   const seedGazeFor = async (char, auto) => {
     if (gazeSeedBusy || !window.Gaze) return;
     // ⚠️后台线路优先（v64.43）。这一枪跟聊天不一样：它把【人设＋好感度＋长期记忆＋
@@ -1290,7 +1292,7 @@ function App() {
       const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【世界书】\n" + gazeLore
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
-      const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const mem = gazeTodayLine(char.id) + "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
       const seedSys = window.Gaze.seedSpec(uN);
@@ -1460,7 +1462,7 @@ function App() {
       const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【世界书】\n" + gazeLore
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
-      const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const mem = gazeTodayLine(char.id) + "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
       const revSys = window.Gaze.reviewSpec(uN, char.id);
@@ -24026,8 +24028,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 私信也知道几点（群友 2026-10-15 许愿：「论坛私聊能显示时间，对方能感知时间」）：
   //   现在几点、离上一条隔了多久，跟每一轮一起递过去——半夜三点和下午三点回的不是一种话。
-  const pmTimeLine = msgs => {
-    const now = new Date(), prev = (msgs || []).slice(0, -1).reverse().find(m => m && m.ts);
+  const pmTimeLine = (msgs, id) => {
+    const now = vDate(Date.now(), id || null), prev = (msgs || []).slice(0, -1).reverse().find(m => m && m.ts);
     const gap = prev ? Date.now() - prev.ts : 0;
     const gapZh = !prev ? "" : gap < 3 * 60000 ? "，接着上一句没停" : gap < 3600000 ? "，离上一条隔了 " + Math.round(gap / 60000) + " 分钟" : gap < 86400000 ? "，离上一条隔了 " + Math.round(gap / 3600000) + " 小时" : "，离上一条隔了 " + Math.round(gap / 86400000) + " 天";
     return "\n【现在】" + now.toLocaleString("zh-CN", { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }) + gapZh + "。\n";
@@ -24113,7 +24115,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, forumPM: threadId }));
     try {
       const convo = pmConvo(th, [...th.messages, { from: "me", text }]);
-      const tl = pmTimeLine([...th.messages, { from: "me", text, ts: Date.now() }]);
+      const tl = pmTimeLine([...th.messages, { from: "me", text, ts: Date.now() }], th.charId);
       // 角色那条：走TA【自己】那份上下文（人设、心情、记忆、你俩的关系），不是网友那套。
       // 拿通用的网友提示词去演TA，出来的是个顶着TA网名的陌生人。
       const pmChar = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
@@ -24176,7 +24178,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const firstBy = (asked[0] || {}).from === "me" ? "对方先私信的你" : "是你先私信的对方";
       const d = await runProbeRetry(active, forumWorldCtx(convo), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
-          + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + forumPublicWith(th) + pmTimeLine(asked)
+          + (th.ground ? "\n【你在吧里就是这样一个人】\n" + th.ground + "\n" : "") + forumPublicWith(th) + pmTimeLine(asked, th.charId)
           + "这是你和对方的私信记录：\n" + convo + "\n\n对方想加你微信。照你的脾气和你俩聊得怎么样决定加不加（accept），回 1-2 个气泡（say）。"
           + "加的话再给 brief：用第三人称写一段【你自己（「" + th.npcName + "」）】的简介（80-200 字：是个什么样的人、平时干嘛、说话什么味儿、在吧里因为什么跟对方聊起来、聊过些什么），以后靠它认出这个人。"
           + "⚠️记录里「对方」说的她自己的事（她是什么样的人、她的习惯）是她的，不许写成你的；你俩是怎么聊起来的照记录来：" + firstBy + "。",

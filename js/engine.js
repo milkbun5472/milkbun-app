@@ -10717,6 +10717,8 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   return out;
 }
 function vclockMap(ts, id) { return vclockMapBy(vclockCfg(id, ts), ts); }
+// 显示用的公共一处：现实时间戳 → 这个角色（或 "g:群id"、null＝主面具）那只钟上的 Date
+function vDate(ts, id) { const t = Number(ts) || Date.now(); return new Date(vclockMap(t, id)); }
 // 主面具那只钟（主屏的钟和日历、周刊这种不属于某一个人的地方用它）
 function vclockMainMap(ts) {
   const W = vclockState(); if (!W) return Number(ts);

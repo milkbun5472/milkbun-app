@@ -1,0 +1,29 @@
+# 网站发布：每次推 main 自动发到 GitHub Pages。
+# 用这份而不是「从分支发布」：那种方式每小时只给发 10 次，推得密了就整串卡住（2026-10-19）。
+# concurrency：新推送一到，还在排队/在跑的旧发布直接取消，只发最新那一版。
+name: 发布网站
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

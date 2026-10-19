@@ -517,6 +517,7 @@
   //   那行删掉之后这一页照样说得明白——它就是装饰，所以整张表一起删。
   const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
   const tape = extra => h("div", { style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
+  const gazeDay = (ts, id) => new Date(typeof vclockMap === "function" ? vclockMap(Number(ts) || Date.now(), id) : (Number(ts) || Date.now())).toLocaleDateString("zh-CN");
   function GazePage({ charId, charName, uName, ta, onSeed, seedBusy, onReview, reviewBusy }) {
     const [side, setSide] = useState("me");
     const [openK, setOpenK] = useState(null); // 展开成信纸的块 key
@@ -541,7 +542,7 @@
           tape(),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
-          box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
+          box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + gazeDay(box.blocks[openK].ts, charId)),
           // 锁住／删掉这版（群里 2026-10-09：「重 roll 也会覆盖，想把重 roll 的删除」）——删了，上一版顶回来
           box.blocks[openK] && h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
             h("button", { "data-wk": "gazelock", "data-on": locked ? "1" : "0", onClick: () => { setLock(charId, openK, !locked); setSeenTick(x => x + 1); },
@@ -552,7 +553,7 @@
           (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 20, borderTop: "1px dashed rgba(120,100,70,.25)", paddingTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } },
               say("他从前是这么想的") + " · 改过 " + box.hist.filter(x => x.k === openK).length + " 次"),
-            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN")),
+            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, gazeDay(x.ts, charId)),
               h("div", { className: "flex", style: { gap: 8, marginTop: 4 } },
                 h("button", { "data-wk": "gazeusever", onClick: () => { useVersion(charId, openK, x.ts, x.old); setSeenTick(n => n + 1); }, style: vBtn(false) }, "用这版"),
                 h("button", { "data-wk": "gazedelver", "data-part": "old", onClick: () => { delVersion(charId, openK, x.ts, x.old, false); setSeenTick(n => n + 1); }, style: vBtn(false) }, "删掉"))))) : null)),
@@ -571,7 +572,7 @@
             h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
               x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
-              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9, color: "rgba(172,138,91,.7)" } }, x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : "")),
+              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9, color: "rgba(172,138,91,.7)" } }, x.ts ? gazeDay(x.ts, charId) : "")),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, x.text)))
             : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "rgba(92,82,68,.5)", lineHeight: 2 } }, say("他还没写过什么。")))),
       document.body);
