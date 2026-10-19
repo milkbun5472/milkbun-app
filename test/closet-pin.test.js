@@ -7,9 +7,9 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), screens = (R("screens.js") + "\n" + R("screens-ui.js")), comps = R("components.js"), studio = R("theme-studio.js");
 
 test("衣柜里每身都能钉住，写的就是出图常服那一格；再点取消", () => {
-  assert.match(screens, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack \}\)/);
+  assert.match(screens, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack(?:, masks, maskKey, onMask)? \}\)/);
   assert.match(screens, /onClick: \(\) => onPin\(pinned === pinText\(x\) \? "" : pinText\(x\)\)/);
-  assert.match(app, /onPin: text => \{ const v = String\(text \|\| ""\)\.trim\(\)\.slice\(0, 200\); const p = \{ \.\.\.profile, photoOutfit: v \}; setProfile\(p\); saveJSON\("x_profile", p\);/);
+  assert.match(app, /onPin: text => \{ const v = String\(text \|\| ""\)\.trim\(\)\.slice\(0, 200\);[\s\S]{0,400}?const p = \{ \.\.\.profile, photoOutfit: v \}; setProfile\(p\); saveJSON\("x_profile", p\);/);
   assert.match(studio, /\["closetsetpin", /);
 });
 

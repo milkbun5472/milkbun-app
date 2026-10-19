@@ -20,7 +20,7 @@ test("出图时的「我」只有一份，四处都读它", () => {
   for (const k of ["name", "appearance", "refPhoto", "outfit", "closet"])
     assert.match(fn, new RegExp("\\b" + k + ":"), "photoMe 少了 " + k);
   assert.match(fn, /outfit: \(P && P\.photoOutfit\) \|\| "",/);
-  assert.match(fn, /closet: myClosetText\(\)/, "衣柜没接上——那正是这一刀要修的东西");
+  assert.match(fn, /closet: myClosetText\(who\)/, "衣柜没接上——那正是这一刀要修的东西");
   // 原来那三处手搓的对象删干净了才算「只剩一处」
   assert.ok(live.indexOf('appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto }') < 0,
     "还有地方自己手搓 me，衣柜和固定锁一定会漏掉那一处");
@@ -37,7 +37,7 @@ test("照相馆那一处【不】塞衣柜——她刚挑的那身不能被顶�
 
 test("群合照名单里的「我」也带着自己的衣柜和固定锁", () => {
   // v75.685：群里的「我」照这个群挑的那张面具（gMe / _gm），衣柜和固定锁照旧要带上
-  assert.equal((live.match(/id: "__me", name: (?:gMe|_gm)\.name \|\| "我", appearance: (?:gMe|_gm)\.appearance, refPhoto: (?:gMe|_gm)\.refPhoto, outfit: sceneMeOutfit\(\{ groupId[^}]*\}\), closet: myClosetText\(\)/g) || []).length, 2,
+  assert.equal((live.match(/id: "__me", name: (?:gMe|_gm)\.name \|\| "我", appearance: (?:gMe|_gm)\.appearance, refPhoto: (?:gMe|_gm)\.refPhoto, outfit: sceneMeOutfit\(\{ groupId[^}]*\}\), closet: myClosetText\("g:" \+ (?:groupId|group\.id)\)/g) || []).length, 2,
     "两处合照名单都要带上——漏一处就是「有时候有、有时候没有」");
   // sceneMeOutfit＝这一场她在「穿什么」里挑的那身，没挑就是资料里那把固定锁（她 2026-10-02）
   assert.match(live, /const sceneMeOutfit = scope => \(\(sceneSessOf\(scope\) \|\| \{\}\)\.meOutfit\) \|\| \(profile && profile\.photoOutfit\) \|\| "";/);
