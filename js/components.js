@@ -17077,12 +17077,12 @@ function OfflineMode({
   const msgs = activeSession ? activeSession.msgs : [];
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
-      h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
-      h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
+      h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
+      h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, cName), h("span", { style: { flexShrink: 0 } }, "⌄")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, room && !room.main ? room.name + " · 独立线下" : "线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给 Ta 一个提示" }, h(IPlus, { size: 20, color: t.fog })),
-      onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
+      onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
     // 短期导演便签跟群线下共用同一块（v72.37）：看得见还剩几轮、也删得掉
     h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote, onEditNote: onEditNote }),
@@ -17969,12 +17969,12 @@ function GroupOfflineMode({
   const directorNotes = h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote, onEditNote: onEditNote });
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
-      h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
-      h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
+      h("button", { "data-wk": "chatback", onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
+      h("button", { "data-wk": "headname", onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60", style: { minWidth: 0 } },
         h("div", { "data-wk": "offtitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 3, minWidth: 0 } }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, gName), h("span", { style: { flexShrink: 0 } }, "⌄")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "多人线下 · 轻触切换")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
-      onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
+      onSaveSettings && h("button", { "data-wk": "chatmore", onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
     gBgSheet,
     // 当前这局用的是哪个文风（v55.44，群线下同款）。她 2026-08-22 放了份自定义文风进去却完全没生效，

@@ -25,6 +25,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandlerWithReply {
   var webView: WKWebView!
+  var themeObs: NSKeyValueObservation?
   let home = URL(string: "https://milkbun5472.github.io/milkbun-app/index.html")!
 
   // WKWebView 有自己的一层 HTTP 磁盘缓存，可能在 Service Worker 接手前就把旧 index.html 交回来。
@@ -85,6 +86,14 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     webView.allowsBackForwardNavigationGestures = true
     if #available(iOS 16.4, *) { webView.isInspectable = true } // 连 Mac Safari 可调试
     view.addSubview(webView)
+    // 屏幕最底那条露出来的是这层 view：跟着网页报的 theme-color 换色（聊天页=输入栏底色）
+    if #available(iOS 15.0, *) {
+      themeObs = webView.observe(\.themeColor, options: [.new]) { [weak self] wv, _ in
+        guard let c = wv.themeColor else { return }
+        self?.view.backgroundColor = c
+        wv.scrollView.backgroundColor = c
+      }
+    }
     webView.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
       webView.topAnchor.constraint(equalTo: view.topAnchor),

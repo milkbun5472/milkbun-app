@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.063";
+const APP_VERSION = "v76.066";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2614,6 +2614,24 @@ function App() {
     });
   };
   useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, halfWin && halfWin.charId, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId]);
+  // 原生壳的 view 底色写死米白，屏幕最底那一条若露出来就是它。把聊天页输入栏的
+  // 实际底色报到 theme-color 上，壳那头跟着换；别的页、输入栏透明时回到主题底色。
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return;
+    const id = requestAnimationFrame(() => {
+      let c = theme.bg;
+      const comp = (screen === "thread" || screen === "gthread") && document.querySelector('[data-wk="composer"]');
+      if (comp) {
+        const bg = getComputedStyle(comp).backgroundColor || "";
+        const m = bg.match(/rgba?\(([^)]+)\)/);
+        const a = m ? m[1].split(/[\s,/]+/).filter(Boolean) : [];
+        if (m && (a.length < 4 || parseFloat(a[3]) > 0.5)) c = bg;
+      }
+      meta.setAttribute("content", c);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [theme.bg, screen, activeChar && activeChar.id, chatSettings]);
   // 群聊窗那一层（她 2026-09-30：「群聊也加这一堆美化」）：排版开关 + 这个群自己写的 CSS，限到【这一个群】
   //   ——别的群也是 gthread，只按页面限的话会串到别的群里去（单聊那条同样的教训）。
   const paintGroupLook = draft => {

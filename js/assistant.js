@@ -969,6 +969,8 @@
       + "     要调上下留白就写 padding-top: calc(var(--app-safe-top) + 6px) !important（底栏用 var(--app-safe-bottom)），左右单独写 padding-left/right。\n"
       + "     顶栏里用 position:absolute; top:50% 居中的东西（名字、头像）会比两边按钮高半截刘海——要写 top: calc(50% + var(--app-safe-top) / 2) !important。她说「名字／头像太高了、没跟按钮对齐」就先找这个——改的是【她 CSS 里写了 top:50% 的那一条】（多半是 headname，中间那块名字加小图标），不是 avatar：顶栏的 avatar 常常已经被她隐藏了，改它看不出任何变化。\n"
       + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。同一个选择器写了好几块的，【越靠后的越算数】：在前面补一条留白，后面那块 height:52px／padding:0 14px 照样把它盖掉（群里 2026-10-19 就是这样，秋秋补了两回都没用）——要改就改最后那块，或者把那几块并成一块。\n"
+      // 群里 2026-10-19：她要「底栏透明」，秋秋给了 background:transparent，底栏下面那截露出一条米色，补了 body、外层都没用
+      + "     她说「底部不贴边／最底下多一条颜色／底栏下面露一截」：是底栏（composer）没把自己的颜色铺到屏幕最底。底栏要写【实色或渐变】＋ padding-bottom: var(--app-safe-bottom) !important，一路铺到底；她想要「透明」，就把底栏刷成跟聊天底色同一个颜色，别写 transparent——透明了露出来的是底下那层，不是她的背景。别去刷 body、外壳。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"
       + wkHere()
