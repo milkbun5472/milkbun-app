@@ -6,7 +6,7 @@ const src = fs.readFileSync(require('node:path').join(__dirname, '../js/componen
 // 桩照着【这一页现在真的要用什么】给（施工规则/stub-from-the-writer）：
 //   v74.732 顶栏多了一颗「导出这一场」，它要用 offlineSessionsText / stampSlug / saveTextFile。
 const saved = [];
-const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: '', F_DISPLAY: '',
+const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: '', fsz: n => n, F_DISPLAY: '',
   IArrow: 'arrow', ITrash: 'trash', OffCard: 'card', offlineSubSkin: t => t,
   offlineSessionsText: () => '一场', stampSlug: () => '戳',
   saveTextFile: (name, text) => saved.push([name, text]), window: {},

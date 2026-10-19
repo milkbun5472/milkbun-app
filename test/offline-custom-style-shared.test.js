@@ -22,7 +22,7 @@ function fixture() {
     readOfflineStyleDocument: file => file.text(),
     toast: message => notices.push(message), alert: message => notices.push(message),
     OFFLINE_STYLES: [{ key: "default", name: "默认", prompt: "" }],
-    F_BODY: "body", F_DISPLAY: "display", OfflineStylePromptPreview: () => null,
+    F_BODY: "body", fsz: n => n, F_DISPLAY: "display", OfflineStylePromptPreview: () => null,
     React: { Fragment: 'fragment' }, requestAppConfirm: () => {}, ANY_FILE: "*/*"
   };
   vm.createContext(ctx); vm.runInContext(code, ctx);

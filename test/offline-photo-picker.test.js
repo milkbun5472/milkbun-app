@@ -6,7 +6,7 @@ const src = fs.readFileSync(require('node:path').join(__dirname, '../js/componen
 const code = src.slice(src.indexOf('function OfflinePhotoPicker('), src.indexOf('function useOfflinePhotoSend('));
 function fixture(extra = {}) {
   const calls = [];
-  const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: 'test',
+  const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: 'test', fsz: n => n,
     resizeImageFile: async (...args) => { calls.push(args); return 'resized'; } };
   vm.createContext(ctx); vm.runInContext(code, ctx);
   const props = { t: {}, photoFileRef: { current: { click: () => calls.push('pick') } },
