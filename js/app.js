@@ -28436,11 +28436,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const walletSpend = (charId, amount, label, kind) => {
     const amt = numClean(amount);
     if (!(amt > 0)) return false;
-    let ok = false;
+    // 开没开通先照 ref 当场判（她 2026-10-19：旅行「他请客」说他没钱包，明明有）——
+    //   原来 ok 是在 setCharWallet 的更新函数里才置上的，React 常常等到下一次画的时候才跑它，
+    //   这一句 return 时 ok 还是 false，于是钱包明明开着也被说成没开通
+    const cur0 = (charWalletRef.current || {})[charId];
+    if (!cur0 || !cur0.init) return false;
+    let ok = true;
     setCharWallet(p => {
       const cur = p[charId];
       if (!cur || !cur.init) return p;
-      ok = true;
       const bal = r2((Number(cur.balance) || 0) - amt);
       const e = { id: "cw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: -amt, after: bal, label: label, kind: kind || "gift" };
       const n = { ...p, [charId]: { ...cur, balance: bal, ledger: [e, ...(cur.ledger || [])] } };
