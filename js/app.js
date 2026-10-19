@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.062";
+const APP_VERSION = "v76.063";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2642,7 +2642,10 @@ function App() {
   // ⚠️自己挂一个属性，不蹭 data-lisa-char：那一个是 paintChatLook 管的，只有
   //   【人在聊天页】时才写得上；线下这一层开着的时候它可能已经被清空了。
   //   蹭别人管的状态＝那边一改这边静默失灵（本仓库反复栽的那种）。
-  const offlineLookScope = id => 'html[data-lisa-offchar="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"] [data-wk="offline"]';
+  // ⚠️线下这一层要压过线上那份（群友 2026-10-19：「只单独放在线下里顶栏不生效，放到线上后面才行」）：
+  //   线下是盖在聊天页上的，聊天自己写的 CSS 也抓得到线下里的 chathead；两边选择器一样重、都 !important，
+  //   就看谁的 <style> 排在后面——线上那份在后面，线下写的顶栏就被盖了。这儿多叠两个属性，让线下一律更重。
+  const offlineLookScope = id => 'html[data-lisa-offchar="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"][data-lisa-offchar] [data-wk="offline"][data-wk]';
   const paintOfflineLook = draft => {
     if (typeof applyOfflineLook !== "function") return;
     // 线下是盖在聊天页上的一层，所以 screen 仍是 thread；真正的判据是「这个人的线下开着」

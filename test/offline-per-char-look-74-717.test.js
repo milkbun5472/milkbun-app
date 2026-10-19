@@ -61,3 +61,11 @@ test("⑤ 编辑器是聊天那一份，存在这个人的线下设置里", () =
   assert.match(SET, /bg: sBg, customCSS: sCss(, fontSize: sFont)?(, replyOpts: sOpts)? \}/, "保存那颗 ✓ 没把 CSS 一起存");
   assert.match(C, /const \[sCss, setSCss\] = useState\(os\.customCSS \|\| ""\);/, "没从这个人的线下设置里读回来");
 });
+// 群友 2026-10-19：只放在线下里顶栏不生效、放到线上后面才行——线下这一层要比线上那份重
+{ const assert = require("node:assert/strict");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const off = app.match(/const offlineLookScope = id => ([^;]+);/)[1];
+  const spec = sel => { const a = (sel.match(/\[[^\]]+\]|:is\(/g) || []).length; return a; };
+  const offSel = eval("(id => " + off + ")")("c1") + ' [data-wk="chathead"]';
+  const onSel = 'html[data-lisa-char="c1"]:is([data-lisa-screen="thread"]) [data-wk="chathead"]';
+  assert.ok(spec(offSel) > spec(onSel), "线下的选择器不比线上重，线上那份排在后面就把线下的顶栏盖了"); }
