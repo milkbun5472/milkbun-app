@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.045";
+const APP_VERSION = "v76.046";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23921,8 +23921,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   「我是潜水党」「是我先私信的」都成了他的。原来记录里她那一边写的是「我」，网友读来就是在说他自己）
   const pmConvo = (th, msgs) => {
     const her = th.alt ? (th.altName || myAltName()) : (forumMe.handle || userName(profile));
-    return msgs.map(m => (m.from === "me" ? "对方「" + her + "」" : "你「" + th.npcName + "」") + "：" + m.text).join("\n");
+    return msgs.map(m => (m.from === "me" ? "对方「" + her + "」" : "你「" + th.npcName + "」") + "：" + (m.photo ? "〔发了一张照片：" + String(m.photo.desc || "").slice(0, 120) + "〕" : m.text)).join("\n");
   };
+  // 私信里发照片（群里 2026-10-18 许愿「论坛私信聊天也能生图」）。
+  //   网友没有参考照，拍到自己就让他自己说长什么样（她 2026-10-19：「NPC 发脸就不需要参考照了，让他们大概描述一下长相生」）——
+  //   第一次说的长相记在这条私信上（th.look），以后再拍还是这张脸。角色照旧用自己的参考照。
+  const pmPhotoHint = isNpc => "\n想发张照片的时候（自拍、手边的东西、窗外，看你们聊到哪儿），再加一个 photo：desc 写画面，who 写画面里有没有你（self 露脸／part 只露一部分／none 没有人）。"
+    + (isNpc ? "拍到你自己的话，look 写清你长什么样（性别、大概年纪、发型发色、脸、身材、气质），这一张就照它画。" : "")
+    + "不想发就不加，大多数时候是不加的。";
+  const pmPhotoSchema = isNpc => ",\"photo\":{\"desc\":\"画面\",\"who\":\"self|part|none\"" + (isNpc ? ",\"look\":\"\"" : "") + "}（可省）";
+  // 把回复里的 photo 收成一条照片消息；look 第一次给的就记在这条私信上
+  const pmPhotoMsg = (d, ts) => {
+    const p = d && d.photo && typeof d.photo === "object" ? d.photo : null;
+    const desc = p ? String(p.desc || p.scene || "").trim().slice(0, 300) : "";
+    if (!desc) return null;
+    const who = ["self", "part", "none"].includes(String(p.who || "")) ? String(p.who) : "";
+    return { from: "npc", text: "", photo: { desc, who, ...(String(p.look || "").trim() ? { look: String(p.look).trim().slice(0, 200) } : {}) }, ts };
+  };
+  const pmAppend = (threadId, say, d) => {
+    const cb = Date.now();
+    const pm = pmPhotoMsg(d, cb + say.length);
+    setForumPMs(prev => {
+      const n = prev.map(t => t.id !== threadId ? t : { ...t,
+        ...(pm && pm.photo.look && !t.look ? { look: pm.photo.look } : {}),
+        messages: [...t.messages, ...say.map((x, i) => ({ from: "npc", text: String(x), ts: cb + i })), ...(pm ? [pm] : [])], updatedTs: cb });
+      saveJSON("x_forumPMs", n); return n;
+    });
+    if (pm && loadJSON("x_forumAutoImg", false) && imgApiReady()) setTimeout(() => { const th = forumPMsRef.current.find(t => t.id === threadId); if (th) { const at = th.messages.findIndex(x => x && x.photo && x.ts === pm.ts); if (at >= 0) forumPMGenImage(threadId, at, true); } }, 80);
+  };
+  // 私信里那张照片画出来：角色用自己的参考照；网友照他说的长相画（没有参考照），没拍到人就画景
+  const forumPMGenImage = async (threadId, idx, quiet, force, newDesc) => {
+    if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
+    const th = forumPMsRef.current.find(t => t.id === threadId);
+    const m = th && th.messages[idx];
+    if (!m || !m.photo || (m.photo.imageRef && !force)) return false;
+    const desc = String(newDesc || "").trim() || m.photo.desc;
+    const real = th.charId ? (characters || []).find(c => c.id === th.charId) : null;
+    const look = m.photo.look || th.look || "";
+    const who = m.photo.who || (real ? "" : (look ? "self" : "none"));
+    const drawer = real || (look && who !== "none" ? { id: "pmnpc_" + th.id, name: th.npcName, appearance: look } : null);
+    try {
+      const ref = await drawFromDesc(drawer, desc, drawer ? who : "none");
+      setForumPMs(prev => { const n = prev.map(t => t.id !== threadId ? t : { ...t, messages: t.messages.map((x, i) => i === idx ? { ...x, photo: { ...x.photo, imageRef: ref, desc } } : x) }); saveJSON("x_forumPMs", n); return n; });
+      return ref;
+    } catch (e) { if (!quiet) toast("私信照片没生成：" + String(e && e.message || "重试").slice(0, 120)); return false; }
+  };
+  window.forumPMGenImage = forumPMGenImage;
   const sendForumPM = async (threadId, text) => {
     const th = forumPMsRef.current.find(t => t.id === threadId);
     if (!th) return;
@@ -23941,12 +23985,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           voice: true,
           instruction: "【这一轮发生在贴吧的私信框里】一个网名叫「" + (th.altName || myAltName()) + "」的陌生网友私信了你的大号。你不认识这个号，也不知道对面是谁——就按你的人设对待一个陌生网友。\n"
             + "⚠️这是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
-            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, (th.altName || myAltName()) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。",
-          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
+            + tl + "这是你们在私信里说过的：\n" + convo.replace(/^我：/gm, (th.altName || myAltName()) + "：") + "\n\n回最新这句（1-3 条，一条一个气泡）。" + pmPhotoHint(false),
+          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]" + pmPhotoSchema(false) + "}",
           maxTokens: FTOK.pm
         });
         const asay = dc && Array.isArray(dc.say) ? dc.say : (dc && dc.say ? [dc.say] : []);
-        if (asay.length) { const cb = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...asay.map((x, i) => ({ from: "npc", text: String(x), ts: cb + i }))], updatedTs: cb } : t); saveJSON("x_forumPMs", n); return n; }); }
+        if (asay.length || pmPhotoMsg(dc, 0)) pmAppend(threadId, asay, dc);
         return;
       }
       if (pmChar) {
@@ -23956,12 +24000,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           instruction: "【这一轮发生在贴吧的私信框里】" + (profile.name || "对方") + "在论坛上用网名「" + meHandle + "」私信了你的大号。\n"
             + "⚠️**你俩都知道对面是谁**——这不是陌生人搭讪，是换了个地方说话；论坛上是公开场合，私信框里只有你们两个。\n"
             + "⚠️但这毕竟是【打字】，不是当面：没有动作、没有神态，只有你打出去的那几行字。**别写任何动作描写或旁白**。\n"
-            + tl + "这是你俩在私信里说过的：\n" + convo + "\n\n以你自己的人设和你俩现在的关系，回最新这句（1-3 条，一条一个气泡）。",
-          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
+            + tl + "这是你俩在私信里说过的：\n" + convo + "\n\n以你自己的人设和你俩现在的关系，回最新这句（1-3 条，一条一个气泡）。" + pmPhotoHint(false),
+          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]" + pmPhotoSchema(false) + "}",
           maxTokens: FTOK.pm
         });
         const csay = dc && Array.isArray(dc.say) ? dc.say : (dc && dc.say ? [dc.say] : []);
-        if (csay.length) { const cb = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...csay.map((x, i) => ({ from: "npc", text: String(x), ts: cb + i }))], updatedTs: cb } : t); saveJSON("x_forumPMs", n); return n; }); }
+        if (csay.length || pmPhotoMsg(dc, 0)) pmAppend(threadId, csay, dc);
         return;
       }
       const d = await runProbeRetry(active, forumWorldCtx(convo), {
@@ -23970,12 +24014,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // ⚠️每一轮都把这份底子发回去：不发的话聊三句就退化成「一个网友」，
           //   论坛上那个有脾气的人和私信里这个客服是两个人。
           + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "")
-          + tl + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
-        schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
+          + tl + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。")
+          + pmPhotoHint(true) + (th.look ? "你之前说过自己长这样，再拍到自己就还是这张脸：" + th.look : ""),
+        schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]" + pmPhotoSchema(true) + "}",
         maxTokens: FTOK.pm
       });
       const say = d && Array.isArray(d.say) ? d.say : (d && d.say ? [d.say] : []);
-      if (say.length) { const base = Date.now(); setForumPMs(prev => { const n = prev.map(t => t.id === threadId ? { ...t, messages: [...t.messages, ...say.map((s, i) => ({ from: "npc", text: String(s), ts: base + i }))], updatedTs: base } : t); saveJSON("x_forumPMs", n); return n; }); }
+      if (say.length || pmPhotoMsg(d, 0)) pmAppend(threadId, say, d);
     } catch (e) { toast("对方没回应：" + e.message); }
     finally { setGen(g => ({ ...g, forumPM: null })); }
   };

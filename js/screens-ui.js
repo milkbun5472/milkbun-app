@@ -2818,7 +2818,7 @@ function Forum({
             h(NpcAvatar, { seed: th.npcName, size: 42 }),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.alt && tag("小号"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
-              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + last.text))),
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + (last.photo ? "[照片]" : last.text)))),
           pmClean && h("button", { onClick: () => onDelPM && onDelPM(th.id), "aria-label": "删掉和 " + th.npcName + " 的私信", className: "shrink-0 active:opacity-60", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.accent, fontFamily: F_BODY, fontSize: 14 } }, "✕"));
       }));
   }
@@ -2861,11 +2861,12 @@ function Forum({
           // 时间：跟上一条隔了五分钟以上（或第一条）才插一行，跟聊天里一样
           m.ts && (i === 0 || !th.messages[i - 1].ts || m.ts - th.messages[i - 1].ts > 300000) ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0" } }, new Date(m.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })) : null,
           h("div", { className: "flex " + (m.from === "me" ? "justify-end" : "justify-start"), onClick: () => onDelPMMsg && setPmSel(pmSel === i ? -1 : i) },
+          m.photo ? h("div", { "data-wk": "pmphoto", style: { maxWidth: "76%" }, onClick: e => { e.stopPropagation(); setPhotoView({ ...m.photo, pmAt: { tid: th.id, i } }); } }, h(PhotoCard, { m: m.photo, max: 200 })) :
           h("div", { "data-wk": "block", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, STX(m.text))))),
         sending && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
       // 点中一条：只删这一条（清理那颗删的是整个对话）
       pmSel >= 0 && th.messages[pmSel] ? h("div", { "data-wk": "pmmsgdel", className: "shrink-0 px-4 py-2 flex items-center", style: { borderTop: `1px solid ${t.line}`, gap: 10 } },
-        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "选中：" + String(th.messages[pmSel].text || "")),
+        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "选中：" + (th.messages[pmSel].photo ? "[照片]" : String(th.messages[pmSel].text || ""))),
         h("button", { onClick: () => setPmSel(-1), className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
         h("button", { onClick: () => { onDelPMMsg(th.id, pmSel); setPmSel(-1); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删掉这条")) : null,
       h("div", { className: "shrink-0 px-4 py-3 flex gap-2", style: { borderTop: `1px solid ${t.line}` } },
@@ -3037,8 +3038,10 @@ function Forum({
         h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, th.npcName + (th.alt ? "（小号聊的）" : ""))))),
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
-    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null,
-      onRegen: photoView.itemId && typeof window.forumGenImage === "function" ? d => window.forumGenImage(photoView.itemId, false, true, d) : null }),
+    photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: photoView.pmAt && typeof window.forumPMGenImage === "function" ? (!photoView.imageRef ? () => window.forumPMGenImage(photoView.pmAt.tid, photoView.pmAt.i) : null)
+        : !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null,
+      onRegen: photoView.pmAt && typeof window.forumPMGenImage === "function" ? d => window.forumPMGenImage(photoView.pmAt.tid, photoView.pmAt.i, false, true, d)
+        : photoView.itemId && typeof window.forumGenImage === "function" ? d => window.forumGenImage(photoView.itemId, false, true, d) : null }),
     composer && h(PageSheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, "发帖"),
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),

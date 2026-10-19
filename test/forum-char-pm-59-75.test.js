@@ -10,7 +10,7 @@ const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b
 
 // 她 2026-09-01：「如果是私信角色的话要不要喂回去做聊天线的一部分跟线上线下一起」→ 做。
 test("能私信角色的大号，不为开场白多花一次调用", () => {
-  const st = cut(ap, "const startCharPM = char => {", "\n  const sendForumPM");
+  const st = cut(ap, "const startCharPM = char => {", "\n  const pmConvo");
   assert.match(st, /charId: char\.id/, "会话没记是哪个角色的");
   assert.match(st, /messages: \[\]/, "还替她编了一句开场白——是她去敲门，她先说话才对");
   assert.ok(st.indexOf("runProbe") < 0 && st.indexOf("await") < 0, "开一条会话还调了一次模型");
