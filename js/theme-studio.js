@@ -823,16 +823,22 @@
   const fitTopBody = (sel, body) => {
     if (!TOP_HOOK.test(sel)) return body;
     const safe = v => /safe-area|--app-safe-top/i.test(v);
+    // max() 里不认不带单位的 0（写成 max(0, …) 整条作废，顶栏照样钻进状态栏）——补成 0px
+    const px0 = v => /^[-+]?0+(?:\.0+)?$/.test(String(v).trim()) ? "0px" : String(v).trim();
     return String(body)
       .replace(/(^|[;\s])(padding-top|top)\s*:\s*([^;!]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
-        safe(v) || /^(auto|inherit|initial|unset)$/i.test(v.trim()) ? m : pre + prop + ": max(" + v.trim() + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""))
+        safe(v) || /^(auto|inherit|initial|unset)$/i.test(v.trim()) ? m : pre + prop + ": max(" + px0(v) + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""))
       .replace(/(^|[;\s])padding\s*:\s*([^;!(]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, v, imp) => {
         if (safe(v)) return m;
         const parts = v.trim().split(/\s+/); if (!parts.length || parts.length > 4) return m;
         const full = parts.length === 1 ? [parts[0], parts[0], parts[0], parts[0]] : parts.length === 2 ? [parts[0], parts[1], parts[0], parts[1]] : parts.length === 3 ? [parts[0], parts[1], parts[2], parts[1]] : parts;
-        full[0] = "max(" + full[0] + ", " + SAFE_MIN + ")";
+        full[0] = "max(" + px0(full[0]) + ", " + SAFE_MIN + ")";
         return pre + "padding: " + full.join(" ") + (imp ? " !important" : "");
-      });
+      })
+      // 顶栏写死了高度（群里 2026-10-19：height: 52px + box-sizing: border-box）：上面把刘海那截加进了 padding-top，
+      //   高度还是 52，字就被挤回状态栏里。写死的 px 高度一律再加上刘海那截——没刘海的手机加的是 0，原样。
+      .replace(/(^|[;\s])(height|min-height)\s*:\s*(\d+(?:\.\d+)?px)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
+        pre + prop + ": calc(" + v + " + var(--app-safe-top, env(safe-area-inset-top, 0px)))" + (imp ? " !important" : ""));
   };
   // 全局 CSS 不加作用域，但顶栏那几条也要过一遍：套一层 html（选的还是同一批元素），读不懂就原样用
   const fitTop = css => { try { return scopeCSS(css, "html"); } catch (_) { return css; } };
@@ -1103,7 +1109,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.053",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.059",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

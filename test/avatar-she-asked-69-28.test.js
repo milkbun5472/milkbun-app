@@ -50,7 +50,7 @@ test("她开口要的时候，7 天冷却不算数", () => {
   assert.match(seg, /const _seenAvatarOk = !!\(_avatarMsg && \(avatarCoolOk\(charId\) \|\| _askAvatar\)\);/);
   // 她没开口那一半照旧受冷却管——闸没被拆掉，只是对她让路
   assert.match(app, /const avatarCoolOk = charId => \(Date\.now\(\) - Number\(\(avatarSwapRef\.current\[charId\] \|\| \{\}\)\.ts \|\| 0\)\) >= AVATAR_COOLDOWN_MS;/);
-  assert.match(app, /const AVATAR_COOLDOWN_MS = 7 \* 86400000;/);
+  assert.match(app, /const AVATAR_COOLDOWN_MS = 0;/);   // 她 2026-10-19：「把冷却去掉」
 });
 
 test("主动轮照旧不发：那种轮次TA没在看照片", () => {

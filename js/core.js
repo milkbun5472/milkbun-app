@@ -59,8 +59,11 @@ const F_DISPLAY = "var(--f-display,'Fraunces',serif)";
 //   所以一律放行，读进来以后由各处自己看是不是能用的（解析不出就提示换一份）。图片、视频那几处不走这个。
 // ⚠️安卓 Edge 例外（群里 2026-10-18：「导入文件只能选相册」——点了弹「No camera access」）：它见到 */* 会把这当成要拍照，
 //   不给文件夹选。只在它身上换成一串后缀，后缀写宽一点，app 里各处会收的文件类型都在里面。
+// ⚠️第二次（群里 2026-10-19：「edge 文件只有相册的 bug 还是没好」）：上面那串里有后缀，安卓的浏览器得先把后缀翻成类型，
+//   .ttf、.srt 这类翻不出来的一出现，整串就退回「什么都要」——又成了只给相册。改成【只写大类、不写后缀、不带图片】：
+//   application/* 和 text/* 两类，安卓会开「文件」那个选择器（选 json、txt、css、epub、docx 都在这两类里）。
 const ANY_FILE = (typeof navigator !== "undefined" && /EdgA\//.test(navigator.userAgent || ""))
-  ? ".json,.txt,.md,.css,.csv,.srt,.log,.html,.htm,.epub,.docx,.pdf,.zip,.ttf,.otf,.woff,.woff2,.mp3,.m4a,.wav,application/json,text/plain,application/octet-stream"
+  ? "application/*,text/*,font/*"
   : "*/*";
 const F_BODY = "var(--f-body,'Archivo','Noto Serif SC',system-ui,sans-serif)";
 // wk：主题工作室的挂点（不传就没有）。stroke 是【属性】不是行内样式，

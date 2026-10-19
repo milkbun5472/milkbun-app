@@ -13308,6 +13308,9 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
   //   全库正文都从这一处画，剥在这儿，单聊、群聊、通话、引用一起管；原文照旧留着给 TTS。
   if (typeof text === "string" && text.indexOf("<#") >= 0 && typeof stripPauseMarks === "function") text = stripPauseMarks(text);
+  // (snorts)(clear-throat) 这种声音标签也一样（她 2026-10-19 截图：漏成文字气泡，标签原样摆在字前头）：
+  //   本该变成语音的那条哪条路漏了，屏幕上都不露；「听一下」照旧念原文，声音还在。她自己打的不动。
+  if (!isU && typeof text === "string" && text.indexOf("(") >= 0 && typeof ttsHasSoundTag === "function" && ttsHasSoundTag(text) && typeof ttsMarkStrip === "function") text = ttsMarkStrip(text);
   // 世界书卡片走这儿分流：TransText 是全库【唯一】那条正文渲染路（单聊/群聊/通话/
   // 线下引用/查手机都用它），所以闸开在这一处，八处一起合规。
   // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。

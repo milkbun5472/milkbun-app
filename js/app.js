@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.053";
+const APP_VERSION = "v76.059";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13294,6 +13294,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");
+      // 带声音标签的那一泡【拆完泡以后】再认一遍语音（她 2026-10-19：普通回复里 (snorts)(clear-throat) 掉成了文字泡）：
+      //   上面 markPauseVoice 认的是拆泡【之前】那几项；模型把几句塞进一项、或者 JSON 没解析出来走了兜底，
+      //   带标签的那句是拆完才单独出来的，就漏了。（已经在 _oneLong 里并成一整段的不拆，照它）
+      if (!_oneLong && typeof ttsHasSoundTag === "function" && typeof VOICE_SLOT_TOKEN === "function")
+        words = words.map(w => typeof w === "string" && ttsHasSoundTag(w) ? (_inlineVoice.push({ t: w.trim(), sent: false }), VOICE_SLOT_TOKEN(_inlineVoice.length - 1)) : w);
       // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
@@ -13817,8 +13822,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _letter = _llObj ? String(_llObj.text || "").trim() : typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
       const _letterRel = _llObj ? spaceRelKey(_llObj.rel) : "lover";
       if (_letter && _letter.toLowerCase() !== "null" && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
-        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", rel: _letterRel, content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
-        markLoveLetter(charId, { ts: Date.now() });
+        const _llId = "ll_" + Date.now();
+        pChat(charId, p => [...p, { id: _llId, role: "assistant", kind: "loveletter", rel: _letterRel, content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
+        markLoveLetter(charId, { ts: Date.now(), id: _llId });
         delivered = true;
       }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
@@ -24843,7 +24849,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (bk && Date.now() - Number(bk.ts || 0) < 7 * 864e5) return false;
     const rec = (loadJSON("x_loveLetter", {}) || {})[charId] || {};
     if (Date.now() - Number(rec.declinedTs || 0) < LOVE_LETTER_DECLINE_COOL_MS) return false;
-    if (Date.now() - Number(rec.ts || 0) < 864e5) return false;
+    // 一天一封只算【还在聊天里的那封】（群里 2026-10-19：「申请信点错重 Roll 了，让他重新发死活发不出来」）——
+    //   重 Roll、删掉以后信没了，那一封不算数
+    if (Date.now() - Number(rec.ts || 0) < 864e5 && (chatsRef.current[charId] || []).some(m => m && m.kind === "loveletter" && (rec.id ? m.id === rec.id : Number(m.ts || 0) >= Number(rec.ts || 0) - 5000))) return false;
     if ((chatsRef.current[charId] || []).some(m => m && m.kind === "loveletter" && (m.state === "sealed" || m.state === "open"))) return false;
     return true;
   };
@@ -25559,7 +25567,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
     return false;
   };
-  const AVATAR_COOLDOWN_MS = 7 * 86400000;
+  // 冷却去掉了（她 2026-10-19：「把冷却去掉」——TA刚自己换过头像，她发的情头重 Roll 多少次都不换）。
+  //   闸还留着这一格（=0），换不换照旧由 TA 看照片自己定，只是不再按日子拦。
+  const AVATAR_COOLDOWN_MS = 0;
   const FRESH_PHOTO_LOOKBACK = 6;
   // ⚠️第二个参数是往回看几条。原来写死 6——于是下面「她开口要换」那一档虽然先 slice(-40)，
   //   进来又被砍回 6 条，发完照片聊几轮再说「换成那张」就永远找不到（她 2026-09-30：「过了几轮他就不行了」）。
