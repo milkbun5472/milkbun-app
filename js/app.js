@@ -27424,6 +27424,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
   // 关键：切歌时把当前队列一起传给 playSong，否则播放歌单里点下一首会把队列缩成单曲。
   // TA 说要放哪首 → 真的换全局播放器的歌。线上聊天和线下共用这一处（线下 v75.437 接上）。
+  // 耳机那儿（listen-talk.js）TA要换歌也走这一个（她 2026-10-19）；每次渲染都换成最新的这份
+  if (typeof window !== "undefined") window.__taSwitchSong = v => taSwitchSong(v);
   const taSwitchSong = async songSwitch => {
     const want = String(songSwitch).trim();
     if (/下一首|下首|next/i.test(want)) stepSong(1);
