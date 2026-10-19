@@ -48,7 +48,7 @@ test("编出来的是整页缩放，全 App 那一档是底数", () => {
 test("存档里带着它，也跟着主题包走", () => {
   assert.ok(/pageTokens: \{\}, pageZoom: \{\}/.test(studioSrc), "新存档里没有这一格");
   assert.ok(/const pageZoom = cleanZoom\(x\.pageZoom\);/.test(studioSrc), "normalize 没洗它");
-  assert.ok(/pageCSS: \{ \.\.\.\(x\.pageCSS \|\| \{\}\) \}, pageTokens, pageZoom \}/.test(studioSrc), "normalize 没把它带出来");
+  assert.ok(/pageCSS: \{ \.\.\.\(x\.pageCSS \|\| \{\}\) \}, pageTokens, pageZoom(, fontScale)? \}/.test(studioSrc), "normalize 没把它带出来");
   // 导入勾选：它跟配色、CSS 同属「这一页长什么样」，所以跟 css 那一格走
   assert.ok(/pageZoom: sel\.css \? inc\.pageZoom : cur\.pageZoom/.test(ui), "导入时它没跟着 css 那一格走");
   // v72.52：「这一样有没有」搬进了 ThemeStudio.packHas（导出挑、导入勾、气泡那页单收都问它）

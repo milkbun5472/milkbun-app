@@ -156,7 +156,7 @@ test("排版多了入场动画、字号行距、顶栏输入栏样子；原样�
   const css = f({ enter: "rise", fontSize: 16, lineHeight: 1.8, head: "glass", composer: "float" });
   assert.match(css, /@keyframes wkEnterRise/);
   assert.match(css, /\[data-wk="msg"\]\[data-recent="1"\]\{animation:wkEnterRise/);
-  assert.match(css, /\[data-wk="bubble"\]\{font-size:16px !important;\}/);
+  assert.match(css, /\[data-wk="bubble"\]\{font-size:calc\(16px \* var\(--app-fs, 1\)\) !important;\}/);
   assert.match(css, /line-height:1\.8 !important/);
   assert.match(css, /\[data-wk="chathead"\]\{background:rgba\(255,255,255,\.55\)/);
   assert.match(css, /\[data-wk="composer"\]\{margin:0 10px 8px !important;border-radius:22px/);
