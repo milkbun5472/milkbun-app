@@ -16,7 +16,7 @@ function loadNest(store) {
   const saved = {};
   const loadJSON = (k, d) => (k in store ? JSON.parse(JSON.stringify(store[k])) : d);
   const saveJSON = (k, v) => { saved[k] = v; store[k] = v; return true; };
-  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", nest)(
+  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", require("fs").readFileSync(require("path").join(__dirname, "..", "js", "nest-watch.js"), "utf8") + "\n" + nest)(   // 2026-10-18 起地址和管理口令在 nest-watch.js，先装它
     g, { useState: () => [], useEffect: () => {}, useRef: () => ({}) }, () => null, () => null, loadJSON, saveJSON, { getItem: () => null });
   return { N: g.Nest, g, saved };
 }
@@ -31,9 +31,13 @@ test("接线：主屏有图标、路由进得去、脚本先于 app.js 加载", 
 });
 
 test("走秋秋机自己的前门：包里不许有 Worker 真地址、不许有她的名字", () => {
-  assert.match(nest, /const NEST = "https:\/\/qiuqiu-machine\.pages\.dev\/nest";/);
-  assert.ok(!/workers\.dev/.test(nest), "Worker 真地址进了包——里头带着账号名");
-  assert.ok(!/lisa/i.test(nest), "小窝里出现了她的名字");
+  // 2026-10-18 起地址写在 js/nest-watch.js（开机就加载，管理员提醒要用），nest.js 从那儿拿
+  const watch = R("js/nest-watch.js");
+  assert.match(watch, /const NEST = "https:\/\/qiuqiu-machine\.pages\.dev\/nest";/);
+  [nest, watch].forEach(src => {
+    assert.ok(!/workers\.dev/.test(src), "Worker 真地址进了包——里头带着账号名");
+    assert.ok(!/lisa/i.test(src), "小窝里出现了她的名字");
+  });
   assert.ok(!/report|举报/.test(nest.replace(/^\s*\/\/.*$/gm, "")), "她说了不要举报键");
 });
 
