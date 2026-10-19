@@ -10512,6 +10512,8 @@ function ChatThread({
     className: "h-full flex flex-col",
     ref: kbPadRef,
     "data-wk": "chat",
+    // 在不在副房间（她 2026-10-19：同一份美化主聊天对、房间就不对，得能分开写）
+    "data-room": room && !room.main ? "1" : "0",
     // 皮肤的全局聊天背景；单聊自己设过图的优先。调过面纱/虚化的话，图铺在 ChatBgLayer 那一层
     style: chatBgStyle(dsp.chatBg ? resolveImg(dsp.chatBg) : "", dsp.chatBgFx, BUBBLE_SKIN.chatBg || t.bg)
   }, h(ChatBgLayer, { img: dsp.chatBg ? resolveImg(dsp.chatBg) : "", fx: dsp.chatBgFx }), !sceneMode && /*#__PURE__*/React.createElement("div", {
@@ -11208,14 +11210,16 @@ function ChatThread({
     character: character,
     size: 40,
     radius: 10
-  }), /*#__PURE__*/React.createElement("div", {
+  }), h("div", null, /*#__PURE__*/React.createElement("div", {
+    // 外面多包一层（她 2026-10-19）：跟普通消息一样，气泡不直接挂在整行底下。
+    //   美化常写「div:has(> 气泡) 竖着排」来把引用挪到气泡下面，直接挂在行上会把头像、点点、✕ 整行竖排拆散。
     "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
     style: {
       padding: "12px 14px",
       background: "#fff",
       borderRadius: 14
     }
-  }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog })),
+  }, /*#__PURE__*/React.createElement(TypingDots, { color: t.fog }))),
   onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode ? h("div", { "data-wk": "selbar", className: "shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}` } },
   // 多选栏两行（她 2026-10-17「太多东西塞不下了」）：上面一行是取消／已选几条／补中间，下面一行是能做的事，平均摊开
   h("div", {
@@ -18801,14 +18805,14 @@ function GroupThread({
   }), sending && h("div", {
     "data-wk": "row",
     className: "flex items-center gap-2"
-  }, h("div", {
+  }, h("div", null, h("div", {
     "data-wk": "bubble", "data-me": "0", "data-kind": "typing",
     style: {
       padding: "12px 14px",
       background: "#fff",
       borderRadius: 14
     }
-  }, h(TypingDots, { color: t.fog })), onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode && h("div", {
+  }, h(TypingDots, { color: t.fog }))), onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode && h("div", {
     className: "flex items-center justify-between px-4 py-3 shrink-0",
     style: { background: t.bg2, borderTop: "1px solid " + t.line }
   }, h("button", { onClick: exitSel, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"),
