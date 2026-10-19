@@ -10512,6 +10512,8 @@ function ChatThread({
     className: "h-full flex flex-col",
     ref: kbPadRef,
     "data-wk": "chat",
+    // 在不在副房间（她 2026-10-19：同一份美化主聊天对、房间就不对，得能分开写）
+    "data-room": room && !room.main ? "1" : "0",
     // 皮肤的全局聊天背景；单聊自己设过图的优先。调过面纱/虚化的话，图铺在 ChatBgLayer 那一层
     style: chatBgStyle(dsp.chatBg ? resolveImg(dsp.chatBg) : "", dsp.chatBgFx, BUBBLE_SKIN.chatBg || t.bg)
   }, h(ChatBgLayer, { img: dsp.chatBg ? resolveImg(dsp.chatBg) : "", fx: dsp.chatBgFx }), !sceneMode && /*#__PURE__*/React.createElement("div", {
