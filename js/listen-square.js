@@ -53,7 +53,8 @@
       + "\n\n「" + S(o.me) + "」刚说了：「" + S(o.text) + "」" + (o.to ? "（回的是「" + S(o.to) + "」）" : "") + "。写接在后面的 " + (o.n || "5-8") + " 条。"
       + (o.must ? "\n第一条必须是「" + S(o.must.name) + "」回她的（by 填 " + o.must.id + "）——就是他本人，跟她平时怎么说话，这儿还是那个样子，只是记得这是公开的地方。" : "")
       + "\n其余是刷到这里的人，不认识这串里任何人、不知道谁跟谁什么关系；也可以有人不回她、自己说自己的。"
-      + "\n\n" + LIVE + "\n\n只输出 JSON：{\"items\":[" + ITEM_SCHEMA + "]}";
+      + (o.switchBy ? "\n\n「" + S(o.switchBy) + "」正陪她听着这首。他要是真想换一首（嫌这首不合适、她叫他换、或者他想放别的），就在 JSON 最外层加 \"songSwitch\"：填要放的那首歌名，跳下一首填「下一首」、回上一首填「上一首」；不换就别写这一栏，别动不动就切。" : "")
+      + "\n\n" + LIVE + "\n\n只输出 JSON：{\"items\":[" + ITEM_SCHEMA + "]" + (o.switchBy ? "，想换歌时再加 \"songSwitch\":\"歌名\"" : "") + "}";
   }
   // 这一串摊成给模型看的现场
   const transcriptOf = (items, max) => (items || []).slice(-(max || 24)).map(x => "· " + S(x.name) + (x.to ? " 回 " + S(x.to) : "") + "：" + S(x.text).slice(0, 120)).join("\n");
