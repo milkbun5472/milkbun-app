@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.077";
+const APP_VERSION = "v76.090";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11007,7 +11007,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("money")) {
       // 按 id 也挡一道（群里 2026-10-18：「不能查到我给别人点的」）：备注改过、名字没写进 label 的那几笔照样露
-      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && w.ref.charId && maskSet.has(String(w.ref.charId)))).slice(0, 10);
+      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && ((w.ref.charId && maskSet.has(String(w.ref.charId))) || (w.ref.groupId && maskSet.has(String(w.ref.groupId)))))).slice(0, 10);
       // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
       const vName = nameOf(viewerId);
       const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
@@ -11018,9 +11018,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if ((m = L.match(/^(.+?)\s*转账给你$/))) return who(m[1]) + "转给她 " + amt;
         if ((m = L.match(/^给\s*(.+?)\s*点外卖/))) return "她给" + who(m[1]) + "点外卖 " + amt;
         if ((m = L.match(/^抢到\s*(.+?)\s*的红包$/))) return "她抢到" + who(m[1]) + "的红包 " + amt;
-        return (w.delta < 0 ? "她花出去 " : "她收到 ") + amt + "（" + cut(L, 24) + "）";
+        // 没写给谁的那几笔（购物、外卖、直播间……）照实说「没写给谁」（群友 2026-10-20：她给别的面具那边的人买的东西，
+        //   他翻到了「购物 xx」就全认成是给自己的）。写了他名字的上面几条已经标了「就是你」，这里不替他猜。
+        return (w.delta < 0 ? "她花出去 " : "她收到 ") + amt + "（" + cut(L, 24) + (w.delta < 0 ? "，流水上没写是给谁的" : "") + "）";
       };
-      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n"));
+      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n")
+        + "\n标了「就是你」的才是给你的；没写给谁的，你不知道是买给谁、给自己还是给别人的。");
     }
     if (on("shop")) {
       const od = (orders || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
@@ -18069,14 +18072,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   useEffect(() => {
     // 进入论坛只读已有内容，不自动生成、不烧一次主池（新内容全由她在论坛里明确触发）
     if (screen === "forum") clearAppNotif("forum");
-    if (screen === "nest") { if (window.NestWatch) window.NestWatch.markSeen(); clearAppNotif("nest"); }
+    if (screen === "nest") { if (window.NestWatch) window.NestWatch.markSeen(); clearAppNotif("nest"); if (window.NestWatch && window.NestWatch.adminToken() && window.Notify && window.Notify.badge) window.Notify.badge(0); }
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);
   // ── 小窝管理员的新消息（她 2026-10-18：「通知里面有，app 外面也有红点，新发的都会提醒」）──
-  //   只有这台手机记着管理口令才会去看（js/nest-watch.js）。开机过十秒看一次，之后在前台每十分钟一次，
-  //   切回来时离上次超过三分钟也看一次。红点＝比上次点进小窝还新的条数；横幅只为【还没弹过的】那几条弹一次。
+  //   只有这台手机记着管理口令才会去看（js/nest-watch.js）。开机过十秒看一次，之后每十分钟一次，
+  //   切回来时离上次超过三分钟也看一次。红点＝比上次点进小窝还新的条数；提醒只为【还没报过的】那几条报一次：
+  //   人在 app 里→顶上横幅；app 在后台→系统通知（锁屏/通知中心，点开落到小窝），桌面图标也挂上这个数。
   //   她正在小窝里时不弹不亮（她自己就在看墙）。
+  // ⚠️2026-10-19 她：「我还是收不到小窝提醒」。第一版的十分钟那一拍写成了【在前台才查】——
+  //   可系统通知只在后台才发，于是人一走开它就不查了，等于永远轮不到通知那一支。现在后台也查
+  //  （只拉列表最新那一页，很轻）；iOS 把 app 整个冻住时 JS 不跑，那就等她回来那一下再报。
   const nestWatchAt = useRef(0);
   const nestWatchRun = async force => {
     if (!window.NestWatch || !window.NestWatch.adminToken()) return;
@@ -18085,21 +18092,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let r; try { r = await window.NestWatch.check(); } catch (e) { return; }   // 网断了就等下一轮，不吵她
     if (screenRef.current === "nest") { window.NestWatch.markSeen(); return; }
     setAppNotif(p => { if ((p.nest || 0) === r.fresh.length) return p; const n = { ...p, nest: r.fresh.length }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
+    if (window.Notify && window.Notify.badge) window.Notify.badge(r.fresh.length);
     if (r.untold.length) {
       const KZ = { theme: "主题", look: "聊天美化", css: "CSS", lore: "世界书", style: "文风", preset: "预设", persona: "人设", post: "留言板" };
       const top = r.untold[0];
       const what = (KZ[top.kind] ? "【" + KZ[top.kind] + "】" : "") + (top.title || "新的一条") + (top.nick ? " · " + top.nick : "");
-      pushAppBanner("nest", { name: "秋秋小窝", tag: "管理", G: window.GNest, n: r.untold.length,
-        text: r.untold.length > 1 ? "新发了 " + r.untold.length + " 条：" + what : "新发了：" + what });
+      const text = r.untold.length > 1 ? "新发了 " + r.untold.length + " 条：" + what : "新发了：" + what;
+      if (document.visibilityState === "hidden") { if (window.Notify) window.Notify.push({ title: "秋秋小窝", body: text, tag: "nest-new", screen: "nest" }); }
+      else pushAppBanner("nest", { name: "秋秋小窝", tag: "管理", G: window.GNest, n: r.untold.length, text: text });
     }
   };
   useEffect(() => {
     if (!loaded) return;
     const t0 = setTimeout(() => nestWatchRun(true), 10000);
-    const iv = setInterval(() => { if (document.visibilityState !== "hidden") nestWatchRun(true); }, 10 * 60000);
+    const iv = setInterval(() => nestWatchRun(true), 10 * 60000);
+    // 切回来：跟开 app 那一串一样两种信号都认（壳里 visibilitychange 不一定来，focus 会来）
     const kick = () => { if (document.visibilityState !== "hidden") nestWatchRun(false); };
+    const now = () => nestWatchRun(true);   // 小窝里「现在查一次」
     document.addEventListener("visibilitychange", kick);
-    return () => { clearTimeout(t0); clearInterval(iv); document.removeEventListener("visibilitychange", kick); };
+    window.addEventListener("focus", kick);
+    window.addEventListener("nest-watch-now", now);
+    return () => { clearTimeout(t0); clearInterval(iv); document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); window.removeEventListener("nest-watch-now", now); };
   }, [loaded]);
   // 每次唤起要补的那一串（开 app / 切回前台 / 跨天，三处走的是同一串）。
   // ⚠️两件事必须是这样：
@@ -27264,12 +27277,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try { const url = await resizeImageFile(file, 500, 0.82); saveListen(p => ({ ...p, disc: url })); }
     catch (e) { toast("图片处理失败"); }
   };
+  // 「全部」那一栏最多留几首（群友 2026-10-20 问「歌单有数量限制吗」）：原来按加法不同各是 30/40/60，
+  //   满了悄悄挤掉最早的。统一成 300，真挤掉时说一声，提醒她想留的放进自己建的歌单（歌单不限）。
+  const LISTEN_SONG_CAP = 300;
+  const capListenSongs = list => {
+    if (list.length <= LISTEN_SONG_CAP) return list;
+    setTimeout(() => toast("「全部」最多留 " + LISTEN_SONG_CAP + " 首，最早那首挪出去了；想留着的放进自己建的歌单就不会丢"), 0);
+    return list.slice(0, LISTEN_SONG_CAP);
+  };
   const addListenSong = async (title, artist, coverFile) => {
     const tt = (title || "").trim();
     if (!tt) return;
     let cover = null;
     if (coverFile) { try { cover = await resizeImageFile(coverFile, 500, 0.82); } catch (e) {} }
-    saveListen(p => ({ ...p, songs: [{ id: "sg_" + Date.now(), title: tt, artist: (artist || "").trim(), cover: cover, ts: Date.now() }, ...(p.songs || [])].slice(0, 30) }));
+    saveListen(p => ({ ...p, songs: capListenSongs([{ id: "sg_" + Date.now(), title: tt, artist: (artist || "").trim(), cover: cover, ts: Date.now() }, ...(p.songs || [])]) }));
   };
   const removeListenSong = id => { idbAudioDel(id); saveListen(p => ({ ...p, songs: (p.songs || []).filter(x => x.id !== id) })); };
   // ---- 全局播放器 handlers ----
@@ -27415,6 +27436,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
   // 关键：切歌时把当前队列一起传给 playSong，否则播放歌单里点下一首会把队列缩成单曲。
   // TA 说要放哪首 → 真的换全局播放器的歌。线上聊天和线下共用这一处（线下 v75.437 接上）。
+  // 耳机那儿（listen-talk.js）TA要换歌也走这一个（她 2026-10-19）；每次渲染都换成最新的这份
+  if (typeof window !== "undefined") window.__taSwitchSong = v => taSwitchSong(v);
   const taSwitchSong = async songSwitch => {
     const want = String(songSwitch).trim();
     if (/下一首|下首|next/i.test(want)) stepSong(1);
@@ -27640,7 +27663,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
     }
     const nsong = { id: "sg_" + Date.now(), source: "netease", neteaseId: nid, title: (title || "").trim() || ("网易云歌曲 " + nid), artist: (artist || "").trim(), ts: Date.now() };
-    saveListen(p => ({ ...p, songs: [nsong, ...(p.songs || []).filter(x => x.neteaseId !== nid)].slice(0, 40) }));
+    saveListen(p => ({ ...p, songs: capListenSongs([nsong, ...(p.songs || []).filter(x => x.neteaseId !== nid)]) }));
     backfillSongMeta(nsong); // 刚贴进来就去拿封面/歌名/歌手，不用等到播放
     toast("已添加");
   };
@@ -27649,7 +27672,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!file) return;
     const id = "sg_" + Date.now();
     try { await idbAudioPut(id, file); } catch (e) { toast("音频存储失败"); return; }
-    saveListen(p => ({ ...p, songs: [{ id, source: "local", title: (title || "").trim() || file.name.replace(/\.[^.]+$/, ""), artist: (artist || "").trim(), ts: Date.now() }, ...(p.songs || [])].slice(0, 40) }));
+    saveListen(p => ({ ...p, songs: capListenSongs([{ id, source: "local", title: (title || "").trim() || file.name.replace(/\.[^.]+$/, ""), artist: (artist || "").trim(), ts: Date.now() }, ...(p.songs || [])]) }));
     toast("已添加");
   };
   const setListenPartner = charId => saveListen(p => ({ ...p, partnerId: charId }));
@@ -27833,7 +27856,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null);
   };
   const phoneMusicLeave = cid => roomMusicLeave(phoneMusicMine(cid));
-  const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
+  const addNeteaseResult = s => saveListen(p => ({ ...p, songs: capListenSongs([resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))]) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
   // ── 模型推歌 → 网易云搜到真曲：这条漏斗【两处共用】（角色歌单 / 情侣唱片）──
   // 单独抽出来是因为它有两道会吃掉结果的关卡（搜不到 / 已经有了），
@@ -28427,11 +28450,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const walletSpend = (charId, amount, label, kind) => {
     const amt = numClean(amount);
     if (!(amt > 0)) return false;
-    let ok = false;
+    // 开没开通先照 ref 当场判（她 2026-10-19：旅行「他请客」说他没钱包，明明有）——
+    //   原来 ok 是在 setCharWallet 的更新函数里才置上的，React 常常等到下一次画的时候才跑它，
+    //   这一句 return 时 ok 还是 false，于是钱包明明开着也被说成没开通
+    const cur0 = (charWalletRef.current || {})[charId];
+    if (!cur0 || !cur0.init) return false;
+    let ok = true;
     setCharWallet(p => {
       const cur = p[charId];
       if (!cur || !cur.init) return p;
-      ok = true;
       const bal = r2((Number(cur.balance) || 0) - amt);
       const e = { id: "cw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: -amt, after: bal, label: label, kind: kind || "gift" };
       const n = { ...p, [charId]: { ...cur, balance: bal, ledger: [e, ...(cur.ledger || [])] } };
@@ -30695,7 +30722,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "wallet") body = h(MyWallet, {
     recur: myRecur, onSaveRecur: upsertMyRecur,
     balance: wallet,
-    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId)) : walletLog,
+    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId) && !peekMaskHit(peekMaskView(), "", w.ref && w.ref.groupId)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,

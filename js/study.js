@@ -354,6 +354,10 @@
     parts.push(USER_SLOT_PROTECT);
     parts.push(RETEACH_RULE);
     parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+    // 一起学也认「外语消息自带中译」（群里 2026-10-18：日男老师说日文，叫他自己加中文，翻没几条就不见了）——
+    //   跟单聊同一段规矩：每一泡外语写成「原文 | 中文」，屏幕上原文照常、中文挂进「译」
+    if (typeof window !== "undefined" && window.__charBilingual && window.__charBilingual(char.id) && typeof bilingualRule === "function")
+      parts.push(bilingualRule(char.name) + "一起学里也一样：讲解、例句、追问里的外语都照这个写；题卡和递给她的讲义不用加。");
     // 「这个人是谁」这几层一起学原来一层都没有（她 2026-09-23：「一起学之类的人设有被投进去吗」）。
     //   隔离挡的是【主聊天记忆】；长出来的自我、语气锚、整张卡那条都不是记忆，是人本身，所以照给。
     if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
@@ -868,7 +872,8 @@
   // 她传上来的课本、讲义、笔记。课身上只记【有哪几份】（名字、字数），正文放 IndexedDB 那张表里，
   // 跟一起读的书同一种存法（core.js 的 makeTextStore）。
   // ⚠️正文不整本往里塞：每次只挑跟这一节有关的几段，一门课的资料动辄几万字。
-  const MAT_BUDGET = 6000, MAT_CHUNK = 700;
+  // 每轮给多少字资料（她 2026-10-20：群友「感觉他看资料看不全」——原来 6000 字，一本书只挑得出九段，放大到 25000）
+  const MAT_BUDGET = 25000, MAT_CHUNK = 700;
   let _matStore = null;
   function matStore() { if (!_matStore && typeof makeTextStore === "function") _matStore = makeTextStore("StudyDocsDB", "docs"); return _matStore; }
   const MAT_CACHE = {};   // id → 全文；读一次留着，拼提示词那一步是同步的
@@ -3268,6 +3273,10 @@
     const [quizConfidence, setQuizConfidence] = useState({});
     const scrollRef = useRef(null);
     const sessRef = useRef(props.session);
+    // 重说（群里 2026-10-18「一起学能不能搞重roll」）：每轮让老师开口之前，把整本课页（对话、进度、大纲）照原样存一份；
+    //   点「重说」就退回那一份再说一遍——这一轮出的题卡、讲义、记下的进度、换掉的材料一起退，不会记两次
+    const rerollSnap = useRef(null);
+    const [canReroll, setCanReroll] = useState(false);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 台词朗读（懒合成，重听免费）
     useEffect(function () { sessRef.current = sess; }, [sess]);
     const [hoView, setHoView] = useState("");   // 正在看老师递来的哪一份
@@ -3593,6 +3602,8 @@
       if (busy) return;
       if (!props.active) { props.toast("请先到设置配置 API"); return; }
       setBusy(true);
+      try { rerollSnap.current = JSON.parse(JSON.stringify(sessRef.current)); } catch (e) { rerollSnap.current = null; }
+      setCanReroll(false);
       try {
         if (sess.mode === "nv1") {
           const peer = chars.find(function (c) { return c.id !== (teacher && teacher.id); });
@@ -3607,9 +3618,18 @@
         } else {
           await runChar(chars[0], sess.mode);
         }
+        // 记下说完时有几条：她之后又发了话、点了别的，条数一变这颗就收起来，免得把她后来那句一起退掉
+        setCanReroll(rerollSnap.current ? (sessRef.current.transcript || []).length : false);
       } catch (e) {
         props.toast("生成失败：" + (e.message || "重试"));
       } finally { setBusy(false); }
+    }
+    function rerollLast() {
+      const snap = rerollSnap.current;
+      if (busy || !snap || canReroll !== (sessRef.current.transcript || []).length) return;
+      commit(snap);
+      setCanReroll(false);
+      setTimeout(function () { replyNow(); }, 60);
     }
 
     function hasExitAnswer(s, ticket) {
@@ -3871,9 +3891,11 @@
         h("div", { className: "min-w-0" },
           (sess.mode === "nv1" || (char && char.voiceId && typeof ttsReady === "function" && ttsReady())) ? h("div", { className: "flex items-center gap-1", style: { marginBottom: 2 } },
             sess.mode === "nv1" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, m.name + (isTeacher ? "（老师）" : "（同学）")) : null,
-            (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: isVoice(m.content) ? m.content.slice(VOICE_PRE.length) : m.content, spk: char, tp: tp }) : null) : null,
+            (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: isVoice(m.content) ? m.content.slice(VOICE_PRE.length) : (function (x) { const b = typeof splitBilingual === "function" ? splitBilingual(x, false) : null; return b ? b.text : x; })(m.content), spk: char, tp: tp }) : null) : null,
           m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { "data-wk": "block", style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", cursor: isVoice(m.content) ? "pointer" : undefined },
-            onClick: isVoice(m.content) ? function () { playVoice(char, m.content); } : undefined }, voiceShow(m.content))));
+            onClick: isVoice(m.content) ? function () { playVoice(char, m.content); } : undefined },
+            // 外语那几泡也给「译」，带了「原文 | 中文」的直接挂上中文（跟聊天同一个 TransText）
+            (!isVoice(m.content) && typeof TransText === "function") ? h(TransText, { text: m.content, ink: STUDY_SKIN.ink }) : voiceShow(m.content))));
     });
 
     const hoEntry = hoView ? (sess.transcript || []).find(function (m) { return m.id === hoView && m.handout && m.handout.status === "done"; }) : null;
@@ -3898,6 +3920,8 @@
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, padding: "4px 2px" } }, "正在翻课页…") : null),
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.97) } },
         bubbles.length ? h("div", { className: "px-4 pt-2 flex gap-2" },
+          canReroll && !busy && canReroll === (sess.transcript || []).length ? h("button", { "data-wk": "studyreroll", onClick: rerollLast, className: "active:opacity-70",
+            style: { flex: "0 0 auto", fontFamily: F_BODY, fontSize: 12.5, color: STUDY_SKIN.fog, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 10px 4px 4px", padding: "8px 11px" } }, "↻ 重说") : null,
           sess.mode !== "costudy" ? h("button", { onClick: reteach, disabled: busy, className: "active:opacity-70 disabled:opacity-40",
             style: { flex: "0 0 auto", fontFamily: F_BODY, fontSize: 12.5, color: accent, border: "1px solid " + accent, borderRadius: "4px 10px 4px 4px", padding: "8px 11px" } }, "换种讲法") : null,
           h("button", { "data-wk": "block", onClick: replyNow, disabled: busy, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: busy ? STUDY_SKIN.line : accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px", padding: "8px 0", opacity: busy ? 0.8 : 1 } },

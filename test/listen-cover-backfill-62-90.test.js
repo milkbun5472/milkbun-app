@@ -21,7 +21,8 @@ test("补封面那条路在，两处都接上了：播放时、刚贴进来时",
   assert.match(fn, /patchSongEverywhere\(song\.id, patch\)/, "补回去要走 patchSongEverywhere，库里/歌单里/正在放的那份才会一起改");
   // 调用点：播放（跟抓歌词并排、不 await）、贴 ID 进来
   assert.match(app, /fetchLyrics\(song\);[^\n]*\n\s*backfillSongMeta\(song\);/, "播放时没顺手补");
-  assert.match(app, /saveListen\(p => \(\{ \.\.\.p, songs: \[nsong, /, "addNeteaseSong 没把新歌拎出来");
+  // 2026-10-19 起「全部」最多 300 首（v76.083）：新歌外面套一层 capListenSongs，照样排第一
+  assert.match(app, /saveListen\(p => \(\{ \.\.\.p, songs: capListenSongs\(\[nsong, /, "addNeteaseSong 没把新歌拎出来");
   assert.match(app, /backfillSongMeta\(nsong\);/, "刚贴进来那一下没补");
   // 桩照写入方：resultToSong / discAdd 的封面字段都叫 cover，补的也得叫 cover
   assert.match(app, /const resultToSong = s => \(\{[^\n]*cover: s\.cover \|\| null/);

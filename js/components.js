@@ -6429,13 +6429,21 @@ function Home({
   const HOME_MAX_PAGES = 12;
   // 一页能上下滑，所以真东西可以比看得见的行数多放这么多行
   const HOME_SCROLL_EXTRA_ROWS = 2;
+  // 名片「原尺寸」（群友 2026-10-20：选原尺寸被压成一条，下面那行不是空的就被裁掉半截）：
+  //   原来按格只占 4×1、靠伸进下一行空格显示完整。可主屏是见缝插针排的（dense），
+  //   顺序上紧跟它的空格不一定真排在它正下方，照顺序判断还是会被裁。
+  //   现在一律自己占 4×2；默认垫在它后面的那一排空格在 buildLayout 里收掉（cardAbsorbSpacers），看着跟原来一样。
+  const spanFor = function (key, it) {
+    if (key === "w_card" && homeSizeOf(key, widgetSizes) === "auto") return [4, 2];
+    return homeItemSpan(key, it, widgetSizes);
+  };
   // 每项占几列几行（4 列制）——必须和 renderItem 里写的 gridColumn/gridRow 一模一样
   const spanOf = function (key) {
     if (SP_RE.test(key)) return [1, 1];
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
     if (!it) return null;
     if (it.kind !== "widget" && it.kind !== "decor") return [1, 1];
-    return homeItemSpan(key, it, widgetSizes);
+    return spanFor(key, it);
   };
   // 每项占的格子数（4 列制）：app/文件夹/空格=1，日历 3x3=9，地图 2x2=4，整行组件=4
   const wOf = function (key) { var s = spanOf(key); return s ? s[0] * s[1] : 0; };
@@ -6477,6 +6485,16 @@ function Home({
   // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
   // 最后做「槽位规整」：去尾部空格 → 补空格到整行；恰好铺满且没超载时多送一空行（留挪动余地）
   function buildLayout(saved) {
+    // 原尺寸名片自己占两行了：紧跟在它后面的空格（最多一整排 4 个）就是原来给它垫的那一行，收掉，别多出一行空白
+    function cardAbsorbSpacers(out) {
+      if (typeof widgetSizes === "undefined" || homeSizeOf("w_card", widgetSizes) !== "auto") return;
+      out.forEach(function (arr) {
+        var i = (arr || []).indexOf("w_card");
+        if (i < 0) return;
+        var n = 0;
+        while (n < 4 && i + 1 < arr.length && SP_RE.test(arr[i + 1])) { arr.splice(i + 1, 1); n++; }
+      });
+    }
     saved = saved || {};
     var F = foldersRef.current || {};
     var seen = {};
@@ -6542,6 +6560,7 @@ function Home({
     // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按 6 行算，
     // 跟量出来之前的默认值一致。
     // ⚠️sandbox 里（测试把 buildLayout 单独抠出来跑）没有这个 ref：取不到就按老规矩 6 行算。
+    cardAbsorbSpacers(out);
     var capRows = Math.max(4, (typeof rowCapRef !== "undefined" && rowCapRef && rowCapRef.current) || 6);
     // 页面能上下滑之后，一页就不必卡死在【看得见的那几行】：多放两行，滑一下就够着。
     // ⚠️只放宽【真东西的容量闸】，补位空格照旧按看得见的行数补——
@@ -7414,7 +7433,7 @@ function Home({
     const isDrag = dragKey === key;
     const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 所有组件/装饰都从同一份占格设置取尺寸；spanOf/placeDense 也走这条，视觉和落位不会各算各的。
-    const span = (it.kind === "widget" || it.kind === "decor") ? homeItemSpan(key, it, widgetSizes) : [1, 1];
+    const span = (it.kind === "widget" || it.kind === "decor") ? spanFor(key, it) : [1, 1];
     // 显式坐标（算不出来时退回原来的 span 流，至少不会消失）
     const gCol = at ? (at.c + 1) + " / span " + span[0] : "span " + span[0];
     const gRow = at ? (at.r + 1) + " / span " + span[1] : "span " + span[1];
@@ -7742,7 +7761,7 @@ function Home({
             h("div", { style: Object.assign({}, pvShell, { position: "relative" }) },
               // 组件画的是【真组件】，走渲染桌面那一格的同一个 homeInnerOf——
               // 另画一份假预览的话，这儿好看的和桌面上那一格迟早对不上。
-              A.isWidget ? homeInnerOf(REG[A.key], A.key, homeSizeOf(A.key, widgetSizes), null, homeItemSpan(A.key, REG[A.key], widgetSizes))
+              A.isWidget ? homeInnerOf(REG[A.key], A.key, homeSizeOf(A.key, widgetSizes), null, spanFor(A.key, REG[A.key]))
                 : h(HomeDecorItem, { item: PV, preset: A.preset, now: now }),
               h(HomeStickerLayer, { list: A.stickers, t: t })))));
       })(),

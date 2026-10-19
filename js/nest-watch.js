@@ -28,6 +28,8 @@
   const adminToken = () => ls.get(ADMIN_KEY);
   const num = k => { const n = Number(ls.get(k)); return isFinite(n) && n > 0 ? n : 0; };
   let newest = 0;   // 这一轮拉到的最新一条的时间（点进去时记成「看过了」）
+  // 最近一次查的结果，摆在小窝顶上给她看（她 2026-10-19「我还是收不到小窝提醒」：先得看得见它到底查没查）
+  let last = null;   // { at, ok, err, fresh, top }
 
   async function pull(qs) {
     const headers = { "x-qq-device": typeof qqDeviceId === "function" ? qqDeviceId() : "", "x-qq-admin": adminToken() };
@@ -41,7 +43,9 @@
   //   没口令 → 什么都不拉；第一次（这台手机刚填上口令）→ 只把「现在」记下，不把墙上原有的当新的报
   async function check() {
     if (!adminToken()) return { fresh: [], untold: [] };
-    const lists = await Promise.all([pull("?sort=new&off=0"), pull("?sort=new&kind=post&off=0")]);
+    let lists;
+    try { lists = await Promise.all([pull("?sort=new&off=0"), pull("?sort=new&kind=post&off=0")]); }
+    catch (e) { last = { at: Date.now(), ok: false, err: String((e && e.message) || e || "连不上") }; throw e; }
     const seenIds = {};
     const all = [].concat(lists[0], lists[1]).filter(it => it && it.id && !seenIds[it.id] && (seenIds[it.id] = 1))
       .sort((a, b) => (Number(b.created) || 0) - (Number(a.created) || 0));
@@ -52,6 +56,7 @@
     const told = Math.max(num(TOLD_KEY), seen);
     const untold = fresh.filter(it => (Number(it.created) || 0) > told);
     if (untold.length) ls.set(TOLD_KEY, Number(untold[0].created) || told);
+    last = { at: Date.now(), ok: true, err: "", fresh: fresh.length, top: newest };
     return { fresh, untold };
   }
   // 点进小窝：墙上最新那条之前的都算看过了
@@ -63,5 +68,6 @@
   // 撤掉口令：游标一起清掉，下次再填从那一刻重新算
   function forget() { ls.del(SEEN_KEY); ls.del(TOLD_KEY); newest = 0; }
 
-  g.NestWatch = { NEST, ADMIN_KEY, adminToken, check, markSeen, forget };
+  const lastCheck = () => last;
+  g.NestWatch = { NEST, ADMIN_KEY, adminToken, check, markSeen, forget, lastCheck };
 })(typeof window !== "undefined" ? window : globalThis);

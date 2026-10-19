@@ -180,3 +180,15 @@ test("只按时间排：没有按导入数排这一档", () => {
   assert.match(nest, /setSort\(s => s === "new" \? "old" : "new"\)/);
   assert.ok(!/"hot"/.test(nest), "按导入数排又回来了");
 });
+
+// 文档（她 2026-10-19：「不能单独一个放各种文档可以下载复制的吗」）：不导进哪里，整份摆出来、复制、存成文件
+test("文档一类：格子柜里有；传的时候能选 txt/md/docx 或整份贴；点进去没有「导入」，有复制全文和存成文件", () => {
+  assert.match(nest, /\{ key: "doc", zh: "文档", seal: "档"/);
+  assert.match(nest, /if \(kind === "doc"\) return \{ payload: t, title: base, note: t\.length \+ " 字的文档" \};/);
+  assert.match(nest, /const pasteKind = kind === "theme" \|\| kind === "look" \|\| kind === "css" \|\| kind === "doc";/);
+  assert.match(nest, /isPost \? null : isDoc \? h\(Btn, \{ t, solid: true, wide: true, onClick: doCopy, wk: "nestdoccopy" \}, "复制全文"\)/);
+  assert.match(nest, /isDoc \? h\(Btn, \{ t, onClick: doSave, wk: "nestdocsave" \}, "存成文件"\)/);
+  assert.match(nest, /await saveTextFile\(name \+ "\.txt", it\.payload, "text\/plain"\)/);
+  // 十格排 5×2、九格排 3×3：不留孤零零的一行
+  assert.match(nest, /all\.length % 5 === 0 && all\.length > 5 \? 5/);
+});
