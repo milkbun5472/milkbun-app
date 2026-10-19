@@ -25,7 +25,7 @@ test("气泡皮肤只有一处读、一处写", () => {
 });
 
 test("气泡皮肤进包、也从包里出得来", () => {
-  assert.ok(/bubbleSkin,? ?assets|bubbleSkin, assets/.test(studio), "装包时没带气泡");
+  assert.ok(/bubbleSkin,? ?(home: home \|\| undefined, )?assets/.test(studio), "装包时没带气泡");
   // v72.52 起装包也能只挑几样（她 2026-09-22 要的「只导出图标／只导出背景」），
   // 所以这一格还多了一道 sel.bubble——没挑气泡就不装它。
   assert.ok(/const bubbleSkin = sel\.bubble && extras && extras\.bubbleSkin \? extras\.bubbleSkin : null;/.test(studio), "装包那份气泡不是调用方给的、或者没跟着勾选走");

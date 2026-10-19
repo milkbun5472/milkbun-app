@@ -940,8 +940,25 @@
     { key: "fonts", zh: "字体" },
     { key: "base", zh: "基础配色" },
     { key: "wall", zh: "壁纸" },
-    { key: "bubble", zh: "聊天气泡" }
+    { key: "bubble", zh: "聊天气泡" },
+    { key: "home", zh: "主屏布局" }
   ];
+  // 主屏布局（群友 2026-10-19：「导出好像是不包含自己的桌面布局的」）：图标和组件摆在哪、文件夹、
+  //   组件大小／样式／外观、贴纸、装饰、对齐、藏起来的组件——主屏自己存的就这几份，原样打包、原样写回。
+  //   ⚠️默认不勾（导出、导入都是）：这是她自己的桌面，勾了才带走、勾了才盖。
+  const HOME_KEYS = ["x_homeLayout", "x_homeFolders", "x_homeDecorations", "x_homeWidgetAlign", "x_homeWidgetSizes",
+    "x_homeWidgetStyles", "x_homeWidgetLooks", "x_homeStickers", "x_homeHiddenWidgets"];
+  const PACK_OFF_BY_DEFAULT = ["home"];
+  const homeSnapshot = () => {
+    const out = {};
+    HOME_KEYS.forEach(k => { try { const v = typeof loadJSON === "function" ? loadJSON(k, null) : null; if (v != null) out[k] = v; } catch (_) {} });
+    return Object.keys(out).length ? out : null;
+  };
+  const homeApply = home => {
+    if (!home || typeof home !== "object") return false;
+    HOME_KEYS.forEach(k => { if (k in home && typeof saveJSON === "function") saveJSON(k, home[k]); });
+    return true;
+  };
   const PACK_KEYS = PACK_PARTS.map(x => x.key);
   // 一份包（或一份【当前草稿】，形状一样：{profile, baseTheme, wallpaper, bubbleSkin}）
   // 里这一样到底有没有东西。导出拿它决定能挑哪几样，导入拿它决定能勾哪几样。
@@ -953,13 +970,14 @@
     if (key === "base") return !!(pack && pack.baseTheme);
     if (key === "wall") return typeof (pack && pack.wallpaper) === "string" && !!pack.wallpaper;
     if (key === "bubble") return !!(pack && pack.bubbleSkin);
+    if (key === "home") return !!(pack && pack.home && Object.keys(pack.home).length);
     return false;
   };
   const packParts = pack => PACK_PARTS.map(x => ({ key: x.key, zh: x.zh, has: packHas(pack, x.key) }));
   // 没传 pick 就是整套都要（存量那条路一个字都不用改）
   const cleanPick = pick => {
     const out = {};
-    PACK_KEYS.forEach(k => { out[k] = pick && typeof pick === "object" ? !!pick[k] : true; });
+    PACK_KEYS.forEach(k => { out[k] = pick && typeof pick === "object" ? !!pick[k] : PACK_OFF_BY_DEFAULT.indexOf(k) < 0; });
     return out;
   };
   // 只留她挑的那几样：没挑的退回出厂空值，而不是留在包里
@@ -989,7 +1007,10 @@
     const fontRefs = g.FontChoice ? g.FontChoice.fileRefs(profile.fonts, profile.customFonts) : [];
     // 气泡贴纸（我的／TA 的）如果是自己传的图，也是保险箱门牌——跟着气泡那一样一起装进包（她 2026-10-17 小窝开放收图）
     const bubbleRefs = sel.bubble && extras && extras.bubbleSkin ? [extras.bubbleSkin.mySticker, extras.bubbleSkin.charSticker] : [];
-    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs, ...bubbleRefs].filter(x => /^iv_/.test(x)))];
+    const home = sel.home ? ((extras && extras.home) || homeSnapshot()) : null;
+    // 主屏贴纸、组件外观里自己传的图也是保险箱门牌：整份里认出来的都装进包
+    const homeRefs = home ? (JSON.stringify(home).match(/iv_[A-Za-z0-9_-]+/g) || []) : [];
+    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs, ...bubbleRefs, ...homeRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -1005,7 +1026,7 @@
     return JSON.stringify({ kind: PACK_KIND, format: 1, exportedAt: new Date().toISOString(), profile,
       baseTheme: sel.base ? (extras && extras.baseTheme) : undefined,
       wallpaper: sel.wall ? (extras && extras.wallpaper) : undefined,
-      bubbleSkin, assets }, null, 2);
+      bubbleSkin, home: home || undefined, assets }, null, 2);
   };
   // 导进来的那份到底是什么——认得出几种常见的走错门，各给一条出路
   const whatIsThis = text => {
@@ -1032,7 +1053,12 @@
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
     const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? Object.assign({}, pkg.bubbleSkin) : null;
     if (bubbleSkin) ["mySticker", "charSticker"].forEach(k => { if (map[bubbleSkin[k]]) bubbleSkin[k] = map[bubbleSkin[k]]; });
-    return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
+    let home = null;
+    if (pkg.home && typeof pkg.home === "object") {
+      try { home = JSON.parse(JSON.stringify(pkg.home).replace(/iv_[A-Za-z0-9_-]+/g, r => map[r] || r)); } catch (_) { home = null; }
+      if (home) Object.keys(home).forEach(k => { if (HOME_KEYS.indexOf(k) < 0) delete home[k]; });   // 只认主屏自己那几份，别的键一个不写
+    }
+    return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin, home };
   };
   // 「复制给别的 AI」（群友 2026-09-30：把主题发给 DeepSeek，它说「这是空壳代码、你没有 html」）。
   //   页面是运行时拼的，本来就没有一份 html 能给；别的 AI 缺的是【挂点表】和【写法规矩】。
@@ -1077,7 +1103,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.049",changed: "新挂点 csshookgroup：写 CSS 下面那一组挂点，默认收着",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.050",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
@@ -1121,7 +1147,7 @@
   }
   // 单聊/群聊「自己写 CSS」能存多长：存的时候按这个截，编辑框按这个提醒（只这一处写数）
   const CHAT_CSS_MAX = 200000;
-  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth };
+  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);
