@@ -6644,7 +6644,7 @@ function Home({
         inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper,
           badge: fApps.reduce(function (s, a) { return s + appBadgeOf(a.key); }, 0), onOpen: function () { if (!editMode) setOpenFolder(key); } });
       }
-      else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
+      else if (it.which === "card") inner = h(HomeCard, { flush: true, card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
       else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
       else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, cellCols: span[0], editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
       else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
@@ -7893,7 +7893,7 @@ function Home({
 //   · 底下那排数左对齐、没有分隔线，不再是「三等分格子」那种社交资料页排法。
 // 数字也换了：她说【和恋爱无关】。所以是【认识几个人 / 攒了多少条记忆 / 来了第几天】,
 // 说的是她在这本档案里干了多少事，跟谈没谈恋爱没关系。
-function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpenCodex }) {
+function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpenCodex, flush }) {
   const t = useTheme();
   const c = card || {};
   const name = c.name || profile.name || "点此设置昵称";
@@ -7953,7 +7953,8 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
     style: { width: 19, height: 19, borderRadius: 999, flexShrink: 0,
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
-  return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
+  // 主屏格子里（flush）不留下边距：格子按名片自己的高度量，14px 会被算进去，外层组件底色从卡底下露出一截，像一块阴影（群里 2026-10-20）
+  return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: flush ? 0 : 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
     // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
     //   整屏高，主屏直接毁（施工规则/home-screen-layout.md）。用 flex:1。
     h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "10px 14px 9px" } },
