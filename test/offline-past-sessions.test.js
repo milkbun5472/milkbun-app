@@ -6,6 +6,9 @@ const vm = require('node:vm');
 const src = fs.readFileSync(path.join(__dirname, '../js/components.js'), 'utf8');
 const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: '', F_DISPLAY: '' };
 vm.createContext(ctx);
+// 2026-10-19 起线下这几处的字号走 fsz（js/core.js，页面上比 components.js 先加载）：照写它的那一份装进沙盒
+{ const core = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "core.js"), "utf8");
+  vm.runInContext(core.slice(core.indexOf("function fsz("), core.indexOf("\n", core.indexOf("function fsz("))), ctx); }
 vm.runInContext(src.slice(src.indexOf('function OfflinePastSessions('), src.indexOf('function OfflinePhotoPicker(')), ctx);
 const render = (sessions, onSelect = () => {}) => ctx.OfflinePastSessions({ sessions, t: {}, onSelect });
 test('桩字段对应单人和群聊写入方，列表两处接公共实现', () => {
