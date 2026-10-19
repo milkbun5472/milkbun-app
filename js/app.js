@@ -13613,11 +13613,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (_k >= 0 && applyPairAvatar(charId, _pairPick, _k + 1)) parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
       if (_doodleFresh && parsed.drawBack) drawBackOn(charId, chatKey, _seenMsg, parsed.drawBack, turnId);
+      if (parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true && !avatarTalkOk(parsed.word))
+        parsed.photoSeen = { ...parsed.photoSeen, avatar: false };   // 话里换的是锁屏、或者在否认：头像不动
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
       if (!_pairDone && !_pairPick && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
-        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" "))) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
+        && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
         photoKind = ["self", "other", "duo", "me", "view", "part", "none"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
@@ -25562,6 +25564,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
   // ⚠️她 2026-10-02：「为啥有时候又不行」——TA说的是「换成蓝鲨鱼了」「头像改好了」「用上了」这种，原来那张单子一个都认不出，
   //   于是TA以为换了、其实没换。放宽：换/改/设/用 + 好/上/成/过来，或者「头像」后面跟着换/改。只在这一轮真给了换头像能力时才看它
+  // 嘴上说的是锁屏／壁纸、或者在否认（她 2026-10-19：「谁换成头像了！我换的是锁屏」——这句里带着「换成头像了」，
+  //   兜底照字面换了头像，连着两轮）。下面两处换头像都先过这一道：说的是锁屏、或者是反问／否认，就不当成换头像。
+  const AVATAR_NOT_ME_RE = /谁(换|改|设|说)|没(换|改|设)|不(换|改|设)|才不|哪有|哪里|考虑|要是|如果|求我/;
+  const avatarTalkOk = words => {
+    const w = [].concat(words || []).join(" ");
+    if (/锁屏|壁纸|屏保/.test(w) && !/头像[^，。！？\n]{0,6}(换|改|设)|(换|改|设|当)[^，。！？\n]{0,4}头像/.test(w)) return false;
+    return !AVATAR_NOT_ME_RE.test(w);
+  };
   const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了|(换|改|设|用)(好|上|成|过来)[^，。！？\n]{0,10}(了|啦|咯)|头像[^，。！？\n]{0,8}(换|改|设)(好|成|上)?(了|啦)|已经(换|改|设)/;
   // 没开口、也不是刚发的那张：只问换不换，不补记画面
   const photoSeenAutoHint = uName =>
