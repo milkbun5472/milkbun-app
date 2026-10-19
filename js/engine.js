@@ -9912,6 +9912,11 @@ function flatSchemaSalvage(raw, hint) {
 // 在这里挂一张网，比去 600 多个 catch 里一处处补可靠（她 2026-09-29 要「失败都要有 toast」）。
 async function runProbe(p, ctx, probe) {
   let _from = ""; try { _from = callerLabelOf(new Error().stack); } catch (e) {}
+  // 两张表都认不出、又没起 tag 的：拿它要干的那件事开头几个字当名字（她 2026-10-18 群里截图：一排「其他」看不出是什么）
+  if (!_from && probe && typeof probe === "object" && !probe.logFrom && !(typeof callTagLabel === "function" && callTagLabel(probe.tag))) {
+    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "").slice(0, 14);
+    if (_ins) probe = Object.assign({}, probe, { logFrom: "其他·" + _ins + "…" });
+  }
   if (_from && probe && typeof probe === "object" && !probe.logFrom) probe = Object.assign({}, probe, { logFrom: _from });
   try { return await runProbeInner(p, ctx, probe); }
   catch (e) {
