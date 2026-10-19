@@ -16001,11 +16001,13 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
         background: isMine ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
         color: isMine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
         border: (isMine ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none", boxShadow: BUBBLE_SKIN.shadow || "none" }
-    }, txt)) : null,
+    // ⚠️截短放在里面这一层（她 2026-10-20 截图：一大段长回复把菜单整个盖住，删不掉）：
+    //   外面那层挂着 bubble，美化 CSS 常写 overflow:visible !important，截短写在它身上就被冲掉了。
+    }, h("div", { style: { maxHeight: 72, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" } }, txt))) : null,
     groups.map((g, gi) => h("div", {
       key: gi,
       className: "overflow-hidden",
-      style: { background: "rgba(255,255,255,0.96)", borderRadius: 16, marginTop: gi ? 8 : 0 }
+      style: { position: "relative", zIndex: 2, background: "rgba(255,255,255,0.96)", borderRadius: 16, marginTop: gi ? 8 : 0 }
     }, g.map((k, ri) => row(k, gi, ri))))));
 }
 
