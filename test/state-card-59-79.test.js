@@ -47,8 +47,8 @@ test("看得见的那半是一块两拍，不是两张并排的卡", () => {
   const seen = card.slice(card.indexOf('label("看得见的")') + 16, card.indexOf('label("心里想的"'));
   assert.equal((seen.match(/label\(/g) || []).length, 0, "这一块里又多出了小标题");
   // 身上什么样是轻的一行，手在做什么才是主句
-  assert.match(seen, /fontSize: 12, lineHeight: 1\.7, color: t\.sub[\s\S]{0,40}S\(state\.wearing\)/, "穿着不是轻的那一行");
-  assert.match(seen, /fontSize: 15, lineHeight: 1\.75, color: t\.ink[\s\S]{0,60}S\(state\.action\)/, "动作不是主句");
+  assert.match(seen, /fontSize: fsz\(12\), lineHeight: 1\.7, color: t\.sub[\s\S]{0,40}S\(state\.wearing\)/, "穿着不是轻的那一行");
+  assert.match(seen, /fontSize: fsz\(15\), lineHeight: 1\.75, color: t\.ink[\s\S]{0,60}S\(state\.action\)/, "动作不是主句");
   // 群聊里照旧不给看穿着和动作
   assert.match(card, /\(!hideWearAction && seen\.length\)/, "群聊里也把穿着动作端出来了");
 });
@@ -88,7 +88,7 @@ test("卡上有装饰，但都从「一帧」这件事长出来", () => {
   assert.match(card, /borderWidth: "1px 0 0 1px"/, "取景框缺左上角");
   assert.match(card, /borderWidth: "0 1px 1px 0"/, "取景框缺右下角");
   // 压在心声底下的那个大引号
-  assert.match(card, /fontSize: 92, lineHeight: 1, color: t\.accent, opacity: \.07/, "心声那块没有压底的引号");
+  assert.match(card, /fontSize: fsz\(92\), lineHeight: 1, color: t\.accent, opacity: \.07/, "心声那块没有压底的引号");
 });
 
 test("深色主题下不许白底白字", () => {

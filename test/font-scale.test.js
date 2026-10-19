@@ -29,3 +29,10 @@ test("线下（单人、群线下、往期、设置）字号也接上；线下�
   assert.match(comp, /fontSize: "calc\(var\(--off-fs, 14px\) \* var\(--app-fs, 1\)\)"/);
   assert.match(comp, /fontSize: "calc\(\(var\(--off-fs, 14px\) - 1px\) \* var\(--app-fs, 1\)\)"/);
 });
+
+test("群聊和心声卡也接上", () => {
+  for (const [a, b] of [["function GroupThread(", "function PollCard("], ["function StateCard(", "function OfflineStylePromptPreview("]]) {
+    const seg = comp.slice(comp.indexOf(a), comp.indexOf(b));
+    assert.equal((seg.match(/fontSize: \d+(?:\.\d+)?[,\s}]/g) || []).length, 0, a + " 还有没接上的字号");
+  }
+});
