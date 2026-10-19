@@ -24609,6 +24609,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 卡没了还挂着「待邀请」（群里 2026-10-18：早先删掉邀请卡的，卡删了状态没跟着撤）：聊天里找不到那张还在等的卡，就当没发过
   const coupleInviteCardLive = id => Object.keys(chatsRef.current || {}).some(k => (k === id || k.indexOf(id + "::") === 0)
     && (chatsRef.current[k] || []).some(m => m && m.kind === "couple_invite" && (m.status === "pending" || m.status === "failed")));
+  // 打开跟TA的聊天时顺手对一遍（群友 2026-10-19：早先删了邀请卡，更新了也还挂着「待邀请」——
+  //   原来只在【再点一次邀请】时才清，她不想再邀请，就一直卡着）：聊天里找不到那张还在等的卡＝没发过，恢复正常。
+  const _ciChatLen = activeChar && Array.isArray(chats[activeChar.id]) ? chats[activeChar.id].length : 0;
+  useEffect(() => {
+    const id = activeChar && activeChar.id;
+    if (!id || !_ciChatLen) return;
+    const cp = (couplesRef.current || {})[id];
+    if (cp && cp.status === "pending" && !coupleInviteCardLive(id)) { setCoupleFor(id, null); toast("那张空间邀请已经删掉了，空间恢复成没邀请的样子"); }
+  }, [activeChar && activeChar.id, _ciChatLen]);
   const sendCoupleInvite = async (char, rel, role, letter) => {
     const rk = typeof spaceRelKey === "function" ? spaceRelKey(rel) : "lover", rl = typeof spaceRel === "function" ? spaceRel(rk) : { space: "情侣空间", invite: "想和你在一起" };
     if (!active) { toast("请先到设置配置 API"); return; }
