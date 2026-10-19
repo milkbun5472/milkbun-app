@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.085";
+const APP_VERSION = "v76.087";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27427,6 +27427,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
   // 关键：切歌时把当前队列一起传给 playSong，否则播放歌单里点下一首会把队列缩成单曲。
   // TA 说要放哪首 → 真的换全局播放器的歌。线上聊天和线下共用这一处（线下 v75.437 接上）。
+  // 耳机那儿（listen-talk.js）TA要换歌也走这一个（她 2026-10-19）；每次渲染都换成最新的这份
+  if (typeof window !== "undefined") window.__taSwitchSong = v => taSwitchSong(v);
   const taSwitchSong = async songSwitch => {
     const want = String(songSwitch).trim();
     if (/下一首|下首|next/i.test(want)) stepSong(1);
@@ -28439,11 +28441,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const walletSpend = (charId, amount, label, kind) => {
     const amt = numClean(amount);
     if (!(amt > 0)) return false;
-    let ok = false;
+    // 开没开通先照 ref 当场判（她 2026-10-19：旅行「他请客」说他没钱包，明明有）——
+    //   原来 ok 是在 setCharWallet 的更新函数里才置上的，React 常常等到下一次画的时候才跑它，
+    //   这一句 return 时 ok 还是 false，于是钱包明明开着也被说成没开通
+    const cur0 = (charWalletRef.current || {})[charId];
+    if (!cur0 || !cur0.init) return false;
+    let ok = true;
     setCharWallet(p => {
       const cur = p[charId];
       if (!cur || !cur.init) return p;
-      ok = true;
       const bal = r2((Number(cur.balance) || 0) - amt);
       const e = { id: "cw_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: -amt, after: bal, label: label, kind: kind || "gift" };
       const n = { ...p, [charId]: { ...cur, balance: bal, ledger: [e, ...(cur.ledger || [])] } };

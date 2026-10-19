@@ -62,10 +62,17 @@
       + (mode === "auto"
         ? "歌正放着，没人问你。这一段你真有反应才说一两句，没什么想说的就给空数组——安静一起听本来就是常态。\n"
         : "")
-      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"],\"mood\":\"此刻中文心情词\",\"action\":\"此刻在做什么，一句\",\"thought\":\"一句没说出口的念头，没有就填 null\"}";
+      + "她让你切歌、点歌，或者你自己想换一首时，在 songSwitch 里写要放的歌名（想跳下一首写「下一首」、回上一首写「上一首」），不在歌单里的也行；不换就填 null。\n"
+      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"],\"songSwitch\":null,\"mood\":\"此刻中文心情词\",\"action\":\"此刻在做什么，一句\",\"thought\":\"一句没说出口的念头，没有就填 null\"}";
     const msg = mode === "auto" ? "（歌放着）" : text;
     const raw = await callAI(p.active, sys, [{ role: "user", content: msg }], { maxTokens: 65000 });
     const say = parseSay(raw), st = parseState(raw);
+    // 切歌（她 2026-10-19：「一起听里面还是不会切歌」）——单聊里TA能切，耳机这儿反倒一直没给这一格。
+    //   换歌走 app 那头同一个 taSwitchSong（歌单里没有的也会去搜）
+    try {
+      const mm = String(raw || "").match(/\{[\s\S]*\}/), d = mm ? JSON.parse(mm[0]) : null, sw = d && typeof d.songSwitch === "string" ? d.songSwitch.trim() : "";
+      if (sw && sw.toLowerCase() !== "null" && typeof window !== "undefined" && typeof window.__taSwitchSong === "function") setTimeout(function () { window.__taSwitchSong(sw); }, 900);
+    } catch (e) {}
     if (st && p.onState) try { p.onState(char.id, st); } catch (e) {}
     return say;
   }
