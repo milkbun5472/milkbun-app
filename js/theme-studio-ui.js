@@ -121,6 +121,7 @@
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     // 导进来的那一包先摊在这儿，勾了哪几样才合进草稿（她 2026-09-20：不是全有全无）
     const [incoming, setIncoming] = useState(null), [pendingBubble, setPendingBubble] = useState(null);
+    const [pendingHome, setPendingHome] = useState(null);
     const [pick, setPick] = useState(() => studio.cleanPick(null));
     // 导出也要能只挑一样（她 2026-09-22：「没有单独导入导出某一种美化的选项，
     // 比如只导入 app 图标 或者只导入背景」）。默认整套，取消勾的那几样不进包。
@@ -138,7 +139,7 @@
     useEffect(() => () => { clearTimeout(previewTimer.current); }, []);
     const patchDraft = p => setDraft(d => studio.normalize({ ...d, ...p }));
     const preview = () => { try { studio.preview(draft); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); toast("已临时预览；30 秒后自动撤销"); } catch (e) { toast("不能预览：" + e.message); } };
-    const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); if (pendingBubble && typeof writeBubbleSkin === "function") writeBubbleSkin(pendingBubble); setPendingBase(null); setPendingWallpaper(undefined); setPendingBubble(null); setIncoming(null); setPreviewing(false); toast("主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
+    const commit = () => { try { clearTimeout(previewTimer.current); setDraft(studio.commit(draft)); if (pendingBase && onSaveTheme) onSaveTheme(pendingBase); if (typeof pendingWallpaper === "string" && onSaveWallpaper) onSaveWallpaper(pendingWallpaper); if (pendingBubble && typeof writeBubbleSkin === "function") writeBubbleSkin(pendingBubble); const homeDone = pendingHome && studio.homeApply ? studio.homeApply(pendingHome) : false; setPendingHome(null); setPendingBase(null); setPendingWallpaper(undefined); setPendingBubble(null); setIncoming(null); setPreviewing(false); toast(homeDone ? "主题已正式应用，主屏布局也换好了，回主屏看看" : "主题已正式应用"); } catch (e) { toast("不能应用：" + e.message); } };
     const cancel = () => { clearTimeout(previewTimer.current); studio.cancelPreview(); setPreviewing(false); toast("已撤销预览"); };
     // ── 预览台（v65.00）：去这一页看看 ───────────────────────────────
     // 她 2026-09-06：「设置页里也没有预览台，要跑出去看效果也很麻烦」。
@@ -236,6 +237,7 @@
       setPendingBase(sel.base ? (pack.baseTheme || null) : null);
       setPendingWallpaper(sel.wall && typeof pack.wallpaper === "string" ? pack.wallpaper : undefined);
       setPendingBubble(sel.bubble ? (pack.bubbleSkin || null) : null);
+      setPendingHome(sel.home ? (pack.home || null) : null);
       try { studio.preview(next); clearTimeout(previewTimer.current); previewTimer.current = setTimeout(() => setPreviewing(false), 30050); setPreviewing(true); } catch (_) {}
     };
     const applyPack = async text => {
@@ -243,7 +245,8 @@
         const pack = await studio.importPackage(text);
         // ⚠️只勾这份包【真的带了】的那几样。全勾是错的：单挑一样导出的包
         //   （只有图标的那种）里，CSS 那一格是空的，勾着它就把她现在的 CSS 抹平了。
-        const sel = {}; studio.packParts(pack).forEach(x => { sel[x.key] = x.has; });
+        // 主屏布局默认不勾：会把她自己的桌面整个换掉，要她自己勾
+        const sel = {}; studio.packParts(pack).forEach(x => { sel[x.key] = x.has && x.key !== "home"; });
         setIncoming(pack); setPick(sel); livePick(pack, sel);
         toast("已导入并临时预览；下面可以挑要哪几样，确认后才落盘");
         return true;
@@ -629,7 +632,7 @@
         h("div", { style: { marginBottom: 12, padding: "11px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } }, "这次导出带上哪几样："),
           partRows(studio.packParts({ profile: draft, baseTheme: theme, wallpaper: wallpaper,
-            bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null }),
+            bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, home: studio.homeSnapshot ? studio.homeSnapshot() : null }),
             xPick, k => setXPick(p => Object.assign({}, p, { [k]: !p[k] })), "（你还没弄过）")),
         h("div", { className: "flex gap-2" },
           h("button", { onClick: exportTheme, className: "flex-1 py-3", style: { borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY } }, "导出主题包"),
