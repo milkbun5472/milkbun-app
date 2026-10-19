@@ -61,7 +61,8 @@ test("点一下直接到那条聊天，走的是现成那一处", () => {
   assert.match(ap, /onOpenChat: openChatById,/, "主屏那份没搬过来，就成了两处各改各的");
   assert.ok(ap.indexOf('if (type === "group") { const g = groups.find(x => x.id === id); if (!g) return; setActiveGroup(g); clearUnread(id); setScreen("gthread"); return; }') < 0,
     "主屏那份旧的还留在原地");
-  assert.match(ap, /onOpen: b => \{ setBanners\(p => p\.filter\(x => x\.key !== b\.key\)\); openChatById\(b\.id, b\.type, b\.roomId\); \}/);
+  // 2026-10-18 起还有 App 来的横幅（小窝管理员的新消息）：点开去那个 App，聊天来的照旧走 openChatById
+  assert.match(ap, /onOpen: b => \{ setBanners\(p => p\.filter\(x => x\.key !== b\.key\)\); if \(b\.type === "app"\) setScreen\(b\.app\); else openChatById\(b\.id, b\.type, b\.roomId\); \}/);
 });
 
 test("顶上那张卡跟来电横幅同一个形状，不另发明一种", () => {

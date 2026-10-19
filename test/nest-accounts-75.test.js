@@ -14,7 +14,7 @@ function load(fetchImpl) {
   const localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
   const calls = [];
   const fetch = async (url, init) => { calls.push({ url, init }); return fetchImpl(url, init); };
-  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", "fetch", "qqDeviceId", nest)(
+  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", "fetch", "qqDeviceId", require("fs").readFileSync(require("path").join(__dirname, "..", "js", "nest-watch.js"), "utf8") + "\n" + nest)(   // 2026-10-18 起地址和管理口令在 nest-watch.js，先装它
     g, { useState: () => [], useEffect: () => {}, useRef: () => ({}) }, () => null, () => null, (k, d) => d, () => true, localStorage, fetch, () => "dev-1");
   return { N: g.Nest, store, calls };
 }

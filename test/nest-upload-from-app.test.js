@@ -24,7 +24,7 @@ function load(store, extra) {
     for (const ref of [...new Set(JSON.stringify(clean).match(/iv_[A-Za-z0-9_-]+/g) || [])]) { const b = await imgVaultFetchBlob(ref); if (b) assets[ref] = "data:image/png;base64," + Buffer.from(await b.arrayBuffer()).toString("base64"); }
     return { kind: "chat-look", v: 1, name, look: clean, assets };
   };
-  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", "fetch", "qqDeviceId", "chatLookClean", "chatLookShelf", "bubbleSkinSnapshot", "imgVaultFetchBlob", "FileReader", "packChatLook", nest)(
+  new Function("window", "React", "h", "Svg", "loadJSON", "saveJSON", "localStorage", "fetch", "qqDeviceId", "chatLookClean", "chatLookShelf", "bubbleSkinSnapshot", "imgVaultFetchBlob", "FileReader", "packChatLook", require("fs").readFileSync(require("path").join(__dirname, "..", "js", "nest-watch.js"), "utf8") + "\n" + nest)(   // 2026-10-18 起地址和管理口令在 nest-watch.js，先装它
     g, { useState: () => [], useEffect: () => {}, useRef: () => ({}) }, () => null, () => null, loadJSON, () => true,
     { getItem: () => null, setItem() {}, removeItem() {} }, async () => ({}), () => "dev-1",
     chatLookClean, () => (store.x_chatLooks || []), () => ({ ai: { bg: "#fff" } }), imgVaultFetchBlob, FileReader, packChatLook);

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.050";
+const APP_VERSION = "v76.051";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4954,10 +4954,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       text: text, n: count,
       roomId: roomId || "", roomName: roomId && window.ChatRooms ? (((window.ChatRooms.get(id, roomId) || {}).name) || "小房间") : ""
     };
+    queueBanner(b);
+  };
+  // 横幅进摞、到点翻走：聊天来的和 App 来的（小窝管理员的新消息）走同一份
+  const queueBanner = b => {
     setBanners(p => [b, ...p].slice(0, 4));
     const t1 = setTimeout(() => setBanners(p => p.map(x => x.key === b.key ? { ...x, leaving: true } : x)), BANNER_MS);
     const t2 = setTimeout(() => setBanners(p => p.filter(x => x.key !== b.key)), BANNER_MS + BANNER_OUT_MS);
     bannerTimers.current.push(t1, t2);
+  };
+  // App 来的横幅（不是哪个角色说话）：头像那格画 App 自己的图标，点一下进那个 App。
+  //   同样听「App 内消息提醒」那个开关（设置 → 通用），关了就不弹。
+  const pushAppBanner = (app, o) => {
+    if (prefsRef.current && prefsRef.current.msgBanner === false) return;
+    queueBanner({ key: "b" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), type: "app", app: app,
+      name: o.name, tag: o.tag || "", G: o.G || null, text: String(o.text || "").slice(0, 44), n: o.n || 1 });
   };
   // 未读小红点 +k（角色发来消息时若没在看这个聊天就累加）
   const bumpUnread = (id, k, roomId) => {
@@ -18027,9 +18038,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   useEffect(() => {
     // 进入论坛只读已有内容，不自动生成、不烧一次主池（新内容全由她在论坛里明确触发）
     if (screen === "forum") clearAppNotif("forum");
+    if (screen === "nest") { if (window.NestWatch) window.NestWatch.markSeen(); clearAppNotif("nest"); }
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);
+  // ── 小窝管理员的新消息（她 2026-10-18：「通知里面有，app 外面也有红点，新发的都会提醒」）──
+  //   只有这台手机记着管理口令才会去看（js/nest-watch.js）。开机过十秒看一次，之后在前台每十分钟一次，
+  //   切回来时离上次超过三分钟也看一次。红点＝比上次点进小窝还新的条数；横幅只为【还没弹过的】那几条弹一次。
+  //   她正在小窝里时不弹不亮（她自己就在看墙）。
+  const nestWatchAt = useRef(0);
+  const nestWatchRun = async force => {
+    if (!window.NestWatch || !window.NestWatch.adminToken()) return;
+    if (!force && Date.now() - nestWatchAt.current < 3 * 60000) return;
+    nestWatchAt.current = Date.now();
+    let r; try { r = await window.NestWatch.check(); } catch (e) { return; }   // 网断了就等下一轮，不吵她
+    if (screenRef.current === "nest") { window.NestWatch.markSeen(); return; }
+    setAppNotif(p => { if ((p.nest || 0) === r.fresh.length) return p; const n = { ...p, nest: r.fresh.length }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
+    if (r.untold.length) {
+      const KZ = { theme: "主题", look: "聊天美化", css: "CSS", lore: "世界书", style: "文风", preset: "预设", persona: "人设", post: "留言板" };
+      const top = r.untold[0];
+      const what = (KZ[top.kind] ? "【" + KZ[top.kind] + "】" : "") + (top.title || "新的一条") + (top.nick ? " · " + top.nick : "");
+      pushAppBanner("nest", { name: "秋秋小窝", tag: "管理", G: window.GNest, n: r.untold.length,
+        text: r.untold.length > 1 ? "新发了 " + r.untold.length + " 条：" + what : "新发了：" + what });
+    }
+  };
+  useEffect(() => {
+    if (!loaded) return;
+    const t0 = setTimeout(() => nestWatchRun(true), 10000);
+    const iv = setInterval(() => { if (document.visibilityState !== "hidden") nestWatchRun(true); }, 10 * 60000);
+    const kick = () => { if (document.visibilityState !== "hidden") nestWatchRun(false); };
+    document.addEventListener("visibilitychange", kick);
+    return () => { clearTimeout(t0); clearInterval(iv); document.removeEventListener("visibilitychange", kick); };
+  }, [loaded]);
   // 每次唤起要补的那一串（开 app / 切回前台 / 跨天，三处走的是同一串）。
   // ⚠️两件事必须是这样：
   //  ① 【一步一步 await，但每一步各自兜底】。原来是一条 .then 链、末尾挂着
@@ -33551,7 +33591,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   }), h(MsgBanners, {
     list: banners,
     // 点一下直接落到那条聊天里（跟主屏那张「捎来的字条」是同一个动作，走同一处）
-    onOpen: b => { setBanners(p => p.filter(x => x.key !== b.key)); openChatById(b.id, b.type, b.roomId); },
+    onOpen: b => { setBanners(p => p.filter(x => x.key !== b.key)); if (b.type === "app") setScreen(b.app); else openChatById(b.id, b.type, b.roomId); },
     // 上划送走（她 2026-09-11：「往上扫【全部截止到那一条】都划掉，不是一条一条划」）：
     // 推走的那条连同压在它底下的那几条（更早的、她已经扫过一眼的）一起清掉。
     onDismiss: b => setBanners(p => { const i = p.findIndex(x => x.key === b.key); return i < 0 ? p : p.slice(0, i); })
