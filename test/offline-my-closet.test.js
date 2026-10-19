@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const app = require("node:fs").readFileSync(require.resolve("../js/app.js"), "utf8");
 test("线下穿什么里我那一份读得到我的衣柜", () => {
-  assert.match(app, /me: \{ sets: closetSetsOf\(\{ outfit: myClosetRef\.current \}\), now: sceneMeOutfit\(scope\) \}/);
+  assert.match(app, /me: \{ sets: closetSetsOf\(\{ outfit: myBoxOf\([^)]*\)[^}]*\}\), now: sceneMeOutfit\(scope\) \}/);
   assert.doesNotMatch(app, /closetSetsOf\(myClosetRef\.current\)/);
 });
 test("照相馆配衣服那一行查款式时认得衣柜盒子", () => {

@@ -14,7 +14,7 @@ test("我的衣柜跟角色衣柜同一个形状，两边共用一套渲染", ()
   assert.match(app, /const \[myCloset, setMyCloset\] = useState\(\{\}\);/, "没有我的衣柜");
   assert.match(app, /setMyCloset\(loadJSON\("x_myCloset", \{\}\)\);/, "没读回来");
   // 复用已有的 closetGroups / carryClosetText，不为「用户的衣服」另写一套
-  assert.match(app, /carryClosetText\(myClosetRef\.current\)/, "我的衣柜没走已有那套收口");
+  assert.match(app, /carryClosetText\(myBoxOf\(who\)\)/, "我的衣柜没走已有那套收口");
   assert.match(scr, /const mySets = closetGroups\(myCloset\);/, "界面上没复用 closetGroups");
   assert.match(scr, /const hisSets = closetGroups\(charCloset && charCloset\.outfit\);/, "角色那侧读错了层");
   // 两侧挑衣服是同一个组件
@@ -29,7 +29,7 @@ test("一次调用配一对，不是各配各的", () => {
   assert.match(fit, /换个朝代、换个身份就不成立的才算写对/, "没立那条判据——不然会写出一身谁都能穿的衣服");
   // 两边各挂一身，用的是同一个 put
   // 两边都只添不挤：我这边走 myClosetPut，他那边走 closetMerge（满了不挂，回执照实说）
-  assert.match(fit, /const nextMine = myClosetPut\(myClosetRef\.current, occ, setOf\(d && d\.hers\)\);/, "我这边没挂上");
+  assert.match(fit, /nextMine = myClosetPut\(_mine0, occ, setOf\(d && d\.hers\)\);/, "我这边没挂上");
   assert.match(fit, /outfit: closetMerge\(box\.outfit, \{ closet: \[\{ occasion: occ, sets: \[his\] \}\] \}\)/, "他那边没挂上");
 });
 

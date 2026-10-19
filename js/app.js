@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.090";
+const APP_VERSION = "v76.098";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7283,6 +7283,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️收过线的那一场也带进来了（见上面 newest/offFloor），所以必须说清它已经散了——
       //   不说的话TA会以为你俩还面对面站着，隔着手机说「你手上那杯还没喝完吧」。
       if (offEnded && offSlice.length) rendered.unshift("（下面掺在里头的【线下】那几段是刚结束的那一场，已经散了——你们现在隔着手机说话，别当成还在一块儿。）");
+      // 线下那几段是第三人称的小说写法（群里 2026-10-19：好几个人的线上回复整段变成「他松开了扣着她手腕的手」，一句一泡）：
+      //   它们原样摆在这儿，模型就顺着那个写法往下接。说清两边是两种写法，线上这一轮照发消息的样子写。
+      if (usedOff && thinOnline) rendered.unshift("（掺在里头的【线下】那几段是另一种写法：见面时的小说式叙述，用「他」写动作和神情。你现在在手机上回消息，照你平时打字的样子说话，用「我」，不写旁白和动作描写。）");
       return rendered.join("\n");
     })()
   });
@@ -8650,8 +8653,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const name = String((d && d.name) || "").trim().slice(0, 24);
       if (!name) { toast("这次没配出来，再点一次"); return false; }
       const note = String((d && d.note) || "").trim();
-      { const next = myClosetPut(myClosetRef.current, d.occasion || (theirs ? "配他" : "平常"), { name, note });
-        if (myClosetN(next) > myClosetN(myClosetRef.current)) saveMyCloset(next); else toast("这身先穿上了；" + MYCLOSET_FULL.replace("再配", "它才挂得进去")); }
+      { const _sw = scope.groupId ? "g:" + scope.groupId : String(scope.scopeKey || scope.charId || "").split("::")[0], _b0 = myBoxOf(_sw);
+        const next = myClosetPut(_b0, d.occasion || (theirs ? "配他" : "平常"), { name, note });
+        if (myClosetN(next) > myClosetN(_b0)) saveMyBox(_sw, next); else toast("这身先穿上了；" + MYCLOSET_FULL.replace("再配", "它才挂得进去")); }
       wearScene(scope, "me", name + (note ? "（" + note.slice(0, 48) + "）" : ""), false);
       return true;
     } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
@@ -8663,7 +8667,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       now: freshLiveStateValue(scope.scopeKey ? liveStateForScope(c.id, scope.scopeKey) : (statesRef.current[c.id] || {}), "wearing") })),
     // ⚠️我的衣柜是 { closet:[…] } 直接摆在顶上，TA的随身物是 { outfit:{ closet:[…] } }——closetSetsOf 读的是 .outfit，
     //   原来直接把我的衣柜递进去，读到的永远是空（群友 2026-10-11：「衣柜挂了几套，线下显示空的」）。包一层再递。
-    me: { sets: closetSetsOf({ outfit: myClosetRef.current }), now: sceneMeOutfit(scope) }
+    me: { sets: closetSetsOf({ outfit: myBoxOf(scope.groupId ? "g:" + scope.groupId : String(scope.scopeKey || scope.charId || "").split("::")[0]) }), now: sceneMeOutfit(scope) }
   });
   // 这个人住的那个架空世界的风景参考（她 2026-10-02）：按这一格画面挑最对得上的那张 {img,label}。
   //   住在现实、或世界没传图 → null。
@@ -8793,7 +8797,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const gMe = meOfGroup(groupId);
     const cast = withRef.slice(0, (gMe && gMe.refPhoto) ? 3 : 4)
       .map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
-    if (gMe && gMe.refPhoto) cast.push({ id: "__me", name: gMe.name || "我", appearance: gMe.appearance, refPhoto: gMe.refPhoto, outfit: sceneMeOutfit({ groupId }), closet: myClosetText() });
+    if (gMe && gMe.refPhoto) cast.push({ id: "__me", name: gMe.name || "我", appearance: gMe.appearance, refPhoto: gMe.refPhoto, outfit: sceneMeOutfit({ groupId }), closet: myClosetText("g:" + groupId) });
     if (cast.length < 2 || !withRef.length) { toast("合影要在场至少两个人有参考照，才能把脸都锁住——去给他们（或你自己）各传一张", 9000); return; }
     const shooter = withRef[0];
     const st = statesRef.current[shooter.id] || {};
@@ -9833,7 +9837,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const withRef = [_shooter].concat((gCtx.members || []).filter(c => c.id !== _shooter.id)).filter(c => c && c.refPhoto);
             const _gm = meOfGroup(group.id) || {};
             _cast = withRef.slice(0, _gm.refPhoto ? 3 : 4).map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
-            if (_gm.refPhoto) _cast.push({ id: "__me", name: _gm.name || "我", appearance: _gm.appearance, refPhoto: _gm.refPhoto, outfit: sceneMeOutfit({ groupId: group.id }), closet: myClosetText() });
+            if (_gm.refPhoto) _cast.push({ id: "__me", name: _gm.name || "我", appearance: _gm.appearance, refPhoto: _gm.refPhoto, outfit: sceneMeOutfit({ groupId: group.id }), closet: myClosetText("g:" + group.id) });
           }
           if (_shooter) runOfflineShot({ char: _shooter, groupId: group.id, kind: b.photo.kind, scene: b.photo.scene, cast: _cast });
         }
@@ -11625,7 +11629,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     "在她原来给你存的那个名字上动一点点：加个字、换个字、换个叫法",
     "你们之间一件具体的事，或者一句只有你俩懂的话",
     "你希望她怎么叫你——她平时还没这么叫过的那种",
-    "让自己在她通讯录里排到最前面的写法",
+    "照你平时跟她说话的口气，你嘴上会怎么自称",
+    "你的小名、昵称，或者只有家里人／老朋友才叫的那个",
     "就写你自己的名字，但写成你觉得她该看到的样子"
   ];
   const peekRenameAngles = () => {
@@ -11982,6 +11987,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以。\n"
             // 群里 2026-10-17：「他只会问她，不会分享」——原来那两句举例都是问句，落点全在她身上
             + "开口的落点也可以在你自己这边：你此刻手上在做的事、刚碰上的事、看到想到的东西。真人隔一阵主动来找人，常常是先说自己，不是先问对方；一开口全是在问她，就成了查岗。\n"
+            // 她 2026-10-19 截图（群里好几个人一样）：主动来的那一轮整段成了描写——「车子在十字路口缓缓停下」「等红灯的间隙，我看着窗外掠过的街道发呆」，
+            //   一句一泡。上一句只说了「说自己」，没说说自己也是在发消息，TA 就把「手上在做的事」写成了一段场景。
+            + "说自己这边的事也是在发消息：照你平时打字的样子跟 Ta 说一句你这边怎么了，不是把你此刻的动作、眼前的景象、想起的往事写成一段描写。\n"
             + "当然也可以完全换一件事说：普通旧话题已经过去了就让它过去。怎么选是你的事，别硬找由头，也别装作那段没发生过。\n"
             + "像真人隔一阵重新来敲门，别整段复述旧话。"
           : firstWord
@@ -18542,6 +18550,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const c0 = (characters || []).find(x => x.id === charId);
       if (c0) {
         try { wxTaken = phoneTakenNames(c0); d = window.PhoneKit.dropDupWechat(d, wxTaken); } catch (e) {/* 去重失败不连累刷新 */}
+        // TA给她的备注写成了【她给TA的】那一个（群里 2026-10-19：TA刚把自己在她手机里的备注改了，自己手机里她那一行也变成同一个）：
+        //   那是两边各存各的，撞成一模一样只会是搞混了——留回原来那个。
+        try {
+          const herForTa = String(c0.remark || "").trim();
+          if (d && d.userContact && herForTa && herForTa !== String(c0.name || "").trim() && String(d.userContact.remark || "").trim() === herForTa) {
+            const was = ((((phonesRef.current || {})[c0.id] || {}).wechat || {}).userContact || {}).remark;
+            d = { ...d, userContact: { ...d.userContact, remark: was && String(was).trim() !== herForTa ? was : (d.userContact.name || userName(profile)) } };
+          }
+        } catch (e) {}
       }
     }
     // ⚠️「看TA玩」那一路不归档：归档是为【整份覆盖】准备的（旧那份就此没了，先抽成时间线）。
@@ -26046,7 +26063,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   这一键已经搬进 IndexedDB（engine.js 的 DURABLE_TEXT_KEYS），不撞 localStorage 那堵 5MB。
   //   留着的这个数只当【跑飞的写入】的保险丝，对人来说就是没有上限。
   const STUDIO_CAP = 100000;
-  const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
+  const myClosetText = who => (typeof carryClosetText === "function") ? carryClosetText(myBoxOf(who)) : "";
   // 出图时的「我」只此一份。⚠️原来四处各自手搓 { name, appearance, refPhoto }，
   //   衣柜和固定服装锁一处都没接上——于是传了脸也没东西兜衣服（她 2026-09-16 提的）。
   //   角色那条链是 固定锁 ＞ 此刻穿着 ＞ 衣柜 ＞ 人设；我这边补齐 固定锁 ＞ 衣柜 ＞ 外貌。
@@ -26076,7 +26093,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     appearance: P && P.appearance,
     refPhoto: P && P.refPhoto,
     outfit: (P && P.photoOutfit) || "",
-    closet: myClosetText()
+    closet: myClosetText(who)
   }; };
   // 「TA 帮我拍」（她 2026-10-11：「拍照能不能搞一类他帮我拍，所有生图地方都支持」）：照片里是她，镜头在 TA 手里。
   //   不另起一条出图路：把「被拍的人」换成她（她资料里的外貌、参考照、衣柜、固定服装），照「别人拍的」那一档画——
@@ -26102,6 +26119,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const meSubject = (char, fallbackName, who) => { const m = photoMe(fallbackName, who || (char && char.id));
     return { id: "__me", name: m.name, appearance: m.appearance || "", refPhoto: m.refPhoto || null, photoOutfit: m.outfit || "", photoStyle: char && char.photoStyle, persona: "", _closet: m.closet || "" }; };
   const saveMyCloset = next => { myClosetRef.current = next; setMyCloset(next); saveJSON("x_myCloset", next); };
+  // 衣柜分面具（她 2026-10-19：「衣柜能搞分面具吗搞一下」）：主面具那一柜照旧摆在顶上（closet），
+  //   别的面具各一柜，收在 masks[面具键] 里。who＝角色 id／"g:"+群 id（照他认的、群挑的那张面具），或者直接给面具键（mk: 开头）
+  const myClosetKeyOf = who => { const w = String(who || ""); return !w ? "" : w.indexOf("mk:") === 0 ? w.slice(3) : maskKeyOf(w); };
+  const myBoxOf = who => { const raw = myClosetRef.current || {}, k = myClosetKeyOf(who); return k ? ((raw.masks || {})[k] || { closet: [] }) : raw; };
+  const saveMyBox = (who, box) => {
+    const raw = myClosetRef.current || {}, k = myClosetKeyOf(who);
+    saveMyCloset(k ? { ...raw, masks: { ...(raw.masks || {}), [k]: { closet: (box && box.closet) || [] } } } : { ...(box || {}), masks: raw.masks });
+  };
+  // 我的衣柜那一页正在看哪张面具的柜子（"" ＝主面具）
+  const [closetMask, setClosetMask] = useState("");
+  const closetMaskRef = useRef(""); closetMaskRef.current = closetMask;
+  const closetWho = () => closetMaskRef.current ? "mk:" + closetMaskRef.current : "";
   // ── 我的衣柜（v59.27，她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
   //    用关键词生成几套，再加上可以自己填」）──────────────────────
   // 在这之前【压根没有入口】：只能在情侣空间→照相馆里点「配一身约会装」，一次一身，
@@ -26129,18 +26158,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const MYCLOSET_FULL = "我的衣柜那一类挂满了，先收掉几身再配";
   const myClosetAdd = (occ, name, note) => {
     if (!String(name || "").trim()) { toast("先写这身叫什么"); return false; }
-    const next = myClosetPut(myClosetRef.current, occ, { name: name, note: note });
-    if (myClosetN(next) <= myClosetN(myClosetRef.current)) { toast(MYCLOSET_FULL); return false; }
-    saveMyCloset(next);
+    const cur0 = myBoxOf(closetWho()), next = myClosetPut(cur0, occ, { name: name, note: note });
+    if (myClosetN(next) <= myClosetN(cur0)) { toast(MYCLOSET_FULL); return false; }
+    saveMyBox(closetWho(), next);
     toast("挂上了");
     return true;
   };
   const myClosetDrop = (occ, name) => {
-    const cur = ((myClosetRef.current || {}).closet || []).map(g => {
+    const cur = ((myBoxOf(closetWho()) || {}).closet || []).map(g => {
       if (String(g.occasion || "") !== String(occ || "")) return g;
       return { ...g, sets: (g.sets || []).filter(x => String(x.name || "") !== String(name || "")) };
     }).filter(g => (g.sets || []).length);
-    saveMyCloset({ ...(myClosetRef.current || {}), closet: cur });
+    saveMyBox(closetWho(), { closet: cur });
     toast("拿掉了");
     return true;
   };
@@ -26151,8 +26180,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!bgActive && !active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, myCloset: true }));
     try {
-      const uName = profile.name || "我";
-      const have = ((myClosetRef.current || {}).closet || [])
+      const _mp = closetMaskRef.current ? ((masksRef.current || []).find(x => x && x.id === closetMaskRef.current) || profile) : profile;
+      const uName = _mp.name || profile.name || "我";
+      const have = ((myBoxOf(closetWho()) || {}).closet || [])
         .map(g => (g.sets || []).map(x => x.name).filter(Boolean).join("、")).filter(Boolean).join("；");
       // ⚠️不走 runProbe：它一定要 buildBundle，而 buildBundle 要角色（没有就炸在
       // ctx.char.name 上）。这一条是关于【她自己】的，跟哪个角色都无关——
@@ -26160,7 +26190,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = extractJSON(await callAI(bgActive || active,
         ANTI_CLICHE + "\n\n给「" + uName + "」配 4 身衣服，挂进她自己的衣柜。\n"
           + (kw ? "【她给的关键词】" + kw + "\n按这几个词来，别另起炉灶。\n" : "【她没给关键词】那就配四个【互不重样的场合】各一身：日常、正经场合、见谁、以及一身她自己在家穿的。\n")
-          + (profile.persona ? "\n【她是这样一个人】\n" + String(profile.persona).slice(0, 600) + "\n" : "")
+          + (_mp.persona ? "\n【她是这样一个人】\n" + String(_mp.persona).slice(0, 600) + "\n" : "")
           + (have ? "\n【柜子里已经有这几身，别再配一样的】" + have.slice(0, 300) + "\n" : "")
           + "\n每身写清：occasion（什么场合穿，四个字以内）、name（这身叫什么，别只写「连衣裙」这种类目名）、"
           + "note（是什么衣服——版型、颜色、料子、脚上穿什么，一到两句；再带上一句她为什么留着这身）。\n"
@@ -26172,12 +26202,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         [{ role: "user", content: "配吧。" }], { maxTokens: 10600 })) || {};
       const rows = Array.isArray(d && d.sets) ? d.sets : [];
       if (!rows.length) { toast("这次没配出来，再点一次"); return false; }
-      let box = myClosetRef.current || {};
+      let box = myBoxOf(closetWho());
       const before = myClosetN(box);
       rows.slice(0, 6).forEach(r => { box = myClosetPut(box, r && r.occasion, r); });
       const added = myClosetN(box) - before;
       if (added <= 0) { toast(MYCLOSET_FULL); return false; }
-      saveMyCloset(box);
+      saveMyBox(closetWho(), box);
       toast("配了 " + added + " 身挂进去了" + (added < Math.min(rows.length, 6) ? "（有的那一类挂满了，没挂上）" : ""));
       return true;
     } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
@@ -26203,9 +26233,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const occ = String((d && d.occasion) || "约会").trim().slice(0, 8) || "约会";
       // ⚠️两边都只添不挤：我的走 myClosetPut，TA 的走 closetMerge（跟「再添几套」同一层，满了就不挂）
       const setOf = one => ({ name: String((one && one.name) || "").trim().slice(0, 24), note: String((one && one.note) || "").trim().slice(0, 120) });
-      const nextMine = myClosetPut(myClosetRef.current, occ, setOf(d && d.hers));
-      const mineOk = myClosetN(nextMine) > myClosetN(myClosetRef.current);
-      if (mineOk) saveMyCloset(nextMine);
+      const _mine0 = myBoxOf(char.id), nextMine = myClosetPut(_mine0, occ, setOf(d && d.hers));
+      const mineOk = myClosetN(nextMine) > myClosetN(_mine0);
+      if (mineOk) saveMyBox(char.id, nextMine);
       const his = setOf(d && d.his), hisOk = !!(his.name && closetRoom(((carryRef.current[char.id] || {}).outfit)) > 0);
       setCarry(p => {
         const box = p[char.id] || {};
@@ -26491,7 +26521,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return who + "穿（这是一整套，几件都要穿上）：" + parts.join("＋");
       };
       const hisGroups = ((carryRef.current || {})[char.id] || {}).outfit;
-      const myGroups = myClosetRef.current;
+      const myGroups = myBoxOf(char.id);
       const fits = [dressLine(char.name, opt && opt.theirs, hisGroups && hisGroups.closet ? hisGroups.closet : hisGroups),
                     dressLine(me.name, opt && opt.mine, myGroups && myGroups.closet ? myGroups.closet : myGroups)].filter(Boolean).join("；");
       // 四宫格（她 2026-10-12）：一次出一整张大头贴，不是拍四次——四格在同一张图里画，脸和衣服天然一致
@@ -31079,15 +31109,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPhoneMusicLeave: phoneMusicLeave,
     onPeek: forwardPhonePeekToChat
   });else if (screen === "mycloset") body = h(MyCloset, {
-    profile: profile,
-    data: myCloset,
+    // 分面具：上面那排挑哪张面具，下面就是那张面具自己那一柜（主面具＝原来那一柜）
+    profile: closetMask ? ((masks || []).find(x => x && x.id === closetMask) || profile) : profile,
+    data: myBoxOf(closetWho()),
+    masks: (masks || []).filter(x => x && x.id && x.id !== maskPrimary).length ? [{ key: "", name: (profile && profile.name) || "主面具" }].concat((masks || []).filter(x => x && x.id && x.id !== maskPrimary).map(x => ({ key: x.id, name: x.name || "面具" }))) : [],
+    maskKey: closetMask,
+    onMask: k => setClosetMask(k || ""),
+    hasIn: (k, occ, name) => (((myBoxOf(k ? "mk:" + k : "") || {}).closet) || []).some(g => String(g.occasion || "") === String(occ || "") && (g.sets || []).some(x => x && x.name === name)),
+    onToggleMask: (k, occ, set) => {
+      const who = k ? "mk:" + k : "", box = myBoxOf(who);
+      const has = ((box.closet) || []).some(g => String(g.occasion || "") === String(occ || "") && (g.sets || []).some(x => x && x.name === set.name));
+      if (has) {
+        const cur = (box.closet || []).map(g => String(g.occasion || "") !== String(occ || "") ? g : { ...g, sets: (g.sets || []).filter(x => x.name !== set.name) }).filter(g => (g.sets || []).length);
+        saveMyBox(who, { closet: cur });
+      } else {
+        const next = myClosetPut(box, occ, set);
+        if (myClosetN(next) <= myClosetN(box)) { toast(MYCLOSET_FULL); return; }
+        saveMyBox(who, next);
+      }
+    },
     busy: !!gen.myCloset,
     onGen: myClosetGen,
     onAdd: myClosetAdd,
     onDrop: myClosetDrop,
     // 在衣柜里直接钉住一身（她 2026-10-12：「放我的资料里太隐蔽了，不能在我的衣柜里直接选吗，然后把我的那里删掉」）：
     //   钉住＝写进出图常服那把锁（跟线下「以后都这样」同一格），出图每张都穿它；再点一次就取消，回到从衣柜里挑
-    onPin: text => { const v = String(text || "").trim().slice(0, 200); const p = { ...profile, photoOutfit: v }; setProfile(p); saveJSON("x_profile", p);
+    onPin: text => { const v = String(text || "").trim().slice(0, 200);
+      if (closetMask) { saveMasks((masksRef.current || []).map(x => x && x.id === closetMask ? { ...x, photoOutfit: v } : x)); toast(v ? "钉住了：这张面具出图都穿这一身" : "取消钉住"); return; }
+      const p = { ...profile, photoOutfit: v }; setProfile(p); saveJSON("x_profile", p);
       toast(v ? "钉住了：以后出图都穿这一身" : "取消钉住：出图回到从衣柜里挑"); },
     onBack: () => { const b = closetBack; setClosetBack(null); setScreen(b || "home"); }
   });else if (screen === "carry") body = h(Carry, {

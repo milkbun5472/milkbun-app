@@ -25,7 +25,7 @@ test("有正门：在微信「我」那一屏，一条路由、一页", () => {
   assert.match(comp, /\n  onOpenMyCloset,/, "组件没收这个 prop");
   assert.match(app, /onOpenMyCloset: \(\) => setScreen\("mycloset"\)/, "点了没人接");
   assert.match(app, /screen === "mycloset"\) body = h\(MyCloset, \{/, "没有路由");
-  assert.match(scr, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, (?:onPin, )?onBack \}\)/, "没有这一页");
+  assert.match(scr, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, (?:onPin, )?onBack(?:, masks, maskKey, onMask(?:, hasIn, onToggleMask)?)? \}\)/, "没有这一页");
   // 整页，不是半窗（施工规则/no-half-sheet.md）
   const ui = cut(scr, "function MyCloset({", "\nfunction ");
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");
@@ -45,7 +45,7 @@ test("关键词生成：一次四身，不灌角色上下文", () => {
   assert.match(gen, /配 4 身衣服/, "不是一次四身");
   assert.match(gen, /【她给的关键词】/, "关键词没发过去");
   assert.match(gen, /【她没给方向】|【她没给关键词】/, "留空那一档没兜住");
-  assert.match(gen, /profile\.persona \? "\\n【她是这样一个人】/, "没带上她的人设，配出来换谁都能穿");
+  assert.match(gen, /(?:profile|_mp)\.persona \? "\\n【她是这样一个人】/, "没带上她的人设，配出来换谁都能穿");
   assert.match(gen, /柜子里已经有这几身，别再配一样的/, "没避重，会配出一模一样的");
   // 这一栏最容易写坏的方向：写成时尚杂志的搭配建议
   assert.match(gen, /别用「知性优雅」「气场全开」这类换谁都贴得上的词/, "没挡住那种换谁都成立的形容词");
@@ -73,7 +73,7 @@ test("也能自己挂、拿得掉，且不会越攒越多", () => {
   const drop = cut(app, "  const myClosetDrop = (occ, name) => {", "\n  };");
   assert.match(drop, /\.filter\(g => \(g\.sets \|\| \[\]\)\.length\)/, "拿空了的场合还留着一个空格子");
   // 存的是同一份，照相馆那条路照旧
-  assert.match(app, /const next = myClosetPut\(myClosetRef\.current, occ, \{ name: name, note: note \}\);/, "自己挂的没走同一个口");
-  assert.match(app, /const nextMine = myClosetPut\(myClosetRef\.current, occ, setOf\(d && d\.hers\)\);/, "照相馆配一对那条路没走同一个口");
+  assert.match(app, /next = myClosetPut\(cur0, occ, \{ name: name, note: note \}\);/, "自己挂的没走同一个口");
+  assert.match(app, /nextMine = myClosetPut\(_mine0, occ, setOf\(d && d\.hers\)\);/, "照相馆配一对那条路没走同一个口");
   assert.ok(!/next\.slice\(0, 8\)/.test(app), "配一对那条路又自己写了一份会挤旧衣服的");
 });

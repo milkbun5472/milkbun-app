@@ -1159,7 +1159,8 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
 }
 
 function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
-  const apps = PHONE_APPS.filter(a => !a.soon);
+  // 桌面上「外观」「数据」那两格也能换图（她 2026-10-19：查手机这俩美化不了）；PGlyph 用它们桌面上那个图案
+  const apps = PHONE_APPS.filter(a => !a.soon).concat([{ key: "__look", zh: "外观", glyph: "settings" }, { key: "__data", zh: "数据", glyph: "notes" }]);
   const tone = phoneTone("phone");
   const uploadCard = (kind, title, sub) => {
     const ref = look[kind];
@@ -1210,7 +1211,7 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         const at = phoneTone(a.key);
         return h("div", { key: a.key, className: "flex items-center", style: { minHeight: 62, padding: "9px 13px", gap: 11, borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" } },
           h("div", { style: { width: 40, height: 40, borderRadius: 12, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: at.wash, flexShrink: 0 } },
-            src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(PGlyph, { k: a.key, size: 20, color: at.glyph })),
+            src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(PGlyph, { k: a.glyph || a.key, size: 20, color: at.glyph })),
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, a.zh),
           h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: tone.glyph, cursor: "pointer", padding: "8px 0" } }, custom ? "更换" : "自定义",
             h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ icons: { ...(look.icons || {}), [a.key]: v } })) })),
@@ -5666,12 +5667,12 @@ function PhoneCarry({
         : preset === "glass" ? "rgba(255,255,255,.38)" : phoneTone("settings").wash;
     const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : phoneTone("settings").glyph;
     return h("button", {
-      key: "__look", onClick: () => setLookOpen(true),
+      key: "__look", "data-wk": "phoneicon", "data-app": "__look", onClick: () => setLookOpen(true),
       className: "flex flex-col items-center active:opacity-60", style: { gap: 7, minWidth: 0 }
     },
       h("div", { className: "relative flex items-center justify-center",
         style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
-        h(PGlyph, { k: "settings", size: 24, color: glyph })),
+        (phoneImage(look.icons && look.icons["__look"]) ? h("img", { src: phoneImage(look.icons["__look"]), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 17 } }) : h(PGlyph, { k: "settings", size: 24, color: glyph }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
   };
   // 数据那一格：跟外观并排，长得也一样。清空重生和「写哪种语言」都在里面。
@@ -5682,12 +5683,12 @@ function PhoneCarry({
         : preset === "glass" ? "rgba(255,255,255,.38)" : phoneTone("notes").wash;
     const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : phoneTone("notes").glyph;
     return h("button", {
-      key: "__data", onClick: () => setDataOpen(true),
+      key: "__data", "data-wk": "phoneicon", "data-app": "__data", onClick: () => setDataOpen(true),
       className: "flex flex-col items-center active:opacity-60", style: { gap: 7, minWidth: 0 }
     },
       h("div", { className: "relative flex items-center justify-center",
         style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
-        h(PGlyph, { k: "notes", size: 24, color: glyph })),
+        (phoneImage(look.icons && look.icons["__data"]) ? h("img", { src: phoneImage(look.icons["__data"]), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 17 } }) : h(PGlyph, { k: "notes", size: 24, color: glyph }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "数据"));
   };
   // 「看TA玩」那一层罩子：触控圆点 / TA心里那一句 / 底下那条。

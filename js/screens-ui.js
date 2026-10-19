@@ -12217,7 +12217,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
 // 整页，不用半窗（施工规则/no-half-sheet.md）。
-function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) {
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
   // 钉住的那一身：写的是「名字：说明」这一句，跟出图常服那把锁同一格
   const pinText = x => String(x.name || "").trim() + (x.note ? "：" + String(x.note).trim() : "");
   const pinned = String((profile && profile.photoOutfit) || "").trim();
@@ -12240,6 +12240,10 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
       h("span", { style: { position: "absolute", left: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } }),
       h("span", { style: { position: "absolute", right: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } })),
     h("div", { "data-wk": "closetscroll", className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-10" },
+      // 分面具（她 2026-10-19）：有副面具才出这一排；挑哪张就看哪张面具自己那一柜
+      (masks && masks.length > 1) ? h("div", { "data-wk": "closetmasks", className: "flex", style: { gap: 6, overflowX: "auto", padding: "2px 0 10px" } },
+        masks.map(m => h("button", { key: m.key || "__main", "data-on": (maskKey || "") === m.key ? "1" : "0", onClick: () => onMask && onMask(m.key), className: "shrink-0 active:opacity-70",
+          style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + ((maskKey || "") === m.key ? t.ink : t.line), background: (maskKey || "") === m.key ? t.ink : t.bg2, color: (maskKey || "") === m.key ? t.bg : t.sub, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, m.name))) : null,
       h("div", { "data-wk": "closetintro", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
         "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。点「固定穿」，以后出图每张都穿那一身；再点一次取消。这里的衣服不会被刷掉，不用另外留。"),
       // 现在钉着哪一身（不在柜子里的老写法也照样显示，好让她取消）
@@ -12287,7 +12291,13 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉")),
-                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null)))))
+                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null,
+                // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
+                (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "也挂在"),
+                  masks.filter(m => m.key !== (maskKey || "")).map(m => { const on = hasIn(m.key, g.occasion, x.name);
+                    return h("button", { key: m.key || "__main", "data-on": on ? "1" : "0", onClick: () => onToggleMask(m.key, g.occasion, x), className: "active:opacity-60",
+                      style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, (on ? "✓ " : "") + m.name); })) : null)))))
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }
