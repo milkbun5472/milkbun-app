@@ -41,7 +41,8 @@ test("播放键常驻在气泡底下那一行，单聊和群聊两处都挂", ()
   //   用 match 只咬得住第一份，改坏另一份照样是绿的（实测过）。
   assert.equal((comp.match(/if \(!dot && !sub\) return null;/g) || []).length, 2,
     "两样都没有时别留一行空的（两份都要）");
-  assert.equal((comp.match(/gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: 9\.5, color: t\.fog/g) || []).length, 2,
+  // 2026-10-19 起单聊那份跟着「字号」拉条走（fsz(9.5)），群里那份还没接：两种写法都算同一个字号
+  assert.equal((comp.match(/gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: (?:9\.5|fsz\(9\.5\)), color: t\.fog/g) || []).length, 2,
     "字号字色要跟「已读」那一行一致，不然又变成一个抢眼的钮（两份都要）");
   // 她 2026-09-02：「听一下放已读右边吧现在看着有点别扭」——先「已读 23:50」再「听一下」
   assert.equal((comp.match(/sub \? h\("span", null, sub\) : null, dot\)/g) || []).length, 2,

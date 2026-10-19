@@ -10,6 +10,9 @@ const saved = [];
 const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: '', F_DISPLAY: '', ITrash: 'trash',
   saveTextFile: (name, text) => saved.push([name, text]), window: {} };
 vm.createContext(ctx);
+// 2026-10-19 起线下这几处的字号走 fsz（js/core.js，页面上比 components.js 先加载）：照写它的那一份装进沙盒
+{ const core = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "core.js"), "utf8");
+  vm.runInContext(core.slice(core.indexOf("function fsz("), core.indexOf("\n", core.indexOf("function fsz("))), ctx); }
 vm.runInContext(src.slice(src.indexOf('function stampSlug('), src.indexOf('function OfflineSetupStyleSection(')), ctx);
 function fixture(sessions, extra = {}) {
   const selected = [], deleted = [];
