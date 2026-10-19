@@ -8827,9 +8827,7 @@ function offlineSummaryPartLine(part, userName) {
 }
 const GEMINI_SAFETY_OFF = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]
   .map(category => ({ category, threshold: "BLOCK_NONE" }));
-// 被审核拦下的样子：Gemini 是空回＋SAFETY/PROHIBITED_CONTENT，中转站多半报「内容安全／审核」
-const OFFLINE_SUM_BLOCKED = /SAFETY|PROHIBITED|BLOCKLIST|模型返回为空|content[_ ]?policy|moderat|内容安全|安全策略|审核|违规|敏感/i;
-const OFFLINE_SUM_BLOCK_CAP = 6000;     // 被拦了就切到这么小，把拦人的那一截圈小，别的照常总结
+// 被审核拦了不拆小重来（她 2026-10-19：「不要多几次调用 撤掉它」）：只靠上面把 Gemini 审核放到最松
 const OFFLINE_SUM_FED_CAP = 24000;      // 退路：一枪打不出去时拆成这么大的块
 const OFFLINE_SUM_ONE_SHOT = 50000;     // 一枪吃得下多少：五万字以内不拆，超了才分段
 // ⚠️v72.03 起这儿【不再切尾巴】：切了的那一版（只喂最后 24000 字＋一份被压过的前情提要）
@@ -8876,22 +8874,14 @@ async function offlineSummaryRunBlock(p, systemFor, body, quota, part) {
   try {
     return await offlineSummaryCall(p, systemFor(quota, part), body, quota);
   } catch (e) {
-    // 被审核拦的：切得更小，拦人的那一截单独记一句「略过」，别让整场一个字都没记下
-    const blocked = OFFLINE_SUM_BLOCKED.test(String((e && e.message) || e || ""));
-    const small = offlineSummaryChunks(body, blocked ? OFFLINE_SUM_BLOCK_CAP : OFFLINE_SUM_FED_CAP);
-    if (small.length <= 1 && !blocked) throw e;
+    const small = offlineSummaryChunks(body, OFFLINE_SUM_FED_CAP);
+    if (small.length <= 1) throw e;
     console.warn("线下总结一枪没打出去，拆成", small.length, "块重来：", (e && e.message) || e);
     const got = [];
-    let skipped = 0;
     for (let i = 0; i < small.length; i++) {
       const q = offlineSummaryQuota(small[i].length);
-      try { got.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: small.length }), small[i], q)); }
-      catch (e2) {
-        if (!blocked || !OFFLINE_SUM_BLOCKED.test(String((e2 && e2.message) || e2 || ""))) throw e2;
-        skipped++; got.push({ summary: "（这一截是亲密场景，被模型的内容审核拦下了，没有细记）", details: [], open: [] });
-      }
+      got.push(await offlineSummaryCall(p, systemFor(q, { i: i + 1, n: small.length }), small[i], q));
     }
-    if (skipped === small.length) throw e;   // 一截都没过：照实告诉她
     const dedupe = arr => { const seen = new Set(); return arr.filter(x => { const k = String(x).replace(/\s+/g, ""); if (!k || seen.has(k)) return false; seen.add(k); return true; }); };
     return {
       summary: got.map((x, i) => "第 " + (i + 1) + " 段：" + x.summary).join("\n"),
