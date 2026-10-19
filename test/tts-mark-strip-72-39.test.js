@@ -123,3 +123,12 @@ test("语音条的波形/时长/转录都用剥过的那一份", () => {
   //   （vText 只拆了 JSON 外壳，停顿标记都还在）
   assert.match(vm, /ttsSpeak\(vText, speaker\.voiceId/);
 });
+
+test("方括号、带一两个修饰词的语气标记也剥掉，不念出来（群里 2026-10-19 whisper 被念出来）", () => {
+  const s = require("fs").readFileSync(require("path").join(__dirname, "../js/engine.js"), "utf8");
+  const a = s.indexOf("const TTS_MARK_TAGS"), b = s.indexOf("function stripPauseMarks");
+  const f = new Function("loadTtsApi", s.slice(a, b) + ";return {ttsMarkForSynth};")(() => ({ enabled: true, provider: "minimax", model: "speech-02" }));
+  assert.equal(f.ttsMarkForSynth("[whispers] 过来"), "过来");
+  assert.equal(f.ttsMarkForSynth("(whispers softly) 过来"), "过来");
+  assert.equal(f.ttsMarkForSynth("我说(真的)你听"), "我说(真的)你听");
+});

@@ -6913,7 +6913,8 @@ function mmSoundHint() {
   if (!ttsSoundTagsOn()) return "";
   return "也可以插声音，写成英文半角括号：(breath) 换气、(sighs) 叹气、(gasps) 倒吸气、(chuckle) 轻笑、(laughs) 笑出声、(sniffs) 吸鼻子、(snorts) 哼一声、(exhale) 呼气、(pant) 喘、(emm) 嗯、(lip-smacking) 亲一下、(humming) 哼着、(coughs) 咳、(clear-throat) 清嗓子、(groans) 闷哼、(crying) 哭腔。放在这个人此刻真会出声的地方，一条一两个就够；括号里的不会显示成字，只会变成声音。";
 }
-const TTS_MARK_TAG_RE = new RegExp("\\(\\s*(?:" + TTS_MARK_TAGS.concat(["breath", "pant", "sniffs", "snorts", "lip-smacking", "humming", "hissing", "clear-throat", "groans", "emm", "sneezes", "crying"]).join("|") + ")\\s*\\)", "gi");
+// 方括号 [whispers]、后面再跟一两个词的 (whispers softly) 也算（群里 2026-10-19：语音里把 whisper 念了出来）
+const TTS_MARK_TAG_RE = new RegExp("[\\(\\[]\\s*(?:" + TTS_MARK_TAGS.concat(["breath", "pant", "sniffs", "snorts", "lip-smacking", "humming", "hissing", "clear-throat", "groans", "emm", "sneezes", "crying"]).join("|") + ")(?:[ \\t]+[A-Za-z-]+){0,2}\\s*[\\)\\]]", "gi");
 // 教模型怎么在语音里插停顿，单聊和群聊共用这一句。
 // ⚠️只给许可，不加禁令：剥标记是代码的活（ttsMarkForSynth），提示词这边不说
 //   （施工规则/bans-make-it-dumber.md）。
@@ -6926,7 +6927,7 @@ function ttsMarkForSynth(text) {
   if (!s) return "";
   // speech-2.8 认声音标签：名单里的留着送上去出声，其余照旧剥
   const keep = ttsSoundTagsOn(), sing = ttsSingOn();
-  return s.replace(/♪\s*([^♪]+?)\s*♪/g, (m, x) => sing ? " [sings] " + x + " " : x).replace(/[♪♫]/g, sing ? "" : " ").replace(TTS_MARK_TAG_RE, m => keep && MM_SOUND_TAG_RE_ONE.test(m) ? m : " ").replace(/[ \t\u3000]+/g, " ")
+  return s.replace(/♪\s*([^♪]+?)\s*♪/g, (m, x) => sing ? " [sings] " + x + " " : x).replace(/[♪♫]/g, sing ? "" : " ").replace(TTS_MARK_TAG_RE, m => (keep && MM_SOUND_TAG_RE_ONE.test(m)) || (sing && m[0] === "[") ? m : " ").replace(/[ \t\u3000]+/g, " ")
     .replace(/\s+([，。！？、；：」』）])/g, "$1").trim();
 }
 function ttsMarkStrip(text) {
@@ -9911,6 +9912,11 @@ function flatSchemaSalvage(raw, hint) {
 // 在这里挂一张网，比去 600 多个 catch 里一处处补可靠（她 2026-09-29 要「失败都要有 toast」）。
 async function runProbe(p, ctx, probe) {
   let _from = ""; try { _from = callerLabelOf(new Error().stack); } catch (e) {}
+  // 两张表都认不出、又没起 tag 的：拿它要干的那件事开头几个字当名字（她 2026-10-18 群里截图：一排「其他」看不出是什么）
+  if (!_from && probe && typeof probe === "object" && !probe.logFrom && !(typeof callTagLabel === "function" && callTagLabel(probe.tag))) {
+    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "").slice(0, 14);
+    if (_ins) probe = Object.assign({}, probe, { logFrom: "其他·" + _ins + "…" });
+  }
   if (_from && probe && typeof probe === "object" && !probe.logFrom) probe = Object.assign({}, probe, { logFrom: _from });
   try { return await runProbeInner(p, ctx, probe); }
   catch (e) {

@@ -354,6 +354,10 @@
     parts.push(USER_SLOT_PROTECT);
     parts.push(RETEACH_RULE);
     parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+    // 一起学也认「外语消息自带中译」（群里 2026-10-18：日男老师说日文，叫他自己加中文，翻没几条就不见了）——
+    //   跟单聊同一段规矩：每一泡外语写成「原文 | 中文」，屏幕上原文照常、中文挂进「译」
+    if (typeof window !== "undefined" && window.__charBilingual && window.__charBilingual(char.id) && typeof bilingualRule === "function")
+      parts.push(bilingualRule(char.name) + "一起学里也一样：讲解、例句、追问里的外语都照这个写；题卡和递给她的讲义不用加。");
     // 「这个人是谁」这几层一起学原来一层都没有（她 2026-09-23：「一起学之类的人设有被投进去吗」）。
     //   隔离挡的是【主聊天记忆】；长出来的自我、语气锚、整张卡那条都不是记忆，是人本身，所以照给。
     if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
@@ -3872,9 +3876,11 @@
         h("div", { className: "min-w-0" },
           (sess.mode === "nv1" || (char && char.voiceId && typeof ttsReady === "function" && ttsReady())) ? h("div", { className: "flex items-center gap-1", style: { marginBottom: 2 } },
             sess.mode === "nv1" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, m.name + (isTeacher ? "（老师）" : "（同学）")) : null,
-            (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: isVoice(m.content) ? m.content.slice(VOICE_PRE.length) : m.content, spk: char, tp: tp }) : null) : null,
+            (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: isVoice(m.content) ? m.content.slice(VOICE_PRE.length) : (function (x) { const b = typeof splitBilingual === "function" ? splitBilingual(x, false) : null; return b ? b.text : x; })(m.content), spk: char, tp: tp }) : null) : null,
           m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { "data-wk": "block", style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", cursor: isVoice(m.content) ? "pointer" : undefined },
-            onClick: isVoice(m.content) ? function () { playVoice(char, m.content); } : undefined }, voiceShow(m.content))));
+            onClick: isVoice(m.content) ? function () { playVoice(char, m.content); } : undefined },
+            // 外语那几泡也给「译」，带了「原文 | 中文」的直接挂上中文（跟聊天同一个 TransText）
+            (!isVoice(m.content) && typeof TransText === "function") ? h(TransText, { text: m.content, ink: STUDY_SKIN.ink }) : voiceShow(m.content))));
     });
 
     const hoEntry = hoView ? (sess.transcript || []).find(function (m) { return m.id === hoView && m.handout && m.handout.status === "done"; }) : null;
