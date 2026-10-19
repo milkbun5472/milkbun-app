@@ -63,8 +63,9 @@ test("五万字以内一枪打完，超了才分段（她 2026-09-20 提的：�
 test("一枪撞上限就自动拆小重来，别让这一场什么都不剩", () => {
   const blk = grab("offlineSummaryRunBlock", "// 太长就分段跑");
   assert.match(blk, /catch \(e\) \{/, "一枪失败就整场抛了");
-  assert.match(blk, /offlineSummaryChunks\(body, OFFLINE_SUM_FED_CAP\)/, "退路上没按小块拆");
-  assert.match(blk, /if \(small\.length <= 1\) throw e;/, "拆到最小还失败时得照实抛，别装作成功");
+  assert.match(blk, /offlineSummaryChunks\(body, blocked \? OFFLINE_SUM_BLOCK_CAP : OFFLINE_SUM_FED_CAP\)/, "退路上没按小块拆");
+  assert.match(blk, /if \(small\.length <= 1 && !blocked\) throw e;/, "拆到最小还失败时得照实抛，别装作成功");
+  assert.match(blk, /if \(skipped === small\.length\) throw e;/, "被拦的一截都没过也得照实抛");
   assert.match(blk, /console\.warn\("线下总结一枪没打出去/, "退路走没走过不留痕");
   // 两条路都得回一样形状的东西，不然上面合成那一步会读到空的
   ["summary:", "details:", "open:"].forEach(k => assert.ok(blk.indexOf(k) > 0, "退路少回了 " + k));
