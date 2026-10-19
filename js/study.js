@@ -868,7 +868,8 @@
   // 她传上来的课本、讲义、笔记。课身上只记【有哪几份】（名字、字数），正文放 IndexedDB 那张表里，
   // 跟一起读的书同一种存法（core.js 的 makeTextStore）。
   // ⚠️正文不整本往里塞：每次只挑跟这一节有关的几段，一门课的资料动辄几万字。
-  const MAT_BUDGET = 6000, MAT_CHUNK = 700;
+  // 每轮给多少字资料（她 2026-10-20：群友「感觉他看资料看不全」——原来 6000 字，一本书只挑得出九段，放大到 25000）
+  const MAT_BUDGET = 25000, MAT_CHUNK = 700;
   let _matStore = null;
   function matStore() { if (!_matStore && typeof makeTextStore === "function") _matStore = makeTextStore("StudyDocsDB", "docs"); return _matStore; }
   const MAT_CACHE = {};   // id → 全文；读一次留着，拼提示词那一步是同步的
