@@ -1,5 +1,0 @@
-{
-  "entry": "product-source/demo.html",
-  "purpose": "Prevent unrelated full App mount from replacing global callbacks owned by this isolated fixture; all original tracked runtime files preserved byte-for-byte. Real components mount into separate demo root.",
-  "boundary": "only initial root render interception"
-}

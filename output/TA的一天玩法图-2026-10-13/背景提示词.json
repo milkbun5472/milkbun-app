@@ -1,7 +1,0 @@
-{
-  "mode": "built-in image_gen",
-  "prompts": [
-    "Use case: ads-marketing\nAsset type: portrait editorial background for a Chinese app feature campaign, 3:4.\nPrimary request: A warm storybook dollhouse life-journal background, with tangible depth, polished yet restrained. The central 82% and upper left 80% are very quiet pale honey cream textured paper, ready for real app screenshots and Chinese typography to be composited separately. At the extreme outer borders only: a little ochre gingham textile bottom left, a few small cut-paper blue ceramic cups and miniature wooden house keys bottom right, a soft window-frame shadow and sunlit curtain edge upper right, tiny muted apricot and dusty blue collage scraps near corners. Subtle raised paper edges, shallow handmade diorama depth, soft afternoon light. Warm cream, butter yellow, dusty blue, terracotta accents. Romantic shared-home atmosphere without any people or portraits. No busy central decorations; this is a functional poster background, not a room scene.\nConstraints: absolutely no text, letters, numbers, logos, app interface, phones, screenshots or humans. No fantasy glow, stars, excessive flowers, glitter or neon. Preserve a clean center for two tall complete native UI screenshots."
-  ],
-  "file": "assets/小家生活底图.png"
-}
