@@ -4155,7 +4155,7 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
   const today = new Date();
@@ -4180,6 +4180,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // 每张面具一本日程（她 2026-10-14「点我的头像可以选不同面具的日程，每个单独选能看到的角色，角色跟着面具走」）：
   //   主面具＝owner "mine"（原来的那一本，一条不动）；副面具＝"mine:面具id"。点「我」的头像换面具。
   const [myMask, setMyMask] = useState(""), [maskPick, setMaskPick] = useState(false);
+  const [copyAll, setCopyAll] = useState(false);   // 复制别的面具的日程：默认只搬今天及以后的
   const maskList = Array.isArray(myMasks) && myMasks.length ? myMasks : [{ key: "", name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }];
   const curMask = maskList.find(m => m.key === myMask) || maskList[0];
   const evOwner = view === "mine" ? (myMask ? "mine:" + myMask : "mine") : view;
@@ -4582,7 +4583,21 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         maskList.map(m => h("button", { key: m.key || "main", "data-on": m.key === myMask ? "1" : "0", onClick: () => { setMyMask(m.key); setMaskPick(false); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h(Avatar, { character: { name: m.name, avatarImage: m.avatarImage, color: m.color }, size: 34, radius: 999 }),
           h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, m.name + (m.key ? "" : "（主面具）")),
-          m.key === myMask ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "正在看") : null)))),
+          m.key === myMask ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "正在看") : null)),
+        maskList.length > 1 && onCopyMaskSched ? h("div", { "data-wk": "calmaskcopy", style: { marginTop: 16 } },
+          h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, "从别的面具复制过来"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.6 } },
+            "把那张面具的日程加进「" + curMask.name + "」这一本：原有的不删，同一天同一时段同一件事的跳过。复制过来就是这一本自己的，之后改哪边都不影响另一边。纪念日和全天的事本来每张面具都看得到，不用复制。"),
+          h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
+            [[false, "只要今天以后的"], [true, "全部"]].map(([v, zh]) => h("button", { key: zh, "data-wk": "calmaskcopyrange", "data-on": copyAll === v ? "1" : "0", onClick: () => setCopyAll(v), className: "active:opacity-70",
+              style: { padding: "5px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (copyAll === v ? t.ink : t.line), background: copyAll === v ? t.ink : t.bg2, color: copyAll === v ? t.bg : t.sub } }, zh))),
+          maskList.filter(m => m.key !== myMask).map(m => h("button", { key: "cp" + (m.key || "main"), "data-wk": "calmaskcopybtn", onClick: () => {
+              const n = onCopyMaskSched(m.key ? "mine:" + m.key : "mine", myMask ? "mine:" + myMask : "mine", !copyAll);
+              if (window.__toast) window.__toast(n ? "从「" + m.name + "」复制了 " + n + " 条" : "「" + m.name + "」没有要复制的（都已经有了，或者是空的）");
+              setMaskPick(false);
+            }, className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "9px 0", borderBottom: "1px solid " + t.line } },
+            h(Avatar, { character: { name: m.name, avatarImage: m.avatarImage, color: m.color }, size: 28, radius: 999 }),
+            h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "复制「" + m.name + "」的日程")))) : null)),
     visPick && h(Sheet, { onClose: () => setVisPick(false), tall: true },
       h("div", { "data-wk": "calvis", className: "px-1 pb-2" },
         h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到我的日历和经期"),
