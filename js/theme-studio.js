@@ -818,7 +818,9 @@
   //   返回键就钻进状态栏底下点不到。所以只对【顶栏那几个挂点】的规则，把顶上那一格改成
   //   「原来的值，和 刘海 + 4px，取大的那个」——原来就够低的不变，不够的自动往下让。
   //   已经自己用了安全区（env / --app-safe-top）的不动；只动顶栏，别的元素一个不碰。
-  const TOP_HOOK = /\[data-wk\s*=\s*["']?(?:head|chathead|[a-z]*head)["']?\s*\]/i;
+  // 只认真贴着屏幕顶的那几条顶栏。原来写成「名字以 head 结尾的都算」，卡片抬头、分组标题（statehead、closetgrouphead、offhead……）
+  //   也被加了一截刘海留白，刘海高的手机上它们平白空出一大块（群里 2026-10-20：「刷新了一下发现做的美化不适配了」）。
+  const TOP_HOOK = /\[data-wk\s*=\s*["']?(?:head|chathead|yqhead|fghead)["']?\s*\]/i;
   const SAFE_MIN = "calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + 4px)";
   const fitTopBody = (sel, body) => {
     // 只认选中的就是顶栏本身（最后一节是 head 挂点）；顶栏里面的头像、按钮写了高度不能跟着加刘海（群里 2026-10-19：顶栏头像被拉成长条）
@@ -830,9 +832,13 @@
     // 这一条自己已经算了刘海（哪儿用了安全区）＝做的人照自己手机调好了，整条不动
     if (safe(body)) return body;
     let padTop = null;   // 这一条自己写的顶上留白（原值）
+    const pinned = /(^|[;\s])position\s*:\s*(fixed|absolute)\b/i.test(body);
     const out = String(body)
       .replace(/(^|[;\s])(padding-top|top)\s*:\s*([^;!]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) => {
         if (/^(auto|inherit|initial|unset)$/i.test(v.trim())) return m;
+        // top 只在顶栏自己飘起来（fixed / absolute）时才是「离屏幕顶多远」；sticky、relative 的 top 是挪动量，
+        //   改了会把顶栏整条往下推出一道缝
+        if (/^top$/i.test(prop) && !pinned) return m;
         if (/^padding-top$/i.test(prop)) padTop = px0(v);
         return pre + prop + ": max(" + px0(v) + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""); })
       .replace(/(^|[;\s])padding\s*:\s*([^;!(]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, v, imp) => {
@@ -850,8 +856,10 @@
     return out.replace(/(^|[;\s])(height|min-height)\s*:\s*(\d+(?:\.\d+)?px)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
       pre + prop + ": calc(" + v + " + " + extra + ")" + (imp ? " !important" : ""));
   };
-  // 全局 CSS 不加作用域，但顶栏那几条也要过一遍：套一层 html（选的还是同一批元素），读不懂就原样用
-  const fitTop = css => { try { return scopeCSS(css, "html"); } catch (_) { return css; } };
+  // 全局 CSS 不加作用域，但顶栏那几条也要过一遍。选择器【一个字不改】（scope 传 null）：
+  //   原来是整份套一层 html，选的还是同一批元素，可每条都重了一档，全局 CSS 反过来压住了各页自己写的
+  //   （:root 开头的又轻了一档）——做好的美化刷新后就变了。读不懂就原样用。
+  const fitTop = css => { try { return scopeCSS(css, null); } catch (_) { return css; } };
   const scopeCSS = (css, scope) => {
     css = String(css || "");
     const bad = unsafeReason(css); if (bad) throw new Error(bad);
@@ -866,7 +874,7 @@
       else if (/^@(keyframes|-webkit-keyframes|font-face|property|page)\b/i.test(head)) out += head + "{" + body + "}";
       else if (head.startsWith("@")) throw new Error("暂不支持 " + head.split(/\s/)[0]);
       else {
-        const sels = head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
+        const sels = scope == null ? [head] : head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
           // body 要落到真的 body 上（群里 2026-10-19：聊天页底下那一条是 body 的米色，写 body 一直刷不到——原来被换成了 html）
           if (/^body$/i.test(sel) && /^html\b/i.test(scope)) return scope + " body";
           if (/^(html|body|:root)$/i.test(sel)) return scope;
