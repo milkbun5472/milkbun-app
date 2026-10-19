@@ -71,3 +71,8 @@ test("拿字假装发申请：能写信的那一轮，把「[情侣申请] …�
   for (const w of ["我想申请一下", "情侣申请是什么", "[转账] 100"]) assert.ok(!re.test(w), w);
   assert.match(blk, /parsed\.loveLetter = body;/, "收进去以后走原来那条落地路，不另写一份");
 });
+test("一天一封只算还在聊天里的那封：重 Roll／删掉以后能再写（群里 2026-10-19）", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /markLoveLetter\(charId, \{ ts: Date\.now\(\), id: _llId \}\);/);
+  assert.match(app, /< 864e5 && \(chatsRef\.current\[charId\] \|\| \[\]\)\.some\(m => m && m\.kind === "loveletter" && \(rec\.id \? m\.id === rec\.id/);
+});

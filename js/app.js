@@ -13819,8 +13819,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _letter = _llObj ? String(_llObj.text || "").trim() : typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
       const _letterRel = _llObj ? spaceRelKey(_llObj.rel) : "lover";
       if (_letter && _letter.toLowerCase() !== "null" && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
-        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", rel: _letterRel, content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
-        markLoveLetter(charId, { ts: Date.now() });
+        const _llId = "ll_" + Date.now();
+        pChat(charId, p => [...p, { id: _llId, role: "assistant", kind: "loveletter", rel: _letterRel, content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
+        markLoveLetter(charId, { ts: Date.now(), id: _llId });
         delivered = true;
       }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
@@ -24845,7 +24846,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (bk && Date.now() - Number(bk.ts || 0) < 7 * 864e5) return false;
     const rec = (loadJSON("x_loveLetter", {}) || {})[charId] || {};
     if (Date.now() - Number(rec.declinedTs || 0) < LOVE_LETTER_DECLINE_COOL_MS) return false;
-    if (Date.now() - Number(rec.ts || 0) < 864e5) return false;
+    // 一天一封只算【还在聊天里的那封】（群里 2026-10-19：「申请信点错重 Roll 了，让他重新发死活发不出来」）——
+    //   重 Roll、删掉以后信没了，那一封不算数
+    if (Date.now() - Number(rec.ts || 0) < 864e5 && (chatsRef.current[charId] || []).some(m => m && m.kind === "loveletter" && (rec.id ? m.id === rec.id : Number(m.ts || 0) >= Number(rec.ts || 0) - 5000))) return false;
     if ((chatsRef.current[charId] || []).some(m => m && m.kind === "loveletter" && (m.state === "sealed" || m.state === "open"))) return false;
     return true;
   };
