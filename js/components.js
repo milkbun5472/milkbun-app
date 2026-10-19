@@ -7512,6 +7512,8 @@ function Home({
       "data-wk": it.kind === "widget" ? "widget" : it.kind === "decor" ? "decor" : undefined,
       style: {
         gridColumn: gCol, gridRow: gRow,
+        // 名片不钉高度：别让格子把它拉满两行（拉满了底下那两个小按钮会掉到卡的最下沿、离内容好远）
+        alignSelf: HOME_FREE_HEIGHT[key] && !asIcon ? "start" : undefined,
         // ⚠️歪着的卡要有地方伸腿（她 2026-09-13：「组件和装饰要是歪着叠，TA的角会被截掉」）。
         //   病根：这一格定了高就 overflow:hidden，而卡是【转过角度】的——
         //   一张 340 宽的卡歪 4°，上下各要多出十来像素，那几个角正好被这个方框削掉。

@@ -818,7 +818,9 @@
   //   返回键就钻进状态栏底下点不到。所以只对【顶栏那几个挂点】的规则，把顶上那一格改成
   //   「原来的值，和 刘海 + 4px，取大的那个」——原来就够低的不变，不够的自动往下让。
   //   已经自己用了安全区（env / --app-safe-top）的不动；只动顶栏，别的元素一个不碰。
-  const TOP_HOOK = /\[data-wk\s*=\s*["']?(?:head|chathead|[a-z]*head)["']?\s*\]/i;
+  // 只认真贴着屏幕顶的那几条顶栏。原来写成「名字以 head 结尾的都算」，卡片抬头、分组标题（statehead、closetgrouphead、offhead……）
+  //   也被加了一截刘海留白，刘海高的手机上它们平白空出一大块（群里 2026-10-20：「刷新了一下发现做的美化不适配了」）。
+  const TOP_HOOK = /\[data-wk\s*=\s*["']?(?:head|chathead|yqhead|fghead)["']?\s*\]/i;
   const SAFE_MIN = "calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + 4px)";
   const fitTopBody = (sel, body) => {
     // 只认选中的就是顶栏本身（最后一节是 head 挂点）；顶栏里面的头像、按钮写了高度不能跟着加刘海（群里 2026-10-19：顶栏头像被拉成长条）
@@ -827,23 +829,37 @@
     const safe = v => /safe-area|--app-safe-top/i.test(v);
     // max() 里不认不带单位的 0（写成 max(0, …) 整条作废，顶栏照样钻进状态栏）——补成 0px
     const px0 = v => /^[-+]?0+(?:\.0+)?$/.test(String(v).trim()) ? "0px" : String(v).trim();
-    return String(body)
-      .replace(/(^|[;\s])(padding-top|top)\s*:\s*([^;!]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
-        safe(v) || /^(auto|inherit|initial|unset)$/i.test(v.trim()) ? m : pre + prop + ": max(" + px0(v) + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""))
+    // 这一条自己已经算了刘海（哪儿用了安全区）＝做的人照自己手机调好了，整条不动
+    if (safe(body)) return body;
+    let padTop = null;   // 这一条自己写的顶上留白（原值）
+    const pinned = /(^|[;\s])position\s*:\s*(fixed|absolute)\b/i.test(body);
+    const out = String(body)
+      .replace(/(^|[;\s])(padding-top|top)\s*:\s*([^;!]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) => {
+        if (/^(auto|inherit|initial|unset)$/i.test(v.trim())) return m;
+        // top 只在顶栏自己飘起来（fixed / absolute）时才是「离屏幕顶多远」；sticky、relative 的 top 是挪动量，
+        //   改了会把顶栏整条往下推出一道缝
+        if (/^top$/i.test(prop) && !pinned) return m;
+        if (/^padding-top$/i.test(prop)) padTop = px0(v);
+        return pre + prop + ": max(" + px0(v) + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""); })
       .replace(/(^|[;\s])padding\s*:\s*([^;!(]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, v, imp) => {
-        if (safe(v)) return m;
         const parts = v.trim().split(/\s+/); if (!parts.length || parts.length > 4) return m;
         const full = parts.length === 1 ? [parts[0], parts[0], parts[0], parts[0]] : parts.length === 2 ? [parts[0], parts[1], parts[0], parts[1]] : parts.length === 3 ? [parts[0], parts[1], parts[2], parts[1]] : parts;
-        full[0] = "max(" + px0(full[0]) + ", " + SAFE_MIN + ")";
+        padTop = px0(full[0]); full[0] = "max(" + padTop + ", " + SAFE_MIN + ")";
         return pre + "padding: " + full.join(" ") + (imp ? " !important" : "");
-      })
-      // 顶栏写死了高度（群里 2026-10-19：height: 52px + box-sizing: border-box）：上面把刘海那截加进了 padding-top，
-      //   高度还是 52，字就被挤回状态栏里。写死的 px 高度一律再加上刘海那截——没刘海的手机加的是 0，原样。
-      .replace(/(^|[;\s])(height|min-height)\s*:\s*(\d+(?:\.\d+)?px)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
-        pre + prop + ": calc(" + v + " + var(--app-safe-top, env(safe-area-inset-top, 0px)))" + (imp ? " !important" : ""));
+      });
+    // 顶栏写死了高度（群里 2026-10-19：height: 52px + box-sizing: border-box）：顶上留白被往下挪了，高度不跟着加，字就被挤回状态栏里。
+    //   只补【真被挪下去的那一截】：这一条自己写了顶上留白，就补「刘海+4 比原值多出来的」——在做的那台手机上多出来的是 0，原样
+    //   （群里 2026-10-20：原值本来就让开了刘海，高度又整截加了一次，「刷新了一下发现做的美化不适配了」）；
+    //   没写顶上留白：留白还是 app 自己那份刘海，换哪台手机都一样，高度不补。
+    if (padTop == null) return out;
+    const extra = "max(0px, " + SAFE_MIN + " - " + padTop + ")";
+    return out.replace(/(^|[;\s])(height|min-height)\s*:\s*(\d+(?:\.\d+)?px)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
+      pre + prop + ": calc(" + v + " + " + extra + ")" + (imp ? " !important" : ""));
   };
-  // 全局 CSS 不加作用域，但顶栏那几条也要过一遍：套一层 html（选的还是同一批元素），读不懂就原样用
-  const fitTop = css => { try { return scopeCSS(css, "html"); } catch (_) { return css; } };
+  // 全局 CSS 不加作用域，但顶栏那几条也要过一遍。选择器【一个字不改】（scope 传 null）：
+  //   原来是整份套一层 html，选的还是同一批元素，可每条都重了一档，全局 CSS 反过来压住了各页自己写的
+  //   （:root 开头的又轻了一档）——做好的美化刷新后就变了。读不懂就原样用。
+  const fitTop = css => { try { return scopeCSS(css, null); } catch (_) { return css; } };
   const scopeCSS = (css, scope) => {
     css = String(css || "");
     const bad = unsafeReason(css); if (bad) throw new Error(bad);
@@ -858,7 +874,7 @@
       else if (/^@(keyframes|-webkit-keyframes|font-face|property|page)\b/i.test(head)) out += head + "{" + body + "}";
       else if (head.startsWith("@")) throw new Error("暂不支持 " + head.split(/\s/)[0]);
       else {
-        const sels = head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
+        const sels = scope == null ? [head] : head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
           // body 要落到真的 body 上（群里 2026-10-19：聊天页底下那一条是 body 的米色，写 body 一直刷不到——原来被换成了 html）
           if (/^body$/i.test(sel) && /^html\b/i.test(scope)) return scope + " body";
           if (/^(html|body|:root)$/i.test(sel)) return scope;
@@ -1113,7 +1129,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.097",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.101",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
