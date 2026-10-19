@@ -18529,6 +18529,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const c0 = (characters || []).find(x => x.id === charId);
       if (c0) {
         try { wxTaken = phoneTakenNames(c0); d = window.PhoneKit.dropDupWechat(d, wxTaken); } catch (e) {/* 去重失败不连累刷新 */}
+        // TA给她的备注写成了【她给TA的】那一个（群里 2026-10-19：TA刚把自己在她手机里的备注改了，自己手机里她那一行也变成同一个）：
+        //   那是两边各存各的，撞成一模一样只会是搞混了——留回原来那个。
+        try {
+          const herForTa = String(c0.remark || "").trim();
+          if (d && d.userContact && herForTa && herForTa !== String(c0.name || "").trim() && String(d.userContact.remark || "").trim() === herForTa) {
+            const was = ((((phonesRef.current || {})[c0.id] || {}).wechat || {}).userContact || {}).remark;
+            d = { ...d, userContact: { ...d.userContact, remark: was && String(was).trim() !== herForTa ? was : (d.userContact.name || userName(profile)) } };
+          }
+        } catch (e) {}
       }
     }
     // ⚠️「看TA玩」那一路不归档：归档是为【整份覆盖】准备的（旧那份就此没了，先抽成时间线）。
