@@ -11,7 +11,9 @@ assert.ok(/await drawFromDesc\(char \|\| null, desc/.test(app), "和朋友圈同
 assert.ok(/const photo = \{ imageRef: ref, desc: desc \}/.test(app), "描述留着（改过就存改过的）");
 assert.ok(/loadJSON\("x_forumAutoImg", false\) && imgApiReady\(\)\) setTimeout\(\(\) => forumGenImage\(rec\.id\)/.test(app), "开关开着才自动画");
 assert.ok(/h\(AutoImgSwitch, \{ storeKey: "x_forumAutoImg" \}\)/.test(scr), "贴吧有开关");
-assert.ok(/onGen: !photoView\.imageRef && photoView\.itemId/.test(scr), "只有描述的才给生图键");
+// 2026-10-18 起私信也能发照片（v76.046）：onGen 先看是不是私信里那张，再看帖子那张；两路都是「还没画过才给键」
+assert.ok(/onGen: photoView\.pmAt && typeof window\.forumPMGenImage === "function" \? \(!photoView\.imageRef \?/.test(scr), "私信那张也只有描述的才给生图键");
+assert.ok(/: !photoView\.imageRef && photoView\.itemId && typeof window\.forumGenImage === "function"/.test(scr), "只有描述的才给生图键");
 assert.ok(/setPhotoView\(\{ \.\.\.ph, itemId: x\.id \}\)/.test(scr));
 assert.ok(/onGen && cap \? h\(DescGenImageButton/.test(comp));
 console.log("forum-gen-image ok");
