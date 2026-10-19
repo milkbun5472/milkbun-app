@@ -30,6 +30,7 @@
     const rows = [["每一页都有", common]].concat(grp ? [["这一页专有（" + grp.zh + "）", grp.hooks]] : []);
     const put = function (nm) { setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + '[data-wk="' + nm + '"] {\n  \n}'); };
     const [copied, setCopied] = useState(false);
+    const [openRows, setOpenRows] = useState({});
     const copyForAI = function () {
       if (!studio.aiBrief || typeof copyText !== "function") return;
       copyText(studio.aiBrief(page, css)).then(function (ok) {
@@ -65,10 +66,16 @@
             h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
               "var(--app-h)  屏幕可视高度\nvar(--app-vh) 高度的 1%\nvar(--app-w)  屏幕宽度\nvar(--app-safe-top) / var(--app-safe-bottom)  刘海 / 底部横条\nvar(--app-kb) 键盘占掉的高度\nhtml[data-screen-size=\"short|mid|tall\"] …  按屏幕高矮分开写")));
       })(),
+      // 挂点叠起来（她 2026-10-19：「选挂点太长了刷不到下面保存」）：默认收着，点标题才展开，一组一组开
       rows.map(function (row) {
-        return h("div", { key: row[0], style: { marginBottom: 8 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, row[0]),
-          h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+        const isOpen = !!openRows[row[0]];
+        return h("div", { key: row[0], "data-wk": "csshookgroup", "data-open": isOpen ? "1" : "0", style: { marginBottom: 8 } },
+          h("button", { onClick: function () { setOpenRows(function (o) { return Object.assign({}, o, { [row[0]]: !isOpen }); }); }, "aria-expanded": isOpen ? "true" : "false",
+            className: "w-full flex items-center justify-between active:opacity-70",
+            style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink } },
+            h("span", null, row[0] + " · " + (row[1] || []).length + " 个挂点"),
+            h("span", { style: { color: t.fog, fontSize: 11 } }, isOpen ? "收起" : "展开")),
+          !isOpen ? null : h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
             (row[1] || []).map(function (hk) {
               return h("button", { key: hk[0], onClick: function () { put(hk[0]); }, className: "active:opacity-70",
                 style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, textAlign: "left" } },
