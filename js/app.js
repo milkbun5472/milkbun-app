@@ -18069,14 +18069,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   useEffect(() => {
     // 进入论坛只读已有内容，不自动生成、不烧一次主池（新内容全由她在论坛里明确触发）
     if (screen === "forum") clearAppNotif("forum");
-    if (screen === "nest") { if (window.NestWatch) window.NestWatch.markSeen(); clearAppNotif("nest"); }
+    if (screen === "nest") { if (window.NestWatch) window.NestWatch.markSeen(); clearAppNotif("nest"); if (window.NestWatch && window.NestWatch.adminToken() && window.Notify && window.Notify.badge) window.Notify.badge(0); }
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);
   // ── 小窝管理员的新消息（她 2026-10-18：「通知里面有，app 外面也有红点，新发的都会提醒」）──
-  //   只有这台手机记着管理口令才会去看（js/nest-watch.js）。开机过十秒看一次，之后在前台每十分钟一次，
-  //   切回来时离上次超过三分钟也看一次。红点＝比上次点进小窝还新的条数；横幅只为【还没弹过的】那几条弹一次。
+  //   只有这台手机记着管理口令才会去看（js/nest-watch.js）。开机过十秒看一次，之后每十分钟一次，
+  //   切回来时离上次超过三分钟也看一次。红点＝比上次点进小窝还新的条数；提醒只为【还没报过的】那几条报一次：
+  //   人在 app 里→顶上横幅；app 在后台→系统通知（锁屏/通知中心，点开落到小窝），桌面图标也挂上这个数。
   //   她正在小窝里时不弹不亮（她自己就在看墙）。
+  // ⚠️2026-10-19 她：「我还是收不到小窝提醒」。第一版的十分钟那一拍写成了【在前台才查】——
+  //   可系统通知只在后台才发，于是人一走开它就不查了，等于永远轮不到通知那一支。现在后台也查
+  //  （只拉列表最新那一页，很轻）；iOS 把 app 整个冻住时 JS 不跑，那就等她回来那一下再报。
   const nestWatchAt = useRef(0);
   const nestWatchRun = async force => {
     if (!window.NestWatch || !window.NestWatch.adminToken()) return;
@@ -18085,21 +18089,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let r; try { r = await window.NestWatch.check(); } catch (e) { return; }   // 网断了就等下一轮，不吵她
     if (screenRef.current === "nest") { window.NestWatch.markSeen(); return; }
     setAppNotif(p => { if ((p.nest || 0) === r.fresh.length) return p; const n = { ...p, nest: r.fresh.length }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
+    if (window.Notify && window.Notify.badge) window.Notify.badge(r.fresh.length);
     if (r.untold.length) {
       const KZ = { theme: "主题", look: "聊天美化", css: "CSS", lore: "世界书", style: "文风", preset: "预设", persona: "人设", post: "留言板" };
       const top = r.untold[0];
       const what = (KZ[top.kind] ? "【" + KZ[top.kind] + "】" : "") + (top.title || "新的一条") + (top.nick ? " · " + top.nick : "");
-      pushAppBanner("nest", { name: "秋秋小窝", tag: "管理", G: window.GNest, n: r.untold.length,
-        text: r.untold.length > 1 ? "新发了 " + r.untold.length + " 条：" + what : "新发了：" + what });
+      const text = r.untold.length > 1 ? "新发了 " + r.untold.length + " 条：" + what : "新发了：" + what;
+      if (document.visibilityState === "hidden") { if (window.Notify) window.Notify.push({ title: "秋秋小窝", body: text, tag: "nest-new", screen: "nest" }); }
+      else pushAppBanner("nest", { name: "秋秋小窝", tag: "管理", G: window.GNest, n: r.untold.length, text: text });
     }
   };
   useEffect(() => {
     if (!loaded) return;
     const t0 = setTimeout(() => nestWatchRun(true), 10000);
-    const iv = setInterval(() => { if (document.visibilityState !== "hidden") nestWatchRun(true); }, 10 * 60000);
+    const iv = setInterval(() => nestWatchRun(true), 10 * 60000);
+    // 切回来：跟开 app 那一串一样两种信号都认（壳里 visibilitychange 不一定来，focus 会来）
     const kick = () => { if (document.visibilityState !== "hidden") nestWatchRun(false); };
+    const now = () => nestWatchRun(true);   // 小窝里「现在查一次」
     document.addEventListener("visibilitychange", kick);
-    return () => { clearTimeout(t0); clearInterval(iv); document.removeEventListener("visibilitychange", kick); };
+    window.addEventListener("focus", kick);
+    window.addEventListener("nest-watch-now", now);
+    return () => { clearTimeout(t0); clearInterval(iv); document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); window.removeEventListener("nest-watch-now", now); };
   }, [loaded]);
   // 每次唤起要补的那一串（开 app / 切回前台 / 跨天，三处走的是同一串）。
   // ⚠️两件事必须是这样：

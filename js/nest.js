@@ -30,7 +30,7 @@
     { key: "lore", zh: "世界书", seal: "书", color: "#71834f", hint: "一组世界书词条" },
     { key: "style", zh: "文风", seal: "文", color: "#8f72a8", hint: "线下文风库里的一条文风" },
     { key: "preset", zh: "预设", seal: "预", color: "#b38a35", hint: "文风预设台里搭好的一份预设" },
-    { key: "persona", zh: "人设", seal: "人", color: "#4f8e88", hint: "一个角色的名字、一句话简介和人设正文" },
+    { key: "persona", zh: "人设", seal: "人", color: "#4f8e88", hint: "一个角色的名字、一句话简介和人设正文；模拟器、玩法卡（让 TA 扮演一整套系统的那种）也放这儿" },
     // 留言板（她 2026-10-16：「纯发帖子反馈之类的，给不玩 qq 的人也能反馈」）：只有一段字和截图，没有导入；
     //   不进「全部」那面墙（后端就不给），只在这一格里看
     { key: "post", zh: "留言板", seal: "言", color: "#7a6f62", hint: "想反馈的、想问的、想聊的，写一帖" }
@@ -246,6 +246,23 @@
   // ── 那一排分类：小窝是一面格子柜，每一格是一只抽屉 ─────────────
   //   选中的那只是「拉出来了」：浮起来、有影子、拉手上墨；没选的推在柜子里，暗一些、拉手是细线。
   //   CSS「放哪儿」那三格、上传页挑类别也是这面柜子（items / noAll 传进来）。
+  // 管理中才有的一行：新消息提醒最近一次查得怎么样（她 2026-10-19「我还是收不到小窝提醒」——先让它看得见）
+  //   查的那一套在 js/nest-watch.js；这一行只读它最近一次的结果，「现在查一次」就地再查一遍
+  function WatchLine({ t }) {
+    const [, redraw] = useState(0);
+    const [busy, setBusy] = useState(false);
+    const W = window.NestWatch, L = W && W.lastCheck ? W.lastCheck() : null;
+    const hm = ms => { const d = new Date(ms); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
+    const txt = !L ? "新消息提醒：这次打开还没查过（开 app 十秒后查第一次，之后每十分钟）"
+      : L.ok ? "新消息提醒：" + hm(L.at) + " 查过" + (L.top ? "，墙上最新一条 " + hm(L.top) : "")
+      : "新消息提醒没查成（" + hm(L.at) + "）：" + L.err;
+    const now = async () => { setBusy(true); try { await W.check(); W.markSeen(); } catch (e) {} setBusy(false); redraw(x => x + 1); };
+    return h("div", { "data-wk": "nestwatchline", className: "shrink-0 flex items-center px-4", style: { gap: 8, paddingBottom: 6 } },
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11, color: L && !L.ok ? "#a0383f" : t.fog, lineHeight: 1.5 } }, txt),
+      h("button", { "data-wk": "nestwatchnow", disabled: busy, onClick: now, className: "shrink-0 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px", opacity: busy ? .5 : 1 } }, busy ? "在查……" : "现在查一次"));
+  }
+
   // 首页那一排能收起（她 2026-10-16：「3x3太占位置了」）：收着时只剩一行写着现在看的是哪一格，点开挑完自己收回去
   function Cubbies({ t, kind, onPick, noAll, items, cols, flush, fold }) {
     const [open, setOpen] = useState(false);
@@ -1070,6 +1087,7 @@
         right: h("div", { className: "flex items-center", style: { gap: 4 } }, bell,
           h("button", { "data-wk": "nestupbtn", onClick: () => me ? push({ v: "upload" }) : needLogin({ v: "upload" }), className: "active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
+      adminToken() ? h(WatchLine, { t }) : null,
       h(Cubbies, { t, kind, onPick: setKind, fold: true }),
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },
