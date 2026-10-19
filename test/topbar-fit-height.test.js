@@ -18,3 +18,8 @@ test("body 落到真的 body 上（聊天页底下那条是 body 的颜色）", 
   const ts = require("fs").readFileSync(require("path").join(__dirname, "../js/theme-studio.js"), "utf8");
   assert.match(ts, /if \(\/\^body\$\/i\.test\(sel\) && \/\^html\\b\/i\.test\(scope\)\) return scope \+ " body";/);
 });
+test("顶栏里面的头像、按钮写高度不加刘海（顶栏头像被拉成长条）", () => {
+  assert.equal(fit('[data-wk="chathead"] [data-wk="avatar"]', "height: 40px"), "height: 40px");
+  assert.equal(fit('[data-wk="chathead"] > button', "padding-top: 0"), "padding-top: 0");
+  assert.match(fit('[data-wk="offline"] [data-wk="chathead"]::before, .x', "height: 40px"), /calc\(40px/);
+});

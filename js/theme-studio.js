@@ -821,7 +821,9 @@
   const TOP_HOOK = /\[data-wk\s*=\s*["']?(?:head|chathead|[a-z]*head)["']?\s*\]/i;
   const SAFE_MIN = "calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + 4px)";
   const fitTopBody = (sel, body) => {
-    if (!TOP_HOOK.test(sel)) return body;
+    // 只认选中的就是顶栏本身（最后一节是 head 挂点）；顶栏里面的头像、按钮写了高度不能跟着加刘海（群里 2026-10-19：顶栏头像被拉成长条）
+    const isTop = String(sel).split(",").some(one => { const last = one.trim().split(/\s*[>+~]\s*|\s+/).filter(Boolean).pop() || ""; return TOP_HOOK.test(last.replace(/::?[a-z-]+(\([^)]*\))?$/i, "")); });
+    if (!isTop) return body;
     const safe = v => /safe-area|--app-safe-top/i.test(v);
     // max() 里不认不带单位的 0（写成 max(0, …) 整条作废，顶栏照样钻进状态栏）——补成 0px
     const px0 = v => /^[-+]?0+(?:\.0+)?$/.test(String(v).trim()) ? "0px" : String(v).trim();
