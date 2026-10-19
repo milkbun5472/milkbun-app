@@ -11007,7 +11007,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("money")) {
       // 按 id 也挡一道（群里 2026-10-18：「不能查到我给别人点的」）：备注改过、名字没写进 label 的那几笔照样露
-      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && w.ref.charId && maskSet.has(String(w.ref.charId)))).slice(0, 10);
+      const log = (walletLog || []).filter(w => !maskTrace(w.label) && !(w.ref && ((w.ref.charId && maskSet.has(String(w.ref.charId))) || (w.ref.groupId && maskSet.has(String(w.ref.groupId)))))).slice(0, 10);
       // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
       const vName = nameOf(viewerId);
       const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
@@ -30713,7 +30713,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "wallet") body = h(MyWallet, {
     recur: myRecur, onSaveRecur: upsertMyRecur,
     balance: wallet,
-    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId)) : walletLog,
+    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, (w.ref && w.ref.charId) || w.charId) && !peekMaskHit(peekMaskView(), "", w.ref && w.ref.groupId)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,
