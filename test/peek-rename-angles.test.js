@@ -19,3 +19,10 @@ test("每趟抽两个不重样的角度，留出口；不写禁令", () => {
   assert.doesNotMatch(seg.replace(/\/\/[^\n]*/g, ""), /老公|合法|唯一/, "角度表里不许出现那个梗本身");
   assert.match(app, /不想改就别写。" \+ peekRenameAngles\(\)/);
 });
+
+test("改名角度里不再有「排到最前面」那条（它一推就是 A❤专属唯一…）", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  const i = app.indexOf("const PEEK_RENAME_ANGLES"), seg = app.slice(i, app.indexOf("];", i));
+  assert.doesNotMatch(seg, /排到最前面/);
+  assert.match(seg, /小名、昵称/);
+});
