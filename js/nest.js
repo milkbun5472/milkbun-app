@@ -19,7 +19,8 @@
 // ============================================================
 (function () {
   const useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
-  const NEST = "https://qiuqiu-machine.pages.dev/nest";
+  // 地址和管理口令只写在 js/nest-watch.js 那一份（开机就加载：管理员的新消息提醒要在点进来之前就响）
+  const NEST = window.NestWatch.NEST;
 
   // 每一类一个色：列表里那枚小印章、详情顶上那条色带都用它（不靠颜色认类别，印章上还写着字）
   const KINDS = [
@@ -45,9 +46,9 @@
   const KIND = {}; KINDS.forEach(k => { KIND[k.key] = k; });
   const KZH = {}; KINDS.forEach(k => { KZH[k.key] = k.zh; });
 
-  // 管理口令只活在她自己那台手机的 qq_ 键里（不跟云同步、不进存档、不进包）
-  const ADMIN_KEY = "qq_nestAdmin";
-  const adminToken = () => { try { return localStorage.getItem(ADMIN_KEY) || ""; } catch (e) { return ""; } };
+  // 管理口令只活在她自己那台手机的 qq_ 键里（不跟云同步、不进存档、不进包）；读法在 js/nest-watch.js
+  const ADMIN_KEY = window.NestWatch.ADMIN_KEY;
+  const adminToken = window.NestWatch.adminToken;
 
   // 小窝账号（她 2026-10-16：昵称+密码+恢复码；不登录能逛能导入，不能传不能评）。
   //   登录令牌是这台手机的凭据：放 qq_ 键——不进存档、不上云、不跟着导出走（no-small-warehouse.md 第 5 条），
@@ -1042,8 +1043,8 @@
     // 管理口令：连点标题七下，填一次就记在这台手机上
     const onTitleTap = () => {
       taps.current += 1; if (taps.current < 7) return; taps.current = 0;
-      requestAppPrompt("小窝管理", adminToken() ? "这台手机已经记着管理口令了。清空再确定就是撤掉。" : "填上管理口令，这台手机就能删任何一条。", adminToken(), v => {
-        try { if (v && v.trim()) localStorage.setItem(ADMIN_KEY, v.trim()); else localStorage.removeItem(ADMIN_KEY); } catch (e) {}
+      requestAppPrompt("小窝管理", adminToken() ? "这台手机已经记着管理口令了。清空再确定就是撤掉。" : "填上管理口令，这台手机就能删任何一条；小窝里新发的东西也会提醒你（主屏图标红点、顶上一条横幅）。", adminToken(), v => {
+        try { if (v && v.trim()) localStorage.setItem(ADMIN_KEY, v.trim()); else { localStorage.removeItem(ADMIN_KEY); window.NestWatch.forget(); } } catch (e) {}
         props.toast(v && v.trim() ? "记住了" : "撤掉了"); bump(x => x + 1);
       }, "确定");
     };

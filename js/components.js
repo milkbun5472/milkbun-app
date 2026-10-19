@@ -2132,7 +2132,10 @@ function MsgBanners({ list, onOpen, onDismiss }) {
             boxShadow: "0 12px 34px rgba(0,0,0,.26)", padding: "10px 12px" }
         },
           h("div", { className: "flex items-center gap-3" },
-            h(Avatar, { character: b.who || { name: b.name }, size: 36, radius: 11 }),
+            // App 来的（小窝管理员的新消息）：头像那格画 App 自己的图标
+            b.type === "app" && b.G ? h("div", { "data-wk": "msgbannericon", className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+              background: t.bg, border: "1px solid " + t.line } }, h(b.G, { size: 19, color: t.ink, sw: 1.7 }))
+              : h(Avatar, { character: b.who || { name: b.name }, size: 36, radius: 11 }),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-center", style: { gap: 6 } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink,
@@ -2638,7 +2641,7 @@ function GlassIcon({
     h("span", { "data-wk": "iconlabel", style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
 // 文件夹磁贴：格子里放前 4 个 app 的 2x2 迷你预览，点开弹出内部 app 网格
-function FolderIcon({ apps, label, onOpen, onWallpaper }) {
+function FolderIcon({ apps, label, onOpen, onWallpaper, badge }) {
   const t = useTheme();
   const preview = (apps || []).slice(0, 4);
   return h("button", { onClick: onOpen, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform" },
@@ -2656,11 +2659,14 @@ function FolderIcon({ apps, label, onOpen, onWallpaper }) {
           src ? h("img", { src: src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 7 } })
               : h(a.G, { size: 15, color: t.ink, sw: 1.7 }));
       }),
-      Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i }))),
+      Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i })),
+      // 里面哪个 App 挂着数字，盖子上也挂（加起来）：小窝收在「更多」里也看得见有新发的
+      badge > 0 ? h("span", { "data-wk": "folderbadge", style: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff",
+        fontSize: 10, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, badge > 99 ? "99+" : badge) : null),
     h("span", { "data-wk": "iconlabel", style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
 // 文件夹展开层：半透明背景 + 内部 app 网格 + 改名 + 整理模式（✕ 移回主屏）
-function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
+function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove, badgeOf }) {
   const t = useTheme();
   const [arrange, setArrange] = useState(false);
   const [editName, setEditName] = useState(false);
@@ -2678,7 +2684,7 @@ function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
       // 3 列 + 明确行列距：4 列时图标(62px)把宽度挤满、贴在一起没空隙
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", rowGap: 20, columnGap: 14, justifyItems: "center" } },
         (apps || []).map(a => h("div", { key: a.key, className: "relative", style: { animation: arrange ? "wk-jiggle .32s ease-in-out infinite" : "none" } },
-          h(GlassIcon, { G: a.G, label: a.zh, appKey: a.key, soon: a.soon, onWallpaper: true, onClick: () => { if (!arrange) onPick(a); } }),
+          h(GlassIcon, { G: a.G, label: a.zh, appKey: a.key, soon: a.soon, onWallpaper: true, badge: badgeOf ? badgeOf(a.key) : 0, onClick: () => { if (!arrange) onPick(a); } }),
           arrange && h("button", { "data-wk": "block", onClick: () => onRemove && onRemove(a.key), className: "absolute flex items-center justify-center active:opacity-70", style: { top: -7, left: 2, width: 21, height: 21, borderRadius: 999, background: t.ink, color: "#fff", fontSize: 12, lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 3 } }, "✕")))),
       onRemove ? h("div", { className: "flex justify-center", style: { marginTop: 18 } },
         h("button", { "data-wk": "block", onClick: () => setArrange(a => !a), style: { fontFamily: F_BODY, fontSize: 12.5, color: arrange ? t.ink : t.fog, fontWeight: arrange ? 700 : 400, padding: "5px 16px", borderRadius: 999, background: "rgba(255,255,255,0.55)", border: "1px solid " + t.line } }, arrange ? "完成" : "整理（取出 app）")) : null,
@@ -6600,16 +6606,24 @@ function Home({
   // 这一格里画的那样东西【只造一份】：桌面上画的和设置页预览里画的必须是同一份。
   // 各画一份的话，预览里好看的和落到桌面上的迟早对不上，而且不会有任何报错
   // （装饰那一侧早就是这个写法：decorItemOf 一份对象，预览和落档共用）。
+  // 主屏图标右上角那颗数字：哪个 App 挂几，只问这一处（主屏、文件夹盖子、文件夹展开里都用它）
+  //   备忘录＝今天到期的条数；秋秋小窝＝管理员没看过的新发条数（js/nest-watch.js，只有记着管理口令的手机才有）
+  function appBadgeOf(key) {
+    if (key === "memo") return memoDue || 0;
+    if (key === "nest") return (notif && notif.nest) || 0;
+    return 0;
+  }
   function homeInnerOf(it, key, homeSize, fixedH, span) {
     var inner, isFolder = !!(key && key.slice(0, 2) === "f_");
       var wIcon = it.kind === "widget" && homeSize === "icon" ? (homeWidgetIcon(it.which) || { G: IDots, open: null }) : null;
       if (wIcon) inner = h(GlassIcon, { G: wIcon.G, label: HOME_WIDGET_NAMES[it.which] || "组件", appKey: key, onWallpaper: !!wallpaper,
         // 点它：有去处的去那一处；没有单独页面的（木鱼、转盘、最近聊过）就打开它的换样式面板，想换回组件一步到位
         onClick: function () { if (editMode) return; if (wIcon.open) onOpenApp(wIcon.open); else openStylePanel(key); } });
-      else if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+      else if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: appBadgeOf(key), onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
       else if (isFolder) {
         const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
-        inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper, onOpen: function () { if (!editMode) setOpenFolder(key); } });
+        inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper,
+          badge: fApps.reduce(function (s, a) { return s + appBadgeOf(a.key); }, 0), onOpen: function () { if (!editMode) setOpenFolder(key); } });
       }
       else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
       else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
@@ -7647,6 +7661,7 @@ function Home({
   })()), openFolder && folders[openFolder] && h(FolderOverlay, {
     apps: (folders[openFolder].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; }),
     label: folders[openFolder].name || "文件夹",
+    badgeOf: appBadgeOf,
     onRename: function (nm) { renameFolder(openFolder, nm); },
     onRemove: function (k) { removeFromFolder(openFolder, k); },
     onClose: function () { return setOpenFolder(null); },

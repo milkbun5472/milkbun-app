@@ -380,7 +380,7 @@
     ["csexport", "聊天设置里「导出聊天记录」那一块"], ["csexportbtn", "那一块里的「导出 txt」"], ["csreset", "聊天设置里「清除 / 重置…」那颗按钮"], ["callpill", "聊天里那条「通话已结束」回执的整块（多选时 data-on＝1）"], ["proactiverate", "聊天设置里「多久来找你一次」那一排（选项 data-on）"], ["csrouteoff", "线路那一格「线下见面单独走」的一颗（data-on＝1 选中）"], ["mcppick", "聊天设置 · 让 Ta 能上网 下面那一列「能用的工具」（一台 MCP 一行开关）"], ["resetpage", "清除 / 重置选择页整页"], ["resetgo", "选择页最后那颗「确定清掉」"],
     ["block", "页里一块自己有底色或边框的卡片、板、格子（凡是没单独起名的都是它；想只改某一页，前面带上那一页的最外层挂点）"],
     ["empty", "空状态那一块（还没有内容时）"],
-    ["sheet", "从底下掀起来的半窗"], ["pagesheet", "原来是半窗、现在铺满整页的那些（通话记录、查找记录、记忆库、备忘录编辑……）"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
+    ["sheet", "从底下掀起来的半窗"], ["pagesheet", "原来是半窗、现在铺满整页的那些（通话记录、查找记录、记忆库、备忘录编辑……）"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"], ["msgbannericon", "顶上那条提醒里 App 来的那种（小窝新发的）左边那格图标"],
     ["avatar", "头像（全 App 每一颗）"],
     ["field", "一栏设置（标题＋内容＋底下那道细线）"], ["fieldlabel", "那一栏的标题"], ["fieldline", "那一栏底下的细线"],
     ["toggle", "开关（data-on=\"1\" 是开着的）"], ["toggleknob", "开关里那颗圆钮"], ["askqiu", "「问秋秋 ›」那一行（人格档案馆和角色编辑页上）"],
@@ -577,7 +577,7 @@
         // 通话
         ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
         ["callavatar", "通话中间的大头像"], ["callcamera", "用户真实摄像头小窗与开关/前后镜头切换"], ["callbody", "通话字幕滚动区"], ["callmsg", "通话里一句（带 data-me）"],
-        ["offreplyopts", "线下最后一拍底下那几条「你可以这样接」整块"], ["offreplyopt", "其中一条回应选项（点了直接发）"], ["forumfans", "论坛「编辑我的贴吧资料」里大号粉丝数那一格"], ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["halfwin", "半窗聊天整块（底下那半屏）"], ["gsetpage", "群聊设置那一整页"], ["studiothemes", "照相馆「题材」那一排"], ["studiorestyle", "照相馆大图下「换画风」那一排"],  ["studiostyleadd", "换画风那排最后「＋自己写」"], ["studiomystyles","照相馆自己的画风列表（点名改、✕删）"],["studiostyleroll","「让 AI 想几种」画风那颗键"],["studiothemeroll","照相馆「让 AI 想几个题材」和它想出来的那几条"],["studiostyledesc","自己写画风那里的描述/关键词框"],["studiostyleedit", "写自定义画风的那一行"], ["studiopolaroid", "照相馆「拍立得」那颗；data-on=1 点亮"], ["polaroiddev", "拍立得还在显影时那张灰白相纸"], ["emocaptionpack", "表情包页里「给这一组每张底下印上名字」那颗"], ["studioretext", "照相馆换画风底下「重画后把封面上的字照原样印回去」那一格；data-on=1 勾上"], ["studioexpand", "照相馆「让他先把这一句写成画面」那一格；data-on=1 勾上"], ["studiomodes", "照相馆「单张／四宫格／拍立得」那一条三选一"], ["studiosingle", "那一条里「单张」那格；data-on=1 选中"], ["emosetcaption", "画表情包前那一格「每张底下印上它的名字」；data-on=1 勾上"], ["emomakeset", "表情包页顶上「让 TA 画一套自己的表情包」那一块"], ["studiopaint", "照相馆拍之前挑画风的那一排（横着划；第一个「照片」＝不换）；按钮 data-on=1 是选中的"], ["studiokinds", "照相馆墙上那排分类（全部／合照／四宫格／题材／画风／漫画）；data-on=1 是选中的"], ["studiostack", "照相馆大图里左右划的那一摞"], ["studiostackbadge", "照相馆墙上一摞右上角的张数"], ["studiothemeadd", "照相馆题材那排最后「＋自己写」"], ["studiothemeedit", "写自定义题材那一小块"], ["selcomic", "聊天多选栏里「画成漫画」那颗"], ["ficmemask", "同人文「生成」里「这篇的「我」用哪张面具」那一行"], ["homewidgethide", "主屏组件样式面板里「从桌面移走」那颗"], ["homewidgetback", "「做一件装饰」里把移走的组件放回来的那一格"], ["ficnocp", "同人文生成里「无 CP」那一格；data-on=1 选中"], ["pcontactface", "查手机微信里联系人资料页那个头像（点了换图）"], ["offtitle", "线下顶栏中间的名字（一行，长了省略）"], ["offcardacts", "线下卡片右上那排键"], ["offcardmore", "那排键最后的「⋯」；data-on=1 摊开着"], ["ficoneshot", "同人文生成里「写成完结短篇」那一格；data-on=1 选中"], ["studiofailed", "照相馆墙上「没拍成」那一摞"], ["studiofailcard", "其中一张没拍成的卡"], ["momdescedit", "朋友圈大图下「改画面描述再画」"], ["offautoshot", "线下设置里「他会自己拍照」开关；data-on=1 开着"], ["descedit", "论坛等图片下「改画面描述再画」"], ["palbumedit", "查手机相册大图下「改画面描述再画」"], ["photodiaryedit", "照片日记底下「改画面描述再拍」"], ["wxsharecardfrom", "天气页底下「天气卡按哪边发」那两颗；data-on=1 选中"], ["worldwxfollow", "天气页底下「架空世界的天气跟着现实城市」那一块"], ["setcatalog", "聊天设置（和群设置）首页那一列卡"], ["setcard", "其中一张卡（data-key＝哪一页，如 temper／motion）"], ["setcardicon", "卡左边那个带字的小方块"], ["setcardtitle", "卡上的标题"], ["setcardsub", "卡上标题下那行小字"], ["setnote", "那一列底下的说明小卡"], ["setsection", "点进一页后里面一块块折叠卡；data-on=1 摊开着"], ["setsectionhead", "折叠卡顶上那一行（标题＋箭头）"], ["setsectionbody", "折叠卡摊开后的内容"], ["statetplcard", "心声卡换成自己写的 HTML 后，装那张卡的外框"], ["statetpledit", "聊天设置「衣」里「心声卡 · 自己写样子和栏目」那一块"], ["statetplhtml", "写心声卡 HTML 的那个框"], ["statetplfield", "自己加的一栏（栏名＋说明）"], ["statetpladd", "「＋ 加一栏」"], ["statetplglobal", "「把这一套存成全局」"], ["ficmove", "同人文长按一篇弹出来的挪位置那一层"], ["ficmovebtn", "那一层里「移到最上面／往上／往下」（data-part＝top/up/down）"], ["icontray", "主题工作台图标页上「认不出是哪个 App」那一排待分配的图"], ["themefit", "主题工作台「全 App 多大」上面那颗「一键适配我的手机」（别人在另一种宽度的手机上做的美化才出现）"], ["icontrayimg", "那一排里的一张；data-on=1 选中"], ["icontrayorder", "「照列表顺序排上去」"], ["iconslot", "图标列表里每个 App 那一格；data-on=1 正等着放图"], ["selbar", "聊天多选那一整栏（两行）"], ["selactions", "多选栏下面那一行动作按钮"], ["selrecall", "聊天多选栏里「撤回」那颗（只勾了自己发的才亮）"], ["modelfloatimg", "API 设置里「模型快速切换浮窗」底下换图那一行"], ["studiogrid", "照相馆「四宫格」那颗；data-on=1 点亮"], ["gridcells", "四宫格／照片日记底下切开的那排小格"], ["gridcellzoom", "点一格放大后那一层"], ["photodiarydel", "照片日记底下那颗「删掉这张照片」"], ["photodiary", "日记页最底下的照片日记那一块"], ["fonewallread", "论坛「新帖在这里」底下那颗「全部标为已读」"], ["doodlebtn", "TA的照片点开后那颗「在上面画，发回去」"], ["doodle", "在照片上画的那一整页（黑底）"], ["doodletools", "画画页底下的颜色和笔、撤销、清空那一栏"], ["doodlemode", "画画页顶上「画 / 贴 / 抠」三颗；data-on=1 是现在那一档"], ["doodleask", "「圈出来问他」那颗"], ["doodleownstamp", "画画页「贴」那一档里「自己写」的输入框"], ["doodlecutname", "画画页「抠」那一档里「这张叫什么」的输入框"], ["doodlecutcap", "画画页「抠」那一档里「图上写的字」的输入框"], ["doodlecolor", "画画页颜色那排最后「自己调色」那颗"], ["ptransfer", "查手机微信里「拿他手机转账」展开的那一小块（金额、留言、转给谁）"], ["pplus", "查手机微信输入框左边「＋」展开的那一排"], ["pplusitem", "那一排里的一格（data-part＝tf 转账 / shop 购物 / takeout 外卖）"], ["neteasehelp", "一起听设置里「没有接口？自己搭一个」那块网易云接口教程"], ["pcard", "查手机微信里的小卡（红包、礼物、照片、分享……；data-label＝卡名）"], ["pphoto", "查手机微信里的照片"], ["pvoice", "查手机微信里的语音条"], ["ptfcard", "查手机微信里的转账卡（data-status＝pending/accepted/returned）"], ["ptfbtn", "转账卡底下「退回 / 替TA收下」（data-part＝no/ok）"], ["asphonestrip", "拿他手机逛购物／点外卖时顶上那条黄条「正在用X的手机」"], ["drawerforward","抽屉里拆开那一张底下的「发给他」"], ["drawerdrawing", "抽屉里「TA画的」拆开后那张画"], ["fishrelay", "语音 API 里 Fish 那格底下「自己搭一个中转」的折叠说明"], ["msgmenu", "长按消息弹出的那一层（暗底＋菜单）"], ["photofailerr", "照片没拍成那张卡上的「原因：」一行"], ["momnews", "朋友圈顶上「N 条新消息」那一块"], ["momnewsbadge", "底栏朋友圈图标上的红色数字"], ["momnewsrow", "新消息列表里的一行"], ["momnewsclear", "新消息底下「都看过了」"], ["chatjump", "聊天往上翻时右下角那组箭头"], ["chatjumptop", "跳到最早那颗"], ["chatjumpbottom", "回到最新那颗"], ["readnarr", "一起读那排「TA 念 / 停下」（data-on=1 正在念）"], ["readpara", "一起读正文的一段（data-reading=1 是正在念的那段）"], ["readnarrstop", "设定里「TA 念：一直往下念／念完这页就停」"], ["readselread", "选中一句后的「念这句」"], ["readfont", "一起读「设定」里正文字体那一格（书宋／系统）"], ["geoplaces", "发位置那页「钉过的地方、他那个世界里的地点」那一排"], ["geomoveme", "发位置那页「把我的位置也改到这儿」；data-on=1 勾上"], ["autotts", "聊天设置里「新消息自动念」那一格"], ["ownclock", "聊天设置里「TA 自己一只钟」那一格"], ["gmyavatar", "群设置里「我在这个群里的头像」那一格"], ["gmaskpick", "群设置里「我在这个群用哪张面具」那一格；按钮 data-on=1 是选中的那张"], ["halfwinbar", "半窗顶上「放大 / 收起」那一条"], ["halfwinsize", "半窗顶条正中那根调大小的小横杠"], ["halfwinpill", "半窗收起后底下那颗小条"], ["calltf", "通话里转账那一行（带收下/退回）"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
+        ["offreplyopts", "线下最后一拍底下那几条「你可以这样接」整块"], ["offreplyopt", "其中一条回应选项（点了直接发）"], ["forumfans", "论坛「编辑我的贴吧资料」里大号粉丝数那一格"], ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["halfwin", "半窗聊天整块（底下那半屏）"], ["gsetpage", "群聊设置那一整页"], ["studiothemes", "照相馆「题材」那一排"], ["studiorestyle", "照相馆大图下「换画风」那一排"],  ["studiostyleadd", "换画风那排最后「＋自己写」"], ["studiomystyles","照相馆自己的画风列表（点名改、✕删）"],["studiostyleroll","「让 AI 想几种」画风那颗键"],["studiothemeroll","照相馆「让 AI 想几个题材」和它想出来的那几条"],["studiostyledesc","自己写画风那里的描述/关键词框"],["studiostyleedit", "写自定义画风的那一行"], ["studiopolaroid", "照相馆「拍立得」那颗；data-on=1 点亮"], ["polaroiddev", "拍立得还在显影时那张灰白相纸"], ["emocaptionpack", "表情包页里「给这一组每张底下印上名字」那颗"], ["studioretext", "照相馆换画风底下「重画后把封面上的字照原样印回去」那一格；data-on=1 勾上"], ["studioexpand", "照相馆「让他先把这一句写成画面」那一格；data-on=1 勾上"], ["studiomodes", "照相馆「单张／四宫格／拍立得」那一条三选一"], ["studiosingle", "那一条里「单张」那格；data-on=1 选中"], ["emosetcaption", "画表情包前那一格「每张底下印上它的名字」；data-on=1 勾上"], ["emomakeset", "表情包页顶上「让 TA 画一套自己的表情包」那一块"], ["studiopaint", "照相馆拍之前挑画风的那一排（横着划；第一个「照片」＝不换）；按钮 data-on=1 是选中的"], ["studiokinds", "照相馆墙上那排分类（全部／合照／四宫格／题材／画风／漫画）；data-on=1 是选中的"], ["studiostack", "照相馆大图里左右划的那一摞"], ["studiostackbadge", "照相馆墙上一摞右上角的张数"], ["studiothemeadd", "照相馆题材那排最后「＋自己写」"], ["studiothemeedit", "写自定义题材那一小块"], ["selcomic", "聊天多选栏里「画成漫画」那颗"], ["ficmemask", "同人文「生成」里「这篇的「我」用哪张面具」那一行"], ["homewidgethide", "主屏组件样式面板里「从桌面移走」那颗"], ["homewidgetback", "「做一件装饰」里把移走的组件放回来的那一格"], ["ficnocp", "同人文生成里「无 CP」那一格；data-on=1 选中"], ["pcontactface", "查手机微信里联系人资料页那个头像（点了换图）"], ["offtitle", "线下顶栏中间的名字（一行，长了省略）"], ["offcardacts", "线下卡片右上那排键"], ["offcardmore", "那排键最后的「⋯」；data-on=1 摊开着"], ["ficoneshot", "同人文生成里「写成完结短篇」那一格；data-on=1 选中"], ["studiofailed", "照相馆墙上「没拍成」那一摞"], ["studiofailcard", "其中一张没拍成的卡"], ["momdescedit", "朋友圈大图下「改画面描述再画」"], ["offautoshot", "线下设置里「他会自己拍照」开关；data-on=1 开着"], ["descedit", "论坛等图片下「改画面描述再画」"], ["palbumedit", "查手机相册大图下「改画面描述再画」"], ["photodiaryedit", "照片日记底下「改画面描述再拍」"], ["wxsharecardfrom", "天气页底下「天气卡按哪边发」那两颗；data-on=1 选中"], ["worldwxfollow", "天气页底下「架空世界的天气跟着现实城市」那一块"], ["setcatalog", "聊天设置（和群设置）首页那一列卡"], ["setcard", "其中一张卡（data-key＝哪一页，如 temper／motion）"], ["setcardicon", "卡左边那个带字的小方块"], ["setcardtitle", "卡上的标题"], ["setcardsub", "卡上标题下那行小字"], ["setnote", "那一列底下的说明小卡"], ["setsection", "点进一页后里面一块块折叠卡；data-on=1 摊开着"], ["setsectionhead", "折叠卡顶上那一行（标题＋箭头）"], ["setsectionbody", "折叠卡摊开后的内容"], ["statetplcard", "心声卡换成自己写的 HTML 后，装那张卡的外框"], ["statetpledit", "聊天设置「衣」里「心声卡 · 自己写样子和栏目」那一块"], ["statetplhtml", "写心声卡 HTML 的那个框"], ["statetplfield", "自己加的一栏（栏名＋说明）"], ["statetpladd", "「＋ 加一栏」"], ["statetplglobal", "「把这一套存成全局」"], ["ficmove", "同人文长按一篇弹出来的挪位置那一层"], ["ficmovebtn", "那一层里「移到最上面／往上／往下」（data-part＝top/up/down）"], ["icontray", "主题工作台图标页上「认不出是哪个 App」那一排待分配的图"], ["csshookgroup", "写 CSS 那一格下面挂点的一组（每一页都有／这一页专有），点标题展开收起；data-open=1 是开着"], ["themefit", "主题工作台「全 App 多大」上面那颗「一键适配我的手机」（别人在另一种宽度的手机上做的美化才出现）"], ["icontrayimg", "那一排里的一张；data-on=1 选中"], ["icontrayorder", "「照列表顺序排上去」"], ["iconslot", "图标列表里每个 App 那一格；data-on=1 正等着放图"], ["selbar", "聊天多选那一整栏（两行）"], ["selactions", "多选栏下面那一行动作按钮"], ["selrecall", "聊天多选栏里「撤回」那颗（只勾了自己发的才亮）"], ["modelfloatimg", "API 设置里「模型快速切换浮窗」底下换图那一行"], ["studiogrid", "照相馆「四宫格」那颗；data-on=1 点亮"], ["gridcells", "四宫格／照片日记底下切开的那排小格"], ["gridcellzoom", "点一格放大后那一层"], ["photodiarydel", "照片日记底下那颗「删掉这张照片」"], ["photodiary", "日记页最底下的照片日记那一块"], ["fonewallread", "论坛「新帖在这里」底下那颗「全部标为已读」"], ["doodlebtn", "TA的照片点开后那颗「在上面画，发回去」"], ["doodle", "在照片上画的那一整页（黑底）"], ["doodletools", "画画页底下的颜色和笔、撤销、清空那一栏"], ["doodlemode", "画画页顶上「画 / 贴 / 抠」三颗；data-on=1 是现在那一档"], ["doodleask", "「圈出来问他」那颗"], ["doodleownstamp", "画画页「贴」那一档里「自己写」的输入框"], ["doodlecutname", "画画页「抠」那一档里「这张叫什么」的输入框"], ["doodlecutcap", "画画页「抠」那一档里「图上写的字」的输入框"], ["doodlecolor", "画画页颜色那排最后「自己调色」那颗"], ["ptransfer", "查手机微信里「拿他手机转账」展开的那一小块（金额、留言、转给谁）"], ["pplus", "查手机微信输入框左边「＋」展开的那一排"], ["pplusitem", "那一排里的一格（data-part＝tf 转账 / shop 购物 / takeout 外卖）"], ["neteasehelp", "一起听设置里「没有接口？自己搭一个」那块网易云接口教程"], ["pcard", "查手机微信里的小卡（红包、礼物、照片、分享……；data-label＝卡名）"], ["pphoto", "查手机微信里的照片"], ["pvoice", "查手机微信里的语音条"], ["ptfcard", "查手机微信里的转账卡（data-status＝pending/accepted/returned）"], ["ptfbtn", "转账卡底下「退回 / 替TA收下」（data-part＝no/ok）"], ["asphonestrip", "拿他手机逛购物／点外卖时顶上那条黄条「正在用X的手机」"], ["drawerforward","抽屉里拆开那一张底下的「发给他」"], ["drawerdrawing", "抽屉里「TA画的」拆开后那张画"], ["fishrelay", "语音 API 里 Fish 那格底下「自己搭一个中转」的折叠说明"], ["msgmenu", "长按消息弹出的那一层（暗底＋菜单）"], ["photofailerr", "照片没拍成那张卡上的「原因：」一行"], ["momnews", "朋友圈顶上「N 条新消息」那一块"], ["momnewsbadge", "底栏朋友圈图标上的红色数字"], ["momnewsrow", "新消息列表里的一行"], ["momnewsclear", "新消息底下「都看过了」"], ["chatjump", "聊天往上翻时右下角那组箭头"], ["chatjumptop", "跳到最早那颗"], ["chatjumpbottom", "回到最新那颗"], ["readnarr", "一起读那排「TA 念 / 停下」（data-on=1 正在念）"], ["readpara", "一起读正文的一段（data-reading=1 是正在念的那段）"], ["readnarrstop", "设定里「TA 念：一直往下念／念完这页就停」"], ["readselread", "选中一句后的「念这句」"], ["readfont", "一起读「设定」里正文字体那一格（书宋／系统）"], ["geoplaces", "发位置那页「钉过的地方、他那个世界里的地点」那一排"], ["geomoveme", "发位置那页「把我的位置也改到这儿」；data-on=1 勾上"], ["autotts", "聊天设置里「新消息自动念」那一格"], ["ownclock", "聊天设置里「TA 自己一只钟」那一格"], ["gmyavatar", "群设置里「我在这个群里的头像」那一格"], ["gmaskpick", "群设置里「我在这个群用哪张面具」那一格；按钮 data-on=1 是选中的那张"], ["halfwinbar", "半窗顶上「放大 / 收起」那一条"], ["halfwinsize", "半窗顶条正中那根调大小的小横杠"], ["halfwinpill", "半窗收起后底下那颗小条"], ["calltf", "通话里转账那一行（带收下/退回）"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
         ["callstage", "单人视频铺满全屏的那层（TA 或你）"], ["callpip", "单人视频右上角那个小框"], ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
@@ -605,7 +605,7 @@
     Object.freeze({
       zh: "主屏", pages: Object.freeze(["home"]),
       hooks: Object.freeze([
-        ["icon", "app 图标那一格（文件夹也是）"], ["iconlabel", "图标底下那行字"],
+        ["icon", "app 图标那一格（文件夹也是）"], ["iconlabel", "图标底下那行字"], ["folderbadge", "文件夹盖子右上角的数字（里面哪个 app 有新的，加起来）"],
         ["dock", "底部 dock 那一条"],
         ["shikeotd", "主屏上那张「去年今天」小卡（时刻）"],
         ["widget", "组件卡那一格（天气、音乐、木鱼这些）"], ["decor", "装饰那一格"],
@@ -940,8 +940,25 @@
     { key: "fonts", zh: "字体" },
     { key: "base", zh: "基础配色" },
     { key: "wall", zh: "壁纸" },
-    { key: "bubble", zh: "聊天气泡" }
+    { key: "bubble", zh: "聊天气泡" },
+    { key: "home", zh: "主屏布局" }
   ];
+  // 主屏布局（群友 2026-10-19：「导出好像是不包含自己的桌面布局的」）：图标和组件摆在哪、文件夹、
+  //   组件大小／样式／外观、贴纸、装饰、对齐、藏起来的组件——主屏自己存的就这几份，原样打包、原样写回。
+  //   ⚠️默认不勾（导出、导入都是）：这是她自己的桌面，勾了才带走、勾了才盖。
+  const HOME_KEYS = ["x_homeLayout", "x_homeFolders", "x_homeDecorations", "x_homeWidgetAlign", "x_homeWidgetSizes",
+    "x_homeWidgetStyles", "x_homeWidgetLooks", "x_homeStickers", "x_homeHiddenWidgets"];
+  const PACK_OFF_BY_DEFAULT = ["home"];
+  const homeSnapshot = () => {
+    const out = {};
+    HOME_KEYS.forEach(k => { try { const v = typeof loadJSON === "function" ? loadJSON(k, null) : null; if (v != null) out[k] = v; } catch (_) {} });
+    return Object.keys(out).length ? out : null;
+  };
+  const homeApply = home => {
+    if (!home || typeof home !== "object") return false;
+    HOME_KEYS.forEach(k => { if (k in home && typeof saveJSON === "function") saveJSON(k, home[k]); });
+    return true;
+  };
   const PACK_KEYS = PACK_PARTS.map(x => x.key);
   // 一份包（或一份【当前草稿】，形状一样：{profile, baseTheme, wallpaper, bubbleSkin}）
   // 里这一样到底有没有东西。导出拿它决定能挑哪几样，导入拿它决定能勾哪几样。
@@ -953,13 +970,14 @@
     if (key === "base") return !!(pack && pack.baseTheme);
     if (key === "wall") return typeof (pack && pack.wallpaper) === "string" && !!pack.wallpaper;
     if (key === "bubble") return !!(pack && pack.bubbleSkin);
+    if (key === "home") return !!(pack && pack.home && Object.keys(pack.home).length);
     return false;
   };
   const packParts = pack => PACK_PARTS.map(x => ({ key: x.key, zh: x.zh, has: packHas(pack, x.key) }));
   // 没传 pick 就是整套都要（存量那条路一个字都不用改）
   const cleanPick = pick => {
     const out = {};
-    PACK_KEYS.forEach(k => { out[k] = pick && typeof pick === "object" ? !!pick[k] : true; });
+    PACK_KEYS.forEach(k => { out[k] = pick && typeof pick === "object" ? !!pick[k] : PACK_OFF_BY_DEFAULT.indexOf(k) < 0; });
     return out;
   };
   // 只留她挑的那几样：没挑的退回出厂空值，而不是留在包里
@@ -989,7 +1007,10 @@
     const fontRefs = g.FontChoice ? g.FontChoice.fileRefs(profile.fonts, profile.customFonts) : [];
     // 气泡贴纸（我的／TA 的）如果是自己传的图，也是保险箱门牌——跟着气泡那一样一起装进包（她 2026-10-17 小窝开放收图）
     const bubbleRefs = sel.bubble && extras && extras.bubbleSkin ? [extras.bubbleSkin.mySticker, extras.bubbleSkin.charSticker] : [];
-    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs, ...bubbleRefs].filter(x => /^iv_/.test(x)))];
+    const home = sel.home ? ((extras && extras.home) || homeSnapshot()) : null;
+    // 主屏贴纸、组件外观里自己传的图也是保险箱门牌：整份里认出来的都装进包
+    const homeRefs = home ? (JSON.stringify(home).match(/iv_[A-Za-z0-9_-]+/g) || []) : [];
+    const refs = [...new Set([...Object.values(profile.icons || {}), sel.wall ? (extras && extras.wallpaper) : "", ...cssRefs, ...fontRefs, ...bubbleRefs, ...homeRefs].filter(x => /^iv_/.test(x)))];
     for (const ref of refs) {
       try {
         const blob = await g.imgVaultFetchBlob(ref);
@@ -1005,7 +1026,7 @@
     return JSON.stringify({ kind: PACK_KIND, format: 1, exportedAt: new Date().toISOString(), profile,
       baseTheme: sel.base ? (extras && extras.baseTheme) : undefined,
       wallpaper: sel.wall ? (extras && extras.wallpaper) : undefined,
-      bubbleSkin, assets }, null, 2);
+      bubbleSkin, home: home || undefined, assets }, null, 2);
   };
   // 导进来的那份到底是什么——认得出几种常见的走错门，各给一条出路
   const whatIsThis = text => {
@@ -1032,7 +1053,12 @@
     Object.keys(p.pageCSS || {}).forEach(k => { p.pageCSS[k] = remapCSSImages(p.pageCSS[k], map); });
     const bubbleSkin = pkg.bubbleSkin && typeof pkg.bubbleSkin === "object" ? Object.assign({}, pkg.bubbleSkin) : null;
     if (bubbleSkin) ["mySticker", "charSticker"].forEach(k => { if (map[bubbleSkin[k]]) bubbleSkin[k] = map[bubbleSkin[k]]; });
-    return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin };
+    let home = null;
+    if (pkg.home && typeof pkg.home === "object") {
+      try { home = JSON.parse(JSON.stringify(pkg.home).replace(/iv_[A-Za-z0-9_-]+/g, r => map[r] || r)); } catch (_) { home = null; }
+      if (home) Object.keys(home).forEach(k => { if (HOME_KEYS.indexOf(k) < 0) delete home[k]; });   // 只认主屏自己那几份，别的键一个不写
+    }
+    return { profile: p, baseTheme: pkg.baseTheme, wallpaper: map[pkg.wallpaper] || pkg.wallpaper, bubbleSkin, home };
   };
   // 「复制给别的 AI」（群友 2026-09-30：把主题发给 DeepSeek，它说「这是空壳代码、你没有 html」）。
   //   页面是运行时拼的，本来就没有一份 html 能给；别的 AI 缺的是【挂点表】和【写法规矩】。
@@ -1077,7 +1103,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.048",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v76.053",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
@@ -1121,7 +1147,7 @@
   }
   // 单聊/群聊「自己写 CSS」能存多长：存的时候按这个截，编辑框按这个提醒（只这一处写数）
   const CHAT_CSS_MAX = 200000;
-  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth };
+  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

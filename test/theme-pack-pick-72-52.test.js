@@ -31,13 +31,14 @@ function loadStudio() {
 // 一份「什么都弄过」的样子：图标、CSS、字体、配色、壁纸、气泡各一样
 const full = s => ({
   profile: s.normalize({ icons: { cast: "iv_icon" }, globalCSS: "body{color:red}", fonts: { body: "songti" } }),
-  baseTheme: { ink: "#111" }, wallpaper: "iv_wall", bubbleSkin: { myBg: "#fff" }
+  baseTheme: { ink: "#111" }, wallpaper: "iv_wall", bubbleSkin: { myBg: "#fff" },
+  home: { x_homeLayout: { 0: ["chat"] } }   // 2026-10-19 加的第七样：主屏布局
 });
 
 test("这一样到底有没有，只有一处说了算", () => {
   const s = loadStudio();
   const parts = s.packParts(full(s));
-  assert.equal(parts.map(x => x.key).join(","), "css,icons,fonts,base,wall,bubble");  // vm 里的数组跟这边不同源，比字符串
+  assert.equal(parts.map(x => x.key).join(","), "css,icons,fonts,base,wall,bubble,home");  // vm 里的数组跟这边不同源，比字符串
   assert.ok(parts.every(x => x.has), "全都弄过，却有一样说没有");
   const empty = s.packParts({ profile: s.normalize({}) });
   assert.ok(empty.every(x => !x.has), "什么都没有，却有一样说有");
@@ -69,13 +70,14 @@ test("只挑背景导出，包里就只有背景", async () => {
 test("不传 pick 还是整套（存量那条路一个字都不用改）", async () => {
   const s = loadStudio();
   const pkg = JSON.parse(await s.exportPackage(full(s)));
-  assert.equal(s.packParts(pkg).filter(x => x.has).map(x => x.key).join(","), "css,icons,fonts,base,wall,bubble");
+  assert.equal(s.packParts(pkg).filter(x => x.has).map(x => x.key).join(","), "css,icons,fonts,base,wall,bubble");   // 主屏布局默认不带
 });
 
 // ⚠️这一条是新口子带出来的真风险：单挑一样导出的包，别的格子是空的。
 //   导入那头原来【一律全勾】，勾着 CSS 就把她现在的 CSS 抹成空的了。
 test("导进来只勾这份包真的带了的那几样", () => {
-  assert.ok(/const sel = \{\}; studio\.packParts\(pack\)\.forEach\(x => \{ sel\[x\.key\] = x\.has; \}\);/.test(ui),
+  // 主屏布局例外：默认不勾（会换掉她自己的桌面），要她自己勾
+  assert.ok(/const sel = \{\}; studio\.packParts\(pack\)\.forEach\(x => \{ sel\[x\.key\] = x\.has && x\.key !== "home"; \}\);/.test(ui),
     "又变回一律全勾了——只带图标的那种包会把她的 CSS 抹平");
   assert.ok(!/const sel = \{ css: true, icons: true/.test(ui), "还留着写死全勾的那一份");
 });
