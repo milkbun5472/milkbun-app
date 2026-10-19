@@ -508,7 +508,7 @@ test("⑨ 阶梯的顺序：先缩聊天、再缩记忆；人设和世界书缩�
     assert.ok(!b.includes("【长期记忆】"), "记忆还留在 base 里，那第三级就没缩到东西");
   });
   // 记忆单独一段，第二级才连它一起去掉
-  assert.equal((app.match(/const mem = "\\n\\n【长期记忆】/g) || []).length, 2);
+  assert.equal((app.match(/const mem = gazeTodayLine\(char\.id\) \+ "\\n\\n【长期记忆】/g) || []).length, 2);
 });
 
 test("⑨ 成一级就停；只有被拦才往下走；封顶就是级数", () => {

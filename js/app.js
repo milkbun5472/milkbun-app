@@ -1248,6 +1248,8 @@ function App() {
   //   于是「你从相处里看出了什么」只能靠复述人设来回答。提示词里那句围栏只降概率；
   //   真正的保证是【材料不够就先不建卡】。她想早点看，状态卡页那个手动按钮照旧随时能按。
   const GAZE_AUTOSEED_MSGS = 30; // 聊够三十条(约十五个来回)才自动建卡:更早建出来的只会是人设复读
+  // 「Ta 眼里」写日期要按这个角色那张面具的钟（虚拟时间），不是现实日期。
+  const gazeTodayLine = id => { const d = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), id) : Date.now()); const p = n => String(n).padStart(2, "0"); return "\n\n【你这边今天的日期】" + d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "（写日期一律按你这边的日子算；记忆和聊天里没写日子的事，别自己编现实日期）"; };
   const seedGazeFor = async (char, auto) => {
     if (gazeSeedBusy || !window.Gaze) return;
     // ⚠️后台线路优先（v64.43）。这一枪跟聊天不一样：它把【人设＋好感度＋长期记忆＋
@@ -1290,7 +1292,7 @@ function App() {
       const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【世界书】\n" + gazeLore
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
-      const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const mem = gazeTodayLine(char.id) + "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【最近聊天】\n(这一段这次没带上来，就凭你记得的写)";
       const seedSys = window.Gaze.seedSpec(uN);
@@ -1460,7 +1462,7 @@ function App() {
       const base = gazeLore ? "【你的人设】\n" + (char.persona || char.name)
         + "\n\n【世界书】\n" + gazeLore
         + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100" : bare;
-      const mem = "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
+      const mem = gazeTodayLine(char.id) + "\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000);
       const head = base + mem;
       const NO_CHAT = "\n\n【这段时间的相处】\n(这一段这次没带上来，就凭你记得的写)";
       const revSys = window.Gaze.reviewSpec(uN, char.id);
