@@ -21,7 +21,8 @@ test("页面 CSS 会自动限定到选择的页面", () => {
   const s = loadStudio();
   const css = s.compile({ pageCSS: { thread: ".bubble, body { color:red }" } });
   assert.match(css, /html\[data-lisa-screen="thread"\] \.bubble/);
-  assert.match(css, /html\[data-lisa-screen="thread"\]\{ color:red \}/);
+  // 2026-10-19 起 body 落到真的 body 上（群里：写 body 刷不到聊天页底下那一条米色，原来被换成了 html）
+  assert.match(css, /html\[data-lisa-screen="thread"\] body\{ color:red \}/);
 });
 
 test("危险远程导入和脚本式 CSS 会被拒绝", () => {

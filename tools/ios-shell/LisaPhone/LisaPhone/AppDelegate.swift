@@ -360,6 +360,15 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
       center.add(UNNotificationRequest(identifier: id, content: c, trigger: trigger)) { err in
         DispatchQueue.main.async { replyHandler(["ok": err == nil], nil) }
       }
+    case "badge":
+      // 桌面图标右上角那个数字（她 2026-10-19「app 外面也有红点」）：count=0 就是清掉。
+      //   要先授权过通知（上面 permission 那一支本来就连 .badge 一起要了）。
+      let n = max(0, (d["count"] as? Int) ?? Int((d["count"] as? Double) ?? 0))
+      if #available(iOS 16.0, *) {
+        center.setBadgeCount(n) { err in DispatchQueue.main.async { replyHandler(["ok": err == nil], nil) } }
+      } else {
+        DispatchQueue.main.async { UIApplication.shared.applicationIconBadgeNumber = n; replyHandler(["ok": true], nil) }
+      }
     default:
       replyHandler(["ok": false], nil)
     }

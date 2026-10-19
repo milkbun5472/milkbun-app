@@ -72,11 +72,12 @@ test("CSS 也能直接挑：全 App、每一页、聊天窗、线下、群；空
   await assert.rejects(() => N.packCss({ css: "a{background:url(iv_gone)}" }), /图库里找不到/);
 });
 
-test("留言板：第八格、写帖子就是一段字、没有导入和复制、她能盖收到／修好", () => {
+test("留言板：最后一格、写帖子就是一段字、没有导入和复制、她能盖收到／修好", () => {
   const N = load({});
   assert.equal(N.KINDS[N.KINDS.length - 1].key, "post");
   assert.match(nest, /if \(isPost\) \{ const s = String\(text/);
-  assert.match(nest, /isPost \? null : h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: doImport/);
+  // 2026-10-19 起中间夹了文档那一支（复制全文），帖子照旧什么都不给
+  assert.match(nest, /isPost \? null : isDoc \? h\(Btn, [^\n]*\n\s*: h\(Btn, \{ t, solid: true, wide: true, disabled: busy, onClick: doImport/);
   assert.match(nest, /api\("\/admin\/status"/);
   assert.match(nest, /isPost && admin \?/);
 });

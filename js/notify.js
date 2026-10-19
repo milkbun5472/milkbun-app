@@ -126,5 +126,16 @@
     return true;
   }
 
-  window.Notify = { supported, whyUnsupported, permission, isOn, enable, disable, push, chatBubble, groupBubble, test };
+  // 桌面上 app 图标右上角那个数字（她 2026-10-19：「app 外面也有红点」）。
+  //   壳里走 nativeNotify 的 badge（tools/ios-shell，2026-10-19 加的：旧壳没有这一支，桥回 ok:false 就算了）；
+  //   不在壳里、浏览器有 setAppBadge（装到主屏的 PWA）就用它。n=0 是清掉。没开通知时不挂（系统也不让）。
+  async function badge(n) {
+    n = Math.max(0, Math.floor(Number(n) || 0));
+    try {
+      if (bridge()) { if (_nativePerm !== "granted") return false; const r = await ask({ action: "badge", count: n }); return !!(r && r.ok); }
+      if (typeof navigator !== "undefined" && navigator.setAppBadge) { if (n) await navigator.setAppBadge(n); else await navigator.clearAppBadge(); return true; }
+    } catch (e) {}
+    return false;
+  }
+  window.Notify = { supported, whyUnsupported, permission, isOn, enable, disable, push, chatBubble, groupBubble, test, badge };
 })();

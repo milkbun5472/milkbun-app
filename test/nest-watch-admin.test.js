@@ -85,6 +85,31 @@ test("接线：开机就加载、小窝页面从它拿地址和口令、红点�
   assert.match(app, /pushAppBanner\("nest", \{ name: "秋秋小窝", tag: "管理", G: window\.GNest/);
   assert.match(app, /if \(b\.type === "app"\) setScreen\(b\.app\); else openChatById/);
   // 点进小窝清零；正在小窝里不弹不亮
-  assert.match(app, /if \(screen === "nest"\) \{ if \(window\.NestWatch\) window\.NestWatch\.markSeen\(\); clearAppNotif\("nest"\); \}/);
+  assert.match(app, /if \(screen === "nest"\) \{ if \(window\.NestWatch\) window\.NestWatch\.markSeen\(\); clearAppNotif\("nest"\); [^\n]*window\.Notify\.badge\(0\); \}/, "点进小窝：红点、桌面图标上的数一起清");
   assert.match(app, /if \(screenRef\.current === "nest"\) \{ window\.NestWatch\.markSeen\(\); return; \}/);
+});
+
+// 她 2026-10-19「我还是收不到小窝提醒」：十分钟那一拍原来只在前台查，后台永远轮不到系统通知那一支
+test("后台也查；人不在 app 里走系统通知，在就弹横幅；桌面图标挂同一个数；切回来 focus 也认", () => {
+  const app = R("js/app.js"), notify = R("js/notify.js"), nest = R("js/nest.js"), sw = R("tools/ios-shell/LisaPhone/LisaPhone/AppDelegate.swift");
+  assert.match(app, /const iv = setInterval\(\(\) => nestWatchRun\(true\), 10 \* 60000\);/, "十分钟那一拍又只在前台跑了");
+  assert.match(app, /if \(document\.visibilityState === "hidden"\) \{ if \(window\.Notify\) window\.Notify\.push\(\{ title: "秋秋小窝", body: text, tag: "nest-new", screen: "nest" \}\); \}\n\s*else pushAppBanner/);
+  assert.match(app, /window\.Notify\.badge\(r\.fresh\.length\)/);
+  assert.match(app, /window\.addEventListener\("focus", kick\);/);
+  assert.match(notify, /async function badge\(n\)/);
+  assert.match(notify, /ask\(\{ action: "badge", count: n \}\)/);
+  assert.match(sw, /case "badge":/, "壳那头接 badge 的那一支");
+  // 管理中那一行：看得见最近一次查得怎么样，能就地再查
+  assert.match(nest, /adminToken\(\) \? h\(WatchLine, \{ t \}\) : null,/);
+  assert.match(nest, /W\.lastCheck \? W\.lastCheck\(\) : null/);
+});
+
+test("最近一次查的结果记下来：成了记时间和墙上最新那条，失败记原因", async () => {
+  const walls = { all: [{ id: "a", created: 100 }], post: [] };
+  const { W, store } = boot(walls);
+  assert.equal(W.lastCheck(), null);
+  store.qq_nestAdmin = "k";
+  await W.check();
+  const L = W.lastCheck();
+  assert.equal(L.ok, true); assert.equal(L.top, 100);
 });
