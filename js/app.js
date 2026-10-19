@@ -27255,12 +27255,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try { const url = await resizeImageFile(file, 500, 0.82); saveListen(p => ({ ...p, disc: url })); }
     catch (e) { toast("图片处理失败"); }
   };
+  // 「全部」那一栏最多留几首（群友 2026-10-20 问「歌单有数量限制吗」）：原来按加法不同各是 30/40/60，
+  //   满了悄悄挤掉最早的。统一成 300，真挤掉时说一声，提醒她想留的放进自己建的歌单（歌单不限）。
+  const LISTEN_SONG_CAP = 300;
+  const capListenSongs = list => {
+    if (list.length <= LISTEN_SONG_CAP) return list;
+    setTimeout(() => toast("「全部」最多留 " + LISTEN_SONG_CAP + " 首，最早那首挪出去了；想留着的放进自己建的歌单就不会丢"), 0);
+    return list.slice(0, LISTEN_SONG_CAP);
+  };
   const addListenSong = async (title, artist, coverFile) => {
     const tt = (title || "").trim();
     if (!tt) return;
     let cover = null;
     if (coverFile) { try { cover = await resizeImageFile(coverFile, 500, 0.82); } catch (e) {} }
-    saveListen(p => ({ ...p, songs: [{ id: "sg_" + Date.now(), title: tt, artist: (artist || "").trim(), cover: cover, ts: Date.now() }, ...(p.songs || [])].slice(0, 30) }));
+    saveListen(p => ({ ...p, songs: capListenSongs([{ id: "sg_" + Date.now(), title: tt, artist: (artist || "").trim(), cover: cover, ts: Date.now() }, ...(p.songs || [])]) }));
   };
   const removeListenSong = id => { idbAudioDel(id); saveListen(p => ({ ...p, songs: (p.songs || []).filter(x => x.id !== id) })); };
   // ---- 全局播放器 handlers ----
@@ -27631,7 +27639,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
     }
     const nsong = { id: "sg_" + Date.now(), source: "netease", neteaseId: nid, title: (title || "").trim() || ("网易云歌曲 " + nid), artist: (artist || "").trim(), ts: Date.now() };
-    saveListen(p => ({ ...p, songs: [nsong, ...(p.songs || []).filter(x => x.neteaseId !== nid)].slice(0, 40) }));
+    saveListen(p => ({ ...p, songs: capListenSongs([nsong, ...(p.songs || []).filter(x => x.neteaseId !== nid)]) }));
     backfillSongMeta(nsong); // 刚贴进来就去拿封面/歌名/歌手，不用等到播放
     toast("已添加");
   };
@@ -27640,7 +27648,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!file) return;
     const id = "sg_" + Date.now();
     try { await idbAudioPut(id, file); } catch (e) { toast("音频存储失败"); return; }
-    saveListen(p => ({ ...p, songs: [{ id, source: "local", title: (title || "").trim() || file.name.replace(/\.[^.]+$/, ""), artist: (artist || "").trim(), ts: Date.now() }, ...(p.songs || [])].slice(0, 40) }));
+    saveListen(p => ({ ...p, songs: capListenSongs([{ id, source: "local", title: (title || "").trim() || file.name.replace(/\.[^.]+$/, ""), artist: (artist || "").trim(), ts: Date.now() }, ...(p.songs || [])]) }));
     toast("已添加");
   };
   const setListenPartner = charId => saveListen(p => ({ ...p, partnerId: charId }));
@@ -27824,7 +27832,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     roomMusicEnter(phoneMusicMine(cid), from ? () => playSong(from, ss.map(x => x.id)) : null);
   };
   const phoneMusicLeave = cid => roomMusicLeave(phoneMusicMine(cid));
-  const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
+  const addNeteaseResult = s => saveListen(p => ({ ...p, songs: capListenSongs([resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))]) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
   // ── 模型推歌 → 网易云搜到真曲：这条漏斗【两处共用】（角色歌单 / 情侣唱片）──
   // 单独抽出来是因为它有两道会吃掉结果的关卡（搜不到 / 已经有了），
