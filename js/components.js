@@ -11055,7 +11055,7 @@ function ChatThread({
       // data-wk=chat/chathead/body/msg/time/row/avatar/bubble/composer，
       // 外加 data-me="1|0" 分我和TA。这些【只是名字，不带任何样式】——
       // 加了不影响现在的长相，删了才会让别人写好的主题失效，所以别改名。
-      "data-wk": "msg", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      "data-wk": "msg", "data-me": isU ? "1" : "0", "data-i": i, "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
       ...msgRunAttrs(messages, i, part, last, (a, b) => a.role === b.role)
     }, part === 0 && (function () {
       // ⚠️原来这儿是手写的一份：`i===0 || 换轮了 || 间隔 >3 分钟`，文案走 fmtStamp——
@@ -13395,6 +13395,12 @@ function useLongPressMenu(onFire, opts) {
     const down = e => {
       const p = (e.touches && e.touches[0]) || e;
       if (p) from.current = { x: p.clientX, y: p.clientY };
+      // 左滑引用从整行起手都算（她 2026-10-19：美化把引用、译文、贴纸挪到气泡外面以后，
+      //   手指常落在气泡外，原来只认气泡就很难滑出来）。气泡自己的 startPress 随后照样会再记一次。
+      if (swipeRef.current && e.touches && e.target && e.target.closest) {
+        const row = e.target.closest('[data-wk="msg"][data-i]');
+        swipeIdx.current = row ? Number(row.getAttribute("data-i")) : null;
+      }
     };
     const move = e => {
       if (!timer.current || !from.current) return;
@@ -18713,7 +18719,7 @@ function GroupThread({
     const groupTimeLabel = gStamp.text;
     return h("div", {
       key: i,
-      "data-wk": "msg", "data-me": isU ? "1" : "0", "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
+      "data-wk": "msg", "data-me": isU ? "1" : "0", "data-i": i, "data-kind": cardLayout(m.content) ? "htmlcard" : (m.kind || "text"),
       ...msgRunAttrs(messages, i, 0, true, (a, b) => a.role === b.role && (a.senderId || "") === (b.senderId || ""))
     }, showGroupTime && h("div", { className: "flex justify-center", "data-wk": "time", "data-day": gStamp.day ? "1" : "0",
       style: { margin: gStamp.day ? "18px 0 10px" : "13px 0 8px" } },
