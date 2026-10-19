@@ -857,6 +857,8 @@
       else if (head.startsWith("@")) throw new Error("暂不支持 " + head.split(/\s/)[0]);
       else {
         const sels = head.split(",").map(x => x.trim()).filter(Boolean).map(sel => {
+          // body 要落到真的 body 上（群里 2026-10-19：聊天页底下那一条是 body 的米色，写 body 一直刷不到——原来被换成了 html）
+          if (/^body$/i.test(sel) && /^html\b/i.test(scope)) return scope + " body";
           if (/^(html|body|:root)$/i.test(sel)) return scope;
           // html 自己身上的属性（如 html[data-screen-size="short"]）要贴在 scope 那个 html 上，不是当成它下面的元素——
           //   原来一律把开头的 html 削掉，[data-screen-size] 就被当成 html 里面的某个元素，一条都不生效

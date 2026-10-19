@@ -9,7 +9,7 @@ test("顶栏写死的 padding-top / top / padding 简写：自动跟刘海取大
   const out = S.scopeCSS('[data-wk="chathead"]{padding-top:10px !important;color:red}[data-wk="head"]{padding:6px 12px}[data-wk="head"]{top:0}', "X");
   assert.match(out, /padding-top: max\(10px, calc\(var\(--app-safe-top[^;]*\) !important;color:red/);
   assert.match(out, /padding: max\(6px, calc\([^)]*\)[^)]*\) \+ 4px\)\) 12px 6px 12px/);
-  assert.match(out, /top: max\(0, /);
+  assert.match(out, /top: max\(0px, /);   // max() 里不认不带单位的 0（2026-10-19）
 });
 test("别的挂点、已经用了安全区的顶栏：一个字不动", () => {
   const css = '[data-wk="bubble"]{padding-top:3px;top:2px}[data-wk="head"]{padding-top:calc(var(--app-safe-top) + 2px)}[data-wk="headink"]{padding-top:1px}';
