@@ -11018,9 +11018,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if ((m = L.match(/^(.+?)\s*转账给你$/))) return who(m[1]) + "转给她 " + amt;
         if ((m = L.match(/^给\s*(.+?)\s*点外卖/))) return "她给" + who(m[1]) + "点外卖 " + amt;
         if ((m = L.match(/^抢到\s*(.+?)\s*的红包$/))) return "她抢到" + who(m[1]) + "的红包 " + amt;
-        return (w.delta < 0 ? "她花出去 " : "她收到 ") + amt + "（" + cut(L, 24) + "）";
+        // 没写给谁的那几笔（购物、外卖、直播间……）照实说「没写给谁」（群友 2026-10-20：她给别的面具那边的人买的东西，
+        //   他翻到了「购物 xx」就全认成是给自己的）。写了他名字的上面几条已经标了「就是你」，这里不替他猜。
+        return (w.delta < 0 ? "她花出去 " : "她收到 ") + amt + "（" + cut(L, 24) + (w.delta < 0 ? "，流水上没写是给谁的" : "") + "）";
       };
-      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n"));
+      if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n")
+        + "\n标了「就是你」的才是给你的；没写给谁的，你不知道是买给谁、给自己还是给别人的。");
     }
     if (on("shop")) {
       const od = (orders || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId))) && !maskTrace(o.payLabel) && !maskTrace(o.name)).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
