@@ -10617,6 +10617,13 @@ function _canvasHasAlpha(c, cx) {
 // PNG 比 JPEG 大不少，所以边长收到 360——贴纸本来就只占卡片一角，不需要更大。
 function resizeImageAlpha(file, maxDim = 360) { return _resizeImageCore(file, maxDim, 1, true); }
 // 其余全 app 走这一条：有透明就留 PNG，没有才压 JPEG。
+// 铺满一整屏的图（主屏壁纸、聊天背景）要多大（群友 2026-10-19：「壁纸换了不是很清晰」）：
+//   原来压到 1080 / 1200 px，可手机屏幕的长边是 2500~2800 个实际像素，铺满就被放大两倍多，糊了。
+//   照这台手机的长边×像素密度来，最少 1600、最多 2560（再大就只是占地方，屏幕显示不出来）。
+function screenImageDim() {
+  try { const w = window.innerWidth || 0, hh = window.innerHeight || 0, dpr = window.devicePixelRatio || 1;
+    return Math.max(1600, Math.min(2560, Math.round(Math.max(w, hh) * dpr))); } catch (e) { return 1600; }
+}
 function resizeImageFile(file, maxDim = 400, q = 0.85) { return _resizeImageCore(file, maxDim, q, false); }
 function timeAgo(ts) {
   const m = Math.floor((Date.now() - ts) / 60000);

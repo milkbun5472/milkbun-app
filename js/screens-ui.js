@@ -7242,7 +7242,7 @@ function ThemeConfig({
     e.target.value = "";
     if (!file) return;
     try {
-      const dataUrl = await resizeImageFile(file, 1080, 0.82);
+      const dataUrl = await resizeImageFile(file, screenImageDim(), 0.9);
       onSaveWallpaper(dataUrl);
     } catch (err) {
       onSaveWallpaper && onSaveWallpaper(wallpaper); // 触发 toast 之外无操作
