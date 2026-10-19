@@ -6429,13 +6429,33 @@ function Home({
   const HOME_MAX_PAGES = 12;
   // 一页能上下滑，所以真东西可以比看得见的行数多放这么多行
   const HOME_SCROLL_EXTRA_ROWS = 2;
+  // 名片「原尺寸」两种摆法都得对（群友 2026-10-20：选原尺寸也被压成一条，「为啥不能做两种情况的适配」）：
+  //   名片按格只占 4×1，真实高度要伸进下一行。
+  //   · 它下面紧跟着一整行空格（默认布局就是这么垫的）→ 照旧 4×1，让它伸进那行空格里；
+  //   · 下面不是空格（她摆了东西、或空格被挪走了）→ 自己占 4×2，把下面的往下推，不再被裁掉半截。
+  //   只看存着的布局本身，不经过 buildLayout（那一层要问 spanOf，绕回来就成了圈）。
+  const cardHasSpacerRow = (function () {
+    var saved = typeof layout !== "undefined" ? layout : null;
+    var pages = saved && Object.keys(saved).length ? Object.keys(saved).map(function (k) { return saved[k] || []; }) : DEFAULT_LAYOUT;
+    for (var pi = 0; pi < pages.length; pi++) {
+      var arr = pages[pi] || [], i = arr.indexOf("w_card");
+      if (i < 0) continue;
+      var nx = arr.slice(i + 1, i + 5);
+      return nx.length === 4 && nx.every(function (k) { return SP_RE.test(k); });
+    }
+    return true;
+  })();
+  const spanFor = function (key, it) {
+    if (key === "w_card" && !cardHasSpacerRow && homeSizeOf(key, widgetSizes) === "auto") return [4, 2];
+    return homeItemSpan(key, it, widgetSizes);
+  };
   // 每项占几列几行（4 列制）——必须和 renderItem 里写的 gridColumn/gridRow 一模一样
   const spanOf = function (key) {
     if (SP_RE.test(key)) return [1, 1];
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
     if (!it) return null;
     if (it.kind !== "widget" && it.kind !== "decor") return [1, 1];
-    return homeItemSpan(key, it, widgetSizes);
+    return spanFor(key, it);
   };
   // 每项占的格子数（4 列制）：app/文件夹/空格=1，日历 3x3=9，地图 2x2=4，整行组件=4
   const wOf = function (key) { var s = spanOf(key); return s ? s[0] * s[1] : 0; };
@@ -7414,7 +7434,7 @@ function Home({
     const isDrag = dragKey === key;
     const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 所有组件/装饰都从同一份占格设置取尺寸；spanOf/placeDense 也走这条，视觉和落位不会各算各的。
-    const span = (it.kind === "widget" || it.kind === "decor") ? homeItemSpan(key, it, widgetSizes) : [1, 1];
+    const span = (it.kind === "widget" || it.kind === "decor") ? spanFor(key, it) : [1, 1];
     // 显式坐标（算不出来时退回原来的 span 流，至少不会消失）
     const gCol = at ? (at.c + 1) + " / span " + span[0] : "span " + span[0];
     const gRow = at ? (at.r + 1) + " / span " + span[1] : "span " + span[1];
@@ -7742,7 +7762,7 @@ function Home({
             h("div", { style: Object.assign({}, pvShell, { position: "relative" }) },
               // 组件画的是【真组件】，走渲染桌面那一格的同一个 homeInnerOf——
               // 另画一份假预览的话，这儿好看的和桌面上那一格迟早对不上。
-              A.isWidget ? homeInnerOf(REG[A.key], A.key, homeSizeOf(A.key, widgetSizes), null, homeItemSpan(A.key, REG[A.key], widgetSizes))
+              A.isWidget ? homeInnerOf(REG[A.key], A.key, homeSizeOf(A.key, widgetSizes), null, spanFor(A.key, REG[A.key]))
                 : h(HomeDecorItem, { item: PV, preset: A.preset, now: now }),
               h(HomeStickerLayer, { list: A.stickers, t: t })))));
       })(),
