@@ -8,3 +8,9 @@ test("聊天那条路（thinOnline）掺了线下段时，提醒线上照打字�
   assert.ok(i > 0);
   assert.match(app.slice(i, i + 300), /照你平时打字的样子说话/);
 });
+
+test("反八股里「拿标准小动作替情绪」写明只管写神态的地方，线上发消息不写旁白", () => {
+  const eng = require("fs").readFileSync(require("path").join(__dirname, "../js/engine.js"), "utf8");
+  const i = eng.indexOf("【拿标准小动作替情绪】");
+  assert.match(eng.slice(i, i + 200), /线上发消息本来就不写旁白/);
+});
