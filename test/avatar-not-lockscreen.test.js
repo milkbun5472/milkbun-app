@@ -12,5 +12,5 @@ assert.equal(ok(["头像换好了，满意了吧"]), true);
 assert.equal(ok(["头像换好了"]), true, "真说换了头像的照换");
 assert.equal(ok(["锁屏和头像我都换成这张了"]), true, "两样都换，头像照换");
 assert.match(app, /AVATAR_CLAIM_RE\.test\(\[\]\.concat\(parsed\.word \|\| \[\]\)\.join\(" "\)\) && avatarTalkOk\(parsed\.word\)/);
-assert.match(app, /parsed\.photoSeen\.avatar === true && !avatarTalkOk\(parsed\.word\)/);
+assert.match(app, /parsed\.photoSeen\.avatar === true && \(!avatarTalkOk\(parsed\.word\) \|\| \(_pairAsked && !_pairPick\)\)/);
 console.log("ok");

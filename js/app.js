@@ -12199,8 +12199,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _autoPick = (!_askAvatar && !_seenMsg && !opts.proactive && avatarCoolOk(charId)) ? freshPhotoIn(chatsRef.current[charId] || [], AUTO_AVATAR_LOOKBACK) : null;
       // 情头那一档：她开口说了一对／一起换，而且往回真找得到两张她发的照片。
       //   ⚠️只在她开口时给——换的是【她自己的】头像，不能由他起意。
-      const _pairPick = (!opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 4))
-        ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
+      // 往回看几句她的话（她 2026-10-19：「让他换情头一直不换我的，自己的还会换错」）：原来只看 4 句，
+      //   可她发两张图本身就占两句，再催一句「你倒是换啊」，「情头」那句就掉出去了——于是走成单张：
+      //   拿最后那张给他换上，她那边不动。放到 10 句；而且她提过情头的这一阵，单张那条不许替它换。
+      const _pairAsked = !opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 10);
+      const _pairPick = _pairAsked ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
       // 情头那两张在历史里直接标上「第 1 张／第 2 张」（她 2026-10-02：TA说「鲨鱼归我」，结果自己换成了猫——
       //   原来只说「先发的是第 1 张」，可TA看到的历史里那两张图没有编号，只能猜，猜反了）
@@ -13624,12 +13627,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (_k >= 0 && applyPairAvatar(charId, _pairPick, _k + 1)) parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
       if (_doodleFresh && parsed.drawBack) drawBackOn(charId, chatKey, _seenMsg, parsed.drawBack, turnId);
-      if (parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true && !avatarTalkOk(parsed.word))
+      if (parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true && (!avatarTalkOk(parsed.word) || (_pairAsked && !_pairPick)))
         parsed.photoSeen = { ...parsed.photoSeen, avatar: false };   // 话里换的是锁屏、或者在否认：头像不动
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
-      if (!_pairDone && !_pairPick && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
+      if (!_pairDone && !_pairPick && !_pairAsked && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
         && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
