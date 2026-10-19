@@ -827,20 +827,28 @@
     const safe = v => /safe-area|--app-safe-top/i.test(v);
     // max() 里不认不带单位的 0（写成 max(0, …) 整条作废，顶栏照样钻进状态栏）——补成 0px
     const px0 = v => /^[-+]?0+(?:\.0+)?$/.test(String(v).trim()) ? "0px" : String(v).trim();
-    return String(body)
-      .replace(/(^|[;\s])(padding-top|top)\s*:\s*([^;!]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
-        safe(v) || /^(auto|inherit|initial|unset)$/i.test(v.trim()) ? m : pre + prop + ": max(" + px0(v) + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""))
+    // 这一条自己已经算了刘海（哪儿用了安全区）＝做的人照自己手机调好了，整条不动
+    if (safe(body)) return body;
+    let padTop = null;   // 这一条自己写的顶上留白（原值）
+    const out = String(body)
+      .replace(/(^|[;\s])(padding-top|top)\s*:\s*([^;!]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) => {
+        if (/^(auto|inherit|initial|unset)$/i.test(v.trim())) return m;
+        if (/^padding-top$/i.test(prop)) padTop = px0(v);
+        return pre + prop + ": max(" + px0(v) + ", " + SAFE_MIN + ")" + (imp ? " !important" : ""); })
       .replace(/(^|[;\s])padding\s*:\s*([^;!(]+?)\s*(!important)?\s*(?=;|$)/gi, (m, pre, v, imp) => {
-        if (safe(v)) return m;
         const parts = v.trim().split(/\s+/); if (!parts.length || parts.length > 4) return m;
         const full = parts.length === 1 ? [parts[0], parts[0], parts[0], parts[0]] : parts.length === 2 ? [parts[0], parts[1], parts[0], parts[1]] : parts.length === 3 ? [parts[0], parts[1], parts[2], parts[1]] : parts;
-        full[0] = "max(" + px0(full[0]) + ", " + SAFE_MIN + ")";
+        padTop = px0(full[0]); full[0] = "max(" + padTop + ", " + SAFE_MIN + ")";
         return pre + "padding: " + full.join(" ") + (imp ? " !important" : "");
-      })
-      // 顶栏写死了高度（群里 2026-10-19：height: 52px + box-sizing: border-box）：上面把刘海那截加进了 padding-top，
-      //   高度还是 52，字就被挤回状态栏里。写死的 px 高度一律再加上刘海那截——没刘海的手机加的是 0，原样。
-      .replace(/(^|[;\s])(height|min-height)\s*:\s*(\d+(?:\.\d+)?px)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
-        pre + prop + ": calc(" + v + " + var(--app-safe-top, env(safe-area-inset-top, 0px)))" + (imp ? " !important" : ""));
+      });
+    // 顶栏写死了高度（群里 2026-10-19：height: 52px + box-sizing: border-box）：顶上留白被往下挪了，高度不跟着加，字就被挤回状态栏里。
+    //   只补【真被挪下去的那一截】：这一条自己写了顶上留白，就补「刘海+4 比原值多出来的」——在做的那台手机上多出来的是 0，原样
+    //   （群里 2026-10-20：原值本来就让开了刘海，高度又整截加了一次，「刷新了一下发现做的美化不适配了」）；
+    //   没写顶上留白：留白还是 app 自己那份刘海，换哪台手机都一样，高度不补。
+    if (padTop == null) return out;
+    const extra = "max(0px, " + SAFE_MIN + " - " + padTop + ")";
+    return out.replace(/(^|[;\s])(height|min-height)\s*:\s*(\d+(?:\.\d+)?px)\s*(!important)?\s*(?=;|$)/gi, (m, pre, prop, v, imp) =>
+      pre + prop + ": calc(" + v + " + " + extra + ")" + (imp ? " !important" : ""));
   };
   // 全局 CSS 不加作用域，但顶栏那几条也要过一遍：套一层 html（选的还是同一批元素），读不懂就原样用
   const fitTop = css => { try { return scopeCSS(css, "html"); } catch (_) { return css; } };
