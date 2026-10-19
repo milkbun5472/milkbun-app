@@ -31108,6 +31108,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     masks: (masks || []).filter(x => x && x.id && x.id !== maskPrimary).length ? [{ key: "", name: (profile && profile.name) || "主面具" }].concat((masks || []).filter(x => x && x.id && x.id !== maskPrimary).map(x => ({ key: x.id, name: x.name || "面具" }))) : [],
     maskKey: closetMask,
     onMask: k => setClosetMask(k || ""),
+    hasIn: (k, occ, name) => (((myBoxOf(k ? "mk:" + k : "") || {}).closet) || []).some(g => String(g.occasion || "") === String(occ || "") && (g.sets || []).some(x => x && x.name === name)),
+    onToggleMask: (k, occ, set) => {
+      const who = k ? "mk:" + k : "", box = myBoxOf(who);
+      const has = ((box.closet) || []).some(g => String(g.occasion || "") === String(occ || "") && (g.sets || []).some(x => x && x.name === set.name));
+      if (has) {
+        const cur = (box.closet || []).map(g => String(g.occasion || "") !== String(occ || "") ? g : { ...g, sets: (g.sets || []).filter(x => x.name !== set.name) }).filter(g => (g.sets || []).length);
+        saveMyBox(who, { closet: cur });
+      } else {
+        const next = myClosetPut(box, occ, set);
+        if (myClosetN(next) <= myClosetN(box)) { toast(MYCLOSET_FULL); return; }
+        saveMyBox(who, next);
+      }
+    },
     busy: !!gen.myCloset,
     onGen: myClosetGen,
     onAdd: myClosetAdd,

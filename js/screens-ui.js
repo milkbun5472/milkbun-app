@@ -12217,7 +12217,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
 // 整页，不用半窗（施工规则/no-half-sheet.md）。
-function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, masks, maskKey, onMask }) {
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
   // 钉住的那一身：写的是「名字：说明」这一句，跟出图常服那把锁同一格
   const pinText = x => String(x.name || "").trim() + (x.note ? "：" + String(x.note).trim() : "");
   const pinned = String((profile && profile.photoOutfit) || "").trim();
@@ -12291,7 +12291,13 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉")),
-                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null)))))
+                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null,
+                // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
+                (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "也挂在"),
+                  masks.filter(m => m.key !== (maskKey || "")).map(m => { const on = hasIn(m.key, g.occasion, x.name);
+                    return h("button", { key: m.key || "__main", "data-on": on ? "1" : "0", onClick: () => onToggleMask(m.key, g.occasion, x), className: "active:opacity-60",
+                      style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, (on ? "✓ " : "") + m.name); })) : null)))))
         : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }
