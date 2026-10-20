@@ -114,7 +114,7 @@ async function fetchModelList(p) {
       }
     });
     const d = await r.json();
-    if (d.error) throw new Error(d.error.message);
+    if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
     return (d.models || []).map(m => (m.name || "").replace("models/", "")).filter(Boolean);
   }
   if (fmt === "anthropic") {
@@ -126,7 +126,7 @@ async function fetchModelList(p) {
       }
     });
     const d = await r.json();
-    if (d.error) throw new Error(d.error.message);
+    if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
     return (d.data || []).map(m => m.id);
   }
   const root = openAICompatibleRoot(base);
@@ -868,7 +868,9 @@ async function callAI(p, system, messages, opts) {
       e = new Error("连接断了：刚才切到别的地方时，手机把后台的连接掐断了（这一次没扣到结果）。想要就再发一次；等它回完再切出去最稳。");
     }
     // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
-    const m2 = String((e && e.message) || e || "");
+    // 报错没带原因（只剩一个「Error」）时，至少说清是哪种失败、去哪儿查（群友 2026-10-20：调用记录一排「Error」看不出所以然）
+    const m2 = (e && e.message) ? String(e.message) : (typeof e === "string" && e) ? e
+      : "站子打回来了，没附原因（" + ((e && e.name) || "Error") + "，" + ((Date.now() - t0) / 1000).toFixed(1) + " 秒）。去 设置 → API 在这条线路上点「拉取列表」：拉不下来是地址或 key 的问题；拉得下来就核对模型名在不在里面";
     bgSay(false, m2); logIt(e && e.userAbort ? "cut" : false, m2);
     if (!CONFIG_ERR.test(m2)) {
       try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute } })); } catch (_) {}
@@ -1060,7 +1062,7 @@ async function callAIOnce(p, system, messages, opts) {
       _noExt = true;
       d = await postAnthropic(wantTemp());
     }
-    if (d.error) throw new Error(d.error.message);
+    if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
     // pause_turn：服务端工具跑得久时上游会先还一个中场，把它原样接回去继续。
     // 这【不是】新的一轮对话，是同一次回答被切成几段；封顶两次，免得线路抽风时无限续。
     for (let _pt = 0; _pt < 2 && d.stop_reason === "pause_turn" && Array.isArray(d.content); _pt++) {
@@ -1194,7 +1196,7 @@ async function callAIOnce(p, system, messages, opts) {
       return await readAIJSON(r);
     };
     let d = await postGemini();
-    if (d.error) throw new Error(d.error.message);
+    if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
     const partsOf = x => x && x.candidates && x.candidates[0] && x.candidates[0].content && x.candidates[0].content.parts || [];
     let _calls = 1;
     if (gTools && _runTool) {
@@ -1311,7 +1313,7 @@ async function callAIOnce(p, system, messages, opts) {
     try { const a = JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []; if (a.indexOf(_ntKey2) < 0) { a.push(_ntKey2); localStorage.setItem("x_noTemp", JSON.stringify(a)); } } catch (e) {}
     d = await postOpenAI(false);
   }
-  if (d.error) throw new Error(d.error.message);
+  if (d.error) throw new Error(d.error.message || d.error.msg || (typeof d.error === "string" ? d.error : "站子报错：" + JSON.stringify(d.error).slice(0, 300)));
   // 工具回合（openai 方言）：结构跟 anthropic 那边一样，只是字段名换一套——
   // tool_calls 回来、跑完、以 role:"tool" 接回去再问一遍。每转一圈多一次调用，封顶。
   let _calls2 = 1;
