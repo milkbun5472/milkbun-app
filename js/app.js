@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.161";
+const APP_VERSION = "v76.162";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7568,11 +7568,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ---- 角色主动早晚安：扫所有【在聊的】角色，到各自作息的早/晚，主动发一句问候，落成未读红点，你随缘回 ----
   // 只在 app 打开时跑（静态站无后台推送）；一次只发一个错峰；一天早/晚各一次；刚聊完/正在看的不打扰。
   // 角色当地"此刻几点几分"（分钟数）——按 tz 偏移，无 tz 用设备本地
-  const charLocalMin = char => {
-    const raw = char && char.tz;
-    if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) { const d = new Date(schedNowDate(char).getTime() + off * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); } }
-    const d = schedNowDate(char); return d.getHours() * 60 + d.getMinutes();
-  };
+  // 他那边此刻几分（跟钟排日程时照钟）：跟日程同一处问 ScheduleClock.planMinute
+  const charLocalMin = char => window.ScheduleClock.planMinute(char, Date.now(), -new Date().getTimezoneOffset());
   useEffect(() => {
     const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
     const tick = () => {
