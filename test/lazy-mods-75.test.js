@@ -146,3 +146,39 @@ test("拆开的两半：页面那半不给共用的名字重新赋值", () => {
     assert.deepEqual(hit, [], uf + " 给共用的名字重新赋值了：" + hit.join("、"));
   });
 });
+
+// 她 2026-10-20：「点进设置 api，他卡一下退回设置总页面，要再点一次才行」。
+//   病根：脚本跑完后真组件把 window.Config 占了，app.js 里 h(Config, …) 下一次重画拿到的是【另一个组件】，
+//   React 把整棵子树拆掉重建，设置页记着的「在哪一栏」归零。替身必须一直占着那个名字。
+test("替身一直占着名字：脚本跑完也不让位，页面不会被拆掉重建", () => {
+  const seg = comp.slice(comp.indexOf("const lazyReal = {};"), comp.indexOf(".forEach(a => lazyScreen("));
+  const made = [];
+  const win = {};
+  const h = (type, props) => ({ type, props });
+  const LazyGate = function () {};
+  new Function("window", "h", "LazyGate", seg + "\nwindow.__lazyScreen = lazyScreen;")(win, h, LazyGate);
+  win.__lazyScreen("Foo", "g", "测试页");
+  const stub = win.Foo;
+  assert.equal(typeof stub, "function");
+  // 那份脚本跑完了：顶层 function Foo(…) 把 window.Foo 换成真组件
+  const Real = function Foo() {};
+  win.Foo = Real;
+  win.LazyReclaim();
+  assert.equal(win.Foo, stub, "脚本跑完替身让位了——app.js 下一次重画就会把这一页拆掉重建");
+  // 替身照常画：进门那一层还在，真组件挂在它底下
+  const out = stub({ onBack: 1 });
+  assert.equal(out.type, LazyGate);
+  assert.equal(out.props.render().type, Real, "收走的真组件没画出来");
+  // 名字上挂的不是组件（是对象）时不许乱收
+  win.Bar = { LIST: 1 };
+  win.__lazyScreen("Baz", "g", "另一页");
+  win.LazyReclaim();
+  assert.deepEqual(win.Bar, { LIST: 1 });
+});
+
+test("装载器：一组跑完就把名字换回替身，不等界面下一次重画", () => {
+  const src = R("js/lazy-mods.js");
+  const i = src.lastIndexOf("loaded[group] = true;");   // 前面还有一句「这一组没登记延后」的早返回
+  assert.match(src.slice(i, i + 260), /try \{ if \(g\.LazyReclaim\) g\.LazyReclaim\(\); \} catch \(e\) \{\}/);
+  assert.ok(src.indexOf("g.LazyReclaim") < src.indexOf('.finally(() => { delete pending[group]; })'), "收名字要排在 load() 交差之前");
+});

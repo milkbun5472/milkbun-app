@@ -29,7 +29,7 @@ test("一段正文切成台词和叙述，一个字都不许丢", () => {
 test("整段都是叙述时，只给一段 prose——不然正文会被白白变浅", () => {
   assert.deepEqual(K.offSplit("雨还没停。廊下的灯被风吹得晃。"), [{ k: "prose", s: "雨还没停。廊下的灯被风吹得晃。" }]);
   assert.deepEqual(K.offSplit(""), [{ k: "prose", s: "" }]);
-  const body = grab(comp, "function offBody(t, text, accent) {", "function offCardSkin(t, accent) {");
+  const body = grab(comp, "function offBody(", "function offCardSkin(");
   assert.match(body, /const hasSay = segs\.some\(x => x\.k === "say"\);/, "没判这段里到底有没有台词");
   assert.match(body, /color: hasSay \? t\.sub : t\.ink/, "没有台词的那种整段也被压浅了");
 });
@@ -38,7 +38,7 @@ test("整段都是叙述时，只给一段 prose——不然正文会被白白�
 test("引号那套判据只有一份，components 没有自己再写一个正则", () => {
   assert.match(eng, /function speechSpans\(text\) \{/, "engine 里没有那一份");
   assert.match(eng, /return speechSpans\(text\)\.map\(x => x\.inner\)\.join\("\\n"\);/, "extractSpeech 没有改成复用 spans");
-  const split = grab(comp, "function offSplit(text) {", "function offBody(");
+  const split = grab(comp, "function offSplit(", "function offBody(");
   assert.match(split, /typeof speechSpans === "function" \? speechSpans\(s\) : \[\]/, "没用共享那一份");
   assert.ok(!/「\[\^」\]|『|“\(\[\^”\]/.test(split), "components 里又抄了一份引号正则");
   // 顺带回归：抽出 spans 之后，念台词那条路不许坏
@@ -63,8 +63,9 @@ test("台词的颜色先过一遍对比度，不靠眼睛猜", () => {
 });
 
 test("台词用说话人自己的颜色，我用强调色", () => {
-  assert.match(comp, /: offBody\(t, m\.content, isUser \? \(t\.accent \|\| meChar\.color\) : \(\(spk && spk\.color\) \|\| t\.tint\)\)\)/, "正文没按说话人上色");
-  const body = grab(comp, "function offBody(t, text, accent) {", "function offCardSkin(t, accent) {");
+  // 后面还会再加参数（2026-10-20 加了 whoId）：只钉「按说话人上色」这件事，不钉整行参数表
+  assert.match(comp, /: offBody\(t, m\.content, isUser \? \(t\.accent \|\| meChar\.color\) : \(\(spk && spk\.color\) \|\| t\.tint\)/, "正文没按说话人上色");
+  const body = grab(comp, "function offBody(", "function offCardSkin(");
   assert.match(body, /const sayInk = offReadable\(accent \|\| t\.tint, t\.bg2\);/, "台词颜色没过对比度");
   assert.match(body, /fontWeight: 600/, "台词没加重");
   assert.match(body, /boxDecorationBreak: "clone"/, "高亮带换行会断成一块一块");

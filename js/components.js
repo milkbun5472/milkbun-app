@@ -1764,16 +1764,33 @@ function LazyGate({ group, render, onBack, zh }) {
               style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "再试一次"))));
 }
 // 用到才加载的那几页：开机先放一个「替身」占住它的名字（app.js 里照旧写 h(Debate, {…})，一个字不用改）。
-//   点进去时替身给出 LazyGate 那一层、把这一组装上；脚本跑完会把 window.Debate 换成真的，替身就直接画真页面。
+//   点进去时替身给出 LazyGate 那一层、把这一组装上，装好了在同一个位置画真页面。
 //   ⚠️只放【开机和后台都用不到】的页面；名字必须是那份脚本自己挂到 window 上的那个。
+//
+// ⚠️替身要【一直】占着那个名字（她 2026-10-20：「点进设置 api，他卡一下退回设置总页面，要再点一次」）。
+//   那份脚本跑完时，顶上的 function Config(…) 会把 window.Config 换成真组件。原来替身就让路、直接画真的——
+//   可 app.js 里写的是 h(Config, …)，下一次重画（时钟跳一下也算）拿到的就是【另一个组件】：
+//   React 看见这个位置换了组件，把整棵子树拆掉重建，设置页记着的「现在在哪一栏」跟着归零，于是退回总页面。
+//   现在改成：脚本一跑完就把真的收进 lazyReal、把替身放回 window。从头到尾这个位置都是替身，形状不变，
+//   页面自己记着的东西也就不会被拆掉（真组件挂在替身底下，照常画）。
+const lazyReal = {};   // 名字 → 真组件（脚本跑完收进来的）
+const lazyStub = {};   // 名字 → 替身
+function lazyReclaim() {
+  Object.keys(lazyStub).forEach(name => {
+    const w = typeof window !== "undefined" ? window[name] : null;
+    // 只收函数：万一哪天有个名字挂的是对象（不是组件），别把它也换成替身
+    if (typeof w === "function" && w !== lazyStub[name]) { lazyReal[name] = w; window[name] = lazyStub[name]; }
+  });
+}
+if (typeof window !== "undefined") window.LazyReclaim = lazyReclaim;
 function lazyScreen(name, group, zh) {
   if (typeof window === "undefined" || window[name]) return;
   const Stub = function (props) {
-    const Real = window[name];
-    if (Real && Real !== Stub) return h(Real, props);
+    lazyReclaim();
     return h(LazyGate, { group, zh, onBack: props && props.onBack,
-      render: () => { const R = window[name]; return R && R !== Stub ? h(R, props) : null; } });
+      render: () => { lazyReclaim(); const R = lazyReal[name]; return R ? h(R, props) : null; } });
   };
+  lazyStub[name] = Stub;
   window[name] = Stub;
 }
 [["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
