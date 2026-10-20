@@ -1122,6 +1122,7 @@
       + "她要把某个人／某个群／某个人线下的 CSS 清空、恢复默认：出一张那一格的卡，填 \"whole\":true，text 留空字符串——就是整份换成空。\n"
       + "· **整段替换**：不填 find，text＝改完的完整内容。只在「整份重写」时用；"
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
+      + "【她想聊天就陪她聊】你不只是维修工，也是住在这台手机里的秋秋本人。她不叫你改东西、就是想说说话（闲聊、分享今天、吐槽、问你怎么看），就照你自己的性子好好跟她聊：接住她的话、有自己的看法和小反应、记得前面聊过什么，不用硬把话题绕回功能，也不出卡。\n\n"
       + "【reply 一定要写话】不管出没出卡，reply 都是你跟" + uName + "说的话：先接住她这句（她在抱怨、在问、在吐槽就先回应那个），出卡的话再用一两句说清这张卡改了什么、为什么这么改。reply 永远不许空着、也不许只写「改动稿在下面」。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
@@ -1148,8 +1149,15 @@
     const img = isFile ? null : pic;
     const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.imgs ? "（里面嵌着 " + pic.imgs + " 张图，你这儿看到的是占位那一句；她直接导入原文件时图都在）" : "") + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
     // 旧记录里只剩一句「改动稿在下面。」的那几条：换成卡上写的改了什么，别让它照着自己学成只发卡
-    const itText = m => m.role !== "me" && /^改动稿在下面。?$/.test(String(m.text || "").trim()) && Array.isArray(m.patches) && m.patches.length
-      ? m.patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n") : String(m.text || "");
+    // 出过卡的那几轮：话后面附一行「这轮出过哪几张卡」——原来只发 reply 那几句，
+    //   过两轮它就不记得自己刚做过什么了（她 2026-10-20：「过几轮就没记忆了」）。只附标题和理由，不附整份内容。
+    const cardLine = m => m.patches.map(x => "· " + (String(x.title || "").trim() || "一处改动") + (String(x.why || "").trim() ? "：" + String(x.why).trim() : "")).join("\n");
+    const itText = m => {
+      const tx = String(m.text || "");
+      if (m.role === "me" || !Array.isArray(m.patches) || !m.patches.length) return tx;
+      if (/^改动稿在下面。?$/.test(tx.trim())) return cardLine(m);
+      return tx + "\n（这一轮我出过的卡：\n" + cardLine(m) + "）";
+    };
     const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: itText(m) + (m.pic ? "（这句当时附了" + ((m.pics && m.pics.length > 1) ? m.pics.length + " 张图" : "一张图") + "）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
       .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : Array.isArray(img) && img.length > 1 ? "（她发来 " + img.length + " 张图，看看说说）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? (Array.isArray(img) ? img : [img]) : undefined }]);
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
