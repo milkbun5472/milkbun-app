@@ -29,7 +29,7 @@ test("流式挂在连续播报下面：没播报就没有「这一句念多久�
   assert.match(C, /callAuto \? h\("div", \{ className: "flex items-center justify-between pt-4" \}/);
   assert.match(C, /"流式字幕"/);
   // 关掉播报要顺手把流式也关掉，不然存下来的是一个开不了的开关
-  assert.match(C, /onClick: \(\) => setCallAuto\(v => \{ if \(v\) setCallStream\(false\); return !v; \}\)/);
+  assert.match(C, /onChange: \(\) => setCallAuto\(v => \{ if \(v\) setCallStream\(false\); return !v; \}\)/);
 });
 
 test("拨通那一刻定下来，通话中改设置不半路变脸", () => {

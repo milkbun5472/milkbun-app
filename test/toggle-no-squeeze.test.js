@@ -9,5 +9,6 @@ test("公共开关不许被横排挤扁", () => {
   assert.ok(i > 0 && j > i, "抠不出 Toggle");
   const seg = comp.slice(i, j);
   assert.match(seg, /flexShrink: 0/);
-  assert.match(seg, /minWidth: 46/);
+  assert.match(seg, /minWidth: S\.w,/);
+  assert.match(seg, /\{ w: 46, h: 27, k: 21 \}/, "默认那一号还是 46 宽");
 });

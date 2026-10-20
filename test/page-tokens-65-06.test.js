@@ -114,12 +114,13 @@ test("九十来页共用的那几个控件也挂上了挂点", () => {
     assert.ok(blk.length > 60 && blk.length < 4000, "抠不出 " + fn);
     hook.forEach(hk => assert.match(blk, new RegExp('"data-wk": "' + hk + '"'), fn + " 没挂 " + hk));
   };
-  one("function Toggle({", "function Slider({", ["toggle", "toggleknob"]);
+  one("function Toggle({", "function Slider({", ["toggleknob"]);
+  assert.match(comp, /"data-wk": wk \|\| "toggle",/, "开关默认挂 toggle，原来自己有名字的照用旧名");
   one("function Slider({", "function LineField({", ["slider"]);
   one("function LineField({", "function LineInput(", ["field", "fieldlabel", "fieldline"]);
   one("function LineInput(", "function LineArea(", ["input"]);
   one("function LineArea(", "// 液态玻璃", ["textarea"]);
-  assert.match(comp, /"data-wk": "toggle",\n\s*"data-on": on \? "1" : "0"/, "开关认不出开着还是关着");
+  assert.match(comp, /"data-on": on \? "1" : "0"/, "开关认不出开着还是关着");
   // 登记进「每一页都有」那一份，秋秋才知道
   const wk = studio.slice(studio.indexOf("const WK_COMMON"), studio.indexOf("const WK_SCOPED"));
   ["field", "fieldlabel", "fieldline", "toggle", "toggleknob", "input", "textarea", "slider"]
