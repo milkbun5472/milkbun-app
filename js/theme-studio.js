@@ -557,7 +557,7 @@
         // 番茄钟收桌后 TA 放进私聊的那张小卡（群里 2026-10-05）
         ["pomoshare", "聊天里那张「一起专注」小卡（番茄钟收桌后 TA 发来的；data-done=\"1\" 是坐满了）"],
         // 拉黑提示条和解除申请卡（她 2026-10-03：「拉黑的提示搞点挂点」）
-        ["blockbar", "拉黑时顶上那条提示（data-who＝me 她拉黑了TA／them TA拉黑了她）"], ["blockbaricon", "提示条左边那个禁止圈"],
+        ["blockbar", "拉黑时顶上那条提示（data-who＝me 她拉黑了TA／them TA拉黑了她）"], ["unblockdraft", "点感叹号后输入栏上面那块「求解除」草稿框"], ["blockbaricon", "提示条左边那个禁止圈"],
         ["blockbartitle", "提示条第一行（谁拉黑了谁）"], ["blockbarhint", "提示条第二行（现在能做什么）"], ["blockbarbtn", "提示条右边的「解除」键"],
         ["filecard", "聊天里发的文件卡整张"], ["filename", "文件卡上的文件名"], ["filebody", "点开后的文件内容"],
         ["sysnote", "聊天里那张系统小纸条（data-kind＝block 拉黑／解除那几张，其余 system）"], ["sysnotelabel", "纸条上「系统／拉黑」那行小字"],

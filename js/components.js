@@ -10743,23 +10743,6 @@ function ChatThread({
     h(Marquee, { wk: "headink", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
     schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "改"),
     h(IChevR, { size: 13, color: t.fog, wk: "headdim", style: { marginLeft: "auto", flexShrink: 0 } })),
-  unblockDraft !== null && h("div", {
-    style: { flexShrink: 0, background: t.bg2, borderBottom: "1px solid " + t.line, padding: "10px 14px" }
-  },
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6, lineHeight: 1.6 } },
-      "跟 TA 说点什么。说到 TA 当初生气的那件事上，比笼统道歉管用得多。"),
-    h("textarea", {
-      value: unblockDraft, autoFocus: true, rows: 3,
-      onChange: e => setUnblockDraft(e.target.value),
-      placeholder: "写你想说的话…",
-      style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, outline: "none", resize: "none" }
-    }),
-    h("div", { style: { display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" } },
-      h("button", { onClick: () => setUnblockDraft(null), style: { padding: "7px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "取消"),
-      h("button", {
-        onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
-        style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
-      }, "发给 TA"))),
   // 拉黑提示条（她 2026-10-03：「拉黑的提示搞点挂点，顺便看看样式」）：
   //   原来是一整行居中的红字，读起来像报错。拆成「谁拉黑了谁」＋「现在能做什么」两层，
   //   她拉黑 TA 时右边直接给一颗「解除」（原来得钻进设置里找开关）。
@@ -11337,6 +11320,24 @@ function ChatThread({
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go }),
   quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
+  // 求解除的草稿框贴在输入栏上面（她 2026-10-20：「为啥是在上面的」——原来挂在顶栏底下，离手指最远）
+  unblockDraft !== null && h("div", {
+    "data-wk": "unblockdraft", style: { flexShrink: 0, background: t.bg2, borderTop: "1px solid " + t.line, padding: "10px 14px" }
+  },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6, lineHeight: 1.6 } },
+      "跟 TA 说点什么。说到 TA 当初生气的那件事上，比笼统道歉管用得多。"),
+    h("textarea", {
+      value: unblockDraft, autoFocus: true, rows: 3,
+      onChange: e => setUnblockDraft(e.target.value),
+      placeholder: "写你想说的话…",
+      style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, outline: "none", resize: "none" }
+    }),
+    h("div", { style: { display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" } },
+      h("button", { onClick: () => setUnblockDraft(null), style: { padding: "7px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "取消"),
+      h("button", {
+        onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
+        style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
+      }, "发给 TA"))),
   // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
   chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
     h("div", { className: "flex items-center gap-2 flex-wrap" },
