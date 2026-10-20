@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.114";
+const APP_VERSION = "v76.115";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16805,6 +16805,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return clean;
   };
   const delCalTimedEvent = id => calEvSave((calEventsRef.current || []).filter(x => x.id !== id));
+  // 把一张面具的日程复制到另一张（她 2026-10-19「做吧」）：加进去、不删原有的；同一天同一时段同一件事的跳过。
+  //   onlyAhead：只搬今天及以后的（重复的那种照搬，它本来就一直在）。复制出来的是新的一条，之后两边各改各的。
+  const copyMaskSched = (srcOwner, dstOwner, onlyAhead) => {
+    if (!srcOwner || !dstOwner || srcOwner === dstOwner) return 0;
+    const cur = calEventsRef.current || [];
+    const d = new Date(), todayK = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const sig = e => [e.startDate, e.endDate || e.startDate, e.startTime || "", e.title || "", e.repeat || "none"].join("|");
+    const have = new Set(cur.filter(e => e && String(e.owner) === dstOwner).map(sig));
+    const add = cur.filter(e => e && String(e.owner) === srcOwner && e.title
+      && (!onlyAhead || (e.repeat && e.repeat !== "none") || String(e.endDate || e.startDate) >= todayK)
+      && !have.has(sig(e)))
+      .map((e, i) => ({ ...e, id: "ce_" + Date.now().toString(36) + i + Math.floor(Math.random() * 1e4).toString(36), owner: dstOwner, createdAt: Date.now(), updatedAt: Date.now() }));
+    if (add.length) calEvSave([...cur, ...add]);
+    return add.length;
+  };
   // 备忘录那边要看得见（她 2026-08-26：「我在七天后建了一个日程，备忘录那边也要体现出来」）。
   // 不复制数据、只让对方读得到：双写迟早会飘——改了一边没改另一边、删了一个留下孤儿。
   // 反方向（备忘录提醒落到日历上）本来就通着，走 window.memoRemindersOnDay。
@@ -32742,6 +32757,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSavePeriod: savePeriodSettings,
     onRecordPeriod: recordPeriodStart,
     onSaveTimed: saveCalTimedEvent,
+    onCopyMaskSched: copyMaskSched,
     onDelTimed: delCalTimedEvent,
     // 手动重排：只重排【今天到本周日】。手动这一下也记账，免得随后自动那档又跑一遍。
     onGenWeek: async c => {
