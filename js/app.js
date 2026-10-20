@@ -5029,7 +5029,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const schedNowSegFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
-    const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    const s0 = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
     if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const disp = schedDisplaySeqs(char, s0.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
@@ -5042,7 +5042,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 角色此刻的行程（给聊天/心情联动用）
   const schedNowFor = char => {
     const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())]; // 右侧仅兼容 v49.71 前旧日键，生成新当地日程后自然退出
+    const s = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]); // 右侧仅兼容 v49.71 前旧日键，生成新当地日程后自然退出
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return "";
     // 换算到我这边时间轴以正确判「此刻」，但给角色的文案仍用 TA 当地时刻（角色按自己时区想事情）
     const disp = schedDisplaySeqs(char, s.seqs);
@@ -5291,7 +5291,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!char) return null;
       const plans = schedulesRef.current[char.id] || {};
       const todayKey = schedLocalDayKey(char);
-      const today = plans[todayKey] || plans[schedDayKey(new Date())];
+      const today = plans[todayKey] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
       if (!today || !Array.isArray(today.seqs) || !today.seqs.length) return null;
       const mm = t => { const x = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return x ? (+x[1]) * 60 + (+x[2]) : null; };
       const firstMin = mm(today.seqs[0].time);
@@ -5311,7 +5311,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const schedNowBriefFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    const s = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
     const disp = schedDisplaySeqs(char, s.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
@@ -6289,7 +6289,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const schedBriefFor = char => {
     try {
       const plans = schedulesRef.current[char.id] || {};
-      const sc = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+      const sc = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
       if (!sc || !Array.isArray(sc.seqs) || !sc.seqs.length) return "";
       const disp = schedDisplaySeqs(char, sc.seqs);
       const idx = schedCurrentSeqIdx(disp, true, char);
@@ -7563,8 +7563,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 角色当地"此刻几点几分"（分钟数）——按 tz 偏移，无 tz 用设备本地
   const charLocalMin = char => {
     const raw = char && char.tz;
-    if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) { const d = new Date(Date.now() + off * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); } }
-    const d = new Date(); return d.getHours() * 60 + d.getMinutes();
+    if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) { const d = new Date(schedNowDate(char).getTime() + off * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); } }
+    const d = schedNowDate(char); return d.getHours() * 60 + d.getMinutes();
   };
   useEffect(() => {
     const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
@@ -17211,7 +17211,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       // 角色若在别的时区，「此刻几点」按 TA 当地算；数字生命跟着用户走、无时区
       const tzShiftMin = isDigital ? 0 : schedTzShiftMin(char);
-      const charNow = new Date(Date.now() + tzShiftMin * 60000);
+      const charNow = new Date(schedNowDate(char).getTime() + tzShiftMin * 60000);
       const nowStr = String(charNow.getHours()).padStart(2, "0") + ":" + String(charNow.getMinutes()).padStart(2, "0");
       const tzNote = tzShiftMin ? "。注意：TA 在别的时区（此刻 TA 当地约 " + nowStr + "），seqs 里的 time 一律填【TA 当地时刻】、按 TA 当地作息安排（睡觉/上班/吃饭都照 TA 那边的钟）" : "";
       const when = retro
@@ -17305,7 +17305,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, sched: char.id + "|week" }));
     try {
       const tzShiftMin = isDigital ? 0 : schedTzShiftMin(char);
-      const charNow = new Date(Date.now() + tzShiftMin * 60000);
+      const charNow = new Date(schedNowDate(char).getTime() + tzShiftMin * 60000);
       const nowStr = pad2(charNow.getHours()) + ":" + pad2(charNow.getMinutes());
       const tzNote = tzShiftMin ? "。TA 在别的时区（此刻 TA 当地约 " + nowStr + "），所有 time/end 一律填【TA 当地时刻】" : "";
       // 每一天都标死是【今天】还是【第几天以后】，别让模型自己猜——猜错就写成过去时
@@ -17433,7 +17433,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const plan = (schedulesRef.current[c.id] || {})[today];
         if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.length || plan.selfRevCheck) continue;
         const tzShiftMin = schedTzShiftMin(c);
-        const charNow = new Date(Date.now() + tzShiftMin * 60000);
+        const charNow = new Date(schedNowDate(c).getTime() + tzShiftMin * 60000);
         const hr = charNow.getHours();
         if (hr < 10 || hr >= 21) continue; // TA 当地白天才会临时起意
         saveSchedDay(c.id, today, { ...plan, selfRevCheck: true }); // 先记「查过」，防重复烧 api
@@ -20479,7 +20479,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 比「TA是个什么人」更能决定这个世界该长出哪些地方。
   const worldDayOf = char => {
     const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    const s = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
     const seqs = (s && Array.isArray(s.seqs)) ? s.seqs : [];
     return seqs.slice(0, 8).map(x => [x.time, x.title, x.location].filter(Boolean).join(" · ")).filter(Boolean).join("\n  ");
   };

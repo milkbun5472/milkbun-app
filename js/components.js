@@ -2222,6 +2222,12 @@ function VClockEditor({ v, onChange, compact, title }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "离开小手机时停住"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "切走、锁屏、关掉的那段时间不算，回来从停下的那一刻接着走")),
         h(Toggle, { on: !!(v && v.pauseAway), onChange: x => put({ pauseAway: !!x }) })),
+      // 日程照这只钟的日子排（她 2026-10-20）：关着＝现实一天排一份、钟只改日子的叫法；开着＝虚拟的哪天就排哪天，「此刻在干嘛」也照这只钟的几点
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "日程照这只钟的日子排"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "打开后，跟这张面具聊的人按这只钟的日期排日程（一次排一周），此刻在做什么、日历上他那一页也照这只钟的几点。关着就是现实一天排一份。钟走得快，日程也排得勤一些")),
+        h(Toggle, { on: !!(v && v.schedFollow), onChange: x => put({ schedFollow: !!x }) })),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
         h("div", { className: "flex", style: { gap: 6 } },
@@ -4165,18 +4171,24 @@ const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
-  const today = new Date();
+  // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
+  const [view, setView] = useState(initialView || "mine");
+  // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；别的页照现实
+  const _viewChar = (characters || []).find(c => c && c.id === view) || null;
+  const today = _viewChar && typeof schedNowDate === "function" ? schedNowDate(_viewChar) : new Date();
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
   const cal = calendar || { world: {}, chars: {}, mine: {} };
   const per = period || { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null };
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
-  // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
-  const [view, setView] = useState(initialView || "mine");
   // 从聊天/线下点「看 TA 的日程」进来（initialView 是某个角色）时，直接落在【今天那一天】——
   // 她 2026-08-31：「现在从聊天进到行程那一页是日历整体 view，而不是进到那一天看到实际行程」。
   // 从主屏日历组件进来（没有 initialView）仍旧是整月，那一处她要的就是整月。
   const [mode, setMode] = useState(initialView && initialView !== "mine" ? "day" : "month"); // month | day
   const [daySel, setDaySel] = useState(todayKey);
+  // 换到一个跟钟走的人（或从他换走）时，「今天」变了：翻到新的今天那一页
+  const _followKey = _viewChar && typeof schedFollowOn === "function" && schedFollowOn(_viewChar.id) ? view : "";
+  const _followRef = useRef(_followKey);
+  useEffect(() => { if (_followRef.current === _followKey) return; _followRef.current = _followKey; setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); }, [_followKey]);
   const [form, setForm] = useState(null);        // 新增/编辑手填日程
   const [fab, setFab] = useState(false);
   const [dayEv, setDayEv] = useState(null);      // 点开某个块看详情
