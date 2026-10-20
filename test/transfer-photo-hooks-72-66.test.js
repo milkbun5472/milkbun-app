@@ -18,7 +18,7 @@ test("转账卡三处都挂上了，名单也跟着", () => {
   });
   // ⚠️整张那一个要落在【那张纸】上，不是落在外层那个 flex 行上（挂错了改底色会糊一整行）
   const i = comps.indexOf('"data-wk": "transfercard"');
-  assert.ok(/data-wk": "transfercard",\s*\n\s*style: \{\s*\n\s*width: 250,\s*\n\s*background: PAPER,/.test(comps.slice(i - 40, i + 260)),
+  assert.ok(/data-wk": "transfercard",[\s\S]{0,320}?\n\s*style: \{\s*\n\s*width: 250,\s*\n\s*background: PAPER,/.test(comps.slice(i - 40, i + 600)),
     "transfercard 没挂在那张纸上");
 });
 

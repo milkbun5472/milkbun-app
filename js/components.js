@@ -15511,6 +15511,8 @@ function TransferCard({
   //   这张纸上原来只有那枚印有挂点，纸本身、金额、附言都抓不住——
   //   而想换样式的人第一眼要改的正是这三样。名单归 ThemeStudio 那一份。
   }, !isU && avatar, h("div", { "data-wk": "transfercard",
+    // 状态写在卡上，美化才分得出「待收／已收款／已退回」、是不是回执、谁转给谁（群友 2026-10-21）
+    "data-status": m.status || "pending", "data-receipt": m.receiptCard ? "1" : "0", "data-me": isU ? "1" : "0",
     style: {
       width: 250,
       background: PAPER,
