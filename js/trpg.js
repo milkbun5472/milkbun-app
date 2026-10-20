@@ -936,34 +936,8 @@
   }
 
   // ---- JSON 解析梯队(同小剧场:规矩解析→转义重试→拆双包→按键名边界抢救) ----
-  const decodeLoose = value => String(value || "")
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/\\r\\n|\\n|\\r/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-  const salvageByKeys = (raw, keys) => {
-    const text = String(raw || "").replace(/```(?:json)?/gi, "");
-    const out = {}; let got = 0;
-    keys.forEach(k => {
-      const head = new RegExp('"' + k + '"\\s*:\\s*"').exec(text);
-      if (!head) return;
-      const rest = text.slice(head.index + head[0].length);
-      let end = -1;
-      keys.forEach(nk => { if (nk === k) return; const m = new RegExp('"\\s*,\\s*"' + nk + '"\\s*:').exec(rest); if (m && (end < 0 || m.index < end)) end = m.index; });
-      if (end < 0) { const tail = /"\s*[},]/.exec(rest); end = tail ? tail.index : -1; }
-      if (end < 0) return;
-      const v = decodeLoose(rest.slice(0, end)).trim();
-      if (v) { out[k] = v; got++; }
-    });
-    return got ? out : null;
-  };
-  const parseObj = raw => {
-    let v = null;
-    for (const cand of [String(raw || ""), escapeJsonStringControls(raw)]) {
-      v = typeof extractJSON === "function" ? extractJSON(cand) : null;
-      if (v != null) break;
-    }
-    if (typeof v === "string") { const nested = extractJSON(v) || extractJSON(escapeJsonStringControls(v)); if (nested) v = nested; }
-    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
-  };
+  // decodeLooseJsonText / salvageByKeys / parseJSONLoose 都住在 engine.js（跟小剧场、主聊天共用一份）
+  const parseObj = raw => { const v = parseJSONLoose(raw); return v && typeof v === "object" && !Array.isArray(v) ? v : null; };
   // 回合协议:scene 必须抢救得回来;结构字段(choices/hp/…)抢救不回来就当没有——
   // 剧情正文一个回合都不能丢,状态字段丢了下回合还能补,轻重不一样。
   function parseTurnPayload(raw) {

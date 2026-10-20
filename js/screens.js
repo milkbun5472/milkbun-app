@@ -344,7 +344,11 @@ function NpcBrief({ npc, onSave, compact, defaultOpen }) {
 // 行程 Lifestyle —— 仿日记大图 + swipe 换角色 + 周 timeline + 每日时间线（偏差红框/碎碎念回看）
 // ============================================================
 function schedDayKey(d) { return window.ScheduleClock.deviceDayKey(d); }
-function schedLocalDayKey(char, at) { return window.ScheduleClock.dayKey(char, at || Date.now(), -new Date().getTimezoneOffset()); }
+// 日程的「哪一天、几点」都问 ScheduleClock 那一处（planDay/planMinute），这里只是转一手
+function schedFollowOn(id) { return !!(window.ScheduleClock && window.ScheduleClock.planFollows({ id })); }
+// 他那边「此刻」的钟面（Date，按设备时区读 getHours）：跟钟走时是虚拟时刻，不跟时是现实
+function schedNowDate(char) { return char && schedFollowOn(char.id) && typeof vclockMap === "function" ? new Date(vclockMap(Date.now(), char.id)) : new Date(); }
+function schedLocalDayKey(char, at) { return window.ScheduleClock.planDay(char, at || Date.now(), -new Date().getTimezoneOffset()); }
 function schedShiftDayKey(key, days) { return window.ScheduleClock.shiftDayKey(key, days); }
 function schedParseKey(k) { return window.ScheduleClock.parseDayKey(k); }
 const SCHED_DOW_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -353,6 +357,8 @@ const SCHED_DOW_ZH = ["周日", "周一", "周二", "周三", "周四", "周五"
 function schedDateParts(k, id) {
   const d = schedParseKey(k);
   const vc = id != null && typeof vclockCfg === "function" ? vclockCfg(id) : null;
+  // 跟钟排的：这个键本身就是虚拟那天，不用再换算，只换年号的叫法
+  if (vc && vc.schedFollow) return { date: d, md: vclockYear(d.getFullYear(), vc) + (d.getMonth() + 1) + "月" + d.getDate() + "日", dowZh: SCHED_DOW_ZH[d.getDay()], dateNum: String(d.getDate()).padStart(2, "0") };
   if (vc) {
     const v = new Date(vclockMap(d.getTime() + 12 * 3600e3, id));
     return { date: d, md: vclockYear(v.getFullYear(), vc) + (v.getMonth() + 1) + "月" + v.getDate() + "日", dowZh: SCHED_DOW_ZH[v.getDay()], dateNum: String(v.getDate()).padStart(2, "0") };
@@ -456,7 +462,7 @@ function schedDisplaySeqs(char, seqs) {
 }
 function schedCurrentSeqIdx(seqs, isToday, char) {
   if (!isToday) return -1;
-  if (window.ScheduleClock && char) return window.ScheduleClock.currentSeqIdx(seqs, window.ScheduleClock.localMinute(char, Date.now(), -new Date().getTimezoneOffset()));
+  if (window.ScheduleClock && char) return window.ScheduleClock.currentSeqIdx(seqs, window.ScheduleClock.planMinute(char, Date.now(), -new Date().getTimezoneOffset()));
   const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
   let idx = -1, prev = -1;
   // 单调化时间：**只有真正跨过午夜**（深夜→凌晨、回退超过 12h）才 +24h，保证末尾的「00:20 睡觉」排在最后。

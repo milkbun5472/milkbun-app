@@ -50,7 +50,7 @@ test("设定与开局的输出额度要够写完九个字段", () => {
 // 「模型没吐出 JSON」的两种真实坏法，scene 那边早就治过，设定这几支以前是裸奔的。
 test("设定解析走和 scene 同一套抢救梯队，不再是裸 extractJSON", () => {
   assert.match(theater, /const parseSettingPayload = \(raw, keys\)/);
-  assert.match(theater, /const salvageByKeys = \(raw, keys\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, "..", "js/engine.js"), "utf8"), /function salvageByKeys\(raw, keys\)/, "按键名抢救住在 engine.js 那一份（跟跑团共用）");
   // 生成侧一处都不许再拿裸 extractJSON 去接模型返回
   // 唯一允许留着裸 extractJSON 的是账本压缩：形状不同（四个数组），且失败是静默的、下一轮自愈
   const bare = (theater.match(/const \w+ = extractJSON\(raw\)[^\n]*/g) || []);
@@ -75,7 +75,7 @@ test("控制字符与裸引号两种坏 JSON 都能抢救出必填字段", () =>
     const i = src.indexOf("function " + name + "(");   // 带上左括号：别撞上同前缀的另一个函数（extractJSONKey）
     return src.slice(i, src.indexOf("\n}\n", i) + 3);
   };
-  const body = theater.slice(theater.indexOf("  const decodeLooseJsonText"),
+  const body = fn(engine, "decodeLooseJsonText") + fn(engine, "salvageByKeys") + theater.slice(theater.indexOf("  const salvageTheaterPayload"),
     theater.indexOf("  // v53.61 以前若已经把协议原文存进历史"));
   const mod = new Function(fn(engine, "repairJSON") + fn(engine, "extractJSON") +
     fn(engine, "escapeJsonStringControls") + body +

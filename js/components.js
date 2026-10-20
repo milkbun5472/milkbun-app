@@ -18,6 +18,7 @@ const BUBBLE_SKIN = {
   shadow: "0 1px 2px rgba(0,0,0,0.05)", //气泡投影
   myAlpha: 100,       //我的气泡底色不透明度 %（只淡底、不淡字）
   charAlpha: 100,     //TA 的气泡底色不透明度 %
+  narrAlpha: 62,      //居中旁白／动描那块白垫子的不透明度 %（底下有图或皮肤底色时才铺）
   chatBg: ""          //聊天页全局背景（纯色/渐变；每个聊天单独设过图的优先）；留空=主题默认
 };
 // v3（第六课）：皮肤从写死常量升级成可换装——localStorage x_bubbleSkin 覆盖上面的默认值。
@@ -312,7 +313,7 @@ async function exportChatLook(look, fileBase) {
 }
 async function importChatLook(text) {
   let pack = null;
-  try { pack = JSON.parse(String(text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { throw new Error("这不是一份美化文件"); }
+  pack = parseJSONLoose(text); if (!pack || typeof pack !== "object") throw new Error("这不是一份美化文件");
   if (!pack || pack.kind !== CHAT_LOOK_KIND || !pack.look) throw new Error("这不是一份美化文件");
   let json = JSON.stringify(pack.look);
   for (const ref of Object.keys(pack.assets || {})) {
@@ -651,6 +652,11 @@ function bubblePresetSkin(key) {
 // 气泡皮肤只有这一处读、这一处写（one-public-mechanism）。
 // ⚠️以前「换一套预设」和「设置页保存」各写了一份 Object.assign + setItem + 重刷 CSS；
 //   2026-09-20 主题包也要带上气泡，那就是第三份了——先合成一处再接。
+// 旁白／动描白垫子的底色（群友 2026-10-20：「动描可以像气泡一样调透明度就好了」）
+function narrPadBg() {
+  const a = Number(typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.narrAlpha);
+  return "rgba(255,255,255," + (isFinite(a) && a >= 0 && a <= 100 ? a / 100 : 0.62) + ")";
+}
 function bubbleSkinSnapshot() { return Object.assign({}, BUBBLE_SKIN); }
 function writeBubbleSkin(next) {
   // 盖在出厂值上，不是盖在当前值上：否则上一套残留的描边/贴纸会跟着新皮肤留下来
@@ -701,6 +707,7 @@ function BubbleSkinFields({ s, set }) {
     // 透明度只淡底色、字不淡（她 2026-09-30）：底下铺了图的时候，气泡半透明才看得见图
     numRow("我的气泡不透明度 %", "myAlpha", 0, 100, 100),
     numRow("TA 的气泡不透明度 %", "charAlpha", 0, 100, 100),
+    numRow("旁白／动描垫子不透明度 %", "narrAlpha", 0, 100, 62),
     numRow("圆角", "radius", 0, 30),
     colorRow("我的文字色", "myText", "#16330a"),
     row("我的描边", "myBorder", "2px solid #f56a91"),
@@ -960,7 +967,7 @@ function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, t
       fontStyle: "italic",
       lineHeight: 1.7,
       color: selected ? t.ink : (onBg ? "#5a5550" : t.fog)
-    }, onBg ? { display: "inline-block", background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
+    }, onBg ? { display: "inline-block", background: narrPadBg(), backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
   }, text), (onDelete && m.who !== "char") ? h("button", {
     onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", onDelete, "删除"),
     className: "active:opacity-50 shrink-0",
@@ -1757,16 +1764,33 @@ function LazyGate({ group, render, onBack, zh }) {
               style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "再试一次"))));
 }
 // 用到才加载的那几页：开机先放一个「替身」占住它的名字（app.js 里照旧写 h(Debate, {…})，一个字不用改）。
-//   点进去时替身给出 LazyGate 那一层、把这一组装上；脚本跑完会把 window.Debate 换成真的，替身就直接画真页面。
+//   点进去时替身给出 LazyGate 那一层、把这一组装上，装好了在同一个位置画真页面。
 //   ⚠️只放【开机和后台都用不到】的页面；名字必须是那份脚本自己挂到 window 上的那个。
+//
+// ⚠️替身要【一直】占着那个名字（她 2026-10-20：「点进设置 api，他卡一下退回设置总页面，要再点一次」）。
+//   那份脚本跑完时，顶上的 function Config(…) 会把 window.Config 换成真组件。原来替身就让路、直接画真的——
+//   可 app.js 里写的是 h(Config, …)，下一次重画（时钟跳一下也算）拿到的就是【另一个组件】：
+//   React 看见这个位置换了组件，把整棵子树拆掉重建，设置页记着的「现在在哪一栏」跟着归零，于是退回总页面。
+//   现在改成：脚本一跑完就把真的收进 lazyReal、把替身放回 window。从头到尾这个位置都是替身，形状不变，
+//   页面自己记着的东西也就不会被拆掉（真组件挂在替身底下，照常画）。
+const lazyReal = {};   // 名字 → 真组件（脚本跑完收进来的）
+const lazyStub = {};   // 名字 → 替身
+function lazyReclaim() {
+  Object.keys(lazyStub).forEach(name => {
+    const w = typeof window !== "undefined" ? window[name] : null;
+    // 只收函数：万一哪天有个名字挂的是对象（不是组件），别把它也换成替身
+    if (typeof w === "function" && w !== lazyStub[name]) { lazyReal[name] = w; window[name] = lazyStub[name]; }
+  });
+}
+if (typeof window !== "undefined") window.LazyReclaim = lazyReclaim;
 function lazyScreen(name, group, zh) {
   if (typeof window === "undefined" || window[name]) return;
   const Stub = function (props) {
-    const Real = window[name];
-    if (Real && Real !== Stub) return h(Real, props);
+    lazyReclaim();
     return h(LazyGate, { group, zh, onBack: props && props.onBack,
-      render: () => { const R = window[name]; return R && R !== Stub ? h(R, props) : null; } });
+      render: () => { lazyReclaim(); const R = lazyReal[name]; return R ? h(R, props) : null; } });
   };
+  lazyStub[name] = Stub;
   window[name] = Stub;
 }
 [["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
@@ -2215,6 +2239,15 @@ function VClockEditor({ v, onChange, compact, title }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "离开小手机时停住"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "切走、锁屏、关掉的那段时间不算，回来从停下的那一刻接着走")),
         h(Toggle, { on: !!(v && v.pauseAway), onChange: x => put({ pauseAway: !!x }) })),
+      // 日程照这只钟的日子排（她 2026-10-20）：关着＝照现实的日子排、钟只改日子的叫法；开着＝虚拟的哪天就排哪天，「此刻在干嘛」也照这只钟的几点
+      // ⚠️两边都是【一次排一周】（周日排下一周七天，见 app.js 的 schedGenAllToday）：
+      //   这儿原来写成「现实一天排一份」，界面上那句说明也跟着错了（她 2026-10-20：「现实也是一周一次啊」）。
+      //   钟走得快时虚拟的一周过得快，于是【排得更勤】——勤的是次数，不是每次排的天数。
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "日程照这只钟的日子排"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "打开后，跟这张面具聊的人按这只钟的日期排日程，此刻在做什么、日历上他那一页也照这只钟的几点。关着就照现实的日子排。两边都是一次排一周（周日排下一周）；钟走得快，虚拟的一周过得也快，就排得勤一些")),
+        h(Toggle, { on: !!(v && v.schedFollow), onChange: x => put({ schedFollow: !!x }) })),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
         h("div", { className: "flex", style: { gap: 6 } },
@@ -4158,18 +4191,24 @@ const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
-  const today = new Date();
+  // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
+  const [view, setView] = useState(initialView || "mine");
+  // 他的日程跟着钟排时，他那一页的「今天」和红线也照他那只钟（她 2026-10-20）；别的页照现实
+  const _viewChar = (characters || []).find(c => c && c.id === view) || null;
+  const today = _viewChar && typeof schedNowDate === "function" ? schedNowDate(_viewChar) : new Date();
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
   const cal = calendar || { world: {}, chars: {}, mine: {} };
   const per = period || { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null };
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
-  // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
-  const [view, setView] = useState(initialView || "mine");
   // 从聊天/线下点「看 TA 的日程」进来（initialView 是某个角色）时，直接落在【今天那一天】——
   // 她 2026-08-31：「现在从聊天进到行程那一页是日历整体 view，而不是进到那一天看到实际行程」。
   // 从主屏日历组件进来（没有 initialView）仍旧是整月，那一处她要的就是整月。
   const [mode, setMode] = useState(initialView && initialView !== "mine" ? "day" : "month"); // month | day
   const [daySel, setDaySel] = useState(todayKey);
+  // 换到一个跟钟走的人（或从他换走）时，「今天」变了：翻到新的今天那一页
+  const _followKey = _viewChar && typeof schedFollowOn === "function" && schedFollowOn(_viewChar.id) ? view : "";
+  const _followRef = useRef(_followKey);
+  useEffect(() => { if (_followRef.current === _followKey) return; _followRef.current = _followKey; setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); }, [_followKey]);
   const [form, setForm] = useState(null);        // 新增/编辑手填日程
   const [fab, setFab] = useState(false);
   const [dayEv, setDayEv] = useState(null);      // 点开某个块看详情
@@ -10724,23 +10763,6 @@ function ChatThread({
     h(Marquee, { wk: "headink", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
     schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "改"),
     h(IChevR, { size: 13, color: t.fog, wk: "headdim", style: { marginLeft: "auto", flexShrink: 0 } })),
-  unblockDraft !== null && h("div", {
-    style: { flexShrink: 0, background: t.bg2, borderBottom: "1px solid " + t.line, padding: "10px 14px" }
-  },
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6, lineHeight: 1.6 } },
-      "跟 TA 说点什么。说到 TA 当初生气的那件事上，比笼统道歉管用得多。"),
-    h("textarea", {
-      value: unblockDraft, autoFocus: true, rows: 3,
-      onChange: e => setUnblockDraft(e.target.value),
-      placeholder: "写你想说的话…",
-      style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, outline: "none", resize: "none" }
-    }),
-    h("div", { style: { display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" } },
-      h("button", { onClick: () => setUnblockDraft(null), style: { padding: "7px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "取消"),
-      h("button", {
-        onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
-        style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
-      }, "发给 TA"))),
   // 拉黑提示条（她 2026-10-03：「拉黑的提示搞点挂点，顺便看看样式」）：
   //   原来是一整行居中的红字，读起来像报错。拆成「谁拉黑了谁」＋「现在能做什么」两层，
   //   她拉黑 TA 时右边直接给一颗「解除」（原来得钻进设置里找开关）。
@@ -10795,7 +10817,7 @@ function ChatThread({
     const _wkBg = (typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.chatBg) || "";
     const plate = (pad) => (dsp.chatBg || _wkBg) ? {
       display: "inline-block",
-      background: "rgba(255,255,255,0.62)",
+      background: narrPadBg(),
       backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
       borderRadius: 10, padding: pad || "3px 10px"
     } : {};
@@ -10948,7 +10970,7 @@ function ChatThread({
       dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "unblock_req") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock }),
+      h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock, onRetry: onSendUnblockReq ? (x => onSendUnblockReq(x.plea || "", x.cid)) : null, busy: !!sending }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "recalled", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
@@ -11318,6 +11340,24 @@ function ChatThread({
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go }),
   quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
+  // 求解除的草稿框贴在输入栏上面（她 2026-10-20：「为啥是在上面的」——原来挂在顶栏底下，离手指最远）
+  unblockDraft !== null && h("div", {
+    "data-wk": "unblockdraft", style: { flexShrink: 0, background: t.bg2, borderTop: "1px solid " + t.line, padding: "10px 14px" }
+  },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6, lineHeight: 1.6 } },
+      "跟 TA 说点什么。说到 TA 当初生气的那件事上，比笼统道歉管用得多。"),
+    h("textarea", {
+      value: unblockDraft, autoFocus: true, rows: 3,
+      onChange: e => setUnblockDraft(e.target.value),
+      placeholder: "写你想说的话…",
+      style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, outline: "none", resize: "none" }
+    }),
+    h("div", { style: { display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" } },
+      h("button", { onClick: () => setUnblockDraft(null), style: { padding: "7px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "取消"),
+      h("button", {
+        onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
+        style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
+      }, "发给 TA"))),
   // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
   chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
     h("div", { className: "flex items-center gap-2 flex-wrap" },
@@ -13944,9 +13984,9 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
     setArch("loading");
     try { const arr = loadArch ? await loadArch() : null; setArch(Array.isArray(arr) ? arr : "error"); } catch (e) { setArch("error"); }
   };
-  const archMsgs = Array.isArray(arch) ? arch.map((m, i) => ({ m, i, cloud: true })).filter(x => x.m && !x.m.recalled && x.m.kind !== "ooc") : [];
+  const archMsgs = Array.isArray(arch) ? arch.map((m, i) => ({ m, i, cloud: true })).filter(x => x.m && !x.m.recalled && !isOocMsg(x.m)) : [];
   // 归档在前（时间更早），整体仍按时间先后排
-  const msgs = archMsgs.concat((messages || []).map((m, i) => ({ m, i })).filter(x => !x.m.recalled && x.m.kind !== "ooc"));
+  const msgs = archMsgs.concat((messages || []).map((m, i) => ({ m, i })).filter(x => !x.m.recalled && !isOocMsg(x.m)));
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
@@ -15661,12 +15701,25 @@ function CoupleInviteCard({
     }, asking ? "等 TA 拆开" : "让 TA 拆开这封信") : null);
 }
 // 解除拉黑申请卡片（char→我 我可接受/拒绝；我→char 显示状态）
-function UnblockReqCard({ m, character, onRespond }) {
+function UnblockReqCard({ m, character, onRespond, onRetry, busy }) {
   const t = useTheme();
   const nm = (character && character.remark) || (character && character.name) || "TA";
   const fromChar = m.from === "char";
   const pending = m.status === "pending";
   const body = fromChar ? (m.reason || "想和你和好") : (m.plea || "希望你能解除拉黑");
+  // 生成失败（她 2026-10-20：「发拉黑解除申请生成失败没办法重试」）：卡上摆一颗「再试一次」，照原话重发，不用重打
+  // 早先卡死在「等待回应」的（那时候失败了也不改状态）：这会儿没在生成就直接给（她 2026-10-20 截图：等了两分钟也没按钮）；还在生成的等满五分钟才给
+  if (!fromChar && (m.status === "failed" || (pending && (busy ? Date.now() - Number(m.retryTs || m.ts || 0) > 300000 : Date.now() - Number(m.retryTs || m.ts || 0) > 15000)))) {
+    return h("div", { className: "min-w-0", style: { maxWidth: "calc(100% - 48px)" } },
+      h("div", { "data-wk": "card", style: { width: 250, maxWidth: "100%", overflowWrap: "anywhere", background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + t.line } },
+        h("div", { "data-wk": "unblockcard", "data-from": "me", "data-state": "failed" },
+          h("div", { className: "px-4 pt-3.5 pb-3" },
+            h("div", { "data-wk": "unblocktitle", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.12em", color: t.accent, marginBottom: 4 } }, "解除拉黑申请"),
+            h("div", { "data-wk": "unblockbody", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink } }, body)),
+          h("div", { "data-wk": "unblockbtns", className: "flex items-center", style: { borderTop: "1px solid " + t.line } },
+            h("div", { "data-wk": "unblockstatus", className: "flex-1 px-4 py-2.5", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "没送到 " + nm + " 那儿"),
+            onRetry ? h("button", { onClick: () => onRetry(m), className: "px-4 py-2.5 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, borderLeft: "1px solid " + t.line } }, "再试一次") : null))));
+  }
   const statusLabel = m.status === "accepted" ? "已接受 · 解除拉黑" : m.status === "declined" ? (fromChar ? "你拒绝了" : nm + " 拒绝了 · 可继续尝试") : (fromChar ? "" : "等待 " + nm + " 回应……");
   return h("div", { className: "min-w-0", style: { maxWidth: "calc(100% - 48px)" } },
     // 挂点（2026-10-03）：unblockcard 带 data-from（char/me）和 data-state（pending/accepted/declined）
@@ -17575,18 +17628,22 @@ function offSplit(text) {
   if (at < s.length) out.push({ k: "prose", s: s.slice(at) });
   return out.filter(x => x.s !== "");
 }
-function offBody(t, text, accent) {
+function offBody(t, text, accent, whoId) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
   const hasSay = segs.some(x => x.k === "say");
   const d = offDark(t);
   const sayInk = offReadable(accent || t.tint, t.bg2);
-  return h("div", { "data-wk": "offtext", style: { fontFamily: F_BODY, fontSize: "calc(var(--off-fs, 14px) * var(--app-fs, 1))", lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
+  // 包一层 TransWho：说话的人开着「外语消息自带中译」，线下的外语台词也直接摆出中文（她 2026-10-20）
+  const out = h("div", { "data-wk": "offtext", style: { fontFamily: F_BODY, fontSize: "calc(var(--off-fs, 14px) * var(--app-fs, 1))", lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
     segs.map((x, i) => x.k === "prose" ? x.s : h("span", { key: i, "data-wk": "offsay", style: {
       color: sayInk, fontWeight: 600,
       background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
       borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
-    } }, x.s)));
+    } }, typeof TransText === "function" ? h(TransText, { text: x.s, ink: sayInk, inline: true, size: 13 }) : x.s)));
+  return whoId && typeof TransWho === "function" ? h(TransWho, { id: whoId }, out) : out;
+  // ↑ 引号里那句话是外语时挂「译」（群友 2026-10-20：「线下外语不翻译」）：整段正文是中文叙述、只有台词是外语，
+  //   按整段探语种永远探成中文，所以按一句句台词挂。中文台词原样返回、零开销；翻译走免费那条，跟线上气泡同一套。
 }
 function offCardSkin(t, accent) {
   const d = offDark(t);
@@ -17734,7 +17791,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       //   看着跟说话没区别，也点不开。
       editing ? editBox : (m.kind === "photo"
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
-        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint))),
+        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id))),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
       // 整段小说：头像框点开是一排在场的人，点谁就在下面露出谁的心声
       (isNovel && castOpen && cast.length) ? h("div", { "data-wk": "offcastpick", className: "flex flex-wrap gap-2 mt-3" },
@@ -20042,15 +20099,23 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     const note = start
       ? "进门以后新增的线上与线下记录会清掉；进门时带来的 " + Number(start.seedCount || 0) + " 条聊天和开场方式会保留。"
       : "这间房的线上与线下记录会全部清空；房间名字、设定和开关会保留。";
-    requestAppConfirm("清除「" + (room.name || "这间房") + "」的聊天记录？", note, async () => {
+    // 这间房记着事的时候，跟主聊天「清除 / 重置」一样让她选记忆带不带走（她 2026-10-20：「房间清聊天记录不能带走记忆库」）
+    const memN = Kit.memCount ? Kit.memCount(character.id, room.id) : 0;
+    const doClear = async dropMem => {
       setClearBusy(true);
       try {
         const saved = await onClearRoom(room);
         if (!saved) return window.__toast && window.__toast("这次没清除成功，原记录还在");
+        if (dropMem && Kit.memDropRoom) Kit.memDropRoom(character.id, room.id);
         setRooms(Kit.list(character.id)); setDraft(saved);
-        window.__toast && window.__toast(start ? "已清除进门后的记录，开场还在" : "已清空这间房的记录");
+        window.__toast && window.__toast((start ? "已清除进门后的记录，开场还在" : "已清空这间房的记录") + (dropMem ? "，这间房的记忆也清了" : ""));
       } finally { setClearBusy(false); }
-    }, "清除");
+    };
+    const askMem = () => !memN ? doClear(false) : requestAppConfirm(
+      "这间房的 " + memN + " 条记忆也一起清掉吗？",
+      "清掉的话 TA 在这间房里就像第一次进门。删之前先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份到自己手里。选「留着」就只清聊天，记忆照旧。",
+      () => doClear(true), "一起清", () => doClear(false), { cancelLabel: "留着" });
+    requestAppConfirm("清除「" + (room.name || "这间房") + "」的聊天记录？", note, askMem, "清除");
   };
   // 已经建好的房间：改一下就存一下（她 2026-10-13：「你不能点右上角的保存，得在最下面进入房间才行，右上角的保存跟装饰似的」）——
   //   房间设置嵌在聊天设置里，右上角那颗 ✓ 存的是聊天设置，房间这边改的开关根本没人存，一退出就没了。
@@ -20120,11 +20185,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       meOn ? h("div", { style: { marginTop: taOn ? 12 : 10, paddingTop: taOn ? 10 : 0, borderTop: taOn ? "1px dashed " + t.line : "none" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#4f6b78" } }, "你的小号"),
       h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55 } },
-        "挑一张面具当小号，或者自己写一个只给这间房用的：TA在这间房里看到的就是它的名字和人设。"),
+        "挑一张面具当小号，或者自己写一个只给这间房用的：TA在这间房里看到的是那张面具的【昵称】和人设（面具名称只给你自己认，TA 看不到）。想换个网名，改那张面具的昵称，或者点「＋ 自己写一个」。"),
       // 「自己写一个」（她 2026-10-07：「有时候还要新的不是我面具的自己弄的新人设」）：
       //   只活在这一间房里，不进面具库；名字和人设直接存进 alt.mask，闸那头照样读它
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-        masks.map(m => chip(a.maskId === m.id, m.label || m.name || "未命名", () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)),
+        // 按钮上写的是「面具名称」（只给她认的），TA 看到的是昵称——两个不一样时把 TA 看到的那个也写上（她 2026-10-20：「小号房间我的名字不是我写的」）
+        masks.map(m => chip(a.maskId === m.id, (m.label || m.name || "未命名") + (m.label && m.name && String(m.label).trim() !== String(m.name).trim() ? "（TA 看到：" + m.name + "）" : ""), () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)),
         chip(a.maskId === "__own", "＋ 自己写一个", () => setAlt({ maskId: "__own", mask: a.maskId === "__own" ? a.mask : { name: "", persona: "" } }), "__own")),
       a.maskId === "__own" ? h("div", { style: { marginTop: 8 } },
         h("input", { "data-wk": "input", value: (a.mask && a.mask.name) || "", onChange: e => setAlt({ mask: { ...(a.mask || {}), name: e.target.value.slice(0, 24) } }), placeholder: "小号的网名",

@@ -21,12 +21,17 @@ test("认不认得出三档；没认出来才换掉「对方是谁」", () => {
   assert.equal(R.altOf(R.normalize({ id: "r2" }, "c1")), null);
 });
 
-test("prompt 里：认出来那档才给真名，没认出来只给小号名", () => {
+// 2026-10-20 群友：没认出来那档原来真名一个字都不给，于是她坦白「我是真名」他也不知道是谁。
+//   现在改成：告诉他现实里有这么个人、叫什么，但钉死【别凭空往她身上猜】；认出来那档才是「这个号后面就是她」。
+test("prompt 里：没认出来时不许把小号跟真人划等号，她自己说破时他认得这个名字", () => {
   const r = k => R.normalize({ id: "r1", name: "x", alt: { maskId: "m1", mask: { name: "小鱼" }, knows: k } }, "c1");
   const no = R.prompt(r("no"), [], { realName: "真名" });
   assert.match(no, /网名「小鱼」/);
-  assert.doesNotMatch(no, /真名/);
-  assert.match(R.prompt(r("knows"), [], { realName: "真名" }), /「真名」/);
+  assert.match(no, /你不知道这个号后面是谁/, "没认出来那档被写成认出来了");
+  assert.match(no, /别凭空往她身上猜/, "给了真名却没拦住他往她身上猜");
+  assert.doesNotMatch(no, /一眼就认出来/);
+  assert.match(R.prompt(r("knows"), [], { realName: "真名" }), /这个号后面是「真名」/);
+  // 这一句之外，她的主面具照旧不漏：profile 那一栏仍整个换成小号（下一条验）
 });
 
 test("闸那一处换掉「对方是谁」；没认出来不漏主面具", () => {

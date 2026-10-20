@@ -9435,6 +9435,8 @@ function MemoryLib({
               style: { display: "block", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
             h("div", { className: "flex items-center justify-end", style: { gap: 4, marginTop: 6, paddingTop: 4, borderTop: "1px solid " + t.line } },
               h("button", { onClick: () => editRoomMem(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "改"),
+              // 直接删（她 2026-10-20：「房间记忆只有一个改」——原来得改成空再保存才删得掉）
+              h("button", { onClick: () => requestAppConfirm("删掉这条？", "删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { RK.memRemove(personKey, e.id); setRoomTick(x => x + 1); }, "删掉"), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "删"),
               onAdd ? h("button", { onClick: () => moveRoomMemToMain(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent } }, "挪进主线") : null)));
       })) : null,
     // 未了 + 选了一个人：给这些约定挑日子，到那天TA自己来（不是情侣也能用）

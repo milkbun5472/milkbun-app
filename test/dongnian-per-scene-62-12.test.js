@@ -75,7 +75,7 @@ test("群里「有人理他了」才清零，他自己说话不算", () => {
     "推进这一段又只读私聊了");
   assert.match(seg, /m\.role === "assistant" && String\(m\.senderId \|\| ""\) !== String\(char\.id\)/,
     "没把「是不是别人说的」判清楚——他自己刷屏就会把自己的思念清零");
-  assert.match(seg, /m\.kind === "ooc" \|\| m\.kind === "system"/, "OOC/系统行也被当成有人开口了");
+  assert.match(seg, /isOocMsg\(m\) \|\| m\.kind === "system"/, "OOC/系统行也被当成有人开口了");
 });
 
 test("她看得见别的场那几份（功能在不在，和她找不找得到是两件事）", () => {

@@ -21,3 +21,16 @@ test("接线：引擎按消息时间问键；悬浮球拨的是这只；设置�
   assert.ok(/ownClockSpans: ownClockSpansNext\(activeChar\.id, s\.ownClock\)/.test(app));
   assert.ok(/"data-wk": "ownclock"/.test(comp) && /ownClock,\n/.test(comp));
 });
+
+// 她 2026-10-20：「这个写错了吧，现实也是一周一次啊」——开关底下那句说明把现实那半写成了「一天排一份」。
+//   真的在 app.js 的 schedGenAllToday：周日排下一周七天；今天没日程就补到本周日。两边都是一次排一周。
+test("「日程照这只钟的日子排」那句说明：别把现实那半说成一天排一份", () => {
+  const comp = R("js/components.js"), man = R("js/assistant-manual.js");
+  // 只查【给人看的字】：注释里记着「原来写成什么」是对的，不该被这条拦住
+  const nocom = t => t.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(!/一天排一份/.test(nocom(comp)), "界面上还写着「一天排一份」");
+  assert.ok(!/一天排一份/.test(man), "攻略里还写着「一天排一份」");
+  assert.match(comp, /关着就照现实的日子排。两边都是一次排一周/, "没说清两边都是一周一次");
+  // 代码确实是一周一次：周日排下一周，缺今天就补到本周日
+  assert.match(app, /if \(dowMon === 6\) pick\("schedule\|" \+ c\.id \+ "\|next", nextMon, nextMon, 7\)/);
+});

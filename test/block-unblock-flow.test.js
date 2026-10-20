@@ -60,7 +60,8 @@ test("判定标准：按性格、看有没有说到点子上，但明确不许�
   assert.match(seg, /求得越多、隔得越久，越该松/, "得有个会松动的出口，别拖死");
   // v74.503：光靠提示词松不动（群里有人求了 20 多次）——拒到第 6 次由代码定下「解」，怎么解还是他说
   assert.match(app, /const UNBLOCK_FLOOR_TRIES = 6;/);
-  assert.match(seg, /const floor = tries >= UNBLOCK_FLOOR_TRIES;/);
+  assert.match(seg, /const floor = !strangerAlt && tries >= UNBLOCK_FLOOR_TRIES;/, "保底照旧，只有小号房里他没认出她（陌生号）时不算");
+  assert.match(seg, /const strangerAlt = !!\(_ubRoom && window\.ChatRooms\.altHidesMe && window\.ChatRooms\.altHidesMe\(_ubRoom\)\);/);
   assert.match(seg, /const r = floor \? \{ \.\.\.r0, accept: true \} : r0;/, "地板得是代码的，不能又交回模型");
   assert.ok(!/除非当初那事真的很重/.test(seg), "那句「除非」就是死路的出口，删了别再加回来");
   assert.match(seg, /拒绝时要说清【你到底在意什么、想听到什么】/, "拒绝要给方向，不能让她瞎猜");
@@ -95,5 +96,6 @@ test("她拉黑他时自己也能说：打的字先落进聊天，他读到再�
   const fn = app.slice(a, b);
   assert.match(fn, /【她拉黑你之后，自己给你发来了】/);
   assert.match(fn, /\+ progress \+ herLine \+/);
-  assert.match(app, /blocked: !!b\.theyBlocked,/, "她拉黑他时她发的话是送得到的");
+  // 挂不挂只在 pChat 一处认，认的是 theyBlocked（他拉黑她），她拉黑他时她的话照样送得到
+  assert.match(app, /if \(n\.length > pl\.length && \(blocksRef\.current\[id\] \|\| \{\}\)\.theyBlocked\) \{/, "她拉黑他时她发的话是送得到的");
 });

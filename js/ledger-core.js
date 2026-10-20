@@ -90,9 +90,9 @@
 
   // ---- 时间 / 金额工具 ----
   function pad(n) { return String(n).padStart(2, "0"); }
-  function todayStr() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function todayStr() { return ymd(new Date()); }
   function monthKey(dateStr) { return String(dateStr || "").slice(0, 7); }        // "YYYY-MM"
-  function todayKey() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function todayKey() { return ymd(new Date()); }
   function thisMonthKey() { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1); }
   function fmtMonth(mk) { const p = mk.split("-"); return p[0] + "年" + parseInt(p[1], 10) + "月"; }
   function shiftMonth(mk, delta) {

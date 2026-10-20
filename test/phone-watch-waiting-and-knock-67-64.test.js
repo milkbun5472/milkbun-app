@@ -31,7 +31,7 @@ test("那句话是从真聊天里算出来的：零额外调用，三种状态�
   assert.match(app, /last\.role === "user"\n\s*\? "她 " \+ ago \+ "前给你发了消息，你还没回。"\n\s*: "你上一条发出去 " \+ ago \+ "了，她还没回。"/);
   // 撤回的、ooc、系统消息不算「最后一条」
   assert.match(app, /if \(!m \|\| m\.recalled \|\| !m\.content\) continue;/);
-  assert.match(app, /if \(m\.kind === "ooc" \|\| m\.kind === "system" \|\| m\.role === "system" \|\| m\.role === "narration"\) continue;/);
+  assert.match(app, /if \(isOocMsg\(m\) \|\| m\.kind === "system" \|\| m\.role === "system" \|\| m\.role === "narration"\) continue;/);
   assert.match(app, /wxWait: watchWaitLine\(char\)/);
 });
 

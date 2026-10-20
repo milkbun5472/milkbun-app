@@ -83,10 +83,14 @@ test("情侣邀请：读不出来只标「没送到」，不动情侣状态", ()
 
 test("解除拉黑：同一个病，同一把刀", () => {
   const k = app.indexOf("const sendMyUnblockReq");
-  const fn = app.slice(k, app.indexOf("const blockedReaction", k) > k ? app.indexOf("const blockedReaction", k) : k + 4000);
+  // 终点钉下一个函数名，不用「往后切 4000 字」——加一段注释就会把要找的那行挤出窗口（施工规则/anchor-on-code）
+  const e = app.indexOf("const deleteNpc = (", k);
+  assert.ok(k > 0 && e > k, "抠不出 sendMyUnblockReq");
+  const fn = app.slice(k, e);
   assert.ok(!/status: d\.accept \? "accepted" : "declined"/.test(fn), "又变回来了");
   assert.match(fn, /await askYesNo\(apiFor\(char\.id\)/);
-  assert.match(fn, /if \(!r0?\.ok\) \{ toast\([^)]*\); return; \}/, "读不出来要原样留在 pending");
+  // 2026-10-20 起这一支还顺手把卡片翻成「再试一次」(failCard)：只钉「读不出来就停下、不往下走」
+  assert.match(fn, /if \(!r0?\.ok\) \{[^}]*toast\([^)]*\); return; \}/, "读不出来要原样留在 pending");
   // 读不出来时也不许把这次算进 tries（那会让她少一次机会）
   const bad = fn.indexOf("if (!r0.ok)");
   assert.ok(bad > 0 && fn.indexOf("setBlockFor(chatKey, { tries: tries })") > bad);

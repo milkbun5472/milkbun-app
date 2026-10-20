@@ -59,6 +59,9 @@
         for (const t of todo) { await addScript(t.getAttribute("data-src")); t.setAttribute("data-done", "1"); }
       }
       loaded[group] = true;
+      // 这一组的脚本把自己挂到 window 上了：趁 load() 还没交差，先把那几个名字换回替身
+      //   （components.js 的 lazyReclaim；晚一步的话 app.js 可能先重画一次，页面就被拆掉重建了）
+      try { if (g.LazyReclaim) g.LazyReclaim(); } catch (e) {}
     })().finally(() => { delete pending[group]; });
     return pending[group];
   }

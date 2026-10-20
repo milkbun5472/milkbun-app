@@ -16,10 +16,12 @@ const src = (() => {
   assert.ok(i > 0, "抠不出 profileFor");
   return app.slice(i, app.indexOf("\n  };", i) + 4);
 })();
+// profileFor 问的是公共那一支 maskKeyOf（主面具＝""），一起抠出来
+const mk = (() => { const i = app.indexOf("  const maskKeyOf = id => {"); return app.slice(i, app.indexOf("\n  };", i) + 4); })();
 const run = (settings, masks, profile, primary) =>
-  new Function("settingsFor", "masksRef", "profile", "maskPrimary",
-    "return " + src.slice(src.indexOf("charId =>")).replace(/;$/, ""))(
-    () => settings, { current: masks }, profile, primary || "")("c1");
+  new Function("settingsFor", "masksRef", "profile", "maskPrimary", "groupMaskKey",
+    mk + "\nreturn " + src.slice(src.indexOf("charId =>")).replace(/;$/, ""))(
+    () => settings, { current: masks }, profile, primary || "", () => "")("c1");
 
 const MAIN = { name: "Lisa", persona: "主面具" };
 const M1 = { id: "mk_1", name: "小鱼", persona: "学生" };

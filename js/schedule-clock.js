@@ -48,11 +48,19 @@
     // displayed date's daylight-saving offset when a clock jumps seasons.
     const displayOffset=offsetMinutes(char,deviceOffset??-new Date(displayAt).getTimezoneOffset());
     const sourceOffset=offsetMinutes(char,deviceOffset??-new Date(archiveAt).getTimezoneOffset());
+    // 钟上开了「日程照这只钟的日子排」（她 2026-10-20）：日程本身就存在虚拟那天的键上，sourceDay 直接是虚拟那天
+    const schedFollow = virtual && !!config.schedFollow;
+    const day = dayKey(char, displayAt, displayOffset);
     return { realAt, at, displayAt, virtual, offset:virtual&&followVirtual?displayOffset:sourceOffset,
-      paused:virtual && (!!config.awayAt || Number(config.speed) === 0), followVirtual:virtual && followVirtual,
-      sourceDay:dayKey(char, archiveAt, sourceOffset), day:dayKey(char, displayAt, displayOffset),
+      paused:virtual && (!!config.awayAt || Number(config.speed) === 0), followVirtual:virtual && followVirtual, schedFollow,
+      sourceDay:schedFollow ? day : dayKey(char, archiveAt, sourceOffset), day,
       minute:localMinute(char, displayAt, displayOffset) };
   };
+  // ⭐日程「今天是哪一天、现在是几点」只问这两支（她 2026-10-20：「为啥不能抽成公共的」）。
+  //   日历、此刻在干嘛、今天的日程、自动排日程全走这里；跟钟排时是钟上的那天那分钟，不跟时是现实（含角色时区）。
+  const planDay = (char, nowMs, deviceOffset) => { const f = characterFrame(char, nowMs); return f.schedFollow ? f.day : dayKey(char, nowMs, deviceOffset); };
+  const planMinute = (char, nowMs, deviceOffset) => { const f = characterFrame(char, nowMs); return f.schedFollow ? f.minute : localMinute(char, nowMs, deviceOffset); };
+  const planFollows = char => { try { const c = root?.vclockCfg?.(char?.id); return !!(c && c.schedFollow); } catch (_) { return false; } };
   const shiftDayKey = (key, days) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ""));
     if (!m) return key;
@@ -146,5 +154,5 @@
     const d = date || new Date(), n = d.getHours() * 60 + d.getMinutes();
     return a < b ? (n >= a && n < b) : (n >= a || n < b);
   };
-  return { quietActive, mirrorJoint, formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, shiftDayKey, currentSeqIdx, currentSlot };
+  return { quietActive, mirrorJoint, formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, planDay, planMinute, planFollows, shiftDayKey, currentSeqIdx, currentSlot };
 });

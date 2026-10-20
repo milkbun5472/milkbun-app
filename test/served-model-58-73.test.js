@@ -42,8 +42,12 @@ test("三家协议都要接上——少接一处，那条线路就永远看不�
   const call = grab(eng, "async function callAI(p, system, messages, opts) {", "function repairJSON(");
   // ⚠️按【分支】切，不按「挨着哪一行」切：后者插进任何一行新代码都会假红
   const anth = call.slice(call.indexOf('if (fmt === "anthropic") {'), call.indexOf('if (fmt === "gemini") {'));
-  const gem = call.slice(call.indexOf('if (fmt === "gemini") {'), call.indexOf("const root = base.endsWith"));
-  const oai = call.slice(call.indexOf("const root = base.endsWith"));
+  // ⚠️openai 是最后那条兜底路，没有 if (fmt === …) 包着：拿它开头那个 const root 当界（只钉变量名，
+  //   不钉整行——2026-10-20 那一行从 base.endsWith 改成了正则判版本号，钉整行当场假红）
+  const oaiStart = call.indexOf("const root = ", call.indexOf('if (fmt === "gemini") {'));
+  assert.ok(oaiStart > 0, "找不到 openai 那条路的开头");
+  const gem = call.slice(call.indexOf('if (fmt === "gemini") {'), oaiStart);
+  const oai = call.slice(oaiStart);
   assert.match(anth, /_served\(d\.model\);/, "anthropic 那条没记");
   assert.match(gem, /_served\(d\.modelVersion \|\| d\.model\);/, "gemini 没记（它那个字段叫 modelVersion，不叫 model）");
   assert.match(oai, /_served\(d\.model\);/, "openai 那条没记");
