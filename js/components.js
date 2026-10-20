@@ -10950,7 +10950,7 @@ function ChatThread({
       dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "unblock_req") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock, onRetry: onSendUnblockReq ? (x => onSendUnblockReq(x.plea || "", x.cid)) : null }),
+      h(UnblockReqCard, { m: m, character: character, onRespond: onRespondUnblock, onRetry: onSendUnblockReq ? (x => onSendUnblockReq(x.plea || "", x.cid)) : null, busy: !!sending }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { "data-wk": "note", "data-part": "recalled", onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, ...plate() } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
@@ -15681,15 +15681,15 @@ function CoupleInviteCard({
     }, asking ? "等 TA 拆开" : "让 TA 拆开这封信") : null);
 }
 // 解除拉黑申请卡片（char→我 我可接受/拒绝；我→char 显示状态）
-function UnblockReqCard({ m, character, onRespond, onRetry }) {
+function UnblockReqCard({ m, character, onRespond, onRetry, busy }) {
   const t = useTheme();
   const nm = (character && character.remark) || (character && character.name) || "TA";
   const fromChar = m.from === "char";
   const pending = m.status === "pending";
   const body = fromChar ? (m.reason || "想和你和好") : (m.plea || "希望你能解除拉黑");
   // 生成失败（她 2026-10-20：「发拉黑解除申请生成失败没办法重试」）：卡上摆一颗「再试一次」，照原话重发，不用重打
-  // 早先卡死在「等待回应」的（那时候失败了也不改状态）：等了五分钟还没回音，也给它这颗
-  if (!fromChar && (m.status === "failed" || (pending && Date.now() - Number(m.retryTs || m.ts || 0) > 300000))) {
+  // 早先卡死在「等待回应」的（那时候失败了也不改状态）：这会儿没在生成就直接给（她 2026-10-20 截图：等了两分钟也没按钮）；还在生成的等满五分钟才给
+  if (!fromChar && (m.status === "failed" || (pending && (busy ? Date.now() - Number(m.retryTs || m.ts || 0) > 300000 : Date.now() - Number(m.retryTs || m.ts || 0) > 15000)))) {
     return h("div", { className: "min-w-0", style: { maxWidth: "calc(100% - 48px)" } },
       h("div", { "data-wk": "card", style: { width: 250, maxWidth: "100%", overflowWrap: "anywhere", background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + t.line } },
         h("div", { "data-wk": "unblockcard", "data-from": "me", "data-state": "failed" },
