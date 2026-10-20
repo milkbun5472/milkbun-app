@@ -51,7 +51,9 @@ test('③ 只有共友：提示里把「不许出现名单外的人」写明', (
   const ask = src.slice(src.indexOf('const moreAsk ='), src.indexOf('const system ='));
   assert.ok(ask.includes('只许是这几个人'), '必须点明只许名单内');
   assert.ok(/没有路人|没有陌生网友/.test(ask), '必须点明没有路人 NPC');
-  assert.ok(ask.includes('roster.join'), '名单必须就是算好的 roster，不许另造');
+  // 2026-10-20：名单＝roster ＋ 评论区里已说过话的人；角色的帖子还可以来他自己生活里的熟人，但照旧不许陌生网友
+  assert.ok(ask.includes('roster.concat(_threadPeople).join'), '名单＝算好的 roster 加评论区里已有的人');
+  assert.ok(ask.includes('自己生活里真会有的熟人') && ask.includes('不许是陌生网友'), '角色帖子：熟人可以，陌生网友不行');
 });
 
 test('④ 进行中锁：重复点不叠发', () => {

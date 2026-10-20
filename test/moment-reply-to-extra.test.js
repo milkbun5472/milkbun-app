@@ -13,3 +13,6 @@ console.log("ok");
   assert.equal(pf(reps[1], 1), "回复 梁霄：");
   assert.equal(pf(reps[2], 2), "回复 Lisa：");
 }
+
+// 同日：「换一批能不能把我回复别人的也删了」
+assert.match(app, /const kept = \(mom\.comments \|\| \[\]\)\.filter\([^\n]*!\/\^\\s\*回复/);

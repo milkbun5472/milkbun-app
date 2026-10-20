@@ -22106,8 +22106,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 刷更多评论：没有「用户刚说了什么」，就是这条动态下面又有共友来说话了。
       // 她 2026-09-29 点明两条：**只能是共友**（roster 已经是「跟发帖人真有关系的角色」，
       // 不掷路人 NPC），而且回复对象只有两种——回这条动态本身，或回上面某位共友的评论。
-      const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.join("、")
-        + "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**"
+      // 评论区里已经说过话的人（发帖时他自己写的同学、同事这些）也在名单里；角色发的那条，还可以来他生活里真有的熟人
+      //   （群友 2026-10-20：「刷新也不出随机 npc 了我没法接话」——原来名单只有角色和配角，这些人一刷就再也回不来）
+      const _threadPeople = [...new Set((mom.comments || []).map(c => c && momentWho(c.author)).filter(n => n && n !== meName0 && !roster.includes(n)))];
+      const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.concat(_threadPeople).join("、")
+        + (author
+          ? "；也可以是「" + author.name + "」自己生活里真会有的熟人（同学、同事、朋友、家里人这类，照他的人设和处境来，起个像样的名字，跟上面出现过的同一个人名字前后一致）。**不许是陌生网友、路人。**"
+          : "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**")
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
         + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。" + REAL_DISAGREE;
       // 评论区里谁是谁（群友 2026-10-11：两个角色在评论区互相叫老婆——她给他们起的备注是「唯一的小狗姐姐」「最爱你的小狗阿泽」，
@@ -22118,7 +22123,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22186,7 +22191,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const mom = moments.find(m => m.id === id);
     if (!mom || momentMoreInflight.current[id]) return;
     const meName0 = momentMeName(mom);
-    const kept = (mom.comments || []).filter(c => c && (c.mine || c.author === meName0 || c.author === (profile.name || "我") || c.author === "我"));
+    // 她自己写的留着，但「回复 某某：」那种是在接别人的话——别人都撤了，留着就是对着空气说（她 2026-10-20）
+    const kept = (mom.comments || []).filter(c => c && (c.mine || c.author === meName0 || c.author === (profile.name || "我") || c.author === "我") && !/^\s*回复\s*[^：:]{1,30}[：:]/.test(String(c.text || "")));
     pMom(p => p.map(m => m.id === id ? { ...m, comments: kept } : m));
     momentMoreInflight.current[id] = true;
     setGen(g => ({ ...g, momentMore: id }));
