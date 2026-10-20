@@ -1881,12 +1881,11 @@
                 h("span", { style: { color: t.fog } }, "›")); }),
             h("button", { onClick: () => setAcctEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginBottom: 18 }, "data-wk": "ldgsettingssheetbtn", "data-part": "2" }, "＋ 添加账户"),
             // 她 2026-09-29「搞开关给不给」：能看账本的角色，看不看得到账户余额，单独一个开关，默认不给
-            h("button", { onClick: () => props.onPersist(d => { d.settings.shareAcct = !d.settings.shareAcct; }), "data-ledger-shareacct": true, "aria-pressed": !!s.shareAcct, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, minHeight: 56 }, "data-wk": "ldgsettingssheetbtn", "data-part": "3" },
+            h("div", { role: "button", tabIndex: 0, onClick: () => props.onPersist(d => { d.settings.shareAcct = !d.settings.shareAcct; }), "data-ledger-shareacct": true, "aria-pressed": !!s.shareAcct, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, minHeight: 56 }, "data-wk": "ldgsettingssheetbtn", "data-part": "3" },
               h("div", { style: { flex: 1 } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "角色也能看到账户余额"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.5 } }, "只对「谁能看到」里选中的角色生效。关着的时候 TA 们只知道收支，不知道你卡里有多少、欠多少。")),
-              h("span", { style: { width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative", background: s.shareAcct ? pageColor("ledger", "accent", ACCENT) : t.line, transition: "background .2s" } },
-                h("span", { style: { position: "absolute", top: 3, left: s.shareAcct ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .2s" } })))) : null,
+              h("span", { onClick: e => e.stopPropagation(), style: { flexShrink: 0, display: "inline-flex" } }, h(Toggle, { on: !!s.shareAcct, onChange: () => props.onPersist(d => { d.settings.shareAcct = !d.settings.shareAcct; }), color: pageColor("ledger", "accent", ACCENT), offColor: t.line, label: "角色也能看到账户余额" })))) : null,
           // ---- 周期账单 ----
           tab === "recur" ? h(Fragment, null,
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "房租、订阅、话费这类每月固定的，设一次，到了那天打开记账就自动记上一笔；快到的前三天会提醒你。"),

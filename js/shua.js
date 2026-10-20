@@ -529,7 +529,6 @@
       const candid = {};   // 这一批里谁那条是偷拍她的
       const one = c => {
         const acc = (dbRef.current.accounts || {})[c.id] || {};
-        const timeout = new Promise(res => setTimeout(() => res(null), 180000));
         // 有关系的优先，最多三个；没关系网就随便两个——不是每条都有人刷到，所以一半的时候不递
         const others = characters.filter(x => x.id !== c.id);
         const tied = others.filter(x => props.relOf && props.relOf(c.id, x.id));
@@ -553,7 +552,7 @@
           const heard = mineB.slice(0, 3).flatMap(x => arr(x.myDms).map(d => d.text)).slice(0, 6);
           if (heard.length) extra += "\n你最近几条视频画面上，有人发过这几条弹幕：" + heard.map(x => "「" + x + "」").join("") + "（不知道是谁发的）。";
         }
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        return props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? cpPostLine(c, toCp[c.id], candid[c.id], opts.anniv) : ""), toCp[c.id] ? shapeChar(sk, !realFr && friends.length > 0, newAcc).replace(/\}$/, ',"cpEdit":{"handle":"","bio":""}}') : shapeChar(sk, !realFr && friends.length > 0, newAcc), { timeout: 180000 }).catch(() => null).then(d => {   // 等 3 分钟、到点真掐断（原来在外面赛跑，赛输了请求还在跑）
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);

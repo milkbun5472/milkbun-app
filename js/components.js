@@ -582,9 +582,7 @@ function CallFollowSkinRow() {
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "打电话也用这套皮肤"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } },
         "开：通话屏的底和台词跟着这套气泡的颜色走（底仍然是暗的，只是被染了色）。关：回到原来那两片灰蓝。")),
-    h("button", { onClick: flip, className: "shrink-0 active:opacity-70", "aria-pressed": on ? "true" : "false", "aria-label": "打电话也用这套皮肤",
-      style: { width: 44, height: 26, borderRadius: 999, background: on ? (t.accent || "#8a6d3b") : t.line, position: "relative", transition: "background .15s" } },
-      h("div", { "data-wk": "block", style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.3)" } })));
+    h(Toggle, { on, onChange: () => flip(), color: t.accent || "#8a6d3b", label: "打电话也用这套皮肤" }));
 }
 // 预设皮肤那一排按钮：两处共用（设置→气泡皮肤、单聊 ••• 里的聊天设置），
 // 一处画、两处用——各写一份迟早有一处漏掉新加的皮肤。
@@ -2344,38 +2342,56 @@ function BirthdayHint({ value, style }) {
     bad ? "认不出是几月几号：月和日中间要隔开，写成 1-9、1/9、1.9 或 1月9日（「0109」这种连在一起的不行）"
       : "能写：1-9、01-09、1/9、1.9、1月9日、2000-01-09、腊月廿三、农历八月十五");
 }
+// ⭐全库只有这一个开关（2026-10-20 收：原来另有三十几个各页手搓的，大小、颜色、挤压修复各不一样）。
+//   要配页面皮肤的传 color（开着的颜色）/ offColor；小一号传 size:"s"；原来那颗自己的挂点名照传 wk（data-wk 不变，美化不白写），
+//   要区分是哪一颗再传 part（data-part）。data-on 照旧是 1/0。
 function Toggle({
   on,
-  onChange
+  onChange,
+  color,
+  offColor,
+  size,
+  wk,
+  part,
+  disabled,
+  label
 }) {
   const t = useTheme();
+  const S = size === "s" ? { w: 38, h: 22, k: 16 } : { w: 46, h: 27, k: 21 };
   return /*#__PURE__*/React.createElement("button", {
-    onClick: () => onChange(!on),
-    "data-wk": "toggle",
+    type: "button",
+    onClick: () => { if (!disabled) onChange(!on); },
+    disabled: !!disabled,
+    "aria-pressed": !!on,
+    "aria-label": label || undefined,
+    "data-wk": wk || "toggle",
+    "data-part": part || undefined,
     "data-on": on ? "1" : "0",
+    className: disabled ? "disabled:opacity-40" : undefined,
     // ⚠️flexShrink:0 ＋ minWidth（她 2026-10-06 拿两张截图对比：「这个 toggle 一直很小」）：
     //   开关几乎都摆在「一段长说明 + 开关」那种横排里，没这两条时说明一长就把它挤成一道缝，
     //   群友那台直接挤没了——于是以为图像 API 没地方填地址（那几栏要开关打开才出来）。
     //   关着时再描一圈边、圆钮带点影：浅色底上 t.line 那一块原来几乎看不见。
     style: {
-      width: 46,
-      minWidth: 46,
-      height: 27,
+      width: S.w,
+      minWidth: S.w,
+      height: S.h,
       flexShrink: 0,
       borderRadius: 999,
-      background: on ? t.ink : t.line,
+      background: on ? (color || t.ink) : (offColor || t.line),
       boxShadow: on ? "none" : "inset 0 0 0 1px " + (t.fog || "rgba(0,0,0,.25)"),
       position: "relative",
-      transition: "background .2s"
+      transition: "background .2s",
+      opacity: disabled ? 0.45 : 1
     }
   }, /*#__PURE__*/React.createElement("span", {
     "data-wk": "toggleknob",
     style: {
       position: "absolute",
-      top: 3,
-      left: on ? 22 : 3,
-      width: 21,
-      height: 21,
+      top: (S.h - S.k) / 2,
+      left: on ? S.w - S.k - 3 : 3,
+      width: S.k,
+      height: S.k,
       borderRadius: 999,
       background: "#fff",
       boxShadow: "0 1px 3px rgba(0,0,0,.25)",
@@ -2885,9 +2901,7 @@ function WxShareBox({ userGeo, characters, worlds }) {
   const save = function (patch) { const n = Object.assign({}, cfg, patch); setCfg(n); try { localStorage.setItem("x_wxShare", JSON.stringify(n)); } catch (e) {} };
   const who = Array.isArray(cfg.who) ? cfg.who : [];
   const cs = (characters || []).filter(function (c) { return c && !c.npc; });
-  const sw = function (on, fn, hook) { return h("button", Object.assign({ "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70 shrink-0",
-    style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", border: "none" } }, hook),
-    h("span", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .15s" } })); };
+  const sw = function (on, fn, hook) { return h(Toggle, { on, onChange: () => fn(), wk: hook && hook["data-wk"] }); };
   const row = function (title, sub, on, fn, wk) { return h("div", { className: "flex items-center", style: { gap: 12, padding: "11px 0" } },
     h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
     sw(on, fn, wk)); };
@@ -19465,8 +19479,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     h("div", { className: "pr-3" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub } }, label),
       note && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, note)),
-    h("button", { onClick: () => set(!val), style: { flexShrink: 0, width: 46, height: 27, borderRadius: 999, background: val ? t.tint : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })));
+    h(Toggle, { on: !!val, onChange: v => set(v), color: t.tint }));
 
   const sliderRow = (label, note, val, set, min, max, step, unit) => h("div", { className: "pt-6" },
     h("div", { className: "flex items-baseline justify-between mb-1" },
@@ -19761,30 +19774,7 @@ function NewGroupSheet({
       color: t.fog,
       marginTop: 1
     }
-  }, "你隐身不下场，角色不知你在看；两人则当作他们私聊")), h("button", {
-    onClick: () => setSpectate(v => !v),
-    style: {
-      flexShrink: 0,
-      width: 46,
-      height: 27,
-      borderRadius: 999,
-      background: spectate ? t.tint : t.line,
-      position: "relative",
-      transition: "background .2s"
-    }
-  }, h("span", {
-    style: {
-      position: "absolute",
-      top: 3,
-      left: spectate ? 22 : 3,
-      width: 21,
-      height: 21,
-      borderRadius: 999,
-      background: "#fff",
-      transition: "left .2s",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
-    }
-  }))), /*#__PURE__*/React.createElement("input", {
+  }, "你隐身不下场，角色不知你在看；两人则当作他们私聊")), h(Toggle, { on: spectate, onChange: v => setSpectate(v), color: t.tint })), /*#__PURE__*/React.createElement("input", {
     value: name,
     onChange: e => setName(e.target.value),
     placeholder: "群名称",
@@ -21471,29 +21461,7 @@ function ChatSettings({
       color: t.fog,
       marginTop: 2
     }
-  }, "开启后聊天中 Ta 会主动发动态")), h("button", {
-    onClick: () => setAutoMoment(v => !v),
-    style: {
-      width: 46,
-      height: 27,
-      borderRadius: 999,
-      background: autoMoment ? t.tint : t.line,
-      position: "relative",
-      transition: "background .2s"
-    }
-  }, h("span", {
-    style: {
-      position: "absolute",
-      top: 3,
-      left: autoMoment ? 22 : 3,
-      width: 21,
-      height: 21,
-      borderRadius: 999,
-      background: "#fff",
-      transition: "left .2s",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
-    }
-  }))), h("div", {
+  }, "开启后聊天中 Ta 会主动发动态")), h(Toggle, { on: autoMoment, onChange: v => setAutoMoment(v), color: t.tint })), h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
     style: {
@@ -21509,30 +21477,7 @@ function ChatSettings({
       color: t.fog,
       marginTop: 2
     }
-  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）")), h("button", {
-    onClick: () => setProactive(v => !v),
-    className: "shrink-0",
-    style: {
-      width: 46,
-      height: 27,
-      borderRadius: 999,
-      background: proactive ? t.tint : t.line,
-      position: "relative",
-      transition: "background .2s"
-    }
-  }, h("span", {
-    style: {
-      position: "absolute",
-      top: 3,
-      left: proactive ? 22 : 3,
-      width: 21,
-      height: 21,
-      borderRadius: 999,
-      background: "#fff",
-      transition: "left .2s",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
-    }
-  }))),
+  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）")), h(Toggle, { on: proactive, onChange: v => setProactive(v), color: t.tint })),
   // 想我时只发消息（她 2026-10-05）：在一起之后，条子满了原本有三个出口——钉愿望、往情侣空间留东西、发消息。
   //   开了这个就只剩发消息那一个；没在一起的本来就只发消息，开不开一样。
   proactive ? h("div", { className: "flex items-center justify-between pt-3", style: { paddingLeft: 14 } },
@@ -21558,7 +21503,7 @@ function ChatSettings({
     className: "pt-3"
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 }
-  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { "data-wk": "block", style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("look", { title: "点进来先看到哪一屏", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { "data-wk": "block", style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h(Toggle, { on: defaultOffline, onChange: v => setDefaultOffline(v), color: t.tint })),
     // 点进来先进哪间房（群友 2026-10-07：「能不能选择把小房间设成一进来的页面」）。只有开过小房间才摆。
     (function () {
       const rooms = (window.ChatRooms && character ? window.ChatRooms.list(character.id) : []).filter(function (r) { return r && !r.main; });
@@ -21579,9 +21524,7 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "连续播报"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } },
         "接通后按顺序念出 TA 的每一句，不用一条条点。需要先给 TA 配音色，合成会用额度。")),
-    h("button", { onClick: () => setCallAuto(v => { if (v) setCallStream(false); return !v; }), className: "shrink-0",
-      style: { width: 46, height: 27, borderRadius: 999, background: callAuto ? t.tint : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: callAuto ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+    h(Toggle, { on: callAuto, onChange: () => setCallAuto(v => { if (v) setCallStream(false); return !v; }), color: t.tint })),
   // ⚠️只在连续播报开着时才摆：流式字幕的节奏是跟着【这一句念多久】走的，
   //   没有语音就没有那个时长，这一格摆出来是空头支票（她 2026-09-12：
   //   「只有开了连续播报的角色才可以开流式显示」）。
@@ -21590,16 +21533,13 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "流式字幕"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } },
         "TA 说的话一个字一个字铺在屏幕中间，跟着这一句的语音走；换一句就把上一句换掉，TA 不说话时中间什么都没有。挂断之后照常有逐字记录。")),
-    h("button", { onClick: () => setCallStream(v => !v), className: "shrink-0",
-      style: { width: 46, height: 27, borderRadius: 999, background: callStream ? t.tint : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: callStream ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))) : null),
+    h(Toggle, { on: callStream, onChange: v => setCallStream(v), color: t.tint })) : null),
   show("look", { title: "线上带不带动作", ...sec("actdesc") }, h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { style: { paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "动描（括号里那一行）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } },
         "TA 的状态卡本来每轮就记着「此刻在做什么」。开着之后那一格会摆在 TA 这一轮气泡的前面、居中显示一行，只在它真的变了时出现——不用 TA 多写一个字，所以不会为了凑动作瞎编。那一行长按能编辑、能重 Roll，跟气泡一个待遇。你自己想写动作，照常在消息里用括号写就行，它留在你的气泡里。")),
-    h("button", { onClick: () => setActDesc(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: actDesc ? t.tint : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+    h(Toggle, { on: actDesc, onChange: v => setActDesc(v), color: t.tint })),
   actDesc ? h("div", { className: "flex items-center justify-between pt-3" },
     h("div", { style: { paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "动描写多长")),

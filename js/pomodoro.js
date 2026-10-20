@@ -802,13 +802,12 @@
              { id: "notes", name: "递纸条", desc: "节点递纸条，轻戳也有回应" },
              { id: "checkpoints", name: "报时", desc: "节点提醒，轻戳看当前进度" }].map(modeCard))),
         // 溜号会被发现：专注中切出去超过 20 秒，回来TA会说你两句
-        h("button", { "data-wk": "pomsneak", "data-on": sneakOn ? "1" : "0", onClick: () => setSneakOn(!sneakOn), className: "w-full flex items-center justify-between active:opacity-80",
+        h("div", { role: "button", tabIndex: 0, "data-wk": "pomsneak", "data-on": sneakOn ? "1" : "0", onClick: () => setSneakOn(!sneakOn), className: "w-full flex items-center justify-between active:opacity-80",
           style: { marginTop: 14, minHeight: 48, padding: "10px 12px", background: "rgba(255,253,246,.5)", border: "1px solid rgba(90,72,44,.16)", borderRadius: 3, textAlign: "left" } },
           h("span", null,
             h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#3a3024" } }, "溜号会被发现"),
             h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8a7a5e", marginTop: 3 } }, "专注中切出去刷别的超过 20 秒，回来TA会知道")),
-          h("span", { style: { flexShrink: 0, width: 44, height: 25, borderRadius: 13, padding: 3, background: sneakOn ? "#3a3024" : "rgba(90,72,44,.25)", display: "block" } },
-            h("span", { style: { display: "block", width: 19, height: 19, borderRadius: 10, background: "#fffdf6", transform: sneakOn ? "translateX(19px)" : "none", transition: "transform .18s" } }))),
+          h("span", { onClick: e => e.stopPropagation(), style: { flexShrink: 0, display: "inline-flex" } }, h(Toggle, { on: !!sneakOn, onChange: v => setSneakOn(v), color: "#3a3024", offColor: "rgba(90,72,44,.25)", label: "溜号会被发现" }))),
         // ⑤ 背景音：桌边一台小收音机，几层声音拧着叠
         h("div", { style: { marginTop: 22 } },
           h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 6 } },

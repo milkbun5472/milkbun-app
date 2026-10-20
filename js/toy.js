@@ -203,8 +203,7 @@ function ToyConfig({ toast }) {
     row("标识（X-platform，随便起）", h("input", { "data-wk": "input", value: c.platform, onChange: e => set({ platform: e.target.value }), placeholder: "MilkbunApp", style: inSt })),
     h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "启用"),
-      h("button", { onClick: () => set({ enabled: !c.enabled }), style: { width: 50, height: 29, borderRadius: 999, background: c.enabled ? t.ink : t.line, position: "relative" } },
-        h("span", { style: { position: "absolute", top: 3, left: c.enabled ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } }))),
+      h(Toggle, { on: !!c.enabled, onChange: v => set({ enabled: v }), color: t.ink, offColor: t.line, label: "启用" })),
     // 强度上限（角色越不过这个值）——安全铁律②
     h("div", { style: { padding: "6px 0" } },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },

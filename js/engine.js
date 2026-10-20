@@ -9969,6 +9969,9 @@ async function runProbe(p, ctx, probe) {
   }
 }
 async function runProbeInner(p, ctx, probe) {
+  // 等多久、能不能中途掐断：调用方传 probe.timeout / probe.signal，原样交给 callAI——
+  //   别在外面拿 Promise.race 自己赛跑（赛输了请求还在后台跑、照样计费）。2026-10-20 收
+  const _probeWait = { ...(probe && probe.timeout ? { timeout: probe.timeout } : {}), ...(probe && probe.signal ? { signal: probe.signal } : {}) };
   // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
   // 这个开场白把模型放在【分析师的椅子】上——「不要扮演角色对话，冷静推演」。
   // 绝大多数推演（行程/钱包/相册/书架）本来就该这么站。
@@ -9998,10 +10001,10 @@ async function runProbeInner(p, ctx, probe) {
   // tag 只为记账：probe 上写了就带下去，没写就落进「其它」（见 ApiMeter）
   const _tag = probe.tag || "";
   try {
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want, tag: _tag, logFrom: probe.logFrom });
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want, tag: _tag, logFrom: probe.logFrom, ..._probeWait });
   } catch (e) {
     if (!tooBig(e) || want <= 8000) throw e;
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000, tag: _tag, logFrom: probe.logFrom });
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000, tag: _tag, logFrom: probe.logFrom, ..._probeWait });
   }
   let parsed = extractJSON(raw);
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
