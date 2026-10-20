@@ -7,7 +7,7 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = R("app.js"), comp = R("components.js"), ts = R("theme-studio.js");
 
 test("被拉黑时TA那几句挂上 blocked，和好那句不挂", () => {
-  assert.match(app, /const queueUnblockSpeech = \(chatKey, says, delay, charId, blocked\) => \{/);
+  assert.match(app, /const queueUnblockSpeech = \(chatKey, says, delay, charId, blocked, extra\) => \{/);
   assert.match(app, /\.\.\.\(blocked \? \{ blocked: true \} : \{\}\)/);
   const i = app.indexOf("const blockedReaction = async ("), j = app.indexOf("applyBlockTurnState(charId, chatKey, d);", i);
   assert.ok(i > 0 && j > i, "抠不出 blockedReaction");

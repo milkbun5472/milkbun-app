@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.169";
+const APP_VERSION = "v76.170";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14471,6 +14471,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }, 200);
         return;
       }
+      // TA 回我「解除拉黑申请」的那几句（她 2026-10-21 截图：拉黑我、我求、TA 拒，重 Roll 以后像没拉黑一样正常聊了）：
+      //   原来走普通回复那条路重写，拉黑那一段就没了。认出是回申请的，就把那次申请退回「没回」、
+      //   拉黑状态和求过几次也退回去，再让 TA 重新判一次。没挂标记的老消息：前面紧挨着我的申请、中间没有我别的话，也算。
+      {
+        let reqAt = -1;
+        if (m.unblockOf) reqAt = msgs.findIndex(x => x && x.kind === "unblock_req" && x.cid === m.unblockOf);
+        else for (let k = idx - 1; k >= 0; k--) { const x = msgs[k]; if (!x) continue; if (x.kind === "unblock_req" && x.from === "me") { reqAt = k; break; } if (x.role === "user") break; }
+        const req = reqAt >= 0 ? msgs[reqAt] : null;
+        const bkR = blocksRef.current[threadKey] || {};
+        if (req && (bkR.theyBlocked || req.status === "accepted")) {
+          const tries0 = Number(bkR.tries || 0) - (req.status === "declined" ? 1 : 0);
+          setBlockFor(threadKey, { theyBlocked: true, tries: Math.max(0, tries0) });
+          pChat(threadKey, p => { const at = p.indexOf(req); return at >= 0 ? p.slice(0, at) : p; });
+          setTimeout(() => sendMyUnblockReq(activeChar.id, req.plea || "", threadKey), 200);
+          return;
+        }
+      }
       const turnId = m.turnId;
       let rerollAvoid = "";
       const _herLast = msgs.slice(0, idx).filter(x => x && x.role === "user").slice(-1)[0];
@@ -16609,8 +16626,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️原来一律不挂——设置页写着「气泡旁带红色感叹号」，可TA那边一颗都没出现过
   //   （她 2026-10-01：「拉黑的时候他发信息能不能加个红色感叹号」）。
   //   和好之后那句「谢谢你愿意听我说」也走这里，那句不挂。
-  const queueUnblockSpeech = (chatKey, says, delay, charId, blocked) => {
-    says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false, ...(blocked ? { blocked: true } : {}) }]), delay + i * 650));
+  const queueUnblockSpeech = (chatKey, says, delay, charId, blocked, extra) => {
+    says.forEach((w, i) => setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false, ...(blocked ? { blocked: true } : {}), ...(extra || {}) }]), delay + i * 650));
     if (charId && String(chatKey) === String(charId)) {
       setTimeout(() => { try { maybeAutoExtract(charId); } catch (e) {} }, delay + says.length * 650 + 1200);
     }
@@ -16761,7 +16778,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const says = r.say;
       if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
-      queueUnblockSpeech(chatKey, says, 300, charId);
+      // 回应挂在这次申请上：对它重 Roll 时认得出是「回申请」，不是一轮普通聊天
+      queueUnblockSpeech(chatKey, says, 300, charId, false, { unblockOf: cid, turnId: "ub_" + cid });
       applyBlockTurnState(charId, chatKey, r.d);
     } catch (e) { failCard(); toast("失败：" + e.message + "（点卡上的「再试一次」）"); } finally { endLane("c:" + chatKey); }
   };

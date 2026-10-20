@@ -15,7 +15,7 @@ test("拉黑期间那几句说完了，要叫一声抽取", () => {
   assert.match(app, /const queueUnblockSpeech = \(chatKey, says, delay, charId[,)]/);
   assert.match(app, /setTimeout\(\(\) => \{ try \{ maybeAutoExtract\(charId\); \} catch \(e\) \{\} \}, delay \+ says\.length \* 650 \+ 1200\);/);
   // 两个口：拉黑那一枪（碎碎念那几轮 + v74.773 起她答应和好也走这一枪，freed）、他答应解除
-  assert.equal((app.match(/queueUnblockSpeech\(chatKey, [^\n]*charId(?:, true|, !freed)?\);/g) || []).length, 2, "有一条路没带上 charId");
+  assert.equal((app.match(/queueUnblockSpeech\(chatKey, [^\n]*charId(?:, true|, !freed|, false, \{ unblockOf: cid, turnId: "ub_" \+ cid \})?\);/g) || []).length, 2, "有一条路没带上 charId");
 });
 
 test("不另写一套抽取，也不在侧房乱叫", () => {
