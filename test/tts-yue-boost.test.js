@@ -21,3 +21,9 @@ test("ttsKeyFor 按这把嗓子挂在谁身上判粤语", () => {
   assert.match(engine, /const boost = ttsLangBoost\(txt, yueVoice\);/);
   assert.match(engine, /String\(c\.voiceId \|\| ""\)\.trim\(\) === vid && \/粤\|粵/);
 });
+
+test("普通话也常用的唔／咁／咩，只在粤语角色身上算粤语（群里 2026-10-20）", () => {
+  assert.equal(boost("唔……被姐姐握着能不大嘛"), "Chinese");
+  assert.equal(boost("唔……被姐姐握着能不大嘛", true), "Chinese,Yue");
+  assert.equal(boost("你喺边度"), "Chinese,Yue");
+});
