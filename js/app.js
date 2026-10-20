@@ -3466,7 +3466,8 @@ function App() {
       if (stopped || chatAutoArchiveBusyRef.current) return;
       const used = typeof localStorageBytes === "function" ? localStorageBytes() : 0;
       if (used < 0.8 * 5 * 1024 * 1024) return;
-      const day = new Date().toISOString().slice(0, 10);
+      // 本地的「今天」（原来用 toISOString＝UTC，北京时间零点到早上八点还算前一天）
+      const day = schedDayKey(new Date());
       try { if (localStorage.getItem("x_chatAutoArchiveDay") === day) return; } catch (e) {}
       if (!(window.Cloud && window.Cloud.ready())) return;
       chatAutoArchiveBusyRef.current = true;

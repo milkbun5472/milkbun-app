@@ -75,7 +75,8 @@
   //   ① 给真的不同的料（今天第几次、隔了多久、之前说过哪几句——长期记着当 avoid 单子，越用越不重样）；
   //   ② 掷几条互相独立的轴、不掷答案，每条轴都留一格「你自己定」。地板是代码的，天花板是模型的。
   const POKE_KEY = "x_companionPokes";
-  const today = () => new Date().toISOString().slice(0, 10);
+  // 本地的「今天」，跟日程同一支（原来 toISOString＝UTC，凌晨到早上八点算成前一天）
+  const today = () => window.ScheduleClock.deviceDayKey(new Date());
   function pokeLog(id) {
     let all = {}; try { all = JSON.parse(localStorage.getItem(POKE_KEY) || "{}") || {}; } catch (e) {}
     const r = all[id] || {}; return { lines: Array.isArray(r.lines) ? r.lines.slice(-12) : [], count: r.day === today() ? (r.count || 0) : 0, lastAt: r.lastAt || 0 };
