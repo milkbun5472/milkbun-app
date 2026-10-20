@@ -62,31 +62,38 @@ test("开机就要的那一小块留在开机：游戏目录走 games-list.js，
   assert.doesNotMatch(R("js/dreamjournal.js"), /window\.GDreamBook = /);
 });
 
-// 装载器本身：同一组只装一次、按登记顺序装、断网失败下次能重试、闲下来只下载不执行
-test("装载器：按顺序挂、只装一次、失败了能重来", async () => {
-  const added = [];
-  let fail = true;
+// 装载器本身：一组几份【一起下载】、按登记的先后执行、只装一次、断网失败下次从没跑过的那份接着来、闲下来只下载不执行
+//   2026-10-20 改成并行下载（群里：「瘦身后要加载的反而慢了」）：桩照 lazy-mods.js 自己用的那几样写——fetch 拿文本、内联 script 执行
+test("装载器：一起下载、按顺序执行、只装一次、失败了能重来", async () => {
+  const ran = [], fetched = [];
+  let failB = true, slowA = true;
   const tags = [
     { attrs: { type: "text/lazy", "data-lazy": "g", "data-src": "js/a.js?v=1" } },
-    { attrs: { type: "text/lazy", "data-lazy": "g", "data-src": "js/b.js?v=1" } }
+    { attrs: { type: "text/lazy", "data-lazy": "g", "data-src": "js/b.js?v=1" } },
+    { attrs: { type: "text/lazy", "data-lazy": "g", "data-src": "js/c.js?v=1" } }
   ].map(t => ({ getAttribute: k => t.attrs[k], setAttribute: (k, v) => { t.attrs[k] = v; } }));
   const document = {
     querySelectorAll: () => tags,
     createElement: () => ({}),
-    head: { appendChild: s => { added.push(s.src); setTimeout(() => (s.src === "js/b.js?v=1" && fail) ? s.onerror() : s.onload(), 0); } }
+    head: { appendChild: s => { ran.push(/^RUN (\S+)/.exec(s.text)[1]); } }
   };
+  // a 最慢（后到），b 第一次失败：看执行顺序是不是还照登记的来
+  const fetch = src => { fetched.push(src); const name = src.split("?")[0];
+    return new Promise((ok, no) => setTimeout(() => (name === "js/b.js" && failB) ? no(new Error("net")) : ok({ ok: true, text: async () => "RUN " + name }), name === "js/a.js" && slowA ? 30 : 0)); };
   const g = { addEventListener() {} };
-  new Function("window", "document", "globalThis", R("js/lazy-mods.js"))(g, document, g);
+  new Function("window", "document", "globalThis", "fetch", R("js/lazy-mods.js"))(g, document, g, fetch);
   const L = g.LazyMods;
-  await assert.rejects(L.load("g"), /没下载下来/);
-  assert.deepEqual(added, ["js/a.js?v=1", "js/b.js?v=1"]);
+  await assert.rejects(L.load("g"), /没下载下来：js\/b\.js/);
+  assert.deepEqual(fetched, ["js/a.js?v=1", "js/b.js?v=1", "js/c.js?v=1"], "三份没有一起开始下载");
+  assert.deepEqual(ran, ["js/a.js"], "a 跑了，b 断了，c 不许越过 b 先跑");
   assert.equal(L.isLoaded("g"), false);
-  fail = false;
+  failB = false; slowA = false;
   await L.load("g");
-  assert.deepEqual(added, ["js/a.js?v=1", "js/b.js?v=1", "js/b.js?v=1"], "重来时把已经跑过的 a 又跑了一遍");
+  assert.deepEqual(ran, ["js/a.js", "js/b.js", "js/c.js"], "重来时把已经跑过的 a 又跑了一遍，或者顺序乱了");
+  assert.deepEqual(fetched.slice(3), ["js/b.js?v=1", "js/c.js?v=1"], "重来时又去下了已经跑过的 a");
   assert.equal(L.isLoaded("g"), true);
   await L.load("g");
-  assert.equal(added.length, 3, "装好了还在重复装");
+  assert.equal(ran.length, 3, "装好了还在重复装");
   assert.equal(L.isLoaded("没登记的组"), true, "没登记延后的组当它本来就在");
 });
 
