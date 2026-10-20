@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.130";
+const APP_VERSION = "v76.136";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8498,7 +8498,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async scopeKey => {
-    if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
+    // 侧房也滚动总结（群友 2026-10-20：「小房间线下不管多少啪都塞原文进去，token 比较多」）：
+    //   早段照样换成本场的前情提要，只是不往主记忆库里写——侧房线下只留本房。
+    const _roomSum = offlineIsRoom(scopeKey);
     const charId = offlinePersonId(scopeKey);
     if (!offlineApiFor(charId) || offSumBusyRef.current[charId]) return;
     const char = offlineCharacterFor(scopeKey);
@@ -8518,9 +8520,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
         // ofs：记录本机场次来源；替代旧记忆仍需走共同的确认机制。
-        const segMem = [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
-        (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
-        (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
+        const segMem = _roomSum ? [] : [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
+        if (!_roomSum) (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
+        if (!_roomSum) (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
         pOffline(scopeKey, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
@@ -9352,7 +9354,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   报错要说真话（先例 v68.66 事件层）——她才知道是线路的事还是长度的事。
     try {
       const sumP = sumRoute(offlineApiFor(charId));
-      if (!sideRoom && sumP) { const r = await summarizeOffline(sumP, ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (sumP) { const r = await summarizeOffline(sumP, ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) { sumErr = (e && e.message) || String(e); }
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     // 地图上那个地方：记一次去过；聊天里留一张「那天」
@@ -9376,7 +9378,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
     // ofs 认场次：总结失败过的那张卡要能找回它是哪一场，才补得了（见 resummarizeOffline）
-    if (!sideRoom) pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, ts: Date.now() }]);
+    // 侧房的线下也在【这间房自己的】线上聊天里留一张（群友 2026-10-20：「点了结束以后没有一段总结留在线上聊天的时间线里」）；不碰主聊天
+    pChat(sideRoom ? scopeKey : charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
     endLane("c:" + scopeKey);
     toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」"
@@ -13939,8 +13942,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 情书、交换日记、便签墙三样都是「TA写字给你」，便签墙只是「短」，没有
         // 自己的形状。它唯一独有的是【TA不请自来贴的那一张】，那正是抽屉在做的事。
         const wtext = String(parsed.whisper).trim();
-        drawerWhisper(charId, wtext);
-        notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId });
+        if (drawerWhisper(charId, wtext)) { notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId }); }
       }
       // ── 刻一首歌进唱片（她 2026-09-03）────────────────────────────────
       // ⚠️落盘成功才出卡片，跟备忘录那条同一个道理：云村没搜到就什么都没发生，
@@ -26720,6 +26722,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const drawerWhisper = (charId, text) => {
     const t = String(text || "").trim();
     if (!charId || !t) return false;
+    // 二十分钟内同一个人只放一句（群友 2026-10-20：两句意思差不多、只差一分钟）。
+    //   放悄悄话的路不止一条——聊天回话里顺手留、定时那一档、进情侣空间补一档——前后脚撞上就成了两句。
+    const now = Date.now();
+    if ((coupleDrawerRef.current || []).some(x => x && x.characterId === charId && x.kind === "whisper" && now - Number(x.ts || 0) < 20 * 60000)) return false;
     // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
     //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
     //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，

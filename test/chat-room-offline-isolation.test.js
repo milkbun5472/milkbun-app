@@ -39,7 +39,8 @@ test("room thought has its own durable store and side-room replies skip personal
   assert.match(app, /saveJSON\("x_roomStateHist", histNext\)/);
   assert.match(app, /if \(sideRoom\) \{\s*setRoomThought\(chatKey, parsed\.thought/);
   assert.match(app, /if \(!sideRoom && !opts\.proactive && !contMode\) observeRelationshipBShadow/);
-  assert.match(app, /if \(offlineIsRoom\(scopeKey\)\) return; \/\/ 侧房线下只留本房记录/);
+  // 侧房线下也滚动总结（2026-10-20），但只留本房、不进主记忆库
+  assert.match(app, /const segMem = _roomSum \? \[\] :/);
 });
 
 test("room offline receives its prompt and only shows schedule when that room enables it", () => {

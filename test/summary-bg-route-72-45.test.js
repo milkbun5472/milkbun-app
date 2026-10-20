@@ -47,7 +47,7 @@ test("九枪一个都不许落下", () => {
 // ⚠️那两处还兼着【跑不跑】的闸：闸也要跟着换成 sumRoute，
 //   否则没配线下线路、只配了后台线路的人，总结仍旧被跳过。
 test("收尾那两处的闸也跟着换了，不然配了后台线路照样跳过", () => {
-  assert.match(app, /if \(!sideRoom && sumP\) \{/);
+  assert.match(app, /if \(sumP\) \{ const r = await summarizeOffline\(/);
   assert.match(app, /if \(gSumP && group\) \{/);
 });
 

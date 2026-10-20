@@ -219,6 +219,8 @@
         };
         if (bg) await bg.start(taskKey, { label: (char.remark || char.name) + "正在解梦…" }, run); else await run();
         setLog(loadLog());
+        // 解完直接摊开给她看：原来收着，只有「展开」那行多了几个字，像点了没反应（群友 2026-10-20）
+        setOpenId(entry.id);
       } catch (e) { props.toast && props.toast("解梦失败：" + (e.message || e)); }
       finally { setBusyId(null); }
     };

@@ -74,7 +74,7 @@
   const SET_BY = Object.fromEntries(SETTINGS.map(x => [x.key, x]));
   const showVal = (def, v, ctx) => {
     if (def.type === "route") { const r = ((ctx && ctx.apiProfiles) || []).find(p => p && p.id === v); return r ? (r.name || "（没起名的线路）") : "跟随全局"; }
-    if (def.type === "mask") { const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && x.id === v); return m ? m.name : "主面具"; }
+    if (def.type === "mask") { const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && x.id === v); return m ? (S(m.label).trim() || m.name) : "主面具"; }
     if (v == null) return def.type === "bool" ? (def.def == null ? "跟着总开关" : (def.def ? "开" : "关")) : def.type === "pick" ? def.opts[def.def] : String(def.def);
     if (def.inv && def.type === "bool") v = !v;
     return def.type === "bool" ? (v ? "开" : "关") : def.type === "pick" ? (def.opts[v] || String(v)) : String(v);
@@ -90,8 +90,9 @@
     }
     if (def.type === "mask") {
       if (/^(主面具|默认|不选)$/.test(t)) return "";
-      const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && (S(x.name).trim() === t || S(x.id) === t));
-      if (!m) throw new Error("没有叫「" + t + "」的面具；现有的：" + (((ctx && ctx.masks && ctx.masks()) || []).map(x => x.name).filter(Boolean).join("、") || "只有主面具"));
+      const m = ((ctx && ctx.masks && ctx.masks()) || []).find(x => x && (S(x.label).trim() === t || S(x.name).trim() === t || S(x.id) === t));
+      // 面具挑选那排按钮上写的是 label（没有才用 name），她照着按钮说的名字也得认（群友 2026-10-20）
+      if (!m) throw new Error("没有叫「" + t + "」的面具；现有的：" + (((ctx && ctx.masks && ctx.masks()) || []).map(x => S(x.label).trim() || x.name).join("、") || "只有主面具"));
       return m.id;
     }
     if (def.type === "bool") { if (yes(t)) return !def.inv; if (no(t)) return !!def.inv; throw new Error("「" + def.zh + "」只能是开或关"); }
