@@ -8498,7 +8498,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async scopeKey => {
-    if (offlineIsRoom(scopeKey)) return; // 侧房线下只留本房记录，不抽进主记忆库
+    // 侧房也滚动总结（群友 2026-10-20：「小房间线下不管多少啪都塞原文进去，token 比较多」）：
+    //   早段照样换成本场的前情提要，只是不往主记忆库里写——侧房线下只留本房。
+    const _roomSum = offlineIsRoom(scopeKey);
     const charId = offlinePersonId(scopeKey);
     if (!offlineApiFor(charId) || offSumBusyRef.current[charId]) return;
     const char = offlineCharacterFor(scopeKey);
@@ -8518,9 +8520,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
         // ofs：记录本机场次来源；替代旧记忆仍需走共同的确认机制。
-        const segMem = [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
-        (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
-        (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
+        const segMem = _roomSum ? [] : [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
+        if (!_roomSum) (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
+        if (!_roomSum) (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
         pOffline(scopeKey, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
@@ -9352,7 +9354,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   报错要说真话（先例 v68.66 事件层）——她才知道是线路的事还是长度的事。
     try {
       const sumP = sumRoute(offlineApiFor(charId));
-      if (!sideRoom && sumP) { const r = await summarizeOffline(sumP, ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (sumP) { const r = await summarizeOffline(sumP, ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) { sumErr = (e && e.message) || String(e); }
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     // 地图上那个地方：记一次去过；聊天里留一张「那天」
@@ -9376,7 +9378,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
     // ofs 认场次：总结失败过的那张卡要能找回它是哪一场，才补得了（见 resummarizeOffline）
-    if (!sideRoom) pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, ts: Date.now() }]);
+    // 侧房的线下也在【这间房自己的】线上聊天里留一张（群友 2026-10-20：「点了结束以后没有一段总结留在线上聊天的时间线里」）；不碰主聊天
+    pChat(sideRoom ? scopeKey : charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ofs: sess.id, ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
     endLane("c:" + scopeKey);
     toast(sideRoom ? "这场只留在「" + ((sideRoomData && sideRoomData.name) || "本房") + "」"
