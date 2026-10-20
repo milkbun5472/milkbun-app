@@ -16578,7 +16578,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的一句心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
   const applyBlockTurnState = (charId, chatKey, d) => {
     try {
-      if (!d || String(chatKey) !== String(charId)) return;
+      if (!d) return;
+      // 小房间里被拉黑／拉黑他时的那几轮：心声记进这间房自己那份（她 2026-10-20：「拉黑他回复是没有心声的吗」——原来房里直接丢掉）
+      if (String(chatKey) !== String(charId)) {
+        if (window.ChatRooms && window.ChatRooms.isSideKey(chatKey) && d.thought && String(d.thought).toLowerCase() !== "null") {
+          const _m = typeof d.mood === "string" ? d.mood.trim() : (d.mood && d.mood.label) || "";
+          setRoomThought(chatKey, String(d.thought), { mood: _m, state: { action: d.action } });
+        }
+        return;
+      }
       const char = characters.find(c => c.id === charId);
       const mood = typeof d.mood === "string" ? { label: d.mood.trim() } : d.mood;
       if (mood && mood.label) setMoodFor(charId, { ...mood, ts: Date.now() });
