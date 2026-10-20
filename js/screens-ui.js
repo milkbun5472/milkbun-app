@@ -1726,9 +1726,7 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
                   people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
               : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "所有角色"),
             h("span", { style: { marginLeft: "auto" } }, stampRow(e)))),
-        h("button", { "data-wk": "loreswitch", "data-on": off ? "0" : "1", onClick: () => onSave({ ...e, enabled: off }), className: "active:opacity-65", "aria-label": off ? "启用词条" : "停用词条",
-          style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
-          h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
+        h(Toggle, { on: !off, onChange: () => onSave({ ...e, enabled: off }), size: "s", wk: "loreswitch", label: off ? "启用词条" : "停用词条" })));
   };
   // 一枚筛选章：三种翻法共用这一个形状（角色那排章面换成脸）
   const stampChip = (key, on, glyph, zh, onClick, face) => h("button", { key: key, "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: onClick, className: "active:opacity-65 shrink-0",
@@ -1838,7 +1836,7 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
   const lbl = (s, sub) => h("div", { "data-wk": "loreedlabel", style: { margin: "18px 0 8px" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, s), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, sub) : null);
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
     h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
-    h("button", { "data-wk": "block", onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: val ? t.ink : t.line, position: "relative" } }, h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff" } })));
+    h(Toggle, { on: !!val, onChange: () => onT(), wk: "block" }));
   // 半窗 → 整页（v64.24）。按 no-half-sheet.md 的判据问一句「填这张表的时候，
   // 需要同时看见底下那份目录吗」——不需要。而它是一张长表单：标题、正文（光 minHeight
   // 就 132）、给谁、去哪几处、优先级、一段汇总，半窗先扣掉半块屏幕装不下。
@@ -6662,8 +6660,7 @@ function ApiConfig({
         h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "生成中可以手动断掉"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "单聊、群聊、线下、群线下正在生成的「…」旁边多一个叉，点了就不等这一轮了。已经发出去的请求照样会计费。")),
-        h("button", { onClick: () => { const n = !genStopOn; setGenStopOn(n); saveJSON("x_genStopOn", n); }, style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: genStopOn ? t.ink : t.line } },
-          h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: genStopOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
+        h(Toggle, { on: genStopOn, onChange: () => { const n = !genStopOn; setGenStopOn(n); saveJSON("x_genStopOn", n); } }))),
     onSetModelFloat && h(ConfigPanel, null,
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
         h("div", null,
@@ -6679,8 +6676,7 @@ function ApiConfig({
             : null,
           // 浮窗换成自己的图（群友 2026-10-17）：图放在原来那颗圆里
           modelFloatOn ? h(ModelFloatImgRow, { t, toast }) : null),
-        h("button", { onClick: () => onSetModelFloat(!modelFloatOn), style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
-          h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
+        h(Toggle, { on: modelFloatOn, onChange: () => onSetModelFloat(!modelFloatOn) }))),
     h("div", { className: "flex items-center justify-between", style: { marginTop: 18, marginBottom: 10 } },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, "API 方案"),
@@ -6732,8 +6728,7 @@ function ApiConfig({
     h("div", null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "模型快速切换浮窗"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "开启后显示右侧 AI 圆点；线上、线下分别切换，角色专线不受影响。")),
-    h("button", { onClick: () => onSetModelFloat(!modelFloatOn), className: "active:opacity-70", style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
-      h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } }))),
+    h(Toggle, { on: modelFloatOn, onChange: () => onSetModelFloat(!modelFloatOn) })),
   false && h("div", { style: { marginTop: 12, marginBottom: 22 } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
       h("div", null,
@@ -9553,8 +9548,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     h("div", { style: { flex: 1, paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, label),
       sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
-    h("button", { "data-wk": "memcfgswitch", "data-on": val ? "1" : "0", onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 50, height: 29, borderRadius: 999, background: val ? t.ink : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: val ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } })));
+    h(Toggle, { on: !!val, onChange: () => onT(), wk: "memcfgswitch" }));
   const slider = (label, val, min, max, step, unit, onCh, note) => h("div", { "data-wk": "memcfgrow", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, label),
@@ -9703,39 +9697,13 @@ function MemEntrySheet({
       fontSize: "calc(14px * var(--app-fs, 1))",
       color: t.sub
     }
-  }, "置顶（每次都注入对话）"), h("button", {
-    "data-wk": "memedswitch",
-    "data-part": "pin",
-    "data-on": pinned ? "1" : "0",
-    onClick: () => setPinned(v => !v),
-    style: {
-      width: 46,
-      height: 27,
-      borderRadius: 999,
-      background: pinned ? t.tint : t.line,
-      position: "relative",
-      transition: "background .2s"
-    }
-  }, h("span", {
-    style: {
-      position: "absolute",
-      top: 3,
-      left: pinned ? 22 : 3,
-      width: 21,
-      height: 21,
-      borderRadius: 999,
-      background: "#fff",
-      transition: "left .2s",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
-    }
-  }))),
+  }, "置顶（每次都注入对话）"), h(Toggle, { on: pinned, onChange: v => setPinned(v), color: t.tint, wk: "memedswitch", part: "pin" })),
   // 未了结（Ombre Brain·承诺可标记完成）：勾上会更常被想起，办完/翻篇点掉它就不再惦记
   h("div", { className: "flex items-center justify-between pt-6" },
     h("div", { style: { flex: 1, paddingRight: 12 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "还没了结（约定 / 心结）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "标记后 TA 会更常惦记这件事；等兑现了 / 翻篇了，点掉它就不再念叨")),
-    h("button", { "data-wk": "memedswitch", "data-part": "open", "data-on": open ? "1" : "0", onClick: () => setOpen(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: open ? "#b06a4f" : t.line, position: "relative", transition: "background .2s" } },
-      h("span", { style: { position: "absolute", top: 3, left: open ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+    h(Toggle, { on: open, onChange: v => setOpen(v), color: "#b06a4f", wk: "memedswitch", part: "open" })),
   // 情绪坐标（Ombre Brain·valence/arousal）：愉悦度 + 强度，影响被想起的权重
   (() => {
     const stepper = (label, val, lo, hi, onCh) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 0" } },
@@ -11159,8 +11127,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "谁都能用"),
               h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开了所有角色都能用，不看下面贴的名字")),
-            h("button", { "data-wk": "emoswitch", "data-part": "global", "data-on": pack.global ? "1" : "0", onClick: () => onUpdatePack(pack.id, { global: !pack.global }), "aria-label": "谁都能用", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.global ? t.ink : t.line, position: "relative", transition: "background .2s" } },
-              h("span", { style: { position: "absolute", top: 3, left: pack.global ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
+            h(Toggle, { on: !!pack.global, onChange: () => onUpdatePack(pack.id, { global: !pack.global }), wk: "emoswitch", part: "global", label: "谁都能用" })),
           h("div", { "data-wk": "emoswitchrow", "data-part": "mine", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "我自己也能发"),

@@ -13,7 +13,7 @@ test("路人弹幕不进给模型看的那一段", () => {
 });
 test("两种都接上了：看 TA 播走 runProbe，我来播一枪写完", () => {
   assert.match(A, /screen === "live" \|\| screen === "shua"\) \{/);
-  assert.match(A, /runProbe\(apiFor\(char\.id\), ctxFor\(char\), \{ voiceScene: true, instruction, schemaHint, tag: "live" \}\)/);
+  assert.match(A, /runProbe\(apiFor\(char\.id\), ctxFor\(char\), \{ voiceScene: true, instruction, schemaHint, tag: "live", timeout: opt && opt\.timeout \}\)/);
   assert.match(A, /maxTokens: 12000, tag: "live"/);
   assert.match(L, /function watchInstruction\(/);
   assert.match(L, /function hostInstruction\(/);

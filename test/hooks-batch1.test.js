@@ -18,7 +18,8 @@ for (const [pg, [src, hooks]] of Object.entries(PAGES)) {
     assert.ok(a > 0, pg + " 没登记");
     const reg = ts.slice(a, ts.indexOf("}),", a));
     for (const k of hooks) {
-      assert.ok(src.includes('"data-wk": "' + k + '"'), "页面上没挂 " + k);
+      // 开关统一用公共的 Toggle，旧挂点名从 wk 传进去（data-wk 照旧是这个名字）
+      assert.ok(src.includes('"data-wk": "' + k + '"') || src.includes('wk: "' + k + '"'), "页面上没挂 " + k);
       assert.ok(reg.includes('["' + k + '"'), "没登记 " + k);
     }
   });

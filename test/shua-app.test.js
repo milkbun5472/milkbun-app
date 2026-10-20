@@ -33,7 +33,7 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\][^\n]*?shapeChar\(sk, !realFr && friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
+  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\][^\n]*?shapeChar\(sk, !realFr && friends\.length > 0, newAcc\), \{ timeout: 180000 \}\)\.catch\(\(\) => null\)/, "等 3 分钟交给调用本身掐断，不在外面赛跑");
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 

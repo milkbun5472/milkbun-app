@@ -263,13 +263,12 @@
   // ── 谁看着（整页）────────────────────────────────────────────
   function WatchPage({ S, d, chars, onPatch, onPull, onGuide, onBack }) {
     const w = d.watch, ids = w.ids || [];
-    const toggle = (on, label, desc, onClick) => h("button", { onClick, className: "flex items-center",
+    const toggle = (on, label, desc, onClick) => h("div", { onClick, role: "button", tabIndex: 0, className: "flex items-center",
       style: { width: "100%", minHeight: 56, background: "transparent", border: "none", borderBottom: "1px dashed " + S.line, padding: "8px 0", textAlign: "left", fontFamily: F_BODY } },
       h("div", { style: { flex: 1 } },
         h("div", { style: { fontSize: "calc(14.5px * var(--app-fs, 1))", color: S.ink } }, label),
         desc ? h("div", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", color: S.sub, marginTop: 3, lineHeight: 1.5 } }, desc) : null),
-      h("span", { style: { width: 42, height: 24, borderRadius: 99, background: on ? S.accent : S.bg2, position: "relative", transition: "background .2s", flexShrink: 0 } },
-        h("span", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: 99, background: S.bg, transition: "left .2s" } })));
+      h("span", { onClick: e => e.stopPropagation(), style: { flexShrink: 0, display: "inline-flex" } }, h(Toggle, { on: !!on, onChange: () => onClick(), color: S.accent, offColor: S.bg2, label })));
     const num = (label, k, unit, step) => h("div", { className: "flex items-center", style: { minHeight: 52, borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
       h("span", { style: { flex: 1, fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink } }, label),
       h("input", { "data-wk": "input", value: d.goal[k] == null ? "" : d.goal[k], inputMode: "decimal", placeholder: "不定",

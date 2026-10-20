@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.170";
+const APP_VERSION = "v76.172";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13491,7 +13491,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const summary = typeof window.YanqiuCcTools.approvalSummary === "function"
               ? window.YanqiuCcTools.approvalSummary(ccToolRequest)
               : String(ccToolRequest.toolName || "CC 工具") + "：\n" + JSON.stringify(ccToolRequest.arguments || {}, null, 2).slice(0, 1200);
-            const approved = window.confirm("言秋想通过 CC 做这项操作：\n\n" + summary + "\n\n允许这一次吗？");
+            const approved = await askAppConfirm("言秋想通过 CC 做这项操作", summary + "\n\n允许这一次吗？", "允许", { cancelLabel: "不允许", danger: false });
             if (!approved) throw new Error("Lisa 没有批准这一次操作");
           }
           if (!ccToolManagerRef.current) ccToolManagerRef.current = window.YanqiuCcTools.createManager({ storage: localStorage, cloud: window.Cloud });
@@ -21819,7 +21819,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const markKnock = () => setKnockLog(k => { const n = { ...k, [char.id]: WK.knockPush(k[char.id], Date.now()) }; saveJSON("x_phoneKnock", n); return n; });
     const doing = nowAct ? "你此刻正在：" + (WK.WATCH_ACTS[nowAct.kind] || {}).zh + (nowAct.name ? "（" + nowAct.name + "）" : "") : "";
     try {
-      const out = await Promise.race([runProbe(p, phoneCtx(char), {
+      const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
         instruction: [
           "你正一个人刷着手机。刚才屏幕被敲了一下——是 " + userName(profileFor(char.id)) + "，她一直在旁边看着你。",
@@ -21838,8 +21838,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         schemaHint: step.n === 3
           ? '{"say":"你心里那一句","wx":"你这会儿真想发给她的那条微信（不发就留空）","aff":"整数，通常 0"}'
           : '{"say":"你心里那一句","aff":"整数，通常 0"}',
-        maxTokens: 8000
-      }), new Promise((_, rej) => setTimeout(() => rej(new Error(characterText(char, "他没抬头（超时）"))), 25000))]);
+        maxTokens: 8000,
+        timeout: 25000   // 等 25 秒，到点真掐断请求（原来在外面赛跑，赛输了请求还在后台跑）
+      });
       const say = String((out && out.say) || "").trim().slice(0, 60);
       if (!say) throw new Error(characterText(char, "他这一下没吭声"));
       // 好感一次 session 累计封顶 ±1（现在的量表是 -5~5、日常聊天一律 0）
@@ -21854,6 +21855,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return wx ? { say: say, wx: wx } : say;
     } catch (e) {
       // ⚠️别再吞掉：吞掉的样子就是「敲了没反应」，而且那一下还被算掉了
+      if (e && /超时|timeout|abort/i.test(String(e.message || e.name || ""))) throw new Error(characterText(char, "他没抬头（超时）"));
       throw new Error(e && e.message ? String(e.message).slice(0, 40) : "没敲动");
     }
   };
@@ -31834,9 +31836,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     maskName: (anonMe && anonMe.name) || "",
     // 看 TA 播：料就是TA平时那一整份（TA 开播的时候还是TA），站位是「TA本人在现场」
-    probeAs: (char, instruction, schemaHint) => {
+    probeAs: (char, instruction, schemaHint, opt) => {
       if (!active) throw new Error("请先到设置配置 API");
-      return runProbe(apiFor(char.id), ctxFor(char), { voiceScene: true, instruction, schemaHint, tag: "live" });
+      return runProbe(apiFor(char.id), ctxFor(char), { voiceScene: true, instruction, schemaHint, tag: "live", timeout: opt && opt.timeout });
     },
     // 我来播：几个人一枪写完。料全放 system，user 只留一句触发（prompt-send-shape）
     probeMany: async (chars, instruction, schemaHint) => {

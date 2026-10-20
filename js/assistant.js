@@ -1839,10 +1839,7 @@
           h("div", { style: { flex: 1 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "桌面小球"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "每一页角落里都跟着，能拖到任何地方；点一下开合")),
-          h("button", { "data-wk": "qqballswitch", "data-on": cfg.ballOn ? "1" : "0", onClick: () => put({ ballOn: !cfg.ballOn }), style: {
-            width: 46, height: 27, borderRadius: 999, border: "none", padding: 0, flexShrink: 0,
-            background: cfg.ballOn ? t.accent : t.line, position: "relative", transition: "background .18s" } },
-            h("div", { "data-wk": "block", style: { position: "absolute", top: 3, left: cfg.ballOn ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.25)", transition: "left .18s" } }))),
+          h(Toggle, { on: !!cfg.ballOn, onChange: () => put({ ballOn: !cfg.ballOn }), color: t.accent, wk: "qqballswitch" })),
         // 走哪条线路（她 2026-09-03：「还可以跟随全局 api 或者单独设定一个」）
         // 摆法照设置里【线下与创作模型】那一栏：第一行是「跟随全局」，底下一行一条线路。
         (function () {

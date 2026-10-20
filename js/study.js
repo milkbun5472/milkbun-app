@@ -2893,10 +2893,10 @@
           const tc = (props.characters || []).find(function (c) { return c.id === tid; });
           if (!tc) return null;
           const on = cur.remindReview === true;
-          return h("button", { onClick: function () { saveCurriculum(Object.assign({}, cur, { remindReview: !on, updated_at: Date.now() })); props.onRefresh && props.onRefresh(); props.toast && props.toast(on ? "不催了" : "到点了 TA 会来聊天里催你"); },
+          const flip = function () { saveCurriculum(Object.assign({}, cur, { remindReview: !on, updated_at: Date.now() })); props.onRefresh && props.onRefresh(); props.toast && props.toast(on ? "不催了" : "到点了 TA 会来聊天里催你"); };
+          return h("div", { role: "button", tabIndex: 0, onClick: flip,
             className: "w-full flex items-center active:opacity-70", style: { marginTop: 6, padding: "6px 4px", gap: 8, background: "transparent", border: "none", textAlign: "left" } },
-            h("span", { style: { width: 30, height: 18, borderRadius: 999, background: on ? accent : STUDY_SKIN.line, position: "relative", flexShrink: 0, transition: "background .2s" } },
-              h("span", { style: { position: "absolute", top: 2, left: on ? 14 : 2, width: 14, height: 14, borderRadius: 999, background: STUDY_SKIN.paper, transition: "left .2s" } })),
+            h("span", { onClick: function (e) { e.stopPropagation(); }, style: { flexShrink: 0, display: "inline-flex" } }, h(Toggle, { on: on, onChange: flip, color: accent, offColor: STUDY_SKIN.line, size: "s", label: "到点催我复习" })),
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: STUDY_SKIN.sub, lineHeight: 1.5 } }, "到点了让 " + (tc.remark || tc.name) + " 在聊天里催我复习（一天最多一次）"));
         })(),
         // 知识地图 / 单元测（她 2026-09-28）：并排两格，跟下面那几条入口同一种纸

@@ -115,8 +115,7 @@
       h("div", { style: { flex: 1 } },
         h("div", { "data-wk": "gametogglelabel", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, props.label),
         props.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, props.sub) : null),
-      h("button", { "data-wk": "gameswitch", "data-on": props.on ? "1" : "0", onClick: props.onToggle, className: "shrink-0", style: { width: 50, height: 29, borderRadius: 999, background: props.on ? t.ink : t.line, position: "relative", transition: "background .2s" } },
-        h("span", { style: { position: "absolute", top: 3, left: props.on ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } })));
+      h(Toggle, { on: !!props.on, onChange: () => props.onToggle && props.onToggle(), color: t.ink, offColor: t.line, wk: "gameswitch", label: typeof props.label === "string" ? props.label : undefined }));
   }
 
   // ---- 通用：步进器 ----

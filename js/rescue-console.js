@@ -14,7 +14,7 @@
     };
     useEffect(function () { load(); const id = setInterval(load, 5000); return () => clearInterval(id); }, []);
     const send = async function (action, payload, confirmText) {
-      if (confirmText && !window.confirm(confirmText)) return;
+      if (confirmText && !(await window.askAppConfirm(confirmText, "", "确定"))) return;
       setBusy(true); setErr("");
       try { await window.Cloud.rescueRemoteEnqueue(action, payload || {}); toast && toast("已交给 VPS 急救室，结果会自动回来"); await load(); }
       catch (e) { setErr(String(e && e.message || e)); }
