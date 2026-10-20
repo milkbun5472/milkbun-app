@@ -9147,7 +9147,10 @@ async function generateOfflineGroup(p, ctx, session) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const novel = session.writeMode === "novel";
   const castNames = members.map(c => "『" + memberLabel(members, c) + "』").join("、");
-  const novelOut = "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一轮的整段小说正文（第三人称；在场的人自然穿插出场、互相接话，动作/神态/对话/环境写在一起，分段用换行）\",\"cast\":[{\"name\":\"这一段里出场的角色名\",\"thought\":\"（可选）TA 此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"}]}\n"
+  // 群线下当场改了安排（她 2026-10-20「群聊能改日程吗→接上吧」）：只给写了〔今天此刻在做什么〕的人开这一栏，写回在 app 那边
+  const gSchedField = (ctx.memberSched && Object.keys(ctx.memberSched).length)
+    ? ",\"schedNow\":\"（仅角色，可选；只有写了〔今天此刻在做什么〕的人才填，只填他本人的）" + SCHED_NOW_SPEC.replace(/^schedNow:/, "").replace(/"/g, "'") + "\"" : "";
+  const novelOut = "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一轮的整段小说正文（第三人称；在场的人自然穿插出场、互相接话，动作/神态/对话/环境写在一起，分段用换行）\",\"cast\":[{\"name\":\"这一段里出场的角色名\",\"thought\":\"（可选）TA 此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + "}]}\n"
     + "scene 是一整段连着读的小说，不按人切块；cast 里列这一段真正出场的人，一人一项，name 必须逐字填写以下名字之一：" + castNames + "。没出场的人不列。";
   // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
   const gRotateLine = rotateSpeakersNote(members, session.msgs);
@@ -9276,7 +9279,7 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members);
+    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + gSchedField + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members);
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -9335,7 +9338,8 @@ async function generateOfflineGroup(p, ctx, session) {
         thought: x.thought && String(x.thought).toLowerCase() !== "null" ? String(x.thought).trim() : null,
         mood: x.mood && x.mood.label ? x.mood : null,
         impression: (x.impression && typeof x.impression === "object") ? x.impression : null,
-        affinityDelta: typeof x.affinityDelta === "number" ? x.affinityDelta : 0 };
+        affinityDelta: typeof x.affinityDelta === "number" ? x.affinityDelta : 0,
+        schedNow: x.schedNow && typeof x.schedNow === "object" ? x.schedNow : null };
     }).filter(Boolean);
     const gSaid = lastUserTurnText(session.msgs);
     const nOut = nScene ? [{ role: "char", kind: "novel", senderId: null, senderName: nCast.map(x => x.senderName).join("、") || null, scene: gSaid ? stripEchoQuestionScene(nScene, gSaid) : nScene, cast: nCast, thought: null, mood: null, impression: null, affinityDelta: 0, photo: null }] : [];
@@ -9369,6 +9373,7 @@ async function generateOfflineGroup(p, ctx, session) {
       mood: spk && b.mood && b.mood.label ? b.mood : null,
       impression: (spk && b.impression && typeof b.impression === "object") ? b.impression : null,
       affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0,
+      schedNow: spk && b.schedNow && typeof b.schedNow === "object" ? b.schedNow : null,
       // 这一拍拍下的那一格。kind 由 app 再核一遍（谁能拍、够不够参考照都在那边算）。
       photo: (spk && b.photo && typeof b.photo === "object" && String(b.photo.scene || "").trim())
         ? { kind: String(b.photo.kind || "self"), scene: String(b.photo.scene).trim() } : null
