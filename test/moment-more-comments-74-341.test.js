@@ -33,7 +33,9 @@ test('① 回复逻辑只有一份：commentMoment 和刷更多都走 momentRepl
     '评论区的生成调用只许有一处（one-public-mechanism）');
   // roster / 兜底 / 容错解析都只许有一份
   assert.equal((src.match(/const roster =|roster = /g) || []).length > 0, true);
-  assert.equal((src.match(/const fallbackText = /g) || []).length, 1);
+  // 2026-10-20 起不再有写死的保底句：失败就是没人回，不替谁编一句
+  assert.equal((src.match(/const fallbackText = /g) || []).length, 0);
+  assert.ok(!/被你这么一说还真是/.test(src), '保底句池整个拿掉');
 });
 
 test('② 刷更多不许伪造「回复我」，失败就是这一轮没人说话', () => {

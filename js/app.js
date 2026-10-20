@@ -22079,15 +22079,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (_rtName && !roster.includes(_rtName) && _rtName !== meName0 && (mom.comments || []).some(c => c && momentWho(c.author) === _rtName)) roster = [_rtName, ...roster];
     const meName = meName0;
     const fbAuthor = primary.remark || primary.name;
-    // 兜底也别千篇一律的「看到啦」：贴着用户这条评论回一句短的
-    const fallbackText = () => {
-      const t = String(text || "").trim();
-      const pool = [
-        t ? "「" + (t.length > 12 ? t.slice(0, 12) + "…" : t) + "」——嗯，我看到了。" : "看到你评论啦。",
-        "哈哈你这条我记下了。", "被你这么一说还真是。", "懂你意思，回头细说。", "谢啦，收到～"
-      ];
-      return pool[Math.floor(Math.random() * pool.length)];
-    };
+    // ⚠️不再有「保底话」（群友 2026-10-20：回梁霄「干一半呢」，网络断了，周树生头上冒出一句「被你这么一说还真是。」）——
+    //   那是一池写死的句子，失败时随手抽一句挂在发帖人名下，不像他、也接不上。失败就是这一轮没人回，提示一声让她再点。
     try {
       const bundle = buildBundle(ctxFor(primary));
       // 评论区已有的往来（含用户和角色的来回）→ 让角色接着对话，别每次都从头开始（支持连续你来我往）
@@ -22133,7 +22126,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else if (d.reply) reps = [typeof d.reply === "string" ? { author: fbAuthor, text: d.reply } : d.reply];
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
-      if (!reps.length) reps = [{ author: fbAuthor, text: fallbackText() }]; // 保底
+      if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
       const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
@@ -22149,7 +22142,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: prefixFor(r, i) + r.text }] } : m)), 400 + i * 600));
     } catch (e) {
       if (more) return;   // 刷更多失败就是这一轮没人说话，不许伪造一条「回复我」
-      setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
+      toast("评论没人接上（" + String((e && e.message) || "网络问题").slice(0, 40) + "），点「更多评论」再来一轮");
     }
   };
   // 在谁的朋友圈下面说话，就用 TA 认的那张面具上的名字（群友 2026-10-11：「朋友圈回复只能按主面具的名字吗」）。
