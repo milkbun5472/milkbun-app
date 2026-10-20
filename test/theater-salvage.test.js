@@ -2,8 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const src = fs.readFileSync(__dirname + "/../js/theater.js", "utf8");
-const a = src.indexOf("const decodeLooseJsonText"), b = src.indexOf("function parseTheaterPayload");
-const salvage = new Function(src.slice(a, b) + "\nreturn salvageTheaterPayload;")();
+// decodeLooseJsonText 住在 engine.js（小剧场、跑团共用一份）
+const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+const dec = eng.slice(eng.indexOf("function decodeLooseJsonText"), eng.indexOf("function salvageByKeys"));
+const a = src.indexOf("const salvageTheaterPayload"), b = src.indexOf("function parseTheaterPayload");
+const salvage = new Function(dec + src.slice(a, b) + "\nreturn salvageTheaterPayload;")();
 
 test("小剧场抢救：正文里有中文引号把 JSON 弄坏，照样抠出 scene", () => {
   const p = salvage('{"scene":"我说"你来了"然后停下","goalReached":false,"goalFailed":false,"goalNote":null}');
