@@ -13491,7 +13491,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const summary = typeof window.YanqiuCcTools.approvalSummary === "function"
               ? window.YanqiuCcTools.approvalSummary(ccToolRequest)
               : String(ccToolRequest.toolName || "CC 工具") + "：\n" + JSON.stringify(ccToolRequest.arguments || {}, null, 2).slice(0, 1200);
-            const approved = window.confirm("言秋想通过 CC 做这项操作：\n\n" + summary + "\n\n允许这一次吗？");
+            const approved = await askAppConfirm("言秋想通过 CC 做这项操作", summary + "\n\n允许这一次吗？", "允许", { cancelLabel: "不允许", danger: false });
             if (!approved) throw new Error("Lisa 没有批准这一次操作");
           }
           if (!ccToolManagerRef.current) ccToolManagerRef.current = window.YanqiuCcTools.createManager({ storage: localStorage, cloud: window.Cloud });

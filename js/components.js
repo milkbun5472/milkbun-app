@@ -1847,6 +1847,15 @@ function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel, opts)
     danger: !(opts && opts.danger === false) });
   return true;
 }
+// 要「等她点完」的地方用这一支：返回 Promise<true/false>。底下还是同一个确认层（requestAppConfirm），
+//   取代浏览器自带的 window.confirm——装成 App 以后那个框会被系统吞掉，等于一直按了「取消」。
+function askAppConfirm(title, body, confirmLabel, opts) {
+  return new Promise(resolve => {
+    const ok = requestAppConfirm(title, body, () => resolve(true), confirmLabel, () => resolve(false), opts);
+    if (!ok) resolve(false);
+  });
+}
+if (typeof window !== "undefined") window.askAppConfirm = askAppConfirm;
 // 要她填一行字的时候借这一层（v64.88，她 2026-09-06 报「可以放 5 套预设那个按钮也是摆设」）。
 // ⚠️病根跟 confirm 那次一字不差：**window.prompt 在 PWA / iOS 独立窗口里会被系统吞掉**，
 //   而且【不抛异常、直接返回 null】——调用点写的 `try{...}catch{兜底}` 一次都不会走到，
