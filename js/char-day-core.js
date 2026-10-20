@@ -31,8 +31,6 @@
     const clock = root.ScheduleClock, frame = clock.characterFrame(char, at, options);
     const pinned=[options.clockSource,options.memorySource].find(v=>v?.virtualAt===frame.displayAt&&/^\d{4}-\d{2}-\d{2}$/.test(v.sourceDay));
     if(frame.followVirtual&&frame.paused&&pinned)frame.sourceDay=pinned.sourceDay;
-    // 钟上开了「日程照这只钟的日子排」：日程存在虚拟那天的键上，这里也照那天找（她 2026-10-20：日历上排好了，今天的日程却说没有）
-    if (frame.virtual && typeof schedFollowOn === "function" && char && schedFollowOn(char.id)) frame.sourceDay = frame.day;
     const plan = (plans || {})[frame.sourceDay], rows = typeof schedFillEnds === "function" ? schedFillEnds(plan?.seqs || []) : plan?.seqs || [];
     const slot = clock.currentSlot(char, plans, frame.at, frame.offset, {
       planDay:frame.sourceDay,
