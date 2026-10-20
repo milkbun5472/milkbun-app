@@ -10473,8 +10473,13 @@ function ChatThread({
     else onSend(v);
   };
   // 让 TA 回复：对话/旁白模式都触发一次生成；旁白模式先把输入当旁白注入
+  const autoFiredRef = useRef(0);
+  const lastMsgRef = useRef(null);
   const reply = (pending) => {
     if (sending) return;
+    // 她自己按了叶子／发送：眼下这几条就算回过了，「停手几秒自己回」别再为同一条补一轮
+    //   （群里 2026-10-20：「发完下一秒自己弹了第二轮，还是在房间里」）。多给 3 秒，盖住这一下刚 push 进来的那条
+    autoFiredRef.current = Math.max(autoFiredRef.current, Date.now() + 3000);
     if (dirMode) { if (pending) onAddDirNote(pending, dirLong); onReply(""); return; }
     if (chatMode === "narr") {
       if (pending) sendRich({
@@ -10490,15 +10495,15 @@ function ChatThread({
   //   判据只有三样，都是此刻看得见的：最后一条是她发的、还没回过；键盘收着（输入框没聚焦）；输入框是空的。
   //   她一点输入框、一打字，计时就作废；收起键盘再从头数。跟按叶子走同一个 reply("")——
   //   睡着／忙着晚点回那些闸照旧管，这里不另开一条路。一条消息只自动回一次。
-  const autoFiredRef = useRef(0);
   useEffect(() => {
     if (!(autoReplySec > 0) || sending || selMode || chatMode === "ooc") return;
     const last = messages && messages[messages.length - 1];
+    lastMsgRef.current = last || null;
     if (!last || last.role !== "user" || !last.ts || autoFiredRef.current >= last.ts) return;
     const box = () => document.querySelector('[data-wk="chatinput"]');
     const busy = () => { const b = box(); return !!b && (document.activeElement === b || String(b.value || "").trim().length > 0); };
     let timer = 0;
-    const arm = () => { clearTimeout(timer); if (!busy()) timer = setTimeout(() => { if (busy() || sending) return; autoFiredRef.current = last.ts; reply(""); }, autoReplySec * 1000); };
+    const arm = () => { clearTimeout(timer); if (!busy()) timer = setTimeout(() => { const now0 = lastMsgRef.current; if (busy() || sending || autoFiredRef.current >= last.ts || !now0 || now0.role !== "user" || now0.ts !== last.ts) return; autoFiredRef.current = last.ts; reply(""); }, autoReplySec * 1000); };
     const b = box();
     const onAny = () => { clearTimeout(timer); setTimeout(arm, 0); };
     if (b) { b.addEventListener("focus", onAny); b.addEventListener("blur", onAny); b.addEventListener("input", onAny); }

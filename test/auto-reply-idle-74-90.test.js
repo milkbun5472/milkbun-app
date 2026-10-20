@@ -17,3 +17,11 @@ test("只在：最后一条是她的、键盘收着、框是空的；走的是�
   assert.match(seg, /autoFiredRef\.current = last\.ts; reply\(""\);/);
   assert.match(seg, /autoFiredRef\.current >= last\.ts/);
 });
+
+// 群里 2026-10-20：「发完下一秒自己弹了第二轮」——她自己按了叶子／发送，同一条不许再自动回一轮
+{
+  const assert = require("node:assert/strict");
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(c, /const reply = \(pending\) => \{\n    if \(sending\) return;[\s\S]{0,300}autoFiredRef\.current = Math\.max\(autoFiredRef\.current, Date\.now\(\) \+ 3000\);/);
+  assert.match(c, /const now0 = lastMsgRef\.current; if \(busy\(\) \|\| sending \|\| autoFiredRef\.current >= last\.ts \|\| !now0 \|\| now0\.role !== "user" \|\| now0\.ts !== last\.ts\) return;/);
+}
