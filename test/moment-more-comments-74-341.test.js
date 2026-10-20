@@ -41,7 +41,8 @@ test('② 刷更多不许伪造「回复我」，失败就是这一轮没人说�
     'catch 兜底必须在 more 档直接退出');
   // 前缀那一处：more 档不许写死 "回复 " + meName
   const pre = src.slice(src.indexOf('const prefixFor ='), src.indexOf('reps.forEach('));
-  assert.ok(pre.includes('if (!more) return "回复 " + meName'), '原档前缀不变');
+  // 原档默认回我；2026-10-20 起可以回评论区里真说过话的别人（大家一起聊）
+  assert.ok(pre.includes('if (!more) return "回复 " + (okTo && to !== meName ? to : meName)'), '原档默认回我、只认真说过话的人');
   assert.ok(pre.includes('inThreadNames.includes(to)'),
     'more 档的「回复谁」只许认评论区里真出现过的名字');
 });
