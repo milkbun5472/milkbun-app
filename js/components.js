@@ -20139,11 +20139,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       meOn ? h("div", { style: { marginTop: taOn ? 12 : 10, paddingTop: taOn ? 10 : 0, borderTop: taOn ? "1px dashed " + t.line : "none" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#4f6b78" } }, "你的小号"),
       h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55 } },
-        "挑一张面具当小号，或者自己写一个只给这间房用的：TA在这间房里看到的就是它的名字和人设。"),
+        "挑一张面具当小号，或者自己写一个只给这间房用的：TA在这间房里看到的是那张面具的【昵称】和人设（面具名称只给你自己认，TA 看不到）。想换个网名，改那张面具的昵称，或者点「＋ 自己写一个」。"),
       // 「自己写一个」（她 2026-10-07：「有时候还要新的不是我面具的自己弄的新人设」）：
       //   只活在这一间房里，不进面具库；名字和人设直接存进 alt.mask，闸那头照样读它
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
-        masks.map(m => chip(a.maskId === m.id, m.label || m.name || "未命名", () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)),
+        // 按钮上写的是「面具名称」（只给她认的），TA 看到的是昵称——两个不一样时把 TA 看到的那个也写上（她 2026-10-20：「小号房间我的名字不是我写的」）
+        masks.map(m => chip(a.maskId === m.id, (m.label || m.name || "未命名") + (m.label && m.name && String(m.label).trim() !== String(m.name).trim() ? "（TA 看到：" + m.name + "）" : ""), () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)),
         chip(a.maskId === "__own", "＋ 自己写一个", () => setAlt({ maskId: "__own", mask: a.maskId === "__own" ? a.mask : { name: "", persona: "" } }), "__own")),
       a.maskId === "__own" ? h("div", { style: { marginTop: 8 } },
         h("input", { "data-wk": "input", value: (a.mask && a.mask.name) || "", onChange: e => setAlt({ mask: { ...(a.mask || {}), name: e.target.value.slice(0, 24) } }), placeholder: "小号的网名",
