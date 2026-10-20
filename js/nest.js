@@ -404,7 +404,6 @@
   // ── 一条东西点进去（她 2026-10-16 定的 B：揭下来的那张纸条 + 一本留言簿）──────────
   function Detail({ t, id, props, me, onClose, onGone, onUser, onLogin, onEdit }) {
     const [it, setIt] = useState(null), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
-    const [armed, setArmed] = useState(false);
     const [placing, setPlacing] = useState(false);   // CSS／整套聊天美化：先问放哪儿
     const [follow, setFollow] = useState(null);       // null＝还不知道
     const [tries, setTries] = useState(0);   // 「再试一次」
@@ -465,11 +464,11 @@
       const ok = await copyText(it.payload);
       props.toast(ok ? (it.kind === "css" ? "CSS 已复制" : it.kind === "doc" ? "整份复制好了" : "已复制，可以贴进对应那一页的导入框") : "这台手机不让复制，长按预览里的字试试");
     };
-    const doDelete = async () => {
-      if (!armed) { setArmed(true); return; }
+    const doDelete = () => requestAppConfirm("删掉这条？", "从小窝里撤下来，大家都看不到了，删了找不回来。", doDeleteNow, "删掉");
+    const doDeleteNow = async () => {
       setBusy(true);
       try { await api("/item/" + id, { method: "DELETE" }); props.toast("删掉了"); onGone(id); }
-      catch (e) { props.toast("没删成：" + e.message); setBusy(false); setArmed(false); }
+      catch (e) { props.toast("没删成：" + e.message); setBusy(false); }
     };
     // 赞、收藏：再点一次就收回；没登录先去登录
     const toggle = async which => {
@@ -532,7 +531,7 @@
           h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
             isPost ? null : isDoc ? h(Btn, { t, onClick: doSave, wk: "nestdocsave" }, "存成文件") : h(Btn, { t, onClick: doCopy, wk: "nestcopy" }, "复制"),
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: () => onEdit(it), wk: "nestedit" }, "编辑") : null,
-            (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点就删" : "删除") : null),
+            (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, "删除") : null),
           admin && !it.returned ? (retOpen
             ? h("div", { "data-wk": "nestreturnform", style: { marginTop: 10 } },
                 h("textarea", { value: retText, maxLength: 300, rows: 3, placeholder: "写给作者：为什么退回、要改哪儿", onChange: e => setRetText(e.target.value), className: "w-full outline-none",

@@ -993,7 +993,7 @@
       finally { setStBusy(""); }
     };
     const askDropSt = st => { const go = () => { dropSt(st); setView("home"); };
-      if (props.confirm) props.confirm("不要这个主播了？", "跟他的交情和私信一起不要了。", go); else go(); };
+      requestAppConfirm("不要这个主播了？", "跟他的交情和私信一起不要了。", go, "不要了"); };
     const rerollClub = async st => {
       if (!props.askStranger || stBusy) return;
       setStBusy("club");

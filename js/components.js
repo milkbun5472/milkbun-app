@@ -19441,7 +19441,6 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [gMyAv, setGMyAv] = useState((gs && gs.myAvatar) || null);
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [wipeMemToo, setWipeMemToo] = useState(false);
   const [transOn, setTransOn] = useState(transKeyOn);
@@ -19716,13 +19715,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "清除线上与线下记录")),
 
     // 删除群聊
-    confirmDel
-      ? h("div", { className: "mt-4 rounded-xl", style: { border: "1px solid " + t.accent, padding: "12px 14px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 10 } }, "确定删除这个群聊？聊天记录会一并清除，不可恢复。"),
-          h("div", { className: "flex gap-2" },
-            h("button", { onClick: () => setConfirmDel(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "取消"),
-            h("button", { onClick: () => { onDelete(); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "删除")))
-      : h("button", { onClick: () => setConfirmDel(true), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "删除群聊")))), document.body);
+    h("button", { onClick: () => requestAppConfirm("删掉这个群聊？", "聊天记录会一并清除，不可恢复。删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { onDelete(); }, "删除"), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "删除群聊")))), document.body);
 }
 function NewGroupSheet({
   characters,

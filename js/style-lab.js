@@ -24,11 +24,8 @@
     const [curId, setCurId] = useState(() => { const l = SP.list(); return l.length ? l[0].id : ""; });
     const [openCat, setOpenCat] = useState({});
     const [showFull, setShowFull] = useState(false);
-    // 删除一律「点一下问一句、再点一下才删」。以前用 confirm()，装成 PWA 之后不一定弹得出来，
-    // 弹不出来时代码会当成「取消」——表现就是「按了没反应」，跟按钮太小的症状一模一样，
-    // 查起来会绕远路。行内确认还有个好处：第一下就有可见反馈，按没按到一眼就知道。
+    // 删除一律走全 app 那一个确认框（requestAppConfirm）；不用浏览器 confirm()，PWA 里不一定弹得出来。
     const [modEdit, setModEdit] = useState(null);  // 正在改的那一条：{ id（"__new"＝新写）, name, hint, text }
-    const [armed, setArmed] = useState("");        // 非空=这个 id 的删除已经问过一次，再点就真删
     const fileRef = useRef(null);
 
     const cur = presets.find(p => p.id === curId) || null;
@@ -43,9 +40,10 @@
     const dupPreset = () => { if (!cur) return; const p = Object.assign({}, cur, { id: rid2("sp_"), name: cur.name + " 副本", ts: Date.now() }); commit(presets.concat([p])); setCurId(p.id); };
     const delPreset = () => {
       if (!cur) return;
-      if (armed !== cur.id) { setArmed(cur.id); return; }
-      const next = presets.filter(p => p.id !== cur.id);
-      setArmed(""); commit(next); setCurId(next.length ? next[0].id : "");
+      const id = cur.id;
+      requestAppConfirm("删掉这块版？", "「" + (cur.name || "") + "」整块删掉，删了找不回来。删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => {
+        setPresets(list => { const next = list.filter(p => p.id !== id); SP.save(next); setCurId(next.length ? next[0].id : ""); return next; });
+      }, "删掉");
     };
     const toggleMod = id => {
       if (!cur) return;
@@ -304,10 +302,9 @@
                               style: Object.assign({}, S.tapIcon(m.edited ? t.accent : t.fog), { fontSize: "calc(11.5px * var(--app-fs, 1))", borderRadius: 3, border: "1px solid " + t.line }) },
                               m.edited ? "改过" : "改") : null,
                             m.user ? h("button", { "data-wk": "slmoddel", onClick: () => {
-                                if (armed !== m.id) { setArmed(m.id); return; }
-                                SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },
-                              style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: "calc(11.5px * var(--app-fs, 1))", borderRadius: 3, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
-                              armed === m.id ? "真删" : "删") : null);
+                                requestAppConfirm("删掉这条模块？", "「" + (m.name || "") + "」删了找不回来。删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { SP.removeUserModule(m.id); setPresets(SP.list().slice()); }, "删掉"); },
+                              style: Object.assign({}, S.tapIcon(t.fog), { fontSize: "calc(11.5px * var(--app-fs, 1))", borderRadius: 3, border: "1px solid " + t.line }) },
+                              "删") : null);
                         }))
                     : null);
               })),
@@ -374,12 +371,8 @@
             // 台脚那几颗跟台边的家伙什长一个样（都是工具，不是版）
             h("div", { "data-wk": "slactions", style: { display: "flex", gap: 6, alignItems: "center", paddingTop: 9, borderTop: "1px dashed " + t.line } },
               h("button", { "data-wk": "slactbtn", "data-part": "dup", onClick: dupPreset, style: Object.assign({}, S.tool, { color: t.tint }) }, "复制一份"),
-              h("button", { "data-wk": "slactbtn", "data-part": "del", onClick: delPreset, style: Object.assign({}, S.tool, { color: t.accent },
-                armed === cur.id ? { background: t.accent, color: "#fff", borderColor: t.accent } : null) },
-                armed === cur.id ? "真删？再点一下" : "删掉这块版"),
-              armed === cur.id
-                ? h("button", { onClick: () => setArmed(""), style: Object.assign({}, S.tool, { color: t.fog }) }, "算了")
-                : null)));
+              h("button", { "data-wk": "slactbtn", "data-part": "del", onClick: delPreset, style: Object.assign({}, S.tool, { color: t.accent }) },
+                "删掉这块版"))));
 
     // ---- 测试台 ----
     const chars = props.characters || [];
@@ -517,8 +510,8 @@
         ? h("div", { "data-wk": "slruns" },
             h("div", { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
               h("div", { style: S.h2 }, "结果 · 最近 " + runs.length + " 次"),
-              h("button", { onClick: () => { if (armed !== "__runs") { setArmed("__runs"); return; } setArmed(""); setRuns(SP.clearRuns()); },
-                style: Object.assign({}, S.tool, { color: armed === "__runs" ? t.accent : t.fog, marginLeft: "auto" }) }, armed === "__runs" ? "真清空？再点一下" : "清空")),
+              h("button", { onClick: () => requestAppConfirm("清空试写结果？", "最近这些试写记录全部清掉，清了找不回来。", () => setRuns(SP.clearRuns()), "清空"),
+                style: Object.assign({}, S.tool, { color: t.fog, marginLeft: "auto" }) }, "清空")),
             // 每一次试写＝一张打样纸：正文印在纸上，纸脚那一条印着这张是谁、哪一场、多少字。
             // 印坏的那张纸脚整条上红——一眼挑得出来，不用去读小字。
             h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },

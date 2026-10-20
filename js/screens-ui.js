@@ -5710,7 +5710,6 @@ function AvatarPoolConfig({ toast }) {
   const fileRef = useRef(null);
   const [pool, setPool] = useState(() => (typeof avatarPool === "function" ? avatarPool() : []));
   const [busy, setBusy] = useState(false);
-  const [armed, setArmed] = useState(false);
   const add = async e => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
@@ -5746,10 +5745,10 @@ function AvatarPoolConfig({ toast }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } },
         pool.length ? ("池子里有 " + pool.length + " 张") : "还是空的 · 现在用程序化头像"),
       pool.length ? h("button", {
-        onClick: () => { if (armed) { avatarPoolSave([]); setPool([]); setArmed(false); toast && toast("已清空，回到程序化头像"); } else setArmed(true); },
+        onClick: () => requestAppConfirm("清空头像池？", "池子里的 " + pool.length + " 张图都会拿掉，回到程序化头像。", () => { avatarPoolSave([]); setPool([]); toast && toast("已清空，回到程序化头像"); }, "清空"),
         className: "active:opacity-60",
         style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent }
-      }, armed ? "确定清空？" : "清空") : null),
+      }, "清空") : null),
     h("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, className: "hidden", onChange: add }),
     pool.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
       pool.slice(0, 24).map(k => h("img", {
