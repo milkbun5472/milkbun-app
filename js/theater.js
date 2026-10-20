@@ -87,12 +87,7 @@
   // Claude 偶尔会在 JSON 字符串正文里直接写中文对话引号，导致整份 JSON
   // 语法失效。此时不猜整份对象，只按协议中稳定的字段边界抢救 scene；
   // goal 字段仍逐个读取，绝不把协议壳当正文。
-  const decodeLooseJsonText = value => String(value || "")
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/\\r\\n|\\n|\\r/g, "\n")
-    .replace(/\\t/g, "\t")
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, "\\");
+  // decodeLooseJsonText / salvageByKeys 住在 engine.js（跟跑团共用一份）
   const salvageTheaterPayload = raw => {
     const text = String(raw || "").replace(/```(?:json)?/gi, "").trim();
     const startMatch = /"scene"\s*:\s*"/.exec(text);
@@ -156,27 +151,6 @@
   //   ② 正文里用了未转义的英文引号（中文对白最爱）。
   // 现在按 scene 同一套梯队来：先规规矩矩解析 → 转义控制字符再解析 → 拆一层字符串双包
   //   → 最后按【已知键名的边界】把每个字段的正文硬抠出来。抠不出来就返回 null，绝不猜。
-  const salvageByKeys = (raw, keys) => {
-    const text = String(raw || "").replace(/```(?:json)?/gi, "");
-    const out = {};
-    let got = 0;
-    keys.forEach(k => {
-      const head = new RegExp('"' + k + '"\\s*:\\s*"').exec(text);
-      if (!head) return;
-      const rest = text.slice(head.index + head[0].length);
-      let end = -1;
-      keys.forEach(nk => {
-        if (nk === k) return;
-        const m = new RegExp('"\\s*,\\s*"' + nk + '"\\s*:').exec(rest);
-        if (m && (end < 0 || m.index < end)) end = m.index;
-      });
-      if (end < 0) { const tail = /"\s*\}[\s\S]*$/.exec(rest); end = tail ? tail.index : -1; }
-      if (end < 0) return;
-      const v = decodeLooseJsonText(rest.slice(0, end)).trim();
-      if (v) { out[k] = v; got++; }
-    });
-    return got ? out : null;
-  };
   const parseSettingPayload = (raw, keys) => {
     let v = null;
     for (const cand of [String(raw || ""), escapeJsonStringControls(raw)]) {

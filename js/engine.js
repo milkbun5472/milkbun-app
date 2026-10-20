@@ -1411,6 +1411,37 @@ function escapeJsonStringControls(value) {
 }
 // extractJSON 的加固版：先规规矩矩解析，再转义控制字符重试，最后拆一层字符串双包。
 // 任何「拿模型返回当 JSON 用」的地方都该走它，别再各写各的。
+// 模型回的 JSON 整份坏掉时，按【已知键名的边界】把每个字段的字符串正文硬抠出来（小剧场、跑团共用，2026-10-20 从两份收成一份）。
+//   下一个已知键之前就是这一格的结尾；最后一格认到收尾的 "} 为止（不认中途的 ", ——正文里常有 ", 会被截短）。抠不出返回 null，绝不猜。
+function decodeLooseJsonText(value) {
+  return String(value || "")
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\r\\n|\\n|\\r/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+function salvageByKeys(raw, keys) {
+  const text = String(raw || "").replace(/```(?:json)?/gi, "");
+  const out = {};
+  let got = 0;
+  keys.forEach(k => {
+    const head = new RegExp('"' + k + '"\\s*:\\s*"').exec(text);
+    if (!head) return;
+    const rest = text.slice(head.index + head[0].length);
+    let end = -1;
+    keys.forEach(nk => {
+      if (nk === k) return;
+      const m = new RegExp('"\\s*,\\s*"' + nk + '"\\s*:').exec(rest);
+      if (m && (end < 0 || m.index < end)) end = m.index;
+    });
+    if (end < 0) { const tail = /"\s*\}[\s\S]*$/.exec(rest); end = tail ? tail.index : -1; }
+    if (end < 0) return;
+    const v = decodeLooseJsonText(rest.slice(0, end)).trim();
+    if (v) { out[k] = v; got++; }
+  });
+  return got ? out : null;
+}
 function parseJSONLoose(raw) {
   let v = null;
   for (const cand of [String(raw || ""), escapeJsonStringControls(raw)]) {
