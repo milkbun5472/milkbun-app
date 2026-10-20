@@ -36,3 +36,9 @@ test("群聊和心声卡也接上", () => {
     assert.equal((seg.match(/fontSize: \d+(?:\.\d+)?[,\s}]/g) || []).length, 0, a + " 还有没接上的字号");
   }
 });
+
+test("日记也接上", () => {
+  const sui = rd("js/screens-ui.js");
+  const seg = sui.slice(sui.indexOf("function setDiaryPaper("), sui.indexOf("function MyWallet("));
+  assert.equal((seg.match(/fontSize: \d+(?:\.\d+)?[,\s}]/g) || []).length, 0);
+});
