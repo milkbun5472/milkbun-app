@@ -63,3 +63,10 @@ test('group online, call and offline each keep the bill inside the authorized me
     assert.doesNotMatch(text,/秘密银行|没有分享的秘密|别人的私密批注/);
   }
 });
+
+// 群里 2026-10-20：App 里转的钱和她现实记账是两本账，别对起来问「剩下的去哪了」
+{
+  const assert = require("node:assert/strict");
+  const e = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(e, /你在这个 App 里转给 Ta 的钱、红包、亲属卡是另一本账，跟这里不相通/);
+}
