@@ -6452,9 +6452,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   查手机、穿书、匿名箱、解梦馆共用的那一口，接在这儿就是八处一起有了。
   // 【四处一样喂 · 差异登记】群聊 ❌ 有真理由：一个群里好几个角色同时在场，
   //   同一句话没法对着不同的人戴不同的脸——群里一律用主面具。
+  // 「他认的是哪张面具」只在这一处算：主面具（没挑过、或挑的就是主面具那张）＝""；群照群挑的那张。
+  //   profileFor、钟、查手机、群默认面具都问它（2026-10-20 收：原来 profileFor、peekDailyKey 各自又写了一遍）
+  const maskKeyOf = id => {
+    if (String(id || "").indexOf("g:") === 0) return groupMaskKey(String(id).slice(2));   // 群的钟：照群挑的那张面具
+    const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m;
+  };
   const profileFor = charId => {
-    const id = String((settingsFor(charId) || {}).maskId || "");
-    if (!id || id === maskPrimary) return profile;  // 没挑过、或认的就是主面具那张
+    const id = maskKeyOf(charId);
+    if (!id) return profile;  // 没挑过、或认的就是主面具那张
     const m = (masksRef.current || []).find(x => x && x.id === id);
     return m || profile;                            // 那张被删了也别炸：回主面具
   };
@@ -11180,10 +11186,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // sneak：TA趁她不注意偷偷翻的（她 2026-10-02：开关决定谁可以偷偷翻，全部角色共用冷却）——
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
-  const maskKeyOf = id => {
-    if (String(id || "").indexOf("g:") === 0) return groupMaskKey(String(id).slice(2));   // 群的钟：照群挑的那张面具
-    const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m;
-  };
   // 「TA 自己一只钟」（她 2026-10-16：「有时候想单独暂停某个角色的时间过剧情」）：开着的那几段，这个人的时间走 "c:角色id" 那只钟，
   //   不跟面具。ownClockSpans＝[{from, until}]：哪段现实时间里是他自己的钟——旧消息照它当时那只钟算，关掉以后也不挪。
   //   ts 不给＝问现在。群（g:）不管这个。
@@ -11287,7 +11289,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekMaskView = () => { try { return peekPlay && window.__peekMask && window.__peekMask.ids.size ? window.__peekMask : null; } catch (e) { return null; } };
   const peekMaskHit = (pm, txt, id) => !!pm && ((id && pm.ids.has(String(id))) || pm.names.some(n => String(txt || "").includes(n)));
   // 日常联系人按面具分开：换一张面具就是另一台手机、另一批人
-  const peekDailyKey = viewerId => { const m = String((settingsFor(viewerId) || {}).maskId || ""); return m && m !== maskPrimary ? m : "main"; };
+  const peekDailyKey = viewerId => maskKeyOf(viewerId) || "main";   // 存档里主面具那一格叫 "main"，键名不动
   const peekDailyOf = viewerId => ((loadJSON("x_myDaily", {}) || {})[peekDailyKey(viewerId)]) || null;
   const peekDailyEnsure = async (viewerId, c) => {
     const cur = peekDailyOf(viewerId);
