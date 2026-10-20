@@ -22072,6 +22072,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
     }
+    // 回的是评论区里一个不是角色的人（群友 2026-10-20：回了评论区里的同学「梁霄」，结果只有发帖人接话）：
+    //   他不在角色名单里，「可能回复的人」里就没有他，lastLine 却说他必须回——模型只能找别人顶上。
+    //   只要这个名字真在这条评论区里说过话，就把他排进名单第一个。
+    const _rtName = replyTo ? momentWho(replyTo) : "";
+    if (_rtName && !roster.includes(_rtName) && _rtName !== meName0 && (mom.comments || []).some(c => c && momentWho(c.author) === _rtName)) roster = [_rtName, ...roster];
     const meName = meName0;
     const fbAuthor = primary.remark || primary.name;
     // 兜底也别千篇一律的「看到啦」：贴着用户这条评论回一句短的
