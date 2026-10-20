@@ -329,6 +329,8 @@
   //   CSS 三处都能放；整套聊天美化只有聊天窗和群（线下没有那一套皮）。
   function Place({ t, props, busy, slots, onPick, onAll, onCancel }) {
     const [tab, setTab] = useState(slots[0]);
+    const [sel, setSel] = useState([]);   // 勾上的那几个；换标签就清空，免得人和群混着放
+    useEffect(() => { setSel([]); }, [tab]);
     const chars = (props.characters || []).filter(c => c && !c.npc);
     const list = tab === "group" ? (props.groups || []).map(g => ({ id: g.id, name: g.name || "未命名的群" })) : chars.map(c => ({ id: c.id, name: c.name }));
     const zh = { chat: "聊天窗", group: "群聊", offline: "线下" };
@@ -345,9 +347,12 @@
       h("div", { "data-wk": "nestplacetabs", style: { marginTop: 14 } },
         h(Cubbies, { t, kind: tab, onPick: setTab, cols: slots.length, flush: true, items: slots.map(k => ({ key: k, zh: zh[k] })) })),
       h("div", { style: { marginTop: 6 } },
-        list.length ? list.map(x => h("button", { key: x.id, "data-wk": "nestplacerow", disabled: busy, onClick: () => onPick(tab, x.id, x.name), className: "w-full flex items-center justify-between active:opacity-70 disabled:opacity-40",
+        list.length ? h(React.Fragment, null, list.map(x => { const on = sel.some(y => y.id === x.id);
+          return h("button", { key: x.id, "data-wk": "nestplacerow", "data-on": on ? "1" : "0", disabled: busy, onClick: () => setSel(p => on ? p.filter(y => y.id !== x.id) : p.concat([x])), className: "w-full flex items-center justify-between active:opacity-70 disabled:opacity-40",
           style: { minHeight: 46, padding: "0 4px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } },
-          h("span", { className: "truncate" }, x.name), h("span", { style: { color: t.fog, fontSize: "calc(12.5px * var(--app-fs, 1))", flexShrink: 0 } }, "放这儿 ›")))
+          h("span", { className: "truncate" }, x.name),
+          h("span", { "aria-hidden": true, style: { flexShrink: 0, width: 20, height: 20, borderRadius: 6, border: "1.5px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: t.bg2, fontSize: 13, lineHeight: "17px", textAlign: "center" } }, on ? "✓" : "")); }),
+          h("div", { style: { marginTop: 12 } }, h(Btn, { t, solid: true, wide: true, disabled: busy || !sel.length, onClick: () => onPick(tab, sel), wk: "nestplacego" }, sel.length ? "放进勾上的 " + sel.length + " 个" : "先勾要放的")))
         : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "14px 4px" } }, tab === "group" ? "还没有群" : "还没有角色")));
   }
 
@@ -420,13 +425,19 @@
       setBusy(false);
     };
     // 放进某一个人／群：照样记一次导入
-    const placeOne = async (where, wid, name) => {
+    // 一次放进好几处（她 2026-10-20：「搞个多选吧宝宝不要全选」）：勾几个放几个，只算一次导入
+    const placeMany = async (where, picks) => {
+      if (!picks || !picks.length) return;
       setBusy(true);
       try {
         const d = await api("/item/" + it.id + "?import=1");
-        if (it.kind === "css") cssInto(where, wid, d.payload, d.title, props);
-        else await lookInto(where, wid, d.payload, props);
-        props.toast("已放进「" + name + "」" + (where === "group" ? "这个群" : where === "offline" ? "的线下" : "的聊天窗") + "，去那儿看看；不满意在那一页的设置里点「↶ 回到上一版」");
+        const done = [];
+        for (const x of picks) {
+          try { if (it.kind === "css") cssInto(where, x.id, d.payload, d.title, props); else await lookInto(where, x.id, d.payload, props); done.push(x.name); } catch (_) {}
+        }
+        if (!done.length) throw new Error("一处都没放成");
+        const what = where === "group" ? "群" : where === "offline" ? "人的线下" : "人的聊天窗";
+        props.toast("已放进 " + (done.length === 1 ? "「" + done[0] + "」" : done.length + " 个" + what) + (done.length < picks.length ? "（有 " + (picks.length - done.length) + " 处没放成）" : "") + "，去那儿看看；不满意在那一页的设置里点「↶ 回到上一版」");
         setPlacing(false);
       } catch (e) { props.toast("没放进去：" + e.message); }
       setBusy(false);
@@ -534,7 +545,7 @@
           isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
             ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
           placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : ["chat", "group"],
-            onPick: placeOne, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
+            onPick: placeMany, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
           h(Shots, { t, it, props }),
           preview && !isPost && !isDoc ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
             h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7,
