@@ -13942,8 +13942,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 情书、交换日记、便签墙三样都是「TA写字给你」，便签墙只是「短」，没有
         // 自己的形状。它唯一独有的是【TA不请自来贴的那一张】，那正是抽屉在做的事。
         const wtext = String(parsed.whisper).trim();
-        drawerWhisper(charId, wtext);
-        notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId });
+        if (drawerWhisper(charId, wtext)) { notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId }); }
       }
       // ── 刻一首歌进唱片（她 2026-09-03）────────────────────────────────
       // ⚠️落盘成功才出卡片，跟备忘录那条同一个道理：云村没搜到就什么都没发生，
@@ -26723,6 +26722,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const drawerWhisper = (charId, text) => {
     const t = String(text || "").trim();
     if (!charId || !t) return false;
+    // 二十分钟内同一个人只放一句（群友 2026-10-20：两句意思差不多、只差一分钟）。
+    //   放悄悄话的路不止一条——聊天回话里顺手留、定时那一档、进情侣空间补一档——前后脚撞上就成了两句。
+    const now = Date.now();
+    if ((coupleDrawerRef.current || []).some(x => x && x.characterId === charId && x.kind === "whisper" && now - Number(x.ts || 0) < 20 * 60000)) return false;
     // ⚠️title 留空（v61.33）：这一路原来切的是正文头 16 个字，而抽屉封面上印的就是 title
     //   ——等于她还没拆就已经读到TA要说的话了（她 2026-09-03 报的就是这个）。
     //   界面那边已经改成【封着的时候一个字都不露】；这儿一并断掉源头，
