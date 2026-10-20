@@ -16725,7 +16725,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 地板（v74.732，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
     //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
     //   拒到第 UNBLOCK_FLOOR_TRIES 次，这一次由代码定下【解】；怎么解（嘴硬、别扭、带条件）还是他自己说。
-    const floor = tries >= UNBLOCK_FLOOR_TRIES;
+    // ⚠️小号房里他没认出是她：拉黑的是一个陌生网友（她 2026-10-20：「我开小号挑拨离间我和他，他确实不该放出来」）。
+    //   保底是为了「他在意的那个人」别被一直关着；对一个陌生号不该代他心软——解不解全交给他。
+    const _ubRoom = String(chatKey).indexOf("::room::") > 0 && window.ChatRooms ? window.ChatRooms.get(charId, String(chatKey).split("::room::")[1]) : null;
+    const strangerAlt = !!(_ubRoom && window.ChatRooms.altHidesMe && window.ChatRooms.altHidesMe(_ubRoom));
+    const floor = !strangerAlt && tries >= UNBLOCK_FLOOR_TRIES;
     startLane("c:" + chatKey);
     try {
       const head = blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
@@ -16741,7 +16745,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "\n· TA 这次说的，有没有真的碰到【你当初生气的那件事】？只是笼统道歉、撒娇、催你、或者反过来讲道理压你——那没碰到。"
           + "\n· 有没有新东西？和上几次几乎一样地再说一遍，不该管用。"
           + "\n· 你是什么脾气：嘴硬心软的会找个台阶下；记仇的会晾着；怕失去 TA 的会秒开。"
-          + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。求得越多、隔得越久，越该松。"
+          + (strangerAlt
+            ? "\n【对方是谁】这是网上一个你不认识的号，不是你在意的那个人。你没有义务原谅，也不用心软；照你这个人对这种号会有的态度来，要是TA当初是来挑拨、搅局的，晾着、一直不放都正常。"
+            : "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。求得越多、隔得越久，越该松。")
           + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
           + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC;
       const r0 = await askYesNo(apiFor(char.id), head + judge, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65000 });
