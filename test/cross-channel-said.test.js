@@ -18,6 +18,7 @@ const drive = ({ groups, chats, settings, charId, except }) => {
     gsFor: gid => settings[gid] || { memoryInterop: true },
     groupChatsRef: { current: chats },
     contextAllowsMessage: () => true,
+    isOocMsg: m => !!(m && (m.kind === "ooc" || (m.turnId && String(m.turnId).indexOf("ooc_") === 0))),
     Date: { now: () => 1000000 }
   };
   const fn = new Function(...Object.keys(env),
