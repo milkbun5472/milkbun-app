@@ -46,7 +46,8 @@ test("旁观群有自己的身份铁律：不许对她说话，不是「不许�
   assert.match(seg, /【身份铁律】用户「" \+ _uN \+ "」不是可代写的群成员：绝不生成用户的新台词、动作或心声/);
   // 两份都要保住「name 是唯一作者」那半句——那是输出格式，跟在不在场无关
   assert.equal((seg.match(/每个输出对象的 name 是该条唯一作者/g) || []).length, 2, "有一份漏了作者那半句");
-  assert.match(app, /gPollHint \+ gIdRule \+ "\\n\\n【成员】/, "算出来了没拼进 system");
+  // v76.121 起中间夹了一段「改安排」：铁律照样紧挨着【成员】拼进 system
+  assert.match(app, /gPollHint \+ [^\n]*?gIdRule \+ "\\n\\n【成员】/, "算出来了没拼进 system");
 });
 
 test("她不在场 ≠ 她不存在：好感、情侣、关系铁律、她是谁、想要清单，一层都不许少", () => {
