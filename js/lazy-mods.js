@@ -28,34 +28,54 @@
     s.onerror = () => { try { s.remove(); } catch (e) {} no(new Error("没下载下来：" + src.split("?")[0])); };
     document.head.appendChild(s);
   });
+  // 一组里几份【一起下载】，下完再【按登记的先后】一份份执行（群里 2026-10-20：「瘦身后要加载的反而慢了，卡在那里」）。
+  //   原来是一份下完、跑完再下一份：小世界那组九份，网慢时就是九个来回排着队。现在等的是最慢那一份。
+  //   执行用内联脚本（文本 + sourceURL，报错照样指得出是哪份文件）；下载走 fetch，跟闲时预下载、
+  //   service worker、浏览器缓存是同一份。没有 fetch 的环境照旧一份份挂 src（退路）。
+  const fetchText = src => fetch(src, { credentials: "same-origin" })
+    .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
+    .catch(() => { throw new Error("没下载下来：" + src.split("?")[0]); });
+  const runText = (src, text) => {
+    const s = document.createElement("script");
+    s.text = text + "\n//# sourceURL=" + src.split("?")[0];
+    document.head.appendChild(s);   // 内联脚本挂上就同步执行完
+  };
   function load(group) {
     if (loaded[group]) return Promise.resolve();
     if (pending[group]) return pending[group];
     const tags = tagsOf(group);
     if (!tags.length) { loaded[group] = true; return Promise.resolve(); }   // 这一组没登记延后（比如测试或老版本页面）：当它本来就在
     pending[group] = (async () => {
-      for (const t of tags) {
-        if (t.getAttribute("data-done") === "1") continue;
-        await addScript(t.getAttribute("data-src"));
-        t.setAttribute("data-done", "1");   // 半路断了，下次从没跑过的那份接着来，跑过的不重跑
+      const todo = tags.filter(t => t.getAttribute("data-done") !== "1");
+      if (typeof fetch === "function") {
+        const texts = todo.map(t => fetchText(t.getAttribute("data-src")));
+        texts.forEach(p => p.catch(() => {}));   // 先挂上接手的，别在等前面那份时冒「未处理」
+        for (let i = 0; i < todo.length; i++) {
+          const text = await texts[i];   // 前面那份没到，后面的已经在下着了
+          runText(todo[i].getAttribute("data-src"), text);
+          todo[i].setAttribute("data-done", "1");   // 半路断了，下次从没跑过的那份接着来，跑过的不重跑
+        }
+      } else {
+        for (const t of todo) { await addScript(t.getAttribute("data-src")); t.setAttribute("data-done", "1"); }
       }
       loaded[group] = true;
     })().finally(() => { delete pending[group]; });
     return pending[group];
   }
   // 闲下来只下载不执行：浏览器 / service worker 存下来，下次点进去不用等网，断网也打得开
+  //   2026-10-20：开机后 6 秒就开始（原来 20 秒，很多人点进去时还没轮到），两份一起下
   function warm() {
     const srcs = [...document.querySelectorAll('script[type="text/lazy"][data-src]')].map(s => s.getAttribute("data-src"));
     let i = 0;
     const next = () => {
       if (i >= srcs.length || document.hidden) return;
-      fetch(srcs[i++], { credentials: "same-origin" }).catch(() => {}).finally(() => setTimeout(next, 400));
+      fetch(srcs[i++], { credentials: "same-origin" }).catch(() => {}).finally(() => setTimeout(next, 150));
     };
-    next();
+    next(); next();
   }
   try {
     if (typeof window !== "undefined" && typeof document !== "undefined")
-      window.addEventListener("load", () => setTimeout(() => { (window.requestIdleCallback || (f => setTimeout(f, 0)))(warm); }, 20000), { once: true });
+      window.addEventListener("load", () => setTimeout(() => { (window.requestIdleCallback || (f => setTimeout(f, 0)))(warm); }, 6000), { once: true });
   } catch (e) {}
   g.LazyMods = { load, isLoaded: group => !!loaded[group] || !tagsOf(group).length, groups };
 })(typeof window !== "undefined" ? window : globalThis);
