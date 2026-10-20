@@ -10701,6 +10701,12 @@ function timeAgo(ts) {
 function fmtClock(d) {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
 }
+// 气泡底下那个「几点几分」：单聊、群聊共用这一支（2026-10-20 收：原来两边各写一份）。
+//   clockId：照谁的钟（单聊传角色 id，群传 "g:"+群id）；withSec：设置里开了「显示到秒」
+function fmtMsgClock(ts, clockId, withSec) {
+  const d = new Date(clockId != null && typeof vclockMap === "function" ? vclockMap(ts || Date.now(), clockId) : (ts || Date.now()));
+  return fmtClock(d) + (withSec ? ":" + String(d.getSeconds()).padStart(2, "0") : "");
+}
 // id（可选）：给了就按那个人认的那只虚拟时间钟显示（群传 "g:"+群id＝群挑的那张面具）；不给就是现实时间，跟原来一样
 function fmtStamp(ts, id) {
   const vm = id !== undefined && typeof vclockMap === "function" ? (x => vclockMap(x, id)) : (x => x);

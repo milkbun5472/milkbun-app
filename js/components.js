@@ -10263,7 +10263,7 @@ function ChatThread({
   const _me = meProfile || profile;
   // 这个聊天窗单独给我设过头像，就用那张；没设就是我的资料（或这个人认的那张面具）那张
   const meAv = { name: (_me && _me.name) || "我", color: (_me && _me.color) || t.tint, avatarImage: (character && character.myChatAvatar) || (_me && _me.avatarImage) };
-  const fmtT = ts => { const d = new Date(typeof vclockMap === "function" && character ? vclockMap(ts || Date.now(), character.id) : (ts || Date.now())); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
+  const fmtT = ts => fmtMsgClock(ts, character ? character.id : null, dsp.timeSec);   // 跟群聊同一支（engine.js）
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
   // 旁白模式里分两档：此刻发生了什么（旁白卡）／往后的大概方向（导演便签，只给模型看，管两轮或整场）
@@ -18347,7 +18347,7 @@ function GroupThread({
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   // 这个群单独给我设过头像就用那张（她 2026-10-14：「群聊我改不了自己的头像」——单聊有这一格，群一直没有）
   const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: gsp.myAvatar || (profile && profile.avatarImage) };
-  const fmtT = ts => { const d = new Date(typeof vclockMap === "function" && group && group.id ? vclockMap(ts || Date.now(), "g:" + group.id) : (ts || Date.now())); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (gsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
+  const fmtT = ts => fmtMsgClock(ts, group && group.id ? "g:" + group.id : null, gsp.timeSec);   // 跟单聊同一支（engine.js）
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [panel, setPanel] = useState(false);
   const [gInviteOpen, setGInviteOpen] = useState(false);
