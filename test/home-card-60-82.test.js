@@ -25,7 +25,7 @@ test("骨架换掉了：方头像在右、名字当主角、标签不是药丸",
   // v60.85 她让去掉眉批：那一行没了，两颗键压到右上角，省下的高度还给这一屏
   assert.doesNotMatch(card, /"ARCHIVE"/);
   // v60.88 两颗键改到【右下角】：放右上角要给它让位，头像就被挤到中间去了
-  assert.match(card, /position: "absolute", bottom: 7, right: 24\.5/);
+  assert.match(card, /position: "absolute", top: "calc\(100% \+ 5px\)"/);
   assert.doesNotMatch(card, /paddingRight: 62/, "头像那一行不许再为按键留位");
 });
 
@@ -90,7 +90,7 @@ test("层次靠【同一种墨的浓淡】分，不写死暖棕色", () => {
 test("瘦一圈：内边距和两颗键都收了，但卡还是自动高（不许写死高度）", () => {
   assert.match(card, /padding: "10px 14px 9px"/);
   assert.match(card, /width: 19, height: 19, borderRadius: 999/, "两颗小键没缩");
-  assert.match(card, /bottom: 7, right: 24\.5, gap: 9/, "两颗键没对齐到头像正下方");
+  assert.match(card, /top: "calc\(100% \+ 5px\)", left: "50%", transform: "translateX\(-50%\)", gap: 9/, "两颗键没挂在头像正下方");
   // ⚠️主屏铁律：里面这层不许写 height:100%（施工规则/home-screen-layout.md）
   assert.doesNotMatch(card.replace('fill ? { height: "100%" } : null', ""), /height: "100%"/, "只有格子钉了高（她挑了尺寸）才许撑满");
 });

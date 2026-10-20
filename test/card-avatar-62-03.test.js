@@ -64,7 +64,8 @@ test("名片头像：圆的、放大一档，那圈边是细的暖奶油不是�
   // 最后这一版（v62.06）定成：圆头像 58、边 2px 暖奶油、影很轻。
   const btn = CARD.slice(CARD.indexOf('h("button", { onClick: onEditProfile'), CARD.indexOf("size: 58, radius: 999"));
   assert.ok(btn.length > 100 && btn.length < 1400, "抠不出头像那颗按钮");
-  assert.match(btn, /borderRadius: 999, padding: 2, marginRight: 3/, "不是圆的／没给右边框让位");
+  assert.match(btn, /borderRadius: 999, padding: 2,/, "不是圆的");
+  assert.match(CARD, /position: "relative", flexShrink: 0, alignSelf: "center", marginRight: 3 \}/, "没给右边框让位");
   assert.doesNotMatch(btn, /padding: 2\.5/, "又胖回 2.5 了");
   // 那圈边从主题算：浅底是提亮一档的 bg2（暖奶油），深底是一圈淡墨，不写死白
   assert.match(btn, /skinIsDark\(t\.bg\) \? inkA\(\.34\) : skinShade\(t\.bg2, \.3\)/);

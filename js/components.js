@@ -7979,9 +7979,6 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 报「头像卡到中间了」——那时我是靠给整行加 paddingRight 给键让位，头像就跟着
       // 缩进来了）。改放【右下角】：底下那排数是左对齐的，右下本来就空着，
       // 于是头像能贴着右边、键也不用谁给它让位。
-      h("div", { className: "flex", style: { position: "absolute", bottom: 7, right: 24.5, gap: 9, zIndex: 2 } },
-        round(h(IPencil, { size: 10.5, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
-        onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
       // 名字在左当主角，方头像挪到右边
       h("div", { className: "flex items-end", style: { gap: 12 } },
         // ⚠️空档要留在【签名和标签之间】，不是留在标签和底下那排数之间。
@@ -8015,12 +8012,18 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
         // 描边用【暖奶油色】不要纯白、影要很轻、再往左让 3px 免得贴着右边框。
         // ⚠️奶油色也从主题算：浅底＝把 bg2 提亮一档（保住色相），深底＝一圈淡墨，
         // 铺了封面图那一路仍走半透明白（那时候要的是能压住图的边）。
-        h("button", { onClick: onEditProfile, "data-wk": "wicon", "data-part": "avatar", className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 999, padding: 2, marginRight: 3,
+        // 两颗键挂在头像正下方（她 2026-10-20：「为啥不能按钮保持在头像下面一点点」）：
+        //   原来贴着卡的底边，卡一被挑了尺寸撑高，键就掉到最下沿、离头像老远。
+        h("div", { style: { position: "relative", flexShrink: 0, alignSelf: "center", marginRight: 3 } },
+        h("div", { className: "flex", style: { position: "absolute", top: "calc(100% + 5px)", left: "50%", transform: "translateX(-50%)", gap: 9, zIndex: 2 } },
+          round(h(IPencil, { size: 10.5, color: onCover ? "#fff" : t.fog }), onEditCard, "编辑名片"),
+          onOpenCodex ? round(h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: onCover ? "#fff" : t.fog } }, "?"), onOpenCodex, "攻略") : null),
+        h("button", { onClick: onEditProfile, "data-wk": "wicon", "data-part": "avatar", className: "active:opacity-70", style: { display: "block", borderRadius: 999, padding: 2,
             background: onCover ? "rgba(255,255,255,.72)" : (typeof skinIsDark === "function" && skinIsDark(t.bg) ? inkA(.34) : skinShade(t.bg2, .3)),
             boxShadow: onCover ? "0 2px 8px rgba(0,0,0,.36)" : "0 2px 6px rgba(30,28,24,.13)" } },
           // 名片头像跟聊天头像分开（她 2026-09-04：「把主页我的名片和我聊天头像分成俩不一样的」）。
           // 没单独设就还是跟着「我的面具」那张——原来只有这一张，改名片就等于改聊天。
-          h(Avatar, { character: { name: c.name || profile.name, avatarImage: homeCardAvatar(c, profile), color: accent }, size: 58, radius: 999 }))),
+          h(Avatar, { character: { name: c.name || profile.name, avatarImage: homeCardAvatar(c, profile), color: accent }, size: 58, radius: 999 })))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子。
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
