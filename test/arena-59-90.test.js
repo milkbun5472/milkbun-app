@@ -211,7 +211,7 @@ test("落地页：一场是一张场次单，判完的盖一枚歪着的章", ()
 // 同一份代码抄在三个文件里，同一个毛病。擂台改完，梦境和塔罗也得改
 // ——「一层写在三处，第三处没跟上」正是这个 app 反复犯的那一个。
 test("梦境和塔罗那两份取材，用的是同一条过滤线", () => {
-  [["梦境", drm, "function recentChatSnippet(charId, uName, charName) {", "12"],
+  [["梦境", drm, "function recentChatSnippet(charId, uName, charName, beforeTs) {", "12"],
    ["塔罗", trt, "function recentChat(charId, uName, charName) {", "10"]].forEach(function (row) {
     const name = row[0], src0 = row[1], head = row[2], n = row[3];
     const i = src0.indexOf(head);
