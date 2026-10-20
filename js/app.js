@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.120";
+const APP_VERSION = "v76.125";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9859,6 +9859,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // ⚠️配角那四样（心情／想法／穿着／动作）不看闭群那道闸（她 2026-09-20，同群线上）：
         //   他不回流主线，状态卡只活在群里。好感和印象卡照旧只给主角色、且闭群封死。
         if (!gOffSealed && !_bNpc && a.senderId) bumpAff(a.senderId, a.affinityDelta);
+        // 群线下当场改了安排 → 写回他本人今天的日程（闭群照旧封死；配角没有日程）
+        if (!gOffSealed && !_bNpc && a.senderId && a.schedNow && timeAwareFor(a.senderId)) applySchedChange(a.senderId, a.schedNow);
         if ((!gOffSealed || _bNpc) && a.senderId && a.mood && a.mood.label) setMoodFor(a.senderId, { ...a.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
         if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !noGaze(a.senderId)) {
@@ -14763,6 +14765,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "这些只是背景，别生硬复述。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + pj;
       }
       const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
+      const _gSchedNames = [];
       const memberDesc = members.map(c => {
         // 原来读 phones[].music（查手机单独生成的那份），现在音乐接的是「一起听」
         // 里归到TA名下的真歌单——她点得动、也是同一份，不会两边对不上。
@@ -14796,7 +14799,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const said = crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
         })();
-        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + charLangLine(c) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        // 今天此刻的安排（她 2026-10-20「群聊能改日程吗→接上吧」）：跟群线下 memberSched 同一份 schedBriefFor、同一句规矩；
+        //   只给开着时间感知的本人，下面 schedNow 才有东西可对照
+        const schSeg = (() => { try { const b = timeAwareFor(c.id) ? schedBriefFor(c) : ""; return b ? "\n〔今天此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; } catch (e) { return ""; } })();
+        if (schSeg) _gSchedNames.push(memberLabel(members, c));
+        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + charLangLine(c) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + schSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -15125,7 +15132,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；别替别人填，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -15399,6 +15406,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           let gActionNow = TVG.normalizeAction(_rawGAction, spk && spk.name) || "";
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
+          // 群里当场改了安排 → 写回他本人今天的日程（同单聊那个口子；没开时间感知、没今日日程的，applySchedChange 自己不动）
+          if (spk && !spk.npc && item.schedNow && typeof item.schedNow === "object" && timeAwareFor(spk.id) && !groupClosed(groupId)) applySchedChange(spk.id, item.schedNow);
           if (i > 0) await new Promise(r => setTimeout(r, 780));
           checkAutoCall();
           // 邀约的表态：只认被约到、还没回过的那几个；答应了就落一张回执在TA名下（跟单聊同一张）
@@ -15427,7 +15436,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             autoTook();
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
           } else if (item.voice === true && item.text) {
-            const vt = stripEchoedMeta(item.text);
+            const vt = stripEchoedMeta(stripAiStamp(item.text));
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
             const q = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ...q, mid: "gvm_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId }]);
@@ -22063,17 +22072,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
     }
+    // 回的是评论区里一个不是角色的人（群友 2026-10-20：回了评论区里的同学「梁霄」，结果只有发帖人接话）：
+    //   他不在角色名单里，「可能回复的人」里就没有他，lastLine 却说他必须回——模型只能找别人顶上。
+    //   只要这个名字真在这条评论区里说过话，就把他排进名单第一个。
+    const _rtName = replyTo ? momentWho(replyTo) : "";
+    if (_rtName && !roster.includes(_rtName) && _rtName !== meName0 && (mom.comments || []).some(c => c && momentWho(c.author) === _rtName)) roster = [_rtName, ...roster];
     const meName = meName0;
     const fbAuthor = primary.remark || primary.name;
-    // 兜底也别千篇一律的「看到啦」：贴着用户这条评论回一句短的
-    const fallbackText = () => {
-      const t = String(text || "").trim();
-      const pool = [
-        t ? "「" + (t.length > 12 ? t.slice(0, 12) + "…" : t) + "」——嗯，我看到了。" : "看到你评论啦。",
-        "哈哈你这条我记下了。", "被你这么一说还真是。", "懂你意思，回头细说。", "谢啦，收到～"
-      ];
-      return pool[Math.floor(Math.random() * pool.length)];
-    };
+    // ⚠️不再有「保底话」（群友 2026-10-20：回梁霄「干一半呢」，网络断了，周树生头上冒出一句「被你这么一说还真是。」）——
+    //   那是一池写死的句子，失败时随手抽一句挂在发帖人名下，不像他、也接不上。失败就是这一轮没人回，提示一声让她再点。
     try {
       const bundle = buildBundle(ctxFor(primary));
       // 评论区已有的往来（含用户和角色的来回）→ 让角色接着对话，别每次都从头开始（支持连续你来我往）
@@ -22092,8 +22099,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 刷更多评论：没有「用户刚说了什么」，就是这条动态下面又有共友来说话了。
       // 她 2026-09-29 点明两条：**只能是共友**（roster 已经是「跟发帖人真有关系的角色」，
       // 不掷路人 NPC），而且回复对象只有两种——回这条动态本身，或回上面某位共友的评论。
-      const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.join("、")
-        + "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**"
+      // 评论区里已经说过话的人（发帖时他自己写的同学、同事这些）也在名单里；角色发的那条，还可以来他生活里真有的熟人
+      //   （群友 2026-10-20：「刷新也不出随机 npc 了我没法接话」——原来名单只有角色和配角，这些人一刷就再也回不来）
+      const _threadPeople = [...new Set((mom.comments || []).map(c => c && momentWho(c.author)).filter(n => n && n !== meName0 && !roster.includes(n)))];
+      const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.concat(_threadPeople).join("、")
+        + (author
+          ? "；也可以是「" + author.name + "」自己生活里真会有的熟人（同学、同事、朋友、家里人这类，照他的人设和处境来，起个像样的名字，跟上面出现过的同一个人名字前后一致）。**不许是陌生网友、路人。**"
+          : "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**")
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
         + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。" + REAL_DISAGREE;
       // 评论区里谁是谁（群友 2026-10-11：两个角色在评论区互相叫老婆——她给他们起的备注是「唯一的小狗姐姐」「最爱你的小狗阿泽」，
@@ -22104,7 +22116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}");
+      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22114,19 +22126,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else if (d.reply) reps = [typeof d.reply === "string" ? { author: fbAuthor, text: d.reply } : d.reply];
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
-      if (!reps.length) reps = [{ author: fbAuthor, text: fallbackText() }]; // 保底
+      if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
       const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
-      const prefixFor = r => {
-        if (!more) return "回复 " + meName + "：";
+      // 原档（我刚评论过）：默认「回复 我：」；模型填了评论区里另一个真说过话的人（含这一轮前面那条的作者）就回他——
+      //   大家是在评论区一起聊，不是排队只回我一个（群友 2026-10-20：「他好像只能接我说的那句」）
+      const batchNames = reps.map(r => momentWho(r.author)).filter(Boolean);
+      const prefixFor = (r, i) => {
         const to = momentWho(r.replyTo);
-        return to && to !== momentWho(r.author) && inThreadNames.includes(to) ? "回复 " + to + "：" : "";
+        const okTo = to && to !== momentWho(r.author) && (inThreadNames.includes(to) || batchNames.slice(0, i).includes(to));
+        if (!more) return "回复 " + (okTo && to !== meName ? to : meName) + "：";
+        return okTo ? "回复 " + to + "：" : "";
       };
-      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: prefixFor(r) + r.text }] } : m)), 400 + i * 600));
+      reps.forEach((r, i) => setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: momentWho(r.author), text: prefixFor(r, i) + r.text }] } : m)), 400 + i * 600));
     } catch (e) {
       if (more) return;   // 刷更多失败就是这一轮没人说话，不许伪造一条「回复我」
-      setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
+      toast("评论没人接上（" + String((e && e.message) || "网络问题").slice(0, 40) + "），点「更多评论」再来一轮");
     }
   };
   // 在谁的朋友圈下面说话，就用 TA 认的那张面具上的名字（群友 2026-10-11：「朋友圈回复只能按主面具的名字吗」）。
@@ -22168,7 +22184,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const mom = moments.find(m => m.id === id);
     if (!mom || momentMoreInflight.current[id]) return;
     const meName0 = momentMeName(mom);
-    const kept = (mom.comments || []).filter(c => c && (c.mine || c.author === meName0 || c.author === (profile.name || "我") || c.author === "我"));
+    // 她自己写的留着，但「回复 某某：」那种是在接别人的话——别人都撤了，留着就是对着空气说（她 2026-10-20）
+    const kept = (mom.comments || []).filter(c => c && (c.mine || c.author === meName0 || c.author === (profile.name || "我") || c.author === "我") && !/^\s*回复\s*[^：:]{1,30}[：:]/.test(String(c.text || "")));
     pMom(p => p.map(m => m.id === id ? { ...m, comments: kept } : m));
     momentMoreInflight.current[id] = true;
     setGen(g => ({ ...g, momentMore: id }));

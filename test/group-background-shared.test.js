@@ -11,9 +11,11 @@ const { app, engine, cut, fixture, evaluate, wire, sections } = require('./_grou
 // ⚠️v74.439 online/call 又换了一次：行程和「上一动作／心声」两格加了「只有本人知道」的围栏
 //   （她 2026-10-02 修罗场截图：互不认识的人张口就知道别人在实验室、在喝红茶）。
 //   照上面那条规矩，换数字的同时下面加了一条盯这道围栏的断言。
+// ⚠️v76.121 online 再换一次：每人那段多了一行「〔今天此刻在做什么〕」（群聊成员看得到自己今天此刻的安排，好写回日程）。
+//   下面加了一条：这一行只在本人那段里，看不到别人的。
 // ⚠️v74.441 再换一次：关系那一段标签改成「以下是 X 跟用户的关系」，跟行程/状态的围栏分开（修罗场只公开关系那段）。
 const beforeHashes = {
-  online: '9c6e9defbe778345dc12d7d26d66407aa5b4bbef7f622d5e819083d8ae1e5948',
+  online: '983c84e2ac1d00ef2335b9c6c534efab6fa4875f762bda3aca64053145a31f1d',
   call: '2584a5ed1648a36dafc309a638f0adcb49bef4bd883ca1aeb5666db153bd9d63',
   offline: '074b43e33d9720371b2e4e9e6cf68bf51cd1a5eb25a8f05e8a734a2ee92eeb77',
 };
@@ -31,6 +33,7 @@ for (const surface of Object.keys(beforeHashes)) test(surface + '：成员背景
   if (surface !== 'offline') assert.match(a, /〔此刻在做什么 · 只有 甲 本人知道/);
   assert.match(b, /只有 乙 本人知道/);
   assert.ok(!a.includes('b私有档案') && !b.includes('a私有档案'));
+  if (surface === 'online') { assert.match(a, /〔今天此刻在做什么〕a行程/); assert.ok(!a.includes('b行程') && !b.includes('a行程'), '今天此刻的安排只在本人那段'); }
   assert.doesNotMatch(text.slice(text.indexOf('【配角】')), /底色|睡眠|私有档案|成长|随身物/);
   // v68.84：配角那一行现在由 npcRosterLine 写。没有别的边时，说的仍然只有户口那一句。
   const npcSeg = text.slice(text.indexOf('【配角】'));

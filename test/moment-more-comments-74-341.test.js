@@ -33,7 +33,9 @@ test('① 回复逻辑只有一份：commentMoment 和刷更多都走 momentRepl
     '评论区的生成调用只许有一处（one-public-mechanism）');
   // roster / 兜底 / 容错解析都只许有一份
   assert.equal((src.match(/const roster =|roster = /g) || []).length > 0, true);
-  assert.equal((src.match(/const fallbackText = /g) || []).length, 1);
+  // 2026-10-20 起不再有写死的保底句：失败就是没人回，不替谁编一句
+  assert.equal((src.match(/const fallbackText = /g) || []).length, 0);
+  assert.ok(!src.includes('"被你这么一说还真是。"'), '保底句池整个拿掉');
 });
 
 test('② 刷更多不许伪造「回复我」，失败就是这一轮没人说话', () => {
@@ -41,7 +43,8 @@ test('② 刷更多不许伪造「回复我」，失败就是这一轮没人说�
     'catch 兜底必须在 more 档直接退出');
   // 前缀那一处：more 档不许写死 "回复 " + meName
   const pre = src.slice(src.indexOf('const prefixFor ='), src.indexOf('reps.forEach('));
-  assert.ok(pre.includes('if (!more) return "回复 " + meName'), '原档前缀不变');
+  // 原档默认回我；2026-10-20 起可以回评论区里真说过话的别人（大家一起聊）
+  assert.ok(pre.includes('if (!more) return "回复 " + (okTo && to !== meName ? to : meName)'), '原档默认回我、只认真说过话的人');
   assert.ok(pre.includes('inThreadNames.includes(to)'),
     'more 档的「回复谁」只许认评论区里真出现过的名字');
 });
@@ -50,7 +53,9 @@ test('③ 只有共友：提示里把「不许出现名单外的人」写明', (
   const ask = src.slice(src.indexOf('const moreAsk ='), src.indexOf('const system ='));
   assert.ok(ask.includes('只许是这几个人'), '必须点明只许名单内');
   assert.ok(/没有路人|没有陌生网友/.test(ask), '必须点明没有路人 NPC');
-  assert.ok(ask.includes('roster.join'), '名单必须就是算好的 roster，不许另造');
+  // 2026-10-20：名单＝roster ＋ 评论区里已说过话的人；角色的帖子还可以来他自己生活里的熟人，但照旧不许陌生网友
+  assert.ok(ask.includes('roster.concat(_threadPeople).join'), '名单＝算好的 roster 加评论区里已有的人');
+  assert.ok(ask.includes('自己生活里真会有的熟人') && ask.includes('不许是陌生网友'), '角色帖子：熟人可以，陌生网友不行');
 });
 
 test('④ 进行中锁：重复点不叠发', () => {

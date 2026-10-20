@@ -50,6 +50,8 @@ const collector = cut(app, '  const groupBackgroundFor =', '  const ctxForGroupO
 const now = cut(app, '  const groupNowSegs =', '  // 这位成员最近和用户的单聊');
 const formatter = cut(engine, 'function groupBackgroundSegments(', 'function groupPersonaText(');
 function wire(env) {
+  // v76.121 起群聊那段 memberDesc 里顺手记下「谁有今天的安排」，那个数组在 memberDesc 之前声明（app.js：const _gSchedNames = [];）
+  if (!env._gSchedNames) env._gSchedNames = [];
   // v70.61 起钱都过 moneyText（一人一个币种，js/money.js）。桩按【没设过币种】那一档来，
   // 也就是人民币原样——这些用例验的不是钱怎么写，是那几段有没有拼进去。
   if (!env.moneyText) env.moneyText = (n, id) => "¥" + n;

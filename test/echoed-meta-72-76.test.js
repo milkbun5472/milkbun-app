@@ -54,7 +54,7 @@ test("语音标记后面夹着的旁注也摘掉", () => {
 
 test("语音栏那两路也过一遍", () => {
   assert.match(app, /(const|let) vt = stripEchoedMeta\(\(raw && \(raw\.t \|\| raw\.text\)\) \|\| ""\);/);   // v75.919 改成 let：剥完还要再拆一层 {"voice":…}
-  assert.match(app, /const vt = stripEchoedMeta\(item\.text\);/);
+  assert.match(app, /const vt = stripEchoedMeta\((?:stripAiStamp\()?item\.text\)?\);/);   // v76.119 起群里那路先剥〔今天19:44〕
 });
 
 // 群里 2026-10-20：一条语音里每句前面都抄了〔今天19:44〕
