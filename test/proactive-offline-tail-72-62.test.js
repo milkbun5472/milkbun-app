@@ -29,7 +29,7 @@ test("只在主动那一路出手，侧房看不到别处时不给", () => {
 test("只认刚散不久的那一场", () => {
   assert.match(seg, /Date\.now\(\) - lastTs > 12 \* 3600000/, "隔了大半天的线下也往今天的开场上压——那是记忆库的活");
   assert.match(seg, /rows\.slice\(-6\)/, "尾巴没封条数，一整场线下会把开场挤没");
-  assert.match(seg, /m\.kind !== "ooc" && m\.role !== "system"/, "OOC 和系统条也混进去了");
+  assert.match(seg, /!isOocMsg\(m\) && m\.role !== "system"/, "OOC 和系统条也混进去了");
   assert.match(seg, /sess\.endTs \?/, "没分清那一场是散了还是还停在那儿");
   assert.match(seg, /散的/, "散场那一支的说法没了");
   assert.match(seg, /停在/, "还停着那一支的说法没了");

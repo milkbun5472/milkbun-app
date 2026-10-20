@@ -13984,9 +13984,9 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
     setArch("loading");
     try { const arr = loadArch ? await loadArch() : null; setArch(Array.isArray(arr) ? arr : "error"); } catch (e) { setArch("error"); }
   };
-  const archMsgs = Array.isArray(arch) ? arch.map((m, i) => ({ m, i, cloud: true })).filter(x => x.m && !x.m.recalled && x.m.kind !== "ooc") : [];
+  const archMsgs = Array.isArray(arch) ? arch.map((m, i) => ({ m, i, cloud: true })).filter(x => x.m && !x.m.recalled && !isOocMsg(x.m)) : [];
   // 归档在前（时间更早），整体仍按时间先后排
-  const msgs = archMsgs.concat((messages || []).map((m, i) => ({ m, i })).filter(x => !x.m.recalled && x.m.kind !== "ooc"));
+  const msgs = archMsgs.concat((messages || []).map((m, i) => ({ m, i })).filter(x => !x.m.recalled && !isOocMsg(x.m)));
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };

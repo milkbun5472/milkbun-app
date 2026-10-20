@@ -2339,7 +2339,7 @@ function App() {
   const observeSomatic = (charId, msg, source, mode) => {
     try {
       if (!charId || !msg || !msg.content || !window.SomaticShadow) return;
-      if (!["user", "narration"].includes(msg.role) || msg.kind === "ooc" || msg.kind === "system") return;
+      if (!["user", "narration"].includes(msg.role) || isOocMsg(msg) || msg.kind === "system") return;
       setTimeout(async () => {
         try {
           await window.SomaticShadow.observe({
@@ -2354,7 +2354,7 @@ function App() {
   const observeSomaticGroup = (group, msg, source, mode) => {
     try {
       if (!group || !msg || !msg.content || !window.SomaticShadow) return;
-      if (!["user", "narration"].includes(msg.role) || msg.kind === "ooc" || msg.kind === "system") return;
+      if (!["user", "narration"].includes(msg.role) || isOocMsg(msg) || msg.kind === "system") return;
       const members = (group.memberIds || []).map(id => characters.find(c => String(c.id) === String(id))).filter(Boolean);
       setTimeout(async () => {
         try {
@@ -3920,7 +3920,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!gsFor(g.id).memoryInterop) return;               // 闭群不外流
         (groupChatsRef.current[g.id] || []).forEach(m => {
           if (!m || m.role !== "assistant" || m.senderId !== charId) return;
-          if (m.recalled || m.kind === "ooc" || m.kind === "system") return;
+          if (m.recalled || isOocMsg(m) || m.kind === "system") return;
           if (!contextAllowsMessage(m)) return;
           const ts = Number(m.ts) || 0;
           if (!ts || now - ts > CROSS_SAID_WINDOW_MS) return;
@@ -5372,7 +5372,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   线下说去买菜 → 切线上问买啥（TA知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
       // 普通角色的逐条线下原文已在 recentChat 里和线上私聊按时间精确合流；
       // 这里不再重复塞一份固定 8 条。engineerEyes 保持原专线不动。
-      const recent = settingsFor(charId).engineerEyes ? (s.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8)
+      const recent = settingsFor(charId).engineerEyes ? (s.msgs || []).filter(m => m && !isOocMsg(m) && m.content).slice(-8)
         .map(m => (m.role === "char" ? (char ? char.name : "TA") : m.role === "narration" ? "【场景】" : uName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 90)).join("\n")
         : "";
       // 时间感知关着：没有「隔了一阵」这回事，线下照旧当正在进行（她 2026-10-04：「线上的也关了吧」）
@@ -5499,7 +5499,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (m && m.role === "assistant" && !m.recalled && !m.ledgerImported && !m.crossSource) latest = Math.max(latest, Number(m.ts) || 0);
     });
     (offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []) || []).forEach(s => {
-      ((s && s.msgs) || []).forEach(m => { if (m && m.role === "char" && m.kind !== "ooc") latest = Math.max(latest, Number(m.ts) || 0); });
+      ((s && s.msgs) || []).forEach(m => { if (m && m.role === "char" && !isOocMsg(m)) latest = Math.max(latest, Number(m.ts) || 0); });
     });
     return latest;
   };
@@ -7064,7 +7064,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return lines.join("\n");
     })(),
     groupEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
-      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && m.kind !== "ooc" && m.role !== "system" && contextAllowsMessage(m) && String(m.content || "").trim());
+      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && !isOocMsg(m) && m.role !== "system" && contextAllowsMessage(m) && String(m.content || "").trim());
       if (!msgs.length) return "";
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
       const lines = msgs.slice(-14).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 60) + ((m.role === "user" || m.role === "narration") && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n");
@@ -7076,7 +7076,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const crossMs = (memCfgRef.current.crossHours || 72) * 3600000;
       const cutoff = Date.now() - crossMs;
       const msgs = [];
-      (groupOfflinesRef.current[g.id] || []).forEach(s => ((s && s.msgs) || []).forEach(m => { if (m && m.kind !== "ooc" && m.content && m.role !== "system" && (m.ts || 0) >= cutoff) msgs.push(m); }));
+      (groupOfflinesRef.current[g.id] || []).forEach(s => ((s && s.msgs) || []).forEach(m => { if (m && !isOocMsg(m) && m.content && m.role !== "system" && (m.ts || 0) >= cutoff) msgs.push(m); }));
       if (!msgs.length) return "";
       msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
@@ -7139,7 +7139,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const offFloor = Math.max(0, Number(memCfgRef.current.recentDays ?? 3)) * 86400000;
         const active = newest && (!newest.endTs || (offFloor && Date.now() - newest.endTs <= offFloor)) ? newest : null;
         offline = active ? (active.msgs || [])
-          .filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system")
+          .filter(m => m && m.content && !isOocMsg(m) && m.role !== "system")
           .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
         // 老拍子被摘掉的那些（写景、感官、没带对话的过场）不是丢了——本场的滚动摘要
         // （maybeSummarizeOffline 攒的 sess.summary）就是它们的去处，这里把它带上来。
@@ -7385,7 +7385,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (offlineGroup && offlineGroup.id === gid) continue;
         const gOffList = groupOfflinesRef.current[gid] || loadJSON("x_goffline:" + gid, []);
         if (window.InteractionClock && window.InteractionClock.offlineSceneLive(gOffList, Date.now())) continue;
-        const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
+        const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && !isOocMsg(m) && m.kind !== "system" && contextAllowsMessage(m));
         if (!msgs.length) continue;
         const last = msgs[msgs.length - 1];
         let cycle = (autoChatCycleRef.current && autoChatCycleRef.current[gid]) || {
@@ -7571,7 +7571,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 他那边此刻几分（跟钟排日程时照钟）：跟日程同一处问 ScheduleClock.planMinute
   const charLocalMin = char => window.ScheduleClock.planMinute(char, Date.now(), -new Date().getTimezoneOffset());
   useEffect(() => {
-    const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
+    const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && m.kind !== "system" && contextAllowsMessage(m));
     const tick = () => {
       // 后台这一轮跑没跑、走没走到主动消息那一段（她 2026-10-02：「过了五分钟还是不发」——页面上要看得见）
       try { window.__pTick = { start: Date.now(), loop: (window.__pTick || {}).loop || 0, active: !!active }; } catch (e) {}
@@ -8023,7 +8023,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             if (composing) continue;
           }
           if (activeOff && !activeOffScene) continue; // 线下开着但还没开演：不发线上、也没得演，跳过
-          const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
+          const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && m.kind !== "system" && contextAllowsMessage(m));
           if (!activeOffScene && !ms.length) continue;
           // ⭐dongnian 阶段二（v48.80/81）：有 dongnian 就【由心理动机决定开口】——思念漂到 contact 阈值才主动，时机全交给它（线上线下同一套门槛）；
           //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 dongnian=45min 底线(真时机 dongnian 说了算)，没 dongnian(引擎没载)兜底 3h。
@@ -8143,7 +8143,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!autoRefreshOn("proactive", cid)) return "「允许 Ta 主动发消息」关着";
     if (currentlyTogetherWithChar(cid)) return "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息";
     if (laneBusy("c:" + cid)) return "TA 这会儿正在回别的（上一条还在写）";
-    const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+    const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && m.kind !== "system");
     if (!ms.length) return "你们还没聊过天";
     const jw = (window.__dongnian && window.__dongnian[cid]) || null;
     const floorMin = proactiveFloorMin(cid, jw);
@@ -8262,7 +8262,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let otherTs = elsewhere ? elsewhere.ts : 0;
     let why = otherTs ? { kind: elsewhere.kind, gid: elsewhere.gid } : null;
     for (let i = arr.length - 1; i >= 0; i--) {
-      const m = arr[i]; if (!m || m.recalled || m.kind === "ooc" || m.kind === "system") continue;
+      const m = arr[i]; if (!m || m.recalled || isOocMsg(m) || m.kind === "system") continue;
       // 群里「别人」＝ Lisa，或另一位角色。旁白/场景不算人开口，别拿它当作有人理了TA。
       const isOther = gid
         ? (m.role === "user" || (m.role === "assistant" && String(m.senderId || "") !== String(char.id)))
@@ -8398,7 +8398,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   这儿只留一道防失控的硬闸：单场再长也不写超过 20 万字。
   const TRANSCRIPT_KEEP_MAX = 200000;
   const offlineTranscriptForOnline = (msgs, groupMode, charName) => {
-    const text = (msgs || []).filter(m => m && m.kind !== "ooc" && m.content).map(m => {
+    const text = (msgs || []).filter(m => m && !isOocMsg(m) && m.content).map(m => {
       const who = m.role === "narration" ? "【场景】" : m.role === "user" ? userName(profile) : (groupMode ? (m.senderName || "某人") : charName);
       return (m.ts ? "〔" + fmtStampAI(m.ts) + "〕" : "") + who + "：" + String(m.content);
     }).join("\n");
@@ -8518,7 +8518,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const all = sess.msgs || [];
     const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
     if (all.length - lastSum < OFF_SUM_THRESH) return;
-    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && m.kind !== "ooc");
+    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && !isOocMsg(m));
     if (block.length < 4) return;
     offSumBusyRef.current[charId] = true;
     try {
@@ -8545,7 +8545,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const pid = offlinePersonId(scopeKey), room = window.ChatRooms.get(pid, String(scopeKey).split("::room::")[1]);
       const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
       const char = characters.find(c => c.id === pid);
-      if (room && !room.main && sess) await maybeAutoExtractRoom(char, room, (sess.msgs || []).filter(m => m && m.kind !== "ooc"), "off:" + scopeKey);
+      if (room && !room.main && sess) await maybeAutoExtractRoom(char, room, (sess.msgs || []).filter(m => m && !isOocMsg(m)), "off:" + scopeKey);
       return;
     }
     const charId = offlinePersonId(scopeKey);
@@ -8556,7 +8556,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const interval = Math.max(1, cfg.extractInterval || 1);
     const cnt = bumpExtractCtr("off", charId);
     if (cnt % interval !== 0) return;
-    const all = (sess.msgs || []).filter(m => m && m.kind !== "ooc");
+    const all = (sess.msgs || []).filter(m => m && !isOocMsg(m));
     if (all.length < 4) return;
     const mark = memExtractMarkOffRef.current[charId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
@@ -9156,7 +9156,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     startLane("c:" + scopeKey);
     try {
       const uName = (profile && profile.name) || "我";
-      const offText = (sess.msgs || []).filter(m => m.kind !== "ooc").slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
+      const offText = (sess.msgs || []).filter(m => !isOocMsg(m)).slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
       // ⚠️这里原来是裸的 ctxFor(char)：**完全没过房间那道闸**。
       //   于是在一间「不带出门」的线下房里 OOC 问一句，助手手上是【主线全量】——
@@ -9407,7 +9407,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const n = rawN == null ? 10 : Math.max(0, Math.min(30, Number(rawN) || 0));
     if (!n) return [];
     return (groupChatsRef.current[groupId] || [])
-      .filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.content && contextAllowsMessage(m))
+      .filter(m => m && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.content && contextAllowsMessage(m))
       .slice(-n)
       .map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, content: String(m.content), ts: m.ts || 0 }));
   };
@@ -9430,7 +9430,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       beats.push({ ts: m.ts || 0, surface: "线上私聊", who: m.role === "user" ? uName : cName, text: String(m.content) });
     });
     if (surfaces.includes("offline")) (offlinesRef.current[charId] || []).forEach(s => ((s && s.msgs) || []).forEach(m => {
-      if (!m || m.kind === "ooc" || !m.content) return;
+      if (!m || isOocMsg(m) || !m.content) return;
       if (sinceMs && (m.ts || 0) < sinceMs) return;
       beats.push({ ts: m.ts || 0, surface: "单人线下", who: m.role === "user" ? uName : m.role === "narration" ? "【场景】" : cName, text: String(m.content) });
     }));
@@ -9674,7 +9674,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const all = sess.msgs || [];
     const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
     if (all.length - lastSum < OFF_SUM_THRESH) return;
-    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && m.kind !== "ooc");
+    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && !isOocMsg(m));
     if (block.length < 4) return;
     gOffSumBusyRef.current[groupId] = true;
     try {
@@ -9740,7 +9740,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const interval = Math.max(1, cfg.extractInterval || 1);
     const cnt = bumpExtractCtr("goff", groupId);
     if (cnt % interval !== 0) return;
-    const all = (sess.msgs || []).filter(m => m && m.kind !== "ooc");
+    const all = (sess.msgs || []).filter(m => m && !isOocMsg(m));
     if (all.length < 4) return;
     const mark = memExtractMarkGOffRef.current[groupId] || 0;
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
@@ -10020,7 +10020,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     startLane("g:" + groupId);
     try {
       const members = groupMembers(group);
-      const histText = (sess.msgs || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
+      const histText = (sess.msgs || []).filter(m => !isOocMsg(m) && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
@@ -10974,7 +10974,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hm = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? d.toTimeString().slice(0, 5) : (d.getMonth() + 1) + "/" + d.getDate(); };
       // 你自己那一行也在列表里（她 2026-10-02）：她给你的备注、你排第几，查岗的人第一眼就看这个
       const list = (characters || []).filter(c => c.id === viewerId || shownId(c.id)).map(c => {
-        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system");
         const lm = ms[ms.length - 1];
         return lm ? { c, lm } : null;
       }).filter(Boolean).sort((a, b) => (b.lm.ts || 0) - (a.lm.ts || 0)).slice(0, 10);
@@ -10984,7 +10984,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
       const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
-        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
+        const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
         return { c, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       // 上次翻过的人排到后面（她 2026-10-01：「这几次测试评论的都是同样两件事」「下次可以看其他角色的」）
       }).filter(x => x.ms.length).sort((a, b) => (seenWho.has(a.c.remark || a.c.name) - seenWho.has(b.c.remark || b.c.name)) || (b.last - a.last));
@@ -11008,7 +11008,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
       const gRows = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
-        const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
+        const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
         return { g, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 2);
       if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => "群「" + (x.g.name || "群聊") + "」（最近这些）：\n"
@@ -11081,7 +11081,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         (offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []) || []).filter(s => s && (s.msgs || []).length).map(s => ({ c, s, ts: s.startTs || ((s.msgs || [])[0] || {}).ts || 0 })))
         .sort((a, b) => b.ts - a.ts).slice(0, 4);
       const one = x => {
-        const nm = x.c.remark || x.c.name, ms = (x.s.msgs || []).filter(m => m && m.content && m.kind !== "ooc");
+        const nm = x.c.remark || x.c.name, ms = (x.s.msgs || []).filter(m => m && m.content && !isOocMsg(m));
         const scene = (ms.find(m => m.role === "narration") || {}).content || "";
         const tail = ms.filter(m => m.role !== "narration").slice(-4).map(m => "  " + (m.role === "user" ? "她" : "「" + nm + "」") + "：" + cut(m.content, 50)).join("\n");
         const m = dur(x.s);
@@ -11769,7 +11769,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const _letterAns = m => m && m.kind === "system" && (m.sub === "letter" || /^你答应了.*♥$|^你说再想想$/.test(String(m.content || "")));
     const _ansRow = m => ({ ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "点了「答应」，你们从这一刻起在一起了（这是已经发生的事）") + "〕" });
     const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : (m && m.kind === "loveletter") ? _letterRow(m) : _letterAns(m) ? _ansRow(m) : m)
-      .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
+      .filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
         // 「TA想看你手机」「你发现TA偷翻过」那两张卡不是TA说的话（她 2026-10-02）；那几件事走下面的查手机记事
         && m.kind !== "askphone" && m.kind !== "peeksneak");
     // 撤回那件事已经留在历史原位了（见上面 recallStub），末尾不再另挂一句——同一件事说两遍，
@@ -11971,7 +11971,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const list = offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []);
           const sess = (list || []).find(x => x && (x.msgs || []).length > 0);
           if (!sess) return "";
-          const rows = (sess.msgs || []).filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system");
+          const rows = (sess.msgs || []).filter(m => m && m.content && !isOocMsg(m) && m.role !== "system");
           if (!rows.length) return "";
           const lastTs = rows.reduce((a, m) => Math.max(a, Number(m.ts) || 0), 0);
           // 只认【刚散不久】那一场：隔了大半天的线下该由记忆库接手，不该压在今天的开场上
@@ -14681,7 +14681,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (gOffSess) {
       const _un = userName(profile);
       const _gnarr = (gOffSess.msgs.find(m => m.role === "narration") || {}).content || "";
-      const _gr = (gOffSess.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8).map(m => (m.role === "narration" ? "【场景】" : m.role === "user" ? _un : (m.senderName || "某人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80)).join("\n");
+      const _gr = (gOffSess.msgs || []).filter(m => m && !isOocMsg(m) && m.content).slice(-8).map(m => (m.role === "narration" ? "【场景】" : m.role === "user" ? _un : (m.senderName || "某人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80)).join("\n");
       gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**别当没相处过、别问『在哪呢/怎么还不来』**，也别演成才刚到。最近线下：\n" + _gr;
     }
     // ── 自发那一段的总条数闸（她 2026-09-11 截图：设了 50，群里出到 61）────────
@@ -15144,7 +15144,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
-        if (gchat[i].kind === "ooc") continue; // OOC 不算发言，跳过
+        if (isOocMsg(gchat[i])) continue; // OOC 不算发言，跳过
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
@@ -15758,7 +15758,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     startLane("g:" + groupId);
     try {
       const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-      const histText = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
+      const histText = (groupChatsRef.current[groupId] || []).filter(m => !isOocMsg(m) && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
       const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
@@ -18467,7 +18467,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const img = (m.kind === "photo" || m.kind === "selfie") && (m.imageRef || m.imgKey) ? { imageRef: m.imageRef || null, imgKey: m.imgKey || null } : {};
       return { kind: "card", label: label, body: (hd ? c.slice(hd[0].length) : c) || m.desc || "", ...img };
     }
-    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && (m.content || ((m.kind === "selfie" || m.kind === "photo") && (m.imgKey || m.imageRef || m.desc))) && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
+    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && (m.content || ((m.kind === "selfie" || m.kind === "photo") && (m.imgKey || m.imageRef || m.desc))) && !isOocMsg(m) && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
     // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
     const sessions = [];
@@ -18481,7 +18481,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const groupPhoneKind = (group, state, history) => {
       const rows = Array.isArray(history) ? history : [];
       const hasNarration = rows.some(m => m && !m.recalled && m.role === "narration");
-      const hasLisaSpeech = rows.some(m => m && !m.recalled && m.role === "user" && m.kind !== "ooc" && m.kind !== "system");
+      const hasLisaSpeech = rows.some(m => m && !m.recalled && m.role === "user" && !isOocMsg(m) && m.kind !== "system");
       if (group && group.roomKind === "spectate") return "spectate";
       if (group && group.roomKind === "group") return "group";
       // Lisa 真正在里面说过话，是普通群最强的老数据证据；即使某次导演提示
@@ -21591,7 +21591,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     for (let i = rows.length - 1; i >= 0; i--) {
       const m = rows[i];
       if (!m || m.recalled || !m.content) continue;
-      if (m.kind === "ooc" || m.kind === "system" || m.role === "system" || m.role === "narration") continue;
+      if (isOocMsg(m) || m.kind === "system" || m.role === "system" || m.role === "narration") continue;
       last = m; break;
     }
     if (!last || !last.ts) return "";
@@ -25870,7 +25870,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const makeupGist = charId => {
     const K = window.MakeupKit;
     const rows = (chatsRef.current ? (chatsRef.current[charId] || []) : (chats[charId] || []))
-      .filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system")
+      .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.kind !== "system" && m.role !== "system")
       .slice(-(K ? K.GIST_TURNS : 14));
     const uName = profile.name || "我";
     const c = characters.find(x => x.id === charId);
@@ -26427,7 +26427,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const bodyOf = m => { const c = String(m.content || "").trim(); const k = KIND[m.kind];
       if (!k) return c; if (/^\[[^\]]{1,24}\]/.test(c)) return c; return "[" + k + "] " + (c || m.desc || m.keyword || ""); };
     const rows = (chatsRef.current[key] || []).filter(m => m && !m.recalled && (m.content || m.desc) && m.role !== "system" && m.kind !== "system")
-      .map(m => ({ ts: m.ts || 0, text: stamp(m.ts) + " " + (m.role === "user" ? me : m.role === "narration" ? "旁白" : who) + (m.kind === "ooc" ? "（出戏）" : "") + "：" + bodyOf(m) }));
+      .map(m => ({ ts: m.ts || 0, text: stamp(m.ts) + " " + (m.role === "user" ? me : m.role === "narration" ? "旁白" : who) + (isOocMsg(m) ? "（出戏）" : "") + "：" + bodyOf(m) }));
     if (withOff) {
       const sess = (offlinesRef.current[key] || []).filter(x => x && (x.msgs || []).length);
       sess.forEach(x => { const t = offlineSessionsText([x], stamp, who); if (t.trim()) rows.push({ ts: x.startTs || 0, text: "\n【线下】\n" + t + "\n" }); });
@@ -32434,7 +32434,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const d = new Date(m.ts || 0);
           const when = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
           const who = m.role === "user" ? uN : m.role === "narration" ? "旁白" : ((c && c.name) || "TA");
-          return when + " " + who + (m.kind === "ooc" ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
+          return when + " " + who + (isOocMsg(m) ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
         });
     },
     // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
@@ -33179,7 +33179,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const d = new Date(m.ts || 0);
             const when = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
             const who = m.role === "user" ? uN : m.role === "narration" ? "旁白" : ((c && c.name) || "TA");
-            return when + (room ? "〔" + room + "〕" : "") + " " + who + (m.kind === "ooc" ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
+            return when + (room ? "〔" + room + "〕" : "") + " " + who + (isOocMsg(m) ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
           });
       },
       // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
