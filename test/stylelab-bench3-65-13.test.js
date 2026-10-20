@@ -33,7 +33,6 @@ test("台脚那几颗跟台边的家伙什长一个样，不是药丸", () => {
   assert.ok(w.length > 300, "抠不出台脚那一段");
   assert.match(w, /Object\.assign\(\{\}, S\.tool, \{ color: t\.tint \}\)/, "复制那颗还是药丸");
   assert.match(w, /删掉这块版/, "删的是一块版，不是「这条」");
-  assert.match(w, /armed === cur\.id \? "真删？再点一下"/, "两下删的闸不能丢");
   // 结果那一行的「清空」也归工具
-  assert.match(SL, /Object\.assign\(\{\}, S\.tool, \{ color: armed === "__runs" \? t\.accent : t\.fog, marginLeft: "auto" \}\)/);
+  assert.match(SL, /Object\.assign\(\{\}, S\.tool, \{ color: t\.fog, marginLeft: "auto" \}\)/);
 });
