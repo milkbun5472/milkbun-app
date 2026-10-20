@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
-const seg = (() => { const i = eng.indexOf('  if (fmt === "gemini") {\n    // MCP 工具'), j = eng.indexOf('  const root = base.endsWith("/v1")', i); assert.ok(i > 0 && j > i, "抠不出 gemini 那段"); return eng.slice(i, j); })();
+const seg = (() => { const i = eng.indexOf('  if (fmt === "gemini") {\n    // MCP 工具'), j = eng.indexOf('  const root = /\\/v\\d+$/i.test(base)', i); assert.ok(i > 0 && j > i, "抠不出 gemini 那段"); return eng.slice(i, j); })();
 
 test("Gemini 那条也声明工具、跑工具、把结果接回去，回合封顶", () => {
   assert.match(seg, /if \(gTools\) gBody\.tools = gTools;/);
