@@ -20051,15 +20051,23 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     const note = start
       ? "进门以后新增的线上与线下记录会清掉；进门时带来的 " + Number(start.seedCount || 0) + " 条聊天和开场方式会保留。"
       : "这间房的线上与线下记录会全部清空；房间名字、设定和开关会保留。";
-    requestAppConfirm("清除「" + (room.name || "这间房") + "」的聊天记录？", note, async () => {
+    // 这间房记着事的时候，跟主聊天「清除 / 重置」一样让她选记忆带不带走（她 2026-10-20：「房间清聊天记录不能带走记忆库」）
+    const memN = Kit.memCount ? Kit.memCount(character.id, room.id) : 0;
+    const doClear = async dropMem => {
       setClearBusy(true);
       try {
         const saved = await onClearRoom(room);
         if (!saved) return window.__toast && window.__toast("这次没清除成功，原记录还在");
+        if (dropMem && Kit.memDropRoom) Kit.memDropRoom(character.id, room.id);
         setRooms(Kit.list(character.id)); setDraft(saved);
-        window.__toast && window.__toast(start ? "已清除进门后的记录，开场还在" : "已清空这间房的记录");
+        window.__toast && window.__toast((start ? "已清除进门后的记录，开场还在" : "已清空这间房的记录") + (dropMem ? "，这间房的记忆也清了" : ""));
       } finally { setClearBusy(false); }
-    }, "清除");
+    };
+    const askMem = () => !memN ? doClear(false) : requestAppConfirm(
+      "这间房的 " + memN + " 条记忆也一起清掉吗？",
+      "清掉的话 TA 在这间房里就像第一次进门。删之前先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份到自己手里。选「留着」就只清聊天，记忆照旧。",
+      () => doClear(true), "一起清", () => doClear(false), { cancelLabel: "留着" });
+    requestAppConfirm("清除「" + (room.name || "这间房") + "」的聊天记录？", note, askMem, "清除");
   };
   // 已经建好的房间：改一下就存一下（她 2026-10-13：「你不能点右上角的保存，得在最下面进入房间才行，右上角的保存跟装饰似的」）——
   //   房间设置嵌在聊天设置里，右上角那颗 ✓ 存的是聊天设置，房间这边改的开关根本没人存，一退出就没了。
