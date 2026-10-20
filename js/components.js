@@ -313,7 +313,7 @@ async function exportChatLook(look, fileBase) {
 }
 async function importChatLook(text) {
   let pack = null;
-  try { pack = JSON.parse(String(text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { throw new Error("这不是一份美化文件"); }
+  pack = parseJSONLoose(text); if (!pack || typeof pack !== "object") throw new Error("这不是一份美化文件");
   if (!pack || pack.kind !== CHAT_LOOK_KIND || !pack.look) throw new Error("这不是一份美化文件");
   let json = JSON.stringify(pack.look);
   for (const ref of Object.keys(pack.assets || {})) {

@@ -254,7 +254,7 @@
   // 新建角色那份 JSON → 只留认得的几栏
   function newCharObj(text) {
     let o = null;
-    try { o = JSON.parse(String(text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { o = null; }
+    try { o = parseJSONLoose(text || ""); } catch (e) { o = null; }
     if (!o || typeof o !== "object" || Array.isArray(o)) return null;
     const out = { name: String(o.name || "").trim().slice(0, 24), persona: String(o.persona || "").trim().slice(0, 20000), appearance: String(o.appearance || "").trim().slice(0, 4000) };
     Object.keys(CARD_FIELDS).forEach(k => { if (o[k] != null && String(o[k]).trim()) out[k] = String(o[k]).trim().slice(0, 400); });
@@ -279,7 +279,7 @@
   const relName = (k, ctx) => { const p = String(k).split("->"); return whoName(p[0], ctx) + " → " + whoName(p[1], ctx); };
   const npcObj = (text, ctx) => {
     let o = null;
-    try { o = JSON.parse(String(text || "").replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch (e) { return null; }
+    try { o = parseJSONLoose(text || ""); } catch (e) { return null; }
     if (!o || typeof o !== "object") return null;
     const links = (Array.isArray(o.links) ? o.links : []).map(l => ({ id: whoId(l && (l.who || l.id), ctx), label: String((l && l.label) || "").trim() })).filter(l => l.id);
     const owner = o.owner ? whoId(o.owner, ctx) : "";
@@ -423,7 +423,7 @@
       write: (id, patch, ctx) => {
         if (!ctx.onPatchBubble) throw new Error("这个页面没接聊天窗写入口");
         let obj = null;
-        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        try { obj = parseJSONLoose(patch.text || ""); } catch (e) { obj = null; }
         if (!obj) throw new Error("这一条不是一份能读的 JSON");
         // 洗那一道跟 OOC 那条路共用（engine.js）：模型给的值最后要拼进一张 <style>
         const clean = typeof sanitizeBubblePatch === "function" ? sanitizeBubblePatch(obj) : null;
@@ -460,7 +460,7 @@
       write: (id, patch, ctx) => {
         if (!ctx.onPatchChatSetting) throw new Error("这个页面没接聊天窗写入口");
         let obj = null;
-        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        try { obj = parseJSONLoose(patch.text || ""); } catch (e) { obj = null; }
         if (!obj) throw new Error("这一条不是一份能读的 JSON");
         const st = loadJ("x_chatSettings", {}) || {};
         const cur = (st[id] || {}).layout || {};
@@ -519,7 +519,7 @@
         if (!ctx.onPatchGroupSetting) throw new Error("这个页面没接群聊写入口");
         if (!(ctx.groups || []).some(g => g && g.id === id)) throw new Error("没有这个群：" + id);
         let obj = null;
-        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        try { obj = parseJSONLoose(patch.text || ""); } catch (e) { obj = null; }
         if (!obj) throw new Error("这一条不是一份能读的 JSON");
         const st = loadJ("x_groupSettings", {}) || {};
         const cur = (st[id] || {}).layout || {};
@@ -554,7 +554,7 @@
         if (own) throw new Error("「" + id + "」这一页的颜色不是从主题里取的（" + own
           + "），给它换这几支色不会有任何变化。跟她说实话：这一页要能换色，得先把它接到主题上——那是一次施工，不是一条改动稿。");
         let obj = null;
-        try { obj = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { obj = null; }
+        try { obj = parseJSONLoose(patch.text || ""); } catch (e) { obj = null; }
         if (!obj || typeof obj !== "object") throw new Error("这一条不是一份能读的 JSON");
         const p = ts.load(), cur = { ...((p.pageTokens || {})[id] || {}) };
         // 给了空值＝把那一支还给全局（不然「改回原样」这件事没法说）
@@ -1517,7 +1517,7 @@
     if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");
     if (patch && patch.target === "rel") return String(patch.text || "").trim() ? patch.text + (patch.both ? "（两个方向都是）" : "") : "（删掉这条关系）";
     if (patch && patch.target === "npc") {
-      try { const o = JSON.parse(String(patch.text || "")); return ["名字：" + (o.name || ""), o.owner ? "在谁身边：" + o.owner : "不挂在谁身边", o.brief ? "简介：" + o.brief : "",
+      try { const o = parseJSONLoose(patch.text) || {}; return ["名字：" + (o.name || ""), o.owner ? "在谁身边：" + o.owner : "不挂在谁身边", o.brief ? "简介：" + o.brief : "",
         (o.links || []).length ? "认识：" + o.links.map(l => (l.who || l.id) + (l.label ? "（" + l.label + "）" : "")).join("、") : ""].filter(Boolean).join("\n"); } catch (e) { return String(patch.text || ""); }
     }
     if (patch && patch.target === "lore" && !String(patch.text || "").trim())
@@ -1530,7 +1530,7 @@
         o.appearance ? "外貌：\n" + o.appearance : "", "人设：\n" + o.persona].filter(Boolean).join("\n");
     }
     if (!patch || patch.target !== "bubble") return String((patch && patch.text) || "");
-    let o = null; try { o = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { o = null; }
+    let o = null; try { o = parseJSONLoose(patch.text || ""); } catch (e) { o = null; }
     const c = o && typeof sanitizeBubblePatch === "function" ? sanitizeBubblePatch(o) : null;
     return c ? bubbleText(c) : String(patch.text || "");
   };
