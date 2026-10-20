@@ -16,7 +16,7 @@ assert.deepEqual(absorb([["w_card", "chat", "sp_a"]]), [["w_card", "chat", "sp_a
 assert.deepEqual(absorb([["w_card", "sp_a"]], { w_card: "wide" }), [["w_card", "sp_a"]], "不是原尺寸不收");
 assert.match(src, /cardAbsorbSpacers\(out\);\n    var capRows/, "buildLayout 排容量之前先收");
 assert.match(src, /const span = \(it\.kind === "widget" \|\| it\.kind === "decor"\) \? spanFor\(key, it\) : \[1, 1\];/, "画格子那处也要走同一个判断");
-assert.match(src, /alignSelf: HOME_FREE_HEIGHT\[key\] && !asIcon \? "start" : undefined/, "名片按自己内容高，不被拉满两行");
+assert.match(src, /alignSelf: HOME_FREE_HEIGHT\[key\] && homeSize === "auto" && !asIcon \? "start" : undefined/, "名片按自己内容高，不被拉满两行");
 assert.match(src, /inner = h\(HomeCard, \{ flush: true,/, "主屏格子里的名片不带下边距");
 assert.match(src, /marginBottom: flush \? 0 : 14/);
 console.log("ok");

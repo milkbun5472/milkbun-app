@@ -6659,7 +6659,7 @@ function Home({
         inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper,
           badge: fApps.reduce(function (s, a) { return s + appBadgeOf(a.key); }, 0), onOpen: function () { if (!editMode) setOpenFolder(key); } });
       }
-      else if (it.which === "card") inner = h(HomeCard, { flush: true, card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
+      else if (it.which === "card") inner = h(HomeCard, { flush: true, fill: !!fixedH, card: homeCard, profile: profile, characters: characters, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
       else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
       else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, cellCols: span[0], editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
       else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
@@ -7462,7 +7462,8 @@ function Home({
     // 唯一的例外是名片：它的高度是她一版一版调出来的，钉成 82 会被裁掉半张。
     // 组件收成了一枚 app 图标：就当它是 app 画——不套组件的卡壳、不钉组件的高度、不走组件的外观层
     const asIcon = it.kind === "widget" && homeSize === "icon";
-    const fixedH = !asIcon && (it.kind === "widget" || it.kind === "decor") && !HOME_FREE_HEIGHT[key] ? homeSpanHeight(span[1], rowUnit) : null;
+    const fixedH = !asIcon && (it.kind === "widget" || it.kind === "decor") && !(HOME_FREE_HEIGHT[key] && homeSize === "auto") ? homeSpanHeight(span[1], rowUnit) : null;
+    // ↑ 名片只在「原尺寸」时按内容高；她挑了尺寸（4×2 这些）就照挑的撑满那几行（她 2026-10-20：选了 4×2 还是那么大）
     let inner = homeInnerOf(it, key, homeSize, fixedH, span);
     const presetId = widgetStyles[key] || (it.kind === "decor" ? "soft" : "native");
     let presetStyle = !asIcon && (it.kind === "widget" || it.kind === "decor") ? homeWidgetPresetStyle(presetId, t, it.kind === "decor" ? it.which : it.which) : null;
@@ -7528,7 +7529,7 @@ function Home({
       style: {
         gridColumn: gCol, gridRow: gRow,
         // 名片不钉高度：别让格子把它拉满两行（拉满了底下那两个小按钮会掉到卡的最下沿、离内容好远）
-        alignSelf: HOME_FREE_HEIGHT[key] && !asIcon ? "start" : undefined,
+        alignSelf: HOME_FREE_HEIGHT[key] && homeSize === "auto" && !asIcon ? "start" : undefined,
         // ⚠️歪着的卡要有地方伸腿（她 2026-09-13：「组件和装饰要是歪着叠，TA的角会被截掉」）。
         //   病根：这一格定了高就 overflow:hidden，而卡是【转过角度】的——
         //   一张 340 宽的卡歪 4°，上下各要多出十来像素，那几个角正好被这个方框削掉。
@@ -7908,7 +7909,7 @@ function Home({
 //   · 底下那排数左对齐、没有分隔线，不再是「三等分格子」那种社交资料页排法。
 // 数字也换了：她说【和恋爱无关】。所以是【认识几个人 / 攒了多少条记忆 / 来了第几天】,
 // 说的是她在这本档案里干了多少事，跟谈没谈恋爱没关系。
-function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpenCodex, flush }) {
+function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpenCodex, flush, fill }) {
   const t = useTheme();
   const c = card || {};
   const name = c.name || profile.name || "点此设置昵称";
@@ -7969,7 +7970,8 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       background: onCover ? "rgba(0,0,0,.28)" : "rgba(255,255,255,0.5)",
       border: "1px solid " + (onCover ? "rgba(255,255,255,.35)" : t.line) } }, kid);
   // 主屏格子里（flush）不留下边距：格子按名片自己的高度量，14px 会被算进去，外层组件底色从卡底下露出一截，像一块阴影（群里 2026-10-20）
-  return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: flush ? 0 : 14, overflow: "hidden", display: "flex", flexDirection: "column" }, skin) },
+  // fill：格子高度已经钉死（她挑了尺寸）才撑满那一格；原尺寸时不许写 100%，见下面那条 ⚠️
+  return h(GlassCard, { style: Object.assign({ padding: 0, marginBottom: flush ? 0 : 14, overflow: "hidden", display: "flex", flexDirection: "column" }, fill ? { height: "100%" } : null, skin) },
     // ⚠️里面这层绝不许写 height:100%：卡自动高时 100% 会顶着算回去，实测能把卡撑到
     //   整屏高，主屏直接毁（施工规则/home-screen-layout.md）。用 flex:1。
     h("div", { className: "flex flex-col", style: { position: "relative", flex: 1, minHeight: 0, padding: "10px 14px 9px" } },

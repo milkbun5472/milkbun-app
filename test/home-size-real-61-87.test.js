@@ -31,7 +31,7 @@ test("N 行＝一个算得出的高度，不再由内容决定", () => {
 // v61.90 她：「能不能把长度固定了，不给他撑大」——改成一律钉死，只留名片一个例外
 test("组件高度一律钉死；只有名片按内容高（它的高度是一版版调出来的）", () => {
   const seg = comp.slice(comp.indexOf("const fixedH ="), comp.indexOf("let inner = homeInnerOf(", comp.indexOf("const fixedH =")) + 40);
-  assert.match(seg, /!HOME_FREE_HEIGHT\[key\] \? homeSpanHeight\(span\[1\], rowUnit\)/);
+  assert.match(seg, /!\(HOME_FREE_HEIGHT\[key\] && homeSize === "auto"\) \? homeSpanHeight\(span\[1\], rowUnit\)/);
   assert.match(comp, /const HOME_FREE_HEIGHT = \{ w_card: true \};/);
   // v67.79：裁剪框往外让了 6px（歪着的卡角不再被削），但【钉高＋裁溢出】这件事一个字没变：
   //   高度 fixedH + 两倍 bleed、padding 一倍、margin 负一倍（border-box）＝占位和内容尺寸原样。

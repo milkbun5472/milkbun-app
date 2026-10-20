@@ -58,8 +58,8 @@ test("卡有自己的封面，没设封面也不是一块白板", () => {
 });
 
 test("绝不许给里面那层写 height:100%——那会把卡撑到整屏高", () => {
-  assert.doesNotMatch(card, /height: "100%"/);
-  assert.match(card, /display: "flex", flexDirection: "column" \}, skin\)/, "卡自己是 flex 列");
+  assert.doesNotMatch(card.replace('fill ? { height: "100%" } : null', ""), /height: "100%"/, "只有格子钉了高（她挑了尺寸）才许撑满");
+  assert.match(card, /display: "flex", flexDirection: "column" \}, fill \? \{ height: "100%" \} : null, skin\)/, "卡自己是 flex 列");
   assert.match(card, /flex: 1, minHeight: 0/, "里面那层用 flex:1，不是 100%");
   assert.match(card, /marginTop: "auto"/, "被行拉高时那排数贴着底边");
 });
@@ -92,5 +92,5 @@ test("瘦一圈：内边距和两颗键都收了，但卡还是自动高（不�
   assert.match(card, /width: 19, height: 19, borderRadius: 999/, "两颗小键没缩");
   assert.match(card, /bottom: 7, right: 24\.5, gap: 9/, "两颗键没对齐到头像正下方");
   // ⚠️主屏铁律：里面这层不许写 height:100%（施工规则/home-screen-layout.md）
-  assert.doesNotMatch(card, /height: "100%"/);
+  assert.doesNotMatch(card.replace('fill ? { height: "100%" } : null', ""), /height: "100%"/, "只有格子钉了高（她挑了尺寸）才许撑满");
 });
