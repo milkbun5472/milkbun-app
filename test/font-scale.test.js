@@ -42,3 +42,9 @@ test("日记也接上", () => {
   const seg = sui.slice(sui.indexOf("function setDiaryPaper("), sui.indexOf("function MyWallet("));
   assert.equal((seg.match(/fontSize: \d+(?:\.\d+)?[,\s}]/g) || []).length, 0);
 });
+
+test("查手机整份接上（pfs：有 fsz 用 fsz，单独被测试拿去跑时原样）", () => {
+  const ph = rd("js/phone-ui.js");
+  assert.equal((ph.match(/fontSize: \d+(?:\.\d+)?\s*[,}]/g) || []).length, 0);
+  assert.match(ph, /var pfs = typeof fsz === "function" \? fsz : function \(n\) \{ return n; \};/);
+});

@@ -607,7 +607,7 @@
               z !== 1 ? h("button", { onClick: () => setFs(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 6px" } }, "还原") : null),
             h("input", { type: "range", value: z, min: 0.85, max: 1.5, step: 0.05, onChange: e => setFs(e.target.value), className: "w-full", style: { accentColor: t.ink, height: 28 } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
-              "只放大字，头像、间距、版面不动。现在管得到：线上单聊（气泡、顶栏、时间、卡片上的字）、线下（单人和群线下，连设置和往期）、群聊、心声卡、日记，别的页面还在一页一页接。想整页一起放大，用「页面 CSS」里的「全 App 多大」。"));
+              "只放大字，头像、间距、版面不动。现在管得到：线上单聊（气泡、顶栏、时间、卡片上的字）、线下（单人和群线下，连设置和往期）、群聊、心声卡、日记、查手机里的各个 app，别的页面还在一页一页接。想整页一起放大，用「页面 CSS」里的「全 App 多大」。"));
         })(),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "正文"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 18 } },

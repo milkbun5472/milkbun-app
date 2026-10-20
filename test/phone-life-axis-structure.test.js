@@ -228,7 +228,7 @@ test("去掉白卡之后，层次靠标签和字号重新建起来", () => {
   assert.match(shopping, /\[o\.shop, o\.time\]\.filter\(Boolean\)\.join\(" · "\)/, "店和时间没压成一行小字");
   const i = shopping.indexOf("o.title ? h(\"div\", { key: \"n\"");
   assert.ok(i > 0, "找不到商品名那一行");
-  assert.match(shopping.slice(i, i + 160), /fontSize: 18/, "商品名没比出处大——读的人分不出哪个是主角");
+  assert.match(shopping.slice(i, i + 160), /fontSize: pfs\(18\)/, "商品名没比出处大——读的人分不出哪个是主角");
   // 退掉的那一单实付是 0，摆个「¥0.00」在「后来退了」旁边只是噪音
   assert.match(shopping, /Number\(o\.paid\) > 0 \? h\("span"/, "退掉的那一单还摆着 ¥0.00");
 });
