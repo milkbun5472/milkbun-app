@@ -73,12 +73,14 @@
   // ⚠️取材的过滤条件必须和别处一致（engine.js 那句「所有角色视角的取材都用它过滤」）：
   // 撤回的那句角色本来就不该记得，被上下文开关排除的那些也是。原来这里只挡了 OOC。
   // ⚠️还要【先过滤再取尾】：先 slice 的话，一段撤回的能把真正有用的几句挤没。
-  function recentChatSnippet(charId, uName, charName) {
+  // beforeTs：只取这个时刻之前说的（她 2026-10-21：19 号夜里的梦，梦里冒出了 20 号傍晚才聊到的三文鱼）
+  function recentChatSnippet(charId, uName, charName, beforeTs) {
     const msgs = loadJSON("x_chat:" + charId, []);
     if (!msgs.length) return "";
     return msgs
       .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m)
-        && !m.recalled && (typeof contextAllowsMessage !== "function" || contextAllowsMessage(m)))
+        && !m.recalled && (typeof contextAllowsMessage !== "function" || contextAllowsMessage(m))
+        && (!beforeTs || !m.ts || Number(m.ts) <= beforeTs))
       .slice(-12)
       .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80))
       .join("\n");
@@ -214,7 +216,8 @@
       gazeText: (function () { try { return (window.Gaze && window.Gaze.text) ? String(window.Gaze.text(c.id, uName) || "").slice(0, 700) : ""; } catch (e) { return ""; } })(),
       keywords: [], guests: [], injectChat: true,
       familiarity: familiarityTier(props.familiarityOf ? props.familiarityOf(c.id) : null),
-      voiceRef: recentChatSnippet(c.id, uName, c.name),
+      // 昨晚那场梦：只拿做梦那晚之前的聊天当口吻参考，之后才聊的事 Ta 做梦时还不知道
+      voiceRef: recentChatSnippet(c.id, uName, c.name, Number(row.createdAt) || 0),
       material: {
         excerpts: (window.DreamLoop && window.DreamLoop.excerptsFor) ? window.DreamLoop.excerptsFor(row, 12) : [],
         peaks: row.peaks || [], axes: row.relationActiveAxes || [],
