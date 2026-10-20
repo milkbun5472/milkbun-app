@@ -3201,6 +3201,13 @@ function App() {
   const pChat = (id, u) => setChats(p => {
     const pl = p[id] || [];
     let n = typeof u === "function" ? u(pl) : u;
+    // 他拉黑了她：她这会儿新发出去的每一条都送不到，挂红感叹号——打字、引用、照片、表情、转账……不管从哪条路发，都在这一处认
+    //   （她 2026-10-20：「为啥是另一条路 不应该是公共的吗」）。调用方自己写了 blocked 的（拍一拍）照它的；申请解除、出戏、旁白不算。
+    if (n.length > pl.length && (blocksRef.current[id] || {}).theyBlocked) {
+      const _skip = { unblock_req: 1, ooc: 1, narration: 1, system: 1, callend: 1, recalled: 1 };
+      //   只认刚发的（一分钟内）：翻出旧记录、导入时整段往里并的那些不动
+      n = n.map((m, i) => i >= pl.length && m && m.role === "user" && !("blocked" in m) && !_skip[m.kind] && Date.now() - Number(m.ts || 0) < 60000 ? { ...m, blocked: true } : m);
+    }
     // 通话缩小时在聊天里发的东西（加号里转账、照片、位置……）：卡照常落聊天，
     // 同时给通话上下文挂一行指针，TA在电话里接得上（她 2026-10-06：「不要为了新功能搞按钮」）
     const _cc = callRef.current;
@@ -10775,15 +10782,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }).catch(() => {});
   };
   const pushUser = (charId, text, chatKey) => {
-    const b = blocksRef.current[chatKey || charId] || {};
     const xhs = xhsOf(text), xid = xhs ? "xhs_" + Date.now() : "";
     if (xhs) xhsFill(text, xid, (f, id) => pChat(chatKey || charId, p => p.map(m => m.xid === id ? f(m) : m)));
     pChat(chatKey || charId, p => [...p, {
       role: "user",
       ...(xhs ? { kind: "xhsshare", xhs: xhs, xid: xid } : {}),
       content: text,
-      // 只有【他拉黑了她】时她的话才送不到（红感叹号）；她拉黑他时她照样发得出去、他看得到
-      blocked: !!b.theyBlocked,
+      // 只有【他拉黑了她】时她的话才送不到（红感叹号）——挂不挂由 pChat 那一处统一认，这里不另写
       ts: Date.now(),
       read: false
     }]);
@@ -30344,10 +30349,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ficWriting: !!busyLanes["ficroom:" + activeChar.id],
     toast: toast,
     onSendRich: msg => {
-      // 他拉黑了她时，引用、照片、表情这些从这条路发出去的也送不到——跟打字发的一样挂红感叹号（她 2026-10-20：「被拉黑的时候引用不会出那个感叹号」）
-      const _rk = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
-      if (msg && msg.role === "user" && (blocksRef.current[_rk] || {}).theyBlocked) msg = { ...msg, blocked: true };
-      pChat(_rk, p => [...p, msg]);
+      pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]);
       // 推荐名片＝她介绍他俩认识（她 2026-10-10「做吧」）：两人之间还一条关系都没有，才落一条「经她介绍认识」；已有的一个字不动
       if (msg && msg.kind === "namecard" && msg.cardId && msg.cardId !== activeChar.id) {
         const a2 = activeChar.id, b2 = msg.cardId, cur = loadJSON("x_rels", {}) || {};
