@@ -15479,7 +15479,7 @@ function TransferCard({
     // 退回：印按下去之后又划了一道
     back ? h("div", { style: { position: "absolute", left: -3, right: -3, top: "50%", height: 2, background: SEAL, opacity: .75 } }) : null);
   // 骑缝：一条虚线，两头各咬掉一个半圆——票据撕口就是这么个形状
-  const notch = side => h("div", { style: Object.assign({
+  const notch = side => h("div", { "data-wk": "transfernotch", "data-part": side, style: Object.assign({
     position: "absolute", top: -5, width: 10, height: 10, borderRadius: 999,
     background: PAPER_D, border: "1px solid " + RULE, borderColor: RULE
   }, side === "l" ? { left: -6 } : { right: -6 }) });
@@ -15507,32 +15507,35 @@ function TransferCard({
         // 美化挂点（她 2026-10-02 转群友：「转账卡片的『转账』是不是不能改」）
         h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, (m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账") + (m.inCall ? " · 通话中" : "")),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
+          h("span", { "data-wk": "transfercur", style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
           // 折在千分位逗号上是最难认的那种——「1,0」换行「00」。
           h("span", { "data-wk": "transferamount", style: { fontFamily: F_DISPLAY, fontSize: fitFont(String(_tfAmt), 32, 8, 16), color: INK, lineHeight: 1, whiteSpace: "nowrap" } }, _tfAmt),
-          _tfCur.pos === "post" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1, marginLeft: 2 } }, _tfCur.symbol) : null)),
+          _tfCur.pos === "post" ? h("span", { "data-wk": "transfercur", style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1, marginLeft: 2 } }, _tfCur.symbol) : null)),
       seal),
     // ── 骑缝 ──
-    h("div", { style: { position: "relative", height: 1, margin: "0 14px", background: "transparent", borderTop: "1px dashed " + RULE } },
+    h("div", { "data-wk": "transferrule", style: { position: "relative", height: 1, margin: "0 14px", background: "transparent", borderTop: "1px dashed " + RULE } },
       notch("l"), notch("r")),
     // ── 附言栏：写在单据的横线上 ──
     h("div", { className: "px-4 pt-3 pb-3.5" },
       h("div", { "data-wk": "transfernote", style: { fontFamily: F_BODY, fontSize: 12.5, color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
         m.note || "（没留话）")),
     // ── 下沿：要么两格按钮，要么一行状态 ──
-    canAct ? h("div", { className: "flex", style: { borderTop: "1px solid " + RULE, background: PAPER_D } },
+    canAct ? h("div", { "data-wk": "transferfoot", className: "flex", style: { borderTop: "1px solid " + RULE, background: PAPER_D } },
       h("button", {
+        "data-wk": "transferbtn", "data-part": "back",
         onClick: () => onRespond(m.tid, false),
         className: "flex-1 active:opacity-60",
         style: { minHeight: 42, fontFamily: F_BODY, fontSize: 13, color: FADE, background: "transparent",
           border: "none", borderRight: "1px solid " + RULE }
       }, "退回"),
       h("button", {
+        "data-wk": "transferbtn", "data-part": "take",
         onClick: () => onRespond(m.tid, true),
         className: "flex-1 active:opacity-70",
         style: { minHeight: 42, fontFamily: F_DISPLAY, fontSize: 15, color: SEAL, background: "transparent", border: "none" }
       }, "收下")) : h("div", {
+      "data-wk": "transferfoot", "data-part": "status",
       className: "px-4",
       style: { minHeight: 30, display: "flex", alignItems: "center", borderTop: "1px solid " + RULE, background: PAPER_D,
         fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: FADE }
