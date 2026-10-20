@@ -38,8 +38,9 @@ test("① 线上语域合成一处，拉黑和单聊拼的是同一个", () => {
   ["ONLINE_CHAT_RULE_V2", "REGISTER_FOLLOWS_SCENE", "PERSONA_REGISTER_ANCHOR"].forEach(k =>
     assert.ok(body.slice(0, 300).includes(k), "这一层少了 " + k));
   assert.ok(blockFn.includes("onlineRegisterLayer()"), "拉黑这条链没拼这一层");
-  assert.equal((appCode.match(/onlineRegisterLayer\(\)/g) || []).length, 2,
-    "应该正好两个调用点（单聊线上 + 拉黑）；多出来的那个也得走公共件");
+  // 单聊线上 + 拉黑 + 求解除 + 情侣邀请 + 解除情侣 + 代付 + 亲属卡（v76 小号房那次补齐后五处）
+  assert.equal((appCode.match(/onlineRegisterLayer\(\)/g) || []).length, 7,
+    "调用点数对不上：多出来的也得走公共件，少了的就是又漏了一条「用即时通讯口吻」的链");
   // 提出公共件就不许再有人手抄三条（one-public-mechanism：新增共用层要把旧的一起迁过来）
   assert.ok(!/ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/.test(appCode),
     "还有调用点在手抄这三条，没迁到 onlineRegisterLayer()");
@@ -66,4 +67,15 @@ test("③ 往前走不等于走开：同一件事上更深一层也算", () => {
 
 test("④ 反复读那条禁令本身还在，别改着改着把它删了", () => {
   assert.ok(/同一件事、同一个意思/.test(blockFn), "防复读那条没了，拉黑又要开始车轱辘");
+});
+
+test("⑤ 求他解除拉黑那条链也吃到线上语域（她 2026-10-20 小号房：回的全是一整段训话）", () => {
+  const i = appCode.indexOf("const sendMyUnblockReq = async");
+  const j = appCode.indexOf("const head = ", i);
+  assert.ok(i > 0 && j > i, "抠不出 sendMyUnblockReq");
+  const headLine = appCode.slice(j, appCode.indexOf("\n", j));
+  assert.ok(headLine.includes("onlineRegisterLayer()"), "求解除这条链没拼线上语域");
+  // 其余「用即时通讯口吻回几句」的链：拼 system 的那一行里都得有它
+  appCode.split("\n").filter(l => /用即时通讯口吻回几句/.test(l) && /bundle \+/.test(l))
+    .forEach(l => assert.ok(l.includes("onlineRegisterLayer()"), "这条链漏了线上语域：" + l.trim().slice(0, 60)));
 });

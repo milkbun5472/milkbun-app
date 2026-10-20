@@ -16732,7 +16732,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const floor = !strangerAlt && tries >= UNBLOCK_FLOOR_TRIES;
     startLane("c:" + chatKey);
     try {
-      const head = blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      // 线上语域那一层（她 2026-10-20 小号房截图：他回她的解除申请全是一整段书面训话）——
+      //   blockedReaction 早接上了 onlineRegisterLayer()，这条并排的链一直没跟上。
+      //   情侣邀请 / 解除情侣 / 代付 / 亲属卡那几处「用即时通讯口吻回几句」同病，一起接上。
+      const head = blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
         + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "");
@@ -24722,7 +24725,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ? "你们最近有摩擦、正闹别扭甚至吵架，用户此刻赌气把你们的「情侣空间」解除了。依据你们最近的对话、你的人设和此刻心情，做出真实反应（可能生气、失望、想挽留、或冷淡），并给这次解除对好感的打击程度打一个分（deduct，整数 5~10，越是被伤到越高）。"
           : "用户上一秒还在和你聊别的、毫无预兆就把你们的「情侣空间」解除了。你有点错愕、受伤，**主动**开口问 TA 怎么了 / 是不是发生了什么 / 为什么突然这样。";
         const bundle = buildBundle(ctxFor(char));
-        const raw = await callAI(apiFor(char.id), bundle + "\n\n【场景】" + scene + " 完全代入「" + char.name + "」，用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"deduct\":整数,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: "（解除了情侣空间）" }], { maxTokens: 8600 });
+        const raw = await callAI(apiFor(char.id), bundle + "\n\n" + onlineRegisterLayer() + "\n\n【场景】" + scene + " 完全代入「" + char.name + "」，用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"deduct\":整数,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: "（解除了情侣空间）" }], { maxTokens: 8600 });
         const d = extractJSON(raw) || {};
         if (mode === "fight" && typeof d.deduct === "number") deduct = Math.max(5, Math.min(10, Math.round(d.deduct)));
         const say = Array.isArray(d.say) && d.say.length ? d.say : ["……你把我们的情侣空间解除了？"];
@@ -24796,7 +24799,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const rejoin = bkA ? "\n【这是想复合】你们之前在一起过，" + Math.max(0, Math.floor((Date.now() - bkA.ts) / 864e5)) + " 天前被用户" + (bkA.mode === "fight" ? "在吵架时赌气" : "毫无预兆地") + "解除了"
         + (invM.letter ? "；这次 TA 写了一封信给你：\n「" + invM.letter + "」" : "")
         + "\n答不答应照你此刻的心情、被伤到多少、分开这些天、信里的话来——气还没消可以不答应，心软了也可以答应；好感度只是参考，不是门槛。" : "";
-      const r = await askYesNo(apiFor(charId), bundle + "\n\n【场景】" + ((rlI => rlI.space === "情侣空间" ? "用户向你发出「情侣邀请」，想和你正式在一起" : "用户想跟你开一个「" + rlI.space + "」：TA 说「" + rlI.invite + "」——这是" + rlI.zh + "那种关系，不是表白、不是要在一起；答不答应照你们现在的交情来")(spaceRel((couplesRef.current || {})[charId]))) + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。" + rejoin + "用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
+      const r = await askYesNo(apiFor(charId), bundle + "\n\n" + onlineRegisterLayer() + "\n\n【场景】" + ((rlI => rlI.space === "情侣空间" ? "用户向你发出「情侣邀请」，想和你正式在一起" : "用户想跟你开一个「" + rlI.space + "」：TA 说「" + rlI.invite + "」——这是" + rlI.zh + "那种关系，不是表白、不是要在一起；答不答应照你们现在的交情来")(spaceRel((couplesRef.current || {})[charId]))) + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。" + rejoin + "用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
         after.concat([{ role: "user", content: "（回应" + spaceRel((couplesRef.current || {})[charId]).space + "邀请）" }]), { maxTokens: 8500 });
       // 读不出来【不算TA拒绝】：卡标成「没送到」，pending 留着，她可以再点一次。
       // 原来这儿是 !!d.accept —— 解析一失败就是不可逆的婉拒。
@@ -28641,7 +28644,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const bal = charBalanceOf(charId);
     try {
       const bundle = buildBundle(ctxFor(char));
-      const system = bundle + "\n\n【任务】用户把一份购物清单发给你，请求你「代付」——用你自己的钱帮 Ta 结账。清单：" + items.map(x => x.name + " " + moneyText(x.price, charId)).join("、") + "，合计 " + moneyText(total, charId) + "。你当前余额约 " + moneyText(Math.round(bal), charId) + "。请完全代入「" + char.name + "」，依据人设、对用户的好感、你们的关系、以及你的经济状况，决定要不要帮 Ta 付。愿意就 agree:true；不愿意/嫌贵/想逗 Ta/囊中羞涩就 agree:false。无论同不同意都用即时通讯口吻回几句(say)，短句多气泡。\n【输出】只输出 JSON：{\"agree\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}";
+      const system = bundle + "\n\n" + onlineRegisterLayer() + "\n\n【任务】用户把一份购物清单发给你，请求你「代付」——用你自己的钱帮 Ta 结账。清单：" + items.map(x => x.name + " " + moneyText(x.price, charId)).join("、") + "，合计 " + moneyText(total, charId) + "。你当前余额约 " + moneyText(Math.round(bal), charId) + "。请完全代入「" + char.name + "」，依据人设、对用户的好感、你们的关系、以及你的经济状况，决定要不要帮 Ta 付。愿意就 agree:true；不愿意/嫌贵/想逗 Ta/囊中羞涩就 agree:false。无论同不同意都用即时通讯口吻回几句(say)，短句多气泡。\n【输出】只输出 JSON：{\"agree\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}";
       const raw = await callAI(active, system, [{ role: "user", content: "[代付请求] " + items.map(x => x.name).join("、") + " 合计 " + moneyText(total, charId) }]);
       const d = extractJSON(raw) || { agree: false, say: ["……让我想想。"] };
       const agree = !!d.agree && bal >= total;
@@ -28941,7 +28944,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("已向 " + char.name + " 申请加额度");
     try {
       const bundle = buildBundle(ctxFor(char));
-      const system = bundle + "\n\n【任务】你之前给了用户一张亲属卡（当前额度 ¥" + card.limit + "，已用 ¥" + (card.used || 0) + "）。现在 Ta 申请给这张卡加额度" + (ask ? "（希望加 ¥" + ask + "）" : "") + "。你余额约 ¥" + Math.round(bal) + "。完全代入「" + char.name + "」，依据人设、好感、你的经济状况决定加多少（可以爽快加、可以少加、可以拒绝加 0、可以借机撒娇/说条件）。addLimit 是你决定新增的额度数字（不加就 0）。say 用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"addLimit\":数字,\"say\":[\"气泡1\"]}";
+      const system = bundle + "\n\n" + onlineRegisterLayer() + "\n\n【任务】你之前给了用户一张亲属卡（当前额度 ¥" + card.limit + "，已用 ¥" + (card.used || 0) + "）。现在 Ta 申请给这张卡加额度" + (ask ? "（希望加 ¥" + ask + "）" : "") + "。你余额约 ¥" + Math.round(bal) + "。完全代入「" + char.name + "」，依据人设、好感、你的经济状况决定加多少（可以爽快加、可以少加、可以拒绝加 0、可以借机撒娇/说条件）。addLimit 是你决定新增的额度数字（不加就 0）。say 用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"addLimit\":数字,\"say\":[\"气泡1\"]}";
       const raw = await callAI(active, system, [{ role: "user", content: "[申请加额度]" + (ask ? " 希望加 ¥" + ask : "") }]);
       const d = extractJSON(raw) || { addLimit: 0, say: ["……再说吧。"] };
       const add = Math.max(0, Math.round(Number(d.addLimit) || 0));
