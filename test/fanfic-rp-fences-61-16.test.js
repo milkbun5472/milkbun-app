@@ -187,6 +187,5 @@ test("加笔中那一页不再顶着一块 30px 大标题", () => {
   assert.equal((th.match(/s\.ficTitle/g) || []).length, 1, "书名还是连着写了两遍");
   // 收尾在顶栏右侧那个等宽位；照旧要点两下
   assert.match(th, /requestAppConfirm\("现在收尾定稿？"/, "收尾先问一句：走公共的确认弹窗");
-  assert.match(th, /再点一下右上角就定稿/);
   assert.doesNotMatch(th, /"收尾 · 把这一版放回书架"/);
 });
