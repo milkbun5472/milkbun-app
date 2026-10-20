@@ -2239,11 +2239,14 @@ function VClockEditor({ v, onChange, compact, title }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "离开小手机时停住"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "切走、锁屏、关掉的那段时间不算，回来从停下的那一刻接着走")),
         h(Toggle, { on: !!(v && v.pauseAway), onChange: x => put({ pauseAway: !!x }) })),
-      // 日程照这只钟的日子排（她 2026-10-20）：关着＝现实一天排一份、钟只改日子的叫法；开着＝虚拟的哪天就排哪天，「此刻在干嘛」也照这只钟的几点
+      // 日程照这只钟的日子排（她 2026-10-20）：关着＝照现实的日子排、钟只改日子的叫法；开着＝虚拟的哪天就排哪天，「此刻在干嘛」也照这只钟的几点
+      // ⚠️两边都是【一次排一周】（周日排下一周七天，见 app.js 的 schedGenAllToday）：
+      //   这儿原来写成「现实一天排一份」，界面上那句说明也跟着错了（她 2026-10-20：「现实也是一周一次啊」）。
+      //   钟走得快时虚拟的一周过得快，于是【排得更勤】——勤的是次数，不是每次排的天数。
       h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
         h("div", { style: { minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "日程照这只钟的日子排"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "打开后，跟这张面具聊的人按这只钟的日期排日程（一次排一周），此刻在做什么、日历上他那一页也照这只钟的几点。关着就是现实一天排一份。钟走得快，日程也排得勤一些")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "打开后，跟这张面具聊的人按这只钟的日期排日程，此刻在做什么、日历上他那一页也照这只钟的几点。关着就照现实的日子排。两边都是一次排一周（周日排下一周）；钟走得快，虚拟的一周过得也快，就排得勤一些")),
         h(Toggle, { on: !!(v && v.schedFollow), onChange: x => put({ schedFollow: !!x }) })),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
