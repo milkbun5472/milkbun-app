@@ -71,9 +71,15 @@
     const adm = adminToken(); if (adm) headers["x-qq-admin"] = adm;
     const tk = sessionTok(); if (tk) headers.authorization = "Bearer " + tk;
     if (o.body) headers["content-type"] = "application/json";
+    // 超时（群里 2026-10-20：「卡主不动了我以为我出问题了」「有时候进去要加载好久」）：
+    //   小窝在海外，国内连过去时快时慢；原来请求没有超时，网一卡就一直转「在拿……」，看着像 app 死了。
+    //   拿东西等 15 秒，传东西（带图）等 60 秒；到点就停下说清楚，页面上给「再试一次」。
+    const ctl = typeof AbortController === "function" ? new AbortController() : null;
+    const tm = ctl ? setTimeout(() => ctl.abort(), o.body ? 60000 : 15000) : null;
     let r;
-    try { r = await fetch(NEST + path, { method: o.method || "GET", headers, body: o.body ? JSON.stringify(o.body) : undefined }); }
-    catch (e) { throw new Error("连不上小窝，看看网络"); }
+    try { r = await fetch(NEST + path, { method: o.method || "GET", headers, body: o.body ? JSON.stringify(o.body) : undefined, signal: ctl ? ctl.signal : undefined }); }
+    catch (e) { throw new Error(ctl && ctl.signal.aborted ? "小窝那边太慢了，等了一会儿还没回。网好一点再试一次" : "连不上小窝，看看网络"); }
+    finally { if (tm) clearTimeout(tm); }
     let d = null; try { d = await r.json(); } catch (e) {}
     // 拿着令牌还被说「要登录」：令牌过期了或者在别处被作废了，清掉，下次照没登录处理
     if (r.status === 401 && tk) clearSession();
@@ -396,7 +402,8 @@
     const [armed, setArmed] = useState(false);
     const [placing, setPlacing] = useState(false);   // CSS／整套聊天美化：先问放哪儿
     const [follow, setFollow] = useState(null);       // null＝还不知道
-    useEffect(() => { let live = true; api("/item/" + id).then(d => { if (live) setIt(d); }).catch(e => { if (live) setErr(e.message); }); return () => { live = false; }; }, [id]);
+    const [tries, setTries] = useState(0);   // 「再试一次」
+    useEffect(() => { let live = true; setErr(""); api("/item/" + id).then(d => { if (live) setIt(d); }).catch(e => { if (live) setErr(e.message); }); return () => { live = false; }; }, [id, tries]);
     useEffect(() => { if (!it || !it.uid || !me || me.id === it.uid) return; let live = true;
       api("/user/" + it.uid).then(d => { if (live) setFollow(!!d.followed); }).catch(() => {}); return () => { live = false; }; }, [it && it.uid, me && me.id]);
     const admin = !!adminToken();
@@ -486,7 +493,8 @@
     return h("div", { "data-wk": "nestdetail", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: it ? KZH[it.kind] : "小窝", onBack: onClose, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-6" },
-        err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, err) :
+        err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, err,
+          h("div", { style: { marginTop: 12 } }, h(Btn, { t, onClick: () => setTries(x => x + 1), wk: "nestretry" }, "再试一次"))) :
         !it ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, "在拿……") :
         h(React.Fragment, null,
           // 揭下来的那张纸条：底部是署名和关注，不放圆头像
@@ -1054,13 +1062,21 @@
       api("/me").then(d => { if (d.user) { setMe(d.user); setUnread(d.unread || 0); } else { clearSession(); setMe(null); setUnread(0); } }).catch(() => {}); };
     useEffect(() => { refreshMe(); }, []);
     useEffect(() => { if (!top) refreshMe(); }, [stack.length]);
+    // 记住上一次看到的墙（群里 2026-10-20：「有时候进去要加载好久」）：点进来先把上次那一页摆出来，
+    //   后台再去拿新的，拿到了再换；网卡住时也不是白屏干等。只记每一格「最新/最旧」的第一页（搜的不记）。
+    //   本机缓存，qq_ 开头：不进存档、不上云（施工规则/no-small-warehouse.md 第 5 条）。
+    const WALL_KEY = (kd, so) => "qq_nestWall:" + (kd || "all") + "|" + so;
+    const [stale, setStale] = useState(false);   // 眼前这页是上次记下的、新的还没拿到
     const load = async (off) => {
       setLoading(true); setErr("");
+      const cacheable = !off && !qLive, ck = WALL_KEY(kind, sort);
+      if (cacheable) { const old = tryJSON(lsGet(ck)); if (Array.isArray(old) && old.length) { setItems(old); setStale(true); } }
       try {
         const qs = "?sort=" + sort + (kind ? "&kind=" + kind : "") + (qLive ? "&q=" + encodeURIComponent(qLive) : "") + "&off=" + (off || 0);
         const d = await api("/list" + qs);
         const got = d.items || [];
-        setItems(prev => off ? prev.concat(got) : got); setMore(got.length >= 30);
+        setItems(prev => off ? prev.concat(got) : got); setMore(got.length >= 30); setStale(false);
+        if (cacheable) { try { localStorage.setItem(ck, JSON.stringify(got)); } catch (e) {} }
       } catch (e) { setErr(e.message); }
       setLoading(false);
     };
@@ -1119,10 +1135,13 @@
         people.length ? h("div", { "data-wk": "nestpeople", className: "flex flex-wrap", style: { gap: 8, padding: "4px 0 10px" } },
           people.map(u => h("button", { key: u.id, onClick: () => openUser(u.id), className: "active:opacity-60",
             style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px" } }, "@" + u.name))) : null,
-        err ? empty(err)
+        // 拿新的没拿到，可手上有上次那一页：照旧摆着，顶上说一句、给「再试一次」
+        err && stale && items.length ? h("div", { "data-wk": "nestslow", className: "flex items-center", style: { gap: 8, padding: "2px 0 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } },
+          h("div", { className: "flex-1 min-w-0" }, "网太慢，先给你看上次的。" + err), h(Btn, { t, onClick: () => load(0), wk: "nestretry" }, "再试一次")) : null,
+        err && !(stale && items.length) ? h("div", null, empty(err), h("div", { style: { textAlign: "center" } }, h(Btn, { t, onClick: () => load(0), wk: "nestretry" }, "再试一次")))
         : (!items.length && !loading) ? empty(qLive ? "没找到。" : "这面墙还空着。\n右上角「＋ 传一个」，贴第一张上去。")
         : h(Wall, { t, items, onOpen: openItem }),
-        loading ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 4px", textAlign: "center" } }, "在拿……")
+        loading ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 4px", textAlign: "center" } }, stale ? "在拿新的……" : "在拿……")
         : more ? h("div", { style: { padding: "6px 0 14px", textAlign: "center" } }, h(Btn, { t, onClick: () => load(items.length) }, "再往下翻")) : null));
   }
 

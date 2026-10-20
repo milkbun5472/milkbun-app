@@ -192,3 +192,13 @@ test("文档一类：格子柜里有；传的时候能选 txt/md/docx 或整份�
   // 十格排 5×2、九格排 3×3：不留孤零零的一行
   assert.match(nest, /all\.length % 5 === 0 && all\.length > 5 \? 5/);
 });
+
+// 群里 2026-10-20：「卡主不动了我以为我出问题了」「有时候进去要加载好久」——小窝在海外，国内连过去时快时慢
+test("小窝慢的时候不像坏了：请求有超时、墙记住上一次、拿不到给「再试一次」", () => {
+  assert.match(nest, /setTimeout\(\(\) => ctl\.abort\(\), o\.body \? 60000 : 15000\)/, "请求没有超时，网一卡就一直转");
+  assert.match(nest, /小窝那边太慢了，等了一会儿还没回/);
+  assert.match(nest, /const WALL_KEY = \(kd, so\) => "qq_nestWall:"/, "墙没记住上一次");
+  assert.match(nest, /if \(cacheable\) \{ const old = tryJSON\(lsGet\(ck\)\); if \(Array\.isArray\(old\) && old\.length\) \{ setItems\(old\); setStale\(true\); \} \}/);
+  assert.match(nest, /网太慢，先给你看上次的。/);
+  assert.equal((nest.match(/wk: "nestretry" \}, "再试一次"\)/g) || []).length, 3, "墙上两处、详情一处都要有「再试一次」");
+});
