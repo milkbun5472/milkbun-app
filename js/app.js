@@ -30344,7 +30344,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ficWriting: !!busyLanes["ficroom:" + activeChar.id],
     toast: toast,
     onSendRich: msg => {
-      pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]);
+      // 他拉黑了她时，引用、照片、表情这些从这条路发出去的也送不到——跟打字发的一样挂红感叹号（她 2026-10-20：「被拉黑的时候引用不会出那个感叹号」）
+      const _rk = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      if (msg && msg.role === "user" && (blocksRef.current[_rk] || {}).theyBlocked) msg = { ...msg, blocked: true };
+      pChat(_rk, p => [...p, msg]);
       // 推荐名片＝她介绍他俩认识（她 2026-10-10「做吧」）：两人之间还一条关系都没有，才落一条「经她介绍认识」；已有的一个字不动
       if (msg && msg.kind === "namecard" && msg.cardId && msg.cardId !== activeChar.id) {
         const a2 = activeChar.id, b2 = msg.cardId, cur = loadJSON("x_rels", {}) || {};
