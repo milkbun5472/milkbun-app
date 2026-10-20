@@ -8364,10 +8364,20 @@ function Messages({
   const pinnedSet = new Set(pinned || []);
   const offLast = offlineLastTs || {};
   // 排序时间取【线上最后一条】和【线下最后一条】里更晚的——线下角色自己冒泡也会把这个聊天顶上来（她 2026-07-23）
+  // 侧房里的新消息也把这个人顶上来（她 2026-10-20：「为啥有些房间可以把聊天记录顶上来有些不行」）——
+  //   原来只看主房和线下，侧房（person::room::id）里聊得再热闹，列表里这个人也沉在下面；预览也显示更新的那一条
+  const roomLast = {};
+  Object.keys(chats || {}).forEach(k => {
+    if (k.indexOf("::room::") < 0) return;
+    const arr = chats[k] || [], m = arr[arr.length - 1];
+    if (!m) return;
+    const pid = k.split("::room::")[0];
+    if (!roomLast[pid] || (m.ts || 0) > (roomLast[pid].ts || 0)) roomLast[pid] = m;
+  });
   const chatItems = [
     ...groups.map(g => { const msgs = groupChats[g.id] || []; const last = msgs[msgs.length - 1]; return { key: "g_" + g.id, id: g.id, type: "group", g: g, last: last, ts: Math.max(last ? (last.ts || 0) : 0, offLast[g.id] || 0) }; }),
     // 配角私聊（她 2026-10-03）：聊过才进列表，没聊过的不冒出来——入口在通讯录 → 配角 → 详情页「发消息」。
-    ...characters.concat((allChars || []).filter(c => c && c.npc && (chats[c.id] || []).length)).map(c => { const msgs = chats[c.id] || []; const last = msgs[msgs.length - 1]; return { key: "c_" + c.id, id: c.id, type: "char", c: c, last: last, ts: Math.max(last ? (last.ts || 0) : 0, offLast[c.id] || 0) }; })
+    ...characters.concat((allChars || []).filter(c => c && c.npc && (chats[c.id] || []).length)).map(c => { const msgs = chats[c.id] || []; const mainLast = msgs[msgs.length - 1]; const rl = roomLast[String(c.id)]; const last = rl && (!mainLast || (rl.ts || 0) > (mainLast.ts || 0)) ? rl : mainLast; return { key: "c_" + c.id, id: c.id, type: "char", c: c, last: last, ts: Math.max(last ? (last.ts || 0) : 0, offLast[c.id] || 0) }; })
   ];
   // 删掉的配角聊天：删之后没有新消息就不出现（记录和配角都还在）
   const hidAt = hiddenChats || {};
