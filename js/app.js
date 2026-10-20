@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.118";
+const APP_VERSION = "v76.119";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3068,7 +3068,12 @@ function App() {
     }
   }, [screen, activeRoomId, offlineRoomId, activeChar && activeChar.id, activeGroup && activeGroup.id, offlineChar && offlineChar.id, offlineGroup && offlineGroup.id, call && call.startTs]);
   // 剥掉模型偶尔照抄的历史时间标注：〔今天07:57〕/〔昨天20:11〕/〔7/13 07:57〕/〔07:57〕（system 已明令禁止但拦不住，输出侧兜底，她 2026-07-13 截图）
-  const stripAiStamp = w => String(w == null ? "" : w).replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "").trim();
+  // ⚠️夹在中间的也摘（群里 2026-10-20 截图：一条语音里连着说了几句，每句前面都抄了个〔今天19:44〕，进了「他说的是」）：
+  //   开头那个什么括号都认；中间的只认〔〕这一种——它是我们独有的记号，正文里不会自己长出来
+  const stripAiStamp = w => String(w == null ? "" : w)
+    .replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "")
+    .replace(/\s*〔\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*〕\s*/g, " ")
+    .replace(/ {2,}/g, " ").trim();
   // ⚠️把【我们自己写在历史里的那几个记号】从它的回复里摘掉（她 2026-09-22 截图：
   //   气泡里原样出现了「（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）」）。
   //   那几个记号是喂给模型看的旁注，贴在【它自己上一条的正文前面】——于是它很自然地

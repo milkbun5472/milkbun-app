@@ -7164,7 +7164,10 @@ function ttsLangBoost(text, yueVoice) {
   if (s.trim() && !/[一-鿿぀-ヿ가-힣]/.test(s) && /[a-zA-Z]/.test(s)) return "English";
   // 粤语（她 2026-10-11：「语音和气泡听一下播放的还是普通话」）：Chinese 这一档按普通话念。
   //   有粤语专用字、或写的是繁体，就走 MiniMax 的 Chinese,Yue；通篇简体又没有粤语字的仍是普通话。
-  if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(s)
+  // ⚠️普通话里也常见的那几个（唔……、走嘞、咩～、咁）只在说粤语的角色身上算数（群里 2026-10-20：
+  //   普通话角色一句「唔……被姐姐握着」整条念成了粤语）
+  if (/[嘅咗啲喺嗰冇佢嚟乜嘢噉哋㗎啱揾搵睇畀攰瞓諗谂嚿嗮嘥]/.test(s)
+    || (yueVoice && /[唔咁囉嘞咩冚啩喎噃]/.test(s))
     || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
   return "Chinese";
 }

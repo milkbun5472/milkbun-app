@@ -56,3 +56,12 @@ test("语音栏那两路也过一遍", () => {
   assert.match(app, /(const|let) vt = stripEchoedMeta\(\(raw && \(raw\.t \|\| raw\.text\)\) \|\| ""\);/);   // v75.919 改成 let：剥完还要再拆一层 {"voice":…}
   assert.match(app, /const vt = stripEchoedMeta\(item\.text\);/);
 });
+
+// 群里 2026-10-20：一条语音里每句前面都抄了〔今天19:44〕
+{
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const a = src.indexOf("  const stripAiStamp = w =>"), b = src.indexOf(";\n", src.indexOf(".trim()", a)) + 1;
+  const strip = new Function(src.slice(a, b) + "\nreturn stripAiStamp;")();
+  require("node:assert/strict").equal(strip("唔……能不大嘛〔今天19:44〕它现在全听你的〔今天19:44〕既然这么喜欢"), "唔……能不大嘛 它现在全听你的 既然这么喜欢");
+  require("node:assert/strict").equal(strip("〔今天19:44〕你好"), "你好");
+}
