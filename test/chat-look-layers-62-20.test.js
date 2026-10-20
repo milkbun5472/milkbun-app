@@ -142,7 +142,7 @@ test("App 那头把三样都算好传进来，且皮肤 CSS 跟主题用同一�
 });
 
 test("两个选择器都留着【跟随全局】那一档，不然退不回去", () => {
-  const i = comp.indexOf('h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "只给 TA 换皮肤")');
+  const i = comp.indexOf('h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "只给 TA 换皮肤")');
   assert.ok(i > 0, "只给 TA 换皮肤那一格没了");
   // ⚠️别用「往后数 2600 个字」当终点（施工规则/anchor-on-code）：v71.13 在这两格
   //   中间插了「只给 TA 换字」，气泡那格当场被挤出窗口，红的不是代码是锚。

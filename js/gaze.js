@@ -535,25 +535,25 @@
     const defs = side === "me" ? ME : US;
     // Sheet 容器带 transform,fixed 会锚到 Sheet 而非屏幕 → 信纸必须 portal 到 body 才能居中
     const locked = !!(openK && (box.locks || {})[openK]);
-    const vBtn = on => ({ minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, border: "1px solid " + (on ? GOLD : "rgba(172,138,91,.45)"), background: on ? GOLD : "transparent", color: on ? "#fff" : GOLD });
+    const vBtn = on => ({ minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1, border: "1px solid " + (on ? GOLD : "rgba(172,138,91,.45)"), background: on ? GOLD : "transparent", color: on ? "#fff" : GOLD });
     const full = openK && ReactDOM.createPortal(
       h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
         h("div", { "data-wk": "gazeletter", onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "74vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, backgroundImage: "repeating-linear-gradient(transparent, transparent 29px, rgba(120,100,70,.07) 29px, rgba(120,100,70,.07) 30px), linear-gradient(" + PAPER + "," + PAPER + " 60%, #f7efdf)", borderRadius: 4, padding: "34px 26px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
           tape(),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
-          box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + gazeDay(box.blocks[openK].ts, charId)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
+          box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + gazeDay(box.blocks[openK].ts, charId)),
           // 锁住／删掉这版（群里 2026-10-09：「重 roll 也会覆盖，想把重 roll 的删除」）——删了，上一版顶回来
           box.blocks[openK] && h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
             h("button", { "data-wk": "gazelock", "data-on": locked ? "1" : "0", onClick: () => { setLock(charId, openK, !locked); setSeenTick(x => x + 1); },
               style: vBtn(locked) }, locked ? "已锁住 · 点开锁" : "锁住这块"),
             h("button", { "data-wk": "gazedelver", "data-part": "now", onClick: () => { delVersion(charId, openK, 0, "", true); setSeenTick(x => x + 1); }, style: vBtn(false) },
               (box.hist || []).some(x => x.k === openK) ? "删掉这版 · 换回上一版" : "删掉这版")),
-          locked ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: GOLD, marginTop: 6, textAlign: "right" } }, say("锁着的时候，他往后再想、整份重写都不会改这一块")) : null,
+          locked ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: GOLD, marginTop: 6, textAlign: "right" } }, say("锁着的时候，他往后再想、整份重写都不会改这一块")) : null,
           (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 20, borderTop: "1px dashed rgba(120,100,70,.25)", paddingTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: 3, color: GOLD, marginBottom: 8 } },
               say("他从前是这么想的") + " · 改过 " + box.hist.filter(x => x.k === openK).length + " 次"),
-            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, gazeDay(x.ts, charId)),
+            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: "calc(9px * var(--app-fs, 1))", opacity: .8 } }, gazeDay(x.ts, charId)),
               h("div", { className: "flex", style: { gap: 8, marginTop: 4 } },
                 h("button", { "data-wk": "gazeusever", onClick: () => { useVersion(charId, openK, x.ts, x.old); setSeenTick(n => n + 1); }, style: vBtn(false) }, "用这版"),
                 h("button", { "data-wk": "gazedelver", "data-part": "old", onClick: () => { delVersion(charId, openK, x.ts, x.old, false); setSeenTick(n => n + 1); }, style: vBtn(false) }, "删掉"))))) : null)),
@@ -566,19 +566,19 @@
       h("div", { onClick: () => setAllOpen(false), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
         h("div", { "data-wk": "gazehistory", onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "78vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, borderRadius: 4, padding: "34px 24px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
           tape(),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 4, letterSpacing: 2 } }, say("他从前都怎么写的")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginBottom: 16 } }, "共 " + revs.length + " 版 · 最新的在最上面"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: INKSOFT, marginBottom: 4, letterSpacing: 2 } }, say("他从前都怎么写的")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: GOLD, marginBottom: 16 } }, "共 " + revs.length + " 版 · 最新的在最上面"),
           revs.length ? revs.map((x, i) => h("div", { key: i, style: { marginBottom: 16, paddingBottom: 14, borderBottom: i === revs.length - 1 ? "none" : "1px dashed rgba(120,100,70,.2)" } },
             h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
-              x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
-              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9, color: "rgba(172,138,91,.7)" } }, x.ts ? gazeDay(x.ts, charId) : "")),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, x.text)))
-            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "rgba(92,82,68,.5)", lineHeight: 2 } }, say("他还没写过什么。")))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
+              x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
+              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "rgba(172,138,91,.7)" } }, x.ts ? gazeDay(x.ts, charId) : "")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, x.text)))
+            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(92,82,68,.5)", lineHeight: 2 } }, say("他还没写过什么。")))),
       document.body);
     return h("div", { "data-wk": "gazepage", "data-side": side, style: { margin: "-4px -6px 0", padding: "18px 14px 26px", borderRadius: 18, background: "linear-gradient(168deg, #f8f2e6, #f6ecdf 46%, #f2e2d6 78%, " + BLUSH + "40)" } },
       h("div", { style: { textAlign: "right", padding: "2px 6px 14px" } },
-        h("div", { "data-wk": "gazetitle", style: { fontFamily: F_DISPLAY, fontSize: 30, letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们")),
+        h("div", { "data-wk": "gazetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(30px * var(--app-fs, 1))", letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们")),
         // 原来这儿挂着一行 "SHE, THROUGH HER EYES" 的英文眉标——
         // 上面那行「关于我」已经把话说完了，它只是装饰（no-english-titles）。
       // ── 两栏＝挂在页头的两条布书签（v62.66）──────────────────────
@@ -596,7 +596,7 @@
             style: {
               position: "relative", flex: 1, minHeight: 40,
               padding: on ? "9px 0 17px" : "7px 0 13px",
-              fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3,
+              fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: 3,
               color: on ? "#fff" : GOLD,
               background: on ? GOLD : "rgba(172,138,91,.16)",
               border: "none", borderRadius: "0 0 2px 2px",
@@ -637,19 +637,19 @@
         else if (rv.tries) lines.push("替" + say("他") + "自动复看过 " + rv.tries + " 次"
           + (rv.tries >= rv.max ? reviewCap : ""));
         if (!lines.length) return null;
-        return h("div", { "data-wk": "gazestatus", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
+        return h("div", { "data-wk": "gazestatus", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, margin: "-6px 4px 8px" } },
           lines.map(function (x, i) { return h("div", { key: i }, x); }),
           // 真败因收在这儿：那句人话是给她看的，可原文不能扔——
           // engine 已经把话说得很清楚了（哪个模型、提示词多大、输出上限多少、
           // 等了几秒、是上游打回来还是超时），点开才看，平时不占地方。
           rv.raw ? h("div", null,
             h("button", { onClick: function () { setWhyOpen(!whyOpen); },
-              style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
+              style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
               whyOpen ? "收起原话" : "到底哪儿没成"),
-            whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
+            whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, rv.raw) : null) : null);
       })() : null,
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
         // 空卡为什么空,得在这儿说出来。原来这一页不管是「还没聊够」「替TA自动写过但失败了」
         // 还是「TA连着好几轮说写不出来」,长相都一模一样——她只能看到「死活不填」,查不出是哪一种。
         (function () {
@@ -661,22 +661,22 @@
           else if (st.tries) lines.push("替" + say("他") + "自动写过 " + st.tries + " 次，都没成（" + plainWhy("没写出内容") + "）"
             + (st.tries >= st.max ? "；试满了，往后不再自动试。想现在就要，点下面那个按钮" : ""));
           if (!lines.length) return null;
-          return h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, marginBottom: 14 } },
+          return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: .5, color: "rgba(172,138,91,.75)", lineHeight: 1.9, marginBottom: 14 } },
             lines.map(function (x, i) { return h("div", { key: i }, x); }),
             st.raw ? h("div", null,
               h("button", { onClick: function () { setWhyOpen(!whyOpen); },
-                style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
+                style: { minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 8px 0 0", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: .5, color: "rgba(172,138,91,.95)", textDecoration: "underline" } },
                 whyOpen ? "收起原话" : "到底哪儿没成"),
-              whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, st.raw) : null) : null);
+              whyOpen ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.75, color: "rgba(140,112,74,.85)", background: "rgba(172,138,91,.08)", borderRadius: 3, padding: "7px 9px", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, st.raw) : null) : null);
         })(),
-        onSeed ? h("button", { "data-wk": "gazebtn", "data-kind": "seed", onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? say("他在想…") : say("让他写写看")) : null) : null,
+        onSeed ? h("button", { "data-wk": "gazebtn", "data-kind": "seed", onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? say("他在想…") : say("让他写写看")) : null) : null,
       defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
         return h("div", { "data-wk": "block", key: fk, "data-wk": "gazecard", "data-k": fk, "data-empty": b ? "0" : "1", onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
           tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
           unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
-          (box.locks || {})[fk] ? h("span", { "data-wk": "gazelockmark", style: { position: "absolute", top: 7, right: 22, fontFamily: F_BODY, fontSize: 9, color: GOLD } }, "已锁") : null,
-          h("div", { "data-wk": "gazecardname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
-          h("div", { "data-wk": "gazecardtext", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
+          (box.locks || {})[fk] ? h("span", { "data-wk": "gazelockmark", style: { position: "absolute", top: 7, right: 22, fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: GOLD } }, "已锁") : null,
+          h("div", { "data-wk": "gazecardname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
+          h("div", { "data-wk": "gazecardtext", style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
           (function () {
             // 这一块【上次什么时候被碰过】。她 2026-09-04：「有些角色的 Ta 眼里确实一直
             // 不显示上次什么时候想过，没改」——病根是这一行原来【只在复看过又没改时】才出现，
@@ -692,21 +692,21 @@
             if (!when) return null;
             var dd = Math.floor((Date.now() - when) / 86400000);
             var ago = dd >= 1 ? dd + " 天前" : "今天";
-            return h("div", { "data-wk": "gazecardtime", style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 1, color: "rgba(172,138,91,.55)", marginTop: 5 } },
+            return h("div", { "data-wk": "gazecardtime", style: { fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: 1, color: "rgba(172,138,91,.55)", marginTop: 5 } },
               ago + (checked ? "又想了一遍 · 没改" : "写的"));
           })(),
-          b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
+          b ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
       // 手动复看始终可用，不等待聊天轮数或日期。
       hasAny(charId) && onReview ? h("button", { "data-wk": "gazebtn", "data-kind": "review", onClick: onReview, disabled: reviewBusy,
-        style: { display: "block", width: "100%", marginTop: 20, padding: "10px 0", borderRadius: 999, border: "none", background: GOLD, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, boxShadow: "0 4px 14px rgba(172,138,91,.35)" } },
+        style: { display: "block", width: "100%", marginTop: 20, padding: "10px 0", borderRadius: 999, border: "none", background: GOLD, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", letterSpacing: 2, boxShadow: "0 4px 14px rgba(172,138,91,.35)" } },
         reviewBusy ? say("他在重看这十块…") : say("让他再看一遍这十块")) : null,
       // 「再看一遍」问的是哪几块变了、只许小幅演进，所以一次只动一两块（她 2026-10-03：「每次只改一条」）。
       //   卡要是一开始就建歪了（导入的老夫老妻卡，建成了「像刚认识」），得能整份推倒重来。
       //   走的就是建卡那一枪；旧的每一版都进了 hist，「他从前都怎么写的」里翻得回来。
       hasAny(charId) && onSeed ? h("button", { "data-wk": "gazebtn", "data-kind": "redo", onClick: () => { if (redoArm) { setRedoArm(false); onSeed(); } else setRedoArm(true); }, disabled: seedBusy,
-        style: { display: "block", width: "100%", marginTop: 12, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
+        style: { display: "block", width: "100%", marginTop: 12, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", letterSpacing: 2, color: GOLD } },
         seedBusy ? say("他在重写…") : redoArm ? "再点一下确认 · 旧的会留在从前那几版里" : say("整份重写")) : null,
-      revs.length ? h("button", { "data-wk": "gazebtn", "data-kind": "history", onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
+      revs.length ? h("button", { "data-wk": "gazebtn", "data-kind": "history", onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", letterSpacing: 2, color: GOLD } },
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }

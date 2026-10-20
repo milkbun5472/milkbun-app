@@ -42,7 +42,7 @@ test("播放键常驻在气泡底下那一行，单聊和群聊两处都挂", ()
   assert.equal((comp.match(/if \(!dot && !sub\) return null;/g) || []).length, 2,
     "两样都没有时别留一行空的（两份都要）");
   // 2026-10-19 起单聊那份跟着「字号」拉条走（fsz(9.5)），群里那份还没接：两种写法都算同一个字号
-  assert.equal((comp.match(/gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: (?:9\.5|fsz\(9\.5\)), color: t\.fog/g) || []).length, 2,
+  assert.equal((comp.match(/gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: (?:9\.5|fsz\(9\.5\)|"calc\(9\.5px \* var\(--app-fs, 1\)\)"), color: t\.fog/g) || []).length, 2,
     "字号字色要跟「已读」那一行一致，不然又变成一个抢眼的钮（两份都要）");
   // 她 2026-09-02：「听一下放已读右边吧现在看着有点别扭」——先「已读 23:50」再「听一下」
   assert.equal((comp.match(/sub \? h\("span", null, sub\) : null, dot\)/g) || []).length, 2,
@@ -56,7 +56,7 @@ test("实心＝听过了不花钱，空心＝这一下要合成", () => {
   // v60.33 从「气泡右边一颗圆钮」改成「气泡底下那一行的一项」（她：「放的略丑」）
   assert.match(dot, /ink = st === "gen" \? t\.fog : \(cached \|\| on\) \? t\.tint : t\.fog/);
   // 实心三角 vs 空心三角：形状也不一样，不只靠颜色（色弱和阳光下只剩形状可依）
-  assert.match(dot, /cached[\s\S]{0,200}?fill: ink \}\)[\s\S]{0,200}?fill: "none", stroke: ink/);
+  assert.match(dot, /cached[\s\S]{0,400}?fill: ink \}\)[\s\S]{0,400}?fill: "none", stroke: ink/);
   assert.match(dot, /cached \? "听过了 · 重播不花钱" : "还没合成过 · 点一下会花一次"/, "说清楚花不花钱");
   assert.match(dot, /aria-label/, "读屏读不到");
 });
@@ -65,8 +65,8 @@ test("合成成功要当场点亮它——那一颗已经挂在屏幕上了", ()
   // 光往表里记不够：它的 cached 是自己的 state，不通知就还是空心的，
   // 得等下次进这个聊天才变实。
   assert.match(comp, /const _ttsSubs = new Set\(\);/);
-  assert.match(comp, /markTtsCached = \(text, voiceId, emo\) => \{[\s\S]{0,200}_ttsSubs\.forEach/);
-  assert.match(dot, /_ttsSubs\.add\(f\)[\s\S]{0,80}_ttsSubs\.delete\(f\)/, "订阅了不退订会漏");
+  assert.match(comp, /markTtsCached = \(text, voiceId, emo\) => \{[\s\S]{0,400}_ttsSubs\.forEach/);
+  assert.match(dot, /_ttsSubs\.add\(f\)[\s\S]{0,160}_ttsSubs\.delete\(f\)/, "订阅了不退订会漏");
   assert.match(comp, /await ttsSpeak\(text, voiceId, opts\);\n\s*if \(requestRef.current !== request\) return;\n\s*markTtsCached\(text, voiceId, opts && opts\.emo\)/);
 });
 

@@ -121,7 +121,7 @@ test("剩下的手写顶栏只有这四条，而且每条都有理由", () => {
   // 那四条各自的记号，换掉哪一条这里就红
   assert.match(screens, /const topBar = h\("div", \{ "data-wk": "head", className: "shrink-0 px-3 pb-2\.5 flex items-center gap-2"/, "淘宝搜索条");
   assert.equal((screens.match(/letterSpacing: 2, color: inkA\(0\.42\)/g) || []).length, 2, "两页信纸的落款");
-  assert.match(screens, /fontSize: 10, color: IF_DIM, marginTop: 1[\s\S]{0,120}line\.premise/, "IF 线那三层顶栏");
+  assert.match(screens, /fontSize: "calc\(10px \* var\(--app-fs, 1\)\)", color: IF_DIM, marginTop: 1[\s\S]{0,120}line\.premise/, "IF 线那三层顶栏");
 });
 
 test("Head 一处挂上，这些页跟着有了主题工作台的挂点", () => {

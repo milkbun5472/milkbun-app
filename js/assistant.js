@@ -1588,9 +1588,9 @@
     const cutNew = sm ? 130 : 220, cutOld = sm ? 90 : 140;
     return h("div", { "data-wk": "qqpatch", style: { marginTop: 10, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
       h("div", { style: { padding: sm ? "7px 10px" : "9px 12px", borderBottom: "1px solid " + t.line } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: ".05em" } }, A.labelOf(p, ctx)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".05em" } }, A.labelOf(p, ctx)),
         h("div", { "data-wk": "qqpatchtitle", style: { fontFamily: F_DISPLAY, fontSize: sm ? 12.5 : 13.5, color: t.ink, marginTop: 2 } }, p.title),
-        p.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, lineHeight: 1.6 } }, p.why) : null),
+        p.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, p.why) : null),
       // 只改一小段的时候，摆的就是那一小段——不许把整份原文和整份新文摆出来让她自己找。
       // 那是这个改法的意义所在：她一眼看得清动了哪儿，也一眼看得出别处没动。
       // 跳转卡没有改前改后：只说要去哪儿（她 2026-10-16）
@@ -1598,44 +1598,44 @@
         ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px", fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7 } }, was || "带你去那一页")
       : p.find
         ? h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "原文这一段"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, "原文这一段"),
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.fog, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .8 } }, p.find),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "8px 0 3px" } }, "换成"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "8px 0 3px" } }, "换成"),
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, p.text || "（删掉这一段）"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 7 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 7 } },
               was ? "这一栏一共 " + was.length + " 字，别处一个字都不动" : "别处一个字都不动"))
         : h("div", { style: { padding: sm ? "8px 10px" : "10px 12px" } },
             was ? h("div", { style: { marginBottom: 8 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "改前"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .75 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, "改前"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", textDecoration: "line-through", opacity: .75 } },
                 open ? was : was.slice(0, cutOld) + (was.length > cutOld ? "…" : ""))) : null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, was ? "改后 · 整段替换" : "新增"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, was ? "改后 · 整段替换" : "新增"),
             h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 11.5 : 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
               open ? shown : shown.slice(0, cutNew) + (shown.length > cutNew ? "…" : "")),
             (shown.length > cutNew || (was && was.length > cutOld))
-              ? h("button", { "data-wk": "block", onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, open ? "收起" : "看全文")
+              ? h("button", { "data-wk": "block", onClick: () => setOpen(!open), style: { marginTop: 6, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, open ? "收起" : "看全文")
               : null),
       h("div", { "data-wk": "qqpatchfoot", style: { padding: "8px 12px 10px", borderTop: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 10 } },
         state
           ? h(React.Fragment, null,
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: state === "已应用" ? "#4a8b68" : state === "已撤回" ? t.fog : "#a4442e" } }, state),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: state === "已应用" ? "#4a8b68" : state === "已撤回" ? t.fog : "#a4442e" } }, state),
               // 点了应用之后才后悔的那一种：就在这儿退回去
               state === "已应用" && A.undoable(p) && props.onUndo
-                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "undo", onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, "撤回")
+                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "undo", onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, padding: 0 } }, "撤回")
                 : null,
               // 撤回了又想要回来、或者上次没应用成：再点一下（群里 2026-10-10：「应用了以后再撤回就没办法应用了」）
               // 跳转卡（open）按过了也能再按：它不改东西，只是再开一次那一页
               (state === "已撤回" || /^没应用/.test(state) || (p.target === "open" && state === "已应用")) && props.onApply
-                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, p.target === "open" && state === "已应用" ? "再去一次" : state === "已撤回" ? "重新应用" : "再试一次")
+                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, padding: 0 } }, p.target === "open" && state === "已应用" ? "再去一次" : state === "已撤回" ? "重新应用" : "再试一次")
                 : null,
               state === "已应用" && !A.undoable(p)
-                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : (p.target === "undo" || p.target === "open") ? "" : "（新建的，退不了）")
+                ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : (p.target === "undo" || p.target === "open") ? "" : "（新建的，退不了）")
                 : null)
           : h(React.Fragment, null,
-              h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, p.target === "open" ? (String(p.text || "").trim().slice(0, 16) || "带我去") : "应用这条"),
-              h("button", { "data-wk": "qqpatchbtn", "data-part": "skip", onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过")),
+              h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, p.target === "open" ? (String(p.text || "").trim().slice(0, 16) || "带我去") : "应用这条"),
+              h("button", { "data-wk": "qqpatchbtn", "data-part": "skip", onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "跳过")),
         // 不管应用没应用、撤没撤，原文都能拷走（她自己贴到别处、存一份都行）
-        p.text ? h("button", { "data-wk": "qqpatchbtn", "data-part": "copy", onClick: async () => { const ok = typeof copyText === "function" && await copyText(String(p.text)); props.toast && props.toast(ok ? "复制好了" : "没复制上"); }, style: { marginLeft: "auto", background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: 0 } }, "复制") : null));
+        p.text ? h("button", { "data-wk": "qqpatchbtn", "data-part": "copy", onClick: async () => { const ok = typeof copyText === "function" && await copyText(String(p.text)); props.toast && props.toast(ok ? "复制好了" : "没复制上"); }, style: { marginLeft: "auto", background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: 0 } }, "复制") : null));
   }
 
   // ---- 一段对话的公共脑子：整页和悬浮屏共用同一段，落在存档里 ----
@@ -1768,7 +1768,7 @@
             m.text ? h("div", { "data-wk": "qqbubble", "data-me": "1", style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null,
             // 她这侧也给一颗（群里 2026-10-09：「退出去截断了想把我的指令再发一遍，得自己重打」）
             m.text ? h("button", { "data-wk": "qqcopy", "data-me": "1", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上"); },
-              style: { background: "none", border: "none", padding: "0 0 2px", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "复制") : null),
+              style: { background: "none", border: "none", padding: "0 0 2px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "复制") : null),
           h(MeFace, { profile: props.profile, size: av, radius: 9 }))
       : h("div", { "data-wk": "qqmsg", "data-me": "0", key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
@@ -1776,9 +1776,9 @@
             h("div", { "data-wk": "qqbubble", "data-me": "0", style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, m.text),
             // 她 2026-10-05：「复制不了」——手机上在气泡里滑选太难，每条都给一颗复制
             m.text ? h("button", { "data-wk": "qqcopy", "data-me": "0", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
-              style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "复制") : null,
+              style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "复制") : null,
             m.cancelled && m.q ? h("button", { "data-wk": "qqregen", onClick: () => C.regen(m), disabled: C.busy, className: "active:opacity-60 disabled:opacity-40",
-              style: { marginLeft: 14, minHeight: 40, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "重新生成") : null,
+              style: { marginLeft: 14, minHeight: 40, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "重新生成") : null,
             m.outFile && typeof FileCard === "function" ? h("div", { style: { marginTop: 6 } }, h(FileCard, {
               m: { name: m.outFile.name, text: m.outFile.text, chars: m.outFile.text.length, size: new Blob([m.outFile.text]).size },
               actions: [
@@ -1800,7 +1800,7 @@
     const row = { padding: "12px 14px", borderBottom: "1px solid " + t.line, display: "flex", alignItems: "center", gap: 12 };
     const btn = (label, onClick, strong) => h("button", { "data-wk": "qqbtn", key: label, onClick: onClick, style: {
       flex: 1, padding: "11px", borderRadius: 12, border: "none",
-      background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 13 } }, label);
+      background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label);
     return h("div", { "data-wk": "qqsetup", style: { height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
       // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）：手写那条一个挂点都没有，
       // 返回键还是个「←」字符、可点区只有那几个像素（Head 里是 46×34）。
@@ -1812,9 +1812,9 @@
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("input", { "data-wk": "qqname", value: name, onChange: e => setName(e.target.value), onBlur: () => put({ name: name.trim() || A.DEFAULT_NAME }),
               placeholder: A.DEFAULT_NAME,
-              style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, outline: "none" } }),
+              style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, outline: "none" } }),
             h("div", { style: { display: "flex", gap: 10, marginTop: 7 } },
-              h("label", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "换张头像",
+              h("label", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "换张头像",
                 h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
                   const f = e.target.files && e.target.files[0]; if (!f) return;
                   try {
@@ -1824,12 +1824,12 @@
                     put({ avatarImage: ref }); props.toast && props.toast("头像换好了");
                   } catch (err) { props.toast && props.toast("这张存不下：" + (err.message || err)); }
                 } })),
-              cfg.avatarImage ? h("button", { "data-wk": "qqavatardel", onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "换回那只鸟") : null))),
+              cfg.avatarImage ? h("button", { "data-wk": "qqavatardel", onClick: () => put({ avatarImage: "" }), style: { background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回那只鸟") : null))),
         // 小球开关
         h("div", { style: row },
           h("div", { style: { flex: 1 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "桌面小球"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "每一页角落里都跟着，能拖到任何地方；点一下开合")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "桌面小球"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "每一页角落里都跟着，能拖到任何地方；点一下开合")),
           h("button", { "data-wk": "qqballswitch", "data-on": cfg.ballOn ? "1" : "0", onClick: () => put({ ballOn: !cfg.ballOn }), style: {
             width: 46, height: 27, borderRadius: 999, border: "none", padding: 0, flexShrink: 0,
             background: cfg.ballOn ? t.accent : t.line, position: "relative", transition: "background .18s" } },
@@ -1845,34 +1845,34 @@
             return h("button", { "data-wk": "qqapi", "data-on": on ? "1" : "0", key: id || "_global", onClick: () => put({ apiId: id || "" }), style: {
               width: "100%", textAlign: "left", padding: "9px 11px", marginTop: 6, borderRadius: 11,
               border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : t.bg2 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
-              sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, color: on ? t.bg2 : t.fog, opacity: on ? .75 : 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null);
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.bg2 : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+              sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", marginTop: 2, color: on ? t.bg2 : t.fog, opacity: on ? .75 : 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null);
           };
           return h("div", { style: { padding: "14px 14px 4px", borderBottom: "1px solid " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "秋秋走哪条线路"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "秋秋走哪条线路"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6 } },
               "不选＝跟随全局，跟聊天用的主模型同一条。也可以单独给它挑一条——它干的是查功能、出改动稿这种活，配一条便宜快的就够。"),
             line("", "跟随全局", (props.active && (props.active.name || props.active.model)) || "还没配主模型"),
             list.map(p => line(p.id, nameOf(p), p.model || "还没选模型")),
-            !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, paddingBottom: 8 } }, "还没配过线路，去 设置 · 文字模型 加一条") : null,
-            cfg.apiId && !cur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginTop: 8, paddingBottom: 8 } }, "原来挑的那条线路不在了，这会儿走的是全局") : null,
+            !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, paddingBottom: 8 } }, "还没配过线路，去 设置 · 文字模型 加一条") : null,
+            cfg.apiId && !cur ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent, marginTop: 8, paddingBottom: 8 } }, "原来挑的那条线路不在了，这会儿走的是全局") : null,
             h("div", { style: { height: 8 } }));
         })(),
         // 改过的东西：点了应用之后才后悔的那一种，在这儿退
         h(UndoList, { toast: props.toast, ctx: props.ctx }),
         // 主人格提示词
         h("div", { style: { padding: "14px 14px 0" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "主人格提示词"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6, whiteSpace: "pre-wrap" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "主人格提示词"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6, whiteSpace: "pre-wrap" } },
             "它是谁、怎么说话、干哪两件事，都写在这儿，随你改。\n（能改哪几样东西、不答代码那道门、输出成什么形状——这些是底下钉死的，删不掉。）"),
           h("textarea", { "data-wk": "qqprompt", value: draft, onChange: e => setDraft(e.target.value), rows: 14,
             style: { width: "100%", marginTop: 10, padding: "12px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2,
-              fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.ink, resize: "none", outline: "none", minHeight: 260 } }),
+              fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, resize: "none", outline: "none", minHeight: 260 } }),
           h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
             btn("默认", () => setDraft(A.DEFAULT_PROMPT)),
             btn("清空", () => setDraft("")),
             btn("保存", () => { put({ prompt: draft }); props.toast && props.toast("存好了"); }, true)),
-          draft !== cfg.prompt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, marginTop: 8 } }, "改动还没保存") : null)));
+          draft !== cfg.prompt ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent, marginTop: 8 } }, "改动还没保存") : null)));
   }
 
   // 改过的东西（她 2026-09-03：要能回滚）。
@@ -1889,20 +1889,20 @@
       return m < 1 ? "刚才" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.floor(m / 60) + " 小时前" : Math.floor(m / 1440) + " 天前";
     };
     return h("div", { "data-wk": "qqundolist", style: { padding: "14px 14px 6px", borderBottom: "1px solid " + t.line } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "改过的东西"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "改过的东西"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6 } },
         "秋秋改过的这些，改之前那一份还留着（最近 " + A.UNDO_KEEP + " 次）。点「退回」就写回旧的那份。"),
       live.map(e => h("div", { "data-wk": "qqundorow", "data-on": e.undone ? "0" : "1", key: e.uid, className: "flex items-center", style: { gap: 10, padding: "9px 0", borderTop: "1px solid " + t.line } },
         h("div", { style: { flex: 1, minWidth: 0 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: e.undone ? t.fog : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: e.undone ? "line-through" : "none" } }, e.title || e.label),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: e.undone ? t.fog : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: e.undone ? "line-through" : "none" } }, e.title || e.label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             e.label + " · " + when(e.ts) + (e.prev ? " · 旧的那份 " + e.prev.length + " 字" : " · 原来是空的"))),
         e.undone
-          ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, "已退回")
+          ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, "已退回")
           : h("button", { "data-wk": "qqundobtn", onClick: () => {
                 try { A.undo(e.uid, props.ctx || {}); props.toast && props.toast("退回去了：" + (e.title || e.label)); }
                 catch (err) { props.toast && props.toast("退不回去：" + (err.message || err)); }
-              }, style: { flexShrink: 0, padding: "5px 11px", borderRadius: 8, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "退回"))));
+              }, style: { flexShrink: 0, padding: "5px 11px", borderRadius: 8, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "退回"))));
   }
 
   // ============================================================
@@ -1932,9 +1932,9 @@
     const pickFile = () => { if (typeof pickTextFile === "function") pickTextFile(m => setPic(Object.assign({ kind: "file" }, m)), { max: 60000 }); };
     const sz = small ? 32 : 38;
     const round = { flexShrink: 0, width: sz, height: sz, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.sub, fontSize: small ? 14 : 16, display: "flex", alignItems: "center", justifyContent: "center" };
-    const x = (label, onClick) => h("button", { onClick: onClick || (() => setPic(null)), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×");
+    const x = (label, onClick) => h("button", { onClick: onClick || (() => setPic(null)), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "18px", padding: 0 } }, "×");
     return h(React.Fragment, null,
-      pic && pic.kind === "file" ? h("div", { "data-wk": "qqattach", "data-part": "file", style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub } },
+      pic && pic.kind === "file" ? h("div", { "data-wk": "qqattach", "data-part": "file", style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } },
           h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📎 " + pic.name), x("拿掉这个文件"))
       : pics.length ? h("div", { className: "flex items-center", style: { gap: 8, flexShrink: 0, overflowX: "auto", maxWidth: small ? 140 : 200, paddingTop: 6, paddingRight: 6 } },
           pics.map((p, k) => h("div", { key: k, "data-wk": "qqattach", "data-part": "pic", style: { position: "relative", flexShrink: 0 } },
@@ -1975,8 +1975,8 @@
       h(Head, {
         zh: cfg.name, sub: "这个 app 哪儿不对劲，问她", onBack: props.onBack, bg: "transparent",
         right: h("div", { className: "flex items-center", style: { gap: 2 } },
-          C.msgs.length ? h("button", { "data-wk": "qqclear", onClick: C.clear, className: "active:opacity-60", style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 6px" } }, "清空") : null,
-          h("button", { "data-wk": "qqsetupbtn", onClick: () => setPage("setup"), className: "active:opacity-60", style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "4px 4px" } }, "设置"))
+          C.msgs.length ? h("button", { "data-wk": "qqclear", onClick: C.clear, className: "active:opacity-60", style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 6px" } }, "清空") : null,
+          h("button", { "data-wk": "qqsetupbtn", onClick: () => setPage("setup"), className: "active:opacity-60", style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, padding: "4px 4px" } }, "设置"))
       }),
       // 台签：值班台上立着的那块名牌。她的脸原来挤在顶栏里当小图标，
       // 摆到台签上才是「这张桌子今天谁在」。
@@ -1987,8 +1987,8 @@
       } },
         h(QiuFace, { cfg: cfg, size: 30, radius: 9 }),
         h("div", { style: { minWidth: 0 } },
-          h("div", { "data-wk": "qqtitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, cfg.name),
-          h("div", { "data-wk": "qqstatus", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, C.busy ? "在想…" : "在，说吧")),
+          h("div", { "data-wk": "qqtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, cfg.name),
+          h("div", { "data-wk": "qqstatus", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, C.busy ? "在想…" : "在，说吧")),
         h("span", { style: { flex: 1 } }),
         // 值班灯：亮着＝她醒着。一个点，不是一句话
         h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 999, background: C.busy ? t.tint : "#7fa87f", boxShadow: "0 0 6px " + (C.busy ? t.tint : "#7fa87f") } })),
@@ -2003,14 +2003,14 @@
           ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 16 } },
               // 递到台上的几张便签条：方角、纸色、各自歪一点点。
               // 虚线圆角药丸是任何 app 的「快捷短语」，跟这张桌子没关系。
-              QUICK.map((q, qi) => h("button", { "data-wk": "qqquick", key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 2, transform: "rotate(" + ((qi % 3) - 1) * 0.6 + "deg)", boxShadow: "0 2px 5px -4px rgba(0,0,0,.7)", border: "1px solid " + t.line, background: "rgba(255,255,255,.62)", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, q)))
+              QUICK.map((q, qi) => h("button", { "data-wk": "qqquick", key: q, onClick: () => fire(q), style: { padding: "7px 12px", borderRadius: 2, transform: "rotate(" + ((qi % 3) - 1) * 0.6 + "deg)", boxShadow: "0 2px 5px -4px rgba(0,0,0,.7)", border: "1px solid " + t.line, background: "rgba(255,255,255,.62)", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, q)))
           : null),
       h("div", { "data-wk": "qqcompose", style: { display: "flex", gap: 8, alignItems: "center", padding: "10px 14px", paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 10px)", borderTop: "1px solid " + t.line, flexShrink: 0 } },
         h(AssistAttach, { pic: pic, setPic: setPic, toast: props.toast }),
         h("textarea", { "data-wk": "qqinput", value: input, onChange: e => setInput(e.target.value), rows: 1,
           placeholder: "问功能、查毛病，或者说想改什么",
-          style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none", maxHeight: 120 } }),
-        h("button", { "data-wk": "qqsend", onClick: () => fire(input), disabled: C.busy, style: { padding: "8px 16px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, C.busy ? "…" : "问")));
+          style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none", maxHeight: 120 } }),
+        h("button", { "data-wk": "qqsend", onClick: () => fire(input), disabled: C.busy, style: { padding: "8px 16px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, C.busy ? "…" : "问")));
   }
   window.AssistantApp = AssistantApp;
 
@@ -2157,16 +2157,16 @@
         style: { display: "flex", alignItems: "center", gap: 7, padding: "8px 8px 8px 11px", borderBottom: "1px solid " + t.line, background: t.bg2, cursor: "grab", flexShrink: 0 } },
         h("div", { style: { width: 18, height: 3, borderRadius: 2, background: t.line, flexShrink: 0 } }),
         h(QiuFace, { cfg: cfg, size: 22, radius: 7 }),
-        h("div", { "data-wk": "qqdocktitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cfg.name),
-        C.msgs.length ? h("button", { "data-wk": "qqclear", "data-part": "dock", onPointerDown: e => e.stopPropagation(), onClick: C.clear, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "4px 5px" } }, "清空") : null,
-        h("button", { "data-wk": "qqdockclose", onPointerDown: e => e.stopPropagation(), onClick: () => setOpen(false), style: { background: "none", border: "none", fontSize: 15, color: t.sub, padding: "2px 7px" } }, "－")),
+        h("div", { "data-wk": "qqdocktitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cfg.name),
+        C.msgs.length ? h("button", { "data-wk": "qqclear", "data-part": "dock", onPointerDown: e => e.stopPropagation(), onClick: C.clear, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "4px 5px" } }, "清空") : null,
+        h("button", { "data-wk": "qqdockclose", onPointerDown: e => e.stopPropagation(), onClick: () => setOpen(false), style: { background: "none", border: "none", fontSize: "calc(15px * var(--app-fs, 1))", color: t.sub, padding: "2px 7px" } }, "－")),
       h("div", { "data-wk": "qqfeed", "data-part": "dock", ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "11px 12px 12px" } },
         C.msgs.length === 0
           ? h("div", null,
               h(FirstNote, { cfg: cfg, compact: true }),
               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
                 ["这一页是干嘛的", "这个 App 都能玩什么", "把这一页的字调大一点"].map(q =>
-                  h("button", { "data-wk": "qqquick", "data-part": "dock", key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))
+                  h("button", { "data-wk": "qqquick", "data-part": "dock", key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, q))))
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true, toast: props.toast }),
         C.busy ? h(Thinking, { C }) : null,
@@ -2176,9 +2176,9 @@
         h("textarea", { "data-wk": "qqinput", "data-part": "dock", value: input, rows: 1, onChange: e => setInput(e.target.value),
           onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); dockSend(); } },
           placeholder: "问点什么…",
-          style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none", maxHeight: 84 } }),
+          style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none", maxHeight: 84 } }),
         h("button", { "data-wk": "qqsend", "data-part": "dock", onClick: dockSend, disabled: C.busy,
-          style: { padding: "7px 13px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, C.busy ? "…" : "问")));
+          style: { padding: "7px 13px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, C.busy ? "…" : "问")));
   }
   window.AssistantDock = AssistantDock;
 })();

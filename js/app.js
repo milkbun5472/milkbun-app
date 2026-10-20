@@ -187,18 +187,18 @@ function ScreenBoundaryClass() {
     const where = String(this.props.screen || "?");
     const full = "[" + where + "] " + msg + (this.state.stack ? "\n" + this.state.stack : "");
     return h("div", { className: "h-full flex flex-col items-center justify-center", style: { padding: 28, gap: 12, textAlign: "center" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#3c3a34" } }, "这一页没能打开"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#7b776c" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: "#3c3a34" } }, "这一页没能打开"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "#7b776c" } },
         "出问题的只有这一页，别的地方和你的数据都好好的。"),
-      msg ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: "#9a9488", wordBreak: "break-all", maxWidth: 320 } },
+      msg ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: "#9a9488", wordBreak: "break-all", maxWidth: 320 } },
         "〔" + where + "〕" + msg) : null,
       h("button", { onClick: () => { if (typeof copyText === "function") copyText(full); },
         className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9a9488", textDecoration: "underline", background: "transparent", border: "none" } }, "复制这条报错"),
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9a9488", textDecoration: "underline", background: "transparent", border: "none" } }, "复制这条报错"),
       h("button", { onClick: () => { this.setState({ err: null }); if (this.props.onBack) this.props.onBack(); },
         className: "active:opacity-70",
-        style: { marginTop: 4, minHeight: 44, padding: "0 22px", borderRadius: 12, background: "#3c3a34", color: "#f7f4ec", fontFamily: F_BODY, fontSize: 13.5 } }, "回首页"),
-      h("a", { href: "rescue.html", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9a9488", textDecoration: "underline" } }, "进救援页看看"));
+        style: { marginTop: 4, minHeight: 44, padding: "0 22px", borderRadius: 12, background: "#3c3a34", color: "#f7f4ec", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "回首页"),
+      h("a", { href: "rescue.html", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9a9488", textDecoration: "underline" } }, "进救援页看看"));
   }
   };
   return _screenBoundary;
@@ -300,21 +300,21 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
     h("button", { onClick: () => setTab(v => v === "clock" ? "" : "clock"), className: "w-full active:opacity-60 flex items-center",
       style: { gap: 8, minHeight: 40, padding: "7px 8px", borderRadius: 10, textAlign: "left",
         background: tab === "clock" ? t.bg : "transparent", border: "1px solid " + (tab === "clock" ? t.line : "transparent") } },
-      h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "时间感知"),
-      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11, color: t.sub } },
+      h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "时间感知"),
+      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } },
         (clock.charName ? clock.charName + " · " : "全局 · ") + ((CLOCK_OPTS.find(o => o[0] === clock.mode) || CLOCK_OPTS[0])[1])),
-      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, transition: "transform .2s",
+      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, transition: "transform .2s",
         transform: tab === "clock" ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
     tab === "clock" ? h("div", { style: { marginTop: 4 } }, CLOCK_OPTS.map(o => h("button", {
       key: o[0], onClick: () => clock.set(o[0]), className: "active:opacity-60",
-      style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.35,
+      style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.35,
         color: clock.mode === o[0] ? t.bg2 : t.ink, background: clock.mode === o[0] ? t.ink : "transparent" } }, o[1])),
       vclock && onVClock && typeof VClockEditor === "function" ? h(VClockEditor, { v: vclock, onChange: onVClock, compact: true }) : null) : null) : null;
   const choice = (lane, p) => h("button", {
     key: lane.key + ":" + (p && p.id || "follow"),
     onClick: () => lane.set(p && p.id),
     className: "active:opacity-60",
-    style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.35,
+    style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.35,
       color: (p ? lane.picked === p.id : !lane.picked) ? t.bg2 : t.ink,
       background: (p ? lane.picked === p.id : !lane.picked) ? t.ink : "transparent" }
   }, p ? label(p) : "跟随线上主模型");
@@ -344,18 +344,18 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       width: 226, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
       padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。生图有两个站以上才会出现。时间感知在单聊里改的是这个角色。"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "快速切换模型"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。生图有两个站以上才会出现。时间感知在单聊里改的是这个角色。"),
       ALL_LANES.map((lane, li) => h("div", { key: lane.key, style: li ? { marginTop: 6 } : null },
         // 收着的那一行：左边是这一档叫什么、右边是它现在走哪条线路。点一下摊开这一档，
         // 再点一下收起；摊开一档就把别的收上去（面板高度才不会一路长下去）。
         h("button", { onClick: () => setTab(v => v === lane.key ? "" : lane.key), className: "w-full active:opacity-60 flex items-center",
           style: { gap: 8, minHeight: 40, padding: "7px 8px", borderRadius: 10, textAlign: "left",
             background: tab === lane.key ? t.bg : "transparent", border: "1px solid " + (tab === lane.key ? t.line : "transparent") } },
-          h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, lane.zh),
-          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11, color: t.sub } },
+          h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, lane.zh),
+          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } },
             (lane.follow && !lane.picked ? "跟随主模型 · " : "") + label(lane.cur)),
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, transition: "transform .2s",
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, transition: "transform .2s",
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
           ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（后台一律不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
@@ -33020,14 +33020,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const armedHere = toyArmed && toyArmedFor === tc.id;
     return h("div", { style: { position: "fixed", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 88px)", zIndex: 999 } },
       armedHere
-        ? h("button", { "data-wk": "block", onClick: disarmToy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#fff", background: "#c0392b", borderRadius: 999, padding: "11px 18px", boxShadow: "0 4px 14px rgba(0,0,0,.28)" } }, "■ 急停")
-        : h("button", { onClick: () => { setToyArmed(true); setToyArmedFor(tc.id); toast("配件已激活 · 仅本次会话本对话"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "rgba(35,35,35,.82)", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 10px rgba(0,0,0,.22)" } }, "▷ 激活配件"));
+        ? h("button", { "data-wk": "block", onClick: disarmToy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#c0392b", borderRadius: 999, padding: "11px 18px", boxShadow: "0 4px 14px rgba(0,0,0,.28)" } }, "■ 急停")
+        : h("button", { onClick: () => { setToyArmed(true); setToyArmedFor(tc.id); toast("配件已激活 · 仅本次会话本对话"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(35,35,35,.82)", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 10px rgba(0,0,0,.22)" } }, "▷ 激活配件"));
   })(), (function () {
     // 半窗聊天（她 2026-10-06）：跟秋秋那颗一样是个 fixed 的兄弟节点，不碰根节点和 safe-area 空带。
     // 回到整屏聊天、或者通话铺满时让开；里面就是整屏那一块 ChatThread（mkThread），不另写一份。
     if (!halfWin || !activeChar || activeChar.id !== halfWin.charId || screen === "thread" || call) return null;
     // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开接着聊
-    const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#fff" };
+    const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff" };
     // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
     const pp = halfWin.pill || halfWinPill();
     const pillPos = pp ? { left: pp.x, top: pp.y } : { left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)" };
@@ -33076,12 +33076,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,.22)", background: "var(--bg, #fff)" } },
       h("div", { "data-wk": "halfwinbar", onPointerDown: e => dragOn(e, "move"),
         style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "move" } },
-        h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "放大"),
+        h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "放大"),
         // 中间那根小横杠＝调大小（上下拖高矮、左右拖宽窄）；顶条别处＝挪位置
         h("div", { "data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => { e.stopPropagation(); dragOn(e, "size"); },
           style: { padding: "10px 18px", touchAction: "none", cursor: "nwse-resize" } },
           h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.28)" } })),
-        h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "收起")),
+        h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "收起")),
       h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
         mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) })));
   })(), (function () {

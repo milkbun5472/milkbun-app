@@ -14,8 +14,8 @@ test('一份色板一份形状，不再各写各的', () => {
   // 顶栏「说话」、面板「换同行者」、「重试」三处都取同一个形状
   assert.ok((view.match(/\.\.\.pill\(\)|pill\(true\)|\.\.\.pill\(true\)/g) || []).length >= 3, '还有按钮没接上公共那一份');
   // 原来那几处光秃秃的行内样式不许再有
-  assert.doesNotMatch(view, /style: \{ fontSize: 12, padding: 8 \}/);
-  assert.doesNotMatch(view, /style: \{ fontSize: 11, padding: 5 \}/);
+  assert.doesNotMatch(view, /style: \{ fontSize: "calc\(12px \* var\(--app-fs, 1\)\)", padding: 8 \}/);
+  assert.doesNotMatch(view, /style: \{ fontSize: "calc\(11px \* var\(--app-fs, 1\)\)", padding: 5 \}/);
 });
 
 test('按键有字体、有圆角、有该留的白', () => {
@@ -24,7 +24,7 @@ test('按键有字体、有圆角、有该留的白', () => {
   // 输入框也跟着圆起来，两个凑一起才不挤
   assert.match(view, /borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY/);
   // 这一页每个可点的地方都得有字体（全 app 一套字）
-  const naked = view.match(/fontSize: \d[\d.]*[,}]/g) || [];
+  const naked = view.match(/fontSize: (?:\d[\d.]*[,}]|"calc\()/g) || [];
   assert.ok(naked.length > 0);
   assert.doesNotMatch(view, /h\("button", \{ onClick: changePartner, disabled: busy \}, "换同行者"\)/, '换同行者还是裸的');
 });

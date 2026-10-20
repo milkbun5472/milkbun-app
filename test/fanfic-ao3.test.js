@@ -82,7 +82,7 @@ test("「我们之间的设计」＝CP 里有没有我，一眼看得出", () =>
   // 序号仍然跟着换色。认的还是「这几处都还在表这一层」，不是某一串具体的 CSS。
   assert.match(fic, /const ribbon = hasMe \? h\("div"/, "「有我」那根红书签带");
   assert.match(fic, /color: hasMe \? t\.accent : t\.fog/, "列表行的序号");
-  assert.match(fic, /fontSize: 11\.5, color: hasMe \? t\.accent : t\.fog/, "卷首的序号");
+  assert.match(fic, /fontSize: "calc\(11\.5px \* var\(--app-fs, 1\)\)", color: hasMe \? t\.accent : t\.fog/, "卷首的序号");
   assert.match(fic, /background: _hasMe \? t\.accent : t\.line/, "阅读页那道");
 });
 
@@ -103,7 +103,7 @@ test("正文按段落排，不是一整块 pre-wrap", () => {
   // AO3 是不缩进＋段间距那一派，中文长文这样读着最不累
   assert.match(fic, /String\(ch\.content \|\| ""\)\.split\(\/\\n\\s\*\\n\|\\n\/\)/);
   assert.match(fic, /h\("p", \{ key: pi, style: \{ margin: "0 0 1\.05em" \} \}/);
-  assert.match(fic, /fontSize: 16, lineHeight: 2\.05/);
+  assert.match(fic, /fontSize: "calc\(16px \* var\(--app-fs, 1\)\)", lineHeight: 2\.05/);
 });
 
 test("两页都换了紧凑标题栏（mobile-ui-layout §1）", () => {

@@ -147,7 +147,7 @@ test("走过的这一版放回书架，跟原篇并排摆着", () => {
 test("走到当口那一拍，两条路都摆在她面前，而且真的传下去了", () => {
   // ⚠️别拿「原著这一页本来写的是」当锚：genRPStart 的提示词里也有这句，
   // 找到的是那一处，然后整段断言都在扫提示词。认底部那张卡自己的东西。
-  const a = fic.indexOf('h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginBottom: 4 } }, hitBeat.label)');
+  const a = fic.indexOf('h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, hitBeat.label)');
   assert.ok(a > 0, "抉择卡没了");
   const card = fic.slice(a, a + 1800);
   // v74.124：三条路（她 2026-09-27「加完原剧情衔接不上」）——照原样 / 顺着改 / 拦下

@@ -157,7 +157,7 @@
     return h("button", { onClick: onClick, disabled: o.disabled, className: "active:opacity-70 disabled:opacity-40", style: Object.assign({
       minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + (o.primary ? W.amber : W.line),
       background: o.primary ? W.amber : "rgba(255,255,255,.04)", color: o.primary ? W.amberInk : W.ink,
-      fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0
+      fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", whiteSpace: "nowrap", flexShrink: 0
     }, o.style || {}) }, label);
   }
   // YouTube 的官方播放器脚本只拉一次，谁先要谁触发
@@ -188,17 +188,17 @@
       h("button", { "data-wk": "block", onClick: props.onOpen, className: "active:opacity-80", style: { display: "flex", flex: 1, minWidth: 0, textAlign: "left", color: W.ink, background: "none", border: "none", padding: 0 }, "data-wk": "watchticketbtn", "data-part": "open" },
         // 副券：第几场＋看到几成
         h("div", { style: { width: 86, flexShrink: 0, padding: "14px 10px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, borderRight: "2px dashed rgba(255,255,255,.14)" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: 2, color: W.amber } }, "放映"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: W.ink } }, pct ? pct + "%" : "新"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 2, color: W.amber } }, "放映"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: W.ink } }, pct ? pct + "%" : "新"),
           h("div", { style: { width: 46, height: 3, borderRadius: 2, background: "rgba(255,255,255,.1)", overflow: "hidden" } },
             h("div", { style: { width: pct + "%", height: "100%", background: W.amber } }))),
         h("div", { style: { flex: 1, minWidth: 0, padding: "14px 14px 12px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: W.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title || "未命名的片子"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.sub, marginTop: 5 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.35, color: W.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title || "未命名的片子"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: W.sub, marginTop: 5 } },
             (f.pos ? "看到 " + clock(f.pos) : "还没开场") + (f.duration ? " / " + clock(f.duration) : "") + (f.cueCount ? " · " + (f.inband ? "自带字幕 " : "字幕 ") + f.cueCount + " 句" : " · 没有字幕")),
           h("div", { className: "flex items-center gap-2", style: { marginTop: 9 } },
             c ? h(Avatar, { character: c, size: 22, radius: 11 }) : null,
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: c ? W.ink : W.fog } }, c ? "和 " + (c.remark || c.name) + " 一起" : "还没约人")))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: c ? W.ink : W.fog } }, c ? "和 " + (c.remark || c.name) + " 一起" : "还没约人")))),
       h("div", { style: Object.assign({}, notch, { top: -8 }) }),
       h("div", { style: Object.assign({}, notch, { bottom: -8 }) }),
       h("div", { style: { width: 40, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center" } },
@@ -243,8 +243,8 @@
     const row = (label, hint, file, onPick, ref, accept) => h("div", { "data-wk": "block", style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
       h("div", { className: "flex items-center justify-between gap-3" },
         h("div", { style: { minWidth: 0 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: W.ink } }, label),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: file ? W.amber : W.fog, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, file ? file.name + " · " + sizeLabel(file.size) : hint)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: W.ink } }, label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: file ? W.amber : W.fog, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, file ? file.name + " · " + sizeLabel(file.size) : hint)),
         btn(file ? "换一个" : "选文件", () => ref.current && ref.current.click())),
       h("input", { ref: ref, type: "file", accept: accept, style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; onPick(f); }, "data-wk": "watchimportpageinput", "data-part": "1" }));
     return shell(
@@ -253,14 +253,14 @@
         h("div", { className: "space-y-3" },
           h("div", { "data-wk": "block", className: "flex", style: { gap: 6, padding: 4, borderRadius: 999, background: W.card, border: "1px solid " + W.line } },
             [["file", "手机里的文件"], ["link", "B 站 / YouTube 链接"]].map(([k, zh]) => h("button", { key: k, onClick: () => setMode(k), "aria-pressed": String(mode === k), className: "flex-1 active:opacity-70",
-              style: { minHeight: 36, borderRadius: 999, border: "none", background: mode === k ? W.amber : "none", color: mode === k ? W.amberInk : W.sub, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "watchimportpagebtn", "data-part": "1" }, zh))),
+              style: { minHeight: 36, borderRadius: 999, border: "none", background: mode === k ? W.amber : "none", color: mode === k ? W.amberInk : W.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" }, "data-wk": "watchimportpagebtn", "data-part": "1" }, zh))),
           mode === "file"
             ? row("电影文件", "mp4 最稳；存在这台手机里，不会跟着云同步走", video, pickVideo, vRef, "video/*")
             : h("div", { "data-wk": "block", style: { padding: "14px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: W.ink } }, "视频链接"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: W.ink } }, "视频链接"),
                 h("input", { "data-wk": "input", value: link, onChange: e => setLink(e.target.value), placeholder: "粘贴 B 站或 YouTube 的链接", className: "w-full outline-none",
-                  style: { marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, background: W.bg2, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchimportpageinput", "data-part": "粘贴 B 站或 YouT" }),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: online && !online.short ? W.amber : W.fog, marginTop: 6 } },
+                  style: { marginTop: 8, minHeight: 40, padding: "0 12px", borderRadius: 10, background: W.bg2, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" }, "data-wk": "watchimportpageinput", "data-part": "粘贴 B 站或 YouT" }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: online && !online.short ? W.amber : W.fog, marginTop: 6 } },
                   !link.trim() ? "片子在它们网站上放，不占手机空间"
                     : !online ? "认不出这个链接，要 B 站视频页或 YouTube 视频页的地址"
                     : online.short ? "b23.tv 短链认不出来：在浏览器里打开它，复制地址栏里那条长链接再贴"
@@ -268,9 +268,9 @@
                     : "B 站：B 站不告诉我们放到哪，放的时候在下面那块表上也按一下播放 / 暂停，TA 靠它跟进度")),
           row("字幕（强烈建议）", mode === "file" ? "srt / vtt / ass。不选的话会先试着读视频里自带的字幕" : "srt / vtt / ass。网上的片子只能靠这一格给 TA 台词", sub, setSub, sRef, ANY_FILE),
           h("div", { "data-wk": "block", style: { padding: "12px 16px", borderRadius: 14, background: W.card, border: "1px solid " + W.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, marginBottom: 6 } }, "片名"),
-            h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: 17 }, "data-wk": "watchimportpageinput", "data-part": "叫它什么" }))),
-        h("p", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8, color: W.fog, margin: "14px 4px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: W.sub, marginBottom: 6 } }, "片名"),
+            h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), maxLength: 40, placeholder: "叫它什么", className: "w-full outline-none", style: { background: "transparent", border: "none", color: W.ink, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))" }, "data-wk": "watchimportpageinput", "data-part": "叫它什么" }))),
+        h("p", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.8, color: W.fog, margin: "14px 4px" } },
           mode === "file" ? "TA 看不到画面本身，只读得到字幕；想让 TA 看画面的时候，放映时点「给 TA 看这一帧」（要你用的模型能识图）。"
             : "网上的片子 TA 读不到它的字幕，这边也截不了它的画面。想让 TA 跟着台词看，就把字幕导出成 srt 放进上面那一格；想让 TA 看画面，放映时用手机截屏，再点「＋ → 发张截图给 TA」。"),
         h("div", { style: { display: "flex", justifyContent: "center", marginTop: 8 } },
@@ -280,12 +280,12 @@
   // ---- 约人 ----
   function PickPartner(props) {
     return h("div", { style: { padding: "18px 16px" }, "data-wk": "watchpickpartner" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: W.ink, marginBottom: 4 } }, "今晚和谁一起看"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: W.fog, marginBottom: 14 } }, "选了之后这一部就是你们俩的"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: W.ink, marginBottom: 4 } }, "今晚和谁一起看"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: W.fog, marginBottom: 14 } }, "选了之后这一部就是你们俩的"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(88px,1fr))", gap: 12 } },
         (props.characters || []).map(c => h("button", { "data-wk": "block", key: c.id, onClick: () => props.onPick(c.id), className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "12px 6px", borderRadius: 14, background: W.card, border: "1px solid " + W.line, color: W.ink }, "data-wk": "watchpickpartnerbtn", "data-part": "1" },
           h(Avatar, { character: c, size: 48, radius: 24 }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))));
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))));
   }
 
   // ---- 影院模式那一层：台词在下面、TA 的话浮在右上、角上一个退出和一个「说」 ----
@@ -294,21 +294,21 @@
   function CinemaLayer(p) {
     const fresh = (p.talk || []).filter(m => m.role !== "user" && m.content && Date.now() - (m.ts || 0) < FLOAT_MS).slice(-3);
     const top = "calc(env(safe-area-inset-top) + 10px)";
-    const pill = { pointerEvents: "auto", minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.2)", background: "rgba(0,0,0,.45)", color: "#fff", fontFamily: F_BODY, fontSize: 13, display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(6px)" };
+    const pill = { pointerEvents: "auto", minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.2)", background: "rgba(0,0,0,.45)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(6px)" };
     return h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" }, "data-wk": "watchcinemalayer" },
       h("button", { onClick: p.onExit, "aria-label": "退出影院模式", style: Object.assign({}, pill, { position: "absolute", left: "calc(env(safe-area-inset-left) + 12px)", top: top, width: 40, padding: 0, justifyContent: "center" }), "data-wk": "watchcinemalayerbtn", "data-part": "退出影院模式" }, h(IX, { size: 16, color: "#fff" })),
       h("button", { onClick: () => p.setSay(!p.say), style: Object.assign({}, pill, { position: "absolute", right: "calc(env(safe-area-inset-right) + 12px)", top: top }), "data-wk": "watchcinemalayerbtn", "data-part": "2" }, p.say ? "收起" : "说一句"),
       p.say && h("div", { className: "flex items-center gap-2", style: { position: "absolute", left: "calc(env(safe-area-inset-left) + 64px)", right: "calc(env(safe-area-inset-right) + 96px)", top: top, pointerEvents: "auto" } },
-        h("input", { "data-wk": "input", value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchcinemalayerinput", "data-part": "小声说一句…" }),
+        h("input", { "data-wk": "input", value: p.txt, onChange: e => p.setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && p.send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" }, "data-wk": "watchcinemalayerinput", "data-part": "小声说一句…" }),
         btn("说", p.send, { primary: true, disabled: p.busy || !String(p.txt || "").trim() })),
       // TA 刚说的话：浮在右上，九秒后自己淡掉
       h("div", { style: { position: "absolute", right: "calc(env(safe-area-inset-right) + 14px)", top: "calc(env(safe-area-inset-top) + 62px)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "58%" } },
-        fresh.map((m, i) => h("div", { key: (m.ts || 0) + ":" + i, className: "flex items-center gap-2", style: { padding: "6px 12px 6px 6px", borderRadius: 999, background: "rgba(22,20,27,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.45, backdropFilter: "blur(6px)", opacity: Math.max(0.25, 1 - (Date.now() - (m.ts || 0)) / FLOAT_MS * 0.6) } },
+        fresh.map((m, i) => h("div", { key: (m.ts || 0) + ":" + i, className: "flex items-center gap-2", style: { padding: "6px 12px 6px 6px", borderRadius: 999, background: "rgba(22,20,27,.72)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45, backdropFilter: "blur(6px)", opacity: Math.max(0.25, 1 - (Date.now() - (m.ts || 0)) / FLOAT_MS * 0.6) } },
           p.partner ? h(Avatar, { character: p.partner, size: 24, radius: 12 }) : null,
           h("span", null, m.content))),
-        p.busy && h("div", { style: { padding: "5px 12px", borderRadius: 999, background: "rgba(22,20,27,.6)", color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "…")),
+        p.busy && h("div", { style: { padding: "5px 12px", borderRadius: 999, background: "rgba(22,20,27,.6)", color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "…")),
       // 台词：画面下方，躲开原生进度条
-      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, p.line) : null);
+      p.hasCues && p.line ? h("div", { style: { position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 64px)", textAlign: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, textShadow: "0 1px 3px #000, 0 0 8px rgba(0,0,0,.8)" } }, p.line) : null);
   }
 
   // ---- 放映 ----
@@ -567,7 +567,7 @@
     };
     const head = h(Head, { zh: film.title || "一起看", sub: partner ? "和 " + (partner.remark || partner.name) + " 一起看" : "", onBack: leave, bg: "transparent", ink: W.ink,
       onTitleTap: () => renameFilm(film, refresh),
-      right: partner && (film.talk || []).length ? h("button", { onClick: remember, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: 13, color: W.amber }, "data-wk": "watchscreeningbtn", "data-part": "1" }, "记住") : null });
+      right: partner && (film.talk || []).length ? h("button", { onClick: remember, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: W.amber }, "data-wk": "watchscreeningbtn", "data-part": "1" }, "记住") : null });
     if (!partner) return shell(head, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, h(PickPartner, { characters: props.characters, onPick: cid => { patchFilm(id, () => ({ partnerId: cid })); refresh(); } })));
     const talk = film.talk || [];
     return shell(head,
@@ -579,11 +579,11 @@
             ? { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", zIndex: 99990, background: "#000" }
             : { position: "relative", flexShrink: 0, background: "#000", boxShadow: "0 12px 30px rgba(0,0,0,.45)" } },
           // 放不出来的格式：别只黑着（她 2026-09-25）
-          playErr && !missing ? h("div", { style: { aspectRatio: "16/9", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: W.sub } },
+          playErr && !missing ? h("div", { style: { aspectRatio: "16/9", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: W.sub } },
             "这台手机放不了这个格式（常见的是 mkv、avi）。换成 mp4 再导一次就好——用转格式的软件选「只换封装」，一两分钟，画质不变。") : null,
           online === "youtube"
             ? h("div", { style: cinema ? { position: "absolute", inset: 0 } : { position: "relative", width: "100%", aspectRatio: "16/9", maxHeight: "42vh" } },
-                ytErr ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: W.sub } }, ytErr) : null,
+                ytErr ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: W.sub } }, ytErr) : null,
                 h("div", { style: { position: "absolute", inset: 0 } }, h("div", { ref: ytBox })))
           : online === "bilibili"
             ? h("iframe", { src: biliUrl, allow: "autoplay; fullscreen; picture-in-picture", allowFullScreen: true, scrolling: "no", frameBorder: "0",
@@ -591,7 +591,7 @@
                 title: film.title || "B 站视频",
                 style: cinema ? { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" } : { display: "block", width: "100%", aspectRatio: "16/9", maxHeight: "42vh", border: "none" } })
           : missing
-            ? h("div", { style: { aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.sub } }, "这台手机里没有这部片子的文件了（换过设备或清过数据）。删掉这张票重新导入就好，聊过的话还在。")
+            ? h("div", { style: { aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: W.sub } }, "这台手机里没有这部片子的文件了（换过设备或清过数据）。删掉这张票重新导入就好，聊过的话还在。")
             : h("video", { ref: vRef, src: src || undefined, controls: true, playsInline: true, preload: "metadata",
                 onLoadedMetadata: e => { const v = e.target; if (film.pos && film.pos < (v.duration || Infinity) - 3) v.currentTime = film.pos; lastAuto.current = film.pos || 0; savePos(true); adoptInband(); if (v.textTracks) v.textTracks.onaddtrack = adoptInband; },
                 onTimeUpdate: onTime, onPause: () => { savePos(true); if (film.inband || (!film.cueCount && cuesRef.current.length)) { _store.put("cues:" + id, cuesRef.current).catch(() => {}); patchFilm(id, () => ({ cueCount: cuesRef.current.length, inband: true })); } },
@@ -602,28 +602,28 @@
           cinema && h(CinemaLayer, { line: line, hasCues: !!cues.length, talk: film.talk || [], partner: partner, busy: busy, txt: txt, setTxt: setTxt, send: send, say: cinemaSay, setSay: setCinemaSay, onExit: exitCinema })),
         // B 站那块表：B 站不告诉我们放到哪，她在那边按播放/暂停时，这边也按一下
         online === "bilibili" && !cinema ? h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, padding: "8px 12px", borderBottom: "1px solid " + W.line, background: "rgba(31,28,38,.9)" } },
-          btn(clkRun ? "我暂停了" : "我开始放了", clkToggle, { primary: !clkRun, style: { fontSize: 12.5, padding: "0 12px" } }),
-          btn("−10 秒", () => clkMove(-10), { style: { fontSize: 12, padding: "0 10px" } }),
-          btn("+10 秒", () => clkMove(10), { style: { fontSize: 12, padding: "0 10px" } }),
+          btn(clkRun ? "我暂停了" : "我开始放了", clkToggle, { primary: !clkRun, style: { fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "0 12px" } }),
+          btn("−10 秒", () => clkMove(-10), { style: { fontSize: "calc(12px * var(--app-fs, 1))", padding: "0 10px" } }),
+          btn("+10 秒", () => clkMove(10), { style: { fontSize: "calc(12px * var(--app-fs, 1))", padding: "0 10px" } }),
           // 这边还是黑的话：去 B 站那边放，这里照样按上面那块表跟着聊
-          h("a", { href: "https://www.bilibili.com/video/" + film.vid + ((film.page || 1) > 1 ? "?p=" + film.page : ""), target: "_blank", rel: "noopener", style: { fontFamily: F_BODY, fontSize: 12, color: W.sub, textDecoration: "underline", minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 4px", whiteSpace: "nowrap" } }, "黑屏？去 B 站放"),
-          h("span", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_DISPLAY, fontSize: 15, color: clkRun ? W.amber : W.sub, whiteSpace: "nowrap" } }, clock(now || clk.current.base))) : null,
+          h("a", { href: "https://www.bilibili.com/video/" + film.vid + ((film.page || 1) > 1 ? "?p=" + film.page : ""), target: "_blank", rel: "noopener", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: W.sub, textDecoration: "underline", minHeight: 40, display: "inline-flex", alignItems: "center", padding: "0 4px", whiteSpace: "nowrap" } }, "黑屏？去 B 站放"),
+          h("span", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: clkRun ? W.amber : W.sub, whiteSpace: "nowrap" } }, clock(now || clk.current.base))) : null,
         // 台词条：现在银幕上这一句。没有字幕的片子整条不出现（她 2026-09-25：「没有字幕的提示也删了省空间」）
-        cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, line) : null,
+        cues.length ? h("div", { style: { flexShrink: 0, minHeight: 36, padding: "7px 18px", textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: W.ink, borderBottom: "1px solid " + W.line } }, line) : null,
         // 你们说的话
         h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 12px" } },
-          !talk.length && h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: W.fog, padding: "22px 10px", lineHeight: 1.8 } }, "片子放起来，想说什么就说。\nTA 看到有感觉的地方也会自己冒一句。"),
+          !talk.length && h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: W.fog, padding: "22px 10px", lineHeight: 1.8 } }, "片子放起来，想说什么就说。\nTA 看到有感觉的地方也会自己冒一句。"),
           talk.map((m, i) => {
             const mine = m.role === "user";
             return h("div", { key: i, className: "flex " + (mine ? "justify-end" : "justify-start") + " gap-2", style: { margin: "8px 0" }, "data-wk": "watchscreening" },
               !mine && h(Avatar, { character: partner, size: 28, radius: 14 }),
               h("div", { style: { maxWidth: "76%" } },
                 m.frame && m.frame !== "gone" ? h("img", { src: m.frame, alt: "截的那一帧", style: { display: "block", width: 160, borderRadius: 10, marginBottom: m.content ? 5 : 0, marginLeft: "auto", border: "2px solid rgba(255,255,255,.1)" } }) : null,
-                m.frame === "gone" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: W.fog, textAlign: "right" } }, "（截过一帧）") : null,
-                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, m.content) : null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: W.fog, marginTop: 3, textAlign: mine ? "right" : "left" } }, clock(m.at))));
+                m.frame === "gone" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: W.fog, textAlign: "right" } }, "（截过一帧）") : null,
+                m.content ? h("div", { "data-wk": "block", style: { padding: "8px 12px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? W.amber : W.card, color: mine ? W.amberInk : W.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", border: mine ? "none" : "1px solid " + W.line } }, m.content) : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: W.fog, marginTop: 3, textAlign: mine ? "right" : "left" } }, clock(m.at))));
           }),
-          busy && h("div", { className: "flex items-center gap-2", style: { margin: "8px 0", color: W.fog, fontFamily: F_BODY, fontSize: 12 } }, h(Avatar, { character: partner, size: 28, radius: 14 }), (partner.remark || partner.name) + " 在想…")),
+          busy && h("div", { className: "flex items-center gap-2", style: { margin: "8px 0", color: W.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, h(Avatar, { character: partner, size: 28, radius: 14 }), (partner.remark || partner.name) + " 在想…")),
         // 手边那几样收进输入框左边的「＋」（她 2026-09-25：「做可以收起来上面那几个按键不然太挤了」）：
         //   跟聊天的加号面板一个意思，平时不占地方，要用才展开在输入框上面
         toolsOpen && h("div", { style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(31,28,38,.96)" } },
@@ -634,9 +634,9 @@
             : btn("给 TA 看这一帧", showFrame, { disabled: busy || missing }),
           btn("让 TA 说两句", () => ask("auto-ask"), { disabled: busy }),
           btn("影院模式", enterCinema, { disabled: missing || playErr }),
-          h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); if (window.__setAutoFromPage) window.__setAutoFromPage("watch", null, n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" }, "data-wk": "watchscreeningbtn", "data-part": "2" }, auto ? "TA 会自己开口" : "TA 不主动说话")),
+          h("button", { onClick: () => { const n = !auto; setAuto(n); saveJSON("x_watch_auto", n); if (window.__setAutoFromPage) window.__setAutoFromPage("watch", null, n); }, "aria-pressed": String(auto), className: "active:opacity-70", style: { minHeight: 40, padding: "0 12px", borderRadius: 999, flexShrink: 0, border: "1px dashed " + (auto ? W.amber : W.line), background: "none", color: auto ? W.amber : W.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" }, "data-wk": "watchscreeningbtn", "data-part": "2" }, auto ? "TA 会自己开口" : "TA 不主动说话")),
           auto && h("div", { className: "flex items-center gap-3", style: { padding: "0 16px 4px" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话多"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: W.fog, whiteSpace: "nowrap" } }, "话多"),
           // 轨道自己画：全局样式把原生的轨抹掉了，只剩一个圆点
           h("div", { style: { position: "relative", flex: 1, minWidth: 0, height: 40 } },
             h("div", { style: { position: "absolute", left: 0, right: 0, top: 18, height: 4, borderRadius: 2, background: "rgba(255,255,255,.12)" } },
@@ -644,19 +644,19 @@
             h("input", { type: "range", min: AUTO_MIN, max: AUTO_MAX, step: 1, value: every, "aria-label": "TA 多久可能自己开一次口",
               onChange: e => { const n = Number(e.target.value); setEvery(n); saveJSON("x_watch_auto_every", n); },
               style: { position: "absolute", inset: 0, width: "100%", height: 40, margin: 0, padding: 0, border: "none", boxShadow: "none", background: "transparent", accentColor: W.amber }, "data-wk": "watchscreeninginput", "data-part": "TA 多久可能自己开一次口" })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap" } }, "话少"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: W.fog, whiteSpace: "nowrap" } }, "话少"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: W.amber, minWidth: 58, textAlign: "right", whiteSpace: "nowrap" } }, "约 " + every + " 分钟")),
           // 字幕对不上画面时挪一挪（有字幕才出来）
           cues.length ? h("div", { className: "flex items-center gap-2", style: { padding: "0 12px 8px" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: W.fog, whiteSpace: "nowrap", paddingLeft: 4 } }, "字幕"),
-            btn("提前 0.5 秒", () => nudge(-0.5), { style: { fontSize: 12, padding: "0 10px" } }),
-            h("span", { style: { flex: 1, minWidth: 0, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: off ? W.amber : W.fog, whiteSpace: "nowrap" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: W.fog, whiteSpace: "nowrap", paddingLeft: 4 } }, "字幕"),
+            btn("提前 0.5 秒", () => nudge(-0.5), { style: { fontSize: "calc(12px * var(--app-fs, 1))", padding: "0 10px" } }),
+            h("span", { style: { flex: 1, minWidth: 0, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: off ? W.amber : W.fog, whiteSpace: "nowrap" } },
               off === 0 ? "对得上" : (off < 0 ? "提前 " + (-off) + " 秒" : "推后 " + off + " 秒")),
-            btn("推后 0.5 秒", () => nudge(0.5), { style: { fontSize: 12, padding: "0 10px" } })) : null),
+            btn("推后 0.5 秒", () => nudge(0.5), { style: { fontSize: "calc(12px * var(--app-fs, 1))", padding: "0 10px" } })) : null),
         // 输入
         h("div", { className: "flex items-center gap-2", style: { flexShrink: 0, borderTop: "1px solid " + W.line, background: "rgba(22,20,27,.92)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
-          h("button", { onClick: () => setToolsOpen(!toolsOpen), "aria-label": toolsOpen ? "收起" : "更多", "aria-expanded": String(toolsOpen), className: "active:opacity-60", style: { width: 40, height: 40, flexShrink: 0, borderRadius: "50%", border: "1px solid " + (toolsOpen ? W.amber : W.line), background: "none", color: toolsOpen ? W.amber : W.sub, fontSize: 22, lineHeight: 1, transform: toolsOpen ? "rotate(45deg)" : "none", transition: "transform .15s" }, "data-wk": "watchscreeningbtn", "data-part": "3" }, "+"),
-          h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: W.card, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: 16 }, "data-wk": "watchscreeninginput", "data-part": "小声说一句…" }),
+          h("button", { onClick: () => setToolsOpen(!toolsOpen), "aria-label": toolsOpen ? "收起" : "更多", "aria-expanded": String(toolsOpen), className: "active:opacity-60", style: { width: 40, height: 40, flexShrink: 0, borderRadius: "50%", border: "1px solid " + (toolsOpen ? W.amber : W.line), background: "none", color: toolsOpen ? W.amber : W.sub, fontSize: "calc(22px * var(--app-fs, 1))", lineHeight: 1, transform: toolsOpen ? "rotate(45deg)" : "none", transition: "transform .15s" }, "data-wk": "watchscreeningbtn", "data-part": "3" }, "+"),
+          h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "小声说一句…", className: "flex-1 min-w-0 outline-none", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, background: W.card, border: "1px solid " + W.line, color: W.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" }, "data-wk": "watchscreeninginput", "data-part": "小声说一句…" }),
           btn("说", send, { primary: true, disabled: busy || !txt.trim() }))));
   }
 
@@ -682,12 +682,12 @@
         h("div", { "data-wk": "block", style: { position: "relative", borderRadius: 18, padding: "22px 18px 18px", marginBottom: 18, overflow: "hidden", background: "linear-gradient(180deg,#5a2531 0%,#3a1a24 100%)", boxShadow: "inset 0 -18px 30px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.35)" } },
           h("div", { style: { position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 22px)", pointerEvents: "none" } }),
           h("div", { style: { position: "relative" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fbeee0" } }, "今晚放什么"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(251,238,224,.72)", margin: "6px 0 14px" } }, "导一部电影进来，或者贴一个 B 站 / YouTube 链接，约一个人坐你旁边。放到哪，TA 就看到哪。"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#fbeee0" } }, "今晚放什么"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "rgba(251,238,224,.72)", margin: "6px 0 14px" } }, "导一部电影进来，或者贴一个 B 站 / YouTube 链接，约一个人坐你旁边。放到哪，TA 就看到哪。"),
             btn("放一部片子", () => setView("import"), { primary: true }))),
         sorted.length
           ? h("div", { className: "space-y-3" }, sorted.map(f => h(Ticket, { key: f.id, film: f, partner: chars.find(c => String(c.id) === String(f.partnerId)), onOpen: () => setView(f.id), onDelete: () => del(f), onRename: () => renameFilm(f, () => setFilms(loadFilms())) })))
-          : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: W.fog, padding: "26px 0" } }, "票夹还是空的")));
+          : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: W.fog, padding: "26px 0" } }, "票夹还是空的")));
   }
   window.WatchTogether = WatchTogether;
 })();

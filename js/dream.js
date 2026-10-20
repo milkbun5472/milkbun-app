@@ -500,7 +500,7 @@
           style: {
             display: "block", width: 150, maxWidth: "56%", margin: "6px auto 30px",
             padding: "116px 0 26px",
-            fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".08em", color: ACC_LIT,
+            fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", letterSpacing: ".08em", color: ACC_LIT,
             borderRadius: "75px 75px 3px 3px",
             border: "1px solid rgba(169,154,201,.38)",
             background: "radial-gradient(110% 62% at 50% 108%, rgba(169,154,201,.20), transparent 72%)"
@@ -508,18 +508,18 @@
         }, "推开一扇门"),
         // TA昨晚做的梦：一列还没推开的门
         loopOpen.length ? h("div", { "data-wk": "drmloops", style: { marginBottom: 26 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: ACC_LIT, marginBottom: 10 } }, "TA昨晚真做的梦 · 还没进过"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".14em", color: ACC_LIT, marginBottom: 10 } }, "TA昨晚真做的梦 · 还没进过"),
           loopOpen.map(r => { const c = (props.characters || []).find(x => x.id === r.charId) || {};
             return h("button", { "data-wk": "drmloop", key: r.key, onClick: () => enterLoop(r), className: "w-full active:opacity-70 flex items-center",
               style: { gap: 12, padding: "10px 4px", textAlign: "left", borderBottom: "1px solid " + t.line } },
               typeof Avatar === "function" ? h(Avatar, { character: c, size: 34, radius: 999 }) : null,
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { "data-wk": "drmlooptitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (c.name || "？") + " · " + String(r.nightKey || "").slice(5).replace("-", "/") + " 夜"),
-                h("div", { "data-wk": "drmloopsub", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                h("div", { "data-wk": "drmlooptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, (c.name || "？") + " · " + String(r.nightKey || "").slice(5).replace("-", "/") + " 夜"),
+                h("div", { "data-wk": "drmloopsub", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   r.recurOf ? "又做了一次 · 上次碎在半路" : r.status === "generated" ? ((r.motifs || []).join(" · ") || r.tone || "有梦") : "未醒的梦 · 材料已经攒好")),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: ACC_LIT, flexShrink: 0 } }, "推门 ›")); })) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: ACC_LIT, flexShrink: 0 } }, "推门 ›")); })) : null,
         saves.length === 0
-          ? h("div", { "data-wk": "drmempty", style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
+          ? h("div", { "data-wk": "drmempty", style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
           : h("div", null,
             saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map((s, si) => {
               const broken = s.status === "broken", left = s.status === "left", done = s.status === "fulfilled", faced = s.status === "faced";
@@ -540,14 +540,14 @@
                 h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
                   // 徽标换成一颗点 + 两个字：色块 badge 是标签组件，星点才是这一页的话
                   h("span", { "aria-hidden": "true", style: { width: 5, height: 5, borderRadius: 999, background: mark.c, boxShadow: "0 0 7px " + mark.c } }),
-                  h("span", { "data-wk": "drmsavemark", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: mark.c } }, mark.txt),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第 " + ((s.scenes || []).length || 1) + " 幕")),
-                h("div", { "data-wk": "drmsavetitle", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦" + (s.recur ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜又做了一次）" : s.fromLoop ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜真做的）" : "")),
-                h("div", { "data-wk": "drmsavesub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  h("span", { "data-wk": "drmsavemark", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".14em", color: mark.c } }, mark.txt),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "第 " + ((s.scenes || []).length || 1) + " 幕")),
+                h("div", { "data-wk": "drmsavetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, s.charName + " 的梦" + (s.recur ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜又做了一次）" : s.fromLoop ? "（" + String(s.nightKey || "").slice(5).replace("-", "/") + " 夜真做的）" : "")),
+                h("div", { "data-wk": "drmsavesub", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   s.fromLoop ? (((s.material || {}).motifs || []).join(" · ") || "从TA昨天真过的一天里长出来的") : ((s.keywords || []).filter(Boolean).join(" · ") || "（没给关键词，任梦自由生长）"))
               );
             })),
-        saves.length > 0 ? h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按可忘掉这场梦") : null
+        saves.length > 0 ? h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "长按可忘掉这场梦") : null
       ));
   }
 
@@ -602,7 +602,7 @@
       } catch (e) { props.toast && props.toast("没能进梦：" + (e.message || "重试")); setStarting(false); }
     };
 
-    const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
+    const label = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
 
     return h("div", { "data-wk": "drmsetup", className: "h-full flex flex-col", style: dreamPage() },
       h(Head, { zh: "编织一场梦", onBack: props.onCancel, bg: "transparent", ink: t.ink }),
@@ -612,7 +612,7 @@
           (props.characters || []).map(c => {
             const on = charId === c.id;
             return h("button", { "data-wk": "drmcharpick", "data-part": "dreamer", "data-on": on ? "1" : "0", key: c.id, onClick: () => pickDreamer(c.id), className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
+              style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
           })),
         // 客串角色：选了做梦人才出现；梦里会带上这些人（含做梦人对 Ta 的看法）
         charId ? h("div", { style: label }, "梦里还会梦见谁（选 0~2 个，可不选）") : null,
@@ -620,27 +620,27 @@
           (props.characters || []).filter(c => c.id !== charId).map(c => {
             const on = guestIds.includes(c.id);
             return h("button", { "data-wk": "drmcharpick", "data-part": "guest", "data-on": on ? "1" : "0", key: c.id, onClick: () => toggleGuest(c.id), className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? "#8478a0" : t.bg2, border: "1px solid " + (on ? "#8478a0" : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
+              style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? "#8478a0" : t.bg2, border: "1px solid " + (on ? "#8478a0" : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
           })) : null,
         // 注入最近聊天记录开关
         h("label", { "data-wk": "drminject", "data-on": injectChat ? "1" : "0", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 13px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, marginBottom: 22, cursor: "pointer" } },
           h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "注入最近的聊天记录"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "把 Ta" + (guestIds.length ? "和客串角色" : "") + "最近的聊天当语气/近况参考，梦更贴近当下")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "注入最近的聊天记录"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "把 Ta" + (guestIds.length ? "和客串角色" : "") + "最近的聊天当语气/近况参考，梦更贴近当下")),
           h("input", { type: "checkbox", checked: injectChat, onChange: e => setInjectChat(e.target.checked), style: { width: 20, height: 20, flexShrink: 0, accentColor: ACCENT } })),
         h("div", { style: label }, "递三个关键词（可留空，让梦自由生长）"),
         h("div", { style: { display: "flex", flexDirection: "column", gap: 9, marginBottom: 8 } },
           [0, 1, 2].map(i => h("input", { "data-wk": "drmkeyword",
             key: i, value: kw[i], onChange: e => setKw(prev => { const n = prev.slice(); n[i] = e.target.value; return n; }),
             placeholder: "关键词 " + (i + 1),
-            style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none" }
+            style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "11px 13px", width: "100%", outline: "none" }
           }))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginBottom: 4 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 4 } },
           "梦是 Ta 的，你只是闯进来的客人。每一幕都有三条路，其中一条踩在 Ta 的逆鳞上。踩到了梦会先挣扎一幕，只给你一次机会安抚它；安抚对了 Ta 会直面那个东西，错了梦就碎，把你惊醒赶出去。")
       ),
       h("div", { "data-wk": "drmstartbar", style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom))", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         h("button", { "data-wk": "drmstartbtn", onClick: start, disabled: starting, className: "w-full active:opacity-80",
-          style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: starting ? t.fog : ACCENT, borderRadius: 12, padding: "13px 0" } },
+          style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: starting ? t.fog : ACCENT, borderRadius: 12, padding: "13px 0" } },
           starting ? "推开梦的门…" : "进入梦境")));
   }
 
@@ -651,13 +651,13 @@
   function KeepsakeCard(props) {
     const t = nightNow(), k = props.keepsake; if (!k || !k.name) return null;
     return h("div", { "data-wk": "drmkeep", style: { marginTop: 14, padding: "12px 14px", borderRadius: 12, border: "1px dashed rgba(169,154,201,.45)", background: "rgba(169,154,201,.07)" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: ACC_LIT, marginBottom: 6 } }, "醒来手里攥着"),
-      h("div", { "data-wk": "drmkeepname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, k.name),
-      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.sub, marginTop: 3 } }, k.note) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: .5, color: ACC_LIT, marginBottom: 6 } }, "醒来手里攥着"),
+      h("div", { "data-wk": "drmkeepname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, k.name),
+      k.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 3 } }, k.note) : null,
       k.taken
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8 } }, "已经带出来了，在你的物品里。Ta 见了会眼熟，但不知道它从哪儿来。")
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "已经带出来了，在你的物品里。Ta 见了会眼熟，但不知道它从哪儿来。")
         : h("button", { "data-wk": "drmkeepbtn", onClick: props.onKeep, className: "active:opacity-70",
-            style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.bg, background: ACC_LIT, borderRadius: 10, padding: "7px 14px" } }, "带出梦去"));
+            style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg, background: ACC_LIT, borderRadius: 10, padding: "7px 14px" } }, "带出梦去"));
   }
 
   function DreamView(props) {
@@ -820,101 +820,101 @@
     const needRetry = dreaming && cur && cur.chosen != null;
 
     const wakeBtn = dreaming ? h("button", { "data-wk": "drmwakebtn", onClick: wakeUp, className: "active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "醒来") : null;
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "醒来") : null;
 
     // 底部控制区（正常流式布局，不再 absolute 浮盖——否则最后一幕会被盖住刷不到底）
     const controls = dreaming ? h("div", { "data-wk": "drmcontrols", className: "shrink-0 px-5", style: { paddingTop: 8, paddingBottom: "calc(12px + env(safe-area-inset-bottom))", borderTop: "1px solid " + t.line, background: t.bg } },
       busy
-        ? h("div", { "data-wk": "drmwaiting", className: "w-full", style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.sub, textAlign: "center", padding: "13px 0", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12 } }, phaseMsg || "…")
+        ? h("div", { "data-wk": "drmwaiting", className: "w-full", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, color: t.sub, textAlign: "center", padding: "13px 0", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12 } }, phaseMsg || "…")
         : awaitingPick
           ? h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } },
             cur.options.map((op, i) => h("button", { "data-wk": "drmoption",
               key: i, onClick: () => pick(i), className: "w-full active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, textAlign: "left", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "13px 15px" }
+              style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, textAlign: "left", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "13px 15px" }
             }, op.text)),
             // 熟不熟（v63.08）：告诉她这场梦里破绽有没有、有多明显；挣扎那一幕不适用（那三条是另一套）
-            cur.struggle ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", paddingTop: 2 } }, FAMILIAR_LINE[Math.max(0, Math.min(2, s.familiarity || 0))]))
+            cur.struggle ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", paddingTop: 2 } }, FAMILIAR_LINE[Math.max(0, Math.min(2, s.familiarity || 0))]))
           : needRetry
             ? h("button", { "data-wk": "drmretry", onClick: retryNext, className: "w-full active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "↻ 梦卡住了，继续做梦")
+              style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "↻ 梦卡住了，继续做梦")
             : null) : null;
 
     return h("div", { "data-wk": "drmplay", className: "h-full flex flex-col", style: dreamPage() },
       h(Head, { zh: s.charName + " 的梦", onBack: props.onBack, right: wakeBtn, bg: "transparent", ink: t.ink }),
       // 梦境流（flex-1 撑满剩余高度，底部控制区是同级 shrink-0，滚动能到底不被盖）
       h("div", { "data-wk": "drmfeed", ref: feedRef, className: "flex-1 overflow-y-auto px-5", style: { paddingBottom: 24 } },
-        s.recur ? h("div", { "data-wk": "drmrecur", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog, marginBottom: 14, paddingBottom: 10, borderBottom: "1px dashed " + t.line } },
+        s.recur ? h("div", { "data-wk": "drmrecur", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, marginBottom: 14, paddingBottom: 10, borderBottom: "1px dashed " + t.line } },
           "这场梦 Ta 又做了一次。上次做到第 " + s.recur.brokenAt + " 幕，在「" + s.recur.wrongText + "」那一步碎了。前面几幕还是那样，从碎的地方接着走——路已经不是上次的路。") : null,
         scenes.map((sc, i) => {
           const decided = sc.chosen != null && sc.options && sc.options[sc.chosen];
           return h("div", { "data-wk": "drmscene", key: i, style: { marginBottom: 22 } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: sc.struggle ? BAD_LIT : t.fog } }, sc.struggle ? "第 " + (i + 1) + " 幕 · 梦在挣扎" : "第 " + (i + 1) + " 幕"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: sc.struggle ? BAD_LIT : t.fog } }, sc.struggle ? "第 " + (i + 1) + " 幕 · 梦在挣扎" : "第 " + (i + 1) + " 幕"),
               (dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dr" + i, text: sc.text, spk: (props.characters || []).find(c => c.id === s.charId), tp: dtp }) : null),
-            h("div", { "data-wk": "drmscenetext", style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
+            h("div", { "data-wk": "drmscenetext", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
             (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
             // 已做出的选择回显 + 回档
             decided
               ? h("div", { "data-wk": "drmchosen", style: { marginTop: 12, paddingLeft: 12, borderLeft: "2px solid " + ACC_LIT },
                   onClick: () => rewindTo(i) },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: ACC_LIT } }, "你选择了：" + sc.options[sc.chosen].text),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: ACC_LIT } }, "你选择了：" + sc.options[sc.chosen].text),
                 h("button", { "data-wk": "drmrewind", onClick: e => { e.stopPropagation(); rewindTo(i); }, className: "active:opacity-60",
-                  style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "↩ 从这里重选"))
+                  style: { marginTop: 4, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "↩ 从这里重选"))
               : null);
         }),
         // 抵达梦核（圆满收束）结局
         s.status === "fulfilled"
           ? h("div", { "data-wk": "drmending", "data-part": "good", style: { marginTop: 4, marginBottom: 20 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: GOOD_LIT, marginBottom: 8 } }, "梦　核"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: GOOD_LIT, marginBottom: 8 } }, "梦　核"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             s.dreamCore
               ? h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "这场梦其实是关于"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "这场梦其实是关于"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
             h(KeepsakeCard, { keepsake: s.keepsake, onKeep: keep }),
-            h("div", { "data-wk": "drmendmark", style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你走到了梦的尽头，它温柔地合上。"),
+            h("div", { "data-wk": "drmendmark", style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog } }, "你走到了梦的尽头，它温柔地合上。"),
             scenes.length ? h("button", { "data-wk": "drmagain", onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
-              style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
+              style: { marginTop: 16, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
           // 直面（第四种结局，v63.04）：挣扎那一幕选对了
           : s.status === "faced"
           ? h("div", { "data-wk": "drmending", "data-part": "true", style: { marginTop: 4, marginBottom: 20 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: GOOD_LIT, marginBottom: 8 } }, "直　面"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: GOOD_LIT, marginBottom: 8 } }, "直　面"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             s.dreamCore
               ? h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 14px", background: "rgba(127,192,160,0.10)", border: "1px solid rgba(127,192,160,0.30)", borderRadius: 12 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "Ta 一直绕开的是"),
-                s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "踩到它的那一步：「" + s.wrongText + "」") : null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: .5, color: GOOD_LIT, marginBottom: 6 } }, "Ta 一直绕开的是"),
+                s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "踩到它的那一步：「" + s.wrongText + "」") : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } }, s.dreamCore))
               : null,
             h(KeepsakeCard, { keepsake: s.keepsake, onKeep: keep }),
-            h("div", { "data-wk": "drmendmark", style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你没有退开，也没有把它戳破。它被看见了。"),
+            h("div", { "data-wk": "drmendmark", style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog } }, "你没有退开，也没有把它戳破。它被看见了。"),
             scenes.length ? h("button", { "data-wk": "drmagain", onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
-              style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
+              style: { marginTop: 16, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
           // 梦碎 / 醒来 结局
           : s.status === "broken"
           ? h("div", { "data-wk": "drmending", "data-part": "bad", style: { marginTop: 4, marginBottom: 20 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: BAD_LIT, marginBottom: 8 } }, "梦　碎"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: BAD_LIT, marginBottom: 8 } }, "梦　碎"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
             (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             // 为什么这个选项是错的
             s.whyWrong
               ? h("div", { "data-wk": "block", style: { marginTop: 14, padding: "12px 14px", background: "rgba(217,138,138,0.10)", border: "1px solid rgba(217,138,138,0.30)", borderRadius: 12 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: BAD_LIT, marginBottom: 6 } }, "为什么这条路走不通"),
-                s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "「" + s.wrongText + "」") : null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.whyWrong))
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: .5, color: BAD_LIT, marginBottom: 6 } }, "为什么这条路走不通"),
+                s.wrongText ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 6, fontStyle: "italic" } }, "「" + s.wrongText + "」") : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } }, s.whyWrong))
               : null,
-            h("div", { "data-wk": "drmendmark", style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你被赶出了这场梦。"),
+            h("div", { "data-wk": "drmendmark", style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog } }, "你被赶出了这场梦。"),
             // 梦碎后回到那个决策点重来
             scenes.length ? h("button", { "data-wk": "drmagain", onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
-              style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点重选") : null)
+              style: { marginTop: 16, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点重选") : null)
           : s.status === "left"
             ? h("div", { "data-wk": "drmending", "data-part": "woke", style: { marginTop: 8, marginBottom: 24, textAlign: "center" } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog, marginBottom: 14 } }, "你选择了醒来，梦轻轻合上。"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog, marginBottom: 14 } }, "你选择了醒来，梦轻轻合上。"),
               scenes.length ? h("button", { "data-wk": "drmagain", onClick: () => rewindTo(scenes.length - 1), className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 12.5, color: ACCENT } }, "↩ 回到最后的决策点重进梦") : null)
+                style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: ACCENT } }, "↩ 回到最后的决策点重进梦") : null)
             : null),
       controls);
   }

@@ -155,19 +155,19 @@
     const t = useTheme(), r = (m && m.pomo) || {};
     const [open, setOpen] = React.useState(false);
     const done = r.status === "done";
-    const row = (k, v) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, gap: 10 } },
+    const row = (k, v) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 4, gap: 10 } },
       h("span", { style: { color: t.fog } }, k), h("span", { style: { textAlign: "right" } }, v));
     return h("button", { "data-wk": "pomoshare", "data-done": done ? "1" : "0", onClick: () => setOpen(v => !v), className: "active:opacity-90",
       style: { width: 230, textAlign: "left", borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(40,30,20,.08)", padding: 0 } },
       h("div", { style: { padding: "10px 12px 11px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.fog } }, "一起专注 · " + (done ? "坐住了" : "先收桌")),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 3 } }, minutesText(r.focusedMinutes != null ? r.focusedMinutes : r.minutes)),
-        r.annotation ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, r.annotation) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, "一起专注 · " + (done ? "坐住了" : "先收桌")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.ink, marginTop: 3 } }, minutesText(r.focusedMinutes != null ? r.focusedMinutes : r.minutes)),
+        r.annotation ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, marginTop: 6 } }, r.annotation) : null,
         open ? h("div", { style: { marginTop: 8, paddingTop: 6, borderTop: "1px dashed " + t.line } },
           r.task ? row("做的事", r.task) : null,
           row("停下来", (r.pauseCount || 0) + " 次"),
           row("戳了 TA", (r.pokes || 0) + " 次"),
-          r.interruptReason ? row("为什么收桌", r.interruptReason) : null) : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, "点开看细节")));
+          r.interruptReason ? row("为什么收桌", r.interruptReason) : null) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "点开看细节")));
   }
   window.PomoShareCard = PomoShareCard;
 

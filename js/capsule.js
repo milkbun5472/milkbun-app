@@ -165,21 +165,21 @@
       return h("div", { "data-wk": "capsulepage", "data-part": "capsuleapp", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
         h(Head, { zh: "时光胶囊", en: activeChar ? activeChar.name : "", bg: "transparent", onBack: () => setView(null), right: h("button", { onClick: () => delCap(cap.id), className: "active:opacity-50" }, h(ITrash, { size: 18, color: t.fog })) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 12 } }, who + " · 埋于 " + fmtD(cap.createdTs) + " · 拆于 " + fmtD(cap.openedTs || cap.openTs)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, who + " · 埋于 " + fmtD(cap.createdTs) + " · 拆于 " + fmtD(cap.openedTs || cap.openTs)),
           h("div", { "data-wk": "block", style: { background: "#f7f1e2", border: "1px solid #e2d7c1", borderRadius: 2, padding: "18px 17px", marginBottom: 16,
             boxShadow: "0 7px 18px rgba(90,70,40,.11)",
             backgroundImage: "repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 26px,rgba(120,100,60,.14) 26px 27px)", backgroundPosition: "0 38px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.15em", color: "#9b8a6c", height: 20 } }, cap.dir === "fromChar" ? "TA 当时写下的" : "当时写下的"),
-            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: "27px", color: "#4b3f2e", whiteSpace: "pre-wrap" } }, cap.text)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: "0.15em", color: "#9b8a6c", height: 20 } }, cap.dir === "fromChar" ? "TA 当时写下的" : "当时写下的"),
+            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: "27px", color: "#4b3f2e", whiteSpace: "pre-wrap" } }, cap.text)),
           cap.dir === "toChar" ? (
             cap.reply
               ? h("div", { "data-wk": "block", style: { background: "#eef1f6", border: "1px solid #ccd6e4", borderRadius: 2, padding: "18px 17px",
                   boxShadow: "0 7px 18px rgba(50,70,100,.10)",
                   backgroundImage: "repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 26px,rgba(70,95,135,.13) 26px 27px)", backgroundPosition: "0 38px" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.15em", color: ACCENT, height: 20 } }, (cap.charName || "TA") + " 的回信"),
-                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: "27px", color: "#33405a", whiteSpace: "pre-wrap" } }, cap.reply))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "14px 0" } },
-                  busy === cap.id ? "TA 正在读信、写回信…" : h("button", { onClick: () => openCap({ ...cap, opened: false }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: ACCENT, border: "none", borderRadius: 999, padding: "8px 18px" } }, "让 TA 读信回信"))
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: "0.15em", color: ACCENT, height: 20 } }, (cap.charName || "TA") + " 的回信"),
+                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: "27px", color: "#33405a", whiteSpace: "pre-wrap" } }, cap.reply))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "14px 0" } },
+                  busy === cap.id ? "TA 正在读信、写回信…" : h("button", { onClick: () => openCap({ ...cap, opened: false }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: ACCENT, border: "none", borderRadius: 999, padding: "8px 18px" } }, "让 TA 读信回信"))
           ) : null));
     }
     // ---- 写一颗（compose）----
@@ -205,7 +205,7 @@
           background: "radial-gradient(circle at 34% 28%," + (kind === "due" ? "#d4685c" : "#a94a40") + "," + WAX[kind] + " 60%,#6d251f)",
           boxShadow: "inset 0 -2px 4px rgba(0,0,0,.34), 0 3px 6px rgba(90,30,25,.30)",
           display: "flex", alignItems: "center", justifyContent: "center" } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "rgba(255,238,232,.92)" } }, kind === "due" ? "启" : "封"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "rgba(255,238,232,.92)" } }, kind === "due" ? "启" : "封"),
           kind === "due" ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 1, right: 1, top: "50%",
             height: 1.5, background: "rgba(255,242,238,.8)", transform: "rotate(-16deg)" } }) : null);
     const row = (cap, kind) => {
@@ -223,24 +223,24 @@
             strokeDasharray: kind === "done" ? "3 4" : "none", vectorEffect: "non-scaling-stroke" })),
         waxSeal(kind),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#5b4a33" } }, who),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9b8a6c", marginTop: 3, lineHeight: 1.6 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#5b4a33" } }, who),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9b8a6c", marginTop: 3, lineHeight: 1.6 } },
             kind === "sealed" ? "埋于 " + fmtD(cap.createdTs) + " · " + fmtD(cap.openTs) + " 开启 · " + leftTxt(cap.openTs)
             : kind === "due" ? "埋于 " + fmtD(cap.createdTs) + " · 到日子了，点开拆封"
             : "拆于 " + fmtD(cap.openedTs || cap.openTs))),
-        kind === "due" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "#a5642c", flexShrink: 0 } }, "拆封") : null);
+        kind === "due" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#a5642c", flexShrink: 0 } }, "拆封") : null);
     };
     return h("div", { "data-wk": "capsulepage", "data-part": "capsuleapp", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
       h(Head, { zh: "时光胶囊", en: activeChar ? activeChar.name : "", bg: "transparent", onBack: props.onBack, right: activeChar ? h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) : null }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
-        !activeChar ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "没有找到当前情侣对象。\n返回情侣空间后，从对应的人那里重新打开。") : null,
-        activeChar && list.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "你和 " + activeChar.name + " 还没有胶囊。\n点右上角 ＋，给以后写点什么。") : null,
+        !activeChar ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "没有找到当前情侣对象。\n返回情侣空间后，从对应的人那里重新打开。") : null,
+        activeChar && list.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "你和 " + activeChar.name + " 还没有胶囊。\n点右上角 ＋，给以后写点什么。") : null,
         due.length ? h("div", { style: { marginBottom: 14 } }, due.map(c => row(c, "due"))) : null,
         sealed.length ? h("div", { style: { marginBottom: 14 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.1em", color: t.fog, marginBottom: 8 } }, "封存中 · 到期前谁也看不到"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.1em", color: t.fog, marginBottom: 8 } }, "封存中 · 到期前谁也看不到"),
           sealed.map(c => row(c, "sealed"))) : null,
         done.length ? h("div", null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.1em", color: t.fog, marginBottom: 8 } }, "已拆开"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.1em", color: t.fog, marginBottom: 8 } }, "已拆开"),
           done.map(c => row(c, "done"))) : null));
   }
 
@@ -271,28 +271,28 @@
             ? h(CalPage, { w: 44, dim: !on, month: valid ? d.getMonth() + 1 : undefined, day: valid ? d.getDate() : undefined,
                 head: valid ? undefined : "　", body: valid ? undefined : "？" })
             : null),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? "#8a5f3a" : t.fog, marginTop: 6 } }, label));
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: on ? "#8a5f3a" : t.fog, marginTop: 6 } }, label));
     };
     return h("div", { "data-wk": "capsulepage", "data-part": "capsulecompose", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
       h(Head, { zh: "埋一颗胶囊", en: char ? (char.remark || char.name) : "", bg: "transparent", onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 0 9px" } }, "哪一天拆开"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 0 9px" } }, "哪一天拆开"),
         h("div", { className: "flex", style: { gap: 6, alignItems: "flex-start", marginBottom: preset === -1 ? 10 : 18 } },
           [[7, "1 周后"], [30, "1 个月后"], [90, "3 个月后"], [365, "1 年后"]].map(pp => leaf(preset === pp[0], pp[0], pp[1], () => setPreset(pp[0]))).concat(
             [leaf(preset === -1, -1, "自己挑", () => setPreset(-1))])),
         preset === -1 ? h("input", { type: "date", value: customDate, onChange: e => setCustomDate(e.target.value),
-          style: { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line, marginBottom: 18 } }) : null,
+          style: { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line, marginBottom: 18 } }) : null,
         // 信纸：格子是真的，正文行高跟格距相等，字写在格子上（跟交换日记同一套做法）
         h("div", { style: { position: "relative", borderRadius: 2, padding: "13px 15px 15px", background: "#f7f1e2",
           border: "1px solid #e2d7c1", boxShadow: "0 8px 20px rgba(90,70,40,.12)",
           backgroundImage: "repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 26px,rgba(120,100,60,.14) 26px 27px)", backgroundPosition: "0 33px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#9b8a6c", height: 20 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".14em", color: "#9b8a6c", height: 20 } },
             "写给拆开这封信那天的 " + (char ? (char.remark || char.name) : "TA")),
           h("textarea", { "data-wk": "textarea", value: text, onChange: e => setText(e.target.value), rows: 9,
             placeholder: "封存后 TA 到期才看得到，你自己也不能偷看…",
             style: { width: "100%", outline: "none", resize: "none", background: "transparent", border: "none", padding: 0,
-              fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: "27px", color: "#4b3f2e" } })),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 9, lineHeight: 1.6 } }, "封存后内容上锁、只能整颗删除；到期情侣空间那一行会亮红点。给角色埋的话，TA 有时也会悄悄埋一颗给你。"),
+              fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: "27px", color: "#4b3f2e" } })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 9, lineHeight: 1.6 } }, "封存后内容上锁、只能整颗删除；到期情侣空间那一行会亮红点。给角色埋的话，TA 有时也会悄悄埋一颗给你。"),
         // 「封存」这一下不是按钮，是【把火漆压下去】：一枚刻着「封」的印
         h("button", { onClick: () => ok && onBury(text.trim(), openTs), disabled: !ok, className: "w-full flex flex-col items-center active:opacity-80 disabled:opacity-35",
           style: { marginTop: 18, minHeight: 44, padding: "6px 0 4px", background: "transparent" } },
@@ -300,8 +300,8 @@
             background: "radial-gradient(circle at 34% 28%,#a94a40,#8f342c 60%,#6d251f)",
             boxShadow: "inset 0 -3px 6px rgba(0,0,0,.34), 0 5px 12px rgba(90,30,25,.34)",
             display: "flex", alignItems: "center", justifyContent: "center" } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "rgba(255,238,232,.94)" } }, "封")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 8 } }, "压下去，封存"))));
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(23px * var(--app-fs, 1))", color: "rgba(255,238,232,.94)" } }, "封")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 8 } }, "压下去，封存"))));
   }
   window.CapsuleApp = CapsuleApp;
 })();

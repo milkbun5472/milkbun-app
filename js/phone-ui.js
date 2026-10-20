@@ -17,8 +17,6 @@
 //
 // 起名字是为了让这份「有意」写在明面上：`style: { background: t.bg }` 那种裸写法
 // 跟「忘了装修」长得一模一样，而 last-flat-shells 那道闸拦的正是后者。
-// 字号跟着主题工作台「字号」那根条走（core.js 的 fsz）；单独被测试拿去跑时没有 fsz，就原样用数字
-var pfs = typeof fsz === "function" ? fsz : function (n) { return n; };
 function phoneAppBg(t) { return { background: t.bg }; }
 // 查手机里的外语（她 2026-09-14：「能不能也接翻译，标题、内容、心里想法，
 // 任何可能出现别的语言的地方」）。
@@ -432,60 +430,60 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     h("div", { className: "flex items-baseline", style: { gap: 8 } },
       h("div", {
         style: {
-          flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: MAIL_INK,
+          flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: MAIL_INK,
           fontWeight: (kind === "inbox" && x.unread) ? 600 : 400,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
         }
       }, kind === "drafts" ? ("给 " + (S(x.to) || "谁")) : who(x)),
-      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10.5), color: MAIL_DIM, flexShrink: 0 } }, S(x.time) || S(x.savedAt))),
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10.5px * var(--app-fs, 1))", color: MAIL_DIM, flexShrink: 0 } }, S(x.time) || S(x.savedAt))),
     h("div", {
-      style: { fontFamily: F_BODY, fontSize: pfs(13), color: MAIL_INK, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+      style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MAIL_INK, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
     }, S(x.subject) || "（没有主题）"),
     h("div", {
-      style: { fontFamily: F_BODY, fontSize: pfs(12), color: MAIL_DIM, marginTop: 2, lineHeight: 1.55,
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MAIL_DIM, marginTop: 2, lineHeight: 1.55,
         display: "-webkit-box", WebkitLineClamp: phoneTextClamp(S(x.preview) || S(x.body), 2), WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }
     }, PTX(S(x.preview) || S(x.body))),
     S(x.kind) && kind === "inbox" ? h("span", {
-      style: { display: "inline-block", marginTop: 6, fontFamily: F_BODY, fontSize: pfs(10), padding: "2px 8px", borderRadius: 99, background: "#e7ebf1", color: MAIL_DIM }
+      style: { display: "inline-block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", padding: "2px 8px", borderRadius: 99, background: "#e7ebf1", color: MAIL_DIM }
     }, S(x.kind)) : null));
 
   const body = rows(tab).length
     ? rows(tab).map((x, i) => listRow(x, i, tab))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: MAIL_DIM } },
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MAIL_DIM } },
         tab === "drafts" ? "草稿箱是空的" : tab === "sent" ? T("他最近没往外发什么") : "收件箱是空的");
 
   const detail = open ? h("div", { className: "absolute inset-0 flex flex-col", "data-wk": "pdetail", style: { background: "#fff", zIndex: 30 } },
     h(Head, { zh: open._kind === "drafts" ? "草稿 · 没发出去" : open._kind === "sent" ? "已发送" : "收件箱",
       bg: "#fff", ink: MAIL_INK, subInk: MAIL_DIM, lineInk: MAIL_LINE, onBack: () => setOpen(null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(19), lineHeight: 1.5, color: MAIL_INK, marginTop: 18, wordBreak: "break-word" } }, S(open.subject) || "（没有主题）"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.5, color: MAIL_INK, marginTop: 18, wordBreak: "break-word" } }, S(open.subject) || "（没有主题）"),
       h("div", { className: "flex items-center", style: { gap: 10, marginTop: 14, paddingBottom: 14, borderBottom: "1px solid " + MAIL_LINE } },
         h("span", {
           "aria-hidden": "true",
-          style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "#e7ebf1", color: MAIL_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(15) }
+          style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "#e7ebf1", color: MAIL_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" }
         }, (who(open) || "?").slice(0, 1)),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14), color: MAIL_INK, wordBreak: "break-word" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: MAIL_INK, wordBreak: "break-word" } },
             open._kind === "inbox" ? who(open) : ("给 " + (S(open.to) || "谁"))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: MAIL_DIM, marginTop: 2, wordBreak: "break-all" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MAIL_DIM, marginTop: 2, wordBreak: "break-all" } },
             [S(open.fromAddr), S(open.time) || S(open.savedAt)].filter(Boolean).join(" · ")))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 2, color: "#3c424b", marginTop: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, S(open.body)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 2, color: "#3c424b", marginTop: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, S(open.body)),
       // TA心里那句：邮件那套客气话之外的真话，落差就在这儿
       S(open.thought) ? h("div", {
         style: { marginTop: 20, background: "#f5f7fa", borderRadius: 13, padding: "13px 15px" }
       },
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: MAIL_DIM } }, T("他看完心里那句")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.9, color: MAIL_INK, marginTop: 5, wordBreak: "break-word" } }, PTX(S(open.thought)))) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MAIL_DIM } }, T("他看完心里那句")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.9, color: MAIL_INK, marginTop: 5, wordBreak: "break-word" } }, PTX(S(open.thought)))) : null,
       open._kind === "drafts" ? h("div", {
-        style: { marginTop: 18, fontFamily: F_BODY, fontSize: pfs(12), color: "#b6473c", lineHeight: 1.8 }
+        style: { marginTop: 18, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#b6473c", lineHeight: 1.8 }
       }, "这封一直没发出去。" + phoneKeptLine(open, Date.now())) : null,
       // ── 回信条：只有「看TA玩」演到打字那一下才出现 ──
       drive && drive.typing != null ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { marginTop: 20, border: "1px solid " + MAIL_LINE, borderRadius: 13, padding: "13px 15px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: MAIL_DIM } }, "回复 · " + (S(open.from) || S(open.to))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.95, color: MAIL_INK, marginTop: 7, whiteSpace: "pre-wrap", minHeight: 22 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MAIL_DIM } }, "回复 · " + (S(open.from) || S(open.to))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.95, color: MAIL_INK, marginTop: 7, whiteSpace: "pre-wrap", minHeight: 22 } },
           drive.typing,
           h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: MAIL_INK, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
-        h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { marginTop: 11, textAlign: "center", borderRadius: 999, padding: "8px 0", fontFamily: F_BODY, fontSize: pfs(13), color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? MAIL_INK : "#eeeef2" } }, "发送")) : null,
+        h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { marginTop: 11, textAlign: "center", borderRadius: 999, padding: "8px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? MAIL_INK : "#eeeef2" } }, "发送")) : null,
       onPeek ? h("button", {
         onClick: () => onPeek({
           tier: open._kind === "drafts" ? "hidden" : "quiet",
@@ -495,7 +493,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
         }),
         className: "w-full active:opacity-60",
         style: {
-          marginTop: 22, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5),
+          marginTop: 22, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
           border: "1px solid " + (open._kind === "drafts" ? "rgba(182,71,60,.42)" : MAIL_LINE),
           color: open._kind === "drafts" ? "#b6473c" : MAIL_INK
         }
@@ -517,7 +515,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
           return h("button", {
             key: x.k, onClick: () => { setTab(x.k); setOpen(null); }, "data-wk": "ptab", "data-on": tab === x.k ? "1" : "0", "data-watch": "tab:" + x.k, className: "active:opacity-70",
             style: {
-              fontFamily: F_BODY, fontSize: pfs(12.5), padding: on ? "10px 16px 9px" : "8px 14px 7px",
+              fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: on ? "10px 16px 9px" : "8px 14px 7px",
               minHeight: 40, marginBottom: -1,
               clipPath: "polygon(9px 0, calc(100% - 9px) 0, 100% 100%, 0 100%)",
               background: on ? "#fff" : "rgba(0,0,0,.035)",
@@ -628,7 +626,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const whoPill = x => S(x && x.who) ? h("span", {
     key: "w",
     style: {
-      fontFamily: F_BODY, fontSize: pfs(10.5), padding: "2px 8px", borderRadius: 99, flexShrink: 0,
+      fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "2px 8px", borderRadius: 99, flexShrink: 0,
       background: "rgba(31,29,26,.05)", color: TALLY_DIM, maxWidth: 108,
       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
     }
@@ -636,10 +634,10 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const peekBtn = (label, title, text) => onPeek ? h("button", { "data-wk": "pbtn", "data-part": "peek",
     onClick: e => { e.stopPropagation(); onPeek({ tier: "hidden", label: "账本 · " + label, title, text }); },
     className: "active:opacity-60",
-    style: { marginTop: 14, fontFamily: F_BODY, fontSize: pfs(11.5), padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(156,63,52,.45)", color: TALLY_RED }
+    style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(156,63,52,.45)", color: TALLY_RED }
   }, T("摆到他面前")) : null;
   const eyebrow = (s, c) => h("span", {
-    style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(8.5), letterSpacing: ".2em", color: c || TALLY_DIM }
+    style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".2em", color: c || TALLY_DIM }
   }, s);
   // 骑缝印（v59.64）：一栏一个字，盖在左边那道栏线上。
   // 五栏原来是同一列白卡往下排，翻不翻都一个样子；一列朱印下去，
@@ -660,7 +658,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       // 方向不在这儿说——左边那个印就是它。同一句话说两遍，卡片上就只剩标签了。
       return [
         e.who ? h("div", { key: "h", style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 9 } }, whoPill(e)) : null,
-        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead))
+        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead))
       ];
     }
     if (e.kind === "policies") {
@@ -668,23 +666,23 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       return [
         h("div", { key: "h", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 } },
           eyebrow("第 " + String(e.i + 1).padStart(2, "0") + " 条"), whoPill(e)),
-        h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.4, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead)),
+        h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.4, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead)),
         (e.scope || e.terms) ? h("div", { key: "t", style: { marginTop: 11, borderTop: "1px solid " + TALLY_LINE, paddingTop: 9, display: "grid", gap: 6 } },
           [["承保范围", e.scope], ["理赔条件", e.terms]].filter(r => r[1]).map(r =>
             h("div", { key: r[0], style: { display: "flex", gap: 9, alignItems: "baseline" } },
-              h("span", { style: { flexShrink: 0, width: 56, fontFamily: F_BODY, fontSize: pfs(10.5), color: TALLY_DIM } }, r[0]),
-              h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: TALLY_INK, wordBreak: "break-word" } }, r[1])))) : null
+              h("span", { style: { flexShrink: 0, width: 56, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: TALLY_DIM } }, r[0]),
+              h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: TALLY_INK, wordBreak: "break-word" } }, r[1])))) : null
       ];
     }
     if (e.kind === "statements") {
       // 盖了章的一句话：朱色的引号压在左上，温度是右下角那个小印
       return [
         h("div", { key: "q", style: { position: "relative", paddingLeft: 16 } },
-          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -1, top: -6, fontFamily: F_DISPLAY, fontSize: pfs(30), lineHeight: 1, color: TALLY_RED, opacity: .35 } }, "“"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), lineHeight: 1.7, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead))),
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -1, top: -6, fontFamily: F_DISPLAY, fontSize: "calc(30px * var(--app-fs, 1))", lineHeight: 1, color: TALLY_RED, opacity: .35 } }, "“"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.7, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead))),
         (e.heat || e.who) ? h("div", { key: "m", style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, marginTop: 11 } },
           whoPill(e),
-          e.heat ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), padding: "3px 9px", borderRadius: 4, border: "1px solid " + TALLY_RED, color: TALLY_RED } }, e.heat) : null) : null
+          e.heat ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "3px 9px", borderRadius: 4, border: "1px solid " + TALLY_RED, color: TALLY_RED } }, e.heat) : null) : null
       ];
     }
     if (e.kind === "treasures") {
@@ -692,16 +690,16 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       return [
         h("div", { key: "h", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, paddingBottom: 9, borderBottom: "1px solid " + TALLY_LINE } },
           eyebrow("第 " + String(e.i + 1).padStart(2, "0") + " 号", TALLY_RED),
-          e.kind2 ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: TALLY_DIM } }, PTX(e.kind2)) : null),
-        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.5, color: TALLY_INK, marginTop: 11, wordBreak: "break-word" } }, PTX(e.lead)),
+          e.kind2 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: TALLY_DIM } }, PTX(e.kind2)) : null),
+        h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.5, color: TALLY_INK, marginTop: 11, wordBreak: "break-word" } }, PTX(e.lead)),
         e.who ? h("div", { key: "w", style: { marginTop: 9 } }, whoPill(e)) : null
       ];
     }
     // 自问：一个问号压在左边，问题本身是正面
     return [
       h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 11 } },
-        h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 22, height: 22, borderRadius: 99, border: "1px solid " + TALLY_LINE, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(12), color: TALLY_DIM } }, "?"),
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.6, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead))),
+        h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 22, height: 22, borderRadius: 99, border: "1px solid " + TALLY_LINE, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: TALLY_DIM } }, "?"),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.6, color: TALLY_INK, wordBreak: "break-word" } }, PTX(e.lead))),
       e.who ? h("div", { key: "w", style: { marginTop: 10, paddingLeft: 33 } }, whoPill(e)) : null
     ];
   };
@@ -719,7 +717,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       h("div", { key: "l", style: { marginBottom: 10 } }, eyebrow(e.back.label, TALLY_RED)),
       h("div", {
         key: "x", "aria-label": txt,
-        style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.85, color: TALLY_RED, wordBreak: "break-word" }
+        style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.85, color: TALLY_RED, wordBreak: "break-word" }
       },
         // 还没蹦出来的那半留在原地、只是透明：不然卡片会一行一行地长高，字在跳
         h("span", { "aria-hidden": "true" }, txt.slice(0, n)),
@@ -751,12 +749,12 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
           position: "absolute", left: 0, top: 13, width: 26, height: 26, borderRadius: 5,
           border: "1px solid " + sc, color: sc, background: TALLY_BG,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: F_DISPLAY, fontSize: pfs(13), lineHeight: 1
+          fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1
         } }, sealOf(e)),
         // 印底下那个号：账本一行一号，一列数下去这一页才有长度
         h("span", { style: {
           position: "absolute", left: 0, top: 43, width: 26, textAlign: "center",
-          fontFamily: "'Archivo',sans-serif", fontSize: pfs(8.5), letterSpacing: ".06em", color: "rgba(156,63,52,.5)"
+          fontFamily: "'Archivo',sans-serif", fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".06em", color: "rgba(156,63,52,.5)"
         } }, String(e.i + 1).padStart(2, "0"))),
       h("div", { style: { flex: 1, minWidth: 0, perspective: 1000 } },
       h(has ? "button" : "div", {
@@ -831,7 +829,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
         className: "active:opacity-70",
         "aria-pressed": tab === x.k ? "true" : "false",
         style: {
-          flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(12.5),
+          flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
           padding: tab === x.k ? "10px 15px 9px" : "8px 13px 7px",
           marginTop: tab === x.k ? 0 : 6,
           borderRadius: "9px 9px 0 0",
@@ -843,9 +841,9 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       // 账页抬头：左边这一栏有几笔、什么样；右边一句话交代折角是干嘛的
       rows.length ? h("div", { className: "flex items-baseline justify-between gap-3", style: { padding: "13px 0 10px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14), color: TALLY_INK, minWidth: 0, wordBreak: "break-word" } }, headNote()),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: TALLY_INK, minWidth: 0, wordBreak: "break-word" } }, headNote()),
         // 折角不解释一句没人会去点。只说一次，说在最上面。
-        h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(10), color: TALLY_RED, textAlign: "right", lineHeight: 1.5, maxWidth: 118 } },
+        h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: TALLY_RED, textAlign: "right", lineHeight: 1.5, maxWidth: 118 } },
           "折了角的那几张有背面 · 点一下翻过来")) : null,
       // 账页的横格只铺到最后一条为止。铺满整个滚动框的话，一栏只有一条时
       // 底下就是大半屏空格子，看着像一张没填完的表。
@@ -853,14 +851,14 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
         paddingTop: 4,
         background: "repeating-linear-gradient(180deg,transparent 0 31px," + TALLY_RULE + " 31px 32px)"
       } }, rows.map(slip))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: TALLY_DIM, textAlign: "center", padding: "60px 20px", lineHeight: 1.9 } },
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TALLY_DIM, textAlign: "center", padding: "60px 20px", lineHeight: 1.9 } },
           "这一栏还是空的。"),
       // 账页收口：双线一封，底下写清楚这一栏到此为止。
       // 时间线那一页学到的：线走完最后一条就断掉，底下那片空白看着像没加载完。
       rows.length ? h("div", { style: { padding: "4px 0 30px" } },
         h("div", { style: { height: 1, background: "rgba(156,63,52,.30)" } }),
         h("div", { style: { height: 1, background: "rgba(156,63,52,.30)", marginTop: 2 } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: TALLY_DIM, marginTop: 9 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: TALLY_DIM, marginTop: 9 } },
           characterText(char, "这一栏记到这儿。他没记下的，这儿也不会有。"))) : null));
 }
 
@@ -922,7 +920,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
   },
   // 左侧：时刻 + 竖轴
   h("div", { style: { width: 46, flexShrink: 0, textAlign: "right", paddingTop: 11 } },
-    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(11.5), color: isNew(r) ? TL_DOT : t.fog } },
+    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(11.5px * var(--app-fs, 1))", color: isNew(r) ? TL_DOT : t.fog } },
       r.ts == null ? "—" : phoneClock(r.ts))),
   h("div", { style: { width: 15, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" } },
     // 实线＝已经发生，虚线＝还没发生。同一套话在上面那条轴上已经说过一遍，
@@ -938,11 +936,11 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
   h("div", { className: "flex-1 min-w-0", style: { paddingBottom: 14, paddingTop: 7 } },
     h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3 } },
       h(PGlyph, { k: r.app, size: 12, color: t.fog }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.fog } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } },
         r.appZh + (r.tag ? " · " + r.tag : "") + (r.gone ? " · 已被顶掉" : "")),
-      isKept(r) ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10), color: t.ink, marginLeft: "auto" } }, "收着") : null),
-    r.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, PTX(r.title)),
-    r.text && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
+      isKept(r) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.ink, marginLeft: "auto" } }, "收着") : null),
+    r.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, PTX(r.title)),
+    r.text && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
       r.text.length > 52 ? r.text.slice(0, 52) + "…" : r.text)));
   return h("div", { className: "h-full flex flex-col", "data-wk": "papp", "data-app": "timeline", style: {
     // 上下两道光压在主题底色上：上面那道是这个钟点的天色，下面那道是它落到地上的余色
@@ -977,7 +975,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
             "aria-label": "现在是" + light.zh + phoneClock(now) },
             h("span", { style: { width: 5, height: 5, borderRadius: 9, background: t.ink } }),
             // 这两个字同时在解释背景那道光是哪儿来的：不写的话，底色变了没人知道为什么
-            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(9.5), letterSpacing: ".06em", color: t.sub } },
+            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".06em", color: t.sub } },
               light.zh + " " + phoneClock(now))) : null,
           h("button", {
             key: k,
@@ -991,7 +989,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       })),
     // 只看新增
     h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: t.fog } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
         tab === "ahead"
           ? (aheadN ? characterText(char, "他日历上排下来的 ") + aheadN + " 件事" : "日历上还没有排下来的事")
           : pastN
@@ -1002,7 +1000,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
           onClick: () => setMode(v => v === "keep" ? "all" : "keep"),
           className: "active:opacity-60",
           style: {
-            fontFamily: F_BODY, fontSize: pfs(11), padding: "4px 11px", borderRadius: 99,
+            fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", padding: "4px 11px", borderRadius: 99,
             background: mode === "keep" ? t.ink : "transparent", color: mode === "keep" ? t.bg : t.sub,
             border: "1px solid " + (mode === "keep" ? t.ink : t.line)
           }
@@ -1011,13 +1009,13 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
           onClick: () => setMode(v => v === "new" ? "all" : "new"),
           className: "active:opacity-60",
           style: {
-            fontFamily: F_BODY, fontSize: pfs(11), padding: "4px 11px", borderRadius: 99,
+            fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", padding: "4px 11px", borderRadius: 99,
             background: onlyNew ? TL_DOT : "transparent", color: onlyNew ? "#fff" : TL_DOT,
             border: "1px solid " + (onlyNew ? TL_DOT : "rgba(196,85,63,.4)")
           }
         }, "只看新增 " + poolNew))),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
-      !shown.length && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), color: t.fog, textAlign: "center", padding: "56px 20px", lineHeight: 1.9 } },
+      !shown.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "56px 20px", lineHeight: 1.9 } },
         mode === "new" ? T("上次翻完之后，他手机上没有新东西。")
           : mode === "keep" ? "你还没收着什么。点开某一条，右下角有「收着」。"
           : tab === "ahead" ? T("他日历上还没有排下来的事。排了的话会出现在这儿。")
@@ -1025,7 +1023,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       groups.map((g, gi) => h("div", { key: g.label + gi },
         h("div", {
           style: {
-            fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".04em",
+            fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".04em",
             color: t.fog, padding: "16px 0 8px 61px"
           }
         }, PTX(g.label)),
@@ -1040,12 +1038,12 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
             opacity: tab === "ahead" ? .55 : 1
           } }),
           h("span", { style: { position: "absolute", left: "50%", marginLeft: -3.5, bottom: 8, width: 7, height: 7, borderRadius: 9, border: "1px solid " + t.line } })),
-        h("div", { className: "flex-1 min-w-0", style: { paddingTop: 66, fontFamily: F_BODY, fontSize: pfs(10.5), lineHeight: 1.7, color: t.fog } },
+        h("div", { className: "flex-1 min-w-0", style: { paddingTop: 66, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog } },
           tab === "ahead" ? characterText(char, "再往后，他日历上还没排。") : characterText(char, "再往前，他手机上没留下什么了。"))) : null),
     newCount > 0 && h("div", { className: "shrink-0 px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("button", {
         onClick: onMarkRead, className: "w-full py-3 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: pfs(12.5), borderRadius: 13, border: "1px solid " + t.line, color: t.sub }
+        style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 13, border: "1px solid " + t.line, color: t.sub }
       // ⚠️这一下清的是【两格一起】的新增标记，不是当前这一格。所以不能写「这 N 条」
       // ——「走过的」里写着「只看新增 3」、按钮却说「这 10 条」，看上去像个 bug。
       }, "全部 " + newCount + " 条新的都看过了")),
@@ -1055,27 +1053,27 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       bg: { background: t.bg }, ink: t.ink,
       title: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), onClose: () => setSheet(null)
     },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(20), color: t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, PTX(sheet.title)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: t.fog, marginTop: 6 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, PTX(sheet.title)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } },
         sheet.ts == null ? "时间不详（原文写的是「" + sheet.when + "」）" : phoneDayLabel(sheet.ts, now) + " " + phoneClock(sheet.ts)),
-      sheet.text && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.9, color: t.ink, marginTop: 16, wordBreak: "break-word" } }, PTX(sheet.text)),
+      sheet.text && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: t.ink, marginTop: 16, wordBreak: "break-word" } }, PTX(sheet.text)),
       sheet.thought && h("div", {
-        style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8, color: t.sub, marginTop: 14, paddingLeft: 11, borderLeft: "2px solid " + t.line, wordBreak: "break-word" }
+        style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 14, paddingLeft: 11, borderLeft: "2px solid " + t.line, wordBreak: "break-word" }
       }, PTX(sheet.thought)),
       // 归档里那些已经被后来的内容顶掉了，app 里点过去是空的——不给按钮，明说
       sheet.gone
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: t.fog, marginTop: 20, lineHeight: 1.75 } },
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 20, lineHeight: 1.75 } },
             "这条已经被后来刷新的内容顶掉了，" + sheet.appZh + "里翻不到了，只剩时间线上这一份。")
         : h("button", {
             onClick: () => { const a2 = sheet.app; setSheet(null); onOpenApp && onOpenApp(a2); },
             className: "w-full mt-6 py-3 active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: pfs(12.5), borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
+            style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
           }, "去" + sheet.appZh + "里看"),
       // 转发那一层照旧走 onPeek，绝不因为点开就自动发出去（她 2026-08-29 被吓过一次）
       onPeek && h("button", {
         onClick: () => onPeek({ tier: "quiet", label: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), title: sheet.title, text: sheet.text || sheet.thought }),
         className: "w-full mt-2 py-3 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: pfs(12.5), borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
+        style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
       }, T("转发给 TA · 他会知道你翻了手机")),
       // 收着 ≠ 转发。转发是摆到TA面前，收着是【她自己留一份】，
       // 不进TA的上下文、不影响任何生成——只给她自己看。
@@ -1083,7 +1081,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
         onClick: () => onToggleKeep(sheet.id),
         className: "w-full mt-2 py-3 active:opacity-60",
         style: {
-          fontFamily: F_BODY, fontSize: pfs(12.5), borderRadius: 13,
+          fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 13,
           border: "1px solid " + (isKept(sheet) ? t.ink : t.line),
           background: isKept(sheet) ? t.ink : "transparent",
           color: isKept(sheet) ? "#fff" : t.sub
@@ -1129,33 +1127,33 @@ function PhoneDataSettings({ char, t, look, lang, onLang, saved, onReset, onBack
       h("div", { style: { width: 36, height: 36, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: phoneTone(a.key).wash, flexShrink: 0 } },
         h(PGlyph, { k: a.key, size: 18, color: phoneTone(a.key).glyph })),
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: t.ink } }, a.zh),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.fog, marginTop: 3 } }, has ? "存着一份" : "还没生成过")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, a.zh),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, has ? "存着一份" : "还没生成过")),
       has ? h("button", {
         className: "active:opacity-60 shrink-0",
         onClick: () => requestAppConfirm("清空「" + a.zh + "」？",
           characterText(char, "这个 app 里存的那一份会整份删掉（时间线上属于它的那几条也一起走），下次打开会重新生成一份全新的——他这个 app 现在的样子，只有你事先导出的那份备份里还有。\n\n") +
           "⚠️舍不得的话先去 设置 → 数据 → 导入与导出 → 导出全部数据，存成 json 放桌面上，存好了再清。",
           () => onReset && onReset(a.key), "清空"),
-        style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#9f5149", padding: "6px 10px", borderRadius: 99, border: "1px solid rgba(159,81,73,.30)" }
+        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#9f5149", padding: "6px 10px", borderRadius: 99, border: "1px solid rgba(159,81,73,.30)" }
       }, "清空") : null);
   };
   return h("div", { "data-wk": "phoneapppage", "data-part": "phonedatasettings", className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
     h(Head, { zh: "手机数据", sub: (char && char.name || "TA") + " 的这一部", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "手机里的字写哪种语言"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
         "这一档对所有角色生效，下一次刷新开始算。它管的是【往后写出来的字】——已经存着的那些不会被改写（名册和账号改了名字就会攒成两份），想读外语的旧内容点「译」就行。"),
       h("div", { "data-wk": "block", style: { borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } },
         PHONE_LANG_MODES.map((k, i) => h("button", {
           key: k, onClick: () => onLang && onLang(k), className: "w-full text-left active:opacity-65",
           style: { display: "block", padding: "12px 14px", background: mode === k ? "rgba(255,255,255,.92)" : "transparent", borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" }
         }, h("div", { className: "flex items-center", style: { gap: 8 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: t.ink } }, PHONE_LANG_ZH[k]),
-          mode === k ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10), color: tone.glyph } }, "现在用这一档") : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), lineHeight: 1.6, color: t.fog, marginTop: 4 } }, LANG_SUB[k])))),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "清空重生"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, PHONE_LANG_ZH[k]),
+          mode === k ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: tone.glyph } }, "现在用这一档") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 4 } }, LANG_SUB[k])))),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "清空重生"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, margin: "0 2px 10px" } },
         characterText(char, "刷新不是从零开始的：旧那份会原样发回去当料，所以他这个 app 的样子会一直接着上一份走。只想让往后写的字换个语言，改上面那一档就够了；确定要连现在这一份一起不要了，才来清空——清之前先导出一份备份。")),
       h("div", { "data-wk": "block", style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map(row))));
 }
@@ -1185,28 +1183,28 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v }))
       })),
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: t.ink } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.6, color: t.fog, marginTop: 4 } }, sub),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 4 } }, sub),
         h("div", { className: "flex items-center", style: { gap: 12, marginTop: 10 } },
-          h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: pfs(12), color: tone.glyph, cursor: "pointer" } }, ref ? "更换" : "选一张图",
+          h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: tone.glyph, cursor: "pointer" } }, ref ? "更换" : "选一张图",
             h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v })) })),
-          ref && h("button", { onClick: () => onPatch({ [kind]: "" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: pfs(12), color: t.fog } }, "恢复默认")))));
+          ref && h("button", { onClick: () => onPatch({ [kind]: "" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "恢复默认")))));
   };
   const iconPreset = look.iconPreset || "own";   // 设置页高亮的那一档也要跟默认一致，不然看着像选了「主界面彩釉」
   return h("div", { "data-wk": "phoneapppage", "data-part": "phonelooksettings", className: "h-full flex flex-col overflow-hidden", style: { background: phonePaper(char && char.id, look) } },
     h(Head, { zh: "手机外观", sub: (char && char.name || "TA") + " 的这一部", bg: "transparent", noLine: true, onBack }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "壁纸"),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".16em", color: t.fog, margin: "12px 2px 10px" } }, "壁纸"),
       h("div", { className: "grid grid-cols-2", style: { gap: 10 } }, uploadCard("lockWallpaper", "锁屏", "拿起手机第一眼"), uploadCard("homeWallpaper", "主页", "解锁后的桌面")),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "图标长什么样"),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "图标长什么样"),
       h("div", { className: "grid grid-cols-2", style: { gap: 9 } }, PHONE_ICON_PRESETS.map(p => h("button", {
         key: p.key, onClick: () => onPatch({ iconPreset: p.key }), className: "text-left active:opacity-65",
         style: { padding: 13, minHeight: 86, borderRadius: 18, background: iconPreset === p.key ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.50)", border: "1.5px solid " + (iconPreset === p.key ? tone.glyph : "rgba(255,255,255,.70)") }
       }, h("div", { className: "flex items-center", style: { gap: 9 } },
         h("div", { style: { width: 34, height: 34, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: p.key === "mono" ? "#ecebe7" : p.key === "glass" ? "rgba(255,255,255,.40)" : p.key === "soft" ? "linear-gradient(rgba(255,255,255,.46),rgba(255,255,255,.46))," + tone.wash : tone.wash } }, h(PGlyph, { k: "settings", size: 17, color: p.key === "mono" ? "#4d4b47" : tone.glyph })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14), color: t.ink } }, T(p.name))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.fog, lineHeight: 1.5, marginTop: 7 } }, PTX(p.sub))))),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "逐个换图标"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, T(p.name))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, PTX(p.sub))))),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".16em", color: t.fog, margin: "24px 2px 10px" } }, "逐个换图标"),
       h("div", { "data-wk": "block", style: { borderRadius: 22, overflow: "hidden", background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.80)" } }, apps.map((a, i) => {
         const custom = look.icons && look.icons[a.key];
         const src = phoneImage(custom);
@@ -1214,12 +1212,12 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         return h("div", { key: a.key, className: "flex items-center", style: { minHeight: 62, padding: "9px 13px", gap: 11, borderTop: i ? "1px solid rgba(34,31,27,.08)" : "none" } },
           h("div", { style: { width: 40, height: 40, borderRadius: 12, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: at.wash, flexShrink: 0 } },
             src ? h("img", { src, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(PGlyph, { k: a.glyph || a.key, size: 20, color: at.glyph })),
-          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: pfs(14), color: t.ink } }, a.zh),
-          h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: tone.glyph, cursor: "pointer", padding: "8px 0" } }, custom ? "更换" : "自定义",
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, a.zh),
+          h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: tone.glyph, cursor: "pointer", padding: "8px 0" } }, custom ? "更换" : "自定义",
             h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ icons: { ...(look.icons || {}), [a.key]: v } })) })),
-          custom && h("button", { onClick: () => { const icons = { ...(look.icons || {}) }; delete icons[a.key]; onPatch({ icons }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: pfs(11), color: t.fog, padding: "8px 0 8px 8px" } }, "移除"));
+          custom && h("button", { onClick: () => { const icons = { ...(look.icons || {}) }; delete icons[a.key]; onPatch({ icons }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "8px 0 8px 8px" } }, "移除"));
       })),
-      h("button", { onClick: () => onPatch({ lockWallpaper: "", homeWallpaper: "", iconPreset: "", icons: {} }), className: "w-full active:opacity-60", style: { marginTop: 18, padding: 14, borderRadius: 17, fontFamily: F_BODY, fontSize: pfs(12.5), color: t.sub, background: "rgba(255,255,255,.48)", border: "1px solid rgba(255,255,255,.72)" } }, "恢复这一部手机的默认外观")));
+      h("button", { onClick: () => onPatch({ lockWallpaper: "", homeWallpaper: "", iconPreset: "", icons: {} }), className: "w-full active:opacity-60", style: { marginTop: 18, padding: 14, borderRadius: 17, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: "rgba(255,255,255,.48)", border: "1px solid rgba(255,255,255,.72)" } }, "恢复这一部手机的默认外观")));
 }
 
 function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTimeline, look }) {
@@ -1244,11 +1242,11 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
     }
   }, h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
     h(PGlyph, { k: r.app, size: 12, color: "rgba(30,28,24,.55)" }),
-    h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10), color: "rgba(30,28,24,.55)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.appZh + (r.tag ? " · " + r.tag : "")),
-    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), color: "rgba(30,28,24,.45)" } }, r.ts == null ? "" : phoneClock(r.ts))),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(13.5), color: "#1e1c18", lineHeight: 1.45, wordBreak: "break-word" } },
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "rgba(30,28,24,.55)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.appZh + (r.tag ? " · " + r.tag : "")),
+    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", color: "rgba(30,28,24,.45)" } }, r.ts == null ? "" : phoneClock(r.ts))),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#1e1c18", lineHeight: 1.45, wordBreak: "break-word" } },
     (r.title || r.text || "").slice(0, 22) + ((r.title || r.text || "").length > 22 ? "…" : "")),
-  r.text && r.title && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "rgba(30,28,24,.6)", lineHeight: 1.55, marginTop: 2, wordBreak: "break-word" } },
+  r.text && r.title && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.6)", lineHeight: 1.55, marginTop: 2, wordBreak: "break-word" } },
     r.text.slice(0, 26) + (r.text.length > 26 ? "…" : "")));
   return h("div", { "data-wk": "phonelockpage", "data-part": "lockscreen",
     className: "h-full flex flex-col",
@@ -1256,24 +1254,24 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
       : { background: phonePaper(char && char.id, look) }
   },
   h("div", { className: "shrink-0 px-6", style: { paddingTop: safeTop(30) } },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(12), letterSpacing: ".2em", color: "rgba(30,28,24,.5)" } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(12px * var(--app-fs, 1))", letterSpacing: ".2em", color: "rgba(30,28,24,.5)" } },
       (now.getMonth() + 1) + "月" + now.getDate() + "日 星期" + dow),
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 300, fontSize: pfs(68), lineHeight: 1.06, color: "#1e1c18", marginTop: 2 } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 300, fontSize: "calc(68px * var(--app-fs, 1))", lineHeight: 1.06, color: "#1e1c18", marginTop: 2 } },
       String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "rgba(30,28,24,.55)", marginTop: 6 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(30,28,24,.55)", marginTop: 6 } },
       (char && char.name || "TA") + " 的手机" + (newCount > 0 ? " · " + newCount + " 条新的" : ""))),
   h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5" },
-    !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
+    !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
       "锁屏上什么都没有。解锁进去刷一遍吧。"),
     pool.map(card),
     newCount > pool.length && h("button", {
       onClick: onTimeline, className: "w-full active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "rgba(30,28,24,.6)", padding: "6px 0 2px" }
+      style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.6)", padding: "6px 0 2px" }
     }, "还有 " + (newCount - pool.length) + " 条 · 全部看")),
   h("div", { className: "shrink-0 px-6", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("button", {
       onClick: onUnlock, className: "w-full active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: "rgba(30,28,24,.62)", padding: "16px 0 10px" }
+      style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.62)", padding: "16px 0 10px" }
     }, T("解锁 · 进他的桌面"))));
 }
 
@@ -1294,7 +1292,7 @@ function WechatNavIcon({ kind, active }) {
 function PeekPhotoMsg({ m }) {
   const idb = typeof useIdbImgUrl === "function" ? useIdbImgUrl(m.imageRef ? null : m.imgKey) : null;
   const src = m.imageRef ? (typeof resolveImg === "function" ? resolveImg(m.imageRef) : m.imageRef) : idb;
-  if (!src) return h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, background: "#fff", padding: "10px 12px", fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.5, color: "#171717" } }, m.body || m.label);
+  if (!src) return h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, background: "#fff", padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717" } }, m.body || m.label);
   return h("img", { "data-wk": "pphoto", src: src, alt: m.body || "照片", style: { display: "block", maxWidth: 160, maxHeight: 220, borderRadius: 6, objectFit: "cover", background: "#ddd" } });
 }
 function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onTfReplyAs, onShopAs, transferPeers, sendAsWaiting, onRemark }) {
@@ -1406,7 +1404,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // 本尊那根细尖角照旧，但它得是画出来的，而且要有 40px 可点区
     // （mobile-ui-layout §1；原来是一个 26px 的「‹」字符，点击区只有那几个像素）
     h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
-      h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: t.fog } }, sub)));
+      h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }))), h("div", { className: "flex-1 min-w-0 text-center", style: { paddingRight: 24 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, title), sub && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, sub)));
   // 「看TA玩」里TA刚打出去的那几条：先挂在这一屏上，落盘那一头照旧走 savePhoneApp
   // ⚠️认名字必须走公共那份（watchSame）。这两行原来是严格等号：模型把会话名写成
   //   「《长夜》」而聊天叫「长夜」时，上面那个 effect 会正常打开聊天（它用的是 watchSame），
@@ -1455,31 +1453,31 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       ? h("div", { style: { animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } },
           h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 108 }))
       : m.kind === "voice" ? h("div", { "data-wk": "pvoice", style: { padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", minWidth: Math.min(200, 70 + (m.dur || 1) * 4) } },
-          h("div", { className: "flex items-center", style: { gap: 6, flexDirection: self ? "row-reverse" : "row", fontSize: pfs(14), color: "#171717" } },
+          h("div", { className: "flex items-center", style: { gap: 6, flexDirection: self ? "row-reverse" : "row", fontSize: "calc(14px * var(--app-fs, 1))", color: "#171717" } },
             h(Svg, { size: 18, color: "#171717", sw: 1.8 }, h("path", { d: self ? "M15 8a5 5 0 010 8M18 5a9 9 0 010 14" : "M9 8a5 5 0 000 8M6 5a9 9 0 000 14" })), (m.dur || 1) + "″"),
-          m.body ? h("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,.08)", fontSize: pfs(12.5), lineHeight: 1.5, color: "#555" } }, PTX(m.body)) : null)
+          m.body ? h("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,.08)", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#555" } }, PTX(m.body)) : null)
       : m.kind === "card" && (m.imageRef || m.imgKey) ? h(PeekPhotoMsg, { m: m })
       : m.kind === "card" ? h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, overflow: "hidden", background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", fontFamily: F_BODY } },
-          h("div", { style: { padding: "10px 12px", fontSize: pfs(13.5), lineHeight: 1.5, color: "#171717", minHeight: 22 } }, m.body ? PTX(m.body) : m.label),
-          h("div", { style: { padding: "4px 12px 6px", fontSize: pfs(10.5), color: "#9a9a9a", borderTop: "1px solid #eee" } }, PTX(m.label)))
+          h("div", { style: { padding: "10px 12px", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717", minHeight: 22 } }, m.body ? PTX(m.body) : m.label),
+          h("div", { style: { padding: "4px 12px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9a9a9a", borderTop: "1px solid #eee" } }, PTX(m.label)))
       : m.kind === "transfer" ? h("div", { "data-wk": "ptfcard", "data-status": m.status, style: { width: 210, borderRadius: 6, overflow: "hidden", background: m.status === "pending" ? "#fa9d3b" : "#fbd3a7", color: "#fff", fontFamily: F_BODY } },
           h("div", { className: "flex items-center", style: { gap: 10, padding: "11px 12px" } },
             h(Svg, { size: 30, color: "#fff", sw: 1.6 }, h("path", { d: "M7 4h10l3 4H4z" }), h("rect", { x: 4, y: 8, width: 16, height: 12, rx: 1.5 }), h("path", { d: "M9 12l3 3 3-3M12 15v-3" })),
             h("div", { className: "min-w-0" },
-              h("div", { style: { fontSize: pfs(15.5), fontWeight: 600 } }, "¥" + (Number(m.amount) || 0).toFixed(2)),
-              h("div", { style: { fontSize: pfs(11.5), opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              h("div", { style: { fontSize: "calc(15.5px * var(--app-fs, 1))", fontWeight: 600 } }, "¥" + (Number(m.amount) || 0).toFixed(2)),
+              h("div", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 m.status === "accepted" ? "已收款" : m.status === "returned" || m.status === "rejected" ? "已退还" : (m.note || (self ? "等对方收款" : "请收款"))))),
           tfWait ? h("div", { className: "flex", style: { borderTop: "1px solid rgba(255,255,255,.35)" } },
-            [["no", "退回"], ["ok", "替" + char.name + "收下"]].map(([k, zh]) => h("button", { key: k, "data-wk": "ptfbtn", "data-part": k, onClick: () => onTfReplyAs(m.tid, k === "ok"), className: "flex-1 active:opacity-60", style: { padding: "8px 0", fontSize: pfs(12.5), color: "#fff", fontWeight: k === "ok" ? 600 : 400 } }, zh)))
-            : h("div", { style: { padding: "4px 12px 6px", fontSize: pfs(10.5), opacity: 0.85, borderTop: "1px solid rgba(255,255,255,.3)" } }, "转账"))
-      : h("div", { "data-wk": "pbubble", "data-me": self ? "1" : "0", style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
+            [["no", "退回"], ["ok", "替" + char.name + "收下"]].map(([k, zh]) => h("button", { key: k, "data-wk": "ptfbtn", "data-part": k, onClick: () => onTfReplyAs(m.tid, k === "ok"), className: "flex-1 active:opacity-60", style: { padding: "8px 0", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", fontWeight: k === "ok" ? 600 : 400 } }, zh)))
+            : h("div", { style: { padding: "4px 12px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: 0.85, borderTop: "1px solid rgba(255,255,255,.3)" } }, "转账"))
+      : h("div", { "data-wk": "pbubble", "data-me": self ? "1" : "0", style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
     // 一批新话的开头画一条时间线（真微信隔一阵就有一行灰字时间）。没打过 _at 的老消息不画。
     const prevM = i > 0 ? arr(th.messages).concat(driveSent)[i - 1] : null;
     const batchLine = (m && m._at && (!prevM || prevM._at !== m._at))
-      ? h("div", { key: "t" + i, className: "text-center", style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#a3a3a3", margin: "4px 0 -4px" } },
+      ? h("div", { key: "t" + i, className: "text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#a3a3a3", margin: "4px 0 -4px" } },
           m._atLabel || (function (d) { return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })(new Date(m._at)))
       : null;
-    const row = h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: "#888", margin: "0 4px 3px" } }, PTX(m.from)), body));
+    const row = h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#888", margin: "0 4px 3px" } }, PTX(m.from)), body));
     return batchLine ? h(React.Fragment, { key: i }, batchLine, row) : row;
   }),
     // 她替他发完、群里那一枪正在跑：屏幕上得看得见（她 2026-09-15）。
@@ -1498,18 +1496,18 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
        canBuy ? ["takeout", "外卖", [h("path", { key: 1, d: "M4 11h16a8 8 0 01-16 0z" }), h("path", { key: 2, d: "M3 11h18M9 7c0-1 1-1.5 1-2.5M13 7c0-1 1-1.5 1-2.5" })]] : null].filter(Boolean).map(([k, zh, ic]) => h("button", { key: k, "data-wk": "pplusitem", "data-part": k,
         onClick: () => { if (k === "tf") setPlus("tf"); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
         h("div", { style: { width: 52, height: 52, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(Svg, { size: 24, color: "#555", sw: 1.6 }, ic)),
-        h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#666" } }, zh)))) : null,
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#666" } }, zh)))) : null,
     !drive && asCanSend && tfOpen ? h("div", { "data-wk": "ptransfer", className: "shrink-0", style: { padding: "10px 12px 4px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#888", marginBottom: 6 } }, th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#888", marginBottom: 6 } }, th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
       tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(p.id),
-        style: { minHeight: 34, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + (tfTo === p.id ? "#07c160" : "#dcdcdc"), background: tfTo === p.id ? "#07c160" : "#fff", color: tfTo === p.id ? "#fff" : "#333" } }, PTX(p.name)))) : null,
+        style: { minHeight: 34, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (tfTo === p.id ? "#07c160" : "#dcdcdc"), background: tfTo === p.id ? "#07c160" : "#fff", color: tfTo === p.id ? "#fff" : "#333" } }, PTX(p.name)))) : null,
       h("div", { className: "flex items-center gap-2" },
         h("input", { "data-wk": "input", value: tfAmt, onChange: e => setTfAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "金额",
-          style: { width: 96, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: pfs(14), outline: "none" } }),
+          style: { width: 96, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
         h("input", { "data-wk": "input", value: tfNote, onChange: e => setTfNote(e.target.value), maxLength: 40, placeholder: "留言（可不填）",
-          style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: pfs(14), outline: "none" } }),
+          style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
         h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo),
-          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: pfs(13.5), color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
+          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
     !drive && asCanSend ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       (onTransferAs || canBuy) ? h("button", { "data-wk": "pbtn", "data-part": "plus", onClick: () => setPlus(v => v ? null : "menu"), "aria-label": "更多",
         style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, border: "1.5px solid #444", color: "#444", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", transform: plus ? "rotate(45deg)" : "none", transition: "transform .15s" } },
@@ -1518,57 +1516,57 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         placeholder: "以" + char.name + "的身份发一条",
         onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); asSend(); } },
         className: "flex-1 min-w-0 resize-none",
-        style: { minHeight: 36, maxHeight: 96, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.5, color: "#171717", outline: "none" } }),
+        style: { minHeight: 36, maxHeight: 96, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717", outline: "none" } }),
       h("button", { "data-wk": "pbtn", "data-part": "send", onClick: asSend, disabled: !asDraft.trim(),
-        style: { flexShrink: 0, minHeight: 36, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: pfs(13.5), color: asDraft.trim() ? "#fff" : "#9a9a9a", background: asDraft.trim() ? "#07c160" : "#e6e6e6" } }, "发送")) : null,
+        style: { flexShrink: 0, minHeight: 36, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: asDraft.trim() ? "#fff" : "#9a9a9a", background: asDraft.trim() ? "#07c160" : "#e6e6e6" } }, "发送")) : null,
     // TA正在打字的那一栏：只在「看TA玩」里出现（那会儿她自己那一栏收起来，屏幕上只有TA的手）。
     // 光标那一竖是 CSS 动画，逐字出现由外面那串动作控制。
     driveTyping != null ? h("div", { "data-wk": "pinput", "data-watch": "input", className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      h("div", { "data-wk": "block", className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
+      h("div", { "data-wk": "block", className: "flex-1 min-w-0", style: { minHeight: 36, borderRadius: 5, background: "#fff", border: "1px solid #e0e0e0", padding: "8px 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717", wordBreak: "break-word" } },
         driveTyping || h("span", { style: { color: "#bbb" } }, "\u00a0"),
         h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 15, marginLeft: 1, verticalAlign: "-2px", background: "#07c160", animation: "wkcaret 1s steps(2) infinite" } })),
-      h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { flexShrink: 0, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: pfs(13.5), color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? "#07c160" : "#e6e6e6" } }, "发送")) : null);
+      h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { flexShrink: 0, borderRadius: 5, padding: "8px 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? "#07c160" : "#e6e6e6" } }, "发送")) : null);
   const accounts = arr(d.me && d.me.accounts);
-  if (publicPage) return h("div", { "data-wk": "block", className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { "data-wk": "pdetail", className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: pfs(24), lineHeight: 1.35, color: "#191919" } }, PTX(article.title)), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, PTX(article.summary)), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.8, color: "#444" } }, PTX(article.thought)))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(25) } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), lineHeight: 1.45, color: "#222" } }, PTX(a.title)), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
-  const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: "#191919" } }, PTX(c.name)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
+  if (publicPage) return h("div", { "data-wk": "block", className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { "data-wk": "pdetail", className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", lineHeight: 1.35, color: "#191919" } }, PTX(article.title)), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, PTX(article.summary)), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.8, color: "#444" } }, PTX(article.thought)))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))" } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, color: "#222" } }, PTX(a.title)), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
+  const chatRow = (c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(c.name)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
   const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts)];
-  const contactRow = (c, i) => h("button", { key: i, "data-wk": "pitem", "data-kind": "contact", onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), color: "#1c1c1c" } }, c.remark || c.name), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#999", marginTop: 3 } }, PTX(c.intro))));
+  const contactRow = (c, i) => h("button", { key: i, "data-wk": "pitem", "data-kind": "contact", onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#1c1c1c" } }, c.remark || c.name), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, PTX(c.intro))));
   const searchBox = h("div", { "data-wk": "block", className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
-    h("span", { style: { fontFamily: F_BODY, fontSize: pfs(13.5) } }, "搜索"));
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "搜索"));
   const searchHead = h("div", { "data-wk": "head", className: "shrink-0 flex items-center gap-2 px-3 pb-2", style: { paddingTop: safeTop(9), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
-    h("button", { onClick: onBack, className: "shrink-0 active:opacity-50", style: { width: 34, height: 42, fontSize: pfs(29), lineHeight: 1, color: "#222" }, "aria-label": "返回" }, "‹"),
+    h("button", { onClick: onBack, className: "shrink-0 active:opacity-50", style: { width: 34, height: 42, fontSize: "calc(29px * var(--app-fs, 1))", lineHeight: 1, color: "#222" }, "aria-label": "返回" }, "‹"),
     searchBox,
     h("button", { onClick: onRefresh, disabled: refreshing, className: "shrink-0 active:opacity-50 disabled:opacity-35", style: { width: 34, height: 42, display: "flex", alignItems: "center", justifyContent: "center" }, "aria-label": "刷新微信" }, h(IRefresh, { size: 18, color: "#333" })));
   const contactsHead = h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(10), background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
-    h("div", { className: "flex items-center px-3", style: { height: 43 } }, h("button", { onClick: onBack, className: "active:opacity-50", style: { width: 34, fontSize: pfs(29), lineHeight: 1 }, "aria-label": "返回" }, "‹"), h("div", { className: "flex-1 text-center", style: { paddingRight: 34, fontFamily: F_DISPLAY, fontSize: pfs(18), fontWeight: 700 } }, "通讯录")),
+    h("div", { className: "flex items-center px-3", style: { height: 43 } }, h("button", { onClick: onBack, className: "active:opacity-50", style: { width: 34, fontSize: "calc(29px * var(--app-fs, 1))", lineHeight: 1 }, "aria-label": "返回" }, "‹"), h("div", { className: "flex-1 text-center", style: { paddingRight: 34, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", fontWeight: 700 } }, "通讯录")),
     h("div", { className: "px-3 pb-3" }, searchBox));
   const plainHead = h("div", { "data-wk": "head", className: "shrink-0 flex items-center px-3 pb-2", style: { paddingTop: safeTop(12), minHeight: 54, background: "#f5f5f5", borderBottom: "1px solid #e2e2e2" } },
-    h("button", { onClick: onBack, className: "active:opacity-50", style: { width: 34, fontSize: pfs(29), lineHeight: 1 }, "aria-label": "返回" }, "‹"),
-    h("div", { className: "flex-1 text-center", style: { paddingRight: 34, fontFamily: F_DISPLAY, fontSize: pfs(18), fontWeight: 700 } }, tab === "moments" ? "朋友圈" : "我"));
+    h("button", { onClick: onBack, className: "active:opacity-50", style: { width: 34, fontSize: "calc(29px * var(--app-fs, 1))", lineHeight: 1 }, "aria-label": "返回" }, "‹"),
+    h("div", { className: "flex-1 text-center", style: { paddingRight: 34, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", fontWeight: 700 } }, tab === "moments" ? "朋友圈" : "我"));
   const topBar = tab === "chats" ? searchHead : tab === "contacts" ? contactsHead : plainHead;
   let body;
   if (thread && thread.type === "contact") body = null;
   if (tab === "chats") body = h("div", null, chats.map(chatRow));
-  else if (tab === "contacts") body = h("div", null, h("div", { style: { padding: "7px 14px", fontFamily: F_BODY, fontSize: pfs(11), color: "#888", background: "#f4f4f4" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
+  else if (tab === "contacts") body = h("div", null, h("div", { style: { padding: "7px 14px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#888", background: "#f4f4f4" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
   else if (tab === "moments") {
     // 挂点挂在【谁发的】上：TA半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
     // 一个挂点都没有，切过去之后圆点还停在别处，看着像卡住）。
     const momentCard = (m, i) => h("div", { key: i, "data-watch": "item:" + (m.author || ""), "data-wk": "pitem", className: "flex gap-3", style: { padding: "15px 14px", borderBottom: "1px solid #eee" } },
       h(Avatar, { character: person(m.author), size: 40, radius: 6 }),
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: "#526786" } }, PTX(m.author)),
-        h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.7, color: "#222", marginTop: 5 } }, PTX(m.content)),
-        h("div", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: "#999", marginTop: 7 } }, phoneAgo(m) || m.time || ""),
+        h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#526786" } }, PTX(m.author)),
+        h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.7, color: "#222", marginTop: 5 } }, PTX(m.content)),
+        h("div", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#999", marginTop: 7 } }, phoneAgo(m) || m.time || ""),
         h("div", { "data-wk": "block", style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
-          arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
-          arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: pfs(11.8), lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
+          arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
+          arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
     body = h("div", { style: { background: "#fff" } },
-      h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: pfs(16), textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: char, size: 60, radius: 7 }))),
+      h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: char, size: 60, radius: 7 }))),
       arr(d.moments).map(momentCard));
   }
-  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(21), color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(18) } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: pfs(22) } }, "›")));
+  else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))" } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: "calc(22px * var(--app-fs, 1))" } }, "›")));
   // ── 联系人详情（v62.60 重做）────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：灰底 + 头像 + 一张白色圆角卡。
   // 换成任何一个 app 的「某某的资料」都成立——而这个 app 仿的是本尊，
@@ -1577,8 +1575,8 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   if (thread && thread.type === "contact") {
     const sess = chats.find(c2 => c2 && c2.name === thread.name);
     const cell = (label, value, last) => h("div", { className: "flex items-baseline", style: { gap: 12, padding: "13px 16px", borderTop: last === "first" ? "none" : "1px solid #ededed" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), color: "#191919", flexShrink: 0 } }, label),
-      h("div", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: pfs(15), color: "#8a8a8a", wordBreak: "break-word" } }, value));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919", flexShrink: 0 } }, label),
+      h("div", { style: { flex: 1, minWidth: 0, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#8a8a8a", wordBreak: "break-word" } }, value));
     const block = (kids, extra) => h("div", { style: Object.assign({ background: "#fff", marginTop: 10 }, extra || {}) }, kids);
     return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", "data-view": "contact", style: { background: "#ededed" } },
       innerHead(thread.remark || thread.name, null, () => setThread(null)),
@@ -1594,19 +1592,19 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
                   saveJSON("x_phoneContactAv", Object.assign({}, all, { [char.id]: mine })); bumpFace(x => x + 1);
                 }) })),
           h("div", { style: { minWidth: 0 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(20), color: "#191919" } }, thread.remark || thread.name),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: "#191919" } }, thread.remark || thread.name),
             thread.remark && thread.remark !== thread.name
-              ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), color: "#8a8a8a", marginTop: 4 } }, "昵称：" + thread.name) : null))),
+              ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#8a8a8a", marginTop: 4 } }, "昵称：" + thread.name) : null))),
         block([
           // 备注可以改：点开就地改，改完TA会知道（app.js phoneRemarkEdit）
           onRemark && !drive && remarkDraft != null
             ? h("div", { key: "rm", className: "flex items-center", style: { gap: 10, padding: "9px 16px" } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), color: "#191919", flexShrink: 0 } }, "备注"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919", flexShrink: 0 } }, "备注"),
                 h("input", { "data-wk": "input", value: remarkDraft, autoFocus: true, maxLength: 30, onChange: e => setRemarkDraft(e.target.value), placeholder: "留空就是删掉备注",
-                  style: { flex: 1, minWidth: 0, height: 34, borderRadius: 5, border: "1px solid #e0e0e0", padding: "0 9px", fontFamily: F_BODY, fontSize: pfs(15), color: "#171717", outline: "none" } }),
-                h("button", { onClick: () => setRemarkDraft(null), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(14), color: "#8a8a8a" } }, "取消"),
+                  style: { flex: 1, minWidth: 0, height: 34, borderRadius: 5, border: "1px solid #e0e0e0", padding: "0 9px", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#171717", outline: "none" } }),
+                h("button", { onClick: () => setRemarkDraft(null), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#8a8a8a" } }, "取消"),
                 h("button", { onClick: () => { const v = remarkDraft.trim(); onRemark(char, thread, v); setThread({ ...thread, remark: v }); setRemarkDraft(null); },
-                  className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(14), color: "#07c160" } }, "改好了"))
+                  className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#07c160" } }, "改好了"))
             : onRemark && !drive
               ? h("button", { key: "rm", onClick: () => setRemarkDraft(thread.remark && thread.remark !== thread.name ? thread.remark : ""), className: "w-full text-left active:opacity-60" },
                   cell("备注", (thread.remark && thread.remark !== thread.name ? thread.remark : "无") + "  ›", "first"))
@@ -1616,17 +1614,17 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         // 这一块是我们独有的东西（不是本尊有的），所以它单独成一组，
         // 用一行灰色小字点明它是什么，正文才不会被误读成「个性签名」
         block(h("div", { style: { padding: "14px 16px 17px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#8a8a8a", marginBottom: 9 } }, char.name + " 对这个人的备注与真实感想"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 1.9, color: "#333", whiteSpace: "pre-wrap" } }, PTX(thread.intro || "（没写）")))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#8a8a8a", marginBottom: 9 } }, char.name + " 对这个人的备注与真实感想"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.9, color: "#333", whiteSpace: "pre-wrap" } }, PTX(thread.intro || "（没写）")))),
         // 发消息只在真有这个人的会话时才给——按了没反应的按钮比没有按钮更糟
         sess ? h("button", {
           onClick: () => setThread(sess),
           className: "w-full active:opacity-70",
-          style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: pfs(15), color: "#07c160" }
+          style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#07c160" }
         }, "发消息") : null));
   }
   const navs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
-  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5) } }, label)))));
+  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, label)))));
 }
 
 function AlbumNavIcon({ kind, active }) {
@@ -1820,19 +1818,19 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
       img ? h("img", { src: img, alt: it.caption || "照片", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(React.Fragment, null,
         h("span", { style: { position: "absolute", width: "72%", height: "72%", borderRadius: "50%", left: `${-12 + seed % 35}%`, top: `${-8 + (seed >> 3) % 35}%`, background: "rgba(255,255,255,.28)", filter: "blur(10px)" } }),
         h("span", { style: { position: "absolute", width: "46%", height: "70%", borderRadius: "46% 54% 30% 70%", right: `${-8 + (seed >> 5) % 20}%`, bottom: "-12%", background: "rgba(18,18,24,.28)", transform: `rotate(${seed % 28 - 14}deg)` } }),
-        bare ? null : h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: pfs(9.5), lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, PTX(it.caption || "照片"))));
+        bare ? null : h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, PTX(it.caption || "照片"))));
   };
   const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, "data-wk": "pitem", "data-watch": "item:" + (it.caption || ""), onClick: () => openPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
     isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
-    it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: pfs(9) } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: pfs(9) } }, "已删除") : null);
+    it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: "calc(9px * var(--app-fs, 1))" } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: "calc(9px * var(--app-fs, 1))" } }, "已删除") : null);
   const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
   const chrome = (title, sub, back) => h("div", { "data-wk": "head", className: "shrink-0 flex items-center", style: { padding: `${safeTop(10)} 13px 8px`, minHeight: 56, background: "rgba(255,255,255,.97)", borderBottom: "1px solid #e5e5ea" } },
-    h("button", { onClick: back || onBack, "aria-label": "返回", "data-watch": "back", className: "active:opacity-50", style: { width: 36, fontSize: pfs(29), lineHeight: 1, color: "#111" } }, "‹"),
-    h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(18), fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
+    h("button", { onClick: back || onBack, "aria-label": "返回", "data-watch": "back", className: "active:opacity-50", style: { width: 36, fontSize: "calc(29px * var(--app-fs, 1))", lineHeight: 1, color: "#111" } }, "‹"),
+    h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
   // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
   // （施工规则/mobile-ui-layout.md §2）
-  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", characterText(char, "他的几摞")], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: pfs(10.5) } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "全部"], ["collections", characterText(char, "他的几摞")], ["saved", "我收着的"]].map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? ALBUM_ACCENT : ALBUM_DIM, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
   // ── 一张照片（v62.60 重做）─────────────────────────────────────────
   // 审美审计 2026-09-04 把这一页判成【基础款】：白底 + 圆角 20 的缩略图 +
   // 一块 #f2f2f7 圆角 17 的灰卡——换成任何一个 app 的详情页都成立。
@@ -1850,12 +1848,12 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
       // 满幅、不切角、不投影——本尊就是把照片摊在黑底上
       h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", overflow: "hidden" } }, art(photo, 0, true)),
       h("div", { style: { padding: "20px 20px 30px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(22), color: "#fff" } }, PTX(photo.caption || "照片")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.8, color: "rgba(255,255,255,.6)", marginTop: 8, whiteSpace: "pre-wrap" } }, PTX(photo.desc || "没有留下介绍。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: "#fff" } }, PTX(photo.caption || "照片")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "rgba(255,255,255,.6)", marginTop: 8, whiteSpace: "pre-wrap" } }, PTX(photo.desc || "没有留下介绍。")),
         // TA的想法：黑底上用一道细线分栏，不再套一块浅灰圆角卡
         h("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.14)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "rgba(255,255,255,.42)", marginBottom: 9 } }, char.name + " 对这张照片的想法"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.9, color: "rgba(255,255,255,.9)", whiteSpace: "pre-wrap" } }, photo.thought ? PTX(photo.thought) : T("他没多说什么。"))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(255,255,255,.42)", marginBottom: 9 } }, char.name + " 对这张照片的想法"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: "rgba(255,255,255,.9)", whiteSpace: "pre-wrap" } }, photo.thought ? PTX(photo.thought) : T("他没多说什么。"))),
         // ── 画出来（v59.59）──────────────────────────────────────────────────
         // 她 2026-09-01：「相册放进我的收藏后可以给TA一个按钮生成真图吧，
         // 就按图上的 prompt 生成」。
@@ -1869,7 +1867,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           onClick: () => drawPhoto(photo),
           disabled: !!drawing,
           className: "w-full active:opacity-60 disabled:opacity-45",
-          style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
+          style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + ALBUM_ACCENT, color: ALBUM_ACCENT }
         }, drawing === sig(photo) ? "正在画…（这一步会调一次画图）"
           : (drawnRef(photo) || drawnUrl(photo)) ? "再画一张" : "把这张画出来") : null,
         isSaved(photo) && onDrawPhoto && (drawnRef(photo) || drawnUrl(photo)) ? h("button", {
@@ -1877,7 +1875,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           onClick: () => editDrawPhoto(photo),
           disabled: !!drawing,
           className: "w-full active:opacity-60 disabled:opacity-45",
-          style: { marginTop: 10, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" }
+          style: { marginTop: 10, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" }
         }, "改画面描述再画") : null,
         // ── 回收站进出（她 2026-09-10）──────────────────────────
         // ⚠️「我收着的」那一摞不给这几颗键：那是她自己留的，不该在TA手机上被删掉。
@@ -1885,20 +1883,20 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
           canon(photo.category) === "deleted"
             ? [h("button", { key: "back", onClick: () => editPhoto(photo, "memory"), "data-watch": "move:memory",
                 className: "flex-1 active:opacity-60",
-                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" } }, "捞回来"),
+                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.82)" } }, "捞回来"),
                h("button", { key: "gone", onClick: () => editPhoto(photo, "gone"), "data-watch": "move:gone",
                 className: "flex-1 active:opacity-60",
-                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid rgba(255,90,80,.5)", color: "#ff8a80" } }, "真的删掉")]
+                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid rgba(255,90,80,.5)", color: "#ff8a80" } }, "真的删掉")]
             : h("button", { onClick: () => editPhoto(photo, "deleted"), "data-watch": "move:deleted",
                 className: "w-full active:opacity-60",
-                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.72)" } }, "扔进「删了又没真删的」")) : null,
+                style: { padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid rgba(255,255,255,.28)", color: "rgba(255,255,255,.72)" } }, "扔进「删了又没真删的」")) : null,
         onPeek ? (function () {
           // 锁起来的和删了又没真删的是TA藏起来的；另外三摞只是TA没主动提起
           const hid = photo.category === "private" || photo.category === "deleted";
           return h("button", {
             onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·删了又没真删的" : photo.category === "private" ? "相册·锁起来的" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
             className: "w-full active:opacity-60",
-            style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + (hid ? "rgba(224,115,107,.55)" : "rgba(255,255,255,.22)"), color: hid ? "#e0736b" : "rgba(255,255,255,.82)" }
+            style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (hid ? "rgba(224,115,107,.55)" : "rgba(255,255,255,.22)"), color: hid ? "#e0736b" : "rgba(255,255,255,.82)" }
           }, hid ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机"));
         })() : null)));
 
@@ -1910,7 +1908,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const library = h("div", { style: { paddingTop: 14, paddingBottom: 26 } }, (() => {
     const groups = [];
     items.forEach(p => { const raw = String(p.date || p.time || "日期未记"); const m = raw.match(/(\d{4})[-\/.年](\d{1,2})/); const label = m ? (m[1] + "年" + Number(m[2]) + "月") : "日期未记"; let g = groups.find(x => x.label === label); if (!g) { g = { label, list: [] }; groups.push(g); } g.list.push(p); });
-    return groups.map((g, i) => h("section", { key: g.label + i, style: { marginBottom: 22 } }, h("div", { className: "flex justify-between", style: { padding: "0 20px 10px", fontFamily: F_DISPLAY, fontSize: pfs(16), color: "#444" } }, h("span", null, g.label), h("span", { style: { color: "#999", fontFamily: F_BODY, fontSize: pfs(12) } }, g.list.length)), grid(g.list, false, 3)));
+    return groups.map((g, i) => h("section", { key: g.label + i, style: { marginBottom: 22 } }, h("div", { className: "flex justify-between", style: { padding: "0 20px 10px", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#444" } }, h("span", null, g.label), h("span", { style: { color: "#999", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, g.list.length)), grid(g.list, false, 3)));
   })());
   // ── TA的几摞（v59.50 换骨架）───────────────────────────────────────────
   // 原来是【回忆一排横滑大卡 + 相簿一排横滑小卡】——那是别人家系统相册的首页，
@@ -1932,9 +1930,9 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
     return h("section", { key: a.key, style: { padding: "0 20px", marginBottom: 26 } },
       h("button", { onClick: () => setOpened(a.key), className: "w-full text-left active:opacity-60", style: { display: "block" } },
         h("div", { className: "flex items-baseline", style: { gap: 9 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(19), color: hot ? ALBUM_ALERT : "#171417" } }, a.label),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: ALBUM_DIM } }, list.length + " 张")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.7, color: ALBUM_DIM, marginTop: 3 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: hot ? ALBUM_ALERT : "#171417" } }, a.label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: ALBUM_DIM } }, list.length + " 张")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: ALBUM_DIM, marginTop: 3 } },
           soon != null ? "还有 " + soon + " 天就真的没了" : a.why)),
       h("div", { className: "flex", style: { gap: 6, marginTop: 11 } },
         list.slice(0, 4).map((p2, i2) => h("button", {
@@ -1945,8 +1943,8 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const collections = h("div", { style: { padding: "18px 0 30px" } },
     // 藏起来的那两摞排在最前：翻TA手机时，那才是你真正在找的
     albums.slice().sort((a, b) => (b.key === "deleted" || b.key === "private" ? 1 : 0) - (a.key === "deleted" || a.key === "private" ? 1 : 0)).map(pileRow).filter(Boolean),
-    items.length ? null : h("div", { style: { margin: "0 20px", padding: "40px 18px", borderRadius: 16, background: "#f4f2f4", color: ALBUM_DIM, textAlign: "center", fontFamily: F_BODY, fontSize: pfs(12) } }, characterText(char, "刷新相册后，这里会出现他分好的那几摞。")));
-  const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
+    items.length ? null : h("div", { style: { margin: "0 20px", padding: "40px 18px", borderRadius: 16, background: "#f4f2f4", color: ALBUM_DIM, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, characterText(char, "刷新相册后，这里会出现他分好的那几摞。")));
+  const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
   const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : characterText(char, "他的几摞");
   const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? characterText(char, "他把 ") + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
   return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
@@ -2077,9 +2075,9 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         // 比的是这本的 _upd 和整份的 _lastUpd：**同一个时间戳才算数**，
         // 所以下一次刷新如果没动它，点自己就灭了，不用另存一份「看过没」。
         (b._upd && b._upd === lastUpd) ? h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 99, background: "#d9705f", flexShrink: 0, alignSelf: "center" } }) : null,
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, PTX(b.title || "无题")),
-        b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM } }, PTX(b.author)) : null),
-      b.readAt ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), lineHeight: 1.7, color: cold ? pal.accent : READ_DIM, marginTop: 5 } }, PTX(b.readAt)) : null,
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, PTX(b.title || "无题")),
+        b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM } }, PTX(b.author)) : null),
+      b.readAt ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: cold ? pal.accent : READ_DIM, marginTop: 5 } }, PTX(b.readAt)) : null,
       // 走了多远：有百分比就画那么长，认不出来的不画——不画比画错强
       pct != null ? h("div", { "aria-hidden": "true", style: { height: 2, borderRadius: 2, background: READ_LINE, marginTop: 9, overflow: "hidden" } },
         h("div", { style: { width: Math.max(2, pct) + "%", height: "100%", borderRadius: 2, background: pal.accent } })) : null);
@@ -2089,8 +2087,8 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     const books = Array.isArray(sh.books) ? sh.books : [];
     return h("section", { key: si, style: { marginBottom: 30 } },
       h("div", { style: { borderLeft: "3px solid " + pal.accent, paddingLeft: 12, marginBottom: 4 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(19), lineHeight: 1.35, color: READ_INK, wordBreak: "break-word" } }, PTX(sh.name || "没起名的一架")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM, marginTop: 4 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.35, color: READ_INK, wordBreak: "break-word" } }, PTX(sh.name || "没起名的一架")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM, marginTop: 4 } },
           books.length ? books.length + " 本 · " + (function () {
             const done = books.filter(b => readPct(b.readAt) === 100).length;
             const cold = books.filter(b => stalled(b.readAt)).length;
@@ -2101,9 +2099,9 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const shelfPage = h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "2px 16px 20px", background: READ_BG } },
     h("div", { className: "flex items-center gap-3", style: { padding: "8px 24px 16px" } },
       h("div", { style: { flex: 1, height: 1, background: READ_LINE } }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: READ_DIM } }, "共 " + total + " 本书"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: READ_DIM } }, "共 " + total + " 本书"),
       h("div", { style: { flex: 1, height: 1, background: READ_LINE } })),
-    shelves.length ? shelves.map(shelfCard) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: READ_DIM } }, T("书架还是空的，点右上角让他把书摆出来")));
+    shelves.length ? shelves.map(shelfCard) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: READ_DIM } }, T("书架还是空的，点右上角让他把书摆出来")));
   // ── 阅读档案 ──
   // iOS 图书那种目标环：颜色本身就是进度，不用再写一句「完成度 62%」
   const goalRing = (pct, size) => {
@@ -2124,28 +2122,28 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const pct = goalMin ? doneMin / goalMin : 0;
   const miniBook = (b, pal, label) => h("div", { className: "flex items-center gap-4" },
     h("div", { style: spineStyle(pal, 62, 88) }, spineEdge,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(10.5), lineHeight: 1.3, color: pal.text, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 4 } }, (b && b.title) || "—")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.3, color: pal.text, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 4 } }, (b && b.title) || "—")),
     h("div", { className: "flex-1 min-w-0" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: READ_DIM } }, label),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), lineHeight: 1.35, color: READ_INK, marginTop: 5 } }, PTX((b && b.title) || "—")),
-      (b && b.author) ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM, marginTop: 4 } }, PTX(b.author)) : null));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: READ_DIM } }, label),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.35, color: READ_INK, marginTop: 5 } }, PTX((b && b.title) || "—")),
+      (b && b.author) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM, marginTop: 4 } }, PTX(b.author)) : null));
   const statCell = (n, label) => h("div", { className: "flex-1 text-center" },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(21), color: READ_INK } }, n),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: READ_DIM, marginTop: 3 } }, label));
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: READ_INK } }, n),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: READ_DIM, marginTop: 3 } }, label));
   const minePage = h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 22px", background: READ_BG } },
     (archive.name || archive.uid) ? h("div", { className: "flex items-baseline", style: { gap: 9, padding: "6px 4px 12px" } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), color: READ_INK } }, archive.name || ""),
-      archive.uid ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(11), color: READ_DIM } }, "书友号 " + archive.uid) : null) : null,
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: READ_INK } }, archive.name || ""),
+      archive.uid ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(11px * var(--app-fs, 1))", color: READ_DIM } }, "书友号 " + archive.uid) : null) : null,
     h("div", { "data-wk": "block", style: { background: READ_CARD, borderRadius: 18, padding: "22px 20px" } },
       h("div", { className: "flex items-center gap-5" },
         h("div", { style: { position: "relative", width: 108, height: 108, flexShrink: 0 } }, goalRing(pct, 108),
           h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(22), color: READ_INK, lineHeight: 1 } }, Math.round(Math.min(1, pct) * 100) + "%"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: READ_DIM, marginTop: 4 } }, "本周目标"))),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: READ_INK, lineHeight: 1 } }, Math.round(Math.min(1, pct) * 100) + "%"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: READ_DIM, marginTop: 4 } }, "本周目标"))),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: READ_DIM } }, "这周读了"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(25), color: READ_INK, marginTop: 4 } }, archive.weekTime || readFmtMin(doneMin)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM, marginTop: 6 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: READ_DIM } }, "这周读了"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", color: READ_INK, marginTop: 4 } }, archive.weekTime || readFmtMin(doneMin)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM, marginTop: 6 } },
             pct >= 1 ? T("已经超过他给自己定的 ") + readFmtMin(goalMin) : "离 " + readFmtMin(goalMin) + " 还差 " + readFmtMin(goalMin - doneMin)))),
       h("div", { className: "flex", style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid " + READ_LINE } },
         statCell(total, "本书"), statCell(shelves.length, "个书架"), statCell(marked, "处划线"))),
@@ -2154,7 +2152,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: T("他最近在读的"), text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "这周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
-      style: { marginTop: 18, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + READ_LINE, color: READ_INK }
+      style: { marginTop: 18, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + READ_LINE, color: READ_INK }
     }, T("转发给 TA · 他会知道你翻了手机")) : null);
   // 内页底栏：高度以主聊天输入栏为标尺（施工规则/mobile-ui-layout.md §2）——
   // 只吃 0.4 条底部安全区，不许再 + Npx，也不给 minHeight 垫高
@@ -2164,7 +2162,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   }, [["shelf", "书架"], ["mine", "我的"]].map(([k, label]) => h("button", {
     key: k, onClick: () => { setTab(k); setBook(null); }, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k,
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: tab === k ? "#9dc49a" : READ_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tab === k ? "#9dc49a" : READ_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { width: 30, height: 20, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: tab === k ? "rgba(157,196,154,.18)" : "transparent" } },
     h(PGlyph, { k: k === "shelf" ? "reading" : "me", size: 14, color: tab === k ? "#9dc49a" : READ_DIM })),
   h("span", { style: { marginTop: 2 } }, label))));
@@ -2176,32 +2174,32 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     onClick: e => e.stopPropagation(),
     style: { background: READ_CARD, borderRadius: 16, maxHeight: "82%", overflowY: "auto", boxShadow: "0 22px 50px rgba(0,0,0,.55)" }
   }, h("div", { className: "relative flex items-center justify-between px-4", style: { minHeight: 60, borderBottom: "1px solid " + READ_LINE } },
-    h("button", { onClick: closeBook, "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 99, border: "1px solid " + READ_LINE, fontSize: pfs(15), color: READ_DIM } }, "✕"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: READ_DIM, textAlign: "right" } }, (book._shelf || "书架") + " · Vol." + String(book._no).padStart(2, "0")),
+    h("button", { onClick: closeBook, "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 99, border: "1px solid " + READ_LINE, fontSize: "calc(15px * var(--app-fs, 1))", color: READ_DIM } }, "✕"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: READ_DIM, textAlign: "right" } }, (book._shelf || "书架") + " · Vol." + String(book._no).padStart(2, "0")),
     h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -11, marginLeft: -16, width: 32, height: 40, background: "#2a2720", clipPath: "polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)" } })),
   h("div", { style: { padding: "22px 22px 26px" } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(26), lineHeight: 1.25, color: READ_INK } }, PTX(book.title || "无题")),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), color: READ_DIM, marginTop: 7 } }, PTX(book.author || "")),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(26px * var(--app-fs, 1))", lineHeight: 1.25, color: READ_INK } }, PTX(book.title || "无题")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: READ_DIM, marginTop: 7 } }, PTX(book.author || "")),
     book.readAt ? h("div", { "data-wk": "block", style: { marginTop: 20, borderLeft: "3px solid #9dc49a", background: "rgba(157,196,154,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM } }, "读到"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(18), color: READ_INK, marginTop: 6 } }, PTX(book.readAt))) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM } }, "读到"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: READ_INK, marginTop: 6 } }, PTX(book.readAt))) : null,
     book.quote ? h("div", { "data-wk": "block", style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM } }, T("他划的一句")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, PTX(book.quote))) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM } }, T("他划的一句")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, PTX(book.quote))) : null,
     // ── 批注条：只有「看TA玩」演到写批注那一下才出现 ──
     drive && drive.typing != null ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: READ_DIM } }, characterText(char, "他正在写的批注")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap", minHeight: 22 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: READ_DIM } }, characterText(char, "他正在写的批注")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap", minHeight: 22 } },
         drive.typing,
         h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: READ_INK, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
-      h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { marginTop: 10, textAlign: "center", borderRadius: 8, padding: "7px 0", fontFamily: F_BODY, fontSize: pfs(12.5), color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? "#b07f8e" : "rgba(0,0,0,.06)" } }, "记下")) : null,
+      h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { marginTop: 10, textAlign: "center", borderRadius: 8, padding: "7px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: drive.typing ? "#fff" : "#9a9a9a", background: drive.typing ? "#b07f8e" : "rgba(0,0,0,.06)" } }, "记下")) : null,
     book.note ? h("div", { "data-wk": "block", style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: READ_DIM } }, "批注"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, PTX(book.note))) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM } }, "批注"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, PTX(book.note))) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: T("他读的书"), title: "《" + (book.title || "") + "》" + (book.readAt ? " · " + book.readAt : ""), text: [book.quote ? T("他划了：") + book.quote : "", book.note].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
-      style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + READ_LINE, color: READ_INK }
+      style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + READ_LINE, color: READ_INK }
     }, T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "reading", style: { background: READ_BG } },
     chrome, tab === "shelf" ? shelfPage : minePage, nav, detail);
@@ -2242,9 +2240,9 @@ const shopMoney = (n, charId) => (typeof Money !== "undefined" && Money)
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
 function CartPayBtn({ char, it, pay, kind }) {
   const [st, setSt] = React.useState("");   // "" → "ask" → "paid"
-  if (st === "paid") return h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM } }, "已替TA付了，在路上");
+  if (st === "paid") return h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM } }, "已替TA付了，在路上");
   return h("button", { onClick: () => { if (st !== "ask") { setSt("ask"); return; } setSt(pay(char, it, kind || "cart") ? "paid" : ""); },
-    className: "active:opacity-75", style: { marginTop: 10, minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: pfs(12.5),
+    className: "active:opacity-75", style: { marginTop: 10, minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
       background: st === "ask" ? SHOP_MARK : "transparent", color: st === "ask" ? "#fff" : SHOP_MARK, border: "1px solid " + SHOP_MARK } },
     st === "ask" ? "确认付 " + shopMoney((Number(it.price) || 0) * (Number(it.qty) || 1), char.id) : "替TA付了，送给TA");
 }
@@ -2286,22 +2284,22 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 一小行标签 + 一段正文。标签压得很轻（10.5px、淡色、带一点字距），
   // 只负责把几段话分开；重的仍然是内容本身。
   const labeled = (k, v, quiet) => h("div", { key: k, style: { marginTop: 12 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 4 } }, k),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 4 } }, k),
     h("div", { style: { fontFamily: F_BODY, fontSize: quiet ? 12 : 13.5, lineHeight: 1.75, color: quiet ? SHOP_DIM : SHOP_BODY, wordBreak: "break-word" } }, v));
   const plain = (kids, extra) => h("div", { style: Object.assign({ marginBottom: 16 }, extra || {}) }, kids);
   // 版心标题：字号收一档，底下压一道【界行】——册页里每一栏都靠界行分开，
   // 21px 大标题 + 右侧一句灰字是通用的 section header，换个 app 照样成立。
   const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "2px 0 7px", marginBottom: 10, borderBottom: "1px solid " + SHOP_FRAME, gap: 10 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), letterSpacing: ".06em", color: SHOP_INK } }, title),
-    right ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, flexShrink: 0 } }, right) : null);
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", letterSpacing: ".06em", color: SHOP_INK } }, title),
+    right ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, flexShrink: 0 } }, right) : null);
   // 小签：方角、只有一道细边。圆角 7 的填色药丸是标签组件，册页上没有这种东西。
-  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: SHOP_DIM, border: "1px solid " + SHOP_LINE, borderRadius: 0, padding: "2px 8px" } }, txt);
+  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: SHOP_DIM, border: "1px solid " + SHOP_LINE, borderRadius: 0, padding: "2px 8px" } }, txt);
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", { "data-wk": "pbtn", "data-part": "peek",
     onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
     className: "active:opacity-60",
     style: {
       // 册页上不摆圆角药丸：这一枚是框在框里的一行字，跟墨围同一种边
-      marginTop: 14, width: "100%", padding: "10px 0", borderRadius: 0, fontFamily: F_BODY, fontSize: pfs(12),
+      marginTop: 14, width: "100%", padding: "10px 0", borderRadius: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
       border: "1px solid " + (tier === "hidden" ? "rgba(177,73,60,.5)" : SHOP_FRAME), color: tier === "hidden" ? SHOP_MARK : SHOP_BODY
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
@@ -2320,27 +2318,27 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       key: i2, style: { padding: "14px 2px", borderTop: i2 ? "1px solid " + SHOP_LINE : "none" }
     },
       h("div", { className: "flex items-baseline", style: { gap: 10 } },
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title)),
-        it.amount != null ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(13), color: SHOP_MARK } }, shopMoney(it.amount, char.id)) : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM, marginTop: 5 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title)),
+        it.amount != null ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: SHOP_MARK } }, shopMoney(it.amount, char.id)) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 5 } },
         [it.eta, it.shop].filter(Boolean).join(" · ")),
-      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.75, color: SHOP_BODY, marginTop: 7 } }, PTX(it.why)) : null)))) : null;
+      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: SHOP_BODY, marginTop: 7 } }, PTX(it.why)) : null)))) : null;
   // ── 购物车 ──
   const paidT = PC ? PC.paid(char.id) : [];
   const cart = A(data.cart).filter(it => !paidT.includes(String(it.title || "")));
   const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("还没舍得付", cart.length + " 件停在这儿"),
     plain(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", "data-wk": "pitem", "data-watch": "item:" + (it.title || ""), style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
-        it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM } }, PTX(it.shop)) : null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, PTX(it.title)),
-        it.spec ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM, marginTop: 4 } }, PTX(it.spec)) : null,
+        it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM } }, PTX(it.shop)) : null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, PTX(it.title)),
+        it.spec ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 4 } }, PTX(it.spec)) : null,
         h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 8 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: SHOP_MARK } }, shopMoney(it.price, char.id)),
-          Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was, char.id)) : null,
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: SHOP_MARK } }, shopMoney(it.price, char.id)),
+          Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was, char.id)) : null,
           // ⚠️「满减／限时」那枚促销标不画：那是货架上的标签，不是TA的事。
           // TA为什么把这件东西一直停在车里，写在下面 why 那一行。
           null,
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1))),
         PC ? h(CartPayBtn, { char, it, pay: PC.pay, kind: "cart" }) : null))))) : null;
   // ── 一直没下手的 ─────────────────────────────────────────────
   // 原来是【两列渐变卡 + 卡里一个首字方块】：那是货架缩略图，是这一页上最后一件
@@ -2360,10 +2358,10 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       h("div", { className: "flex items-baseline", style: { gap: 9 } },
         // 朱砂圈：程序画的空心圈，不是图标字体也不是 emoji
         h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 9, height: 9, borderRadius: 99, border: "1.4px solid " + SHOP_MARK, transform: "translateY(-1px)" } }),
-        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title)),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(13), color: SHOP_MARK, whiteSpace: "nowrap" } }, shopMoney(it.price, char.id))),
-      it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, marginTop: 4, paddingLeft: 18 } }, PTX(it.shop)) : null,
-      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.8, color: SHOP_BODY, marginTop: 6, paddingLeft: 18, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.why)) : null)))) : null;
+        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.5, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title)),
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: SHOP_MARK, whiteSpace: "nowrap" } }, shopMoney(it.price, char.id))),
+      it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 4, paddingLeft: 18 } }, PTX(it.shop)) : null,
+      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: SHOP_BODY, marginTop: 6, paddingLeft: 18, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.why)) : null)))) : null;
   // ── 我的订单 ──
   const orders = A(data.orders);
   const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("买过的", orders.length + " 次"),
@@ -2372,22 +2370,22 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       // ⚠️店名和商品名原来都是 16px 的深色，一样重——读的人分不出哪个是主角。
       // 店和时间是【这一单的出处】，压成一行小字；**买的那样东西才是主角**。
       h("div", { key: "h", className: "flex items-baseline justify-between gap-3" },
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           [o.shop, o.time].filter(Boolean).join(" · ")),
         // 状态不画成一枚绿标（那是平台的订单状态徽章）；取消掉的那一单才值得说一句
-        o.status === "已取消" ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_MARK } }, "后来退了") : null),
-      o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: pfs(18), lineHeight: 1.45, color: SHOP_INK, marginTop: 6, wordBreak: "break-word" } }, PTX(o.title)) : null,
+        o.status === "已取消" ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_MARK } }, "后来退了") : null),
+      o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1.45, color: SHOP_INK, marginTop: 6, wordBreak: "break-word" } }, PTX(o.title)) : null,
       // 一单里买了哪几样：靠上下两道界行圈出来，不再嵌一块白底圆角。
       // 纸上再叠一块浅色圆角＝把这一页拉回通用列表（审美审计点名的正是这一类）。
       A(o.items).length ? h("div", { key: "it", style: { borderTop: "1px solid " + SHOP_LINE, borderBottom: "1px solid " + SHOP_LINE, padding: "10px 2px", marginTop: 12 } },
         A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid " + SHOP_LINE : "none", marginTop: j ? 10 : 0 } },
-          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.6, color: SHOP_BODY } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: SHOP_BODY, flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price, char.id))))) : null,
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: SHOP_BODY } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: SHOP_BODY, flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price, char.id))))) : null,
       h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 13 } },
         // 运费单列是收据的排版，不是这个人的事；只留TA真花掉的那个数
         h("span", null),
-        Number(o.paid) > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), color: SHOP_MARK } }, shopMoney(o.paid, char.id)) : null),
+        Number(o.paid) > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: SHOP_MARK } }, shopMoney(o.paid, char.id)) : null),
       A(o.tags).length ? h("div", { key: "g", className: "flex gap-2 flex-wrap", style: { marginTop: 12 } }, A(o.tags).map(tag)) : null,
       // ⚠️她 2026-09-01：「现在啥格式都去掉太平了，看不出来哪些是啥」。
       // 撤掉白卡是对的（那是电商的排版），但**层次不能跟着一起撤**——
@@ -2405,9 +2403,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // 每一问都得答出这个人才成立，而且答案是成句的话，不是一个词。
   // 字段沿用旧的那几个，老存档照样读得出来。
   const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid " + SHOP_LINE } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, marginBottom: 9 } }, q),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, marginBottom: 9 } }, q),
     node);
-  const askLine = txt => h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), lineHeight: 1.8, color: SHOP_INK, wordBreak: "break-word" } }, txt);
+  const askLine = txt => h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.8, color: SHOP_INK, wordBreak: "break-word" } }, txt);
   const habitAsks = [
     [T("他什么都舍得，除了这个"), habit.avoids],
     [T("哪一样他会重复买，买到自己都不好意思"), habit.buys],
@@ -2422,9 +2420,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const shopSec = shops.length ? h("section", { key: "sh" }, secTitle("总回的那几家"),
     plain(shops.map((sp, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), color: SHOP_INK } }, PTX(sp.name || "")),
-        sp.cat ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, marginTop: 3 } }, PTX(sp.cat)) : null,
-        sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.65, color: SHOP_DIM, marginTop: 6 } }, PTX(sp.why)) : null))))) : null;
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: SHOP_INK } }, PTX(sp.name || "")),
+        sp.cat ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 3 } }, PTX(sp.cat)) : null,
+        sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.65, color: SHOP_DIM, marginTop: 6 } }, PTX(sp.why)) : null))))) : null;
   // ⚠️优惠券整栏【不画】（跟外卖那次同一条：她 2026-08-31「和另一个太像了」）。
   // 那是一张营销位：折扣规则、适用范围、有效期——纯平台部件，换个角色照样成立，
   // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的「只砍显示」）。
@@ -2433,29 +2431,29 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const viewSec = viewed.length ? h("section", { key: "vw" }, secTitle("反复看过的", "看了没买"),
     plain(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), lineHeight: 1.45, color: SHOP_INK } }, PTX(v.title || "")),
-        v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, marginTop: 5 } }, PTX(v.shop)) : null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.45, color: SHOP_INK } }, PTX(v.title || "")),
+        v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 5 } }, PTX(v.shop)) : null,
         PC && Number(v.price) > 0 ? h(CartPayBtn, { char, it: v, pay: PC.pay, kind: "viewed" }) : null),
       h("div", { style: { flexShrink: 0, textAlign: "right" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: SHOP_MARK } }, shopMoney(v.price, char.id)),
-        v.time ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, marginTop: 4 } }, v.time) : null)))))  : null;
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: SHOP_MARK } }, shopMoney(v.price, char.id)),
+        v.time ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, marginTop: 4 } }, v.time) : null)))))  : null;
   // ── 收货地址（不是自己家的那条走 hidden） ──
   const addrs = A(data.addrs);
   const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("送到哪儿"),
     plain(addrs.map((a, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
       h("div", { className: "flex items-center gap-2" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: SHOP_INK } }, a.label || ""),
-        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: "#3d7dd8", background: "rgba(61,125,216,.10)", borderRadius: 6, padding: "3px 8px" } }, "默认") : null,
-        a.tail ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM, marginLeft: "auto" } }, PTX(a.tail)) : null),
-      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, PTX(a.detail)) : null,
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: SHOP_INK } }, a.label || ""),
+        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#3d7dd8", background: "rgba(61,125,216,.10)", borderRadius: 6, padding: "3px 8px" } }, "默认") : null,
+        a.tail ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM, marginLeft: "auto" } }, PTX(a.tail)) : null),
+      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, PTX(a.detail)) : null,
       !a.isDefault ? h("div", null, peekBtn("hidden", "收货地址", a.label, a.detail)) : null)))) : null;
   // ── 相关往来 ──
   const gifts = A(data.gifts);
   const giftSec = gifts.length ? h("section", { key: "gf" }, secTitle("买给别人的"),
     plain(gifts.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + SHOP_LINE : "none" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: SHOP_DIM } }, PTX(g.who || "")),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.45, color: SHOP_INK, marginTop: 6 } }, PTX(g.title || "")),
-      g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, PTX(g.note)) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SHOP_DIM } }, PTX(g.who || "")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.45, color: SHOP_INK, marginTop: 6 } }, PTX(g.title || "")),
+      g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: SHOP_DIM, marginTop: 7 } }, PTX(g.note)) : null,
       h("div", null, peekBtn("quiet", T("他给谁买的东西"), (g.who || "") + " · " + (g.title || ""), g.note))))))  : null;
   // ── 本月概况 ──
   // ⚠️钱包算出来的那两个数【必须还看得见】。上面那一排统计块删掉了（那是平台部件），
@@ -2472,16 +2470,16 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   // acc.persona（TA买东西的毛病）原来挂在账户卡上。账户卡撤了，这句得有地方去——
   // 它本来就属于「合起来看」：那一段说的正是TA这个人怎么花钱。
   const monthSec = (data.monthNote || data.tail || spendLine || acc.persona) ? h("section", { key: "mn" }, secTitle("合起来看", characterText(char, "这一阵他是这么花钱的")),
-    acc.persona ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.75, color: SHOP_INK, padding: "0 2px 14px" } }, PTX(acc.persona)) : null,
+    acc.persona ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.75, color: SHOP_INK, padding: "0 2px 14px" } }, PTX(acc.persona)) : null,
     // TA在这个平台上的号：账户卡撤了，但这一条不能跟着一起没
     //（她 2026-08-29 专门要过「每个 app 都给TA一个自己的 id」）。
     // 只是它不配再占一整张卡——落成一行小字。
-    (acc.name || acc.uid) ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: SHOP_DIM, padding: "0 2px 14px" } },
+    (acc.name || acc.uid) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: SHOP_DIM, padding: "0 2px 14px" } },
       [acc.name, acc.uid ? "账号 " + acc.uid : ""].filter(Boolean).join(" · ")) : null,
     (spendLine || data.monthNote) ? card(h("div", null,
-      spendLine ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: SHOP_INK, marginBottom: data.monthNote ? 12 : 0 } }, spendLine) : null,
-      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.95, color: SHOP_BODY } }, PTX(data.monthNote)) : null)) : null,
-    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8, color: SHOP_DIM, textAlign: "center", padding: "6px 14px 4px" } }, PTX(data.tail)) : null) : null;
+      spendLine ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: SHOP_INK, marginBottom: data.monthNote ? 12 : 0 } }, spendLine) : null,
+      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.95, color: SHOP_BODY } }, PTX(data.monthNote)) : null)) : null,
+    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: SHOP_DIM, textAlign: "center", padding: "6px 14px 4px" } }, PTX(data.tail)) : null) : null;
   // 不再照标准电商的「首页 / 购物车 / 订单 / 我的」复刻产品栏目。
   // 查手机真正要看的不是按钮在哪，而是这个人眼下在等什么、买过后留下什么、为什么取舍。
   // 旧数据结构全部兼容，只在阅读层重组为三条角色生活线。
@@ -2500,11 +2498,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); }, "data-wk": "ptab", "data-on": tab === pg.key ? "1" : "0", "data-watch": "tab:" + pg.key,
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: tab === pg.key ? SHOP_ACCENT : SHOP_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tab === pg.key ? SHOP_ACCENT : SHOP_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
     h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? SHOP_ACCENT : SHOP_DIM }),
     pg.badge ? h("span", {
-      style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: SHOP_ACCENT, color: "#fff", fontFamily: F_BODY, fontSize: pfs(9.5), display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }
+      style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: SHOP_ACCENT, color: "#fff", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }
     }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   const chrome = h(Head, { zh: page.zh,
@@ -2535,19 +2533,19 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 22px" } },
           h("div", { className: "flex items-baseline", style: { gap: 10 } },
             h("span", { "aria-hidden": "true", style: { flexShrink: 0, width: 10, height: 10, borderRadius: 99, border: "1.5px solid " + SHOP_MARK, transform: "translateY(-2px)" } }),
-            h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(21), lineHeight: 1.45, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title))),
+            h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", lineHeight: 1.45, color: SHOP_INK, wordBreak: "break-word" } }, PTX(it.title))),
           h("div", { className: "flex items-baseline", style: { gap: 10, marginTop: 9, paddingLeft: 20, paddingBottom: 12, borderBottom: "1px solid " + SHOP_FRAME } },
-            it.shop ? h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12.5), color: SHOP_DIM } }, PTX(it.shop)) : h("div", { style: { flex: 1 } }),
-            h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: pfs(19), color: SHOP_MARK } }, shopMoney(it.price, char.id))),
+            it.shop ? h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: SHOP_DIM } }, PTX(it.shop)) : h("div", { style: { flex: 1 } }),
+            h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: SHOP_MARK } }, shopMoney(it.price, char.id))),
           it.why ? h("div", { style: { marginTop: 16 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 8 } }, T("他为什么想买")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 2.05, color: SHOP_BODY, whiteSpace: "pre-wrap", textIndent: "2em" } }, PTX(it.why))) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: ".06em", color: SHOP_DIM, marginBottom: 8 } }, T("他为什么想买")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 2.05, color: SHOP_BODY, whiteSpace: "pre-wrap", textIndent: "2em" } }, PTX(it.why))) : null,
           PC && Number(it.price) > 0 ? h("div", { style: { marginTop: 14 } }, h(CartPayBtn, { char, it, pay: PC.pay, kind: "wish" })) : null,
           peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price, char.id) : "", it.why].filter(Boolean).join("｜")))));
   })() : null;
   // 叶码：册页每一叶底下都有一个。中文数字，不是「1 / 3」——那是分页控件。
   const YE = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
-  const folio = h("div", { key: "folio", style: { textAlign: "center", padding: "22px 0 4px", fontFamily: F_DISPLAY, fontSize: pfs(11.5), letterSpacing: ".3em", color: SHOP_DIM } },
+  const folio = h("div", { key: "folio", style: { textAlign: "center", padding: "22px 0 4px", fontFamily: F_DISPLAY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: ".3em", color: SHOP_DIM } },
     "第 " + (YE[Math.max(0, PAGES.findIndex(x => x.key === page.key))] || "一") + " 叶");
   return h("div", { "data-wk": "papp", "data-app": "shopping",
     className: "h-full min-h-0 flex flex-col relative",
@@ -2571,8 +2569,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 14px 18px" } },
       // 小序：册子正文前那一小段，缩两格、比正文小一号、底下压一道界行。
       // 原来是「左边一道 3px 色条 + 右侧圆角」——那是引用块，任何 app 都有。
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.9, color: SHOP_DIM, textIndent: "2em", paddingBottom: 12, marginBottom: 14, borderBottom: "1px solid " + SHOP_LINE } }, PTX(page.lead)),
-      body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: SHOP_DIM } }, emptyWord),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.9, color: SHOP_DIM, textIndent: "2em", paddingBottom: 12, marginBottom: 14, borderBottom: "1px solid " + SHOP_LINE } }, PTX(page.lead)),
+      body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: SHOP_DIM } }, emptyWord),
       body.length ? folio : null)),
   nav, sheetNode,
   // TA刚点进去的那一件商品页：手机里本来没有这一页，是这一段里现编的
@@ -2662,17 +2660,17 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const secTitle = (title, right) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 2px 12px" } },
     h("div", { className: "flex items-center", style: { gap: 9, flex: 1, minWidth: 0 } },
       h("span", { "aria-hidden": "true", style: { width: 8, height: 8, borderRadius: 99, background: TAKE_CORAL, boxShadow: "0 0 0 5px rgba(216,111,98,.10)" } }),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(20), color: TAKE_INK } }, title)),
-    right ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: TAKE_DIM } }, right) : null);
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: TAKE_INK } }, title)),
+    right ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: TAKE_DIM } }, right) : null);
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", { "data-wk": "pbtn", "data-part": "peek",
     onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
     className: "w-full active:opacity-60",
-    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: pfs(12),
+    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e9e4da"), color: tier === "hidden" ? "#b6473c" : "#5b564e" }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const noteLine = txt => h("div", { className: "flex", style: { gap: 7, marginTop: 11 } },
-    h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: pfs(12.5), color: TAKE_CORAL } }, "备注 ·"),
-    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: "#8a7a5e" } }, txt));
+    h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TAKE_CORAL } }, "备注 ·"),
+    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#8a7a5e" } }, txt));
   const initial = x => String(x || "?").trim().slice(0, 1);
   // ── 账户条 ──
   const accCard = card([
@@ -2680,18 +2678,18 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       h("div", { style: { width: 48, height: 48, borderRadius: 15, flexShrink: 0, background: "linear-gradient(150deg,#d08a4e," + TAKE_ACCENT + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "takeout", size: 23, color: "#fff" })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center flex-wrap", style: { gap: 7 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(19), color: TAKE_INK } }, acc.name || char.remark || char.name),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: TAKE_INK } }, acc.name || char.remark || char.name),
           // 会员等级不画：那是平台发的头衔，换个角色照样成立
           null),
-        acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: TAKE_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null)),
+        acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null)),
     (ms || acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f3f1ec" } },
       // 同上：以钱包流水为准，没建档才用模型那份
       [[ms ? ms.orders : (acc.monthOrders != null ? acc.monthOrders : "--"), "本月单数"],
        [ms ? fmtMoney(ms.spend, char.id) : (acc.monthSpend != null ? fmtMoney(acc.monthSpend, char.id) : "--"), "本月吃掉"]].map(([n, l], i) =>
         h("div", { key: i, className: "flex-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(20), color: TAKE_INK } }, n),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: TAKE_DIM, marginTop: 3 } }, l)))) : null,
-    acc.persona ? h("div", { key: "p", style: { marginTop: 14, fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.7, color: "#5b564e" } }, PTX(acc.persona)) : null
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: TAKE_INK } }, n),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 3 } }, l)))) : null,
+    acc.persona ? h("div", { key: "p", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#5b564e" } }, PTX(acc.persona)) : null
   ]);
   // ── 今日落点 ──
   const todayCard = (today.shop || today.main) ? h("div", { "data-wk": "block", key: "td", style: { background: "rgba(255,255,255,.92)", borderRadius: 18, overflow: "hidden", marginBottom: 15, boxShadow: "0 8px 24px rgba(53,78,73,.08)" } },
@@ -2700,27 +2698,27 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("span", { style: { width: 9, height: 9, borderRadius: 99, background: "#fff" } })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center flex-wrap", style: { gap: 8 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), color: TAKE_INK } }, PTX(today.addrLabel || "家")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: TAKE_ACCENT, background: "rgba(95,127,121,.11)", borderRadius: 6, padding: "3px 8px" } }, "送这里")),
-        today.addrDetail ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: TAKE_DIM, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(today.addrDetail)) : null),
-      today.date ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(12), color: TAKE_DIM } }, today.date) : null),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: TAKE_INK } }, PTX(today.addrLabel || "家")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: TAKE_ACCENT, background: "rgba(95,127,121,.11)", borderRadius: 6, padding: "3px 8px" } }, "送这里")),
+        today.addrDetail ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(today.addrDetail)) : null),
+      today.date ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: TAKE_DIM } }, today.date) : null),
     h("div", { style: { padding: "16px 17px 17px" } },
       h("div", { className: "flex items-start", style: { gap: 13 } },
         h("div", { style: { width: 66, height: 66, borderRadius: 14, flexShrink: 0, position: "relative", background: "linear-gradient(150deg,#dda86e,#b06a35)", display: "flex", alignItems: "center", justifyContent: "center" } },
-          today.meal ? h("span", { style: { position: "absolute", left: -3, top: -8, fontFamily: F_BODY, fontSize: pfs(10.5), color: "#fff", background: TAKE_CORAL, borderRadius: 6, padding: "2px 7px" } }, PTX(today.meal)) : null,
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(27), color: "#fff" } }, initial(today.shop))),
+          today.meal ? h("span", { style: { position: "absolute", left: -3, top: -8, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#fff", background: TAKE_CORAL, borderRadius: 6, padding: "2px 7px" } }, PTX(today.meal)) : null,
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(27px * var(--app-fs, 1))", color: "#fff" } }, initial(today.shop))),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16.5), lineHeight: 1.4, color: TAKE_INK } }, PTX(today.shop || "")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.4, color: TAKE_INK } }, PTX(today.shop || "")),
           // 评分和配送方式不画：那是平台给陌生人看的信用背书，跟这个人无关。
           // 只留「几点送到」——那是TA这一天的时间。
-          today.eta ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: TAKE_DIM, marginTop: 6 } }, today.eta) : null)),
+          today.eta ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 6 } }, today.eta) : null)),
 
       today.main ? h("div", { className: "flex", style: { gap: 7, marginTop: 13 } },
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(13.5), color: TAKE_DIM } }, "主推 ·"),
-        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.55, color: TAKE_INK } }, PTX(today.main))) : null,
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: TAKE_DIM } }, "主推 ·"),
+        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.55, color: TAKE_INK } }, PTX(today.main))) : null,
       // 大号红价格 + 绿色状态胶囊是收银台的语言。这一顿真正的内容是那句备注，
       // 所以钱和状态降成一行小字，备注留在下面当落点。
-      (today.amount != null || today.status) ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: TAKE_DIM, marginTop: 13 } },
+      (today.amount != null || today.status) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 13 } },
         [today.amount != null ? fmtMoney(today.amount, char.id) : "", today.status || ""].filter(Boolean).join(" · ")) : null,
       today.note ? noteLine(today.note) : null,
       h("div", null, peekBtn("quiet", T("他今天点的"), today.shop, [today.main, today.note].filter(Boolean).join("｜"))))) : null;
@@ -2729,13 +2727,13 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("div", { className: "flex overflow-x-auto", style: { gap: 11, paddingBottom: 4, scrollbarWidth: "none", marginBottom: 13 } },
       shops.map((sp, i) => h("div", { "data-wk": "block", key: i, style: { width: 196, flexShrink: 0, background: "#fff", borderRadius: 15, overflow: "hidden" } },
         h("div", { style: { height: 76, position: "relative", background: "linear-gradient(150deg," + cov(sp.cover != null ? sp.cover : i)[0] + "," + cov(sp.cover != null ? sp.cover : i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
-          h("div", { style: { width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,.82)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(19), color: "#5a5148" } }, initial(sp.name)),
-          sp.times ? h("span", { style: { position: "absolute", right: 7, top: 7, fontFamily: F_BODY, fontSize: pfs(10.5), color: "#fff", background: "rgba(0,0,0,.35)", borderRadius: 7, padding: "3px 8px" } }, sp.times) : null),
+          h("div", { style: { width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,.82)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: "#5a5148" } }, initial(sp.name)),
+          sp.times ? h("span", { style: { position: "absolute", right: 7, top: 7, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.35)", borderRadius: 7, padding: "3px 8px" } }, sp.times) : null),
         h("div", { style: { padding: "11px 12px 13px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: TAKE_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(sp.name || "")),
-          sp.usual ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: TAKE_DIM, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "常点 · " + sp.usual) : null,
-          sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#e8863a", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(sp.why)) : null,
-          sp.last ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#b8b2a8", marginTop: 6 } }, PTX(sp.last)) : null))))) : null;
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: TAKE_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(sp.name || "")),
+          sp.usual ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "常点 · " + sp.usual) : null,
+          sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#e8863a", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(sp.why)) : null,
+          sp.last ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#b8b2a8", marginTop: 6 } }, PTX(sp.last)) : null))))) : null;
   // ── 进行中（四段进度）──
   const liveSec = live.length ? h("section", { key: "lv" }, secTitle("还在路上", characterText(char, "他这会儿等着的")),
     live.map((it, i) => {
@@ -2744,16 +2742,16 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("div", { className: "flex items-center justify-between", style: { padding: "13px 16px", background: "#fff8e6" } },
           h("div", { className: "flex items-center", style: { gap: 8 } },
             h("span", { style: { width: 9, height: 9, borderRadius: 99, background: "#f0523a" } }),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), color: "#f0523a" } }, PTX(it.status || "配送中"))),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: TAKE_DIM } }, it.eta || "")),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#f0523a" } }, PTX(it.status || "配送中"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TAKE_DIM } }, it.eta || "")),
         h("div", { style: { padding: "15px 16px 17px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: TAKE_INK } }, PTX(it.shop || "")),
-          it.items ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.7, color: "#6b665e", marginTop: 7 } }, it.items) : null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: TAKE_INK } }, PTX(it.shop || "")),
+          it.items ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#6b665e", marginTop: 7 } }, it.items) : null,
           // 四段进度条和骑手名是平台的部件——TA等的是一顿饭，不是等一个进度条走完。
           // 只留一行「等到几点」。
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 13 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: TAKE_DIM } }, it.eta ? "等到 " + it.eta : ""),
-            it.amount != null ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: TAKE_DIM } }, fmtMoney(it.amount, char.id)) : null),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TAKE_DIM } }, it.eta ? "等到 " + it.eta : ""),
+            it.amount != null ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TAKE_DIM } }, fmtMoney(it.amount, char.id)) : null),
           it.note ? noteLine(it.note) : null));
     })) : null;
   // ── 吃过的记录：默认是紧凑时间档案，点开才看收据细节 ──
@@ -2765,23 +2763,23 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("button", { onClick: () => setOpen(expanded ? null : i), className: "w-full text-left active:opacity-60", "aria-expanded": expanded },
           h("div", { className: "flex items-start", style: { gap: 12 } },
             h("div", { style: { width: 44, flexShrink: 0, textAlign: "center" } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(13), color: TAKE_ACCENT } }, (o.meal || "一顿").slice(0, 2)),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: TAKE_ACCENT } }, (o.meal || "一顿").slice(0, 2)),
               h("div", { style: { width: 1, height: 18, background: TAKE_LINE, margin: "6px auto 0" } })),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-start justify-between", style: { gap: 10 } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.4, color: TAKE_INK } }, PTX(o.shop || "")),
-                h("span", { style: { fontFamily: F_BODY, fontSize: pfs(14), color: TAKE_CORAL, flexShrink: 0 } }, o.amount != null ? fmtMoney(o.amount, char.id) : "")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: TAKE_DIM, marginTop: 4 } }, [o.time, o.status].filter(Boolean).join(" · ")),
-              o.main ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.55, color: TAKE_BODY, marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" } }, PTX(o.main)) : null)),
-          h("div", { style: { marginLeft: 56, marginTop: 7, fontFamily: F_BODY, fontSize: pfs(10.5), color: TAKE_DIM } }, expanded ? "收起这一顿 ↑" : "展开这一顿 ↓")),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.4, color: TAKE_INK } }, PTX(o.shop || "")),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: TAKE_CORAL, flexShrink: 0 } }, o.amount != null ? fmtMoney(o.amount, char.id) : "")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 4 } }, [o.time, o.status].filter(Boolean).join(" · ")),
+              o.main ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: TAKE_BODY, marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" } }, PTX(o.main)) : null)),
+          h("div", { style: { marginLeft: 56, marginTop: 7, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: TAKE_DIM } }, expanded ? "收起这一顿 ↑" : "展开这一顿 ↓")),
         expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: TAKE_SOFT } },
-          A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: pfs(12.5), color: TAKE_BODY } },
+          A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TAKE_BODY } },
             h("span", { className: "flex-1 min-w-0" }, PTX(x.name || "")), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price, char.id)))),
           // 星星不画：那是给平台看的刻度。TA亲口写的那句评价才是TA说的话。
-          o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + TAKE_LINE, fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: TAKE_BODY } }, o.rating) : null,
-          o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,
+          o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + TAKE_LINE, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: TAKE_BODY } }, o.rating) : null,
+          o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,
           o.note ? noteLine(o.note) : null,
-          o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: TAKE_BODY, marginTop: 9 } }, PTX(o.reason)) : null,
+          o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: TAKE_BODY, marginTop: 9 } }, PTX(o.reason)) : null,
           peekBtn("quiet", T("他点的外卖"), (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜"))) : null);
     }))) : null;
   // ── 吃这件事上的三问（v59.18）──
@@ -2793,12 +2791,12 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   //   什么时候吃 → 几点、饿到什么程度才想起来，连着预算一起说
   // 字段沿用旧的那几个，老存档照样读得出来。
   const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid " + TAKE_LINE } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: TAKE_DIM, marginBottom: 9 } }, q),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: TAKE_DIM, marginBottom: 9 } }, q),
     node);
   const lines = (list, tone) => h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
     A(list).map((x, i) => h("div", { key: i, className: "flex", style: { gap: 9 } },
       h("span", { style: { width: 5, height: 5, borderRadius: 99, marginTop: 9, flexShrink: 0, background: tone === "warn" ? TAKE_CORAL : TAKE_ACCENT } }),
-      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(15), lineHeight: 1.7, color: TAKE_INK, wordBreak: "break-word" } }, x))));
+      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: TAKE_INK, wordBreak: "break-word" } }, x))));
   // 每次下单都写的那句：从订单/今天的备注里找出现得最多的那一条
   const stockNote = (function () {
     const tally = {};
@@ -2814,10 +2812,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃这件事上", characterText(char, "他的挑剔")),
     h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "2px 16px 8px", marginBottom: 13 } },
       A(taste.avoidTags).length ? askRow(T("他嫌什么——不是嫌这样东西，是嫌它哪一点"), lines(taste.avoidTags, "warn")) : null,
-      stockNote ? askRow(T("他每次都写的那句"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.75, color: TAKE_INK } },
-        stockNote.text, stockNote.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: TAKE_DIM, marginLeft: 8 } }, "写过 " + stockNote.n + " 次") : null)) : null,
+      stockNote ? askRow(T("他每次都写的那句"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.75, color: TAKE_INK } },
+        stockNote.text, stockNote.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: TAKE_DIM, marginLeft: 8 } }, "写过 " + stockNote.n + " 次") : null)) : null,
       likeAll.length ? askRow("怎么都不腻的那几样", lines(likeAll)) : null,
-      (taste.habit || taste.budget) ? askRow("什么时候才想起吃", h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), lineHeight: 1.8, color: TAKE_INK } },
+      (taste.habit || taste.budget) ? askRow("什么时候才想起吃", h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.8, color: TAKE_INK } },
         [taste.habit, taste.budget].filter(Boolean).join("　"))) : null),
     peekBtn("quiet", T("他的挑剔"), T("他吃东西的样子"), [A(taste.avoidTags).length ? "嫌：" + A(taste.avoidTags).join("、") : "", stockNote ? "每次都写：" + stockNote.text : "", taste.habit].filter(Boolean).join("｜"))) : null;
   // ── 这七天（v59.36 改成 orders 上的一扇窗）────────────────────────────────
@@ -2848,10 +2846,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             // 左边这一列是那根线：换天时露出日子，同一天里就只剩一节线接着往下
             h("div", { style: { width: 20, flexShrink: 0, textAlign: "center" } },
               ri === 0
-                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(13), color: d.today ? TAKE_CORAL : TAKE_ACCENT } }, d.zh)
+                ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: d.today ? TAKE_CORAL : TAKE_ACCENT } }, d.zh)
                 : h("span", { "aria-hidden": "true", style: { display: "block", width: 1, height: 18, margin: "2px auto 0", background: TAKE_LINE } })),
             h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 99, marginTop: 7, flexShrink: 0, background: empty ? "transparent" : late ? TAKE_CORAL : TAKE_LINE, border: empty ? "1px dashed " + TAKE_MUTE : "none" } }),
-            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.6, color: empty ? TAKE_MUTE : TAKE_BODY, fontStyle: empty ? "italic" : "normal", wordBreak: "break-word" } },
+            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: empty ? TAKE_MUTE : TAKE_BODY, fontStyle: empty ? "italic" : "normal", wordBreak: "break-word" } },
               x && x.o.meal ? h("span", { style: { color: late ? TAKE_CORAL : TAKE_DIM, marginRight: 7 } }, x.o.meal) : null,
               body));
         });
@@ -2863,10 +2861,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("收货地址"),
     card(addrs.map((a, i) => h("div", { "data-wk": "block", key: i, style: { borderRadius: 12, padding: "13px 14px", marginTop: i ? 10 : 0, background: a.isDefault ? "#fffbef" : "#f7f6f3", border: "1px solid " + (a.isDefault ? "#f4e6bb" : "transparent") } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: TAKE_INK } }, a.label || ""),
-        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: "#fff", background: TAKE_ACCENT, borderRadius: 5, padding: "3px 8px" } }, "默认") : null,
-        a.tail ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: pfs(12.5), color: TAKE_DIM } }, PTX(a.tail)) : null),
-      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.75, color: "#8a847b", marginTop: 7 } }, PTX(a.detail)) : null,
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: TAKE_INK } }, a.label || ""),
+        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#fff", background: TAKE_ACCENT, borderRadius: 5, padding: "3px 8px" } }, "默认") : null,
+        a.tail ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: TAKE_DIM } }, PTX(a.tail)) : null),
+      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.75, color: "#8a847b", marginTop: 7 } }, PTX(a.detail)) : null,
       !a.isDefault ? h("div", null, peekBtn("hidden", "外卖常用地址", a.label, a.detail)) : null)))) : null;
   // ── 想吃清单 ──
   // ⚠️标题独占一行：跟指标名那次一样，中文在窄 flex 里会被压成一条竖字
@@ -2875,8 +2873,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     card(wish.map((w, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #f3f1ec" : "none" } },
       h("div", { className: "flex items-start", style: { gap: 9 } },
         h("span", { style: { width: 7, height: 7, borderRadius: 99, marginTop: 8, flexShrink: 0, background: TAKE_CORAL } }),
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.6, color: TAKE_INK, wordBreak: "break-word" } }, PTX(w.title || ""))),
-      w.when ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.6, color: TAKE_INK, wordBreak: "break-word" } }, PTX(w.title || ""))),
+      w.when ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
     ), peekBtn("quiet", T("他想吃的"), wish.map(w => w.title).filter(Boolean).slice(0, 3).join("、"), wish.map(w => (w.title || "") + "（" + (w.when || "") + "）").join("｜"))) : null;
   // ── 送到别人那儿（v59.36，顶掉了「饭桌上的人」）──────────────────────────
   // 她 2026-09-01：「和谁吃还是不行去重不了，不然我们想想直接换一个板块吧」。
@@ -2903,17 +2901,17 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } },
       feeds.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none" } },
         h("div", { className: "flex items-start", style: { gap: 12 } },
-          h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(16), color: TAKE_INK } }, initial(g.where)),
+          h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: TAKE_INK } }, initial(g.where)),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.45, color: TAKE_INK, wordBreak: "break-word" } }, PTX(g.where)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: TAKE_DIM, marginTop: 4 } }, "送过 " + g.rows.length + " 次"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.45, color: TAKE_INK, wordBreak: "break-word" } }, PTX(g.where)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: TAKE_DIM, marginTop: 4 } }, "送过 " + g.rows.length + " 次"),
             g.rows.slice(0, 3).map((x, j) => h("button", {
               key: j, className: "w-full text-left active:opacity-60",
               onClick: () => { setTab("rhythm"); setOpen(x.idx); requestAnimationFrame(() => { const el = document.getElementById("tk-od-" + x.idx); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "auto" }); }); },
               style: { display: "block", marginTop: 9, padding: "10px 12px", borderRadius: "4px 12px 12px 12px", background: TAKE_SOFT }
             },
-              h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.55, color: TAKE_ACCENT } }, [x.o.time, x.o.shop, x.o.main].filter(Boolean).join(" · ")),
-              x.o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.75, color: TAKE_BODY, marginTop: 5 } }, x.o.reason) : null)))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: TAKE_ACCENT } }, [x.o.time, x.o.shop, x.o.main].filter(Boolean).join(" · ")),
+              x.o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: TAKE_BODY, marginTop: 5 } }, x.o.reason) : null)))),
         h("div", { style: { marginLeft: 54 } }, peekBtn("quiet", T("他送到别人那儿的那几单"), g.where, g.rows.slice(0, 3).map(x => [x.o.shop, x.o.main, x.o.reason].filter(Boolean).join("·")).join("｜"))))))) : null;
   // ── 合起来看（v59.35）──
   // 原来叫「吃饭侧写」，顶上摆三块彩色数字（记下的餐 / 深夜落点 / 同桌的人）。
@@ -2926,8 +2924,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 所以这一格干脆做成一页纸：正文一段，TA的话另起一行、用TA自己的口气收尾。
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("合起来看", characterText(char, "这一周他是这么吃的")),
     h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "17px 17px 18px", marginBottom: 13 } },
-      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.95, color: TAKE_BODY } }, PTX(data.monthNote)) : null,
-      data.tail ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), lineHeight: 1.8, color: TAKE_INK, marginTop: data.monthNote ? 15 : 0, paddingLeft: 12, borderLeft: "2px solid " + TAKE_CORAL } }, PTX(data.tail)) : null)) : null;
+      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.95, color: TAKE_BODY } }, PTX(data.monthNote)) : null,
+      data.tail ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.8, color: TAKE_INK, marginTop: data.monthNote ? 15 : 0, paddingLeft: 12, borderLeft: "2px solid " + TAKE_CORAL } }, PTX(data.tail)) : null)) : null;
   // 外卖不再按平台后台的「点餐 / 订单 / 口味 / 我的」分仓，而按角色生活阅读：
   // 这一顿发生了什么、长期怎么喂饱自己、饭和哪些人发生过关系。
   // 字段仍兼容旧存档，改变的是组合与叙事顺序，不拿改名冒充原创。
@@ -2954,10 +2952,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, "data-wk": "ptab", "data-on": tab === pg.key ? "1" : "0", "data-watch": "tab:" + pg.key,
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
     h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM }),
-    pg.badge ? h("span", { style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: TAKE_CORAL, color: "#fff", fontFamily: F_BODY, fontSize: pfs(9.5), display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge > 99 ? "99+" : pg.badge) : null),
+    pg.badge ? h("span", { style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: TAKE_CORAL, color: "#fff", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "takeout", style: { background: "radial-gradient(circle at 88% 4%,rgba(216,166,116,.38),transparent 31%),linear-gradient(180deg,#efe0cc 0%," + TAKE_BG + " 34%," + TAKE_BG + " 100%)" } },
     chrome,
@@ -2967,8 +2965,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             skin: { ink: TAKE_INK, dim: TAKE_DIM, soft: "#fff", accent: TAKE_CORAL, radius: 15 } }))
       : null,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-      h("div", { "data-wk": "block", style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: TAKE_DIM } }, PTX(page.lead)),
-      body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
+      h("div", { "data-wk": "block", style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: TAKE_DIM } }, PTX(page.lead)),
+      body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
     nav,
     // TA刚点进去的那一家店／那一道菜
     watchPageNode(drive, { bg: TAKE_BG, ink: TAKE_INK, dim: TAKE_DIM, line: TAKE_LINE, body: TAKE_BODY, mark: TAKE_CORAL }));
@@ -3051,7 +3049,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   const peekBtn = (label, title, text) => onPeek ? h("button", { "data-wk": "pbtn", "data-part": "peek",
     onClick: e => { e.stopPropagation(); onPeek({ tier: "quiet", label, title, text }); },
     className: "w-full active:opacity-60",
-    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: pfs(12), border: "1px solid " + HEALTH_LINE, color: HEALTH_BODY }
+    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", border: "1px solid " + HEALTH_LINE, color: HEALTH_BODY }
   }, T("转发给 TA · 他会知道你翻了手机")) : null;
   // 附注小表：一项读数底下那几个分解数。原来是「小标签 + 17px 大数」两栏——
   // 那还是仪表盘那一套（大数是仪表盘的主角）。化验单里这种东西是【附注】，
@@ -3061,14 +3059,14 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
     if (!rows.length) return null;
     return h("div", { style: { marginTop: 9, marginLeft: 9, paddingLeft: 11, borderLeft: "1px solid " + HEALTH_LINE } },
       rows.map((x, i) => h("div", { key: i, className: "flex items-baseline", style: { paddingTop: i ? 4 : 0 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.5, color: HEALTH_DIM } }, x.k || ""),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: HEALTH_DIM } }, x.k || ""),
         h("span", { "aria-hidden": "true", style: { flex: 1, minWidth: 10, margin: "0 6px", borderBottom: "1px dotted " + HEALTH_LINE, transform: "translateY(-3px)" } }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), lineHeight: 1.5, color: HEALTH_BODY, flexShrink: 0, whiteSpace: "nowrap" } }, x.v || ""))));
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5, color: HEALTH_BODY, flexShrink: 0, whiteSpace: "nowrap" } }, x.v || ""))));
   };
   // 角色给这一项改了名之后，底下用小字标一句它到底是哪一项——
   // 不然「今日行脚」是步数还是活动消耗，只有模型自己知道（她要的「统一」就是为了这个）
   const stdSub = c => (c._zh && String(c.name || "").trim() !== c._zh)
-    ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: HEALTH_DIM, marginTop: 3 } }, c._zh) : null;
+    ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM, marginTop: 3 } }, c._zh) : null;
   // ── 读数：化验单的一行，不是仪表盘的一张卡（v62.53）────────────────
   // 注释里从 v59.44 起就写着「病历不是仪表盘：一份病历只有一种墨」，
   // 纸上却一直是白圆角卡 + 顶上一条 4px 彩带 + 33px 大数字 + 圆角 chip ——
@@ -3089,20 +3087,20 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
     return h("div", { key: i, "data-wk": "pitem", "data-watch": "item:" + (c.name || ""), style: { padding: "12px 0 13px", borderBottom: last ? "none" : "1px solid " + HEALTH_LINE } },
       h("div", { className: "flex items-baseline" },
         // 左边那道栏外的记号：异常才有，一笔就够
-        h("span", { "aria-hidden": "true", style: { width: 9, flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(12), color: HEALTH_ALERT, lineHeight: 1 } }, alert ? "·" : ""),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), lineHeight: 1.4, color: HEALTH_INK, wordBreak: "break-word" } }, PTX(c.name || "")),
+        h("span", { "aria-hidden": "true", style: { width: 9, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: HEALTH_ALERT, lineHeight: 1 } }, alert ? "·" : ""),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.4, color: HEALTH_INK, wordBreak: "break-word" } }, PTX(c.name || "")),
         h("span", { "aria-hidden": "true", style: DOTS }),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16.5), lineHeight: 1.3, color: ink, flexShrink: 0, whiteSpace: "nowrap" } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.3, color: ink, flexShrink: 0, whiteSpace: "nowrap" } },
           c.value != null ? String(c.value) : "—",
-          c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: HEALTH_DIM, marginLeft: 2 } }, c.unit) : null)),
+          c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: HEALTH_DIM, marginLeft: 2 } }, c.unit) : null)),
       // 改了名的那一项：标准名跟着走小字，跟数值那一列对不齐也没关系，它是注解
       (stdSub(c) || c.tag) ? h("div", { className: "flex items-baseline", style: { gap: 8, marginTop: 4, paddingLeft: 9 } },
         c._zh && String(c.name || "").trim() !== c._zh
-          ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: HEALTH_DIM } }, c._zh) : null,
-        c.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: alert ? HEALTH_ALERT : HEALTH_DIM } }, PTX(c.tag)) : null) : null,
-      c.note ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8, color: HEALTH_BODY, marginTop: 7, paddingLeft: 9 } }, PTX(c.note)) : null,
+          ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM } }, c._zh) : null,
+        c.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: alert ? HEALTH_ALERT : HEALTH_DIM } }, PTX(c.tag)) : null) : null,
+      c.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: HEALTH_BODY, marginTop: 7, paddingLeft: 9 } }, PTX(c.note)) : null,
       statGrid(c.stats),
-      c.quote ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.8, color: HEALTH_DIM, marginTop: 9, paddingLeft: 9, fontStyle: "italic" } }, "「" + c.quote + "」") : null);
+      c.quote ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: HEALTH_DIM, marginTop: 9, paddingLeft: 9, fontStyle: "italic" } }, "「" + c.quote + "」") : null);
   };
   // 一整档＝一张化验单：白纸、上下两道横杠夹着一行表头、里面一行一项。
   // 表头那两道杠是化验单最认得出来的那个记号（上粗下细），比什么图标都管用。
@@ -3114,11 +3112,11 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
       // ⚠️不要在这儿把 tab 名再写一遍——顶栏已经写着「体征」了，写两遍是通用卡片的习惯。
       h("div", { style: { borderBottom: "2px solid " + HEALTH_INK, paddingTop: 15 } },
         h("div", { className: "flex items-baseline justify-between", style: { paddingBottom: 7, gap: 10 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), color: HEALTH_INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (char && char.name) || "本人"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: HEALTH_DIM, flexShrink: 0 } }, "今天 · " + list.length + " 项"))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: HEALTH_INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (char && char.name) || "本人"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM, flexShrink: 0 } }, "今天 · " + list.length + " 项"))),
       h("div", { className: "flex items-baseline justify-between", style: { borderTop: "1px solid " + HEALTH_INK, borderBottom: "1px solid " + HEALTH_LINE, marginTop: 2, padding: "6px 0 5px" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".1em", color: HEALTH_DIM, paddingLeft: 9 } }, "项目"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".1em", color: HEALTH_DIM } }, "结果")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: HEALTH_DIM, paddingLeft: 9 } }, "项目"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: HEALTH_DIM } }, "结果")),
       h("div", null, list.map((c, i) => labRow(c, i, i === list.length - 1))),
       onPeek ? peekBtn("健康 · " + title, title, list.map(c => (c.name || "") + " " + (c.value != null ? c.value : "") + (c.unit || "")).join("｜")) : null);
   };
@@ -3137,38 +3135,38 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   const [visitOpen, setVisitOpen] = useState(false);
   const dateZh = v => { const m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(v || "")); return m ? (+m[2]) + "月" + (+m[3]) + "日" : String(v || ""); };
   const chartRow = (label, txt, alert) => txt ? h("div", { style: { marginTop: 13 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), letterSpacing: ".04em", color: alert ? HEALTH_ALERT : HEALTH_DIM, marginBottom: 5 } }, label),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.85, color: alert ? HEALTH_INK : HEALTH_BODY, wordBreak: "break-word" } }, txt)) : null;
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".04em", color: alert ? HEALTH_ALERT : HEALTH_DIM, marginBottom: 5 } }, label),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.85, color: alert ? HEALTH_INK : HEALTH_BODY, wordBreak: "break-word" } }, txt)) : null;
   // 一次就诊＝一张处方笺：方角、纸色、抬头下面压一道实线。圆角 16 的白卡是通用卡片，
   // 不是病历里的任何一样东西（审美审计 2026-09-04）。
   const visitCard = (v, i2, folded) => h("div", { "data-wk": "block", key: i2, style: { background: "#fdfdfa", borderRadius: 3, padding: folded ? "13px 16px" : "16px 18px 20px", marginBottom: 10, boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
     h("div", { className: "flex items-baseline justify-between", style: { gap: 10, paddingBottom: 7, borderBottom: folded ? "none" : "1px solid " + HEALTH_INK } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: folded ? 15 : 18, color: HEALTH_INK, minWidth: 0 } }, PTX(v.who || "大夫")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: HEALTH_DIM, flexShrink: 0 } }, dateZh(v.date))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: HEALTH_DIM, flexShrink: 0 } }, dateZh(v.date))),
     folded
-      ? (v.impression ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: HEALTH_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(v.impression)) : null)
+      ? (v.impression ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: HEALTH_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(v.impression)) : null)
       : h("div", null,
           // TA说的 ↔ 身上显示的：并排两栏，中间一条竖线，落差自己跳出来
           h("div", { className: "flex", style: { gap: 12, marginTop: 14 } },
             h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: HEALTH_DIM, marginBottom: 5 } }, characterText(char, "他说的")),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), lineHeight: 1.75, color: HEALTH_BODY, wordBreak: "break-word" } }, PTX(v.chief || "—"))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: HEALTH_DIM, marginBottom: 5 } }, characterText(char, "他说的")),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.75, color: HEALTH_BODY, wordBreak: "break-word" } }, PTX(v.chief || "—"))),
             h("div", { "aria-hidden": "true", style: { width: 1, background: HEALTH_LINE, flexShrink: 0 } }),
             h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: HEALTH_ACCENT, marginBottom: 5 } }, "身上显示的"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), lineHeight: 1.75, color: HEALTH_INK, wordBreak: "break-word" } }, PTX(v.exam || "—")))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: HEALTH_ACCENT, marginBottom: 5 } }, "身上显示的"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.75, color: HEALTH_INK, wordBreak: "break-word" } }, PTX(v.exam || "—")))),
           chartRow("印象", v.impression),
           chartRow("医嘱", v.orders, true),
-          v.followup ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.75, color: HEALTH_ALERT, marginTop: 13, paddingTop: 12, borderTop: "1px dashed " + HEALTH_LINE } }, PTX(v.followup)) : null,
+          v.followup ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, color: HEALTH_ALERT, marginTop: 13, paddingTop: 12, borderTop: "1px dashed " + HEALTH_LINE } }, PTX(v.followup)) : null,
           onPeek ? peekBtn(characterText(char, "他的病历"), v.who || "大夫", [v.chief, v.exam, v.impression, v.orders, v.followup].filter(Boolean).join("｜")) : null));
   const headCard = h("div", { key: "hd", style: { marginBottom: 20 } },
     h("div", { className: "flex items-baseline justify-between", style: { padding: "2px 4px 12px", gap: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(26), color: HEALTH_INK } }, "病历"),
-      visits.length > 1 ? h("button", { onClick: () => setVisitOpen(o => !o), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: pfs(12), color: HEALTH_ACCENT, flexShrink: 0 } }, visitOpen ? "只看最近一次" : "看过 " + visits.length + " 次") : null),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(26px * var(--app-fs, 1))", color: HEALTH_INK } }, "病历"),
+      visits.length > 1 ? h("button", { onClick: () => setVisitOpen(o => !o), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: HEALTH_ACCENT, flexShrink: 0 } }, visitOpen ? "只看最近一次" : "看过 " + visits.length + " 次") : null),
     visits.length
       ? h("div", null, (visitOpen ? visits : visits.slice(0, 1)).map((v, i2) => visitCard(v, i2, visitOpen && i2 > 0)))
-      : h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8, color: HEALTH_DIM } }, characterText(char, "他还没看过大夫。下面这些是身上的读数。")),
-    data.since ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.8, color: HEALTH_DIM, padding: "4px 6px 0" } }, "自那之后 · " + data.since) : null);
+      : h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: HEALTH_DIM } }, characterText(char, "他还没看过大夫。下面这些是身上的读数。")),
+    data.since ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: HEALTH_DIM, padding: "4px 6px 0" } }, "自那之后 · " + data.since) : null);
   // ── 这一段时间的综合分（每日轻量快照，不是把整份报告天天累计）──
   // 报告本身代表【今天】，每次照实重写；趋势另存一条一天一个数的线。
   const vt = A(vitals).filter(x => x && x.score != null && isFinite(Number(x.score))).slice(0, 30).reverse();
@@ -3187,8 +3185,8 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
     const ys = v => (H - PAD) - (Math.max(0, Math.min(100, v)) / 100) * (H - PAD * 2);
     const pts = vt.map((x, k) => [xs(k), ys(Number(x.score))]);
     return h("section", { key: "vt", style: { marginTop: 16 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(24), color: HEALTH_INK, padding: "6px 4px 4px" } }, "体温单"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: HEALTH_DIM, padding: "0 4px 12px" } }, "过去 " + n + " 天这条线的样子"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: HEALTH_INK, padding: "6px 4px 4px" } }, "体温单"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: HEALTH_DIM, padding: "0 4px 12px" } }, "过去 " + n + " 天这条线的样子"),
       h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "14px 16px 10px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
         h("svg", { viewBox: "0 0 " + W + " " + H, style: { display: "block", width: "100%", height: "auto" }, "aria-hidden": "true" },
           // 横四道：体温单的格纸
@@ -3199,8 +3197,8 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
           h("polyline", { points: pts.map(p => p.join(",")).join(" "), fill: "none", stroke: HEALTH_INK, strokeWidth: 1.2, strokeLinejoin: "round", strokeLinecap: "round" }),
           pts.map((p, k) => h("circle", { key: "c" + k, cx: p[0], cy: p[1], r: k === n - 1 ? 3 : 1.8, fill: k === n - 1 ? HEALTH_ALERT : HEALTH_INK }))),
         h("div", { className: "flex items-center justify-between", style: { marginTop: 7 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: HEALTH_DIM } }, String(vt[0].day || "").slice(5)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: HEALTH_DIM } }, "今天"))));
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM } }, String(vt[0].day || "").slice(5)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM } }, "今天"))));
   })() : null;
   // ── 今日轨迹 ──
   const timeline = A(data.timeline);
@@ -3208,23 +3206,23 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   // 原来是「白圆角卡 + 左边 4px 彩条」，那是通知列表的形状，而且三档色相
   // 又把「一份病历只有一种墨」这句话违了一遍。
   const timelineSec = timeline.length ? h("section", { key: "tl" },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(24), color: HEALTH_INK, padding: "6px 4px 4px" } }, "病程记录"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: HEALTH_DIM, padding: "0 4px 14px" } }, "今天这一天是怎么过的"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: HEALTH_INK, padding: "6px 4px 4px" } }, "病程记录"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: HEALTH_DIM, padding: "0 4px 14px" } }, "今天这一天是怎么过的"),
     h("div", { "data-wk": "block", style: { background: "#fdfdfa", borderRadius: 3, padding: "4px 16px 14px", boxShadow: "0 1px 0 rgba(37,48,42,.05), 0 6px 14px -12px rgba(37,48,42,.5)" } },
       timeline.map((it, i) => h("div", { key: i, className: "flex", style: { gap: 13, paddingTop: 14 } },
         h("div", { style: { width: 44, flexShrink: 0, textAlign: "right" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(12.5), lineHeight: 1.6, color: HEALTH_INK } }, it.time || "")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: HEALTH_INK } }, it.time || "")),
         // 那条竖线就是病程记录纸上那道分栏线：贯穿整段，不是每条各画一截
         h("div", { "aria-hidden": "true", style: { width: 1, flexShrink: 0, background: HEALTH_LINE, alignSelf: "stretch" } }),
         h("div", { style: { flex: 1, minWidth: 0, paddingBottom: 2 } },
-          it.tag ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: HEALTH_ACCENT, marginBottom: 3 } }, PTX(it.tag)) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.8, color: HEALTH_BODY } }, PTX(it.text || ""))))))) : null;
+          it.tag ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: HEALTH_ACCENT, marginBottom: 3 } }, PTX(it.tag)) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.8, color: HEALTH_BODY } }, PTX(it.text || ""))))))) : null;
   // ⚠️「健康洞察」整段撤了（v59.44）：那是健康 App 的固定小组件——三条短判断加解释，
   // 换个人照样成立。大夫要说的话已经在病历的【印象】和【医嘱】里，说两遍就是两处
   // 各说各的。TA自己那句念叨留着，接在今日轨迹后面。
   const tailSec = data.tail ? h("section", { key: "tl2" },
     h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: HEALTH_LINE, margin: "20px auto 14px" } }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.85, color: HEALTH_DIM, textAlign: "center", padding: "0 10px" } }, PTX(data.tail))) : null;
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.85, color: HEALTH_DIM, textAlign: "center", padding: "0 10px" } }, PTX(data.tail))) : null;
   // 同一档里按格位顺序排：这样谁的手机翻开都是同一个阅读顺序（她要的「统一」）。
   // 认不出格位的（老存档、模型自己多写的）排在后面，不打乱定死的那几项。
   const byGroup = g => cards.filter(c => healthGroupOf(c) === g)
@@ -3247,14 +3245,14 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => setTab(pg.key), "data-wk": "ptab", "data-on": tab === pg.key ? "1" : "0", "data-watch": "tab:" + pg.key,
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: tab === pg.key ? HEALTH_ACCENT : HEALTH_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tab === pg.key ? HEALTH_ACCENT : HEALTH_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
     h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? HEALTH_ACCENT : HEALTH_DIM })),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "health", style: { background: "linear-gradient(180deg,#f6f7f9 0%," + HEALTH_BG + " 40%," + HEALTH_BG + " 100%)" } },
     chrome,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 16px 24px" } },
-      body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: HEALTH_DIM } }, "这一页还是空的，点右上角刷一次")),
+      body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: HEALTH_DIM } }, "这一页还是空的，点右上角刷一次")),
     nav);
 }
 // ============================================================
@@ -3298,12 +3296,12 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     style: { background: "#fff", borderRadius: 10, overflow: "hidden", minWidth: 0 }
   }, h("div", { style: { position: "relative", aspectRatio: "16 / 10", background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")" } },
     h("div", { style: { position: "absolute", left: 6, bottom: 6, right: 6, display: "flex", justifyContent: "space-between", alignItems: "flex-end" } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.5)" } }, (v.views != null ? v.views + " 播放" : "")),
-      v.duration ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: "#fff", background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "1px 5px" } }, v.duration) : null),
-    A(v.myDanmaku).length ? h("span", { style: { position: "absolute", top: 6, left: 6, fontFamily: F_BODY, fontSize: pfs(9.5), color: "#fff", background: "rgba(251,114,153,.92)", borderRadius: 4, padding: "2px 6px" } }, "发过弹幕") : null),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.5)" } }, (v.views != null ? v.views + " 播放" : "")),
+      v.duration ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "1px 5px" } }, v.duration) : null),
+    A(v.myDanmaku).length ? h("span", { style: { position: "absolute", top: 6, left: 6, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(251,114,153,.92)", borderRadius: 4, padding: "2px 6px" } }, "发过弹幕") : null),
   h("div", { style: { padding: "8px 9px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.45, color: BILI_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(v.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title)),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: BILI_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.45, color: BILI_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(v.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: BILI_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
       (v.up || "") + (v.danmaku != null ? " · " + v.danmaku + " 弹幕" : ""))));
   const detail = open ? (function () {
     const v = open.v || {};
@@ -3317,27 +3315,27 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
         h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" } },
           h("div", { style: { width: 56, height: 56, borderRadius: 99, background: "rgba(255,255,255,.82)", display: "flex", alignItems: "center", justifyContent: "center" } },
             h("span", { style: { marginLeft: 4, borderLeft: "16px solid " + BILI_PINK, borderTop: "10px solid transparent", borderBottom: "10px solid transparent" } }))),
-        v.duration ? h("span", { style: { position: "absolute", right: 8, bottom: 8, fontFamily: F_BODY, fontSize: pfs(10), color: "#fff", background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "2px 6px" } }, v.duration) : null),
+        v.duration ? h("span", { style: { position: "absolute", right: 8, bottom: 8, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.55)", borderRadius: 3, padding: "2px 6px" } }, v.duration) : null),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 15px 24px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(18), lineHeight: 1.45, color: BILI_INK } }, PTX(v.title || "")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: BILI_DIM, marginTop: 8 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1.45, color: BILI_INK } }, PTX(v.title || "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: BILI_DIM, marginTop: 8 } },
           [v.views != null ? v.views + " 播放" : "", v.danmaku != null ? v.danmaku + " 弹幕" : "", v.tab].filter(Boolean).join(" · ")),
         h("div", { className: "flex items-center gap-2.5", style: { marginTop: 14, paddingTop: 13, paddingBottom: 13, borderTop: "1px solid #f0f1f2", borderBottom: "1px solid #f0f1f2" } },
-          h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(15) } }, String(v.up || "?").trim().slice(0, 1)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), color: BILI_INK } }, PTX(v.up || ""))),
-        v.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.8, color: "#61666d", marginTop: 13 } }, PTX(v.desc)) : null,
+          h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, String(v.up || "?").trim().slice(0, 1)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BILI_INK } }, PTX(v.up || ""))),
+        v.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "#61666d", marginTop: 13 } }, PTX(v.desc)) : null,
         A(v.myDanmaku).length ? h("div", { style: { marginTop: 18 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: BILI_PINK } }, T("他发过的弹幕")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: BILI_PINK } }, T("他发过的弹幕")),
           A(v.myDanmaku).map((dm, j) => h("div", {
-            key: j, style: { fontFamily: F_BODY, fontSize: pfs(13.5), color: BILI_INK, background: "rgba(251,114,153,.08)", border: "1px solid rgba(251,114,153,.24)", borderRadius: 999, padding: "7px 14px", marginTop: 9, display: "inline-block" }
+            key: j, style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: BILI_INK, background: "rgba(251,114,153,.08)", border: "1px solid rgba(251,114,153,.24)", borderRadius: 999, padding: "7px 14px", marginTop: 9, display: "inline-block" }
           }, dm))) : null,
         v.thought ? h("div", { "data-wk": "block", style: { marginTop: 18, background: "#f6f7f8", borderRadius: 12, padding: "13px 14px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: BILI_DIM } }, T("看完他想的")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.85, color: "#3f4348", marginTop: 6 } }, PTX(v.thought))) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: BILI_DIM } }, T("看完他想的")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: "#3f4348", marginTop: 6 } }, PTX(v.thought))) : null,
         onPeek ? h("button", {
           onClick: () => onPeek({ tier: "quiet", label: T("他看的视频"), title: v.title, text: [v.up, A(v.myDanmaku).length ? T("他发的弹幕：") + A(v.myDanmaku).join(" / ") : "", v.thought].filter(Boolean).join("｜") }),
           className: "w-full active:opacity-60",
-          style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid #e3e5e7", color: "#61666d" }
+          style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid #e3e5e7", color: "#61666d" }
         }, T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   const head = h("div", { "data-wk": "head", className: "shrink-0", style: { background: "#fff", paddingTop: safeTop(8) } },
@@ -3348,16 +3346,16 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
         ? h(window.PhoneWatch.WatchSearchPill, { typing: drive.typing, q: drive.searchQ,
             skin: { ink: BILI_INK, dim: BILI_DIM, soft: "#f1f2f3", accent: BILI_PINK } })
         : h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: BILI_DIM } }, "搜索")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: BILI_DIM } }, "搜索")),
       h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK }))),
     // TA自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
     (me.name || me.uid) ? h("div", { className: "flex items-center px-3 pb-2.5", style: { gap: 10 } },
-      h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(15) } }, String(me.name || char.name || "?").trim().slice(0, 1)),
+      h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, String(me.name || char.name || "?").trim().slice(0, 1)),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center", style: { gap: 6 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), color: BILI_INK } }, me.name || char.name),
-          me.level ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), color: "#fff", background: BILI_PINK, borderRadius: 5, padding: "2px 6px" } }, "LV" + me.level) : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: BILI_DIM, marginTop: 3 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: BILI_INK } }, me.name || char.name),
+          me.level ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", color: "#fff", background: BILI_PINK, borderRadius: 5, padding: "2px 6px" } }, "LV" + me.level) : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: BILI_DIM, marginTop: 3 } },
           [me.uid ? "UID " + me.uid : "", me.fans != null ? me.fans + " 粉丝" : "", me.coins != null ? me.coins + " 硬币" : ""].filter(Boolean).join(" · ")))) : null,
     h("div", { className: "flex gap-1 px-3 pb-2 overflow-x-auto", style: { scrollbarWidth: "none" } }, tabs.map((tb, i) => h("button", {
       key: i, onClick: () => setTab(i), className: "shrink-0 active:opacity-60",
@@ -3365,7 +3363,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       //   填个浅粉底的药丸搬到任何 app 里都成立。这一页是【视频站的分区行】：
       //   选中那个是加粗的粉字 + 底下一道短粗的圆头横杠，没选的只是灰字。
       //   字重、颜色、底下那道杠三样一起变，不是只换个填色。
-      style: { fontFamily: F_BODY, fontSize: pfs(13.5), padding: "6px 10px 4px", minHeight: 40,
+      style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", padding: "6px 10px 4px", minHeight: 40,
         display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
         color: i === tab ? BILI_PINK : "#61666d", fontWeight: i === tab ? 700 : 400 }
     }, h("span", { key: "t" }, tb),
@@ -3374,7 +3372,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "bili", style: { background: BILI_BG } }, head,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 9px 20px" } },
       shown.length ? h("div", { className: "grid grid-cols-2", style: { gap: 9 } }, shown.map(card))
-        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: BILI_DIM } }, "这个分区还没有内容")),
+        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BILI_DIM } }, "这个分区还没有内容")),
     detail);
 }
 // ============================================================
@@ -3401,26 +3399,26 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
   }, h("div", { style: { width: 112, height: 66, borderRadius: 8, flexShrink: 0, position: "relative", overflow: "hidden", background: "linear-gradient(140deg,#2a2129," + ["#3a2630", "#2b2733", "#33272a", "#262b33", "#332a26"][i % 5] + ")" } },
     h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
       h("span", { style: { marginLeft: 3, borderLeft: "13px solid rgba(232,227,230,.5)", borderTop: "8px solid transparent", borderBottom: "8px solid transparent" } })),
-    v.duration ? h("span", { style: { position: "absolute", right: 5, bottom: 5, fontFamily: F_BODY, fontSize: pfs(9.5), color: "#fff", background: "rgba(0,0,0,.6)", borderRadius: 3, padding: "1px 5px" } }, v.duration) : null),
+    v.duration ? h("span", { style: { position: "absolute", right: 5, bottom: 5, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.6)", borderRadius: 3, padding: "1px 5px" } }, v.duration) : null),
   h("div", { style: { flex: 1, minWidth: 0 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14), lineHeight: 1.45, color: INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title || "")),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.45, color: INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(v.title || "")),
     h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 8 } }, A(v.tags).slice(0, 4).map((tg, j) => h("span", {
-      key: j, style: { fontFamily: F_BODY, fontSize: pfs(10), color: DIM, border: "1px solid rgba(232,227,230,.16)", borderRadius: 999, padding: "2px 8px" }
+      key: j, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: DIM, border: "1px solid rgba(232,227,230,.16)", borderRadius: 999, padding: "2px 8px" }
     }, tg))),
-    v.views ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10), color: DIM, marginTop: 7 } }, v.views) : null));
+    v.views ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: DIM, marginTop: 7 } }, v.views) : null));
   const detail = open ? h(PhoneSubPage, {
     bg: { background: BG }, ink: INK, title: "深夜台", onClose: () => setOpen(null)
   },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: DIM } }, open.duration || ""),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(22), lineHeight: 1.45, color: INK, marginTop: 8 } }, PTX(open.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: DIM } }, open.duration || ""),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", lineHeight: 1.45, color: INK, marginTop: 8 } }, PTX(open.title)),
     h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 12 } }, A(open.tags).map((tg, j) => h("span", {
-      key: j, style: { fontFamily: F_BODY, fontSize: pfs(11), color: HOT, border: "1px solid rgba(192,86,109,.4)", borderRadius: 999, padding: "3px 10px" }
+      key: j, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: HOT, border: "1px solid rgba(192,86,109,.4)", borderRadius: 999, padding: "3px 10px" }
     }, tg))),
-    open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, PTX(open.thought)) : null,
+    open.thought ? h("div", { style: { marginTop: 18, borderLeft: "2px solid " + HOT, paddingLeft: 13, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.95, color: "rgba(232,227,230,.86)" } }, PTX(open.thought)) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "hidden", label: "深夜台", hiddenWhat: "深夜一个人偷偷看的成人视频（「深夜台」是那个视频站，不是备忘录也不是自己写的东西）", lead: "[我翻了你的手机]在你深夜偷偷看片的那个站（深夜台）的观看记录里看到了：", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
-      style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid rgba(192,86,109,.5)", color: HOT }
+      style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid rgba(192,86,109,.5)", color: HOT }
     }, T("摆到 TA 面前 · 这是他藏起来的")) : null) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "latenight", style: { background: BG } },
     h(Head, { zh: "深夜台",
@@ -3432,10 +3430,10 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 24px" } },
       (me.lastAt || me.note) ? h("div", { style: { padding: "10px 0 16px", borderBottom: "1px solid rgba(232,227,230,.08)", marginBottom: 4 } },
         (me.uid || me.lastAt) ? h("div", { className: "flex items-center justify-between" },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(11), letterSpacing: ".14em", color: "rgba(232,227,230,.66)", border: "1px solid rgba(232,227,230,.18)", borderRadius: 6, padding: "3px 9px" } }, me.uid ? me.uid : "未登记"),
-          me.lastAt ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: DIM } }, "上次 " + me.lastAt) : null) : null,
-        me.note ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8, color: "rgba(232,227,230,.62)", marginTop: 8 } }, PTX(me.note)) : null) : null,
-      items.length ? items.map(row) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: DIM } }, "深夜台还是空的")),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".14em", color: "rgba(232,227,230,.66)", border: "1px solid rgba(232,227,230,.18)", borderRadius: 6, padding: "3px 9px" } }, me.uid ? me.uid : "未登记"),
+          me.lastAt ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: DIM } }, "上次 " + me.lastAt) : null) : null,
+        me.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: "rgba(232,227,230,.62)", marginTop: 8 } }, PTX(me.note)) : null) : null,
+      items.length ? items.map(row) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: DIM } }, "深夜台还是空的")),
     detail);
 }
 // ============================================================
@@ -3493,11 +3491,11 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     style: { background: "#fff", borderRadius: 12, overflow: "hidden", minWidth: 0 }
   }, h("div", { style: { aspectRatio: "1 / " + (ratio || 1), background: "linear-gradient(150deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")" } }),
   h("div", { style: { padding: "9px 10px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
     h("div", { className: "flex items-center", style: { marginTop: 9, gap: 5 } },
-      h("div", { style: { width: 17, height: 17, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(9), color: "#6a6a72" } }, String(it.author || "?").trim().slice(0, 1)),
-      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(10.5), color: PLAZA_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(it.author || "")),
-      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(10.5), color: it.act === "收藏" ? "#e8a33d" : PLAZA_RED } }, (it.act === "收藏" ? "★ " : "♥ ") + (it.likes != null ? it.likes : "")))));
+      h("div", { style: { width: 17, height: 17, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(it.cover)[0] + "," + cover(it.cover)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(9px * var(--app-fs, 1))", color: "#6a6a72" } }, String(it.author || "?").trim().slice(0, 1)),
+      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: PLAZA_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(it.author || "")),
+      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: it.act === "收藏" ? "#e8a33d" : PLAZA_RED } }, (it.act === "收藏" ? "★ " : "♥ ") + (it.likes != null ? it.likes : "")))));
   // ── 一条笔记：整页（v59.58）───────────────────────────────────────────
   // 她 2026-09-01：「小红书现在是半屏，帮我弄成点开是全屏样式吧」。
   // 原来是从底下掀起来的半窗（justify-end + maxHeight 84%）——
@@ -3513,24 +3511,24 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       h("div", { style: { height: 188, background: "linear-gradient(150deg," + cover(open.cover)[0] + "," + cover(open.cover)[1] + ")" } }),
       h("div", { style: { padding: "16px 20px calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
         h("div", { className: "flex items-center gap-2.5" },
-          h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(13) } }, String(open.author || "?").trim().slice(0, 1)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: "#55555c" } }, PTX(open.author || "")),
-          h("div", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: pfs(11.5), color: PLAZA_DIM } }, open.time || open.savedAt || "")),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(21), lineHeight: 1.5, color: PLAZA_INK, marginTop: 14, wordBreak: "break-word" } }, PTX(open.title || "")),
-        open.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.95, color: "#4b4b53", marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, PTX(open.excerpt)) : null,
+          h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, String(open.author || "?").trim().slice(0, 1)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#55555c" } }, PTX(open.author || "")),
+          h("div", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: PLAZA_DIM } }, open.time || open.savedAt || "")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", lineHeight: 1.5, color: PLAZA_INK, marginTop: 14, wordBreak: "break-word" } }, PTX(open.title || "")),
+        open.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.95, color: "#4b4b53", marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, PTX(open.excerpt)) : null,
         A(open.tags).length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 16 } }, A(open.tags).map((tg, j) => h("span", {
-          key: j, style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "4px 11px" }
+          key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "4px 11px" }
         }, "#" + tg))) : null,
         h("div", { className: "flex items-center", style: { gap: 18, marginTop: 20, paddingTop: 14, borderTop: "1px solid #f1f1f4" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(13), color: open.act !== "收藏" ? PLAZA_RED : "#b0b0b8" } }, "♥ " + (open.likes != null ? open.likes : "")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(13), color: open.act === "收藏" ? "#e8a33d" : "#b0b0b8" } }, "★ 收藏"),
-          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: pfs(12), color: PLAZA_DIM } }, open._draft ? T("他一直没发出去") : (open.act === "收藏" ? T("他收藏了这条") : T("他点了赞")))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: open.act !== "收藏" ? PLAZA_RED : "#b0b0b8" } }, "♥ " + (open.likes != null ? open.likes : "")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: open.act === "收藏" ? "#e8a33d" : "#b0b0b8" } }, "★ 收藏"),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: PLAZA_DIM } }, open._draft ? T("他一直没发出去") : (open.act === "收藏" ? T("他收藏了这条") : T("他点了赞")))),
         onPeek ? h("button", {
           onClick: () => onPeek(open._draft
             ? { tier: "hidden", label: "小红书草稿箱", title: open.title, text: [open.excerpt, open.savedAt].filter(Boolean).join("｜") }
             : { tier: "quiet", label: T("他") + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
           className: "w-full active:opacity-60",
-          style: { marginTop: 20, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + (open._draft ? "rgba(200,80,70,.45)" : "#e6e6ea"), color: open._draft ? "#b6473c" : "#55555c" }
+          style: { marginTop: 20, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (open._draft ? "rgba(200,80,70,.45)" : "#e6e6ea"), color: open._draft ? "#b6473c" : "#55555c" }
         }, open._draft ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
   // ── 关注（v62.60 重做）─────────────────────────────────────────────
   // 审美审计 2026-09-04 判成【基础款】：一排白色圆角 14 的卡，卡里头像 + 名字 + 一句简介。
@@ -3540,12 +3538,12 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   const followPage = follows.length
     ? h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 12, overflow: "hidden", margin: "4px 0" } },
         follows.map((f, i) => h("div", { key: i, className: "flex items-center", style: { gap: 12, padding: "13px 14px", borderTop: i ? "1px solid #f0f0f2" : "none" } },
-          h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(17), color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
+          h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), color: PLAZA_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(f.name || "")),
-            f.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), lineHeight: 1.55, color: PLAZA_DIM, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(f.desc)) : null),
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(12.5), color: PLAZA_DIM, border: "1px solid #dcdce0", borderRadius: 999, padding: "5px 13px" } }, "已关注"))))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: PLAZA_DIM } }, T("他谁也没关注"));
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: PLAZA_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(f.name || "")),
+            f.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.55, color: PLAZA_DIM, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(f.desc)) : null),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: PLAZA_DIM, border: "1px solid #dcdce0", borderRadius: 999, padding: "5px 13px" } }, "已关注"))))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: PLAZA_DIM } }, T("他谁也没关注"));
   // ── 「我的」：照小红书个人页（她 2026-08-29 给了参考稿）──
   // 大背景 + 头像 + 小红书号 + 三个数字 + 简介 + 药丸标签，
   // 底下 笔记 / 收藏 / 草稿 三个 tab；草稿带锁——那是TA写了却没发的。
@@ -3559,36 +3557,36 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
           className: "text-left active:opacity-75",
           style: { background: "#fff", borderRadius: 12, overflow: "hidden", minWidth: 0, border: kind === "draft" ? "1px dashed #d8d8de" : "none" }
         }, h("div", { style: { aspectRatio: kind === "draft" ? "1 / 0.6" : "1 / " + [1.2, 0.85, 1.05, 0.95][i % 4], background: kind === "draft" ? "#f4f4f6" : "linear-gradient(150deg," + cover(x.cover != null ? x.cover : i)[0] + "," + cover(x.cover != null ? x.cover : i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
-          kind === "draft" ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#a8a8b0" } }, "未发布") : null),
+          kind === "draft" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#a8a8b0" } }, "未发布") : null),
         h("div", { style: { padding: "9px 10px 11px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(x.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(x.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
           A(x.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: 7 } }, A(x.tags).slice(0, 3).map((tg, j) => h("span", {
-            key: j, style: { fontFamily: F_BODY, fontSize: pfs(10), color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "2px 7px" }
+            key: j, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "2px 7px" }
           }, "#" + tg))) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: kind === "draft" ? "#c0554f" : PLAZA_DIM, marginTop: 7 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: kind === "draft" ? "#c0554f" : PLAZA_DIM, marginTop: 7 } },
             kind === "draft" ? (x.savedAt || "没发出去") : [x.time, x.likes != null ? "♥ " + x.likes : ""].filter(Boolean).join(" · "))))))
-    : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(12.5), color: PLAZA_DIM } },
+    : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: PLAZA_DIM } },
         kind === "draft" ? "草稿箱是空的" : kind === "save" ? T("他没收藏过什么") : T("他一条也没发过"));
   const mineTab = (k, label, n, lock) => h("button", {
     key: k, onClick: () => setMtab(k), className: "flex items-center active:opacity-60",
     style: { gap: 4, paddingBottom: 7, borderBottom: "2px solid " + (mtab === k ? PLAZA_RED : "transparent") }
-  }, lock ? h("span", { style: { fontSize: pfs(10), color: mtab === k ? PLAZA_INK : "#b0b0b8" } }, "🔒") : null,
+  }, lock ? h("span", { style: { fontSize: "calc(10px * var(--app-fs, 1))", color: mtab === k ? PLAZA_INK : "#b0b0b8" } }, "🔒") : null,
   h("span", { style: { fontFamily: F_DISPLAY, fontSize: mtab === k ? 16 : 15, color: mtab === k ? PLAZA_INK : "#b0b0b8" } }, label),
-  n ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "#b0b0b8" } }, n) : null);
+  n ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#b0b0b8" } }, n) : null);
   const minePage = h("div", { style: { margin: "-10px -12px 0" } },
     // 顶部大背景卡
     h("div", { style: { position: "relative", background: "linear-gradient(150deg,#8f97a8,#c8ccd4 55%,#e7e3dd)", padding: "26px 20px 22px" } },
       h("div", { className: "flex items-center", style: { gap: 15 } },
-        h("div", { "data-wk": "block", style: { width: 74, height: 74, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", border: "3px solid rgba(255,255,255,.85)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: pfs(30) } }, String(me.name || char.name || "?").trim().slice(0, 1)),
+        h("div", { "data-wk": "block", style: { width: 74, height: 74, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", border: "3px solid rgba(255,255,255,.85)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(30px * var(--app-fs, 1))" } }, String(me.name || char.name || "?").trim().slice(0, 1)),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(25), color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.28)" } }, me.name || char.name),
-          me.xhsId ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "rgba(255,255,255,.86)", marginTop: 5 } }, "小红书号：" + me.xhsId) : null)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.28)" } }, me.name || char.name),
+          me.xhsId ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,255,255,.86)", marginTop: 5 } }, "小红书号：" + me.xhsId) : null)),
       h("div", { className: "flex", style: { gap: 26, marginTop: 18 } },
         [[me.following, "关注"], [me.followers, "粉丝"], [me.likes, "获赞与收藏"]].map(([n, l], i) => h("div", { key: i },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(21), color: "#fff" } }, n != null ? n : "--"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "rgba(255,255,255,.82)", marginLeft: 5 } }, l)))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.6, color: "#fff", marginTop: 16 } }, PTX(me.bio || "这人没写简介")),
-      me.tag ? h("span", { style: { display: "inline-block", marginTop: 12, fontFamily: F_BODY, fontSize: pfs(12), color: "#fff", background: "rgba(255,255,255,.22)", borderRadius: 999, padding: "4px 12px" } }, PTX(me.tag)) : null),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#fff" } }, n != null ? n : "--"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,255,255,.82)", marginLeft: 5 } }, l)))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#fff", marginTop: 16 } }, PTX(me.bio || "这人没写简介")),
+      me.tag ? h("span", { style: { display: "inline-block", marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", background: "rgba(255,255,255,.22)", borderRadius: 999, padding: "4px 12px" } }, PTX(me.tag)) : null),
     // tab 条
     h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: "16px 16px 0 0", marginTop: -14, position: "relative", padding: "16px 18px 0" } },
       h("div", { className: "flex", style: { gap: 22, borderBottom: "1px solid #f1f1f4" } },
@@ -3602,7 +3600,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       const chans2 = ["发现"].concat(A(data.tabs).filter(x => typeof x === "string").slice(0, 5));
       const c = chans2[Math.min(chan, chans2.length - 1)] || "发现";
       const list = c === "发现" ? items : items.filter(x => x.tab === c);
-      return list.length ? masonry(list) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: PLAZA_DIM } }, c === "发现" ? T("他还没赞过什么") : "这个频道底下没有");
+      return list.length ? masonry(list) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: PLAZA_DIM } }, c === "发现" ? T("他还没赞过什么") : "这个频道底下没有");
     })() },
     { key: "follow", zh: "关注", glyph: "me", body: followPage },
     { key: "mine", zh: "我的", glyph: "notes", body: minePage }
@@ -3623,7 +3621,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
           key: i, onClick: () => setChan(i), className: "shrink-0 active:opacity-60",
           style: { fontFamily: F_DISPLAY, fontSize: i === chan ? 16 : 14, color: i === chan ? PLAZA_INK : "#b0b0b8", padding: "3px 2px", borderBottom: i === chan ? "2px solid " + PLAZA_RED : "2px solid transparent" }
         }, c)))
-      : searchPill ? null : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: PLAZA_INK } }, page.zh),
+      : searchPill ? null : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: PLAZA_INK } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK })));
   // ⚠️整页要【顶掉】列表，不是浮在它上面——所以在这儿 return，
   // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
@@ -3634,7 +3632,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
       PAGES.map(pg => h("button", {
         key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, "data-wk": "ptab", "data-on": tab === pg.key ? "1" : "0", "data-watch": "tab:" + pg.key,
         className: "flex flex-col items-center justify-center active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: tab === pg.key ? PLAZA_RED : PLAZA_DIM, paddingTop: 2, paddingBottom: 2 }
+        style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tab === pg.key ? PLAZA_RED : PLAZA_DIM, paddingTop: 2, paddingBottom: 2 }
       }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
         h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? PLAZA_RED : PLAZA_DIM })),
       h("span", { style: { marginTop: 2 } }, pg.zh)))),
@@ -3692,7 +3690,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
     cells.push(h("button", {
       key: "d" + dd, onClick: () => setSel(picked ? null : dd), className: "active:opacity-60",
       style: { aspectRatio: "1 / 1", borderRadius: 11, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, background: picked ? CAL_INK : isToday(dd) ? "rgba(255,59,48,.10)" : "transparent" }
-    }, h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(13.5), color: picked ? "#fff" : isToday(dd) ? CAL_RED : CAL_INK } }, dd),
+    }, h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(13.5px * var(--app-fs, 1))", color: picked ? "#fff" : isToday(dd) ? CAL_RED : CAL_INK } }, dd),
     h("span", { style: { height: 5, display: "flex", gap: 2 } }, list.slice(0, 3).map((x, j) => h("span", {
       key: j, style: { width: 4, height: 4, borderRadius: 99, background: picked ? "rgba(255,255,255,.9)" : late(x) ? CAL_RED : x.done ? "#c7c7cc" : "#4a90d9" }
     })))));
@@ -3706,23 +3704,23 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
     style: { display: "flex", gap: 12, background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 9 }
   }, h("span", { style: { width: 8, height: 8, borderRadius: 99, marginTop: 6, flexShrink: 0, background: x.done ? "#c7c7cc" : late(x) ? CAL_RED : "#4a90d9" } }),
   h("div", { style: { flex: 1, minWidth: 0 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), lineHeight: 1.45, color: x.done ? CAL_DIM : CAL_INK, textDecoration: x.done ? "line-through" : "none" } }, PTX(x.title)),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: late(x) ? CAL_RED : CAL_DIM, marginTop: 5 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.45, color: x.done ? CAL_DIM : CAL_INK, textDecoration: x.done ? "line-through" : "none" } }, PTX(x.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: late(x) ? CAL_RED : CAL_DIM, marginTop: 5 } },
       [calDay(x.date), x.time, x.kind, x.who, Number(x.postponed) > 0 ? "推迟 " + x.postponed + " 次" : (x.overdue ? "早该做了" : "")].filter(Boolean).join(" · "))));
   const detail = open ? h(PhoneSubPage, {
     bg: { background: CAL_BG }, ink: CAL_INK,
     title: open.kind === "提醒" ? "提醒事项" : "这一天", onClose: () => setOpen(null)
   },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: CAL_DIM } }, [open.kind, open.date, open.time].filter(Boolean).join(" · ")),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(22), lineHeight: 1.4, color: CAL_INK, marginTop: 8 } }, PTX(open.title || "")),
-    open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
-    Number(open.postponed) > 0 ? h("div", { "data-wk": "block", style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: pfs(13.5), color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
-      : open.overdue ? h("div", { "data-wk": "block", style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: pfs(13.5), color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
-    open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.95, color: "#4b4b53", marginTop: 14 } }, PTX(open.note)) : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: CAL_DIM } }, [open.kind, open.date, open.time].filter(Boolean).join(" · ")),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", lineHeight: 1.4, color: CAL_INK, marginTop: 8 } }, PTX(open.title || "")),
+    open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
+    Number(open.postponed) > 0 ? h("div", { "data-wk": "block", style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
+      : open.overdue ? h("div", { "data-wk": "block", style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
+    open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.95, color: "#4b4b53", marginTop: 14 } }, PTX(open.note)) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : (open.overdue ? "日子早过了" : "")].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
-      style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid #e6e6ea", color: "#55555c" }
+      style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid #e6e6ea", color: "#55555c" }
     }, T("转发给 TA · 他会知道你翻了手机")) : null) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "calendar", style: { background: CAL_BG } },
     h(Head, { zh: (cy === now.getFullYear() ? "" : cy + "年 ") + cm + "月",
@@ -3736,29 +3734,29 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
         // 翻月那一行（她 2026-09-06 要的「能不能换月份显示之前的和之后的」）
         h("div", { className: "flex items-center justify-between", style: { padding: "0 2px 8px" } },
           h("button", { onClick: () => stepMonth(-1), "aria-label": "上个月", className: "active:opacity-50",
-            style: { width: 32, height: 28, fontFamily: F_BODY, fontSize: pfs(15), color: CAL_DIM } }, "‹"),
+            style: { width: 32, height: 28, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: CAL_DIM } }, "‹"),
           h("button", { onClick: () => { setYm({ y: now.getFullYear(), m: now.getMonth() + 1 }); setSel(null); }, disabled: thisMonth,
             className: "active:opacity-60 disabled:opacity-100",
-            style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: thisMonth ? CAL_INK : "#4a90d9" } },
+            style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: thisMonth ? CAL_INK : "#4a90d9" } },
             (cy === now.getFullYear() ? "" : cy + "年 ") + cm + "月" + (thisMonth ? "" : " · 回今天")),
           h("button", { onClick: () => stepMonth(1), "aria-label": "下个月", className: "active:opacity-50",
-            style: { width: 32, height: 28, fontFamily: F_BODY, fontSize: pfs(15), color: CAL_DIM } }, "›")),
+            style: { width: 32, height: 28, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: CAL_DIM } }, "›")),
         h("div", { className: "grid grid-cols-7", style: { marginBottom: 6 } }, ["一", "二", "三", "四", "五", "六", "日"].map((w, i) => h("div", {
-          key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: pfs(11), color: CAL_DIM }
+          key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: CAL_DIM }
         }, w))),
         h("div", { className: "grid grid-cols-7", style: { gap: 2 } }, cells)),
       h("div", { className: "flex items-baseline justify-between", style: { padding: "0 4px 10px" } },
         // ⚠️底下列的是【这个月】，标题就不能再叫「全部安排」——名字和内容对不上，
         //   人只会以为这个月之外的事被弄丢了
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(18), color: CAL_INK } }, sel ? cm + "月" + sel + "日" : cm + "月的安排"),
-        sel ? h("button", { onClick: () => setSel(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#4a90d9" } }, "看全部") : null),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: CAL_INK } }, sel ? cm + "月" + sel + "日" : cm + "月的安排"),
+        sel ? h("button", { onClick: () => setSel(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#4a90d9" } }, "看全部") : null),
       listFor.length ? listFor.map(row)
-        : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: CAL_DIM, lineHeight: 1.8 } },
+        : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: CAL_DIM, lineHeight: 1.8 } },
             sel ? "这天没有安排"
               : h("div", null,
                   h("div", null, characterText(char, "这个月他日历上没有东西")),
                   // ⚠️别只说「没有」：翻空一个月就以为整本是空的。有的话就指出来在哪几个月
-                  monthsWith.length ? h("div", { style: { fontSize: pfs(12), marginTop: 6 } },
+                  monthsWith.length ? h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 6 } },
                     "有安排的是 " + monthsWith.slice(-4).map(x => (x.y === now.getFullYear() ? "" : x.y + "年") + x.m + "月").join("、")) : null))),
     detail);
 }
@@ -3811,9 +3809,9 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
       }
     }, h("div", { className: "flex items-center", style: { gap: 5, marginBottom: 7 } },
       voice ? h(PGlyph, { k: "mic", size: 11, color: c.ink }) : null,
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), color: c.ink, opacity: .6 } }, (voice && it.duration ? it.duration + " · " : "") + (it.time || ""))),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14), lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
-    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(voice ? noteSay(it.body) : it.body)) : null,
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink, opacity: .6 } }, (voice && it.duration ? it.duration + " · " : "") + (it.time || ""))),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.title)),
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(it.body, voice ? 3 : 5), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(voice ? noteSay(it.body) : it.body)) : null,
     voice ? wave(c.ink, 20) : null);
   };
   const cols = [[], []];
@@ -3826,23 +3824,23 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
           h("div", { className: "flex items-center", style: { gap: 6 } },
             voice ? h(PGlyph, { k: "mic", size: 13, color: c.ink }) : null,
-            h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: c.ink, opacity: .62 } }, (voice ? "录音 " + (open.duration || "") + " · " : "") + (open.time || ""))),
-          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: pfs(15), color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(20), lineHeight: 1.45, color: c.ink } }, PTX(open.title || "")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: c.ink, opacity: .62 } }, (voice ? "录音 " + (open.duration || "") + " · " : "") + (open.time || ""))),
+          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: "calc(15px * var(--app-fs, 1))", color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.45, color: c.ink } }, PTX(open.title || "")),
         voice ? h("div", { className: "flex items-end", style: { gap: 10 } },
           tp && typeof TtsDot === "function" && open.body ? h("span", { "data-wk": "pnotevoice", style: { color: c.ink, display: "inline-flex" } }, h(TtsDot, { k: "note:" + (open.time || "") + (open.title || ""), text: open.body, spk: char, tp: tp })) : null,
           wave(c.ink, 34)) : null,
         // ⚠️「看TA玩」里TA正在改这条：显示手上那份草稿，不是存档里那份。
         //   驱动时哪怕草稿是空的也要占着位（TA刚把整段划掉，那一下正是要看见的）。
         drive && drive.typing != null
-          ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", minHeight: 30 } },
+          ? h("div", { "data-wk": "pinput", "data-watch": "input", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", minHeight: 30 } },
               drive.typing,
               h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 16, marginLeft: 1, verticalAlign: "-3px", background: c.ink, animation: "wkcaret 1s steps(2) infinite" } }))
-          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(15), lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, voice ? noteSay(open.body) : open.body) : null,
+          : open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, voice ? noteSay(open.body) : open.body) : null,
         onPeek ? h("button", {
           onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: voice ? noteSay(open.body) : open.body }),
           className: "w-full active:opacity-60",
-          style: { marginTop: 20, padding: "12px 0", borderRadius: 10, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + c.edge, color: c.ink }
+          style: { marginTop: 20, padding: "12px 0", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + c.edge, color: c.ink }
         }, T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "notes", style: { background: STICKY_BG } },
@@ -3856,7 +3854,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
       items.length
         ? h("div", { className: "grid grid-cols-2", style: { gap: 13, alignItems: "start" } },
             cols.map((col, ci) => h("div", { key: ci, style: { display: "flex", flexDirection: "column", gap: 13 } }, col)))
-        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: "#a09884" } }, "还没有便签，点右上角刷一次")),
+        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#a09884" } }, "还没有便签，点右上角刷一次")),
     detail);
 }
 // ============================================================
@@ -3933,12 +3931,12 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
           style: { position: "absolute", left: "7%", right: "11%", top: "46%", height: 1, background: "rgba(47,44,38,.075)", boxShadow: "0 1px 0 rgba(255,255,255,.5)", transform: "rotate(-1.4deg)" }
         }) : null,
         h("div", {
-          style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.85, color: CLIP_INK, display: "-webkit-box", WebkitLineClamp: isHeld ? 4 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
+          style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: CLIP_INK, display: "-webkit-box", WebkitLineClamp: isHeld ? 4 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
         }, PTX(it.text || "")),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 11 } },
-          it.from ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: CLIP_DIM } }, "从 " + it.from) : null,
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: CLIP_DIM } }, it.time || ""),
-          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: pfs(10.5), color: isHeld ? CLIP_HOT : CLIP_DIM } }, isHeld ? "没发出去" : "已发出")),
+          it.from ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: CLIP_DIM } }, "从 " + it.from) : null,
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: CLIP_DIM } }, it.time || ""),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: isHeld ? CLIP_HOT : CLIP_DIM } }, isHeld ? "没发出去" : "已发出")),
         // 撕口：贴在纸条底边的一条窄带，纸色一致，锯齿是 clipPath 切出来的
         h("div", {
           "aria-hidden": "true",
@@ -3972,9 +3970,9 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
             }
           },
             isHeld ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: "6%", right: "13%", top: "38%", height: 1, background: "rgba(47,44,38,.075)", boxShadow: "0 1px 0 rgba(255,255,255,.5)", transform: "rotate(-1.1deg)" } }) : null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: isHeld ? CLIP_HOT : CLIP_DIM, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: isHeld ? CLIP_HOT : CLIP_DIM, marginBottom: 14 } },
               [open.from ? "从 " + open.from : "", open.time, isHeld ? "复制了，一直没发出去" : "已发出"].filter(Boolean).join(" · ")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(16), lineHeight: 2.05, color: CLIP_INK, whiteSpace: "pre-wrap" } }, PTX(open.text || "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 2.05, color: CLIP_INK, whiteSpace: "pre-wrap" } }, PTX(open.text || "")),
             h("div", {
               "aria-hidden": "true",
               style: { position: "absolute", left: 0, right: 0, bottom: -8, height: 10, background: CLIP_PAPER, clipPath: clipTorn(2), WebkitClipPath: clipTorn(2) }
@@ -3984,15 +3982,15 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
         onPeek ? h("button", {
           onClick: () => onPeek({ tier: isHeld ? "hidden" : "quiet", label: isHeld ? "剪贴板里没发出去的一段" : "剪贴板", title: open.from || "", text: open.text }),
           className: "w-full active:opacity-60",
-          style: { marginTop: 26, padding: "13px 0", borderRadius: 2, fontFamily: F_BODY, fontSize: pfs(12.5), border: "1px solid " + (isHeld ? "rgba(180,72,60,.55)" : "rgba(240,238,232,.22)"), color: isHeld ? "#e0918a" : CLIP_DESKINK }
+          style: { marginTop: 26, padding: "13px 0", borderRadius: 2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (isHeld ? "rgba(180,72,60,.55)" : "rgba(240,238,232,.22)"), color: isHeld ? "#e0918a" : CLIP_DESKINK }
         }, isHeld ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   // 分栏名不做成英文眉标：这一叠是什么，用中文说一句就够
   const sec = (title, list, isHeld) => list.length ? h("section", { key: title, style: { marginBottom: 22 } },
     h("div", { className: "flex items-center", style: { gap: 9, padding: "2px 2px 12px" } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(13.5), color: isHeld ? "#e0918a" : CLIP_DESKINK } }, title),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: isHeld ? "#e0918a" : CLIP_DESKINK } }, title),
       h("span", { "aria-hidden": "true", style: { flex: 1, height: 1, background: "rgba(240,238,232,.13)" } }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: "rgba(240,238,232,.32)" } }, list.length + " 张")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(240,238,232,.32)" } }, list.length + " 张")),
     list.map((x, i) => slip(x, i, isHeld))) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "clipboard", style: { background: CLIP_DESK } },
     h(Head, { zh: "剪贴板",
@@ -4003,7 +4001,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } },
       items.length ? [sec("差一点就发出去", held, true), sec("复制过的", sent, false)]
-        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: "rgba(240,238,232,.35)" } }, "剪贴板是空的")),
+        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(240,238,232,.35)" } }, "剪贴板是空的")),
     detail);
 }
 // ============================================================
@@ -4078,7 +4076,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", { "data-wk": "pbtn", "data-part": "peek",
     onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
     className: "w-full active:opacity-60",
-    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: pfs(12.5),
+    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他没打算留痕的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   // ── 标签页：卡片网格，仿 Safari 那个标签墙 ──
@@ -4087,14 +4085,14 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
     style: { background: isPriv ? "#26262b" : "#fff", borderRadius: 13, overflow: "hidden", minWidth: 0,
       border: x.pinned ? "1.5px solid " + BR_BLUE : "1px solid " + (isPriv ? "#33333a" : "#e8e8ed") }
   }, h("div", { style: { height: 84, position: "relative", background: isPriv ? "linear-gradient(150deg,#33333c,#22222a)" : "linear-gradient(150deg," + cov(x.cover != null ? x.cover : i)[0] + "," + cov(x.cover != null ? x.cover : i)[1] + ")" } },
-    x.pinned ? h("span", { style: { position: "absolute", left: 7, top: 7, fontFamily: F_BODY, fontSize: pfs(9.5), color: "#fff", background: BR_BLUE, borderRadius: 5, padding: "2px 7px" } }, "钉住") : null,
-    x.age ? h("span", { style: { position: "absolute", right: 7, bottom: 7, fontFamily: F_BODY, fontSize: pfs(9.5), color: isPriv ? "rgba(255,255,255,.7)" : "rgba(40,40,50,.6)", background: isPriv ? "rgba(0,0,0,.4)" : "rgba(255,255,255,.72)", borderRadius: 5, padding: "2px 7px" } }, x.age) : null),
+    x.pinned ? h("span", { style: { position: "absolute", left: 7, top: 7, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: BR_BLUE, borderRadius: 5, padding: "2px 7px" } }, "钉住") : null,
+    x.age ? h("span", { style: { position: "absolute", right: 7, bottom: 7, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: isPriv ? "rgba(255,255,255,.7)" : "rgba(40,40,50,.6)", background: isPriv ? "rgba(0,0,0,.4)" : "rgba(255,255,255,.72)", borderRadius: 5, padding: "2px 7px" } }, x.age) : null),
   h("div", { style: { padding: "9px 10px 11px" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(x.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: isPriv ? "rgba(230,230,234,.5)" : BR_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(x.site || ""))));
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, display: "-webkit-box", WebkitLineClamp: phoneTextClamp(x.title, 2), WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.title)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: isPriv ? "rgba(230,230,234,.5)" : BR_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(x.site || ""))));
   const tabsPage = tabs.length
     ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, tabs.map((x, i) => tabCard(x, i, false)))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: BR_DIM } }, "一个标签页都没开着");
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BR_DIM } }, "一个标签页都没开着");
   // ── 搜索记录：按时间列，搜索框的样子 ──
   const searchPage = searches.length ? h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
     searches.map((x, i) => h("button", {
@@ -4103,31 +4101,31 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       "data-wk": "pitem", "data-watch": "item:" + (x.q || ""),
       className: "w-full text-left active:opacity-60 flex items-center",
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
-    }, h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 99, flexShrink: 0, background: "#f0f0f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: pfs(12), color: BR_DIM } }, "⌕"),
+    }, h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 99, flexShrink: 0, background: "#f0f0f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))", color: BR_DIM } }, "⌕"),
     h("div", { className: "flex-1 min-w-0" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.5, color: BR_INK, wordBreak: "break-word" } }, PTX(x.q)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: BR_DIM, marginTop: 4 } }, [x.time, x.site].filter(Boolean).join(" · "))))))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: BR_DIM } }, "没有搜索记录");
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: BR_INK, wordBreak: "break-word" } }, PTX(x.q)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: BR_DIM, marginTop: 4 } }, [x.time, x.site].filter(Boolean).join(" · "))))))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BR_DIM } }, "没有搜索记录");
   // ── 书签：文件夹分组 ──
   const markPage = marks.length ? h("div", null, marks.map((f, i) => h("div", { key: i, style: { marginBottom: 14 } },
     h("div", { className: "flex items-center", style: { gap: 7, padding: "2px 4px 9px" } },
       h("span", { "aria-hidden": "true", style: { width: 15, height: 12, borderRadius: "2px 4px 4px 4px", background: "#f0c264", flexShrink: 0 } }),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: BR_INK } }, PTX(f.name || "")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: BR_DIM } }, A(f.items).length + " 条")),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: BR_INK } }, PTX(f.name || "")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: BR_DIM } }, A(f.items).length + " 条")),
     h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
       A(f.items).map((x, j) => h("button", {
         key: j, "data-wk": "pitem", "data-watch": "item:" + (x.title || ""), onClick: () => setOpen({ ...x, _mark: f.name }),
         className: "w-full text-left active:opacity-60",
         style: { padding: "12px 14px", borderTop: j ? "1px solid #f1f1f4" : "none" }
-      }, h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.5, color: BR_INK } }, PTX(x.title)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: BR_DIM, marginTop: 4 } }, PTX(x.site || ""))))))))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: BR_DIM } }, "还没有书签");
+      }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: BR_INK } }, PTX(x.title)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: BR_DIM, marginTop: 4 } }, PTX(x.site || ""))))))))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BR_DIM } }, "还没有书签");
   const privPage = h("div", null,
     h("div", { "data-wk": "block", style: { background: "#26262b", borderRadius: 14, padding: "15px 16px", marginBottom: 14 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), color: "#e6e6ea" } }, "无痕浏览"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, T("他专门开了不留记录的那几页。关掉就没了——只是还没关。"))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#e6e6ea" } }, "无痕浏览"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, T("他专门开了不留记录的那几页。关掉就没了——只是还没关。"))),
     priv.length ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, priv.map((x, i) => tabCard(x, i, true)))
-      : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: BR_DIM } }, "这会儿没有无痕页"));
+      : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BR_DIM } }, "这会儿没有无痕页"));
   // 搜索记录点进去 = 那一次搜索的【结果页】。
   // 「搜了什么」只有一半；另一半是【TA点开了哪一条】——那才是TA真正想知道的东西。
   const searchPage2 = open && open._search ? (function () {
@@ -4140,12 +4138,12 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
       h("div", { "data-wk": "head", className: "shrink-0", style: { paddingTop: safeTop(8), borderBottom: "1px solid #ececf0" } },
         h("div", { className: "flex items-start px-3 pb-3", style: { gap: 6 } },
           h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 40, height: 40, marginTop: -4 } }, h(IArrow, { size: 19, color: BR_INK })),
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: pfs(18), lineHeight: 1.45, color: BR_INK, wordBreak: "break-word", paddingTop: 4, paddingRight: 8 } }, PTX(open.title)))),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1.45, color: BR_INK, wordBreak: "break-word", paddingTop: 4, paddingRight: 8 } }, PTX(open.title)))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fafafc" } },
         h("div", { className: "flex items-center", style: { gap: 11, padding: "20px 0 10px" } },
-          h("span", { "aria-hidden": "true", style: { fontSize: pfs(17), color: BR_DIM } }, "⌕"),
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(15), color: BR_INK, wordBreak: "break-word" } }, PTX(open.title))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: "#a8a8b0", paddingBottom: 16, borderBottom: "1px solid #ececf0" } },
+          h("span", { "aria-hidden": "true", style: { fontSize: "calc(17px * var(--app-fs, 1))", color: BR_DIM } }, "⌕"),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: BR_INK, wordBreak: "break-word" } }, PTX(open.title))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#a8a8b0", paddingBottom: 16, borderBottom: "1px solid #ececf0" } },
           "找到约 " + shown + " 条结果" + (open.time ? "　|　搜索于 " + open.time : "")),
         rs.length ? rs.map((r, i) => {
           const src = String(r.source || "").trim();
@@ -4154,13 +4152,13 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
             h("div", { className: "flex items-center", style: { gap: 9, marginBottom: 8 } },
               h("span", {
                 "aria-hidden": "true",
-                style: { width: 22, height: 22, borderRadius: 99, flexShrink: 0, background: "#efeff3", color: "#7a7a84", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: pfs(11) }
+                style: { width: 22, height: 22, borderRadius: 99, flexShrink: 0, background: "#efeff3", color: "#7a7a84", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" }
               }, src.slice(0, 1) || "?"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: "#6b6b74", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, src),
-              isOpened ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: "#c4553f", background: "rgba(196,85,63,.1)", borderRadius: 99, padding: "2px 8px", flexShrink: 0 } }, T("他点开了这条")) : null),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), lineHeight: 1.45, color: "#1a4fbd", wordBreak: "break-word" } }, PTX(r.title)),
-            r.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.8, color: "#8b8b93", marginTop: 7, wordBreak: "break-word" } }, PTX(r.excerpt)) : null);
-        }) : h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: BR_DIM, lineHeight: 1.9 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#6b6b74", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, src),
+              isOpened ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#c4553f", background: "rgba(196,85,63,.1)", borderRadius: 99, padding: "2px 8px", flexShrink: 0 } }, T("他点开了这条")) : null),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1.45, color: "#1a4fbd", wordBreak: "break-word" } }, PTX(r.title)),
+            r.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.8, color: "#8b8b93", marginTop: 7, wordBreak: "break-word" } }, PTX(r.excerpt)) : null);
+        }) : h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: BR_DIM, lineHeight: 1.9 } },
           "这条搜索记录里没存下结果。\n重新推演一次浏览器就有了。"),
         h("div", { style: { paddingTop: 18 } },
           peekBtn("quiet", T("他搜过的"), open.title,
@@ -4179,11 +4177,11 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         h("svg", { width: 11, height: 13, viewBox: "0 0 11 13", "aria-hidden": "true", style: { flexShrink: 0 } },
           h("rect", { x: 0.9, y: 5.2, width: 9.2, height: 7.1, rx: 1.4, fill: dim }),
           h("path", { d: "M3.1 5.2V3.6a2.4 2.4 0 0 1 4.8 0v1.6", fill: "none", stroke: dim, strokeWidth: 1.3 })),
-        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12), color: isPriv ? "rgba(230,230,234,.7)" : "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(open.site || ""))),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(21), lineHeight: 1.5, color: ink, marginTop: 18, wordBreak: "break-word" } }, PTX(open.title || "")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: dim, marginTop: 8 } },
+        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: isPriv ? "rgba(230,230,234,.7)" : "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, PTX(open.site || ""))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", lineHeight: 1.5, color: ink, marginTop: 18, wordBreak: "break-word" } }, PTX(open.title || "")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: dim, marginTop: 8 } },
         [open.time, open.age, open._mark ? "书签 · " + open._mark : "", open.pinned ? "钉住的" : ""].filter(Boolean).join(" · ")),
-      open.gist ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.95, color: isPriv ? "rgba(230,230,234,.86)" : "#4b4b53", marginTop: 15 } }, PTX(open.gist)) : null,
+      open.gist ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.95, color: isPriv ? "rgba(230,230,234,.86)" : "#4b4b53", marginTop: 15 } }, PTX(open.gist)) : null,
       peekBtn(isPriv ? "hidden" : "quiet",
         isPriv ? T("他的无痕标签页") : open._mark ? T("他的书签") : T("他没关的标签页"),
         open.title, [open.site, open.gist, open.age].filter(Boolean).join("｜")));
@@ -4201,13 +4199,13 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: BR_INK })),
         // 地址栏：真浏览器的样子
         h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 11, background: "#e6e6ea", padding: "0 12px" } },
-          h("span", { "aria-hidden": "true", style: { fontSize: pfs(10.5), color: BR_DIM } }, "🔒"),
+          h("span", { "aria-hidden": "true", style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: BR_DIM } }, "🔒"),
           // ⚠️TA敲搜索框那一下必须看得见——这一路的戏就在「敲进去、又退回来」上。
           drive && drive.typing != null
-            ? h("span", { "data-wk": "pinput", "data-watch": "input", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12.5), color: BR_INK, overflow: "hidden", whiteSpace: "nowrap" } },
+            ? h("span", { "data-wk": "pinput", "data-watch": "input", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: BR_INK, overflow: "hidden", whiteSpace: "nowrap" } },
                 drive.typing,
                 h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 13, marginLeft: 1, verticalAlign: "-2px", background: BR_BLUE, animation: "wkcaret 1s steps(2) infinite" } }))
-            : h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12.5), color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            : h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
         h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK }))),
       // ── 四页＝浏览器的标签条（tabs-not-plain-pills）──────────────────
@@ -4218,7 +4216,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         const on = tab === pg.key;
         return h("button", {
           key: pg.key, "data-wk": "ptab", "data-on": tab === pg.key ? "1" : "0", "data-watch": "tab:" + pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: pfs(12.5), padding: on ? "9px 4px 8px" : "11px 4px 6px",
+          style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: on ? "9px 4px 8px" : "11px 4px 6px",
             borderRadius: "10px 10px 0 0", marginBottom: -1,
             background: on ? BR_BG : "transparent",
             border: on ? "1px solid " + BR_LINE : "1px solid transparent",
@@ -4298,11 +4296,11 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", { "data-wk": "pbtn", "data-part": "peek",
     onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
     className: "w-full active:opacity-60",
-    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: pfs(12.5),
+    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const groupCard = kids => h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, overflow: "hidden" } }, kids);
-  const secLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: CALL_DIM, padding: "14px 4px 8px" } }, txt);
+  const secLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: CALL_DIM, padding: "14px 4px 8px" } }, txt);
   // ── 通话记录：iOS 那种列表，未接标红 ──
   const callRow = (x, i) => {
     const missed = x.answered === false;
@@ -4311,18 +4309,18 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
       key: i, onClick: () => setOpen({ kind: "call", x: x }), "data-wk": "pitem", "data-watch": "item:" + (x.name || x.number || ""),
       className: "w-full text-left active:opacity-60 flex items-center",
       style: { gap: 12, padding: "12px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
-    }, h("span", { "aria-hidden": "true", style: { width: 26, flexShrink: 0, textAlign: "center", fontSize: pfs(15), color: missed ? CALL_RED : CALL_DIM } }, isIn ? "↙" : "↗"),
+    }, h("span", { "aria-hidden": "true", style: { width: 26, flexShrink: 0, textAlign: "center", fontSize: "calc(15px * var(--app-fs, 1))", color: missed ? CALL_RED : CALL_DIM } }, isIn ? "↙" : "↗"),
     h("div", { className: "flex-1 min-w-0" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: missed ? CALL_RED : CALL_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name || x.number || "陌生号码"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: CALL_DIM, marginTop: 3 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: missed ? CALL_RED : CALL_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name || x.number || "陌生号码"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: CALL_DIM, marginTop: 3 } },
         [isIn ? "来电" : "拨出", missed ? "未接通" : (x.duration || "")].filter(Boolean).join(" · "))),
-    h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(12), color: CALL_DIM } }, x.time || ""));
+    h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: CALL_DIM } }, x.time || ""));
   };
   const callsPage = calls.length ? h("div", null,
-    missedN ? h("div", { "data-wk": "block", style: { background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: pfs(12.5), color: "#c0392b" } },
+    missedN ? h("div", { "data-wk": "block", style: { background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#c0392b" } },
       "这周有 " + missedN + " 通没接通") : null,
     groupCard(calls.map(callRow)))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: CALL_DIM } }, "没有通话记录");
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: CALL_DIM } }, "没有通话记录");
   // ── 短信：通知类和人分开画 ──
   const smsRow = (x, i) => {
     const isNotice = x.kind !== "人";
@@ -4331,53 +4329,53 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
       className: "w-full text-left active:opacity-60 flex items-start",
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
     }, h("div", { style: { width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-      background: isNotice ? "#eef0f4" : "#dcefe4", color: isNotice ? "#7b828c" : "#3f7a58", fontFamily: F_DISPLAY, fontSize: pfs(14) } },
+      background: isNotice ? "#eef0f4" : "#dcefe4", color: isNotice ? "#7b828c" : "#3f7a58", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } },
       isNotice ? "#" : String(x.name || "?").trim().slice(0, 1)),
     h("div", { className: "flex-1 min-w-0" },
       h("div", { className: "flex items-center", style: { gap: 6 } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14.5), color: CALL_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name || x.number || ""),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: CALL_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name || x.number || ""),
         x.unread ? h("span", { style: { width: 7, height: 7, borderRadius: 99, background: CALL_BLUE, flexShrink: 0 } }) : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.6, color: CALL_DIM, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: CALL_DIM, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
         ((A(x.msgs)[A(x.msgs).length - 1] || {}).text) || "")),
-    h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(11), color: CALL_DIM } }, x.time || ""));
+    h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: CALL_DIM } }, x.time || ""));
   };
   const smsPage = sms.length ? h("div", null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.7, color: CALL_DIM, padding: "2px 4px 11px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: CALL_DIM, padding: "2px 4px 11px" } },
       "短信里多半不是人——验证码、账目、催缴、送货、骗子。熟人出现在这儿，总有个理由。"),
     groupCard(sms.map(smsRow)))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: CALL_DIM } }, "没有短信");
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: CALL_DIM } }, "没有短信");
   // ── 语音信箱 ──
   const vmPage = vm.length ? h("div", null,
-    unheardN ? h("div", { "data-wk": "block", style: { background: "rgba(10,132,255,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: pfs(12.5), color: "#1a5fb4" } },
+    unheardN ? h("div", { "data-wk": "block", style: { background: "rgba(10,132,255,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#1a5fb4" } },
       "有 " + unheardN + T(" 条他一直没听")) : null,
     vm.map((x, i) => h("button", {
       key: i, onClick: () => setOpen({ kind: "vm", x: x }),
       className: "w-full text-left active:opacity-60",
       style: { background: "#fff", borderRadius: 14, padding: "15px 16px", marginBottom: 10, borderLeft: x.heard === false ? "3px solid " + CALL_BLUE : "3px solid transparent" }
     }, h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), color: CALL_INK } }, PTX(x.from || "")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: CALL_DIM } }, [x.time, x.duration].filter(Boolean).join(" · "))),
-    x.transcript ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.8, color: "#5b5b62", marginTop: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.transcript)) : null,
-    x.heard === false ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: CALL_BLUE, marginTop: 8 } }, "未听") : null)))
-    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: CALL_DIM } }, "信箱是空的");
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: CALL_INK } }, PTX(x.from || "")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: CALL_DIM } }, [x.time, x.duration].filter(Boolean).join(" · "))),
+    x.transcript ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: "#5b5b62", marginTop: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(x.transcript)) : null,
+    x.heard === false ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: CALL_BLUE, marginTop: 8 } }, "未听") : null)))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: CALL_DIM } }, "信箱是空的");
   // ── 联系人 + 拦截 ──
   const peoplePage = h("div", null,
     me.number ? h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 14 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: CALL_DIM } }, T("他的号码")),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(19), color: CALL_INK, marginTop: 5 } }, me.number)) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: CALL_DIM } }, T("他的号码")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: CALL_INK, marginTop: 5 } }, me.number)) : null,
     freq.length ? h("div", null, secLabel("常联系"),
       groupCard(freq.map((x, i) => h("div", { key: i, style: { padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" } },
         h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), color: CALL_INK } }, PTX(x.name || "")),
-          x.count != null ? h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: CALL_DIM } }, x.count + " 通") : null),
-        x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: CALL_DIM, marginTop: 5 } }, PTX(x.why)) : null)))) : null,
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: CALL_INK } }, PTX(x.name || "")),
+          x.count != null ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: CALL_DIM } }, x.count + " 通") : null),
+        x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: CALL_DIM, marginTop: 5 } }, PTX(x.why)) : null)))) : null,
     blocked.length ? h("div", null, secLabel("拦截名单"),
       groupCard(blocked.map((x, i) => h("div", { key: i, style: { padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15.5), color: CALL_INK } }, PTX(x.name || "")),
-        x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: "#b6473c", marginTop: 5 } }, PTX(x.why)) : null))),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: CALL_INK } }, PTX(x.name || "")),
+        x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#b6473c", marginTop: 5 } }, PTX(x.why)) : null))),
       onPeek ? peekBtn("hidden", T("他的拦截名单"), T("他拉黑了谁"), blocked.map(x => (x.name || "") + "：" + (x.why || "")).join("｜")) : null) : null,
     (!freq.length && !blocked.length && !me.number)
-      ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), color: CALL_DIM } }, "还没有联系人") : null);
+      ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: CALL_DIM } }, "还没有联系人") : null);
   // ── 详情 ──
   // ⚠️跟微信那一屏同一件事：open.x 是【点开那一刻的那一行】，一张快照。
   //   TA发出去的那条落进 x_phone 之后这张快照不会跟着长——去重也就无从比起。
@@ -4400,26 +4398,26 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
       bg: { background: CALL_BG }, ink: CALL_INK,
       title: isCall ? "通话" : isSms ? "短信" : "留言", onClose: () => setOpen(null)
     },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(22), lineHeight: 1.35, color: missed ? CALL_RED : CALL_INK } }, x.name || x.from || x.number || "陌生号码"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: CALL_DIM, marginTop: 5 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", lineHeight: 1.35, color: missed ? CALL_RED : CALL_INK } }, x.name || x.from || x.number || "陌生号码"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: CALL_DIM, marginTop: 5 } },
         [x.number, x.time, isCall ? (missed ? "未接通" : (x.dir === "in" ? "来电 " : "拨出 ") + (x.duration || "")) : "", isVm ? x.duration : "", isSms ? (x.kind === "人" ? "短信 · 人" : "短信 · 通知") : ""].filter(Boolean).join(" · ")),
       // 短信：气泡串。收到的靠左灰、TA发的靠右蓝
       isSms ? h("div", { "data-watch": "thread", style: { marginTop: 16 } }, A(x.msgs).concat(driveSent).map((m2, j) => {
         const mine = m2.from === "me";
         return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
-          h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.7, whiteSpace: "pre-wrap" } }, PTX(m2.text || "")));
+          h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.7, whiteSpace: "pre-wrap" } }, PTX(m2.text || "")));
       })) : null,
       isVm && x.transcript ? h("div", { "data-wk": "block", style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: CALL_DIM } }, "留言转文字" + (x.heard === false ? T(" · 他一直没听") : "")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, PTX(x.transcript))) : null,
-      isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.9, color: "#4b4b53" } }, PTX(x.gist)) : null,
-      x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: pfs(14.5), lineHeight: 1.9, color: CALL_INK } }, PTX(x.thought)) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: CALL_DIM } }, "留言转文字" + (x.heard === false ? T(" · 他一直没听") : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, PTX(x.transcript))) : null,
+      isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: "#4b4b53" } }, PTX(x.gist)) : null,
+      x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: CALL_INK } }, PTX(x.thought)) : null,
       // ── 打字条：只有「看TA玩」演到打字那一下才出现（drive 不在时压根不画）──
       driveTyping != null ? h("div", { "data-wk": "pinput", "data-watch": "input", className: "flex items-end", style: { gap: 8, marginTop: 16, padding: "8px 10px", background: "#f5f5f8", borderRadius: 14 } },
-        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.6, color: CALL_INK, minHeight: 20 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, color: CALL_INK, minHeight: 20 } },
           driveTyping || h("span", { style: { color: "#bbb" } }, "\u00a0"),
           h("span", { style: { display: "inline-block", width: 1.5, height: 15, background: CALL_BLUE, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } })),
-        h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { flexShrink: 0, borderRadius: 999, padding: "7px 14px", fontFamily: F_BODY, fontSize: pfs(13), color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? CALL_BLUE : "#e6e6ea" } }, "发送")) : null,
+        h("div", { "data-wk": "pbtn", "data-part": "send", "data-watch": "send", style: { flexShrink: 0, borderRadius: 999, padding: "7px 14px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: driveTyping ? "#fff" : "#9a9a9a", background: driveTyping ? CALL_BLUE : "#e6e6ea" } }, "发送")) : null,
       peekBtn("quiet",
         isCall ? (missed ? T("他没接的一通电话") : T("他的通话记录")) : isSms ? T("他收到的短信") : T("有人给他留的言"),
         x.name || x.from || x.number,
@@ -4449,9 +4447,9 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
           style: { padding: "7px 0 6px", minHeight: 48, position: "relative" }
         },
           callGlyph(pg.key, on ? CALL_BLUE : CALL_DIM),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10), marginTop: 3, color: on ? CALL_BLUE : CALL_DIM } }, pg.zh),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", marginTop: 3, color: on ? CALL_BLUE : CALL_DIM } }, pg.zh),
           pg.badge ? h("span", { style: { position: "absolute", top: 4, left: "50%", marginLeft: 6, minWidth: 15, height: 15,
-            borderRadius: 999, background: "#ff3b30", color: "#fff", fontFamily: F_BODY, fontSize: pfs(9.5),
+            borderRadius: 999, background: "#ff3b30", color: "#fff", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))",
             display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge) : null);
       })),
     detail);
@@ -4521,7 +4519,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
     onClick: () => onGen && onGen(),
     disabled: !!busy,
     className: "w-full mt-4 py-3 active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: pfs(13), borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: busy ? .5 : 1 }
+    style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: busy ? .5 : 1 }
   }, busy ? T("正在想他会听什么…") : T("给他生成一张"))));
   const name = S(pl.name) || "歌单";
   const seed = phoneStableHash(name);
@@ -4546,12 +4544,12 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
       position: "absolute", left: "50%", top: "50%", marginLeft: -3, marginTop: -3,
       width: 6, height: 6, borderRadius: 999, background: t.bg
     } }));
-  const eyebrow = s => h("div", { style: { fontFamily: F_BODY, fontSize: pfs(9.5), letterSpacing: ".28em", color: t.fog } }, s);
+  const eyebrow = s => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".28em", color: t.fog } }, s);
   const act = (label, on, danger) => h("button", { "data-wk": "pbtn", "data-part": "act",
     onClick: e => { e.stopPropagation(); on(); },
     className: "active:opacity-60",
     style: {
-      fontFamily: F_BODY, fontSize: pfs(11.5), padding: "6px 12px", borderRadius: 99,
+      fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 99,
       border: "1px solid " + (danger ? t.accent : t.line), color: danger ? t.accent : t.ink
     }
   }, label);
@@ -4562,11 +4560,11 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
         eyebrow("A 面"),
         // 歌单名顶栏已经写着了，这儿不再抄一遍——碟边上该说的是顶栏说不了的：
         // 这张有多少首、跟哪儿是同一张、以及点一首会发生什么
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(23), lineHeight: 1.15, color: t.ink, marginTop: 7 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(23px * var(--app-fs, 1))", lineHeight: 1.15, color: t.ink, marginTop: 7 } },
           songs.length + " 首"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.fog, marginTop: 7, lineHeight: 1.65 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 7, lineHeight: 1.65 } },
           "和「一起听」是同一张"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.accent, marginTop: 3, lineHeight: 1.65 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.accent, marginTop: 3, lineHeight: 1.65 } },
           T("点一首，摊开他为什么听它")))),
     // 曲目单：号在左边挂着，中间是曲名，TA为什么循环这一首写在下面那一行
     songs.map((s2, i) => {
@@ -4582,15 +4580,15 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
         },
           h("span", { style: {
             flexShrink: 0, width: 26, textAlign: "right", fontFamily: F_DISPLAY,
-            fontSize: pfs(16), lineHeight: 1.25, color: on ? t.ink : t.fog
+            fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.25, color: on ? t.ink : t.fog
           } }, String(i + 1).padStart(2, "0")),
           h("div", { className: "min-w-0", style: { flex: 1 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), lineHeight: 1.4, color: t.ink, wordBreak: "break-word" } }, S(s2.title) || "未命名"),
-            S(s2.artist) ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: t.fog, marginTop: 2 } }, S(s2.artist)) : null,
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.4, color: t.ink, wordBreak: "break-word" } }, S(s2.title) || "未命名"),
+            S(s2.artist) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, S(s2.artist)) : null,
             // 心境：TA为什么会循环这一首（她 2026-08-29 点名要在查手机这边看得到）。
             // 这一行是这一页的正文，不是附注——所以给它朱色，别再当成灰色小字。
             note ? h("div", { style: {
-              fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.7, color: t.accent, marginTop: 7,
+              fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.accent, marginTop: 7,
               paddingLeft: 9, borderLeft: "2px solid " + t.accent, opacity: .92, wordBreak: "break-word"
             } }, note) : null,
             // 点开就在原地摊开，不掀半窗（施工规则/no-half-sheet.md）。
@@ -4671,8 +4669,8 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
     onBack: open ? closeOne : onBack,
     right: h("span", { className: "flex items-center justify-center", style: { width: 40, height: 40 } }, h(PGlyph, { k: "forum", size: 17, color: skin.dim })) });
   if (!list.length) return h("div", { className: "h-full flex flex-col", "data-wk": "papp", "data-app": "forum", style: { background: skin.bg } }, top,
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5" }, h("div", { style: { padding: "64px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.85, color: skin.dim } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(18), color: skin.ink, marginBottom: 7 } }, T("论坛还没有他的痕迹")),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5" }, h("div", { style: { padding: "64px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: skin.dim } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: skin.ink, marginBottom: 7 } }, T("论坛还没有他的痕迹")),
       T("等他去论坛发帖或回帖之后再来翻"))));
   if (open) {
     const it = open.item || {}, isPost = open.kind === "post";
@@ -4680,31 +4678,31 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
         h("article", { "data-wk": "block", style: { marginTop: 12, borderRadius: 20, padding: "18px 17px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.09)" } },
           h("div", { className: "flex items-center gap-2 flex-wrap" },
-            h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), padding: "3px 9px", borderRadius: 99, background: skin.soft, color: skin.accent } }, isPost ? (it.board || "论坛") : "回帖"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: skin.dim } }, fmtTs(it.ts))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "3px 9px", borderRadius: 99, background: skin.soft, color: skin.accent } }, isPost ? (it.board || "论坛") : "回帖"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: skin.dim } }, fmtTs(it.ts))),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: isPost ? 21 : 16, lineHeight: 1.45, color: skin.ink, marginTop: 12 } }, isPost ? (it.title || "无题") : "在「" + (it.postTitle || "帖子") + "」下面说"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(14), lineHeight: 1.85, color: skin.ink, marginTop: 10, whiteSpace: "pre-wrap" } }, PTX(isPost ? (it.body || "") : (it.text || ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: skin.ink, marginTop: 10, whiteSpace: "pre-wrap" } }, PTX(isPost ? (it.body || "") : (it.text || ""))),
           isPost && A(it.replies).length ? h("div", { style: { marginTop: 20, borderTop: "1px solid " + skin.line, paddingTop: 13 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".12em", color: skin.dim, marginBottom: 4 } }, "楼下 · " + (it.replyCount || A(it.replies).length)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".12em", color: skin.dim, marginBottom: 4 } }, "楼下 · " + (it.replyCount || A(it.replies).length)),
             A(it.replies).map((r, i) => h("div", { key: i, style: { padding: "9px 0", borderTop: i ? "1px solid " + skin.line : "none" } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(12.5), color: r.mine ? skin.accent : skin.dim } }, (r.name || "网友") + "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: pfs(13), lineHeight: 1.7, color: skin.ink } }, PTX(r.text || ""))))) : null),
-        h("button", { onClick: () => peek(it), className: "w-full active:opacity-60", style: { marginTop: 14, borderRadius: 14, padding: "12px 14px", border: "1px solid " + (acc.key === "main" ? skin.line : skin.accent), background: acc.key === "main" ? skin.paper : skin.soft, color: skin.ink, fontFamily: F_BODY, fontSize: pfs(12.5) } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: r.mine ? skin.accent : skin.dim } }, (r.name || "网友") + "："),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: skin.ink } }, PTX(r.text || ""))))) : null),
+        h("button", { onClick: () => peek(it), className: "w-full active:opacity-60", style: { marginTop: 14, borderRadius: 14, padding: "12px 14px", border: "1px solid " + (acc.key === "main" ? skin.line : skin.accent), background: acc.key === "main" ? skin.paper : skin.soft, color: skin.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
           acc.key === "main" ? "转发给 TA" : T("摆到 TA 面前 · 这是他藏起来的"))));
   }
   const identityCount = countOf(acc);
   const postCard = (it, i) => h("button", { "data-wk": "block", key: it.id || "p" + i, "data-wk": "pitem", "data-watch": "item:" + (it.title || ""), onClick: () => openOne("post", it), className: "w-full text-left active:opacity-65", style: { display: "block", borderRadius: 18, padding: "14px 15px", marginTop: 10, background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 8px 22px rgba(28,36,27,.065)" } },
     h("div", { className: "flex items-center justify-between gap-3" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), padding: "2px 8px", borderRadius: 99, background: skin.soft, color: skin.accent } }, PTX(it.board || "论坛")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: skin.dim } }, fmtTs(it.ts))),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), lineHeight: 1.45, color: skin.ink, marginTop: 8 } }, PTX(it.title || "无题")),
-    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.65, color: skin.dim, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.body)) : null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: skin.dim, marginTop: 9 } }, it.replyCount ? it.replyCount + " 条回复" : "还没人回"));
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "2px 8px", borderRadius: 99, background: skin.soft, color: skin.accent } }, PTX(it.board || "论坛")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: skin.dim } }, fmtTs(it.ts))),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.45, color: skin.ink, marginTop: 8 } }, PTX(it.title || "无题")),
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.65, color: skin.dim, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(it.body)) : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: skin.dim, marginTop: 9 } }, it.replyCount ? it.replyCount + " 条回复" : "还没人回"));
   // ⚠️楼下那几条原来一个挂点都没有：模型说的名字对上的是【某条回复所在的帖子】时，
   //   页面按 comment 打开，圆点却只能在帖子里模糊找一个——于是「对着一个帖子，点进去是另一个」。
   const commentCard = (it, i) => h("button", { key: "c" + i, "data-watch": "item:" + (it.postTitle || ""), "data-wk": "pitem", onClick: () => openOne("comment", it), className: "w-full text-left active:opacity-65", style: { display: "block", marginTop: 9, padding: "12px 14px", borderRadius: 15, background: skin.paper, border: "1px solid " + skin.line, borderLeft: "3px solid " + skin.accent } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(13.5), lineHeight: 1.65, color: skin.ink } }, PTX(it.text || "")),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: skin.dim, marginTop: 6 } }, "在「" + String(it.postTitle || "帖子").slice(0, 20) + "」下 · " + fmtTs(it.ts)));
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: skin.ink } }, PTX(it.text || "")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: skin.dim, marginTop: 6 } }, "在「" + String(it.postTitle || "帖子").slice(0, 20) + "」下 · " + fmtTs(it.ts)));
   return h("div", { className: "h-full flex flex-col", "data-wk": "papp", "data-app": "forum", style: { background: skin.bg } }, top,
     // 三个账号是三副身份面具：各自带眼孔与自己的颜色，选中的那副下沉接进足迹页。
     // 形状、高度、位置都会变，遵守 tabs-not-plain-pills.md；按钮本身仍保留 50px 以上手感。
@@ -4712,27 +4710,27 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
       const active = a.key === acc.key, s2 = PHONE_FORUM_SKINS[a.key] || PHONE_FORUM_SKINS.main;
       return h("button", { "data-wk": "block", key: a.key, onClick: () => goTab(a.key), className: "flex-1 outline-none active:opacity-60", style: { minWidth: 0, minHeight: active ? 58 : 50, position: "relative", bottom: -1, marginTop: active ? 0 : 8, borderRadius: "14px 14px 3px 3px", padding: "7px 3px 6px", background: active ? skin.paper : s2.soft, border: "1px solid " + (active ? skin.line : s2.line), borderTop: "3px solid " + s2.accent, borderBottomColor: active ? skin.paper : s2.line, color: active ? skin.ink : skin.dim, boxShadow: active ? "0 -5px 14px rgba(28,36,27,.07)" : "none", opacity: active ? 1 : .72, zIndex: active ? 2 : 1 } },
         h("span", { "aria-hidden": "true", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, width: 25, height: 14, borderRadius: "50% 50% 42% 42% / 72% 72% 38% 38%", background: s2.accent, marginBottom: 2 } }, h("i", { style: { width: 4, height: 3, borderRadius: 99, background: active ? skin.paper : skin.bg } }), h("i", { style: { width: 4, height: 3, borderRadius: 99, background: active ? skin.paper : skin.bg } })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(12.5) } }, a.label),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(8.5), letterSpacing: ".1em", color: active ? s2.accent : skin.dim, marginTop: 1 } }, countOf(a) + " TRACE"));
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, a.label),
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: active ? s2.accent : skin.dim, marginTop: 1 } }, countOf(a) + " TRACE"));
     })),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
       h("section", { "data-wk": "block", style: { marginTop: 13, borderRadius: 22, padding: "16px", background: skin.paper, border: "1px solid " + skin.line, boxShadow: "0 12px 28px rgba(24,31,24,.08)" } },
         h("div", { className: "flex items-center gap-3" },
           h("div", { "data-wk": "block", className: "shrink-0 flex items-center justify-center", style: { width: 48, height: 48, borderRadius: 16, background: skin.soft, border: "1px solid " + skin.line } }, h(PGlyph, { k: "forum", size: 22, color: skin.accent })),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { className: "flex items-center gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(18), color: skin.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, acc.name || acc.label), h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: pfs(9.5), padding: "2px 7px", borderRadius: 99, background: skin.soft, color: skin.accent } }, skin.label)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: skin.dim, marginTop: 2 } }, [acc.handle, identityCount + " 条足迹"].filter(Boolean).join(" · ")))),
-        acc.bio ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.7, color: skin.ink, marginTop: 12 } }, PTX(acc.bio)) : null,
-        (acc.followers != null || acc.following != null) ? h("div", { className: "flex items-center gap-4", style: { marginTop: 10, fontFamily: F_BODY, fontSize: pfs(11), color: skin.dim } },
+            h("div", { className: "flex items-center gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: skin.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, acc.name || acc.label), h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", padding: "2px 7px", borderRadius: 99, background: skin.soft, color: skin.accent } }, skin.label)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: skin.dim, marginTop: 2 } }, [acc.handle, identityCount + " 条足迹"].filter(Boolean).join(" · ")))),
+        acc.bio ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: skin.ink, marginTop: 12 } }, PTX(acc.bio)) : null,
+        (acc.followers != null || acc.following != null) ? h("div", { className: "flex items-center gap-4", style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: skin.dim } },
           acc.following != null ? h("span", null, h("b", { style: { color: skin.ink } }, acc.following), " 关注") : null,
           acc.followers != null ? h("span", null, h("b", { style: { color: skin.ink } }, acc.followers), " 关注者") : null,
           acc.joinTs ? h("span", null, fmtTs(acc.joinTs).slice(0, -6) + " 注册") : null) : null),
       A(acc.posts).length ? h("section", { style: { marginTop: 19 } },
-        h("div", { className: "flex items-center justify-between px-1" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), color: skin.ink } }, "发过的帖"), h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: skin.dim } }, A(acc.posts).length + " 篇")), A(acc.posts).map(postCard)) : null,
+        h("div", { className: "flex items-center justify-between px-1" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: skin.ink } }, "发过的帖"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: skin.dim } }, A(acc.posts).length + " 篇")), A(acc.posts).map(postCard)) : null,
       A(acc.comments).length ? h("section", { style: { marginTop: 21 } },
-        h("div", { className: "flex items-center justify-between px-1" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: pfs(15), color: skin.ink } }, "在别人楼下说的话"), h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: skin.dim } }, A(acc.comments).length + " 条")), A(acc.comments).map(commentCard)) : null,
-      !A(acc.posts).length && !A(acc.comments).length ? h("div", { style: { padding: "58px 18px", textAlign: "center", fontFamily: F_BODY, fontSize: pfs(12.5), lineHeight: 1.85, color: skin.dim } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(17), color: skin.ink, marginBottom: 5 } }, "这个号还是空的"),
+        h("div", { className: "flex items-center justify-between px-1" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: skin.ink } }, "在别人楼下说的话"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: skin.dim } }, A(acc.comments).length + " 条")), A(acc.comments).map(commentCard)) : null,
+      !A(acc.posts).length && !A(acc.comments).length ? h("div", { style: { padding: "58px 18px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.85, color: skin.dim } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: skin.ink, marginBottom: 5 } }, "这个号还是空的"),
         acc.key === "anon" ? T("他还没用匿名发过什么") : T("他还没用这个号露过面")) : null));
 }
 function renderPhoneModule(key, d, ctx) {
@@ -4760,7 +4758,7 @@ function renderPhoneModule(key, d, ctx) {
     onClick: () => ctx.onPeek({ tier, label, title, text }),
     className: "w-full mt-6 py-3 active:opacity-60",
     style: {
-      fontFamily: F_BODY, fontSize: pfs(12.5), borderRadius: 13,
+      fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 13,
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.45)" : t.line),
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
@@ -4807,7 +4805,7 @@ function renderPhoneModule(key, d, ctx) {
     onClose: ctx.onBack
   });
   if (key === "astro") return typeof window !== "undefined" && window.AstroPhoneView ? h(window.AstroPhoneView, { char, profile: ctx.profile, onBack: ctx.onBack })
-    : h("div", { className: "h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: pfs(13), color: t.fog } }, "星测还没加载好");
+    : h("div", { className: "h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "星测还没加载好");
   if (key === "timeline") return h(TimelineView, {
     rows: ctx.timelineRows, char, t, onBack: ctx.onBack, onOpenApp: ctx.onOpenApp, onPeek: ctx.onPeek,
     newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead,
@@ -4858,10 +4856,10 @@ function PhoneApp({
   const notYet = !data && !isLive && !spinning;
   if (spinning) content = h(Spinner, { label: "正在生成 " + zh + "…（这一步会调一次模型）" });
   else if (notYet) content = h("div", { "data-wk": "phonenotyet", className: "flex flex-col items-center justify-center text-center", style: { padding: "80px 24px", gap: 10 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: t.ink } }, zh + "里还没有东西"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: t.fog, lineHeight: 1.7 } }, "要看就生成一份，这一步会调一次模型。"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, zh + "里还没有东西"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, "要看就生成一份，这一步会调一次模型。"),
     h("button", { onClick: () => onGen(char, appKey), disabled: !!busyKey, className: "active:opacity-70 disabled:opacity-40",
-      style: { marginTop: 6, minHeight: 40, padding: "0 22px", borderRadius: 20, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: pfs(13) } }, "生成 " + zh));
+      style: { marginTop: 6, minHeight: 40, padding: "0 22px", borderRadius: 20, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "生成 " + zh));
   else content = renderPhoneModule(appKey, data, {
     t,
     char,
@@ -4903,9 +4901,9 @@ function PhoneApp({
     }
   },
     h("span", { "aria-hidden": "true", style: { width: 13, height: 13, borderRadius: 99, border: "2px solid " + t.line, borderTopColor: t.ink, flexShrink: 0, animation: "wk-spin .9s linear infinite" } }),
-    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: pfs(12), color: t.sub, lineHeight: 1.55 } },
+    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55 } },
       "正在重新推演 " + zh + "…（这一步会调一次模型）"),
-    h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.fog, flexShrink: 0 } }, "下面还是上一次的")) : null;
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, "下面还是上一次的")) : null;
   // 接真数据的 app 没有「重刷」这回事——它跟着TA真去论坛发帖、真加歌单在变。
   const refreshKey = isLive ? null : appKey;
   const liveTitle = appKey === "music"
@@ -5523,8 +5521,8 @@ function PhoneCarry({
           h("div", { className: "shrink-0 flex items-center gap-3 px-5 pt-6 pb-4", style: { borderBottom: "1px solid " + t.line } },
             h(Avatar, { character: meAv, size: 50, radius: 999 }),
             h("div", { className: "flex-1 min-w-0" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(21), color: t.ink, lineHeight: 1.1 } }, "通讯录"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: t.fog, marginTop: 3 } }, characters.length + " 个人"))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.1 } }, "通讯录"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, characters.length + " 个人"))),
           // 每周刷新正在跑：一次唤起会把这一周欠的人连着刷完，一个人十几次串行调用。
           // 中间那几分钟不摆出来的话，看起来跟卡住了一模一样。
           weekAt ? h("div", {
@@ -5532,9 +5530,9 @@ function PhoneCarry({
             style: { background: "rgba(0,0,0,.035)", borderBottom: "1px solid " + t.line }
           },
             h("span", { className: "shrink-0", style: { width: 6, height: 6, borderRadius: 999, background: t.accent } }),
-            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
               "每周刷新中 · 正在刷「" + weekAt.name + "」"),
-            h("div", { className: "shrink-0", style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10.5), color: t.fog } }, weekAt.i + "/" + weekAt.n)) : null,
+            h("div", { className: "shrink-0", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, weekAt.i + "/" + weekAt.n)) : null,
           // 角色列表：在手机屏内下滑
           h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-1" },
             characters.map(c => h("div", {
@@ -5546,8 +5544,8 @@ function PhoneCarry({
               },
                 h(Avatar, { character: c, size: 44, radius: 13 }),
                 h("div", { className: "flex-1 min-w-0" },
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(16), color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: t.fog, marginTop: 1 } },
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } },
                     weekAt && weekAt.id === c.id ? "正在刷新……" : phoneLastAllLabel((lastAll || {})[c.id])))),
               // ⚠️这儿【只标不开】（她 2026-09-06：「不应该那里有按钮，设置里面都已经开了一次了」）。
               // 原来这是个开关，和 设置·自动刷新 里那一份是【同一个总闸的两个手柄】：
@@ -5559,11 +5557,11 @@ function PhoneCarry({
                 className: "shrink-0",
                 title: "每周自动刷新已开（在 设置 · 自动刷新 里改）",
                 style: {
-                  fontFamily: F_BODY, fontSize: pfs(10.5), padding: "4px 10px", borderRadius: 99,
+                  fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 99,
                   background: t.ink, color: t.bg
                 }
               }, "每周") : null,
-              h("span", { style: { fontFamily: F_BODY, fontSize: pfs(20), color: t.fog, flexShrink: 0 } }, "\u203a")))))));
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, "\u203a")))))));
   }
   if (lookOpen) return h(PhoneLookSettings, { char, look, onPatch: patchLook, onBack: () => setLookOpen(false), t });
   if (dataOpen) return h(PhoneDataSettings, {
@@ -5675,7 +5673,7 @@ function PhoneCarry({
       h("div", { className: "relative flex items-center justify-center",
         style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
         (phoneImage(look.icons && look.icons["__look"]) ? h("img", { src: phoneImage(look.icons["__look"]), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 17 } }) : h(PGlyph, { k: "settings", size: 24, color: glyph }))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "外观"));
   };
   // 数据那一格：跟外观并排，长得也一样。清空重生和「写哪种语言」都在里面。
   const dataIcon = () => {
@@ -5691,7 +5689,7 @@ function PhoneCarry({
       h("div", { className: "relative flex items-center justify-center",
         style: { width: 56, height: 56, borderRadius: 17, background: iconBg, boxShadow: preset === "own" ? "0 6px 16px rgba(40,50,45,.13),inset 0 0 0 1px rgba(255,255,255,.55)" : "0 8px 22px rgba(28,25,20,.10)" } },
         (phoneImage(look.icons && look.icons["__data"]) ? h("img", { src: phoneImage(look.icons["__data"]), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 17 } }) : h(PGlyph, { k: "notes", size: 24, color: glyph }))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "数据"));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: preset === "own" ? phoneOwnInk(char && char.id) : t.sub, textAlign: "center" } }, "数据"));
   };
   // 「看TA玩」那一层罩子：触控圆点 / TA心里那一句 / 底下那条。
   // 三处 return（app 里、锁屏、桌面）都套同一个——各写一份的话，改一处另两处必然落单。
@@ -5887,7 +5885,7 @@ function PhoneCarry({
   function deskBody(key, dark, hero) {
     const dim = dimOn(dark), ink = inkOn(dark);
     const line = (s2, size, weight) => h("div", { style: { fontFamily: F_DISPLAY, fontSize: size || 14, color: ink, lineHeight: 1.4, fontWeight: weight || 400, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, s2);
-    const small = s2 => h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: dim, marginTop: 4 } }, s2);
+    const small = s2 => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: dim, marginTop: 4 } }, s2);
 
     // 表：走针的模拟表盘，纯装饰，不读任何数据
     if (key === "clock") {
@@ -5908,7 +5906,7 @@ function PhoneCarry({
       const c1 = strColor(cap), c2 = strColor(cap.slice(1) + "x");
       return h("div", { className: "flex flex-col", style: { flex: 1 } },
         h("div", { style: { height: 74, borderRadius: 15, marginTop: 8, background: "linear-gradient(150deg," + c1 + "cc," + c2 + "88)" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), color: dim, marginTop: 9 } }, cap));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: dim, marginTop: 9 } }, cap));
     }
     // 一句话：把TA自己写过的一句放大。挑最长的那句——短的那种「买牛奶」放大了很傻
     if (key === "saying") {
@@ -5916,8 +5914,8 @@ function PhoneCarry({
         .map(x => (x.body && String(x.body).trim()) || wText(x)).filter(x => x && x.length >= 6);
       const said = pool.sort((a2, b2) => b2.length - a2.length)[0] || "";
       return h("div", { className: "flex flex-col justify-center", style: { flex: 1 } },
-        h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: pfs(26), lineHeight: .6, color: dim } }, "“"),
-        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: pfs(15), lineHeight: 1.75, color: ink, marginTop: 8,
+        h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: "calc(26px * var(--app-fs, 1))", lineHeight: .6, color: dim } }, "“"),
+        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.75, color: ink, marginTop: 8,
           display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
           said || T("他还没写下什么")));
     }
@@ -5931,7 +5929,7 @@ function PhoneCarry({
           h("div", { style: { position: "absolute", left: 3, top: 5, bottom: 5, width: 1, background: dark ? "rgba(255,255,255,.24)" : "rgba(35,31,25,.14)" } }),
           rows.map((r, i2) => h("div", { key: i2, style: { position: "relative", marginBottom: i2 < rows.length - 1 ? 7 : 0 } },
             h("div", { style: { position: "absolute", left: -13, top: 5, width: 7, height: 7, borderRadius: 999, background: i2 ? dim : ink } }),
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: i2 ? dim : ink } },
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: i2 ? dim : ink } },
               (r.ts == null ? "" : phoneClock(r.ts) + "  ") + (r.title || r.text || ""))))));
     }
     // 微信：两条聊天，像真的消息列表
@@ -5942,9 +5940,9 @@ function PhoneCarry({
         h("div", { key: i2, className: "flex items-center", style: { gap: 9, marginTop: i2 ? 11 : 0 } },
           h("div", { style: { width: 26, height: 26, borderRadius: 9, flexShrink: 0, background: strColor(c.name || i2) } }),
           h("div", { className: "min-w-0", style: { flex: 1 } },
-            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: pfs(13), color: ink } }, PTX(c.name || "未命名")),
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(11), color: dim, marginTop: 1 } }, PTX(c.preview || ""))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10), color: dim, flexShrink: 0 } }, phoneChatWhen(c)))));
+            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: ink } }, PTX(c.name || "未命名")),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: dim, marginTop: 1 } }, PTX(c.preview || ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: dim, flexShrink: 0 } }, phoneChatWhen(c)))));
     }
     // 音乐：碟 + 曲名 + 一条进度
     if (key === "music") {
@@ -5957,7 +5955,7 @@ function PhoneCarry({
             background: "radial-gradient(circle at 50% 50%,rgba(255,255,255,.9) 12%," + strColor((sg && sg.title) || "?") + " 14%," + strColor((sg && sg.title) || "?") + "aa 100%)" } }),
           h("div", { className: "min-w-0", style: { flex: 1 } },
             h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: hero ? 16 : 13.5, color: ink } }, sg ? sg.title : T("他还没有歌单")),
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(11), color: dim, marginTop: 3 } },
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: dim, marginTop: 3 } },
               sg ? ((sg.artist || "") + (livePlaylist && livePlaylist.name ? " · " + livePlaylist.name : "")) : "点开去看看"))),
         sg ? h("div", { style: { height: 2, borderRadius: 9, marginTop: 14, background: "rgba(255,255,255,.22)" } },
           h("div", { style: { width: "38%", height: "100%", borderRadius: 9, background: "rgba(255,255,255,.85)" } })) : null);
@@ -5977,11 +5975,11 @@ function PhoneCarry({
         isFinite(score) ? h("div", { style: { position: "relative", width: 44, height: 44, borderRadius: 999, flexShrink: 0,
           background: "conic-gradient(" + t.accent + " " + Math.max(0, Math.min(100, score)) + "%, rgba(35,31,25,.10) 0)" } },
           h("div", { className: "flex items-center justify-center", style: { position: "absolute", inset: 5, borderRadius: 999, background: dark ? "#1e1d1b" : "#fff",
-            fontFamily: F_DISPLAY, fontSize: pfs(13), color: ink } }, Math.round(score))) : null,
+            fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: ink } }, Math.round(score))) : null,
         h("div", { style: { flex: 1, minWidth: 0 } }, picks.map((pk, i2) =>
           h("div", { key: i2, className: "flex items-baseline", style: { gap: 6, marginTop: i2 ? 5 : 0 } },
-            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(11), color: dim, flex: 1 } }, pk[0]),
-            h("span", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: pfs(12.5), color: ink, maxWidth: "60%" } }, pk[1])))));
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: dim, flex: 1 } }, pk[0]),
+            h("span", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: ink, maxWidth: "60%" } }, pk[1])))));
     }
     // 相册：四宫格
     if (key === "album") {
@@ -5994,7 +5992,7 @@ function PhoneCarry({
             return h("div", { key: i2, style: { height: 48, borderRadius: 9,
               background: ph ? "linear-gradient(150deg," + strColor(wText(ph) || i2) + "cc," + strColor((wText(ph) || "") + "x") + "77)"
                 : (dark ? "rgba(255,255,255,.07)" : "rgba(35,31,25,.055)") } }); })),
-        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(11), color: dim, marginTop: 8 } }, wText(ps[0])));
+        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: dim, marginTop: 8 } }, wText(ps[0])));
     }
     // 日历：一块真正的日期，不是一行字
     if (key === "calendar") {
@@ -6002,13 +6000,13 @@ function PhoneCarry({
       const d = new Date(deskNow);
       return h("div", { className: "flex items-center", style: { flex: 1, gap: 13, marginTop: 6 } },
         h("div", { style: { textAlign: "center", flexShrink: 0 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10), letterSpacing: ".1em", color: "#c2503f" } }, ["日", "一", "二", "三", "四", "五", "六"][d.getDay()]),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(30), lineHeight: 1.05, color: ink } }, d.getDate())),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".1em", color: "#c2503f" } }, ["日", "一", "二", "三", "四", "五", "六"][d.getDay()]),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(30px * var(--app-fs, 1))", lineHeight: 1.05, color: ink } }, d.getDate())),
         h("div", { style: { flex: 1, minWidth: 0, borderLeft: "1px solid " + (dark ? "rgba(255,255,255,.2)" : "rgba(35,31,25,.12)"), paddingLeft: 12 } },
           ci ? h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: dim } }, String(ci.date || "").replace(/^\d{4}-/, "")),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(13.5), color: ink, marginTop: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(ci.title)))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: dim } }, "这几天没安排")));
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: dim } }, String(ci.date || "").replace(/^\d{4}-/, "")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: ink, marginTop: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(ci.title)))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: dim } }, "这几天没安排")));
     }
     // 便签：撕下来的一角
     if (key === "notes") {
@@ -6017,7 +6015,7 @@ function PhoneCarry({
       return h("div", { style: { flex: 1, marginTop: 8, borderRadius: 12, padding: "11px 13px",
         background: dark ? "rgba(255,255,255,.07)" : "rgba(226,214,178,.30)", borderLeft: "3px solid " + t.accent + "88" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: hero ? 16 : 13.5, color: ink } }, wText(n)),
-        n.body ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11.5), lineHeight: 1.6, color: dim, marginTop: 5,
+        n.body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: dim, marginTop: 5,
           display: "-webkit-box", WebkitLineClamp: hero ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, PTX(n.body)) : null);
     }
     // 阅读：一条进度
@@ -6030,7 +6028,7 @@ function PhoneCarry({
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
           h("div", { style: { flex: 1, height: 3, borderRadius: 9, background: dark ? "rgba(255,255,255,.18)" : "rgba(35,31,25,.10)" } },
             h("div", { style: { width: (pg ? pg[1] : 30) + "%", height: "100%", borderRadius: 9, background: t.accent } })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: dim } }, r.progress || "")));
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: dim } }, r.progress || "")));
     }
     // 账本：没结清的那几笔
     if (key === "tally") {
@@ -6039,7 +6037,7 @@ function PhoneCarry({
       return h("div", { style: { flex: 1, marginTop: 8 } }, rows.map((x, i2) =>
         h("div", { key: i2, className: "flex items-baseline", style: { gap: 7, marginTop: i2 ? 7 : 0 } },
           h("span", { style: { width: 5, height: 5, borderRadius: 999, background: t.accent, flexShrink: 0 } }),
-          h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(12), color: ink, flex: 1 } }, wText(x)))));
+          h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: ink, flex: 1 } }, wText(x)))));
     }
     // 邮件：几封 + 谁来的
     if (key === "mail") {
@@ -6047,8 +6045,8 @@ function PhoneCarry({
       if (!rows.length) return line("邮箱还没翻过");
       return h("div", { style: { flex: 1, marginTop: 8 } }, rows.map((x, i2) =>
         h("div", { key: i2, style: { marginTop: i2 ? 9 : 0 } },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: pfs(12.5), color: ink } }, wText(x)),
-          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: dim, marginTop: 2 } },
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: ink } }, wText(x)),
+          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: dim, marginTop: 2 } },
             (x.from || "") + (wTime(x) ? " · " + wTime(x) : "")))));
     }
     return h("div", { style: { fontFamily: F_DISPLAY, fontSize: hero ? 18 : 14, lineHeight: 1.42, color: ink, marginTop: hero ? 20 : 13,
@@ -6077,7 +6075,7 @@ function PhoneCarry({
         border: "1px solid " + (wPreset === "own" ? "rgba(255,255,255,.34)" : "rgba(255,255,255,.66)")
       }
     }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
-      style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: t.sub }
+      style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub }
     }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻…") : "刷新全部"));
     // 「看TA玩」跟「刷新全部」并排：它们是同一层的两面——一个是我翻TA的手机，
     // 一个是TA自己在刷、我在旁边看。所以摆成一对，一人一半。
@@ -6099,7 +6097,7 @@ function PhoneCarry({
         // 判据零调用，节奏由 PhoneWatch 兜（冷却是关着的，见台账那条红的）。
         animation: (watchHintOn && !watchCoolLeft && !watchBusy) ? "wkbreathe 2.4s ease-in-out infinite" : undefined
       } }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(12.5), color: t.sub } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
         watchBusy ? T("等他拿起手机…") : watchCoolLeft > 0 ? Math.ceil(watchCoolLeft / 60000) + " 分钟后"
           : (watchHintOn ? T("他在手机上") : T("看他玩"))));
     // 装饰件不是 app：表点了什么都不做，相框去相册，一句话去便签
@@ -6125,7 +6123,7 @@ function PhoneCarry({
         boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
       }
     }, h("div", { className: "flex items-center justify-between shrink-0" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, label),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, label),
       decor && key === "clock" ? null : h(PGlyph, { k: decor ? jump : key, size: 19, color: dark ? "#fff" : tone.glyph })),
     deskBody(key, dark, hero));
   };
@@ -6166,14 +6164,14 @@ function PhoneCarry({
   // 她 2026-09-01：「搜索框可以放长一点居中」——左右两侧收成等宽（各 34），
   // 中间那条就自然居中，也长了一截。
   h("div", { "data-wk": "block", className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 12, padding: "0 12px", margin: "0 10px", background: "rgba(255,255,255,.6)", border: "1px solid rgba(255,255,255,.66)" } },
-    h("span", { "aria-hidden": "true", style: { fontSize: pfs(12.5), color: t.fog } }, "\u2315"),
+    h("span", { "aria-hidden": "true", style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "\u2315"),
     h("input", {
       value: q, onChange: e => setQ(e.target.value),
       placeholder: T("在他手机里搜…"),
       "aria-label": T("在他手机里搜"),
-      style: { flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: pfs(12.5), color: t.ink }
+      style: { flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink }
     }),
-    q ? h("button", { onClick: () => setQ(""), "aria-label": "清空", className: "active:opacity-60", style: { fontSize: pfs(13), color: t.fog, padding: "0 2px" } }, "\u00d7") : null),
+    q ? h("button", { onClick: () => setQ(""), "aria-label": "清空", className: "active:opacity-60", style: { fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "0 2px" } }, "\u00d7") : null),
   // ⚠️「手机外观设置」不在顶栏了：那是【偶尔做一次】的事，不该常驻着占掉搜索的位置。
   // 改成桌面上的一个 app 图标（她 2026-09-01 定）。
   h("div", { className: "flex items-center justify-end shrink-0", style: { width: 34 } },
@@ -6184,7 +6182,7 @@ function PhoneCarry({
   // 「看TA玩」的入口在桌面组件里，跟「刷新全部」并排（她 2026-09-10 定的：
   // 全刷从 4×1 收成 2×1，另一半让给它）——它们是同一层的两面。
   q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: pfs(11), color: t.fog, padding: "2px 2px 10px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "2px 2px 10px" } },
       hits.length ? T("在他手机里找到 ") + hits.length + " 处" : T("他手机里没有这个")),
     hits.slice(0, 60).map(r => h("button", {
       key: r.id,
@@ -6194,15 +6192,15 @@ function PhoneCarry({
     },
       h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
         h(PGlyph, { k: r.app, size: 12, color: t.fog }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), color: t.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           r.appZh + (r.tag ? " · " + r.tag : "")),
-        r.when ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: pfs(10), color: t.fog } }, r.when) : null),
-      r.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: pfs(14), color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, PTX(r.title)) : null,
-      r.text ? h("div", { style: { fontFamily: F_BODY, fontSize: pfs(12), color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
+        r.when ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, r.when) : null),
+      r.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, PTX(r.title)) : null,
+      r.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
         r.text.length > 60 ? r.text.slice(0, 60) + "…" : r.text) : null))) : null,
   !q.trim() && h("div", { className: "shrink-0 px-5 pb-1 flex items-center justify-between" },
   h("div", null),   // 「向左滑还有一页」她 2026-09-01 说去掉——底下那排页点已经在说这件事了
-  h("div", { style: { fontFamily: F_BODY, fontSize: pfs(10.5), letterSpacing: ".04em", color: t.fog } }, layout.label)),
+  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".04em", color: t.fog } }, layout.label)),
   !q.trim() && h("div", {
     ref: deskRef,
     className: "flex-1 min-h-0 flex overflow-x-auto",
@@ -6242,7 +6240,7 @@ function PhoneCarry({
   }), h("span", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: pfs(16),
+      fontSize: "calc(16px * var(--app-fs, 1))",
       color: t.ink
     }
   }, PTX(c.name))))))));

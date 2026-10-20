@@ -36,8 +36,8 @@ test("周刊减去重复英文帽子、长稿加入金句并拉开标题层级",
   //   撤掉的那个 blockquote 不许再回来。
   assert.ok(weekly.indexOf('h("blockquote"') < 0, "金句又回到「在下面单独重复一遍」了");
   assert.match(weekly, /const before = hit \? p\.slice\(0, hitIdx\) : p;/, "金句没有就地放大");
-  assert.match(weekly, /fontSize: 30/);
-  assert.match(weekly, /fontSize: 16/);
+  assert.match(weekly, /fontSize: "calc\(30px \* var\(--app-fs, 1\)\)"/);
+  assert.match(weekly, /fontSize: "calc\(16px \* var\(--app-fs, 1\)\)"/);
   assert.doesNotMatch(weekly, /SHORT READ/);
   assert.doesNotMatch(weekly, /FEATURE 0/);
   assert.match(weekly, /头条 · 01/);

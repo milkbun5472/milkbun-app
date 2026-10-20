@@ -27,7 +27,7 @@ test("日记的标题、秘密、长短都不许塌缩成同一个模子", () =>
   // v58.41 起日期【永远】单独写在页首那一行（不再拿它冒充标题），
   // 所以「不取标题的人也不会开天窗」这条契约反而更硬了
   assert.match(screens, /const dateStr = [^\n]*\(d\.getMonth\(\) \+ 1\) \+ "月" \+ d\.getDate\(\) \+ "日"/, "全文页不再自己写日期了？");
-  assert.match(screens, /fontSize: fsz\(27\), color: t\.ink[^}]*\}\s*\}, dateStr\)/, "日期没写在页首那一行");
+  assert.match(screens, /fontSize: "calc\(27px \* var\(--app-fs, 1\)\)", color: t\.ink[^}]*\}\s*\}, dateStr\)/, "日期没写在页首那一行");
   assert.match(screens, /title \? h\("div"/, "标题变成必填了？没标题的人该什么都不显示");
   assert.match(engine, /两个字段都留空/, "不取标题的人应留空，由界面显示日期");
   assert.doesNotMatch(engine, /可以只填日期\/编号/, "旧的日期当标题的省力路径必须已移除");

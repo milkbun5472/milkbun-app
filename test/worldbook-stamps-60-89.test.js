@@ -55,7 +55,7 @@ test("「给谁看」用脸，不用一串名字——这个 app 里谁是有脸
   assert.match(wb, /h\(Avatar, \{ character: c, size: 19, radius: 999 \}\)/);
   assert.match(wb, /marginLeft: ix \? -6 : 0/, "叠着排");
   assert.match(wb, /people\.length > 4 \? h\("span"[\s\S]{0,120}"\+" \+ \(people\.length - 4\)/, "超过四个要收口");
-  assert.match(wb, /: h\("span", \{ style: \{ fontFamily: F_BODY, fontSize: 10\.5, color: t\.fog \} \}, "所有角色"\)/);
+  assert.match(wb, /: h\("span", \{ style: \{ fontFamily: F_BODY, fontSize: "calc\(10\.5px \* var\(--app-fs, 1\)\)", color: t\.fog \} \}, "所有角色"\)/);
 });
 
 test("顶上那块大标语也撤了（子页面用紧凑标题栏）", () => {

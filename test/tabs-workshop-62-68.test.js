@@ -42,7 +42,7 @@ test("地图：类型选择是图例，而且记号是画出来的", () => {
   assert.ok((MP.match(/kindMark\(/g) || []).length >= 2, "记号没被共用，迟早三处长成三个样");
   assert.match(MP, /d: KIND_PATH\[nd\.kind\] \|\| KIND_PATH\.地标/, "图上的标注还在用符号字");
   // 图例条目：方角、只有一道边；圆角药丸是任何 app 的筛选器
-  assert.match(MP, /borderRadius: 2,\s*\n?\s*fontFamily: F_BODY, fontSize: 12\.5, color: on2/);
+  assert.match(MP, /borderRadius: 2,\s*\n?\s*fontFamily: F_BODY, fontSize: "calc\(12\.5px \* var\(--app-fs, 1\)\)", color: on2/);
 });
 
 test("三处的选中态都不只靠色差，可点区也不低于 40px", () => {

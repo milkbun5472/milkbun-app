@@ -18,7 +18,7 @@ test("动描一小段：ACT_MEANING 不动，开了才补一句", () => {
 test("状态卡动作长了不撑爆：最多四行，点开看全", () => {
   assert.match(C, /function ClampText\(\{ text, lines, style \}\)/);
   assert.match(C, /WebkitLineClamp: lines/);
-  assert.match(C, /h\(ClampText, \{ style: \{ fontFamily: F_DISPLAY, fontSize: 15[^\n]*text: S\(state\.action\) \}\)/);
+  assert.match(C, /h\(ClampText, \{ style: \{ fontFamily: F_DISPLAY, fontSize: (?:15|"calc\(15px[^"]*")[^\n]*text: S\(state\.action\) \}\)/);
 });
 test("点进来先进哪间房：主聊天 / 上次 / 指定，房没了回主聊天", () => {
   assert.match(A, /const pick = \(settingsFor\(activeChar\.id\) \|\| \{\}\)\.enterRoom;/);

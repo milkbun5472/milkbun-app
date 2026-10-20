@@ -51,7 +51,7 @@ test("歌单是一张碟的曲目单，不是一排小方图", () => {
   // 不是硬翻出来的。面这件事本身要还在。
   assert.match(mv, /eyebrow\("A 面"\)/, "没有面");
   // 号要挂在左边、看得见：原来是 11px 的灰数字，等于没有
-  assert.match(mv, /fontSize: pfs\(16\), lineHeight: 1\.25, color: on \? t\.ink : t\.fog/, "曲目号还是一串看不见的小灰字");
+  assert.match(mv, /fontSize: "calc\(16px \* var\(--app-fs, 1\)\)", lineHeight: 1\.25, color: on \? t\.ink : t\.fog/, "曲目号还是一串看不见的小灰字");
 });
 
 test("他为什么循环这一首是正文，不是灰色附注", () => {

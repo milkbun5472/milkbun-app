@@ -123,7 +123,7 @@ test("我们说好的：两处按钮都从日期那一排挪下来了", () => {
   assert.ok(!/flexShrink: 0, opacity: day \? 1 : \.45 \}\) \}\),\n\s*h\("button"/.test(seg), "记下又挤回日期那一排了");
   // 挑日子：「就这天」和「不催了」自己一行
   assert.match(seg, /h\("div", \{ className: "flex items-center", style: \{ gap: 8, marginTop: 9 \} \},\n\s*h\("button", \{ onClick: \(\) => \{ if \(dueVal\)/);
-  assert.match(seg, /style: \{ fontFamily: F_BODY, fontSize: 11\.5, color: PFOG, minHeight: 44, padding: "0 12px" \} \}, "不催了"/);
+  assert.match(seg, /style: \{ fontFamily: F_BODY, fontSize: "calc\(11\.5px \* var\(--app-fs, 1\)\)", color: PFOG, minHeight: 44, padding: "0 12px" \} \}, "不催了"/);
 });
 
 // 她 2026-09-18 第二张截图：「到那天他 · 来找你说 / 打给你 / 视频找你」挤同一排，
@@ -132,7 +132,7 @@ test("「到那天他」那三枚印平分整宽，一个字都不折", () => {
   const i = scr.indexOf("function CouplePacts({");
   const seg = scr.slice(i, scr.indexOf("function CoupleWishes({", i));
   // 那句话挪到上面自己一行了
-  assert.match(seg, /h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 10\.5, color: PFOG, marginBottom: 6 \} \}, characterText\(partner, "到那天他"\)\)/);
+  assert.match(seg, /h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: "calc\(10\.5px \* var\(--app-fs, 1\)\)", color: PFOG, marginBottom: 6 \} \}, characterText\(partner, "到那天他"\)\)/);
   assert.ok(!/marginRight: 2 \} \}, characterText\(partner, "到那天他"\)\),/.test(seg), "又挤回那一排了");
   // 三枚印平分、不折行
   assert.match(seg, /className: "flex-1 min-w-0 active:opacity-75"/);

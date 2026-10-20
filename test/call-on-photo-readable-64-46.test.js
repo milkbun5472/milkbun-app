@@ -27,15 +27,15 @@ test("两样工具都在，而且只在有画面时才出手", () => {
 test("飘在照片上的每一处白字都带上了字影", () => {
   // 时长那行、旁白、说话人名（列表里那处 + 「对方」那处）、「正在说」
   const musts = [
-    /fontSize: 13,\n\s*color: onPhoto \? "rgba\(255,255,255,0\.86\)"/,          // 时长
+    /fontSize: "calc\(13px \* var\(--app-fs, 1\)\)",\n\s*color: onPhoto \? "rgba\(255,255,255,0\.86\)"/,          // 时长
     /fontStyle: "italic"[^\n]*onPhoto \? "rgba\(255,255,255,0\.88\)"[^\n]*\}, litText\)/, // 旁白
-    /fontSize: 11\.5, color: onPhoto \? "rgba\(255,255,255,0\.88\)"[^\n]*\}, litText\)/   // 正在说
+    /fontSize: "calc\(11\.5px \* var\(--app-fs, 1\)\)", color: onPhoto \? "rgba\(255,255,255,0\.88\)"[^\n]*\}, litText\)/   // 正在说
   ];
   musts.forEach((re, i) => assert.match(call, re, "第 " + (i + 1) + " 处白字没带字影/没提亮"));
   // 说话人名那两处【都】要改到——只改一处就是「一层写在两处，第二处没跟上」
-  const nameHits = call.match(/fontSize: 10, color: onPhoto \? "rgba\(255,255,255,0\.85\)"[^\n]*\}, litText\)/g) || [];
+  const nameHits = call.match(/fontSize: "calc\(10px \* var\(--app-fs, 1\)\)", color: onPhoto \? "rgba\(255,255,255,0\.85\)"[^\n]*\}, litText\)/g) || [];
   assert.equal(nameHits.length, 2, "说话人名那两处只改了 " + nameHits.length + " 处");
-  assert.equal(call.indexOf('fontSize: 10, color: "rgba(255,255,255,0.5)"'), -1, "还有一处留着原来那个淡到看不见的灰");
+  assert.equal(call.indexOf('fontSize: "calc(10px * var(--app-fs, 1))", color: "rgba(255,255,255,0.5)"'), -1, "还有一处留着原来那个淡到看不见的灰");
 });
 
 test("顶上那块和输入栏各自压一层底，中间那块【不许】压", () => {

@@ -2207,16 +2207,16 @@
     const deskBg = trpgDeskBg(camp && camp.time ? camp.time.part : "");
     const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: deskBg, display: "flex", flexDirection: "column" },
       // 桌面有纹理,透明按钮会糊进去——不填色的那种也得垫一层纸才看得出是个键
-      btn: fill => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "rgba(255,255,255,.62)", color: fill ? t.bg2 : t.ink, boxShadow: fill ? "0 2px 8px rgba(30,28,24,.22)" : "0 1px 2px rgba(46,38,29,.06)" }),
+      btn: fill => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "rgba(255,255,255,.62)", color: fill ? t.bg2 : t.ink, boxShadow: fill ? "0 2px 8px rgba(30,28,24,.22)" : "0 1px 2px rgba(46,38,29,.06)" }),
       card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: "rgba(255,255,255,.58)", border: "1px solid " + t.line, boxShadow: "0 1px 2px rgba(46,38,29,.05), 0 8px 18px -10px rgba(46,38,29,.18)" },
-      lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
-      txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
+      lbl: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 },
+      txt: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
     const askSheet = ask && h("div", { onClick: () => setAsk(null), style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(30,28,24,.46)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 34px" } },
       h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 44px rgba(20,18,15,.32)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.8, padding: "20px 20px 18px" } }, ask.text),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, padding: "20px 20px 18px" } }, ask.text),
         h("div", { style: { display: "flex", borderTop: "1px solid " + t.line } },
-          h("button", { "data-wk": "block", onClick: () => setAsk(null), style: { flex: 1, padding: "13px 0", background: "none", border: "none", fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "取消"),
-          h("button", { onClick: () => { const f = ask.onYes; setAsk(null); if (f) f(); }, style: { flex: 1, padding: "13px 0", background: "none", border: "none", borderLeft: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: "#a4442e" } }, ask.yes))));
+          h("button", { "data-wk": "block", onClick: () => setAsk(null), style: { flex: 1, padding: "13px 0", background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "取消"),
+          h("button", { onClick: () => { const f = ask.onYes; setAsk(null); if (f) f(); }, style: { flex: 1, padding: "13px 0", background: "none", border: "none", borderLeft: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#a4442e" } }, ask.yes))));
     // 面板里的一块(她 2026-08-30:「线索和目标那块要不要也做信息分块这样容易看」)。
     // 原来八段东西共用同一种灰色小标题、连着往下淌,扫一眼分不出哪儿到哪儿。
     // 一块 = 图标 + 标题 + 右侧操作位 + 一条细线 + 压在浅一档纸上的正文。
@@ -2225,11 +2225,11 @@
       const shut = panelShut[title] != null ? !!panelShut[title] : PANEL_OPEN_BY_DEFAULT.indexOf(title) < 0;
       return h("div", { "data-wk": "block", style: { margin: "0 0 10px", borderRadius: 14, background: "rgba(255,255,255,.52)", border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.05)" } },
         h("div", { onClick: () => togglePanelSect(title), style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 11px", borderBottom: shut ? "none" : "1px solid " + t.line, background: "rgba(46,38,29,.04)", cursor: "pointer" } },
-          h("span", { style: { fontSize: 11.5, opacity: .85 } }, icon),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, title),
-          hint ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, hint) : h("span", { style: { flex: 1 } }),
+          h("span", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85 } }, icon),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, title),
+          hint ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, hint) : h("span", { style: { flex: 1 } }),
           right ? h("span", { onClick: e => e.stopPropagation() }, right) : null,
-          h("span", { style: { fontSize: 9, color: t.fog, marginLeft: 4, display: "inline-block", transform: shut ? "rotate(-90deg)" : "none", transition: "transform .18s" } }, "▼")),
+          h("span", { style: { fontSize: "calc(9px * var(--app-fs, 1))", color: t.fog, marginLeft: 4, display: "inline-block", transform: shut ? "rotate(-90deg)" : "none", transition: "transform .18s" } }, "▼")),
         shut ? null : h.apply(null, ["div", { style: { padding: "9px 11px 10px" } }].concat(kids)));
     };
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
@@ -2255,40 +2255,40 @@
       // 先看剧情(她 2026-09-01 抓的:「还没来得及看更新就要扔骰子了,还不能折叠」):
       // 掷骰前可以把仪式收成底部一枚小签,先读正文;点签再回来掷。骰子落定后不可收。
       if (ceremony.peek && ceremony.phase === "ready") return h("button", { "data-wk": "trpgpeek", onClick: () => setCeremony(c => c && Object.assign({}, c, { peek: false })), className: "active:opacity-80",
-        style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 78px)", zIndex: 160, padding: "9px 16px", borderRadius: 999, background: "rgba(20,18,16,.92)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 13, boxShadow: "0 8px 22px rgba(0,0,0,.35)", border: "1px solid #6b655a" } },
+        style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom, 0px) + 78px)", zIndex: 160, padding: "9px 16px", borderRadius: 999, background: "rgba(20,18,16,.92)", color: "#f0ece4", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", boxShadow: "0 8px 22px rgba(0,0,0,.35)", border: "1px solid #6b655a" } },
         "🎲 " + ceremony.who + " · " + ceremony.statZh + "检定等着掷 · 点开");
       const eff = ceremonyEff(ceremony);
       const boost = [ceremony.feat ? "专长+15" : null, ceremony.assist ? ceremony.assist.name + "协力+10" : null, ceremony.bargainOn ? "交易+15" : null,
         ceremony.bond > 0 ? "羁绊+5" : ceremony.bond < 0 ? "离心-5" : null].filter(Boolean).join("·");
       const dieCol = g => !g ? "#f0ece4" : (g.tier === "crit" || g.tier === "hard") ? "#e8c76a" : g.tier === "ok" ? "#f0ece4" : "#e8a08c";
-      const btn = (label, fn, col) => h("button", { "data-wk": "trpgceremonybtn", onClick: fn, style: { padding: "9px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + (col || "#d9d3c8"), background: "transparent", color: col || "#d9d3c8" } }, label);
+      const btn = (label, fn, col) => h("button", { "data-wk": "trpgceremonybtn", onClick: fn, style: { padding: "9px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + (col || "#d9d3c8"), background: "transparent", color: col || "#d9d3c8" } }, label);
       return h("div", { "data-wk": "trpgceremony", style: { position: "fixed", inset: 0, zIndex: 160, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 13, padding: "0 18px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#d9d3c8", textAlign: "center" } }, ceremony.who + " · " + ceremony.statZh + "检定(目标 ≤" + eff + (boost ? "," + boost : "") + ")" + (ceremony.fate > 0 ? " · ✦×" + ceremony.fate : "") + ((ceremony.rolls || []).length > 1 ? " · 上一颗 " + ceremony.rolls.slice(0, -1).join("、") : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#d9d3c8", textAlign: "center" } }, ceremony.who + " · " + ceremony.statZh + "检定(目标 ≤" + eff + (boost ? "," + boost : "") + ")" + (ceremony.fate > 0 ? " · ✦×" + ceremony.fate : "") + ((ceremony.rolls || []).length > 1 ? " · 上一颗 " + ceremony.rolls.slice(0, -1).join("、") : "")),
         // 对抗:两颗骰并排——你的在左,对面的在右当着你的面滚
         ceremony.vs
           ? h("div", { style: { display: "flex", alignItems: "center", gap: 26 } },
               h("div", { style: { textAlign: "center" } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 56, color: dieCol(ceremony.phase !== "ready" && ceremony.phase !== "rolling" ? ceremony.grade : null), minHeight: 68 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8" } }, ceremony.who + (ceremony.grade && ceremony.phase !== "rolling" ? "·" + ceremony.grade.zh : ""))),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#8a8378" } }, "VS"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(56px * var(--app-fs, 1))", color: dieCol(ceremony.phase !== "ready" && ceremony.phase !== "rolling" ? ceremony.grade : null), minHeight: 68 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#d9d3c8" } }, ceremony.who + (ceremony.grade && ceremony.phase !== "rolling" ? "·" + ceremony.grade.zh : ""))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: "#8a8378" } }, "VS"),
               h("div", { style: { textAlign: "center", opacity: ceremony.vsRoll == null && ceremony.phase !== "vsroll" ? 0.45 : 1 } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 56, color: dieCol(ceremony.opposed ? ceremony.vsGrade : null), minHeight: 68 } }, ceremony.vsRoll == null ? "?" : String(ceremony.vsRoll)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8" } }, ceremony.vs.name + "(" + ceremony.vs.val + ")" + (ceremony.opposed && ceremony.vsGrade ? "·" + ceremony.vsGrade.zh : ""))))
-          : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 64, color: dieCol(ceremony.phase !== "ready" && ceremony.phase !== "rolling" ? ceremony.grade : null), minHeight: 80 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(56px * var(--app-fs, 1))", color: dieCol(ceremony.opposed ? ceremony.vsGrade : null), minHeight: 68 } }, ceremony.vsRoll == null ? "?" : String(ceremony.vsRoll)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#d9d3c8" } }, ceremony.vs.name + "(" + ceremony.vs.val + ")" + (ceremony.opposed && ceremony.vsGrade ? "·" + ceremony.vsGrade.zh : ""))))
+          : h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(64px * var(--app-fs, 1))", color: dieCol(ceremony.phase !== "ready" && ceremony.phase !== "rolling" ? ceremony.grade : null), minHeight: 80 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
         // 判词行:对抗给终局,普通给档位;伤害骰单独一行
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#d9d3c8", minHeight: 24, textAlign: "center" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: "#d9d3c8", minHeight: 24, textAlign: "center" } },
           ceremony.opposed ? (ceremony.opposed === "win" ? "对 抗 胜" : "对 抗 负")
           : (ceremony.phase === "done" || ceremony.phase === "final" || ceremony.phase === "harm") && ceremony.grade ? ceremony.grade.zh
           : ceremony.phase === "ready" ? "" : "…"),
-        ceremony.harmRoll != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#e8a08c" } }, "伤害骰 d20=" + ceremony.harmRoll + " · " + harmZh(ceremony.harmRoll)) : null,
+        ceremony.harmRoll != null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#e8a08c" } }, "伤害骰 d20=" + ceremony.harmRoll + " · " + harmZh(ceremony.harmRoll)) : null,
         // 出手前的三个决定:掷 / 协力 / 魔鬼交易
         ceremony.phase === "ready" ? h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10 } },
           ceremony.mates.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8378", alignSelf: "center" } }, "协力(共担后果):"),
-            ceremony.mates.map(mt => h("button", { key: mt.key, onClick: () => setCeremony(c => c && Object.assign({}, c, { assist: c.assist && c.assist.key === mt.key ? null : mt })), style: { padding: "5px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#d9d3c8" } }, mt.name))) : null,
-          ceremony.bargainText ? h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { bargainOn: !c.bargainOn })), style: { padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (ceremony.bargainOn ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.bargainOn ? "#e8c76a" : "#d9d3c8", maxWidth: 300 } }, (ceremony.bargainOn ? "😈 已接受交易" : "😈 魔鬼交易:+15") + "(代价:" + ceremony.bargainText + ")") : null,
-          h("button", { onClick: ceremonyRoll, style: { padding: "10px 34px", borderRadius: 14, fontFamily: F_DISPLAY, fontSize: 16, border: "1px solid #f0ece4", background: "transparent", color: "#f0ece4" } }, "掷"),
-          h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { peek: true })), style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: 12, color: "#8a8378", background: "transparent", border: "none" } }, "先看看刚才发生了什么 ↓")) : null,
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8a8378", alignSelf: "center" } }, "协力(共担后果):"),
+            ceremony.mates.map(mt => h("button", { key: mt.key, onClick: () => setCeremony(c => c && Object.assign({}, c, { assist: c.assist && c.assist.key === mt.key ? null : mt })), style: { padding: "5px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", border: "1px solid " + (ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#d9d3c8" } }, mt.name))) : null,
+          ceremony.bargainText ? h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { bargainOn: !c.bargainOn })), style: { padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", border: "1px solid " + (ceremony.bargainOn ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.bargainOn ? "#e8c76a" : "#d9d3c8", maxWidth: 300 } }, (ceremony.bargainOn ? "😈 已接受交易" : "😈 魔鬼交易:+15") + "(代价:" + ceremony.bargainText + ")") : null,
+          h("button", { onClick: ceremonyRoll, style: { padding: "10px 34px", borderRadius: 14, fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", border: "1px solid #f0ece4", background: "transparent", color: "#f0ece4" } }, "掷"),
+          h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { peek: true })), style: { padding: "6px 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a8378", background: "transparent", border: "none" } }, "先看看刚才发生了什么 ↓")) : null,
         // 命运点抉择:只在失败/大失败落定、还有点数、且没重掷过时出现(对抗时救的是你这颗骰)
         ceremony.phase === "done" && ceremony.offer ? h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" } },
           btn("✦ 重掷(花1枚,新结果必须认)", fateReroll, "#e8c76a"),
@@ -2299,7 +2299,7 @@
     if (view === "create") {
 
       const preview = draft && h("div", { style: S.card },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, draft.title),
         [["这一局你是", draft.hero || null], ["世界", draft.world], ["开局处境", draft.hook], ["剧本事件", (draft.eventPool || []).length ? draft.eventPool.length + " 件,剧情骰掷中时从里面抽" : null],
          ["地图", draft.mapRegions ? draft.mapRegions.length + " 个区域 · " + draft.mapRegions.reduce((n, r) => n + r.nodes.length, 0) + " 个地点,开局在「" + (draft.pos || "?") + "」(迷雾里的走近了才亮)" : "这一版没长出地图(不影响开团,按纯叙事走)"],
          ["专属状态条", draft.gauge ? draft.gauge.name + " " + draft.gauge.val + "/" + draft.gauge.max + "(" + (draft.gauge.bad === "high" ? "涨满出事" : "见底出事") + (draft.gauge.rule ? ";" + draft.gauge.rule : "") + ")" : null],
@@ -2307,8 +2307,8 @@
          ["队友私念", (draft.dossier.mates || []).length ? "每人揣着一份(守密人保管,落幕才解密)" : null],
          ["第一章", draft.stages[0] && (draft.stages[0].goal + (draft.stages[0].place ? "〔在:" + draft.stages[0].place + "〕" : ""))], ["后面还有", (draft.stages.length - 1) + " 章(走到才揭晓)"], ["开场", draft.opening]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, String(v))) : null),
         h("div", { style: S.lbl }, "队伍属性(3d6×5;队友按人设微调)"),
-        draft.party.map(m => h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + (m.veteran ? "〔⚔老卡·第" + ((m.runs || 0) + 1) + "次出团〕" : "") + ":" + STATS.map(([k, zh]) => zh + " " + m.stats[k]).join(" · ") + " · ✦×" + m.fate + ((m.effects || []).some(e => e.scar) ? " · 旧伤:" + m.effects.filter(e => e.scar).map(e => e.name).join("、") : ""))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "6px 0 8px" } }, String(draft.dossier.truth || "").trim()
+        draft.party.map(m => h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 2 }) }, m.name + (m.veteran ? "〔⚔老卡·第" + ((m.runs || 0) + 1) + "次出团〕" : "") + ":" + STATS.map(([k, zh]) => zh + " " + m.stats[k]).join(" · ") + " · ✦×" + m.fate + ((m.effects || []).some(e => e.scar) ? " · 旧伤:" + m.effects.filter(e => e.scar).map(e => e.name).join("、") : ""))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, margin: "6px 0 8px" } }, String(draft.dossier.truth || "").trim()
           ? "守密人写好了秘典(真相/翻转/私念)" + ((draft.sideSeeds || []).length ? ",还在各区埋了 " + draft.sideSeeds.length + " 条支线种子(触发条件各不相同)" : "") + "——落幕之前不给看。"
           : "⚠ 幕后底牌还没写成(秘典/私念/专长/种子都缺)——点下面的「补幕后」。"),
         h("div", { style: { marginBottom: 8 } },
@@ -2317,9 +2317,9 @@
             (draft.mylineOptions || []).map((o, i) => h("button", { key: i, onClick: () => setDraft(dd => Object.assign({}, dd, { myline: dd.myline === o ? "" : o })), style: Object.assign({}, S.btn(draft.myline === o), { textAlign: "left" }) }, o)),
             h("button", { onClick: () => setDraft(dd => Object.assign({}, dd, { myline: "" })), style: S.btn(!draft.myline) }, "不要暗线")),
           h("div", { style: { display: "flex", gap: 6 } },
-            h("input", { "data-wk": "input", value: mylineTxt, onChange: e => setMylineTxt(e.target.value), placeholder: "或者自己写一条秘密目标…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none" } }),
+            h("input", { "data-wk": "input", value: mylineTxt, onChange: e => setMylineTxt(e.target.value), placeholder: "或者自己写一条秘密目标…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, outline: "none" } }),
             h("button", { onClick: () => { const v = mylineTxt.trim(); if (!v) return; setMylineTxt(""); setDraft(dd => Object.assign({}, dd, { myline: v.slice(0, MYLINE_MAX) })); }, style: S.btn(false) }, "用这条")),
-          draft.myline ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a6d3b", marginTop: 4 } }, "✦ 已选暗线:" + draft.myline) : null),
+          draft.myline ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8a6d3b", marginTop: 4 } }, "✦ 已选暗线:" + draft.myline) : null),
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开团"),
           h("button", { onClick: () => genSetup(draft && draft.script), disabled: busy, style: S.btn(false) }, busy ? "在想…" : (draft && (draft.heroes || []).length > 1 ? "换一版(重抽主角)" : "换一版")),
@@ -2335,7 +2335,7 @@
             (() => {
               const sqs = loadSquads().squads;
               if (!sqs.length) return h("div", { style: { marginTop: 4 } },
-                h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog }) }, "还没有小分队。"),
+                h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog }) }, "还没有小分队。"),
                 h("button", { onClick: () => { setSquadName("小分队一"); setPickIds([]); setBmRolls({ user: rollStats() }); setView("squadNew"); }, style: Object.assign({ marginTop: 6 }, S.btn(true)) }, "⚔ 先去组建队伍"));
               const cur = pickSquadId || sqs[0].id;
               return h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 } },
@@ -2343,13 +2343,13 @@
                   "⚔ " + sq.name + "(" + sq.members.length + "人" + (sq.runs ? "·出团" + sq.runs + "次" : "·新队") + ")")));
             })()),
           h("div", { style: S.card }, h("div", { style: S.lbl }, "关键词(选填:世界/主线/氛围,如「西幻 盗墓 诙谐」)"),
-            h("textarea", { "data-wk": "textarea", value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=掷骰子定世界与主线", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
+            h("textarea", { "data-wk": "textarea", value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=掷骰子定世界与主线", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none" } }),
             h("div", { style: S.lbl }, "难度"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k => h("button", { key: k, onClick: () => setDiff(k), style: S.btn(diff === k) }, DIFF[k].name))),
             h("div", { style: S.lbl }, "守密风格(只改叙事口味,不改规则公平)"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" } }, Object.keys(STYLES).map(k => h("button", { key: k, onClick: () => setStyle(k), style: S.btn(style === k) }, STYLES[k].name))),
             h("div", { style: S.lbl }, "安全线(选填:绝不想出现的内容,守密人最高优先级遵守)"),
-            h("textarea", { "data-wk": "textarea", value: limitsTxt, onChange: e => setLimitsTxt(e.target.value), rows: 1, placeholder: "如「虫群、孩子受伤、背叛后无法挽回」,留空=不设", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", marginBottom: 4 } }),
+            h("textarea", { "data-wk": "textarea", value: limitsTxt, onChange: e => setLimitsTxt(e.target.value), rows: 1, placeholder: "如「虫群、孩子受伤、背叛后无法挽回」,留空=不设", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, resize: "none", marginBottom: 4 } }),
             !draft && h("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
               h("button", { onClick: () => genSetup(), disabled: busy, style: S.btn(true) }, busy ? "在搭…" : "生成设定"),
               h("button", { onClick: () => { setScriptErr(""); setView("script"); }, style: S.btn(false) }, "📦 导入剧本"))),
@@ -2359,8 +2359,8 @@
             return h("div", { style: S.card }, h("div", { style: S.lbl }, "收藏的世界(用它开团=同一个世界另起一个故事)"),
               ws.map(w => h("div", { key: w.id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
                 h("div", { style: { flex: 1, minWidth: 0 } },
-                  h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, "🌍 " + w.title),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(w.world || "").slice(0, 40) + "…")),
+                  h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))" }) }, "🌍 " + w.title),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(w.world || "").slice(0, 40) + "…")),
                 h("button", { onClick: () => genFromWorld(w), disabled: busy, style: S.btn(true) }, busy ? "…" : "用它开团"),
                 h("button", { onClick: () => askConfirm("删除这个收藏的世界?", () => { saveWorlds(loadWorlds().filter(x => x.id !== w.id)); setSquadTick(x => x + 1); }), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删")))); 
           })(),
@@ -2409,42 +2409,42 @@
         journey,
         // 此刻:这一条是整块面板的锚——先知道「哪天、什么时辰、在哪」，别的才有意义
         h("div", { "data-wk": "block", style: { display: "flex", alignItems: "center", gap: 7, margin: "4px 0 10px", padding: "7px 11px", borderRadius: 999, background: "rgba(46,38,29,.05)", border: "1px solid " + t.line } },
-          h("span", { style: { fontSize: 12 } }, "🕯"),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "第" + ((camp.time || {}).day || 1) + "日 · " + ((camp.time || {}).part || "晨")),
+          h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))" } }, "🕯"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "第" + ((camp.time || {}).day || 1) + "日 · " + ((camp.time || {}).part || "晨")),
           h("span", { style: { width: 1, height: 11, background: t.line } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, camp.place || "")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, camp.place || "")),
         // 开团配乐(她 2026-08-30 点的菜):守密人搭世界时开好的搜索词,点一下去云村
         // 搜成真曲整批连播;迷你播放器/一起听照常控制。老存档没有 bgm 就不显示这条。
         (camp.bgm || []).length && props.onBgm ? h("button", {
           onClick: async () => { if (bgmBusy) return; setBgmBusy(true); try { const ok = await props.onBgm(camp.bgm); if (ok) props.toast("配乐来了:" + camp.bgm.length + " 首在放"); } finally { setBgmBusy(false); } },
           className: "active:opacity-70",
-          style: { display: "flex", alignItems: "center", gap: 7, width: "100%", margin: "0 0 10px", padding: "7px 11px", borderRadius: 999, background: "rgba(46,38,29,.05)", border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, textAlign: "left" } },
-          h("span", { style: { fontSize: 12 } }, bgmBusy ? "…" : "♪"),
+          style: { display: "flex", alignItems: "center", gap: 7, width: "100%", margin: "0 0 10px", padding: "7px 11px", borderRadius: 999, background: "rgba(46,38,29,.05)", border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", textAlign: "left" } },
+          h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))" } }, bgmBusy ? "…" : "♪"),
           h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, bgmBusy ? "去云村找这场团的歌…" : "开团配乐 · " + camp.bgm.length + " 首")) : null,
         sect("👥", "队伍",
-          h("button", { "data-wk": "block", onClick: () => setFixMode(v => !v), style: { fontFamily: F_BODY, fontSize: 10, color: fixMode ? t.bg2 : t.fog, background: fixMode ? t.ink : "none", border: "1px solid " + (fixMode ? t.ink : t.line), borderRadius: 8, padding: "2px 8px" } }, fixMode ? "✎ 修正中" : "✎ 修正"),
+          h("button", { "data-wk": "block", onClick: () => setFixMode(v => !v), style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: fixMode ? t.bg2 : t.fog, background: fixMode ? t.ink : "none", border: "1px solid " + (fixMode ? t.ink : t.line), borderRadius: 8, padding: "2px 8px" } }, fixMode ? "✎ 修正中" : "✎ 修正"),
           camp.party.length + " 人 · 最低 HP " + camp.party.reduce((n, m) => Math.min(n, m.hp), 999),
         camp.party.map(m => h("div", { key: m.key, style: { marginBottom: 6 } },
-          h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center" }) }, h("span", null, m.name, m.fate ? h("span", { style: { color: "#8a6d3b", fontSize: 11 } }, " ✦×" + m.fate) : null),
+          h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))", display: "flex", justifyContent: "space-between", alignItems: "center" }) }, h("span", null, m.name, m.fate ? h("span", { style: { color: "#8a6d3b", fontSize: "calc(11px * var(--app-fs, 1))" } }, " ✦×" + m.fate) : null),
             h("span", { style: { display: "flex", alignItems: "center", gap: 5 } },
-              fixMode ? h("button", { onClick: () => applyFix("把 " + m.name + " 的 HP 调低 10", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { hp: Math.max(0, x.hp - 10) })) })), style: { fontFamily: F_BODY, fontSize: 11, border: "1px solid " + t.line, borderRadius: 7, background: "none", color: "#a4442e", padding: "0 6px" } }, "−10") : null,
-              fixMode ? h("button", { onClick: () => applyFix("把 " + m.name + " 的 HP 调高 10", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { hp: Math.min(x.maxHp || 100, x.hp + 10) })) })), style: { fontFamily: F_BODY, fontSize: 11, border: "1px solid " + t.line, borderRadius: 7, background: "none", color: "#5a7d5a", padding: "0 6px" } }, "+10") : null,
+              fixMode ? h("button", { onClick: () => applyFix("把 " + m.name + " 的 HP 调低 10", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { hp: Math.max(0, x.hp - 10) })) })), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", border: "1px solid " + t.line, borderRadius: 7, background: "none", color: "#a4442e", padding: "0 6px" } }, "−10") : null,
+              fixMode ? h("button", { onClick: () => applyFix("把 " + m.name + " 的 HP 调高 10", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { hp: Math.min(x.maxHp || 100, x.hp + 10) })) })), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", border: "1px solid " + t.line, borderRadius: 7, background: "none", color: "#5a7d5a", padding: "0 6px" } }, "+10") : null,
               h("span", { style: { color: m.hp <= 25 ? "#a4442e" : t.sub } }, "HP " + m.hp + "/" + (m.maxHp || 100)))),
           h("div", { style: { height: 4, borderRadius: 2, background: t.line, overflow: "hidden" } }, h("div", { style: { width: Math.max(0, Math.min(100, m.hp / (m.maxHp || 100) * 100)) + "%", height: "100%", background: m.hp <= 25 ? "#a4442e" : t.ink } })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, STATS.map(([k, zh]) => zh + m.stats[k]).join(" · ") + ((m.feats || []).length ? " · 专长:" + m.feats.map(f => f.name).join("、") : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, STATS.map(([k, zh]) => zh + m.stats[k]).join(" · ") + ((m.feats || []).length ? " · 专长:" + m.feats.map(f => f.name).join("、") : "")),
           // 羁绊:一条比 HP 细的线 + TA最近记着的那件事。加成只有两头才有,所以两头才标出来
           bondVal(m) != null ? (() => {
             const bv = bondVal(m), hi = bv >= BOND_HIGH, lo = bv <= BOND_LOW;
             const col = hi ? "#8a6d3b" : lo ? "#6c728c" : t.sub;
             return h("div", { style: { marginTop: 3 } },
-              h("div", { style: { display: "flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: 10, color: col } },
+              h("div", { style: { display: "flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: col } },
                 h("span", null, "🔗 " + bondZh(bv)),
                 h("div", { "data-wk": "block", style: { flex: 1, height: 2, background: t.line, borderRadius: 2, overflow: "hidden" } },
                   h("div", { style: { width: bv + "%", height: "100%", background: col } })),
                 hi ? h("span", null, "替你出手 +5") : lo ? h("span", null, "没怎么使劲 −5") : null),
-              (m.bondLog || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, "记着:" + m.bondLog.slice(-2).map(x => x.why).join(" · ")) : null);
+              (m.bondLog || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, "记着:" + m.bondLog.slice(-2).map(x => x.why).join(" · ")) : null);
           })() : null,
-          (m.effects || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 } }, m.effects.map((e, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e", border: "1px solid #a4442e55", borderRadius: 999, padding: "1px 7px" } }, "🩸 " + e.name + (e.note ? "·" + e.note : ""),
+          (m.effects || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 } }, m.effects.map((e, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#a4442e", border: "1px solid #a4442e55", borderRadius: 999, padding: "1px 7px" } }, "🩸 " + e.name + (e.note ? "·" + e.note : ""),
             fixMode ? h("span", { onClick: () => applyFix("解除了 " + m.name + " 的「" + e.name + "」", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { effects: (x.effects || []).filter((_, j) => j !== i) })) })), style: { marginLeft: 4, color: t.fog } }, "✕") : null))) : null)),
         ),
         (camp.gauge || (camp.clocks || []).length) ? sect("⏳", "压力", null,
@@ -2455,7 +2455,7 @@
             h("div", { style: { width: Math.max(0, Math.min(100, camp.gauge.val / camp.gauge.max * 100)) + "%", height: "100%", background: (camp.gauge.bad === "high" ? camp.gauge.val / camp.gauge.max >= 0.75 : camp.gauge.val / camp.gauge.max <= 0.25) ? "#a4442e" : "#8a6d3b" } }))) : null,
         (camp.clocks || []).length ? h("div", { style: { marginBottom: 8 } },
           h("div", { style: S.lbl }, "威胁时钟"),
-          camp.clocks.map(ck => h("div", { key: ck.name, style: Object.assign({}, S.txt, { fontSize: 12, display: "flex", justifyContent: "space-between", marginBottom: 2 }) },
+          camp.clocks.map(ck => h("div", { key: ck.name, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", display: "flex", justifyContent: "space-between", marginBottom: 2 }) },
             h("span", { style: { color: ck.filled >= ck.max ? "#a4442e" : t.ink } }, "⏰ " + ck.name),
             h("span", { style: { letterSpacing: 2, color: ck.filled >= ck.max ? "#a4442e" : t.sub } }, "●".repeat(ck.filled) + "○".repeat(Math.max(0, ck.max - ck.filled)))))) : null,
         ) : null,
@@ -2463,9 +2463,9 @@
           "第" + Math.min(camp.stageIdx + 1, camp.stages.length) + "/" + camp.stages.length + "章" + ((camp.quests || []).filter(q => q.status === "open").length ? " · 支线 " + (camp.quests || []).filter(q => q.status === "open").length + " 条在办" : ""),
         h("div", { style: S.lbl }, "主线" + (fixMode ? "(点一道坎划掉/撤回)" : "")),
         camp.stages.map((s, i) => h("div", { key: i },
-          h("div", { style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: i === camp.stageIdx ? t.ink : t.fog }) }, (s.done ? "✓ " : i === camp.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= camp.stageIdx ? s.goal : "???")),
+          h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 2, color: i === camp.stageIdx ? t.ink : t.fog }) }, (s.done ? "✓ " : i === camp.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= camp.stageIdx ? s.goal : "???")),
           // 当前章的坎:过了的划掉。修正模式点一下划掉/撤回——守密人真忘了报的时候她自己能救
-          i === camp.stageIdx ? normSteps(s.steps).map((st, j) => h("div", { key: j, onClick: () => { if (!fixMode) return; applyFix((st.done ? "撤回" : "划掉") + "第" + (i + 1) + "章的坎「" + st.text + "」", c => Object.assign({}, c, { stages: c.stages.map((x, k) => k !== i ? x : Object.assign({}, x, { steps: normSteps(x.steps).map((y, m) => m !== j ? y : Object.assign({}, y, { done: !y.done })) })) })); }, style: Object.assign({}, S.txt, { fontSize: 11, marginLeft: 14, marginBottom: 1, color: st.done ? t.fog : t.sub, textDecoration: st.done ? "line-through" : "none", cursor: fixMode ? "pointer" : "default" }) }, (st.done ? "✓ " : "· ") + "坎" + (j + 1) + ":" + st.text)) : null)),
+          i === camp.stageIdx ? normSteps(s.steps).map((st, j) => h("div", { key: j, onClick: () => { if (!fixMode) return; applyFix((st.done ? "撤回" : "划掉") + "第" + (i + 1) + "章的坎「" + st.text + "」", c => Object.assign({}, c, { stages: c.stages.map((x, k) => k !== i ? x : Object.assign({}, x, { steps: normSteps(x.steps).map((y, m) => m !== j ? y : Object.assign({}, y, { done: !y.done })) })) })); }, style: Object.assign({}, S.txt, { fontSize: "calc(11px * var(--app-fs, 1))", marginLeft: 14, marginBottom: 1, color: st.done ? t.fog : t.sub, textDecoration: st.done ? "line-through" : "none", cursor: fixMode ? "pointer" : "default" }) }, (st.done ? "✓ " : "· ") + "坎" + (j + 1) + ":" + st.text)) : null)),
         // 支线任务日志:○进行 ✓完成 ✗失败 ⏸暂缓;修正模式点一下轮换状态
         (camp.quests || []).length ? h("div", null,
           h("div", { style: Object.assign({}, S.lbl, { marginTop: 8 }) }, "支线" + (fixMode ? "(点一条轮换状态)" : "")),
@@ -2473,57 +2473,57 @@
             const icon = { open: "○", done: "✓", failed: "✗", paused: "⏸" }[q.status] || "○";
             const col = q.status === "done" ? "#5a7d5a" : q.status === "failed" ? "#a4442e" : q.status === "paused" ? t.fog : t.ink;
             const questFlip = to => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { quests: c.quests.map(x => x.name !== q.name ? x : Object.assign({}, x, { status: to })), msgs: c.msgs.concat([{ id: rid("rm_"), role: "sys", content: "支线·" + uName + " 决定" + (to === "paused" ? "暂缓「" + q.name + "」,先做别的" : "重拾「" + q.name + "」"), ts: Date.now() }]) })));
-            return h("div", { key: q.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: col, display: "flex", alignItems: "center", gap: 5 }) },
+            return h("div", { key: q.name, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 2, color: col, display: "flex", alignItems: "center", gap: 5 }) },
               h("span", { onClick: () => { if (!fixMode) return; const order = ["open", "done", "failed", "paused"]; const nxt = order[(order.indexOf(q.status) + 1) % 4]; applyFix("把支线「" + q.name + "」改为" + ({ open: "进行中", done: "完成", failed: "失败", paused: "暂缓" }[nxt]), c => Object.assign({}, c, { quests: c.quests.map(x => x.name !== q.name ? x : Object.assign({}, x, { status: nxt })) })); }, style: { cursor: fixMode ? "pointer" : "default", flex: 1 } }, icon + " " + q.name + (q.note ? ":" + q.note : "")),
               // 随时暂离/重拾(她 2026-08-28 要的):不烧调用,写一条〔支线〕记录守密人就知道了
-              !fixMode && q.status === "open" ? h("button", { "data-wk": "block", onClick: () => questFlip("paused"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "⏸ 暂离") : null,
-              !fixMode && q.status === "paused" ? h("button", { "data-wk": "block", onClick: () => questFlip("open"), style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "▶ 重拾") : null);
+              !fixMode && q.status === "open" ? h("button", { "data-wk": "block", onClick: () => questFlip("paused"), style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "⏸ 暂离") : null,
+              !fixMode && q.status === "paused" ? h("button", { "data-wk": "block", onClick: () => questFlip("open"), style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "▶ 重拾") : null);
           })) : null,
         ),
         (camp.npcs || []).length ? sect("👤", "名册", null, camp.npcs.length + " 人",
         // NPC 名册:立场 🟢友 🔴敌 ⚪未明,†=已死;只显示玩家已知的
         (camp.npcs || []).length ? h("div", null,
           fixMode ? h("div", { style: S.lbl }, "点立场轮换,† 标生死") : null,
-          camp.npcs.map(n => h("div", { key: n.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: n.alive ? t.ink : t.fog, display: "flex", alignItems: "center", gap: 5 }) },
+          camp.npcs.map(n => h("div", { key: n.name, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 2, color: n.alive ? t.ink : t.fog, display: "flex", alignItems: "center", gap: 5 }) },
             h("span", { onClick: () => { if (!fixMode) return; const order = ["友", "敌", "未明"]; const nxt = order[(order.indexOf(n.stance) + 1) % 3]; applyFix("把「" + n.name + "」的立场改为" + nxt, c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { stance: nxt })) })); }, style: { cursor: fixMode ? "pointer" : "default" } }, n.stance === "友" ? "🟢" : n.stance === "敌" ? "🔴" : "⚪"),
             h("span", { style: { textDecoration: n.alive ? "none" : "line-through" } }, n.name + (n.role ? "·" + n.role : "") + (n.note ? " — " + n.note : ""),
-              n.debt ? h("span", { style: { marginLeft: 5, fontFamily: F_BODY, fontSize: 10, color: n.debt.side === "owe" ? "#a4442e" : "#5a7d5a", border: "1px solid " + (n.debt.side === "owe" ? "#a4442e55" : "#5a7d5a55"), borderRadius: 999, padding: "1px 7px", whiteSpace: "nowrap" } }, "🤝 " + (n.debt.side === "owe" ? characterText(n, "欠他") : characterText(n, "他欠你")) + (n.debt.note ? "·" + n.debt.note : "")) : null),
+              n.debt ? h("span", { style: { marginLeft: 5, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: n.debt.side === "owe" ? "#a4442e" : "#5a7d5a", border: "1px solid " + (n.debt.side === "owe" ? "#a4442e55" : "#5a7d5a55"), borderRadius: 999, padding: "1px 7px", whiteSpace: "nowrap" } }, "🤝 " + (n.debt.side === "owe" ? characterText(n, "欠他") : characterText(n, "他欠你")) + (n.debt.note ? "·" + n.debt.note : "")) : null),
             fixMode ? h("span", { onClick: () => applyFix("把「" + n.name + "」标为" + (n.alive ? "已死" : "在世"), c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { alive: !x.alive })) })), style: { marginLeft: "auto", color: t.fog } }, "†")
-              : n.alive && !camp.ended ? h("span", { onClick: () => { setTalkNpc(n.name); setPanelOpen(false); props.toast("攀谈中:" + n.name + "——聊完点输入栏边上的「谈毕」收场"); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 8px" } }, "攀谈") : null))) : null,
+              : n.alive && !camp.ended ? h("span", { onClick: () => { setTalkNpc(n.name); setPanelOpen(false); props.toast("攀谈中:" + n.name + "——聊完点输入栏边上的「谈毕」收场"); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 8px" } }, "攀谈") : null))) : null,
         ) : null,
         sect("🎒", "行囊", null, itemsFix(camp.items).reduce((n, x) => n + x.n, 0) + " 件",
         fixMode ? h("div", null,
-          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 } }, itemsFix(camp.items).map((it, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px" } }, fmtItem(it),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 } }, itemsFix(camp.items).map((it, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px" } }, fmtItem(it),
             h("span", { onClick: () => applyFix("删掉了物品「" + it.name + "」", c => { const items = itemsFix(c.items); const j = items.findIndex(x => x.name === it.name && x.holder === it.holder); if (j >= 0) { if (items[j].n > 1) items[j] = Object.assign({}, items[j], { n: items[j].n - 1 }); else items.splice(j, 1); } return Object.assign({}, c, { items }); }), style: { marginLeft: 4, color: "#a4442e" } }, "✕")))),
           h("div", { style: { display: "flex", gap: 6, marginBottom: 4 } },
-            h("input", { "data-wk": "input", value: fixItem, onChange: e => setFixItem(e.target.value), placeholder: "补记一件(可写 名称(持有人))", style: { flex: 1, padding: "5px 8px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 11, color: t.ink, outline: "none" } }),
+            h("input", { "data-wk": "input", value: fixItem, onChange: e => setFixItem(e.target.value), placeholder: "补记一件(可写 名称(持有人))", style: { flex: 1, padding: "5px 8px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, outline: "none" } }),
             h("button", { onClick: () => { const raw = fixItem.trim(); if (!raw) return; const mHold = raw.match(/^(.+?)[(（]([^)）]+)[)）]$/); const nm = (mHold ? mHold[1] : raw).trim(); const hd = mHold ? mHold[2].trim() : "队伍"; setFixItem(""); applyFix("补记了物品「" + nm + "」", c => Object.assign({}, c, { items: itemsFix(c.items).concat([{ name: nm, holder: hd, n: 1 }]) })); }, style: S.btn(false) }, "补记")))
         : (itemsFix(camp.items).length
             // 一件一行(她 2026-08-30:「行囊那栏现在只是用标点符号隔开,改成一列下来」)。
             // 顿号连起来的时候,「守钟人的册子(残)(裴照川)」这种带括号的名字根本断不开
             ? h("div", null, itemsFix(camp.items).map((it, i) => h("div", { key: i, style: { display: "flex", alignItems: "baseline", gap: 8, padding: "4px 0", borderTop: i ? "1px solid " + t.line : "none" } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, width: 14, flexShrink: 0 } }, "·"),
-                h("span", { style: Object.assign({}, S.txt, { fontSize: 12.5, flex: 1, minWidth: 0 }) }, it.name),
-                it.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, flexShrink: 0 } }, "×" + it.n) : null,
-                it.holder && it.holder !== "队伍" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px", flexShrink: 0 } }, it.holder) : null)))
-            : h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog }) }, "空空如也")),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, width: 14, flexShrink: 0 } }, "·"),
+                h("span", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))", flex: 1, minWidth: 0 }) }, it.name),
+                it.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, flexShrink: 0 } }, "×" + it.n) : null,
+                it.holder && it.holder !== "队伍" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px", flexShrink: 0 } }, it.holder) : null)))
+            : h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog }) }, "空空如也")),
         ),
         sect("🔎", "线索", null,
           camp.clues.length + " 条" + ((camp.guesses || []).length ? " · 推测 " + (camp.guesses || []).length + " 条" : ""),
         h("div", { style: S.lbl }, "已知事实"),
-        camp.clues.length ? camp.clues.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, (i + 1) + ". " + x)) : h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "尚无"),
+        camp.clues.length ? camp.clues.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 2 }) }, (i + 1) + ". " + x)) : h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, "尚无"),
         // 线索板·推测区:把线索拼成推论记下来;守密人只裁「值不值得验证」,不裁对错
         h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "你的推测"),
         (camp.guesses || []).map(g => h("div", { key: g.id, style: { marginBottom: 5, padding: "6px 8px", borderRadius: 8, border: "1px dashed " + t.line } },
-          h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, g.text),
+          h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, g.text),
           h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 3 } },
-            g.verdict === "worth" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#5a7d5a" } }, "🧭 值得验证" + (g.note ? "·" + g.note : ""))
-            : g.verdict === "shaky" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "〰 根基还不稳" + (g.note ? "·" + g.note : ""))
-            : h("button", { "data-wk": "block", onClick: () => askVerdict(g), disabled: busy, style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "问守密人:值得查吗"),
-            !camp.ended ? h("button", { onClick: () => { setPanelOpen(false); turn("〔验证推测〕我拿着现有线索去验证:「" + g.text + "」"); }, disabled: busy, style: { fontFamily: F_BODY, fontSize: 10, color: "#5a7d5a", background: "none", border: "1px solid #5a7d5a55", borderRadius: 8, padding: "2px 8px" } }, "拿去验证") : null,
-            h("button", { onClick: () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { guesses: (c.guesses || []).filter(x => x.id !== g.id) }))), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "none", marginLeft: "auto" } }, "✕")))),
+            g.verdict === "worth" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#5a7d5a" } }, "🧭 值得验证" + (g.note ? "·" + g.note : ""))
+            : g.verdict === "shaky" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "〰 根基还不稳" + (g.note ? "·" + g.note : ""))
+            : h("button", { "data-wk": "block", onClick: () => askVerdict(g), disabled: busy, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "问守密人:值得查吗"),
+            !camp.ended ? h("button", { onClick: () => { setPanelOpen(false); turn("〔验证推测〕我拿着现有线索去验证:「" + g.text + "」"); }, disabled: busy, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#5a7d5a", background: "none", border: "1px solid #5a7d5a55", borderRadius: 8, padding: "2px 8px" } }, "拿去验证") : null,
+            h("button", { onClick: () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { guesses: (c.guesses || []).filter(x => x.id !== g.id) }))), style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: "none", border: "none", marginLeft: "auto" } }, "✕")))),
         !camp.ended ? h("div", { style: { display: "flex", gap: 6, marginBottom: 4 } },
-          h("input", { "data-wk": "input", value: guessTxt, onChange: e => setGuessTxt(e.target.value), placeholder: "把线索拼成一条推论记下来…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none" } },),
+          h("input", { "data-wk": "input", value: guessTxt, onChange: e => setGuessTxt(e.target.value), placeholder: "把线索拼成一条推论记下来…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, outline: "none" } },),
           h("button", { onClick: () => { const txt = guessTxt.trim(); if (!txt) return; setGuessTxt(""); update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { guesses: (c.guesses || []).concat([{ id: rid("rg_"), text: txt, verdict: null, note: "", ts: Date.now() }]) }))); }, style: S.btn(false) }, "记下")) : null,
         ),
         (() => {
@@ -2540,9 +2540,9 @@
             return h("div", { style: { margin: "4px 0 6px" } }, rows.map(x => {
               const pct = Math.round(x.ok * 100 / x.n);
               return h("div", { key: x.name, style: { marginBottom: 7 } },
-                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11, color: t.ink, marginBottom: 2 } },
+                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } },
                   h("span", null, x.name + (lucky && lucky.name === x.name && lucky.crit > 0 ? " 👑欧皇" : "") + (cursed && cursed.name === x.name && cursed.fumble > 0 ? " 🕯非酋" : "")),
-                  h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub } }, "掷" + x.n + "·成率" + pct + "%" + (x.crit ? " 🌟×" + x.crit : "") + (x.fumble ? " 💥×" + x.fumble : ""))),
+                  h("span", { style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub } }, "掷" + x.n + "·成率" + pct + "%" + (x.crit ? " 🌟×" + x.crit : "") + (x.fumble ? " 💥×" + x.fumble : ""))),
                 h("div", { style: { height: 6, borderRadius: 3, background: t.line, overflow: "hidden" } },
                   h("div", { style: { height: "100%", width: pct + "%", borderRadius: 3, background: pct >= 60 ? "#5a7d5a" : pct >= 40 ? "#8a6d3b" : "#a4442e", transition: "width .5s" } })));
             }));
@@ -2550,7 +2550,7 @@
           return rolls.length ? [
             board ? sect("🎯", "欧非榜", null, "随掷随动", board) : null,
             sect("🎲", "骰子账", null, rolls.length + " 次",
-              rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content)))
+              rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content)))
           ] : null;
         })(),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" } },
@@ -2565,7 +2565,7 @@
           // 弹窗看进度说话:章节全清了还问「提前收团?」等于管功臣叫逃兵(她 2026-08-30 首团抓的)
           !camp.ended && h("button", { onClick: () => askConfirm(camp.stageIdx >= camp.stages.length ? "为这段旅程写终章谢幕?" : "提前收团?守密人会就此写终章落幕。", () => { setPanelOpen(false); setEndAsk({ forced: true }); }, "收团"), disabled: busy, style: S.btn(false) }, "谢幕收团"),
           h("button", { onClick: () => delCamp(camp.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此团")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。")));
       // 休团回来(Codex 点的菜):隔了半天以上再打开,先给一张「上回说到」——
       // 时间地点、当前章、最后一拍的尾巴,零成本(不烧调用),看完点掉
       const lastTs = camp.msgs.length ? (camp.msgs[camp.msgs.length - 1].ts || 0) : 0;
@@ -2577,10 +2577,10 @@
         const offerAway = awayDays >= 1 && worldMoves && camp.awayAck !== lastTs;
         const ackAway = () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { awayAck: lastTs })));
         return h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderStyle: "dashed" }) },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 4 } }, "📖 休团回来 · 第" + ((camp.time || {}).day || 1) + "日·" + ((camp.time || {}).part || "晨") + " · " + (camp.place || "")),
-          cur ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 4 } }, "当前章:" + cur.goal + (cur.place ? "〔在:" + cur.place + "〕" : "")) : null,
-          lastGm ? h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog }) }, "上回说到——" + String(lastGm.content || "").slice(-120)) : null,
-          offerAway ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, "你走了 " + awayDays + " 天,这个世界没停——" + ((camp.clocks || []).length ? "钟会跟着走(最多两格,不会走满)" : "有人可能捎信来") + "。") : null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "📖 休团回来 · 第" + ((camp.time || {}).day || 1) + "日·" + ((camp.time || {}).part || "晨") + " · " + (camp.place || "")),
+          cur ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "当前章:" + cur.goal + (cur.place ? "〔在:" + cur.place + "〕" : "")) : null,
+          lastGm ? h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog }) }, "上回说到——" + String(lastGm.content || "").slice(-120)) : null,
+          offerAway ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, "你走了 " + awayDays + " 天,这个世界没停——" + ((camp.clocks || []).length ? "钟会跟着走(最多两格,不会走满)" : "有人可能捎信来") + "。") : null,
           h("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
             offerAway ? h("button", { onClick: () => { setResumeSeen(camp.id); ackAway(); turn("(隔了 " + awayDays + " 天回来)", null, { away: awayDays }); }, disabled: busy, style: S.btn(true) }, "看看这几天发生了什么") : null,
             h("button", { onClick: () => { setResumeSeen(camp.id); if (offerAway) ackAway(); }, style: S.btn(!offerAway) }, offerAway ? "当没发生过,接上" : "接上,继续")));
@@ -2590,7 +2590,7 @@
       // 也只写画面不替她做主)
       const banner = endAsk ? h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
           h("div", { style: S.txt }, "落幕之前——最后,你做什么、说什么?"),
-          h("textarea", { "data-wk": "textarea", value: finalAct, onChange: e => setFinalAct(e.target.value), rows: 2, placeholder: "写下你的最后一笔(留空=交给命运,终章也不会替你做任何决定)", style: { width: "100%", marginTop: 8, padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "vertical", outline: "none" } }),
+          h("textarea", { "data-wk": "textarea", value: finalAct, onChange: e => setFinalAct(e.target.value), rows: 2, placeholder: "写下你的最后一笔(留空=交给命运,终章也不会替你做任何决定)", style: { width: "100%", marginTop: 8, padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "vertical", outline: "none" } }),
           h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
             h("button", { onClick: () => epilogue(endAsk.forced, finalAct), disabled: busy, style: S.btn(true) }, busy ? "在写…" : "写下终章"),
             h("button", { onClick: () => setEndAsk(null), disabled: busy, style: S.btn(false) }, "再想想")))
@@ -2614,22 +2614,22 @@
       // 终章逐段揭晓 + 秘典解密
       const ep = camp.ended && camp.epilogue;
       const epFlow = ep && h("div", { "data-wk": "trpgepisode", style: Object.assign({}, S.card, { margin: "10px 14px" }) },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "终章"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "终章"),
         ep.paras.slice(0, ep.revealed).map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { marginBottom: 8 }) }, x)),
         ep.revealed < ep.paras.length
           ? h("button", { onClick: () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { epilogue: Object.assign({}, c.epilogue, { revealed: c.epilogue.revealed + 1 }) }))), style: S.btn(true) }, ep.revealed ? "接着念" : "揭开终章")
-          : [ep.closing ? h("div", { key: "cl", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, textAlign: "center", margin: "10px 0" } }, "—— " + ep.closing + " ——") : null,
+          : [ep.closing ? h("div", { key: "cl", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "center", margin: "10px 0" } }, "—— " + ep.closing + " ——") : null,
              h("div", { key: "dz", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + t.line } },
                h("div", { style: S.lbl }, "秘典解密(守密人开团时写下的底牌)"),
-               [["真相", camp.dossier.truth], ["中段翻转", camp.dossier.twist], ["NPC 的心事", camp.dossier.secrets]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, v)) : null),
+               [["真相", camp.dossier.truth], ["中段翻转", camp.dossier.twist], ["NPC 的心事", camp.dossier.secrets]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, v)) : null),
                (camp.dossier.mates || []).length ? h("div", { style: { marginBottom: 6 } },
                  h("div", { style: S.lbl }, "队友们一路藏着的私念"),
-                 camp.dossier.mates.map(m => h("div", { key: m.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 3 }) }, m.name + ":想要·" + m.want + (m.fear ? " / 最怕·" + m.fear : "") + (m.line ? " / 底线·" + m.line : "")))) : null,
+                 camp.dossier.mates.map(m => h("div", { key: m.name, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 3 }) }, m.name + ":想要·" + m.want + (m.fear ? " / 最怕·" + m.fear : "") + (m.line ? " / 底线·" + m.line : "")))) : null,
                (ep.growth || []).length ? h("div", { style: { marginBottom: 6 } },
                  h("div", { style: S.lbl }, "成长骰(这团用过且成功过的本事才有资格长)"),
-                 ep.growth.map((g, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, color: g.to > g.from ? "#5a7d5a" : t.fog }) },
+                 ep.growth.map((g, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: g.to > g.from ? "#5a7d5a" : t.fog }) },
                    g.name + " " + STAT_ZH[g.stat] + ":d100=" + g.roll + (g.to > g.from ? " → " + g.from + "→" + g.to + " ✦长进了" : " → 没超过 " + g.from + ",这门还得再练"))),
-                 h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "成长与旧伤已写回冒险小分队的老卡——下一团 TA 带着这些来。")) : null,
+                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, "成长与旧伤已写回冒险小分队的老卡——下一团 TA 带着这些来。")) : null,
                // 战报:她 2026-08-30 首团抓的「通关连句提示都没有」——结算感由这一块补,纯本地拼,零调用
                (() => {
                  const rolls = camp.msgs.filter(m => m.role === "roll");
@@ -2641,75 +2641,75 @@
                  const qd = (camp.quests || []).filter(q => q.status === "done"), qf = (camp.quests || []).filter(q => q.status === "failed");
                  return h("div", { style: { marginBottom: 6 } },
                    h("div", { style: S.lbl }, "战报"),
-                   h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) },
+                   h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) },
                      "历时 " + (((camp.time || {}).day) || 1) + " 日 · " + camp.msgs.filter(m => m.role === "gm").length + " 拍 · 章节 " + camp.stages.filter(s => s.done).length + "/" + camp.stages.length
                      + " · 线索 " + (camp.clues || []).length + " 条 · 命运点动用 " + fated + " 次"),
-                   (camp.visited || []).length > 1 ? h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.sub }) }, "足迹:" + camp.visited.join(" → ")) : null,
-                   Object.keys(acc).map(name => { const a = acc[name]; return h("div", { key: name, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, lineHeight: 1.6 } }, name + " 掷" + a.n + " 成" + a.ok + "(" + Math.round(a.ok * 100 / Math.max(1, a.n)) + "%)" + (a.crit ? " 🌟×" + a.crit : "") + (a.fumble ? " 💥×" + a.fumble : "")); }),
-                   scenes.length ? h("div", { style: { marginTop: 3 } }, h("div", { style: Object.assign({}, S.lbl, { fontSize: 9 }) }, "名场面"), scenes.map((r, i) => h("div", { key: i, style: { fontFamily: "monospace", fontSize: 10, color: r.tier === "crit" ? "#5a7d5a" : "#a4442e", lineHeight: 1.5 } }, (r.tier === "crit" ? "🌟 " : "💥 ") + String(r.content || "").slice(0, 60)))) : null,
-                   (qd.length || qf.length) ? h("div", { style: Object.assign({}, S.txt, { fontSize: 12, marginTop: 3 }) }, "支线:" + (qd.length ? "达成「" + qd.map(q => q.name).join("」「") + "」" : "") + (qf.length ? (qd.length ? " · " : "") + "折戟「" + qf.map(q => q.name).join("」「") + "」" : "")) : null);
+                   (camp.visited || []).length > 1 ? h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub }) }, "足迹:" + camp.visited.join(" → ")) : null,
+                   Object.keys(acc).map(name => { const a = acc[name]; return h("div", { key: name, style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } }, name + " 掷" + a.n + " 成" + a.ok + "(" + Math.round(a.ok * 100 / Math.max(1, a.n)) + "%)" + (a.crit ? " 🌟×" + a.crit : "") + (a.fumble ? " 💥×" + a.fumble : "")); }),
+                   scenes.length ? h("div", { style: { marginTop: 3 } }, h("div", { style: Object.assign({}, S.lbl, { fontSize: "calc(9px * var(--app-fs, 1))" }) }, "名场面"), scenes.map((r, i) => h("div", { key: i, style: { fontFamily: "monospace", fontSize: "calc(10px * var(--app-fs, 1))", color: r.tier === "crit" ? "#5a7d5a" : "#a4442e", lineHeight: 1.5 } }, (r.tier === "crit" ? "🌟 " : "💥 ") + String(r.content || "").slice(0, 60)))) : null,
+                   (qd.length || qf.length) ? h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 3 }) }, "支线:" + (qd.length ? "达成「" + qd.map(q => q.name).join("」「") + "」" : "") + (qf.length ? (qd.length ? " · " : "") + "折戟「" + qf.map(q => q.name).join("」「") + "」" : "")) : null);
                })(),
-               camp.myline ? h("div", { style: { marginBottom: 6 } }, h("div", { style: S.lbl }, "你的暗线"), h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "「" + camp.myline + "」" + (ep.myline ? " —— " + ep.myline : ""))) : null,
-               ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12 }) }, "· " + x))) : null)]);
+               camp.myline ? h("div", { style: { marginBottom: 6 } }, h("div", { style: S.lbl }, "你的暗线"), h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, "「" + camp.myline + "」" + (ep.myline ? " —— " + ep.myline : ""))) : null,
+               ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))" }) }, "· " + x))) : null)]);
       const flow = camp.msgs.map(m => m.role === "photo"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "photo", key: m.id, onPointerDown: () => pressPhoto(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), onClick: () => setBigView({ img: m.img, title: camp.title }), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
         // 闲聊簇:群聊式气泡,点头部折叠——收起来只剩一行,不淹主剧情(她 2026-08-28 定的)
         : m.role === "chat"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "chat", key: m.id, style: { margin: "10px 14px", borderRadius: 14, border: "1px dashed " + t.line, background: t.bg2 } },
-            h("div", { onClick: () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.map(x => x.id !== m.id ? x : Object.assign({}, x, { fold: !x.fold })) }))), style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", fontFamily: F_BODY, fontSize: 11, color: t.fog } },
+            h("div", { onClick: () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.map(x => x.id !== m.id ? x : Object.assign({}, x, { fold: !x.fold })) }))), style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
               h("span", null, "💬 闲聊 · " + (m.lines || []).length + " 句"), h("span", null, m.fold ? "展开 ▾" : "收起 ▴")),
             !m.fold ? h("div", { style: { padding: "0 10px 10px" } }, (m.lines || []).map((l, i) => l.name === uName
-              ? h("div", { "data-wk": "trpgchatline", "data-me": "1", key: i, style: { textAlign: "right", margin: "6px 0" } }, h("span", { "data-wk": "trpgbubble", "data-me": "1", style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "7px 11px", borderRadius: 13, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text))
+              ? h("div", { "data-wk": "trpgchatline", "data-me": "1", key: i, style: { textAlign: "right", margin: "6px 0" } }, h("span", { "data-wk": "trpgbubble", "data-me": "1", style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "7px 11px", borderRadius: 13, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text))
               : h("div", { "data-wk": "trpgchatline", "data-me": "0", key: i, style: { margin: "6px 0" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 2 } }, l.name + (l.act ? " （" + l.act + "）" : "")),
-                  h("span", { style: { display: "inline-block", maxWidth: "82%", padding: "7px 11px", borderRadius: 13, background: t.bg, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text)))) : null)
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, l.name + (l.act ? " （" + l.act + "）" : "")),
+                  h("span", { style: { display: "inline-block", maxWidth: "82%", padding: "7px 11px", borderRadius: 13, background: t.bg, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text)))) : null)
         : m.role === "user"
-        ? h("div", { "data-wk": "trpgmsg", "data-kind": "user", "data-me": "1", key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { "data-wk": "trpgbubble", "data-me": "1", style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
+        ? h("div", { "data-wk": "trpgmsg", "data-kind": "user", "data-me": "1", key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { "data-wk": "trpgbubble", "data-me": "1", style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
         : m.role === "roll"
-        ? h("div", { "data-wk": "trpgmsg", "data-kind": "roll", key: m.id, style: { margin: "8px 20px", textAlign: "center", fontFamily: "monospace", fontSize: 11.5, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 10, padding: "6px 10px" } }, "🎲 " + m.content)
+        ? h("div", { "data-wk": "trpgmsg", "data-kind": "roll", key: m.id, style: { margin: "8px 20px", textAlign: "center", fontFamily: "monospace", fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 10, padding: "6px 10px" } }, "🎲 " + m.content)
         : m.role === "sys"
-        ? h("div", { "data-wk": "trpgmsg", "data-kind": "sys", key: m.id, style: { margin: "6px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.content)
+        ? h("div", { "data-wk": "trpgmsg", "data-kind": "sys", key: m.id, style: { margin: "6px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, m.content)
         // 另一路回来的说法:他们说的版本;落幕之后底下才亮出真正发生了什么
         : m.role === "apart"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "apart", key: m.id, style: { margin: "10px 14px", padding: "10px 13px", borderRadius: 14, border: "1px dashed " + t.line, background: "rgba(255,255,255,.4)" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 5 } }, "⑂ " + (m.who || []).join("、") + " 回来了 · 他们说"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 5 } }, "⑂ " + (m.who || []).join("、") + " 回来了 · 他们说"),
             h("div", { style: S.txt }, m.content),
             camp.ended && m.truth ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: m.hidden ? "#a4442e" : t.fog, marginBottom: 4 } }, m.hidden ? "那边真正发生的(他们没全说)" : "那边真正发生的(他们说的是实话)"),
-              h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5, color: t.sub }) }, m.truth)) : null)
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: m.hidden ? "#a4442e" : t.fog, marginBottom: 4 } }, m.hidden ? "那边真正发生的(他们没全说)" : "那边真正发生的(他们说的是实话)"),
+              h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub }) }, m.truth)) : null)
         // 捎来的信:一张折过的纸,落款在右下
         : m.role === "letter"
         ? h("div", { "data-wk": "trpgmsg", "data-kind": "letter", key: m.id, style: { margin: "10px 22px", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 4, boxShadow: "2px 3px 0 " + t.line, transform: "rotate(-.6deg)" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 6 } }, "✉ 捎来的信"),
-            h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, m.content),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.sub, textAlign: "right", marginTop: 8 } }, "—— " + m.from))
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 6 } }, "✉ 捎来的信"),
+            h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))" }) }, m.content),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "right", marginTop: 8 } }, "—— " + m.from))
         : h("div", { "data-wk": "trpgmsg", "data-kind": "gm", key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px" } },
-            m.pov ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 4 } }, "👁 " + m.pov + " 的视角") : null,
+            m.pov ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 4 } }, "👁 " + m.pov + " 的视角") : null,
             h("div", { "data-wk": "trpgmsgtext", style: S.txt }, m.content),
             // 数值角标:钉在造成它的这一拍正文脚下,红=掉血 绿=回血 墨=得 灰=失 金=线索
             m.chips && m.chips.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 } },
               m.chips.map((ch, i) => {
                 const col = ch.k === "hp" ? "#a4442e" : ch.k === "hpup" ? "#5a7d5a" : ch.k === "clue" ? "#8a6d3b" : ch.k === "lose" ? t.fog : t.ink;
-                return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10, color: col, border: "1px solid " + col + "55", background: t.bg2, borderRadius: 999, padding: "2px 8px" } }, ch.txt);
+                return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: col, border: "1px solid " + col + "55", background: t.bg2, borderRadius: 999, padding: "2px 8px" } }, ch.txt);
               })) : null));
       const msgSheet = msgMenu && h("div", { onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "从这一拍岔开一条新团:这一拍之前原样保留(HP/物品/章节都按当时恢复),之后的重演。原团一个字不动。"),
-          [["⑂ 从这里分支", () => branchFrom(msgMenu)], ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "block", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "从这一拍岔开一条新团:这一拍之前原样保留(HP/物品/章节都按当时恢复),之后的重演。原团一个字不动。"),
+          [["⑂ 从这里分支", () => branchFrom(msgMenu)], ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "block", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       // 选谁入镜:有参考照的队友挑一位锁脸(你自己有参考照就自动合照),或只拍场景
       const shotSheet = shotPick && h("div", { onClick: () => setShotPick(false), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "选一位当画面主角:会先试把【所有】有参考照的脸一起锁上" + (props.profile && props.profile.refPhoto ? "(含你自己)" : "") + ";全员没锁成再退到只锁 TA" + (props.profile && props.profile.refPhoto ? " 和你" : "") + ",其余人远景虚化。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "选一位当画面主角:会先试把【所有】有参考照的脸一起锁上" + (props.profile && props.profile.refPhoto ? "(含你自己)" : "") + ";全员没锁成再退到只锁 TA" + (props.profile && props.profile.refPhoto ? " 和你" : "") + ",其余人远景虚化。"),
           camp.partyIds.map(charOf).filter(c2 => c2 && c2.refPhoto).map(c2 =>
-            h("button", { "data-wk": "block", key: c2.id, onClick: () => genShot(c2), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 4px", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, avatarOf(c2, 28), c2.name)),
-          h("button", { "data-wk": "block", onClick: () => genShot(null), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "🏞 只拍场景(不锁脸)"),
-          h("button", { "data-wk": "block", onClick: () => setShotPick(false), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.fog, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "取消")));
+            h("button", { "data-wk": "block", key: c2.id, onClick: () => genShot(c2), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 4px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, avatarOf(c2, 28), c2.name)),
+          h("button", { "data-wk": "block", onClick: () => genShot(null), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "🏞 只拍场景(不锁脸)"),
+          h("button", { "data-wk": "block", onClick: () => setShotPick(false), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "取消")));
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重画这张", () => { const m = photoMenu; setPhotoMenu(null); rerollShot(m); }],
            ["改画面描述再画", () => { const m = photoMenu; setPhotoMenu(null); editRerollShot(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
-           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "block", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: label === "取消" ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "block", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: label === "取消" ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       // 大图查看器(objectFit:contain 看整张,可存相册)
       // 看大图走全库那一份 ImageViewer（2026-10-16 九处并一处）
       const bigViewer = bigView && h(ImageViewer, { onClose: () => setBigView(null),
@@ -2765,7 +2765,7 @@
           }
         };
         const onPU = e => { const P = mapPtr.current; delete P.pts[e.pointerId]; P.dist = 0; };
-        const zoomBtn = (label, fn) => h("button", { onClick: fn, style: { width: 34, height: 34, borderRadius: 10, fontFamily: F_BODY, fontSize: 15, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }, label);
+        const zoomBtn = (label, fn) => h("button", { onClick: fn, style: { width: 34, height: 34, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", border: "1px solid " + t.line, background: t.bg2, color: t.ink } }, label);
         // 舆图跟这一桌是同一张桌子：底也该是同一张（v64.03）。
         // ⚠️原来这一层写死 t.bg——桌面那层纹理在别处铺得好好的，一开舆图就掉回平色。
         //   而顶栏那层半透白是【为了压在桌面上】才做的，落到平色上就更不对了。
@@ -2774,7 +2774,7 @@
           h(Head, { zh: "舆图 · " + camp.title, lineInk: t.line, bg: "rgba(255,255,255,.30)",
             barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
             onBack: () => { setMapOpen(false); setSelNode(null); },
-            right: h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "队伍在「" + (camp.pos || camp.place) + "」") }),
+            right: h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "队伍在「" + (camp.pos || camp.place) + "」") }),
           h("div", { style: { flex: 1, minHeight: 0, position: "relative", padding: "10px 10px 0" } },
             h("div", { style: { position: "absolute", right: 18, top: 18, zIndex: 2, display: "flex", flexDirection: "column", gap: 6 } },
               zoomBtn("＋", () => setMapVB(v => clampVB(Object.assign({}, v || vb, { k: Math.min(6, (v || vb).k * 1.4) })))),
@@ -2805,14 +2805,14 @@
                   h("circle", { cx: nd.x, cy: nd.y, r: 16, fill: "transparent" }));
               })),
             null),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, padding: "6px 16px" } }, "单指拖动 · 双指缩放 · 实心=去过 · 虚圈=听说过 · ★=章节目标 · 没亮的是迷雾"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, padding: "6px 16px" } }, "单指拖动 · 双指缩放 · 实心=去过 · 虚圈=听说过 · ★=章节目标 · 没亮的是迷雾"),
           sel ? h("div", { style: { borderTop: "1px solid " + t.line, background: t.bg2, padding: "12px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, sel.name + (starAt[sel.name] ? " ★" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 3 } }, sel.region + " · " + sel.kind + " · " + (visited[sel.name] ? "去过" : "只是听说过的方向")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, sel.name + (starAt[sel.name] ? " ★" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 3 } }, sel.region + " · " + sel.kind + " · " + (visited[sel.name] ? "去过" : "只是听说过的方向")),
             h("div", { style: { display: "flex", gap: 8, marginTop: 9 } },
-              sel.name === camp.pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, "队伍就在这里")
+              sel.name === camp.pos ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "7px 0" } }, "队伍就在这里")
               : canGo ? h("button", { onClick: () => { setMapOpen(false); setSelNode(null); const sd = Math.random() < EXPLORE_ODDS.travel ? pickSeed(camp, regionOfNode(camp, sel.name)) : null; turn("(动身前往「" + sel.name + "」)", null, { travel: sel.name, seed: sd }); }, style: S.btn(true) }, "动身前往")
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, busy ? "这一拍还没落定" : "太远了——路要一步步走,先去相邻的地点"),
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "7px 0" } }, busy ? "这一拍还没落定" : "太远了——路要一步步走,先去相邻的地点"),
               h("button", { onClick: () => setSelNode(null), style: S.btn(false) }, "收起"))) : null);
       })() : null;
       const sceneMeta = normSceneMeta(camp.sceneMeta || {}, camp);
@@ -2820,10 +2820,10 @@
       const sceneTone = { investigate: "#7b6949", social: "#6c728c", danger: "#a4442e", travel: "#557269", interlude: "#8a6d3b", explore: "#5a7d5a", general: t.sub }[sceneMeta.type] || t.sub;
       const sceneRibbon = h("div", { "data-wk": "block", style: { flexShrink: 0, margin: "5px 14px 3px", padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,.43)", border: "1px solid " + t.line, boxShadow: "0 2px 7px rgba(46,38,29,.045)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 2, color: sceneTone, border: "1px solid " + sceneTone + "66", borderRadius: 999, padding: "2px 7px" } }, SCENE_TYPE_ZH[sceneMeta.type] || "场景"),
-          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, sceneMeta.objective),
-          liveClock ? h("span", { style: { flexShrink: 0, fontFamily: "monospace", fontSize: 9.5, color: liveClock.filled >= liveClock.max ? "#a4442e" : t.fog } }, "●".repeat(liveClock.filled) + "○".repeat(Math.max(0, liveClock.max - liveClock.filled))) : null),
-        sceneMeta.stakes ? h("div", { style: { marginTop: 4, paddingLeft: 2, fontFamily: F_BODY, fontSize: 10.5, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "若失手 · " + sceneMeta.stakes) : null);
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 2, color: sceneTone, border: "1px solid " + sceneTone + "66", borderRadius: 999, padding: "2px 7px" } }, SCENE_TYPE_ZH[sceneMeta.type] || "场景"),
+          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, sceneMeta.objective),
+          liveClock ? h("span", { style: { flexShrink: 0, fontFamily: "monospace", fontSize: "calc(9.5px * var(--app-fs, 1))", color: liveClock.filled >= liveClock.max ? "#a4442e" : t.fog } }, "●".repeat(liveClock.filled) + "○".repeat(Math.max(0, liveClock.max - liveClock.filled))) : null),
+        sceneMeta.stakes ? h("div", { style: { marginTop: 4, paddingLeft: 2, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "若失手 · " + sceneMeta.stakes) : null);
       return h("div", { "data-wk": "trpgplay", style: S.wrap }, badges(), askSheet,
         camp.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(camp.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         ceremonyLayer, msgSheet, photoSheet, shotSheet, bigViewer, mapLayer,
@@ -2834,43 +2834,43 @@
         sceneRibbon,
         panel, resume, banner,
         h("div", { "data-wk": "trpgfeed", ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow, epFlow,
-          busy ? h("div", { "data-wk": "trpgbusy", style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "守密人在推演命运…") : null,
-          openPending === camp.id && !busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "✒ 许言秋在写进场词…（等TA这一句落下再行动，先动TA就进不了场）") : null),
-        camp.ended ? h("div", { "data-wk": "trpgended", style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已落幕 · 长按任意一拍可分支重走 ——")
+          busy ? h("div", { "data-wk": "trpgbusy", style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, busyWhat || "守密人在推演命运…") : null,
+          openPending === camp.id && !busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "✒ 许言秋在写进场词…（等TA这一句落下再行动，先动TA就进不了场）") : null),
+        camp.ended ? h("div", { "data-wk": "trpgended", style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, "—— 已落幕 · 长按任意一拍可分支重走 ——")
         : h("div", { "data-wk": "trpgdock", style: { borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.36)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } }, [
           // 夜谈的话头:休整拍里每位队友开的那一句,像几张压在火边的纸条——点谁的接谁的话。
           // 接过的划掉;队伍一动身这一夜就过去了(applyTurnPayload 里清掉)
           camp.night && camp.night.threads.some(th => !th.taken) && !pendingRetry ? h("div", { key: "nt", style: { padding: "8px 14px 0" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 5 } }, "—— 夜谈 · 有人开了口 ——"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, marginBottom: 5 } }, "—— 夜谈 · 有人开了口 ——"),
             h("div", { style: { display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollSnapType: "x proximity" } },
               camp.night.threads.map(th => h("button", { "data-wk": "trpgnight", "data-on": th.taken ? "0" : "1", key: th.who, disabled: busy || th.taken, onClick: () => { const nw = { who: th.who, open: th.open }; setNightWith(nw); setTalkNpc(null); turn("(转过去,接" + th.who + "的话)", null, { night: nw }); }, style: { flex: "0 0 min(70vw, 260px)", scrollSnapAlign: "start", textAlign: "left", padding: "8px 11px", borderRadius: 12, border: "1px dashed " + t.line, background: th.taken ? "transparent" : "rgba(255,255,255,.5)", opacity: th.taken ? .5 : 1 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.5, color: t.fog, marginBottom: 3 } }, (th.taken ? "已接 · " : "") + th.who),
-                h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.ink, textDecoration: th.taken ? "line-through" : "none" }) }, "「" + th.open + "」"))))) : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 1.5, color: t.fog, marginBottom: 3 } }, (th.taken ? "已接 · " : "") + th.who),
+                h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, textDecoration: th.taken ? "line-through" : "none" }) }, "「" + th.open + "」"))))) : null,
           pendingRetry ? h("div", { "data-wk": "trpgretry", key: "rt", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0" } },
             h("button", { onClick: () => turn(""), style: S.btn(true) }, "▶ 继续这一拍" + (tailHasRoll ? "(沿用已掷的骰子)" : "")),
             // 掷过骰子就不给撤回:撤了等于洗骰子
             !tailHasRoll ? h("button", { onClick: retractTail, style: S.btn(false) }, "↩ 撤回重写") : null)
-          : camp.choices.length ? h("div", { key: "ch" }, camp.pov ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, padding: "8px 14px 0" } }, "—— " + camp.pov + " 的选择 · 你替TA拿主意 ——") : null,
+          : camp.choices.length ? h("div", { key: "ch" }, camp.pov ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, padding: "8px 14px 0" } }, "—— " + camp.pov + " 的选择 · 你替TA拿主意 ——") : null,
             // 行动表:一张排好先后的桌,每人一行——TA要做的那一下、要过的检定;她那一行指向底下的选项。
             // 她一点选项,表上队友的骰子自己落,整桌一起结算
             camp.table ? h("div", { "data-wk": "trpgtable", style: { margin: "8px 14px 0", border: "1px solid " + t.line, borderRadius: 12, background: "rgba(255,255,255,.5)", overflow: "hidden" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, padding: "5px 10px", borderBottom: "1px dashed " + t.line } }, "⚔ 行动表 · 你一动,各自落骰"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog, padding: "5px 10px", borderBottom: "1px dashed " + t.line } }, "⚔ 行动表 · 你一动,各自落骰"),
               camp.table.map((r, i) => { const m = findMember(camp.party, r.who); const mine = !!(m && m.key === "user"); return h("div", { "data-wk": "trpgtablerow", "data-me": mine ? "1" : "0", key: r.who, style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderTop: i ? "1px solid " + t.line + "88" : "none", background: mine ? "rgba(46,38,29,.05)" : "transparent" } },
-                h("span", { style: { width: 14, fontFamily: "monospace", fontSize: 10.5, color: t.fog } }, i + 1),
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: m && m.hp <= 0 ? t.fog : t.ink, textDecoration: m && m.hp <= 0 ? "line-through" : "none", flexShrink: 0 } }, r.who),
-                h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, mine ? "轮到你——底下选" : r.act || "见机行事"),
-                r.stat && !mine ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "🎲 " + STAT_ZH[r.stat] + " " + (m && m.stats ? m.stats[r.stat] : "")) : null); })) : null,
+                h("span", { style: { width: 14, fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, i + 1),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: m && m.hp <= 0 ? t.fog : t.ink, textDecoration: m && m.hp <= 0 ? "line-through" : "none", flexShrink: 0 } }, r.who),
+                h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, mine ? "轮到你——底下选" : r.act || "见机行事"),
+                r.stat && !mine ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, "🎲 " + STAT_ZH[r.stat] + " " + (m && m.stats ? m.stats[r.stat] : "")) : null); })) : null,
             h("div", { "data-wk": "trpgchoices", style: { display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", padding: "8px 14px 3px", scrollSnapType: "x proximity" } },
             camp.choices.map((c, i) => {
               const lacking = c.need && !hasItem(camp.items, c.need);
               const tone = { safe: "#557269", bold: "#a4442e", ally: "#6c728c", clever: "#7b6949", open: t.fog }[c.approach] || t.fog;
               return h("button", { "data-wk": "trpgchoice", key: i, onClick: () => pickChoice(c), disabled: busy, style: { flex: "0 0 min(74vw, 286px)", scrollSnapAlign: "start", textAlign: "left", padding: "9px 11px", borderRadius: 12, border: "1px solid " + tone + "66", borderLeft: "3px solid " + tone, background: "rgba(255,255,255,.54)", color: t.ink, opacity: lacking ? 0.72 : 1, boxShadow: "0 2px 7px rgba(46,38,29,.045)" } },
                 h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.5, color: tone } }, APPROACH_ZH[c.approach] || "行动"),
-                  camp.pov && c.willing != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: c.willing ? "#5a7d5a" : "#a4442e" } }, c.willing ? "TA想这么做" : "TA不情愿") : null,
-                  c.check ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "🎲 " + STAT_ZH[c.check.stat] + (c.check.who ? "·" + c.check.who : "")) : null),
-                h("div", { "data-wk": "trpgchoicetext", style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.45 } }, c.text),
-                (c.payoff || c.risk || c.need || c.use) ? h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 9.8, lineHeight: 1.45, color: t.sub } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 1.5, color: tone } }, APPROACH_ZH[c.approach] || "行动"),
+                  camp.pov && c.willing != null ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.willing ? "#5a7d5a" : "#a4442e" } }, c.willing ? "TA想这么做" : "TA不情愿") : null,
+                  c.check ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, "🎲 " + STAT_ZH[c.check.stat] + (c.check.who ? "·" + c.check.who : "")) : null),
+                h("div", { "data-wk": "trpgchoicetext", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.45 } }, c.text),
+                (c.payoff || c.risk || c.need || c.use) ? h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: "calc(9.8px * var(--app-fs, 1))", lineHeight: 1.45, color: t.sub } },
                   c.payoff ? "得 · " + c.payoff : null,
                   c.payoff && (c.risk || c.need) ? "　" : null,
                   c.risk ? h("span", { style: { color: c.approach === "bold" ? "#a4442e" : t.sub } }, "险 · " + c.risk) : null,
@@ -2882,7 +2882,7 @@
               const ex = exploreMenu(camp);
               const goSearch = () => { const sd = Math.random() < EXPLORE_ODDS.search ? pickSeed(camp, regionOfNode(camp, ex.here)) : null; turn("(在「" + ex.here + "」四下看看)", null, { explore: "search", seed: sd }); };
               return [
-                h("div", { key: "exh", style: { width: "100%", fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog } }, "—— 这一幕收了 · 自由活动 ——"),
+                h("div", { key: "exh", style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, "—— 这一幕收了 · 自由活动 ——"),
                 ex.siteActions.map(act => h("button", { key: "exa" + act, onClick: () => { const sd = Math.random() < EXPLORE_ODDS.search ? pickSeed(camp, regionOfNode(camp, ex.here)) : null; turn("(在「" + ex.here + "」" + act + ")", null, { explore: "site", siteAction: act, seed: sd }); }, disabled: busy, style: Object.assign({}, S.btn(false), { borderColor: "#7b694977" }) }, "◇ " + act)),
                 ex.searchLeft ? h("button", { key: "exs", onClick: goSearch, disabled: busy, style: S.btn(false) }, "🔍 四下看看" + (ex.searchLeft < EXPLORE_SEARCH_MAX ? "(还能翻" + ex.searchLeft + "次)" : "")) : null,
                 ex.talk.map(nm => h("button", { key: "ext" + nm, onClick: () => { setTalkNpc(nm); props.toast("攀谈中:" + nm + "——聊完点「谈毕」"); }, disabled: busy, style: S.btn(false) }, "💬 找" + nm + "聊聊")),
@@ -2895,26 +2895,26 @@
             })()) : null,
           handOpen ? h("div", { "data-wk": "trpghand", key: "hand", style: { maxHeight: 164, overflowY: "auto", padding: "8px 14px 2px", borderBottom: "1px dashed " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink } }, "这一拍打出的牌"),
-              (played.item || played.clue || played.ally) ? h("button", { onClick: () => setPlayed({ item: null, clue: null, ally: null }), style: { border: "none", background: "none", color: t.fog, fontFamily: F_BODY, fontSize: 10 } }, "清空") : h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "每类可选一张·可以混搭")),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "这一拍打出的牌"),
+              (played.item || played.clue || played.ally) ? h("button", { onClick: () => setPlayed({ item: null, clue: null, ally: null }), style: { border: "none", background: "none", color: t.fog, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))" } }, "清空") : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, "每类可选一张·可以混搭")),
             [["item", "物品", itemsFix(camp.items).map(x => x.name)], ["clue", "线索", (camp.clues || []).slice(-8)], ["ally", "队友", camp.party.filter(x => x.key !== "user" && x.hp > 0).map(x => x.name)]].map(row => {
               const vals = row[2];
               if (!vals.length) return null;
               return h("div", { key: row[0], style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 5, minWidth: 0 } },
-                h("span", { style: { width: 29, flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, row[1]),
+                h("span", { style: { width: 29, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, row[1]),
                 h("div", { style: { display: "flex", gap: 5, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 1 } }, vals.map((v, i) => {
                   const on = played[row[0]] === v;
-                  return h("button", { "data-wk": "trpghandcard", "data-on": played[row[0]] === v ? "1" : "0", key: row[0] + i, onClick: () => setPlayed(p => Object.assign({}, p, { [row[0]]: p[row[0]] === v ? null : v })), style: { flexShrink: 0, maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "4px 9px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "rgba(255,255,255,.42)", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 10.5 } }, v);
+                  return h("button", { "data-wk": "trpghandcard", "data-on": played[row[0]] === v ? "1" : "0", key: row[0] + i, onClick: () => setPlayed(p => Object.assign({}, p, { [row[0]]: p[row[0]] === v ? null : v })), style: { flexShrink: 0, maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "4px 9px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "rgba(255,255,255,.42)", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, v);
                 })));
             }),
-            !(itemsFix(camp.items).length || camp.clues.length || camp.party.length > 1) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0" } }, "等拿到物品、线索或有队友同行,这里就会长出能打的牌。") : null) : null,
+            !(itemsFix(camp.items).length || camp.clues.length || camp.party.length > 1) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "4px 0" } }, "等拿到物品、线索或有队友同行,这里就会长出能打的牌。") : null) : null,
           // 分头行动:挑走另一路的人、写他们去办什么(留空=照各自的私念去办);走的人各掷一颗最拿手的骰,
           // 她只听得到他们回来后的说法,真相落幕才亮
           splitOpen ? h("div", { "data-wk": "trpgsplit", key: "sp", style: { padding: "8px 14px 0" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, "谁走另一路?他们回来只会告诉你他们想说的那个版本。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 5 } }, "谁走另一路?他们回来只会告诉你他们想说的那个版本。"),
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } }, camp.party.filter(x => x.key !== "user" && x.hp > 0).map(x => h("button", { key: x.key, onClick: () => setSplitWho(w => w.indexOf(x.name) >= 0 ? w.filter(n => n !== x.name) : w.concat([x.name])), style: S.btn(splitWho.indexOf(x.name) >= 0) }, x.name))),
             h("div", { style: { display: "flex", gap: 8 } },
-              h("input", { "data-wk": "trpginput", "data-part": "split", value: splitTask, onChange: e => setSplitTask(e.target.value), placeholder: "去办什么(留空=照他们自己的心思去)", style: { flex: 1, padding: "8px 11px", borderRadius: 12, border: "1px solid " + t.line, background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 12.5, color: t.ink, outline: "none" } }),
+              h("input", { "data-wk": "trpginput", "data-part": "split", value: splitTask, onChange: e => setSplitTask(e.target.value), placeholder: "去办什么(留空=照他们自己的心思去)", style: { flex: 1, padding: "8px 11px", borderRadius: 12, border: "1px solid " + t.line, background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, outline: "none" } }),
               h("button", { disabled: busy || !splitWho.length, onClick: () => {
                 const who = splitWho.filter(n => { const m = findMember(camp.party, n); return m && m.hp > 0; });
                 if (!who.length) return;
@@ -2924,7 +2924,7 @@
                 turn("(分头行动:" + who.join("、") + (task ? " 去" + task : " 各自去办自己的事") + ";我留在这边)", rolls, { split: { who, task } });
               }, style: S.btn(true) }, "分头"))) : null,
           noteOpen ? h("div", { "data-wk": "trpgnote", key: "nt", style: { padding: "8px 14px 0" } },
-            h("textarea", { "data-wk": "trpginput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "跟守密人咬耳朵(只给下一回合的幕后指示,不入剧情):比如「节奏快一点」「让某人多点戏」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
+            h("textarea", { "data-wk": "trpginput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "跟守密人咬耳朵(只给下一回合的幕后指示,不入剧情):比如「节奏快一点」「让某人多点戏」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none" } })) : null,
           plusOpen ? h("div", { "data-wk": "trpgplus", key: "pl", style: { display: "flex", gap: 8, padding: "8px 14px 0", flexWrap: "wrap" } },
             h("button", { "data-wk": "trpgtool", "data-part": "dice", "data-on": dice ? "1" : "0", onClick: () => setDice(v => !v), style: S.btn(dice) }, "🎲 剧情骰" + (dice ? "·已上膛" : "")),
             h("button", { "data-wk": "trpgtool", "data-part": "note", "data-on": noteOpen ? "1" : "0", onClick: () => setNoteOpen(v => !v), style: S.btn(noteOpen || !!note.trim()) }, "() 咬耳朵"),
@@ -2946,7 +2946,7 @@
             h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
             h("button", { "data-wk": "trpgplusbtn", "data-on": plusOpen ? "1" : "0", onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
             !chatMode ? h("button", { "data-wk": "trpghandbtn", "data-on": handOpen ? "1" : "0", onClick: () => { setHandOpen(v => !v); setPlusOpen(false); }, style: Object.assign({}, S.btn(handOpen || played.item || played.clue || played.ally), { padding: "7px 9px", minWidth: 44 }) }, "手牌" + ([played.item, played.clue, played.ally].filter(Boolean).length ? "·" + [played.item, played.clue, played.ally].filter(Boolean).length : "")) : null,
-            h("textarea", { "data-wk": "trpginput", "data-part": "main", value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : talkNpc ? "和「" + talkNpc + "」说话(纯对话,不推剧情)…" : nightWith ? "夜里,和「" + nightWith.who + "」接着说…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+            h("textarea", { "data-wk": "trpginput", "data-part": "main", value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : talkNpc ? "和「" + talkNpc + "」说话(纯对话,不推剧情)…" : nightWith ? "夜里,和「" + nightWith.who + "」接着说…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none" } }),
             talkNpc ? h("button", { onClick: () => setTalkNpc(null), style: S.btn(false) }, "谈毕") : null,
             nightWith ? h("button", { onClick: () => setNightWith(null), style: S.btn(false) }, "睡了") : null,
             h("button", { "data-wk": "trpgsend", onClick: send, disabled: busy, style: S.btn(true) }, chatMode ? "闲聊" : talkNpc || nightWith ? "开口" : "行动"))
@@ -2983,20 +2983,20 @@
         // 封面：右边贴上去的一张相片，左边留给字
         c.cover ? h("span", { style: { position: "absolute", inset: "0 0 0 auto", width: "58%", backgroundImage: "url(" + imgSrc(c.cover) + ")", backgroundSize: "cover", backgroundPosition: "center", opacity: .9 } }) : null,
         c.cover ? h("span", { style: { position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(246,242,234,.97) 0%, rgba(246,242,234,.93) 46%, rgba(246,242,234,.30) 100%)" } }) : null,
-        h("button", { "data-wk": "trpgcampdel", onClick: e => { e.stopPropagation(); askConfirm("删除「" + c.title + "」和全部记录?", () => update(list => list.filter(x => x.id !== c.id))); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: 15, padding: 0 } }, "✕"),
+        h("button", { "data-wk": "trpgcampdel", onClick: e => { e.stopPropagation(); askConfirm("删除「" + c.title + "」和全部记录?", () => update(list => list.filter(x => x.id !== c.id))); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))", padding: 0 } }, "✕"),
         // 已落幕：右下角盖一枚歪着的戳
-        c.ended ? h("span", { style: { position: "absolute", right: 12, bottom: 10, transform: "rotate(-11deg)", border: "1.5px solid " + seal, color: seal, borderRadius: 6, padding: "1px 7px", fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, opacity: .8 } }, "落幕") : null,
+        c.ended ? h("span", { style: { position: "absolute", right: 12, bottom: 10, transform: "rotate(-11deg)", border: "1.5px solid " + seal, color: seal, borderRadius: 6, padding: "1px 7px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, opacity: .8 } }, "落幕") : null,
         h("div", { style: { position: "relative", display: "flex", gap: 11, padding: "13px 13px 0" } },
           // 二十面骰：骰面上刻着现在走到第几章
           h("span", { style: { position: "relative", width: 40, height: 44, flexShrink: 0 } },
             h("svg", { viewBox: "0 0 40 44", style: { position: "absolute", inset: 0, width: "100%", height: "100%" } },
               h("path", { d: "M20 2l16 9v22l-16 9-16-9V11z", fill: "rgba(255,255,255,.66)", stroke: seal, strokeWidth: 1.3, strokeLinejoin: "round" }),
               h("path", { d: "M4 11l16 9 16-9M20 20v22", fill: "none", stroke: seal, strokeWidth: .8, opacity: .28 })),
-            h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, fontWeight: 600, color: seal } }, String(cur))),
+            h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", fontWeight: 600, color: seal } }, String(cur))),
           h("div", { style: { flex: 1, minWidth: 0, paddingRight: 26 } },
-            h("div", { "data-wk": "trpgcamptitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.title),
-            c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
-            h("div", { "data-wk": "trpgcampsub", style: Object.assign({}, S.txt, { color: t.sub, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world))),
+            h("div", { "data-wk": "trpgcamptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.title),
+            c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
+            h("div", { "data-wk": "trpgcampsub", style: Object.assign({}, S.txt, { color: t.sub, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world))),
         // 章节点：走过的实心、正在的空心大一圈、还不知道的虚线
         h("div", { style: { position: "relative", display: "flex", alignItems: "center", gap: 5, padding: "9px 13px 0" } },
           c.stages.map((st, i) => {
@@ -3009,14 +3009,14 @@
               opacity: !passed && !here ? .7 : 1
             } });
           }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 3 } }, "第" + cur + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 3 } }, "第" + cur + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
         // 底沿：谁在这支队里、哪支队、上次什么时候动的
         h("div", { style: { position: "relative", display: "flex", alignItems: "center", gap: 4, marginTop: 9, padding: "8px 13px 11px", borderTop: "1px solid " + t.line, background: "rgba(46,38,29,.035)" } },
           members.map((m, i) => h("span", { key: i, style: { marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 1.5px rgba(246,242,234,.95)" } },
             i === 0 ? avatarOf({ name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color }, 21) : m ? avatarOf(m, 21) : null)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 6, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 6, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             [c.squadName || "", campAgo(c)].filter(Boolean).join(" · ")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, opacity: .8 } }, TRPG_HOUR[tone] === TRPG_HOUR["昼"] && tone !== "昼" ? "" : ((c.time || {}).part || ""))));
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, opacity: .8 } }, TRPG_HOUR[tone] === TRPG_HOUR["昼"] && tone !== "昼" ? "" : ((c.time || {}).part || ""))));
     };
     // ---- 组建队伍(她 2026-08-28 定稿:数值在这里掷定,进什么副本都用这套) ----
     // 导入剧本(整页,跟角色卡导入一个样子):选文件或粘进来 → 拆成几栏 → 每栏都能改 → 照剧本开团
@@ -3046,7 +3046,7 @@
       };
       const lbl = (zh, k) => h("div", { style: Object.assign({}, S.lbl, { marginTop: 10 }) }, zh + (k && LISTS[k] ? "(一行一条 · " + lines(k).length + " 条)" : ""));
       const box = (k, rows, ph) => h("textarea", { "data-wk": "trpginput", "data-part": "script", value: sv(k), onChange: e => setSv(k, e.target.value), rows, placeholder: ph,
-        style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } });
+        style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } });
       const go = () => {
         const sc = { title: String(sv("title") || "").trim(), world: String(sv("world") || "").trim(), hook: String(sv("hook") || "").trim(), opening: String(sv("opening") || "").trim(), truth: String(sv("truth") || "").trim(), limits: String(sv("limits") || "").trim(), stages: lines("stages"), heroes: lines("heroes"), events: lines("events") };
         if (!sc.world) return props.toast("世界那一栏空着——至少写下这是个什么样的世界");
@@ -3055,21 +3055,21 @@
       return h("div", { "data-wk": "trpgscript", style: S.wrap }, badges(), askSheet, header("导入剧本"),
         h("div", { "data-wk": "trpgbody", style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: S.card },
-            h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog, lineHeight: 1.65 }) },
+            h("div", { style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65 }) },
               "整篇粘进来,或者直接选文件(.docx / .txt / .md)。用「# 标题」「**加粗**」「【】」分节就认得出:世界(背景/设定/地图)、开局处境、开场、主线(章节)、主角池、事件池、真相、安全线。认不出的节都并进世界,一个字不丢。拆得不对就在下面直接改。开团时从主角池里随机抽一个当这一局的你,剧情骰从事件池里抽。「复制模组」导出的 JSON 也粘这里。"),
             h("button", { onClick: () => { const el = document.getElementById("trpg-script-file"); el && el.click(); }, disabled: scriptBusy, className: "active:opacity-70",
               style: Object.assign({}, S.btn(false), { width: "100%", minHeight: 40, marginTop: 10 }) }, scriptBusy ? "正在读文件…" : "从文件导入"),
             h("input", { id: "trpg-script-file", type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile }),
-            scriptErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a4442e", marginTop: 6 } }, scriptErr) : null,
+            scriptErr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#a4442e", marginTop: 6 } }, scriptErr) : null,
             h("textarea", { "data-wk": "trpginput", "data-part": "scriptraw", value: modTxt, onChange: e => { setModTxt(e.target.value); setScriptEdits({}); }, rows: 8, placeholder: "在这里粘贴整篇剧本…",
-              style: { width: "100%", marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } })),
+              style: { width: "100%", marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } })),
           asMod ? h("div", { style: S.card },
             h("div", { style: S.lbl }, "认出是打包的模组:" + (asMod.title || "无名团")),
             h("button", { onClick: () => loadModule(asMod), style: Object.assign({}, S.btn(true), { minHeight: 40 }) }, "用模组开团")) : null,
           parsed ? h("div", { "data-wk": "trpgscriptpreview", style: S.card },
             h("div", { style: S.lbl }, "拆出来的样子 · 每栏都能改"),
             lbl("剧本名"), h("input", { "data-wk": "input", value: sv("title"), onChange: e => setSv("title", e.target.value), placeholder: "没认出来,自己写一个",
-              style: { width: "100%", padding: "6px 2px", border: "none", borderBottom: "1px solid " + t.line, background: "transparent", fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, outline: "none" } }),
+              style: { width: "100%", padding: "6px 2px", border: "none", borderBottom: "1px solid " + t.line, background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, outline: "none" } }),
             lbl("世界"), box("world", 6, "这是个什么样的世界:背景、地图、势力、人物…"),
             lbl("开局处境"), box("hook", 2, "空着=守密人按剧本补"),
             lbl("开场"), box("opening", 3, "空着=守密人按剧本写"),
@@ -3079,7 +3079,7 @@
             lbl("真相(只给守密人看,落幕才揭晓)"), box("truth", 2, "空着=守密人自己写"),
             lbl("安全线"), box("limits", 1, "绝不想出现的内容"),
             h("button", { onClick: go, disabled: busy, style: Object.assign({}, S.btn(true), { width: "100%", minHeight: 40, marginTop: 12 }) }, busy ? "在搭…" : "照这个剧本开团"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "带的是「新开跑团」页上选中的那支小分队;只有你一个人的队就是单人剧本。")) : null));
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "带的是「新开跑团」页上选中的那支小分队;只有你一个人的队就是单人剧本。")) : null));
     }
     if (view === "squadNew") {
       const togglePick = id => {
@@ -3093,14 +3093,14 @@
       return h("div", { "data-wk": "trpgsquadnew", style: S.wrap }, badges(), askSheet, header("组建小分队"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: S.card }, h("div", { style: S.lbl }, "队名"),
-            h("input", { "data-wk": "trpginput", "data-part": "squadname", value: squadName, onChange: e => setSquadName(e.target.value), placeholder: "比如「家园号勘探组」", style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" } })),
+            h("input", { "data-wk": "trpginput", "data-part": "squadname", value: squadName, onChange: e => setSquadName(e.target.value), placeholder: "比如「家园号勘探组」", style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, outline: "none" } })),
           h("div", { style: S.card }, h("div", { style: S.lbl }, "拉队友(0-4 名;一个不拉=你的单人队)"),
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 } },
               props.characters.map(c => h("div", { "data-wk": "trpgcharpick", "data-on": pickIds.indexOf(c.id) >= 0 ? "1" : "0", key: c.id, onClick: () => togglePick(c.id), style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 6px", borderRadius: 999, border: "1.5px solid " + (pickIds.indexOf(c.id) >= 0 ? t.ink : t.line), background: pickIds.indexOf(c.id) >= 0 ? t.ink : "transparent" } },
-                avatarOf(c, 24), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: pickIds.indexOf(c.id) >= 0 ? t.bg2 : t.ink } }, c.name))))),
+                avatarOf(c, 24), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: pickIds.indexOf(c.id) >= 0 ? t.bg2 : t.ink } }, c.name))))),
           h("div", { style: S.card }, h("div", { style: S.lbl }, "建队数值(3d6×5,队友按人设微调;建好就定,成长靠打)"),
             roster.map(m => { const st = m.key === "user" ? (bmRolls.user || {}) : (bmRolls[m.key] || {});
-              return h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + ":" + STATS.map(([k, zh]) => zh + " " + (st[k] || "?")).join(" · ") + " · ✦×" + fateOf(st.luck)); }),
+              return h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 2 }) }, m.name + ":" + STATS.map(([k, zh]) => zh + " " + (st[k] || "?")).join(" · ") + " · ✦×" + fateOf(st.luck)); }),
             h("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
               h("button", { onClick: () => { const r = { user: rollStats() }; pickIds.forEach(id => { r[id] = personaNudge(rollStats(), (charOf(id) || {}).persona); }); setBmRolls(r); }, style: S.btn(false) }, "重掷全队"),
               h("button", { onClick: () => {
@@ -3128,8 +3128,8 @@
           gal.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
             gal.map(x => h("div", { "data-wk": "trpgphoto", key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },
               h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
-              x.kind === "cover" ? h("div", { style: { position: "absolute", left: 4, top: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null)))
-          : h("div", { "data-wk": "trpgempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有图。", h("br"), "跑团里出过的封面和当拍画面都会自动收在这,删团也不丢。")));
+              x.kind === "cover" ? h("div", { style: { position: "absolute", left: 4, top: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))" } }, "封面") : null)))
+          : h("div", { "data-wk": "trpgempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有图。", h("br"), "跑团里出过的封面和当拍画面都会自动收在这,删团也不丢。")));
     }
 
     // ---- 入口:小分队 + 战役列表;右上=图库+加号菜单 ----
@@ -3141,16 +3141,16 @@
         style: { width: 5, height: Math.max(3, Math.round(((stats || {})[k] || 0) / 90 * 18)), borderRadius: 1.5, background: col, opacity: .28 + Math.min(.62, ((stats || {})[k] || 0) / 90 * .62) } })));
     const squadsBlock = squads.length ? squads.map(sq => h("div", { "data-wk": "trpgsquad", key: sq.id + squadTick, style: Object.assign({}, S.card, { padding: 0, overflow: "hidden" }) },
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "11px 13px 9px" } },
-        h("span", { style: { fontSize: 13 } }, "👥"),
-        h("div", { "data-wk": "trpgsquadname", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sq.name),
+        h("span", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "👥"),
+        h("div", { "data-wk": "trpgsquadname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sq.name),
         // 出团次数做成一枚布章
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: sq.runs ? "#8a6d3b" : t.fog, border: "1px solid " + (sq.runs ? "#8a6d3b66" : t.line), borderRadius: 999, padding: "2px 9px", flexShrink: 0 } }, sq.runs ? "出团 " + sq.runs + " 次" : "新队"),
-        h("button", { "data-wk": "trpgsquaddel", onClick: () => askConfirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。", () => { const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, "解散"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px", flexShrink: 0 } }, "解散")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: sq.runs ? "#8a6d3b" : t.fog, border: "1px solid " + (sq.runs ? "#8a6d3b66" : t.line), borderRadius: 999, padding: "2px 9px", flexShrink: 0 } }, sq.runs ? "出团 " + sq.runs + " 次" : "新队"),
+        h("button", { "data-wk": "trpgsquaddel", onClick: () => askConfirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。", () => { const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, "解散"), style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px", flexShrink: 0 } }, "解散")),
       h("div", { style: { borderTop: "1px solid " + t.line, background: "rgba(46,38,29,.03)" } },
         // 柱子的表头：五根分别是什么，一支队只写一次
         h("div", { style: { display: "flex", alignItems: "center", padding: "5px 13px 0" } },
           h("span", { style: { flex: 1 } }),
-          h("div", { style: { display: "flex", gap: 3 } }, STATS.map(([k, zh]) => h("span", { key: k, style: { width: 5, textAlign: "center", fontFamily: F_BODY, fontSize: 7.5, color: t.fog } }, zh[0]))),
+          h("div", { style: { display: "flex", gap: 3 } }, STATS.map(([k, zh]) => h("span", { key: k, style: { width: 5, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(7.5px * var(--app-fs, 1))", color: t.fog } }, zh[0]))),
           h("span", { style: { width: 34, flexShrink: 0 } })),
         sq.members.map((v, i) => {
           const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
@@ -3159,17 +3159,17 @@
             avatarOf(ch, 28),
             h("div", { style: { flex: 1, minWidth: 0 } },
               h("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } },
-                h("div", { "data-wk": "trpgmembername", style: Object.assign({}, S.txt, { fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, v.name),
-                (v.feats || []).length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a6d3b", flexShrink: 0 } }, v.feats.map(f => f.name).join("·")) : null),
-              (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null),
+                h("div", { "data-wk": "trpgmembername", style: Object.assign({}, S.txt, { fontSize: "calc(12.5px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, v.name),
+                (v.feats || []).length ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#8a6d3b", flexShrink: 0 } }, v.feats.map(f => f.name).join("·")) : null),
+              (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null),
             statBars(v.stats, col),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, width: 34, textAlign: "right", flexShrink: 0 } }, v.runs ? "×" + v.runs : ""));
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, width: 34, textAlign: "right", flexShrink: 0 } }, v.runs ? "×" + v.runs : ""));
         })))) : null;
     const plusSheet = plusMenu && h("div", { "data-wk": "trpgsheet", onClick: () => setPlusMenu(false), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
       h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
         [["🎲 开团(带一支小分队进新世界)", () => { setPlusMenu(false); setDraft(null); setKw(""); setView("create"); }],
          ["⚔ 组建队伍(数值此刻掷定,成长归这支队)", () => { setPlusMenu(false); setSquadName("小分队" + "一二三四五六七八九十".charAt(Math.min(9, loadSquads().squads.length))); setPickIds([]); setBmRolls({ user: rollStats() }); setView("squadNew"); }],
-         ["取消", () => setPlusMenu(false)]].map(([label, fn], i) => h("button", { "data-wk": "trpgsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none", textAlign: "center" } }, label))));
+         ["取消", () => setPlusMenu(false)]].map(([label, fn], i) => h("button", { "data-wk": "trpgsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none", textAlign: "center" } }, label))));
     // 最近动过的排前面:开着好几个团时,要找的那个总在最上面
     const lastTs = c => { const m = (c.msgs || [])[(c.msgs || []).length - 1]; return (m && m.ts) || c.createdAt || 0; };
     const byRecent = (a, b) => lastTs(b) - lastTs(a);
@@ -3179,9 +3179,9 @@
       key: k, onClick: () => setListTab(k),
       style: { flex: 1, padding: "7px 0", borderRadius: 10, border: "none", background: listTab === k ? t.bg2 : "transparent",
                boxShadow: listTab === k ? "0 1px 3px rgba(46,38,29,.16)" : "none",
-               fontFamily: F_BODY, fontSize: 12, color: listTab === k ? t.ink : t.fog }
+               fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: listTab === k ? t.ink : t.fog }
     }, label + (n ? " " + n : ""));
-    const emptyLine = (a, b) => h("div", { "data-wk": "trpgempty", style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, a, b ? h("br") : null, b || null);
+    const emptyLine = (a, b) => h("div", { "data-wk": "trpgempty", style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, a, b ? h("br") : null, b || null);
     return h("div", { "data-wk": "trpgpage", style: S.wrap }, badges(), askSheet, plusSheet,
       header("跑团", h("div", { style: { display: "flex", gap: 6 } },
         h("button", { onClick: () => { setGalView(null); setView("gallery"); }, style: S.btn(false) }, "🖼 图库"),

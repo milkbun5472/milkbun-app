@@ -21,14 +21,14 @@ test("Head 收得下这个挂钩，而且挂在【标题】上", () => {
   // 必须落在渲染 zh 的那个 div 上——落在副标题那一行就等于没修（副标题正是会消失的那个）
   const titleDiv = HEAD.slice(HEAD.indexOf("onClick: onTitleTap"), HEAD.indexOf("}, zh)"));
   assert.ok(titleDiv.length > 0 && titleDiv.length < 500, "onTitleTap 没挂在标题那个 div 上");
-  assert.match(HEAD, /onClick: onTitleTap \|\| undefined,[\s\S]{0,400}\}, zh\)/, "挂点和 zh 不在同一个 div");
+  assert.match(HEAD, /onClick: onTitleTap \|\| undefined,[\s\S]{0,800}\}, zh\)/, "挂点和 zh 不在同一个 div");
 });
 
 test("不传就一点变化都没有（六十多页共用这一个顶栏）", () => {
   assert.match(HEAD, /onClick: onTitleTap \|\| undefined/, "没传的时候会挂上一个 undefined 以外的东西");
   // 长相不许因为这个挂钩变：标题那个 div 的样式一个字段都不许动
   const st = HEAD.slice(HEAD.indexOf("onClick: onTitleTap"), HEAD.indexOf("}, zh)"));
-  for (const k of ["fontFamily: F_DISPLAY", "fontSize: 15.5", "color: INK", "textOverflow: \"ellipsis\""])
+  for (const k of ["fontFamily: F_DISPLAY", "fontSize: \"calc(15.5px * var(--app-fs, 1))\"", "color: INK", "textOverflow: \"ellipsis\""])
     assert.ok(st.includes(k), "标题样式被动过了：少了 " + k);
   assert.doesNotMatch(st, /padding|cursor|background/, "为了挂钩给标题加了长相上的东西");
 });
@@ -50,7 +50,7 @@ test("七下这件事本身没走样：要连着点、会 toggle、只存本机"
   assert.match(seg, /const next = !toyUnlocked;/, "不能再点七下藏回去了");
   assert.match(seg, /localStorage\.setItem\("x_toyUnlocked"/, "存的键换了，她原来解锁过的会失效");
   // ⚠️这个键绝不能跟着云同步走：界面承诺「仅本机」
-  assert.doesNotMatch(scr, /x_toyUnlocked[\s\S]{0,80}Cloud/, "这个开关被推上云了");
+  assert.doesNotMatch(scr, /x_toyUnlocked[\s\S]{0,160}Cloud/, "这个开关被推上云了");
 });
 
 test("解锁之后那一格才出现", () => {

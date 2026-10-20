@@ -1043,11 +1043,11 @@
       // ⚠️padding 简写写在 paddingTop 后面会把它整个盖掉（刘海就白让了）——顺序不能反。
       h("div", { "data-wk": "head", className: "shrink-0", style: { padding: "12px 16px 10px", paddingTop: safeTop(12), borderBottom: "1px solid " + line } },
         h("div", { className: "flex items-baseline", style: { gap: 10 } },
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: dim } }, pg.site || p.fallbackSite || "网页"),
-          price != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 15, color: sk.mark || ink } }, "¥" + price) : null),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.35, color: ink, marginTop: 5 } }, pg.title || "")),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: dim } }, pg.site || p.fallbackSite || "网页"),
+          price != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: sk.mark || ink } }, "¥" + price) : null),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.35, color: ink, marginTop: 5 } }, pg.title || "")),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "18px 16px 30px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: body, whiteSpace: "pre-wrap" } }, pg.gist || "")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.95, color: body, whiteSpace: "pre-wrap" } }, pg.gist || "")));
   }
 
   // ── 搜索条：TA在这个 app 里搜新东西的那一下 ────────────────────
@@ -1071,10 +1071,10 @@
     const on = !!draft;
     return h("div", { className: "flex-1 min-w-0 flex items-center", "data-watch": "input",
       style: { height: 32, borderRadius: rad, border: bd, background: soft, padding: "0 6px 0 13px", gap: 8 } },
-      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: ink, whiteSpace: "nowrap", overflow: "hidden" } },
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: ink, whiteSpace: "nowrap", overflow: "hidden" } },
         [shown || h("span", { key: "ph", style: { color: dim } }, "\u00a0"),
           typing != null ? h("span", { key: "c", style: { display: "inline-block", width: 1.5, height: 13, background: ink, marginLeft: 1, verticalAlign: "-2px", animation: "wkcaret 1s steps(1) infinite" } }) : null]),
-      h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: rad, padding: "4px 11px", fontFamily: F_BODY, fontSize: 11.5,
+      h("div", { "data-watch": "send", style: { flexShrink: 0, borderRadius: rad, padding: "4px 11px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))",
         color: on ? "#fff" : dim, background: on ? (sk.accent || ink) : "transparent" } }, "搜索"));
   }
 
@@ -1110,7 +1110,7 @@
       style: {
         maxWidth: "84%", borderRadius: 13, padding: "6px 12px",
         background: "rgba(24,21,18,.66)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-        fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: "rgba(255,252,246,.94)",
+        fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(255,252,246,.94)",
         boxShadow: "0 6px 20px rgba(20,17,13,.28)",
         // 外语 char 的心声也要能翻（群友 2026-10-17：「看外国 char 玩手机的时候他的心声翻译不了」）：
         //   外层整条不吃手指（别挡住底下的屏幕），只有这一块让她点得到「译」
@@ -1141,7 +1141,7 @@
         background: "linear-gradient(rgba(18,16,14,0), rgba(18,16,14,.62) 46%)"
       }
     },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.72)", minWidth: 44 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.72)", minWidth: 44 } },
         p.done ? "看完了" : p.paused ? "停住了" : (p.i || 0) + " / " + (p.total || 0)),
       h("span", { style: { flex: 1 } }),
       // 暂停（她 2026-09-10 第 ⑦ 条）：TA打了一句又删掉、心声一闪而过，
@@ -1149,21 +1149,21 @@
       // ⚠️暂停着的时候倍速那颗还留着能按：她多半是「停下来看完，再挑个速度继续」。
       p.done ? null : h("button", { onClick: p.onPause, className: "active:opacity-60",
         "aria-label": p.paused ? "继续" : "暂停",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: p.paused ? "#1c1a16" : "#fff",
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: p.paused ? "#1c1a16" : "#fff",
           border: "1px solid rgba(255,255,255," + (p.paused ? ".92" : ".4") + ")", borderRadius: 999,
           padding: "5px 11px", background: p.paused ? "rgba(255,255,255,.92)" : "transparent" } },
         p.paused ? "继续" : "暂停"),
       p.done ? null : h("button", { onClick: p.onSpeed, className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "4px 10px", background: "transparent" } },
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "4px 10px", background: "transparent" } },
         (p.speed || 1) + "×"),
       p.done ? null : h("button", { onClick: p.onSkip, className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11, color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "4px 10px", background: "transparent" } },
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#fff", border: "1px solid rgba(255,255,255,.4)", borderRadius: 999, padding: "4px 10px", background: "transparent" } },
         "跳到最后"),
       h("button", { onClick: p.onKnock, disabled: !!p.knocking || left <= 0 || p.done, className: "active:opacity-60 disabled:opacity-35",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: "#1c1a16", background: "rgba(255,255,255,.92)", borderRadius: 999, padding: "5px 13px", border: "none" } },
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#1c1a16", background: "rgba(255,255,255,.92)", borderRadius: 999, padding: "5px 13px", border: "none" } },
         p.knocking ? "…" : left <= 0 ? characterText(p.char, "他不理了") : p.knocks ? "敲一下 · " + left : "敲一下"),
       h("button", { onClick: p.onClose, className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.8)", padding: "5px 4px", background: "transparent", border: "none" } },
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.8)", padding: "5px 4px", background: "transparent", border: "none" } },
         "退出"));
   }
 

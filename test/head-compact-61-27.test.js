@@ -18,7 +18,7 @@ const HEAD = comp.slice(comp.indexOf("function Head({"), comp.indexOf("function 
 test("Head 就是那条紧凑标题栏，不再是 30px 大标题", () => {
   assert.ok(HEAD.length > 300, "抠不出 Head");
   // 规矩原文：禁止 30–40px 大标题
-  const sizes = [...HEAD.matchAll(/fontSize: ([\d.]+)/g)].map(m => Number(m[1]));
+  const sizes = [...HEAD.matchAll(/fontSize: (?:"calc\()?([\d.]+)/g)].map(m => Number(m[1]));
   assert.ok(sizes.length, "Head 里一个字号都没有？");
   assert.ok(Math.max.apply(null, sizes) <= 18,
     "Head 里还有 " + Math.max.apply(null, sizes) + "px 的字——规矩说禁止 30–40px 大标题");
@@ -90,7 +90,7 @@ test("没有哪一页绕开 Head 自己摆一块大标题", () => {
     // 只看顶栏范围：某个 safeTop( 之后 600 字符内的字号。页面正文里的大字
     //（日记标题输入框、账本金额、周刊封面）不归这条管——那些不是顶栏。
     const tops = [...src.matchAll(/safeTop\(/g)].map(m => m.index);
-    const re = /fontSize: ([\d.]+)/g;
+    const re = /fontSize: (?:"calc\()?([\d.]+)/g;
     let m;
     while ((m = re.exec(src))) {
       if (Number(m[1]) < 26) continue;

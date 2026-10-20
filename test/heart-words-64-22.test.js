@@ -109,7 +109,7 @@ test("念想不再是一个个一样的框：形状本身说清了轻重和状�
   // 还在心上的浮起来、落灰的贴回去：靠形状分，不只靠色差
   assert.match(seg, /boxShadow: dim \? "none" :/);
   // 长成了盖一枚印、放下了一道横杠——都不是 emoji
-  assert.match(seg, /fontSize: 9\.5, color: ACCENT \} \}, "成"\)/);
+  assert.match(seg, /fontSize: "calc\(9\.5px \* var\(--app-fs, 1\)\)", color: ACCENT \} \}, "成"\)/);
   assert.ok(!/weightBar/.test(code), "那个没人用的分量控件还留着（撤东西要删，不是留着）");
   // 长出来的自我不能跟念想长一个样
   const per = code.slice(code.indexOf("b.persona.slice().reverse().map"), code.indexOf("心上 · "));

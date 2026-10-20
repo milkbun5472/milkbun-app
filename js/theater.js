@@ -908,12 +908,12 @@
     // color-mix 吃任何写法的颜色,不用先验是不是六位色号。
     const veil = (c, pct) => "color-mix(in srgb, " + c + " " + pct + "%, transparent)";
     const S = { wrap: Object.assign({ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column" }, paper),
-      btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
+      btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
       // 一条 if 线＝一份钉起来的稿子：方角、纸色、左边一道装订线，线上两枚订书钉。
       // 圆角 16 的卡是通用列表项，剧本里没有这种东西。
       card: { margin: "10px 14px 0", padding: "13px 13px 13px 20px", borderRadius: 2, background: veil(t.bg2, 50), border: "1px solid " + t.line, position: "relative", boxShadow: "0 1px 0 rgba(0,0,0,.03)" },
-      lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
-      txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
+      lbl: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 },
+      txt: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
     // 装订：稿子左边那道线和线上两枚订书钉。程序画的，不用任何字符或 emoji。
     // ⚠️它是绝对定位的装饰片，所以 S.card 上带了 position:relative——
     //   少了那一句，钉子会跑到页面左上角去。
@@ -956,9 +956,9 @@
       // 板身：写着这一场是什么
       h("div", { "data-wk": "block", style: { background: "#2b2721", borderRadius: "0 0 3px 3px", padding: "13px 15px 15px" } },
         h("div", { className: "flex items-baseline", style: { gap: 10 } },
-          h("div", { "data-wk": "thrclappertitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".06em", color: "#f2ece1" } }, "今天排谁的戏"),
-          h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: "rgba(242,236,225,.55)" } }, props.characters.length + " 位")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: "rgba(242,236,225,.55)", marginTop: 5 } }, "点一个人，纸条会从边上拉出来")));
+          h("div", { "data-wk": "thrclappertitle", style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", letterSpacing: ".06em", color: "#f2ece1" } }, "今天排谁的戏"),
+          h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "rgba(242,236,225,.55)" } }, props.characters.length + " 位")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "rgba(242,236,225,.55)", marginTop: 5 } }, "点一个人，纸条会从边上拉出来")));
     // 入口的一行:头像居中站着,点开时纸条从右边拉出来,居中布局把头像自然挤向左边
     // (不用手写 translate:让 flex 的 justifyContent:center 去分配,头像走多远永远等于纸条宽度的一半)
     const EASE = "cubic-bezier(.22,1,.36,1)";
@@ -968,15 +968,15 @@
       const nL = lines.filter(l => l.charId === c.id).length;
       const nP = presets.filter(p => p.charId === c.id).length;
       const go = fn => e => { e.stopPropagation(); setListChar(c.id); fn(); };
-      const noteBtn = (label, meta, onClick, strong) => h("button", { "data-wk": "thrnotebtn", key: label, onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "6px 9px", marginBottom: 5, borderRadius: 7, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: strong ? t.ink : "transparent", border: "1px solid " + (strong ? t.ink : t.line) } },
+      const noteBtn = (label, meta, onClick, strong) => h("button", { "data-wk": "thrnotebtn", key: label, onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "6px 9px", marginBottom: 5, borderRadius: 7, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: strong ? t.ink : "transparent", border: "1px solid " + (strong ? t.ink : t.line) } },
         h("span", { style: { flex: 1, textAlign: "left", color: strong ? t.bg2 : t.ink } }, label),
-        meta ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: strong ? t.bg2 : t.fog } }, meta) : null);
+        meta ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: strong ? t.bg2 : t.fog } }, meta) : null);
       // 必须挡住冒泡:外层容器有「点空白收起」,不挡的话这一下会被它接着关掉,看起来就是点了没反应
       return h("div", { "data-wk": "thrchar", "data-on": open ? "1" : "0", key: c.id, onClick: e => { e.stopPropagation(); setSheetChar(open ? null : c.id); }, style: { display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px" } },
         h("div", { style: { flexShrink: 0, textAlign: "center", transition: "transform .38s " + EASE, transform: open ? "scale(.94)" : "scale(1)" } },
           avatarOf(c, 62),
-          h("div", { "data-wk": "thrcharname", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, maxWidth: 78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-          h("div", { "data-wk": "thrcharsub", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, nL ? nL + " 条线" : "还没演过")),
+          h("div", { "data-wk": "thrcharname", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, marginTop: 5, maxWidth: 78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+          h("div", { "data-wk": "thrcharsub", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, nL ? nL + " 条线" : "还没演过")),
         // 纸条:宽度 0→NOTE_W 的动画;内层固定宽,内容不会跟着挤变形
         // 外层多留 8px 内边距:纸条有阴影又是歪的,贴着 overflow:hidden 的边会被削掉角
         h("div", { onClick: e => open && e.stopPropagation(), style: { width: open ? NOTE_W + 16 : 0, marginLeft: open ? 6 : 0, padding: "8px", opacity: open ? 1 : 0, overflow: "hidden", transition: "width .38s " + EASE + ", margin-left .38s " + EASE + ", opacity .26s ease" } },
@@ -1001,10 +1001,10 @@
                 h("div", { "data-wk": "block", style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 2, overflow: "hidden", background: "#e6e1d7", border: "4px solid #fbf8f2", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)" } },
                   cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
                   h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, avatarOf(c, 52))),
-                h("div", { "data-wk": "thrgalname", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "已删除"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, g.items.length + " 张"));
+                h("div", { "data-wk": "thrgalname", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "已删除"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, g.items.length + " 张"));
             }))
-            : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有剧照。", h("br"), "演出时点 + 里的「当轮剧照」,出过的图都会自动收在这。")));
+            : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有剧照。", h("br"), "演出时点 + 里的「当轮剧照」,出过的图都会自动收在这。")));
       }
       const cg = props.characters.find(x => x.id === galChar) || {};
       const mine = gal.filter(x => x.charId === galChar);
@@ -1016,14 +1016,14 @@
             mine.map((x, xi) => h("div", { "data-wk": "thrphoto", key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", background: "#fbf8f2", borderRadius: 2, padding: "4px 4px 0", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 5px 12px -10px rgba(0,0,0,.6)", cursor: "pointer" } },
               h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", overflow: "hidden", background: "#e6e1d7" } },
                 h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
-                x.kind === "cover" ? h("div", { style: { position: "absolute", left: 3, top: 3, padding: "1px 5px", borderRadius: 2, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null),
+                x.kind === "cover" ? h("div", { style: { position: "absolute", left: 3, top: 3, padding: "1px 5px", borderRadius: 2, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))" } }, "封面") : null),
               // 相纸底下留出来的那条白边，上面写编号——剧照就是这么编档的
-              h("div", { style: { padding: "4px 2px 5px", fontFamily: F_BODY, fontSize: 9, letterSpacing: ".06em", color: "#8d8578", textAlign: "center" } }, String(xi + 1).padStart(2, "0")))))))
+              h("div", { style: { padding: "4px 2px 5px", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: ".06em", color: "#8d8578", textAlign: "center" } }, String(xi + 1).padStart(2, "0")))))))
     }
 
     if (view === "create") {
       const preview = draft && h("div", { "data-wk": "thrdraft", style: S.card }, staples(),
-        h("div", { "data-wk": "thrdrafttitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
+        h("div", { "data-wk": "thrdrafttitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, draft.title),
         [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与长期张力", draft.world || draft.setting], ["此刻正在发生", draft.hook], ["Ta 的行头", draft.charOutfit], [uName + " 的行头", draft.userOutfit], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
         h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
           h("button", { "data-wk": "thrbtn", "data-part": "accept", onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
@@ -1033,10 +1033,10 @@
       return h("div", { "data-wk": "thrnew", style: S.wrap }, badges(), header("新开 if 线"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { "data-wk": "thrcard", "data-part": "char", style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 10 }) }, avatarOf(pc, 34),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, pc.name || "?"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, flex: 1 } }, pc.name || "?"),
             h("button", { onClick: () => { setDraft(null); setView("list"); }, style: S.btn(false) }, "换个角色")),
           h("div", { "data-wk": "thrcard", "data-part": "keyword", style: S.card }, staples(), h("div", { style: S.lbl }, "关键词(选填:题材/身份/氛围,如「民国 报社 追凶」)"),
-            h("textarea", { "data-wk": "thrinput", "data-part": "keyword", value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=让 Ta 自由发挥", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
+            h("textarea", { "data-wk": "thrinput", "data-part": "keyword", value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=让 Ta 自由发挥", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none" } }),
             h("div", { style: S.lbl }, "难度"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k =>
               h("button", { "data-wk": "thrdiff", "data-on": diff === k ? "1" : "0", key: k, onClick: () => setDiff(k), style: S.btn(diff === k) }, DIFF[k].name))),
@@ -1050,19 +1050,19 @@
       const mine = presets.filter(p => p.charId === listChar);
       return h("div", { "data-wk": "thrpresets", style: S.wrap }, badges(), header((c.name || "?") + " · 收藏的设定"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-          mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card }, staples(),
-            h("div", { "data-wk": "thrpresettitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ps.title),
+          mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card }, staples(),
+            h("div", { "data-wk": "thrpresettitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, ps.title),
             [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与长期张力", ps.world || ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
             h("div", { style: { display: "flex", gap: 8, marginTop: 9, flexWrap: "wrap" } },
               h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "用它开新局"),
               h("button", { onClick: () => requestAppConfirm("删除这条基线？", "只删除收藏的设定，不影响已经开出的 if 线。", () => savePresets(l => l.filter(x => x.id !== ps.id)), "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除")))))
-          : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
+          : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
     }
 
     if (view === "play" && line) {
       const char = charOf(line);
       const round = line.rounds[line.rounds.length - 1];
-      const ta = (k, rows) => h("textarea", { "data-wk": "thrinput", "data-part": "edit", value: edit[k], onChange: e => setEdit(p => ({ ...p, [k]: e.target.value })), rows: rows || 3, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "vertical", outline: "none" } });
+      const ta = (k, rows) => h("textarea", { "data-wk": "thrinput", "data-part": "edit", value: edit[k], onChange: e => setEdit(p => ({ ...p, [k]: e.target.value })), rows: rows || 3, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "vertical", outline: "none" } });
       const panel = panelOpen && h("div", { "data-wk": "thrpanel", style: Object.assign({}, S.card, { margin: "8px 14px", maxHeight: "56vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }) },
         edit
           ? [h("div", { key: "e1", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "线名"), ta("title", 1)),
@@ -1109,7 +1109,7 @@
                  note: "留空＝不限。拨了就存，下一拍起生效；这个数会发进提示词、让它自己数着写，小剧场是一拍一拍往下演的，给了下限也会配一个上限。" })),
              writeGoal !== null && h("div", { key: "wg", style: { marginTop: 8 } },
                h("div", { style: S.lbl }, "写下一轮目标(记得写成「让TA…」,可以是很日常的小事)"),
-               h("textarea", { "data-wk": "thrinput", "data-part": "goal", value: writeGoal, onChange: e => setWriteGoal(e.target.value), rows: 2, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "vertical", outline: "none" } }),
+               h("textarea", { "data-wk": "thrinput", "data-part": "goal", value: writeGoal, onChange: e => setWriteGoal(e.target.value), rows: 2, style: { width: "100%", padding: 8, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "vertical", outline: "none" } }),
                h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
                  h("button", { onClick: () => { const g = (writeGoal || "").trim(); if (!g) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: g, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] })); setWriteGoal(null); }, style: S.btn(true) }, "开这一轮"),
                  h("button", { onClick: () => setWriteGoal(null), style: S.btn(false) }, "算了")))]);
@@ -1130,15 +1130,15 @@
       const actName = i => "第" + (i < 10 ? ACT_ZH[i] : i < 19 ? "十" + ACT_ZH[i - 10] : String(i + 1)) + "幕";
       const stamp = r => r.goalDone ? ["达成", t.ink] : r.failed ? ["走不通", "#a4442e"] : null;
       const flow = line.rounds.flatMap((r, i) => [h("div", { "data-wk": "thract", key: "rd" + r.id, style: { textAlign: "center", margin: i ? "30px 18px 10px" : "14px 18px 10px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 15, letterSpacing: 6, color: t.ink } }, actName(i)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 4, textDecoration: r.failed ? "line-through" : "none" } }, r.goal),
-          stamp(r) ? h("span", { style: { display: "inline-block", marginTop: 6, padding: "1px 8px", border: "1.5px solid " + stamp(r)[1], color: stamp(r)[1], borderRadius: 3, fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, transform: "rotate(-4deg)" } }, stamp(r)[0]) : null)]
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: 6, color: t.ink } }, actName(i)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 4, textDecoration: r.failed ? "line-through" : "none" } }, r.goal),
+          stamp(r) ? h("span", { style: { display: "inline-block", marginTop: 6, padding: "1px 8px", border: "1.5px solid " + stamp(r)[1], color: stamp(r)[1], borderRadius: 3, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 2, transform: "rotate(-4deg)" } }, stamp(r)[0]) : null)]
         .concat(r.msgs.map(m => m.role === "photo"
           ? h("div", { "data-wk": "thrmsg", "data-part": "narration", key: m.id, onPointerDown: () => pressStart(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
           : m.role === "user"
           // 你的那一拍写成剧本里的舞台提示:不套聊天气泡,左边一道细线、小一号、淡一点,
           // 和角色的正文同在一张纸上,读起来是一台戏而不是聊天框里夹了篇小说
-          ? h("div", { "data-wk": "thrmsg", "data-part": "user", "data-me": "1", key: m.id, style: { margin: "12px 14px 12px 22px", padding: "2px 0 2px 11px", borderLeft: "2px solid " + t.line, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, m.content)
+          ? h("div", { "data-wk": "thrmsg", "data-part": "user", "data-me": "1", key: m.id, style: { margin: "12px 14px 12px 22px", padding: "2px 0 2px 11px", borderLeft: "2px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, m.content)
           : h("div", { "data-wk": "thrmsg", "data-part": "char", "data-me": "0", key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(),
               style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content,
               // 这一拍的创作小稿（跟线下、同人文、穿书同一个展开）
@@ -1148,10 +1148,10 @@
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
            ["改画面描述再画", () => { const m = photoMenu; setPhotoMenu(null); editRerollPhoto(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
-           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : label === "取消" ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: i === 0 ? t.ink : label === "取消" ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       const msgSheet = msgMenu && h("div", { "data-wk": "thrsheet", "data-part": "msg", onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
             "从这一拍岔开一条新线：这一拍之前原样保留，之后的重演。**原线一个字不动**，随时能切回去。"),
           // 复制（群里 2026-10-07「希望小剧场可以复制」）：这一拍 / 这一幕整段（你的那几拍也带上，读起来是一台戏）
           [["复制这一拍", async () => { const m = msgMenu; setMsgMenu(null); props.toast(await copyText(m.content) ? "复制好了" : "没复制上，长按正文自己选一下"); }],
@@ -1159,21 +1159,21 @@
              const txt = r.msgs.filter(m => m.role === "char" || m.role === "user").map(m => m.role === "user" ? "【" + uName + "】" + m.content : m.content).join("\n\n");
              props.toast(await copyText(txt) ? "整幕复制好了" : "没复制上，长按正文自己选一下"); }],
            ["⑂ 从这里分支", () => branchFrom(msgMenu)],
-           ["取消", () => setMsgMenu(null)]].map(([label, fn], i, arr) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i < arr.length - 1 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+           ["取消", () => setMsgMenu(null)]].map(([label, fn], i, arr) => h("button", { "data-wk": "thrsheetbtn", key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: i < arr.length - 1 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { "data-wk": "thrplay", style: S.wrap }, badges(),
         line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         bigViewer(),
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
         // 目标条:这一幕要走到哪儿,一直钉在顶上。点一下展开全文,点开面板里还能改
         !line.ended && round ? h("div", { "data-wk": "thrgoal", "data-on": goalOpen ? "1" : "0", onClick: () => setGoalOpen(v => !v), style: { flexShrink: 0, display: "flex", alignItems: goalOpen ? "flex-start" : "center", gap: 8, padding: "7px 14px", borderBottom: "1px solid " + t.line, background: veil(t.bg2, 70), cursor: "pointer" } },
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
-          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: round.failed ? "#a4442e" : t.fog } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓" : round.failed ? " ✗" : "")),
+          h("span", { style: Object.assign({ flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: round.goalDone ? t.fog : t.ink, textDecoration: round.failed ? "line-through" : "none" }, goalOpen ? { whiteSpace: "pre-wrap" } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, round.goal)) : null,
         panel, banner,
         h("div", { "data-wk": "thrfeed", ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
-          busy ? h("div", { "data-wk": "thrbusy", style: { margin: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+          busy ? h("div", { "data-wk": "thrbusy", style: { margin: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } },
             typeof TypingDots === "function" ? h(TypingDots, { color: t.fog }) : null, busyWhat || "Ta 在演…") : null),
-        line.ended ? h("div", { "data-wk": "thrended", style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
-          h("textarea", { "data-wk": "thrinput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
+        line.ended ? h("div", { "data-wk": "thrended", style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
+          h("textarea", { "data-wk": "thrinput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让TA更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { "data-wk": "thrplus", style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
           h("button", { "data-wk": "thrtool", "data-part": "dice", "data-on": dice ? "1" : "0", onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
           h("button", { "data-wk": "thrtool", "data-part": "note", "data-on": noteOpen ? "1" : "0", onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
@@ -1190,10 +1190,10 @@
         line.ended ? null : h("div", { "data-wk": "thrcompose", style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
           h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
           h("button", { "data-wk": "thrplusbtn", "data-on": plusOpen ? "1" : "0", onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
-          h("textarea", { "data-wk": "thrinput", "data-part": "main", value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+          h("textarea", { "data-wk": "thrinput", "data-part": "main", value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", outline: "none" } }),
           h("button", { "data-wk": "thrsend", onClick: send, disabled: busy, style: Object.assign({}, S.btn(true), { position: "relative" }) }, "演",
             // 骰子或便签上了膛,「演」上挂个角标,免得收起菜单就忘了下一拍带着东西
-            (dice || note.trim()) ? h("span", { style: { position: "absolute", top: -6, right: -6, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 8, background: "#a4442e", color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center" } }, dice ? "骰" : "签") : null))));
+            (dice || note.trim()) ? h("span", { style: { position: "absolute", top: -6, right: -6, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 8, background: "#a4442e", color: "#fff", fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: "16px", textAlign: "center" } }, dice ? "骰" : "签") : null))));
     }
 
     // 某个角色的记录:只显示 Ta 的线,每条可单独删除
@@ -1205,26 +1205,26 @@
       } : null;
       return h("div", { "data-wk": "thrline", "data-on": l.ended ? "0" : "1", key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
         h("button", { "data-wk": "thrlinedel", onClick: e => { e.stopPropagation(); requestAppConfirm("删除「" + l.title + "」？", "这条线和全部演出记录都会删除。", () => deleteLineNow(l.id), "删除"); },
-          style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
-        h("div", { "data-wk": "thrlinetitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
-        l.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+          style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))", padding: 4 } }, "✕"),
+        h("div", { "data-wk": "thrlinetitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, paddingRight: 26 } }, l.title),
+        l.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
           "⑂ 分支自「" + (l.branchedFrom.title || "原线") + "」第 " + (l.branchedFrom.at || 0) + " 拍") : null,
-        h("div", { "data-wk": "thrlinesub", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
-        h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); };
+        h("div", { "data-wk": "thrlinesub", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
+        h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); };
     if (view === "lines") {
       const c = props.characters.find(x => x.id === listChar) || {};
       const mine = lines.filter(l => l.charId === listChar);
       return h("div", { "data-wk": "thrlines", style: S.wrap }, badges(), header((c.name || "?") + " · 记录"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           mine.length ? mine.map(lineCard)
-          : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
+          : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
     }
 
     // 入口:头像一个一列站在屏幕中间,往下滑看全部;点一下纸条从右边拉开
     return h("div", { "data-wk": "thrpage", style: S.wrap }, badges(), header("小剧场"),
       h("div", { "data-wk": "thrlist", onClick: () => setSheetChar(null), style: { flex: 1, overflowY: "auto", padding: "10px 0 40px" } },
         props.characters.length ? [clapper].concat(props.characters.map(charRow))
-        : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));
+        : h("div", { "data-wk": "thrempty", style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));
   }
   window.TheaterApp = TheaterApp;
 })();

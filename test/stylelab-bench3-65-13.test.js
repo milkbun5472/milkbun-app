@@ -18,7 +18,7 @@ test("空台：台上摆一个空版位，底下是三步，不是一整段灰�
   assert.match(w, /\["2", "在字盘里挑几根字条/);
   assert.match(w, /\["3", "去线下／小剧场／同人文的设置里/);
   // ⚠️「印成小方块」要连形状一起钉：只钉底色的话，把它改回一行小字也照样绿
-  assert.match(w, /width: 18, height: 18, flexShrink: 0, borderRadius: 2, background: t\.ink, color: t\.bg2,\s*\n\s*fontFamily: "monospace", fontSize: 10\.5, display: "flex"/,
+  assert.match(w, /width: 18, height: 18, flexShrink: 0, borderRadius: 2, background: t\.ink, color: t\.bg2,\s*\n\s*fontFamily: "monospace", fontSize: "calc\(10\.5px \* var\(--app-fs, 1\)\)", display: "flex"/,
     "步骤号没印成小方块");
   // 原来那一整段没留着（撤掉东西要删除）
   assert.ok(!/还没有预设。\\n\\n「＋新建」/.test(SL), "那一整段灰字还在");

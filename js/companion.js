@@ -165,7 +165,7 @@
     return h("div", { "data-wk": "compbubble", onPointerDown: stop, onPointerMove: e => e.stopPropagation(), onPointerUp: e => e.stopPropagation(), onTouchStart: stop, onScroll: stop,
       style: Object.assign({ position: "absolute", left: "50%", transform: "translateX(-50%)", maxWidth: 220, width: "max-content", maxHeight: "7.6em", overflowY: "auto",
       WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", touchAction: "pan-y", whiteSpace: "pre-wrap", wordBreak: "break-word", padding: "6px 10px", borderRadius: 12,
-      background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "auto", zIndex: 2 }, style) }, text);
+      background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "auto", zIndex: 2 }, style) }, text);
   }
   function PetFrame({ mode, msg, ctx, style, onOpen, onPoke, frameRef, onStatus, onAct, reloadKey }) {
     const own = useRef(null), ref = frameRef || own, pokeRef = useRef(onPoke);
@@ -228,7 +228,7 @@
     useEffect(() => { if (!window.GardenDressControls && window.LazyMods) window.LazyMods.load("garden").then(() => setDressReady(n => n + 1), () => {}); }, []);
     const Dress = window.GardenDressControls;
     const chip = (on, label, onClick, key) => h("button", { "data-wk": "compchip", "data-on": on ? "1" : "0", key, onClick, className: "active:opacity-70",
-      style: { flexShrink: 0, padding: "7px 14px", borderRadius: 16, fontFamily: F_BODY, fontSize: 13,
+      style: { flexShrink: 0, padding: "7px 14px", borderRadius: 16, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))",
         border: "1px solid " + (on ? "#8a6a4b" : "rgba(138,106,75,.25)"), background: on ? "#8a6a4b" : "rgba(255,255,255,.6)", color: on ? "#fff" : "#6b5440" } }, label);
     return h("div", { "data-wk": "comppage", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#f6efe4,#ece2d2)" } },
       h(Head, { zh: "陪伴", onBack: props.onBack, bg: "transparent" }),
@@ -246,22 +246,22 @@
             alignItems: "center", justifyContent: "center", gap: 10, fontFamily: F_BODY, color: "#8a7a5e", textAlign: "center", padding: 20 } },
             petState.state === "failed"
               ? h(React.Fragment, null,
-                  h("div", { style: { fontSize: 13 } }, "小人没能来 · 网络不太好的时候会这样"),
+                  h("div", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "小人没能来 · 网络不太好的时候会这样"),
                   h("button", { "data-wk": "compretry", onClick: () => { setPetState({ state: "loading", pct: 0 }); setRetry(n => n + 1); }, className: "active:opacity-70",
-                    style: { minHeight: 40, padding: "0 20px", borderRadius: 12, background: "#8a6a4b", color: "#fff", border: "none", fontFamily: F_BODY, fontSize: 13 } }, "再试一次"))
+                    style: { minHeight: 40, padding: "0 20px", borderRadius: 12, background: "#8a6a4b", color: "#fff", border: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "再试一次"))
               : h(React.Fragment, null,
-                  h("div", { style: { fontSize: 13 } }, "小人在来的路上… " + (petState.pct || 0) + "%"),
+                  h("div", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "小人在来的路上… " + (petState.pct || 0) + "%"),
                   h("div", { style: { width: 140, height: 4, borderRadius: 2, background: "rgba(138,106,75,.18)", overflow: "hidden" } },
                     h("div", { style: { width: (petState.pct || 0) + "%", height: "100%", background: "#8a6a4b", transition: "width .25s" } })),
-                  h("div", { style: { fontSize: 11, color: "#a89a80" } }, "第一次要把他整个人下下来，之后就快了"))) : null),
+                  h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#a89a80" } }, "第一次要把他整个人下下来，之后就快了"))) : null),
         h("div", { "data-wk": "comppanel", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
-          h("div", { "data-wk": "compmood", style: { fontSize: 12.5, color: "#6b5440", lineHeight: 1.8 } },
+          h("div", { "data-wk": "compmood", style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#6b5440", lineHeight: 1.8 } },
             (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"
             + (ACT_ZH[actNow] ? "他" + ACT_ZH[actNow] + "。" : "")),
           h("div", { style: { display: "flex", gap: 8, margin: "8px 0 12px" } },
             chip(auto, "表情跟着心情", () => set({ autoFace: true }), "a"), chip(!auto, "我来选表情", () => set({ autoFace: false }), "b")),
           h("button", { "data-wk": "compfloat", "data-on": cfg.float ? "1" : "0", onClick: () => set({ float: !cfg.float }), className: "active:opacity-70",
-            style: { width: "100%", minHeight: 46, borderRadius: 14, fontSize: 14, marginBottom: 18,
+            style: { width: "100%", minHeight: 46, borderRadius: 14, fontSize: "calc(14px * var(--app-fs, 1))", marginBottom: 18,
               background: cfg.float ? "#8a6a4b" : "rgba(255,255,255,.7)", color: cfg.float ? "#fff" : "#6b5440", border: "1px solid rgba(138,106,75,.35)" } },
             cfg.float ? "正在屏幕上陪着你 · 点这里收起来" : "让他悬浮在屏幕上"),
           h("div", { style: { display: "flex", gap: 8, margin: "0 0 4px" } },
@@ -269,10 +269,10 @@
           cfg.pokeTalk && char.voiceId ? h("div", { style: { display: "flex", gap: 8, margin: "6px 0 4px" } },
             chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
             chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
-          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
-          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
+          h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
-            h("div", { style: { fontSize: 12, color: "#9a8a70" } }, "小人还在来的路上…"))));
+            h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
 
   // 全局悬浮小人：挂在 app 外壳上（和迷你播放器同一层），在陪伴页里自己不出。

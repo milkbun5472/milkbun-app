@@ -143,7 +143,7 @@ test("商品卡和详情都点得到「想要」", () => {
 // 她 2026-08-29：「购物里我的物品和随身物里他们收到的礼物还是纯文字，
 // 这俩也给我弄好看点归纳方便看吧」
 test("我的物品按【怎么来的】归组", () => {
-  const i = screens.indexOf('style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · "');
+  const i = screens.indexOf('style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · "');
   assert.ok(i > 0, "找不到我的物品");
   const seg = screens.slice(i, screens.indexOf("  // ---------- 商品详情", i));
   assert.match(seg, /const dreamy = it\.source === "dream";/);

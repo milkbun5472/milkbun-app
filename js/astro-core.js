@@ -484,11 +484,11 @@
     const S = sky(), a = (m && m.astro) || {}, d = new Date(a.ts || m.ts || Date.now());
     return h("div", { "data-wk": "astroshare", style: { width: 196, borderRadius: 4, overflow: "hidden", background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px", border: "1px solid " + S.tint + "66", boxShadow: "0 4px 14px rgba(20,22,50,.25)" } },
       h("div", { style: { padding: "12px 14px 14px", textAlign: "center" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: S.fog } }, "今日签 · " + (d.getMonth() + 1) + "." + d.getDate()),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 3, color: S.fog } }, "今日签 · " + (d.getMonth() + 1) + "." + d.getDate()),
         h("div", { style: { width: 1, height: 14, background: S.tint, margin: "8px auto 6px", opacity: 0.6 } }),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: S.tint, lineHeight: 1.3 } }, a.title || "签"),
-        a.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.ink, lineHeight: 1.7, marginTop: 8, textAlign: "left" } }, a.text) : null,
-        a.by ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 8, textAlign: "right" } }, "—— " + a.by + " 抽的") : null));
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: S.tint, lineHeight: 1.3 } }, a.title || "签"),
+        a.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: S.ink, lineHeight: 1.7, marginTop: 8, textAlign: "left" } }, a.text) : null,
+        a.by ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: S.fog, marginTop: 8, textAlign: "right" } }, "—— " + a.by + " 抽的") : null));
   }
   function signName(i) { return i >= 0 ? SIGNS[i][0] + "座" : "不知道什么星座"; }
   const SKY_BASE = { bg: "#151a33", bg2: "#20264a", ink: "#eef0fb", sub: "rgba(238,240,251,.66)", fog: "rgba(238,240,251,.42)", line: "rgba(238,240,251,.14)", accent: "#e7b7c8", tint: "#c9b66f" };
@@ -502,7 +502,7 @@
   })();
 
   function Stars({ n, color }) {
-    return h("span", { style: { letterSpacing: 2, color: color, fontSize: 13 } }, "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n));
+    return h("span", { style: { letterSpacing: 2, color: color, fontSize: "calc(13px * var(--app-fs, 1))" } }, "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n));
   }
 
   // 不再一块一个框（她 2026-10-03：「不喜欢这种边框，你看塔罗做的 UI 就很好看」）：
@@ -522,7 +522,7 @@
     return h("div", { "data-wk": "astrocard", style: Object.assign({ padding: "4px 2px 14px" }, style || {}) },
       title ? h("div", { className: "flex items-center", style: { gap: 7, margin: "10px 0 10px" } },
         h(Spark, { size: 9, color: S.tint }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, letterSpacing: ".18em" } }, title),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: S.fog, letterSpacing: ".18em" } }, title),
         h("span", { style: { flex: 1, height: 1, background: "linear-gradient(to right," + S.line + ",transparent)" } })) : null,
       children);
   }
@@ -569,20 +569,20 @@
       h(Head, { zh: "星测", sub: cName + " 上次打开 · " + day.slice(5).replace("-", "月") + "日", onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 16px 24px" } },
         h(ZodiacWheel, { S, sign: ci ? ci.sign : -1 }),
-        h(Panel, { S, title: "那天的运势" }, !dd ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "不知道 " + cName + " 的生日，这一页是空的")
+        h(Panel, { S, title: "那天的运势" }, !dd ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub } }, "不知道 " + cName + " 的生日，这一页是空的")
           : h("div", null,
-            h("div", { className: "flex items-baseline justify-between" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20 } }, signName(ci.sign)), h(Stars, { n: dd.all, color: S.tint })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, marginTop: 6 } }, dd.line),
-            h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: S.sub, alignItems: "center" } },
+            h("div", { className: "flex items-baseline justify-between" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))" } }, signName(ci.sign)), h(Stars, { n: dd.all, color: S.tint })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, marginTop: 6 } }, dd.line),
+            h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, alignItems: "center" } },
               "爱情", h(Stars, { n: dd.love, color: S.accent }), "事业", h(Stars, { n: dd.work, color: S.accent }), "财运", h(Stars, { n: dd.money, color: S.accent })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.fog, marginTop: 8 } }, "幸运色 " + dd.color.name + " · 幸运数字 " + dd.number))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: S.fog, marginTop: 8 } }, "幸运色 " + dd.color.name + " · 幸运数字 " + dd.number))),
         h(Panel, { S, title: "他配过的对" }, (syn || sm)
           ? h("div", null, h("div", { className: "flex items-baseline justify-between" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 14 } }, cName + " × " + uName),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: S.tint } }, syn ? syn.score : sm.score)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginTop: 4, lineHeight: 1.7 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, cName + " × " + uName),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: S.tint } }, syn ? syn.score : sm.score)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, marginTop: 4, lineHeight: 1.7 } },
               syn && syn.list[0] ? synLine(syn.list[0], cName, uName) : sm ? sm.aspect + " · " + sm.note : ""))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "两个人的生日都知道了才配得出来"))));
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: S.sub } }, "两个人的生日都知道了才配得出来"))));
   }
   g.AstroPhoneView = AstroPhoneView;
   g.AstroSignCard = AstroSignCard;

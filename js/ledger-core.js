@@ -32,7 +32,7 @@
     style: { minHeight: 44, marginTop: on ? 0 : 5, padding: on ? "12px 0 14px" : "9px 0 11px",
       borderRadius: "10px 10px 0 0", border: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.16)"), borderBottom: "none",
       background: on ? pageColor("ledger", "bg", PAPER) : "rgba(60,54,40,.06)", color: on ? (tint || pageColor("ledger", "ink", "#33322c")) : pageColor("ledger", "sub", "rgba(60,54,40,.45)"),
-      fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, position: "relative", zIndex: on ? 2 : 1,
+      fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, position: "relative", zIndex: on ? 2 : 1,
       boxShadow: on ? "0 -2px 7px rgba(60,54,40,.06)" : "none" } }, label);
   // 整页壳：顶栏（返回 + 居中小标题 + 右侧等宽位）+ 正文，一律铺账簿纸
   const bookPage = (title, onBack, right, body, footer) => h("div", Object.assign({ className: "h-full flex flex-col" }, { style: Object.assign({}, paperBg()) }),

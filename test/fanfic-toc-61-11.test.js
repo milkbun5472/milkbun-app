@@ -49,7 +49,7 @@ test("有我＝册子上口垂下来的一根红书签带", () => {
 
 test("卷首靠字号和双线压屏，不是靠一块深底", () => {
   const lead = seg.slice(seg.indexOf("if (isLead)"));
-  assert.match(lead, /fontSize: 24/, "卷首标题没有比别的大一截");
+  assert.match(lead, /fontSize: "calc\(24px \* var\(--app-fs, 1\)\)"/, "卷首标题没有比别的大一截");
   assert.ok(!/background: t\.ink|background: c\.bg/.test(lead), "卷首又铺了一块深底");
   assert.match(lead, /props\.leadLabel \|\| "圈子里最上面那一篇"/);
 });

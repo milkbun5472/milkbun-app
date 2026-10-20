@@ -98,7 +98,7 @@ test("帖子底部那条挤得下，页面不许横着滑", () => {
 test("主页那一行统计能折行，长名字也挤不掉「编辑资料」", () => {
   assert.equal((sc.match(/flex items-center flex-wrap gap-x-4 gap-y-1 mt-3/g) || []).length, 2,
     "我的主页和小号主页那两行没都改成能折行");
-  assert.equal((sc.match(/fontSize: 12\.5, color: t\.ink, whiteSpace: "nowrap" \} \}, h\("b", null, fmtNum\(/g) || []).length, 3,
+  assert.equal((sc.match(/fontSize: "calc\(12\.5px \* var\(--app-fs, 1\)\)", color: t\.ink, whiteSpace: "nowrap" \} \}, h\("b", null, fmtNum\(/g) || []).length, 3,
     "关注／粉丝那几个数会被折断");
   assert.match(sc, /className: "shrink-0 px-3\.5 py-1\.5 active:opacity-70"[\s\S]{0,180}"编辑资料"/, "长名字会把「编辑资料」挤扁");
 });

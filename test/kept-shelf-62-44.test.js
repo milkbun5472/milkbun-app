@@ -50,7 +50,7 @@ test("「哪一天拆开」摆的是那一天本身，不是一排药丸", () =>
   assert.match(comp, /transform: on \? "translateY\(-3px\) rotate\(-1\.6deg\)" : "none"/);
   assert.match(comp, /filter: on \? "none" : "grayscale\(\.55\)"/);
   // 「封存」那一下是把火漆压下去，不是一个填色长条
-  assert.match(comp, /fontSize: 23, color: "rgba\(255,238,232,\.94\)" \} \}, "封"\)/);
+  assert.match(comp, /fontSize: "calc\(23px \* var\(--app-fs, 1\)\)", color: "rgba\(255,238,232,\.94\)" \} \}, "封"\)/);
 });
 
 // ── 说好的：一张字据 ────────────────────────────────────────
@@ -61,7 +61,7 @@ test("说好的每条是一张字据，日子挂在旁边", () => {
   assert.match(c, /head: dd \? undefined : "　", body: dd \? undefined : "？"/, "没挑日子时那一页不是空白的");
   assert.match(c, /const creaseAt = \(right, bottom\) =>/, "字据的骑缝没了");
   // 做到了＝盖一枚朱印，不是一个文字链
-  assert.match(c, /fontFamily: F_DISPLAY, fontSize: 17 \} \}, "践"\)/, "那枚朱印没了");
+  assert.match(c, /fontFamily: F_DISPLAY, fontSize: "calc\(17px \* var\(--app-fs, 1\)\)" \} \}, "践"\)/, "那枚朱印没了");
   assert.match(c, /transform: "rotate\(-7deg\)"/, "印是正的——盖章不会盖得那么正");
   // 底纹铺外壳、顶栏透上来（施工规则/mobile-ui-layout.md §3.5）
   assert.match(c, /h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col", style: \{ background: t\.bg,/);
@@ -101,7 +101,7 @@ test("那两块纯黑药丸换成了各自这一页的材质", () => {
   // 「翻开看过往」原来压在布面书下面，是一块纯黑药丸——它是这本本子的一部分，
   // 就该长成本子上那条书签带（燕尾缺口）。
   assert.match(scr, /clipPath: "polygon\(0 0, 100% 0, 100% 100%, 50% calc\(100% - 11px\), 0 100%\)"/, "书签带的燕尾没了");
-  assert.doesNotMatch(scr, /background: t\.ink, color: t\.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 14/,
+  assert.doesNotMatch(scr, /background: t\.ink, color: t\.bg2, fontFamily: F_DISPLAY, fontSize: "calc\(15px \* var\(--app-fs, 1\)\)", padding: "12px 0", borderRadius: 14/,
     "那块纯黑药丸还在");
   // 「挑一件事，问问他记得的」换成一条纸带
   assert.match(scr, /busy \? characterText\(partner, "他在想…"\) : characterText\(partner, "挑一件事，问问他记得的"\)/);

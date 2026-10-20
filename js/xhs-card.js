@@ -68,11 +68,11 @@
       h("div", { "data-wk": "card", "data-kind": "xhsshare", role: "link", onClick: open, style: { width: 220, borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid " + (t.line || "#eee"), boxShadow: "0 4px 14px rgba(40,30,20,.08)", cursor: "pointer" } },
         x.cover ? h("img", { src: x.cover, alt: "", referrerPolicy: "no-referrer", style: { display: "block", width: "100%", aspectRatio: "3 / 4", maxHeight: 260, objectFit: "cover", background: "#f4f1ee" } }) : null,
         h("div", { style: { padding: "10px 12px 11px" } },
-          h("div", { style: { fontFamily: FB, fontSize: 14, fontWeight: 600, lineHeight: 1.45, color: "#222", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.title || "一篇小红书笔记"),
-          x.desc ? h("div", { style: { fontFamily: FB, fontSize: 12, lineHeight: 1.6, color: "#666", marginTop: 5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.desc) : null,
-          h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 9, fontFamily: FB, fontSize: 11, color: "#999" } },
+          h("div", { style: { fontFamily: FB, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, lineHeight: 1.45, color: "#222", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.title || "一篇小红书笔记"),
+          x.desc ? h("div", { style: { fontFamily: FB, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: "#666", marginTop: 5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.desc) : null,
+          h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 9, fontFamily: FB, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999" } },
             h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 } }, x.author || ""),
-            h("span", { style: { background: "#ff2442", color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 10.5, fontWeight: 700, letterSpacing: 1 } }, "小红书")))));
+            h("span", { style: { background: "#ff2442", color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1 } }, "小红书")))));
   }
   if (typeof window !== "undefined") { window.XhsCard = XhsCard; window.XhsLink =  { parse: parse, pickTool: pickTool, digest: digest, enrich: enrich, modelText: modelText }; }
   if (typeof module === "object" && module.exports) module.exports = { parse: parse, pickTool: pickTool, digest: digest, modelText: modelText };

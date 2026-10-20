@@ -104,7 +104,7 @@
       props.options.map(function (o) {
         const on = o.key === props.value;
         return h("button", { "data-wk": "gamesegbtn", "data-on": on ? "1" : "0", key: o.key, onClick: function () { props.onChange(o.key); },
-          style: { flex: 1, padding: "8px 4px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 700 : 400, color: on ? "#f3efe6" : t.sub, background: on ? t.ink : "transparent", transition: "all .15s" } }, o.zh);
+          style: { flex: 1, padding: "8px 4px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: on ? 700 : 400, color: on ? "#f3efe6" : t.sub, background: on ? t.ink : "transparent", transition: "all .15s" } }, o.zh);
       }));
   }
 
@@ -113,8 +113,8 @@
     const t = props.t;
     return h("div", { "data-wk": "gametoggle", style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0" } },
       h("div", { style: { flex: 1 } },
-        h("div", { "data-wk": "gametogglelabel", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, props.label),
-        props.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, props.sub) : null),
+        h("div", { "data-wk": "gametogglelabel", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, props.label),
+        props.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, props.sub) : null),
       h("button", { "data-wk": "gameswitch", "data-on": props.on ? "1" : "0", onClick: props.onToggle, className: "shrink-0", style: { width: 50, height: 29, borderRadius: 999, background: props.on ? t.ink : t.line, position: "relative", transition: "background .2s" } },
         h("span", { style: { position: "absolute", top: 3, left: props.on ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } })));
   }
@@ -122,10 +122,10 @@
   // ---- 通用：步进器 ----
   function Stepper(props) {
     const t = props.t;
-    const btn = function (label, fn, dis) { return h("button", { onClick: fn, disabled: dis, style: { width: 26, height: 26, borderRadius: 7, border: "1px solid " + t.line, color: dis ? t.line : t.sub, fontFamily: F_BODY, fontSize: 16, lineHeight: "22px", background: t.bg2 } }, label); };
+    const btn = function (label, fn, dis) { return h("button", { onClick: fn, disabled: dis, style: { width: 26, height: 26, borderRadius: 7, border: "1px solid " + t.line, color: dis ? t.line : t.sub, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: "22px", background: t.bg2 } }, label); };
     return h("div", { "data-wk": "gamestepper", style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
       btn("−", function () { props.onChange(Math.max(props.min, props.value - 1)); }, props.value <= props.min),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, minWidth: 18, textAlign: "center" } }, props.value),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, minWidth: 18, textAlign: "center" } }, props.value),
       btn("+", function () { props.onChange(Math.min(props.max, props.value + 1)); }, props.value >= props.max));
   }
 
@@ -177,10 +177,10 @@
     return h("div", { "data-wk": "gamepicker", style: { position: "absolute", inset: 0, zIndex: 55, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 } },
       h("div", { onClick: props.onClose, style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.4)" } }),
       h("div", { "data-wk": "gamepickerbox", style: { position: "relative", background: t.bg, borderRadius: 16, padding: "16px 16px 16px", width: "100%", maxWidth: 340, maxHeight: "80%", overflowY: "auto", boxShadow: "0 12px 40px rgba(0,0,0,.32)" } },
-        props.title ? h("div", { "data-wk": "gamepickertitle", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, textAlign: "center", marginBottom: props.sub ? 3 : 12 } }, props.title) : null,
-        props.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginBottom: 12, lineHeight: 1.5, whiteSpace: "pre-line" } }, props.sub) : null,
+        props.title ? h("div", { "data-wk": "gamepickertitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, textAlign: "center", marginBottom: props.sub ? 3 : 12 } }, props.title) : null,
+        props.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginBottom: 12, lineHeight: 1.5, whiteSpace: "pre-line" } }, props.sub) : null,
         props.children,
-        props.onClose ? h("button", { "data-wk": "gamepickerclose", onClick: props.onClose, style: { display: "block", margin: "12px auto 0", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 12px" } }, "先关掉 · 回看发言") : null));
+        props.onClose ? h("button", { "data-wk": "gamepickerclose", onClick: props.onClose, style: { display: "block", margin: "12px auto 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 12px" } }, "先关掉 · 回看发言") : null));
   }
   function PlayerCard(props) {
     const t = props.t, p = props.p;
@@ -190,15 +190,15 @@
       h("div", { "data-wk": "gameplayerbox", onClick: function (e) { e.stopPropagation(); }, style: { background: t.bg, borderRadius: 16, padding: "18px 18px 20px", width: "100%", maxWidth: 320, maxHeight: "76%", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,.3)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 14 } }, props.avatar,
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { "data-wk": "gameplayername", style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, p.name + (p.isUser ? "（你）" : "")),
-            props.roleText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: props.roleBad ? "#c0553f" : t.tint, marginTop: 2 } }, props.roleText) : (p.alive === false ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, "已出局（身份不公开）") : null))),
+            h("div", { "data-wk": "gameplayername", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }, p.name + (p.isUser ? "（你）" : "")),
+            props.roleText ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: props.roleBad ? "#c0553f" : t.tint, marginTop: 2 } }, props.roleText) : (p.alive === false ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "已出局（身份不公开）") : null))),
         // hideSkill：派对游戏（真心话）没有「牌桌能力」概念，直接看人设，不显空的能力评估
-        props.hideSkill ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, letterSpacing: .5, marginBottom: 5 } }, "牌桌能力小传（系统评估）"),
-        props.hideSkill ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginBottom: persona ? 14 : 0 } }, p.isUser ? "这是你本人，系统没有替你评估水平——你自己发挥。" : (p.skill || "（没评估到）")),
+        props.hideSkill ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, letterSpacing: .5, marginBottom: 5 } }, "牌桌能力小传（系统评估）"),
+        props.hideSkill ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, marginBottom: persona ? 14 : 0 } }, p.isUser ? "这是你本人，系统没有替你评估水平——你自己发挥。" : (p.skill || "（没评估到）")),
         persona ? h("div", null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: .5, marginBottom: 5 } }, props.hideSkill ? "人设" : "人设 / 补充"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.sub, whiteSpace: "pre-line" } }, persona)) : null,
-        h("button", { "data-wk": "gameplayerclose", onClick: props.onClose, style: { marginTop: 16, width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px" } }, "关了")));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, letterSpacing: .5, marginBottom: 5 } }, props.hideSkill ? "人设" : "人设 / 补充"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub, whiteSpace: "pre-line" } }, persona)) : null,
+        h("button", { "data-wk": "gameplayerclose", onClick: props.onClose, style: { marginTop: 16, width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px" } }, "关了")));
   }
 
   // ============================================================
@@ -553,15 +553,15 @@
               h("div", { style: { width: 58, flexShrink: 0, borderRadius: 6, overflow: "hidden", transform: "rotate(-7deg)", boxShadow: "0 2px 0 " + c.band + ", 0 5px 10px rgba(0,0,0,.18)" } },
                 h(GameLid, { k: r.k })),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".14em", color: t.fog } }, "还摊在桌上"),
-                h("div", { "data-wk": "gameopentitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.def.zh),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.sub)),
-              h("button", { "data-wk": "gameopenbtn", "data-part": "go", onClick: r.go, className: "active:opacity-80", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "接着玩"),
-              h("button", { "data-wk": "gameopenbtn", "data-part": "drop", onClick: r.drop, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "7px 2px" } }, "收了"));
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".14em", color: t.fog } }, "还摊在桌上"),
+                h("div", { "data-wk": "gameopentitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.def.zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.sub)),
+              h("button", { "data-wk": "gameopenbtn", "data-part": "go", onClick: r.go, className: "active:opacity-80", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "接着玩"),
+              h("button", { "data-wk": "gameopenbtn", "data-part": "drop", onClick: r.drop, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "7px 2px" } }, "收了"));
           }));
         })(),
         h(GameStatsBook, { t: t, characters: props.characters || [] }),
-        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
+        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
         // 一架游戏盒：两个一排，每排底下压一条木架线
         (function () {
           const rows = [];
@@ -578,9 +578,9 @@
                       h(GameLid, { k: g.key }),
                       // 盒面下缘那条压印的名字带，跟真的桌游盒一样
                       h("div", { style: { background: c.band, padding: "6px 8px 7px" } },
-                        h("div", { "data-wk": "gamelidtitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: c.bandInk, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.zh),
-                        h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".14em", textTransform: "uppercase", color: c.bandInk, opacity: .58, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.en))),
-                    h("div", { "data-wk": "gamelidsub", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7, lineHeight: 1.45 } }, g.min + "~" + g.max + " 人"));
+                        h("div", { "data-wk": "gamelidtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: c.bandInk, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.zh),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".14em", textTransform: "uppercase", color: c.bandInk, opacity: .58, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.en))),
+                    h("div", { "data-wk": "gamelidsub", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 7, lineHeight: 1.45 } }, g.min + "~" + g.max + " 人"));
                 }),
                 row.length === 1 ? h("div", { style: { flex: "1 1 0" } }) : null),
               // 隔板：一块有厚度的板（上面一道亮边、下面一道暗影），盒子坐在它上面
@@ -588,7 +588,7 @@
                 boxShadow: "inset 0 1px 0 " + t.bg2 + ", 0 2px 5px " + t.ink + "1a" } }));
           });
         })(),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", lineHeight: 1.7, marginTop: 4, marginBottom: 6 } }, "从架上抽一盒，叫上想一起玩的角色。")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, textAlign: "center", lineHeight: 1.7, marginTop: 4, marginBottom: 6 } }, "从架上抽一盒，叫上想一起玩的角色。")));
   }
 
   // ============================================================
@@ -690,108 +690,108 @@
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         // 规则条
         h("div", { "data-wk": "gamedesc", style: { display: "flex", gap: 11, alignItems: "center", padding: "12px 14px", borderRadius: 13, background: t.bg2, margin: "2px 0 16px" } },
-          h("div", { style: { fontSize: 26, width: 34, textAlign: "center" } }, game.emoji),
+          h("div", { style: { fontSize: "calc(26px * var(--app-fs, 1))", width: 34, textAlign: "center" } }, game.emoji),
           h("div", { style: { flex: 1 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.55 } }, game.desc),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, game.rule))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55 } }, game.desc),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, game.rule))),
 
         lastCfg ? h("button", { "data-wk": "gamelastcfg", onClick: useLast, className: "active:opacity-70",
-            style: { width: "100%", minHeight: 44, marginBottom: 16, borderRadius: 12, border: "1px dashed " + t.tint, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.tint } },
+            style: { width: "100%", minHeight: 44, marginBottom: 16, borderRadius: 12, border: "1px dashed " + t.tint, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint } },
           "照上次那桌摆（" + ((lastCfg.charIds || []).map(function (id) { const c = chars.find(function (x) { return x.id === id; }); return c ? c.name : null; }).filter(Boolean).join("、") || "只有 NPC") + "）") : null,
         // 模式
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "模式"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "模式"),
         // 约会是两个人的局：没有观战、彩头和 NPC（它自己有输赢账，也不进回忆和战报）
         h(Segmented, { t: t, value: mode, options: game.key === "date" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
         // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
         game.key === "date" ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
           h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
             placeholder: "输的人要做什么，写一句",
-            style: { width: "100%", minHeight: 44, padding: "0 13px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 14, color: t.ink, outline: "none" } }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "打完会写清谁该兑现；把战报发给 TA，TA 就知道这局赌了什么。")),
+            style: { width: "100%", minHeight: 44, padding: "0 13px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, outline: "none" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "打完会写清谁该兑现；把战报发给 TA，TA 就知道这局赌了什么。")),
 
         game.key === "date" && window.DateGameCore ? h("div", { "data-wk": "gamedatetheme", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "这是一次什么样的约会"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "这是一次什么样的约会"),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 } },
             Object.keys(window.DateGameCore.THEMES).map(function (k) {
               const th = window.DateGameCore.THEMES[k], on = dateTheme === k;
               const desc = { plain: "就是出去逛逛。", first: "第一次单独出来，有点拘谨、互相试探。", anniv: "纪念日，会想起以前，想过得特别一点。", makeup: "前几天闹过别扭，今天出来和好。" }[k] || "";
               return h("button", { key: k, "data-on": on ? "1" : "0", onClick: function () { setDateTheme(k); }, style: { textAlign: "left", borderRadius: 14, padding: "11px 11px", background: on ? t.tint + "16" : t.bg2, border: "1px solid " + (on ? t.tint : t.line) } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, th.zh),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55, marginTop: 4 } }, desc));
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, th.zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 4 } }, desc));
             })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "TA 的态度会跟着变；除了「随便逛逛」，任务池还会多一张这种约会才有的任务。")) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "TA 的态度会跟着变；除了「随便逛逛」，任务池还会多一张这种约会才有的任务。")) : null,
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "+2 规则"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "+2 规则"),
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 } },
             [{ key: "official", title: "官方规则", mark: "不能叠加", desc: "别人出 +2，你直接摸 2 张并跳过。" },
              { key: "stack", title: "叠加规则", mark: "可以反打", desc: "任意颜色 +2 都能顶；罚牌累计转给下一家。" }].map(function (o) {
               const on = unoRule === o.key;
               return h("button", { "data-wk": "gameunorule", "data-on": on ? "1" : "0", key: o.key, onClick: function () { setUnoRule(o.key); }, style: { textAlign: "left", borderRadius: 14, padding: "12px 11px", background: on ? t.tint + "16" : t.bg2, border: "1px solid " + (on ? t.tint : t.line) } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, o.title),
-                h("div", { style: { display: "inline-block", margin: "6px 0 5px", padding: "2px 7px", borderRadius: 999, background: on ? t.tint : t.line, color: on ? "white" : t.sub, fontFamily: F_BODY, fontSize: 10.5 } }, o.mark),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55 } }, o.desc));
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, o.title),
+                h("div", { style: { display: "inline-block", margin: "6px 0 5px", padding: "2px 7px", borderRadius: 999, background: on ? t.tint : t.line, color: on ? "white" : t.sub, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, o.mark),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55 } }, o.desc));
             })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "两种模式的其他规则完全一样；目前只有 +2 是否能叠加不同。")) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "两种模式的其他规则完全一样；目前只有 +2 是否能叠加不同。")) : null,
 
         // 五子棋观战：两个人各自认真还是随手下——不分的话两边一样强，看着没意思
         game.key === "tetris" ? h("div", { "data-wk": "tetrismode", style: { marginBottom: 20 } },
           h(Segmented, { t: t, value: tetrisMode, onChange: setTetrisMode, options: [{ key: "watch", zh: "你玩 TA 看" }, { key: "versus", zh: "对战" }, { key: "coop", zh: "合作接力" }] }),
           tetrisMode !== "watch" ? h("div", { style: { marginTop: 10 } }, h(Segmented, { t: t, value: tetrisSkill, onChange: setTetrisSkill, options: [{ key: "rookie", zh: "TA 新手" }, { key: "normal", zh: "普通" }, { key: "pro", zh: "高手" }] })) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, tetrisMode === "coop"
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, tetrisMode === "coop"
             ? "同一块板子，你放一块、TA 放一块轮着来，一起冲分。TA 那块由本地棋手照挑的水平放（不花钱），轮到 TA 时偶尔会先说说打算。"
             : tetrisMode === "versus"
             ? "一人一块板子，消两行以上往对面塞垃圾行，先堆到顶的输。TA 那块由本地棋手下（不花钱），只有说话才调用；模式选「放水」TA 会下得慢一点、多看走眼。"
             : "你自己玩，TA 坐旁边，一次消好几行、快堆到顶、破纪录的时候才开口。")) : null,
         game.key === "q25" ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
           h(Segmented, { t: t, value: q25Host, onChange: setQ25Host, options: [{ key: "system", zh: "系统出题" }, { key: "me", zh: "我出题" }, { key: "ta", zh: "TA 出题" }, { key: "turns", zh: "轮流" }] }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
             : q25Host === "me" ? "你写下一个东西锁住（TA 看不到），TA 一问一问来猜，你点按钮答。只跟挑的第一个人玩。"
             : q25Host === "ta" ? "TA 照你们的事想一个，你来问、来猜。只跟挑的第一个人玩。" : "一局你出、一局 TA 出，记比分。只跟挑的第一个人玩。")) : null,
         game.key === "draw" ? h("div", { "data-wk": "drawbrain", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "TA 怎么画"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "TA 怎么画"),
           h(Segmented, { t: t, value: drawBrain, onChange: setDrawBrain, options: [{ key: "once", zh: "一口气画好" }, { key: "step", zh: "一段一段想" }] }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
             ? "每画一段都重新想一次：看得到你猜过什么、说过什么，下一笔跟着变，画几段也是边画边定。每段一次调用，段与段之间要等几秒。"
             : "开画时一次想好整幅，再一段一段放给你看：省调用、不卡，但你中途说什么，后面的画不会跟着变。")) : null,
         game.key === "blackjack" && picked.length ? h("div", { "data-wk": "gamebjdealer", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "谁坐庄"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁坐庄"),
           h(Segmented, { t: t, value: bjDealer, onChange: setBjDealer, options: [{ key: "house", zh: "手机发牌" }, { key: "ta", zh: ((chars.find(function (c) { return String(c.id) === String(picked[0]); }) || {}).name || "TA") + " 坐庄" }] }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, bjDealer === "ta"
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, bjDealer === "ta"
             ? "TA 当庄家：不下注，大家都跟 TA 比；你们赢的从 TA 的筹码里出，输的进 TA 口袋。庄家照规矩要到 17 点。"
             : "庄家是手机，谁也不偏；角色和你一样各自跟庄比。")) : null,
         game.key === "poker" ? h("div", { "data-wk": "gamepktruth", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "输的人答一个真心话", sub: "每手打完，赢最多的问、输最多的答。轮到你问就写一句，轮到你答就照实回；角色之间的问答顺带在桌上话里说。每次问答花一次调用。", on: pkTruth, onToggle: function () { setPkTruth(!pkTruth); } })) : null,
         ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? h("div", { "data-wk": "gamecardbrain", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "谁来出牌"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来出牌"),
           h(Segmented, { t: t, value: cardBrain, onChange: setCardBrain, options: [{ key: "local", zh: "手机出牌" }, { key: "self", zh: "每人自己想" }] }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, cardBrain === "self"
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, cardBrain === "self"
             ? "每到角色那一手问 TA 本人一次，出牌和说话一起回来，像 TA 亲自在想。一手一次调用，人多了贵、也要等。"
             : "出牌归手机，照每个人的路数打，不卡。轮回你那一手（或者一手打完）时，一次调用让全桌各说一句；这一次只看桌上公开的，谁也看不见别人的牌。")) : null,
         game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "谁来想棋"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来想棋"),
           h(Segmented, { t: t, value: gmkBrain, onChange: setGmkBrain, options: [{ key: "local", zh: "本地棋手" }, { key: "model", zh: "TA 自己下" }] }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, gmkBrain === "model"
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, gmkBrain === "model"
             ? "每一步都用 TA 的模型想：落子和说话一起回来，像在聊天里下棋。每步一次调用、要等几秒，模型下得好不好看它自己。"
             : "落子归 app 里的棋手，不花调用、不卡；TA 只在你开口时说话。")) : null,
         game.key === "gomoku" && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "各自怎么下"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "各自怎么下"),
           picked.slice(0, 2).map(function (id) {
             const c = chars.find(function (x) { return x.id === id; });
             return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
-              h("div", { style: { width: 72, flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c ? (c.remark || c.name) : ""),
+              h("div", { style: { width: 72, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c ? (c.remark || c.name) : ""),
               h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: gmkCasual[id] ? "casual" : "serious", options: [{ key: "serious", zh: "认真" }, { key: "casual", zh: "随手" }],
                 onChange: function (v) { const n = Object.assign({}, gmkCasual); if (v === "casual") n[id] = true; else delete n[id]; setGmkCasual(n); } })));
           }),
-          picked.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "只选一个人就是 TA 跟电脑下；选两个就看他俩对下。") : null) : null,
+          picked.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "只选一个人就是 TA 跟电脑下；选两个就看他俩对下。") : null) : null,
 
         // 选人
         h("div", { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, spectate ? "上场的角色" : "邀谁一起玩"),
-          h("div", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11.5, color: overMax || tooFew ? "#c0553f" : t.fog } }, countMsg)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, spectate ? "上场的角色" : "邀谁一起玩"),
+          h("div", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: overMax || tooFew ? "#c0553f" : t.fog } }, countMsg)),
         chars.length === 0
-          ? h("div", { "data-wk": "gameempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "14px 2px" } }, "还没有角色，先去「人格档案馆」建几个")
+          ? h("div", { "data-wk": "gameempty", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "14px 2px" } }, "还没有角色，先去「人格档案馆」建几个")
           : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
               chars.filter(function (c) { return !c.npc; }).concat(chars.filter(function (c) { return c.npc; })).map(function (c, ci, arr) {
                 const on = picked.indexOf(c.id) >= 0;
@@ -801,21 +801,21 @@
                   style: { display: "flex", alignItems: "center", gap: 11, padding: "9px 11px", borderRadius: 12, background: on ? (t.tint + "16") : t.bg2, border: "1px solid " + (on ? t.tint : t.line) } },
                   h(Avatar, { character: c, size: 34, radius: 10 }),
                   h("div", { style: { flex: 1, textAlign: "left", minWidth: 0 } },
-                    h("div", { "data-wk": "gamecharname", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.tagline || "")),
-                  h("div", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, border: "2px solid " + (on ? t.tint : t.line), background: on ? t.tint : "transparent", color: "#fff", fontSize: 13, lineHeight: "19px", textAlign: "center" } }, on ? "✓" : ""));
-                return firstNpc ? h(React.Fragment, { key: c.id }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 0" } }, "认识的配角"), btn) : btn;
+                    h("div", { "data-wk": "gamecharname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.tagline || "")),
+                  h("div", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, border: "2px solid " + (on ? t.tint : t.line), background: on ? t.tint : "transparent", color: "#fff", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: "19px", textAlign: "center" } }, on ? "✓" : ""));
+                return firstNpc ? h(React.Fragment, { key: c.id }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 2px 0" } }, "认识的配角"), btn) : btn;
               })),
 
         // 牌技：给选上的人钉一档（全局记着，下次也是这档）
         picked.length ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "牌技"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "牌技"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。"),
           picked.map(function (id) {
             const c = chars.find(function (x) { return x.id === id; }); if (!c) return null;
             const cur = skillPins[id] || "";
             return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 7 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, width: 64, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, width: 64, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
               h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: cur, options: SKILL_PINS.map(function (o) { return { key: o.k, zh: o.zh }; }), onChange: function (v) { setSkillPin(id, v); } })));
           })) : null,
         // 选项
@@ -824,8 +824,8 @@
           // NPC 数量步进：默认补到最低，可继续加到 max（人多局更长、更看得出博弈）
           (npcFill && maxNpc > 0) ? h("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0 12px" } },
             h("div", { style: { flex: 1 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "NPC 数量"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "最少 " + minNpc + " 个补到 " + game.min + " 人，最多可加到 " + game.max + " 人（局更长、更看得出门道）。")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, "NPC 数量"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "最少 " + minNpc + " 个补到 " + game.min + " 人，最多可加到 " + game.max + " 人（局更长、更看得出门道）。")),
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
@@ -833,46 +833,46 @@
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "神职配置"),
-              h("button", { "data-wk": "gamegodbtn", "data-part": "random", onClick: function () { setGodSel(randomBoard(total)); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: t.tint, border: "1px solid " + t.tint, borderRadius: 999, padding: "3px 12px" } }, "🎲 随机"),
-              h("button", { "data-wk": "gamegodbtn", "data-part": "clear", onClick: function () { setGodSel(null); }, style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "3px 4px" } }, "标准板")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: godOverflow ? "#c0553f" : t.fog, lineHeight: 1.5, marginBottom: 8 } }, godOverflow ? ("神职太多，最多 " + godRoom + " 个（至少留 1 民）") : "勾选想要的神职，其余是平民。屠边局：狼把神营或民营杀绝即胜。"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, "神职配置"),
+              h("button", { "data-wk": "gamegodbtn", "data-part": "random", onClick: function () { setGodSel(randomBoard(total)); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.tint, borderRadius: 999, padding: "3px 12px" } }, "🎲 随机"),
+              h("button", { "data-wk": "gamegodbtn", "data-part": "clear", onClick: function () { setGodSel(null); }, style: { marginLeft: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "3px 4px" } }, "标准板")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: godOverflow ? "#c0553f" : t.fog, lineHeight: 1.5, marginBottom: 8 } }, godOverflow ? ("神职太多，最多 " + godRoom + " 个（至少留 1 民）") : "勾选想要的神职，其余是平民。屠边局：狼把神营或民营杀绝即胜。"),
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
               GODS.map(function (g) {
                 const on = effGods.indexOf(g.key) >= 0;
-                return h("button", { "data-wk": "gamegod", "data-on": on ? "1" : "0", key: g.key, onClick: function () { const cur = effGods.slice(); const i = cur.indexOf(g.key); if (i >= 0) cur.splice(i, 1); else cur.push(g.key); setGodSel(cur); }, style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, g.zh);
+                return h("button", { "data-wk": "gamegod", "data-on": on ? "1" : "0", key: g.key, onClick: function () { const cur = effGods.slice(); const i = cur.indexOf(g.key); if (i >= 0) cur.splice(i, 1); else cur.push(g.key); setGodSel(cur); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, g.zh);
               })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "（预言家、女巫、猎人、守卫、白痴均已就绪，任选组合）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "（预言家、女巫、猎人、守卫、白痴均已就绪，任选组合）"),
             // 狼阵营特殊角色（把一头狼换成狼王/白狼王）
             h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "狼阵营"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "狼阵营"),
               [{ key: null, zh: "普通狼" }, { key: "wolfking", zh: "狼王" }, { key: "whitewolf", zh: "白狼王" }].map(function (o) {
                 const on = wolfRole === o.key;
-                return h("button", { "data-wk": "gamewolfrole", "data-on": on ? "1" : "0", key: o.key || "plain", onClick: function () { setWolfRole(o.key); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? "#c0553f" : t.bg2, border: "1px solid " + (on ? "#c0553f" : t.line), borderRadius: 999, padding: "5px 13px" } }, o.zh);
+                return h("button", { "data-wk": "gamewolfrole", "data-on": on ? "1" : "0", key: o.key || "plain", onClick: function () { setWolfRole(o.key); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? "#c0553f" : t.bg2, border: "1px solid " + (on ? "#c0553f" : t.line), borderRadius: 999, padding: "5px 13px" } }, o.zh);
               })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, wolfRole === "wolfking" ? "狼王：出局时能开枪带走一人（被毒不能开）。" : wolfRole === "whitewolf" ? "白狼王：白天可自爆、当场带走一人后直接天黑。" : "把一头狼换成特殊狼（狼总数不变）。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, wolfRole === "wolfking" ? "狼王：出局时能开枪带走一人（被毒不能开）。" : wolfRole === "whitewolf" ? "白狼王：白天可自爆、当场带走一人后直接天黑。" : "把一头狼换成特殊狼（狼总数不变）。"),
             // 胜负模式
             h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 12 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "胜负"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "胜负"),
               h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: winMode, options: [{ key: "side", zh: "屠边" }, { key: "all", zh: "屠城" }], onChange: setWinMode }))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, winMode === "side" ? "屠边：狼把「神营」或「民营」杀绝即胜（标准竞技规则）。" : "屠城：场上剩余好人 ≤ 狼数（打平）时狼就赢。")) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, winMode === "side" ? "屠边：狼把「神营」或「民营」杀绝即胜（标准竞技规则）。" : "屠城：场上剩余好人 ≤ 狼数（打平）时狼就赢。")) : null,
           // 阿瓦隆·特殊角色
           isAvalonGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, marginBottom: 2 } }, "特殊角色"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 4 } }, "梅林 + 刺客固定在场，其余按人数配忠臣 / 爪牙。加特殊角色让博弈更深。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } }, "特殊角色"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 4 } }, "梅林 + 刺客固定在场，其余按人数配忠臣 / 爪牙。加特殊角色让博弈更深。"),
             [{ k: "lady", zh: "湖中仙女", d: "7 人起生效：第 2/3/4 个任务后，持牌人查验一人真实阵营并当众宣布（可以撒谎），牌传给被验的人" },
              { k: "percival", zh: "派西维尔 + 莫甘娜", d: "派西维尔认得梅林，但莫甘娜伪装成梅林混淆 TA（成对加入）" },
              { k: "mordred", zh: "莫德雷德", d: "坏人，且【梅林看不见 TA】——好人更难" },
              { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].map(function (o) {
               return h(ToggleRow, { key: o.k, t: t, label: o.zh, sub: o.d, on: !!avOpts[o.k], onToggle: function () { setAvOpts(function (s) { const n = Object.assign({}, s); n[o.k] = !s[o.k]; return n; }); } });
             }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "任务队伍规模按人数自动配，第 4 个任务在 7 人以上需 2 张失败票。3 个任务成功后刺客还有终局刺杀。")) : null)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "任务队伍规模按人数自动配，第 4 个任务在 7 人以上需 2 张失败票。3 个任务成功后刺客还有终局刺杀。")) : null)),
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
         h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
-          style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
+          style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
   }
 
@@ -884,22 +884,22 @@
     const names = (cfg.charIds || []).map(function (id) { const c = (props.characters || []).find(function (x) { return x.id === id; }); return c ? c.name : null; }).filter(Boolean);
     const modeZh = (MODES.find(function (m) { return m.key === cfg.mode; }) || {}).zh || cfg.mode;
     const row = function (k, v) { return h("div", { style: { display: "flex", padding: "9px 0", borderBottom: "1px solid " + t.line } },
-      h("div", { style: { width: 92, fontFamily: F_BODY, fontSize: 13, color: t.fog, flexShrink: 0 } }, k),
-      h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.5 } }, v)); };
+      h("div", { style: { width: 92, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, k),
+      h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, v)); };
     return h("div", { "data-wk": "gamewip", className: "h-full flex flex-col", style: gameTable(game.key, t) },
       h(Head, { zh: game.zh, en: game.en, onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-10", style: { display: "flex", flexDirection: "column" } },
         h("div", { style: { textAlign: "center", padding: "30px 0 18px" } },
-          h("div", { style: { fontSize: 54, lineHeight: 1 } }, game.emoji),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginTop: 12 } }, game.zh + " · 引擎开发中"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "玩法和规则已经定好，这局的设置也收到了。\n引擎马上就来，先睹为快 👇")),
+          h("div", { style: { fontSize: "calc(54px * var(--app-fs, 1))", lineHeight: 1 } }, game.emoji),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink, marginTop: 12 } }, game.zh + " · 引擎开发中"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "玩法和规则已经定好，这局的设置也收到了。\n引擎马上就来，先睹为快 👇")),
         h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 14, padding: "6px 15px", marginTop: 8 } },
           row("模式", modeZh),
           row("上场角色", names.length ? names.join("、") : "（无）"),
           row("总人数", cfg.total + " 人" + (cfg.mode === "spectate" ? "（你观战）" : "（含你）")),
           row("NPC 凑数", cfg.npcCount ? "补 " + cfg.npcCount + " 个 NPC" : (cfg.npcFill ? "开（本局够人，没补）" : "关")),
           row("注入最近聊天", cfg.injectChat ? "开——带当前人设/心情上场" : "关")),
-        h("button", { "data-wk": "gamewipback", onClick: props.onBack, className: "active:opacity-80", style: { marginTop: 22, alignSelf: "center", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 26px" } }, "返回改设置")));
+        h("button", { "data-wk": "gamewipback", onClick: props.onBack, className: "active:opacity-80", style: { marginTop: 22, alignSelf: "center", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 26px" } }, "返回改设置")));
   }
 
   // ============================================================
@@ -1363,14 +1363,14 @@
 
     if (phase === "error") return h("div", { "data-wk": "gameplay", "data-part": "spy", "data-kind": "error", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
-        h("div", { style: { fontSize: 40 } }, "🕵️"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
-        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, "🕵️"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
+        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
 
     if (phase === "loading") return h("div", { "data-wk": "gameplay", "data-part": "spy", "data-kind": "loading", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
-        h("div", { style: { fontSize: 40 } }, "🃏"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "发牌中·评估每个人的真实水平…")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, "🃏"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog } }, "发牌中·评估每个人的真实水平…")));
 
     // 存活玩家条
     const roster = seatRow(players.map(function (p) {
@@ -1380,70 +1380,70 @@
     // 日志流
     const logView = h("div", { "data-wk": "gamelog", "data-part": "spy", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "12px 16px 16px" } },
       log.map(function (it, i) {
-        if (it.type === "round") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "14px 0 8px", letterSpacing: 1 } }, "· 第 " + it.n + " 轮描述 ·");
-        if (it.type === "sep") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.tint, margin: "12px 0 6px" } }, it.text);
-        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "4px 0", textAlign: "center" } }, it.text);
-        if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: 13, color: it.role === "spy" ? "#3f6d5a" : "#c0553f" } }, "🗳 " + it.name + (it.isUser ? "(你)" : "") + " 被投出局 —— TA 是【" + (it.role === "spy" ? "卧底" : "平民") + "】");
+        if (it.type === "round") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 8px", letterSpacing: 1 } }, "· 第 " + it.n + " 轮描述 ·");
+        if (it.type === "sep") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 6px" } }, it.text);
+        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "4px 0", textAlign: "center" } }, it.text);
+        if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: it.role === "spy" ? "#3f6d5a" : "#c0553f" } }, "🗳 " + it.name + (it.isUser ? "(你)" : "") + " 被投出局 —— TA 是【" + (it.role === "spy" ? "卧底" : "平民") + "】");
         if (it.type === "clue") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } },
             pAvatar(p, 30),
             h("div", { style: { flex: 1 } },
-              h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i })));
+              h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
+              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i })));
         }
-        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
-        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
+        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
+        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
         return null;
       }));
 
     // 底部动作区
     let action = null;
-    const myWordBanner = me ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "你的词：", h("b", { style: { color: t.ink, fontSize: 14 } }, me.word)) : null;
+    const myWordBanner = me ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, "你的词：", h("b", { style: { color: t.ink, fontSize: "calc(14px * var(--app-fs, 1))" } }, me.word)) : null;
     if (phase === "reveal") {
       action = h("div", null, myWordBanner,
-        h("button", { "data-wk": "block", onClick: beginDescribe, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（看他们描述）" : "开始描述"));
+        h("button", { "data-wk": "block", onClick: beginDescribe, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（看他们描述）" : "开始描述"));
     } else if (phase === "describe") {
-      if (busy) action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在想怎么描述");
+      if (busy) action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…大家在想怎么描述");
       else if (descFail) action = h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "刚才那一轮没生成出来，你已说的话都还算数"),
-        h("button", { "data-wk": "block", onClick: retryDescribe, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, "重试这一轮"));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, "刚才那一轮没生成出来，你已说的话都还算数"),
+        h("button", { "data-wk": "block", onClick: retryDescribe, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, "重试这一轮"));
       else if (me && me.alive) action = h("div", null, myWordBanner,
         h("div", { style: { display: "flex", gap: 8 } },
-          h("input", { "data-wk": "gameinput", "data-part": "clue", value: userClue, onChange: function (e) { setUserClue(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserClue(); }, placeholder: "用一句话描述你的词（别说出词本身）", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { "data-wk": "block", onClick: submitUserClue, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "说")));
-      else action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…");
+          h("input", { "data-wk": "gameinput", "data-part": "clue", value: userClue, onChange: function (e) { setUserClue(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserClue(); }, placeholder: "用一句话描述你的词（别说出词本身）", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "block", onClick: submitUserClue, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "说")));
+      else action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…");
     } else if (phase === "vote") {
-      if (busy) action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…计票中");
+      if (busy) action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…计票中");
       else if (me && me.alive) {
         const targets = alive.filter(function (p) { return p.name !== me.name; });
         action = h("div", null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "投谁是卧底？"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, "投谁是卧底？"),
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 } },
             targets.map(function (p) {
               const on = userVote === p.name;
-              return h("button", { key: p.key, onClick: function () { setUserVote(p.name); }, style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 12px 6px 6px" } }, pAvatar(p, 22), p.name);
-            }).concat([h("button", { key: "abstain", onClick: function () { setUserVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: 13, color: userVote === "__abstain__" ? "#fff" : t.sub, background: userVote === "__abstain__" ? t.fog : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "弃票")])),
-          h("button", { onClick: function () { if (userVote) runVote(userVote); }, disabled: !userVote, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: userVote ? t.ink : t.line, borderRadius: 13, padding: "12px" } }, "投票"));
+              return h("button", { key: p.key, onClick: function () { setUserVote(p.name); }, style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 12px 6px 6px" } }, pAvatar(p, 22), p.name);
+            }).concat([h("button", { key: "abstain", onClick: function () { setUserVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: userVote === "__abstain__" ? "#fff" : t.sub, background: userVote === "__abstain__" ? t.fog : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "弃票")])),
+          h("button", { onClick: function () { if (userVote) runVote(userVote); }, disabled: !userVote, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: userVote ? t.ink : t.line, borderRadius: 13, padding: "12px" } }, "投票"));
       } else {
-        action = h("button", { onClick: function () { runVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
+        action = h("button", { onClick: function () { runVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
       }
     } else if (phase === "lastguess") {
-      action = busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…") : h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "你被投出局了——最后一手：猜中他们的平民词，卧底整队翻盘"),
+      action = busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…") : h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, "你被投出局了——最后一手：猜中他们的平民词，卧底整队翻盘"),
         h("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
-          h("input", { "data-wk": "gameinput", "data-part": "lastguess", value: lastGuessText, autoFocus: true, onChange: function (e) { setLastGuessText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitLastGuess(false); }, placeholder: "他们拿到的词是……（一个词）", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.tint, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { onClick: function () { submitLastGuess(false); }, disabled: !lastGuessText.trim(), className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: lastGuessText.trim() ? t.ink : t.line, borderRadius: 12, padding: "0 18px" } }, "押上")),
+          h("input", { "data-wk": "gameinput", "data-part": "lastguess", value: lastGuessText, autoFocus: true, onChange: function (e) { setLastGuessText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitLastGuess(false); }, placeholder: "他们拿到的词是……（一个词）", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.tint, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { onClick: function () { submitLastGuess(false); }, disabled: !lastGuessText.trim(), className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: lastGuessText.trim() ? t.ink : t.line, borderRadius: 12, padding: "0 18px" } }, "押上")),
         h("div", { style: { display: "flex", justifyContent: "center" } },
-          h("button", { onClick: function () { submitLastGuess(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "4px 10px" } }, "不赌了")));
+          h("button", { onClick: function () { submitLastGuess(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "4px 10px" } }, "不赌了")));
     } else if (phase === "result") {
       action = h("div", null,
-        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: winner === "spy" ? "#3f6d5a" : "#c0553f", marginBottom: 6 } }, winner === "spy" ? "🕵️ 卧底获胜" : "🎉 平民获胜"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", lineHeight: 1.7, marginBottom: 12 } },
+        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: winner === "spy" ? "#3f6d5a" : "#c0553f", marginBottom: 6 } }, winner === "spy" ? "🕵️ 卧底获胜" : "🎉 平民获胜"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", lineHeight: 1.7, marginBottom: 12 } },
           "卧底：" + players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; }).join("、") + "　词：平民「" + (players.find(function (p) { return p.role === "civ"; }) || {}).word + "」 / 卧底「" + (players.find(function (p) { return p.role === "spy"; }) || {}).word + "」"),
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { onClick: function () { props.onBack(); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
+          h("button", { onClick: function () { props.onBack(); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const spies2 = players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; }).join("、");
           const won = function (q) { return (q.role === "spy") === (winner === "spy"); };
@@ -1457,7 +1457,7 @@
     // 重说这一轮：这一轮 AI 刚说完、还没投票时，底下一颗小字键
     if (redoRef.current && !busy && !descFail && (phase === "vote" || phase === "describe") && action) action = h("div", null, action,
       h("button", { "data-wk": "gameredo", onClick: redoDescribe, className: "w-full active:opacity-60",
-        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
+        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
     const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "reveal" || phase === "describe" || phase === "vote");
     const sendHeckle = async function () {
       const v = heckleText.trim(); if (!v || busy) return;
@@ -2495,13 +2495,13 @@
 
     if (phase === "error") return h("div", { "data-wk": "gameplay", "data-part": "wolf", "data-kind": "error", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
-        h("div", { style: { fontSize: 40 } }, "🐺"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
-        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, "🐺"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
+        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
     if (phase === "loading") return h("div", { "data-wk": "gameplay", "data-part": "wolf", "data-kind": "loading", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
-        h("div", { style: { fontSize: 40 } }, "🌙"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "发身份·评估每个人的真实水平…")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, "🌙"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog } }, "发身份·评估每个人的真实水平…")));
 
     const seated = players.slice().sort(function (a, b) { return (typeof a.seat === "number" ? a.seat : 0) - (typeof b.seat === "number" ? b.seat : 0); });
     const roster = seatRow(seated.map(function (p, i) {
@@ -2510,51 +2510,51 @@
 
     const logView = h("div", { "data-wk": "gamelog", "data-part": "wolf", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "12px 16px 16px" } },
       log.map(function (it, i) {
-        if (it.type === "night") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "14px 0 8px", letterSpacing: 1 } }, "🌙 第 " + it.n + " 夜");
-        if (it.type === "sep") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.tint, margin: "12px 0 6px" } }, it.text);
-        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "4px 0", textAlign: "center" } }, it.text);
-        if (it.type === "death") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, margin: "6px 0", textAlign: "center", lineHeight: 1.6 } }, "☀️ " + it.text);
-        if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: 13, color: "#c0553f" } }, it.text);
+        if (it.type === "night") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 8px", letterSpacing: 1 } }, "🌙 第 " + it.n + " 夜");
+        if (it.type === "sep") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 6px" } }, it.text);
+        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "4px 0", textAlign: "center" } }, it.text);
+        if (it.type === "death") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, margin: "6px 0", textAlign: "center", lineHeight: 1.6 } }, "☀️ " + it.text);
+        if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0553f" } }, it.text);
         if (it.type === "speech") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } }, pAvatar(p, 30),
-          h("div", { style: { flex: 1 } }, h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
-        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
+          h("div", { style: { flex: 1 } }, h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
+        if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         // 台下起哄：斜体细字，不做成气泡——它不是正式发言（shortLog 也不收它）
-        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
+        if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
         return null;
       }));
 
     // 底部动作区
     let action = null;
-    const roleBanner = me ? h("div", { "data-wk": "gamerole", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "你的身份：", h("b", { style: { color: isWolfRole(me.role) ? "#c0553f" : t.ink, fontSize: 14 } }, roleZh(me.role)), isWolfRole(me.role) ? h("span", null, "　狼队友：" + (players.filter(function (p) { return isWolfRole(p.role) && !p.isUser; }).map(function (p) { return p.name; }).join("、") || "无（只剩你）")) : null) : null;
+    const roleBanner = me ? h("div", { "data-wk": "gamerole", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, "你的身份：", h("b", { style: { color: isWolfRole(me.role) ? "#c0553f" : t.ink, fontSize: "calc(14px * var(--app-fs, 1))" } }, roleZh(me.role)), isWolfRole(me.role) ? h("span", null, "　狼队友：" + (players.filter(function (p) { return isWolfRole(p.role) && !p.isUser; }).map(function (p) { return p.name; }).join("、") || "无（只剩你）")) : null) : null;
     const pickRow = function (targets, val, onPick) {
       return h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 8 } },
-        targets.map(function (p) { const on = val === p.name; return h("button", { "data-wk": "gametarget", "data-on": on ? "1" : "0", key: p.key, onClick: function () { onPick(p.name); }, style: { display: "flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "4px 10px 4px 4px" } }, pAvatar(p, 18), p.name); }));
+        targets.map(function (p) { const on = val === p.name; return h("button", { "data-wk": "gametarget", "data-on": on ? "1" : "0", key: p.key, onClick: function () { onPick(p.name); }, style: { display: "flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "4px 10px 4px 4px" } }, pAvatar(p, 18), p.name); }));
     };
 
     let inline = null;   // 底部短条
     let pick = null;     // 需要选择时的居中弹框 {title, sub, body}
-    const hintBox = function (txt) { return h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, txt); };
+    const hintBox = function (txt) { return h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, txt); };
     if (phase === "reveal") {
       inline = h("div", null, roleBanner,
-        h("button", { onClick: function () { enterNight(players, 1); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, "天黑请闭眼"));
+        h("button", { onClick: function () { enterNight(players, 1); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, "天黑请闭眼"));
     } else if (phase === "night") {
       if (nightStage === "run" || busy) inline = hintBox("🌙 天黑了，夜色里有人在行动…");
       else if (nightStage === "wolf") {
         const suggestions = (nightAI && nightAI.wolfVotes || []).filter(function (v) { return v && v.name; });
         pick = { title: suggestions.length ? "🐺 狼队秘密会议" : "选今晚要刀的人", sub: suggestions.length ? "队友先报刀口和理由，最后由你拍板" : "只剩你决定今晚刀口", body: h("div", null,
-        suggestions.length ? h("div", { "data-wk": "block", style: { marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 } }, suggestions.map(function (v, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px" } }, h("b", { style: { color: t.ink } }, v.name + "："), "我想刀 " + (v.target || "空刀") + "。" + (v.privateReason || "")); })) : null,
+        suggestions.length ? h("div", { "data-wk": "block", style: { marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 } }, suggestions.map(function (v, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px" } }, h("b", { style: { color: t.ink } }, v.name + "："), "我想刀 " + (v.target || "空刀") + "。" + (v.privateReason || "")); })) : null,
         pickRow(alive.filter(function (p) { return !p.isUser && !isWolfRole(p.role); }), null, function (nm) { submitWolfKill(nm); }),
-        h("div", { "data-wk": "block", style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { submitWolfKill("空刀"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "🔪 空刀（今晚不杀）"))) };
+        h("div", { "data-wk": "block", style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { submitWolfKill("空刀"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "🔪 空刀（今晚不杀）"))) };
       }
       else if (nightStage === "seer") {
         if (seerResult) pick = { title: "查验结果", body: h("div", null,
-          h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 16, color: t.ink, marginBottom: 14 } }, h("b", { style: { color: seerResult.isWolf ? "#c0553f" : "#3f6d5a" } }, seerResult.name + " 是【" + (seerResult.isWolf ? "狼人" : "好人") + "】")),
-          h("button", { "data-wk": "block", onClick: seerDone, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "知道了 · 天亮")) };
+          h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 14 } }, h("b", { style: { color: seerResult.isWolf ? "#c0553f" : "#3f6d5a" } }, seerResult.name + " 是【" + (seerResult.isWolf ? "狼人" : "好人") + "】")),
+          h("button", { "data-wk": "block", onClick: seerDone, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "知道了 · 天亮")) };
         else {
           const seen = new Set(((me && seerKnowRef.current[me.name]) || []).map(function (x) { return x.name; }));
           const checkable = alive.filter(function (p) { return !p.isUser && !seen.has(p.name); });
-          pick = { title: "选一个人查验身份", sub: checkable.length ? (seen.size ? "已经验过的人不会重复出现" : "每晚可查验一名未验玩家") : "所有存活玩家都已经验过，本夜没有新目标", body: checkable.length ? pickRow(checkable, null, function (nm) { submitSeerCheck(nm); }) : h("button", { "data-wk": "block", onClick: seerDone, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "无可查验 · 直接天亮") };
+          pick = { title: "选一个人查验身份", sub: checkable.length ? (seen.size ? "已经验过的人不会重复出现" : "每晚可查验一名未验玩家") : "所有存活玩家都已经验过，本夜没有新目标", body: checkable.length ? pickRow(checkable, null, function (nm) { submitSeerCheck(nm); }) : h("button", { "data-wk": "block", onClick: seerDone, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "无可查验 · 直接天亮") };
         }
       }
       else if (nightStage === "guard") {
@@ -2566,44 +2566,44 @@
         const victim = witchCtx && witchCtx.wolfTarget;
         if (poisonPick) pick = { title: "选一个人下毒", sub: "毒药只有一瓶", body: h("div", null,
           pickRow(alive.filter(function (p) { return !p.isUser; }), null, function (nm) { submitWitch({ save: false, poison: nm }); }),
-          h("button", { onClick: function () { setPoisonPick(false); }, style: { display: "block", margin: "0 auto", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "6px" } }, "← 返回")) };
+          h("button", { onClick: function () { setPoisonPick(false); }, style: { display: "block", margin: "0 auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "6px" } }, "← 返回")) };
         else pick = { title: "女巫用药", sub: victim ? ("今晚 " + victim + " 被狼刀了。") : "今晚是平安夜，没人被狼刀。", body: h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-          (pot.heal && victim) ? h("button", { onClick: function () { submitWitch({ save: true, poison: null }); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: "#3f6d5a", borderRadius: 12, padding: "12px" } }, "💊 用解药救 " + victim) : null,
-          pot.poison ? h("button", { onClick: function () { setPoisonPick(true); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: "#c0553f", borderRadius: 12, padding: "12px" } }, "☠️ 用毒药毒一个人") : null,
-          h("button", { onClick: function () { submitWitch({ save: false, poison: null }); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "都不用（留着）")) };
+          (pot.heal && victim) ? h("button", { onClick: function () { submitWitch({ save: true, poison: null }); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: "#3f6d5a", borderRadius: 12, padding: "12px" } }, "💊 用解药救 " + victim) : null,
+          pot.poison ? h("button", { onClick: function () { setPoisonPick(true); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: "#c0553f", borderRadius: 12, padding: "12px" } }, "☠️ 用毒药毒一个人") : null,
+          h("button", { onClick: function () { submitWitch({ save: false, poison: null }); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "都不用（留着）")) };
       }
     } else if (phase === "hunter") {
       const shooterRole = (hunterCtx && hunterCtx.hunter) ? roleZh(hunterCtx.hunter.role) : "猎人";
       if (busy) inline = hintBox("…");
       else pick = { title: "🔫 " + shooterRole + "开枪", sub: "你出局了，开枪带走一人（翻牌亮身份）", body: h("div", null,
         pickRow((hunterCtx ? hunterCtx.list : players).filter(function (p) { return p.alive && !p.isUser; }), null, function (nm) { submitHunterShot(nm); }),
-        h("div", { "data-wk": "block", style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { submitHunterShot(null); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "不开枪"))) };
+        h("div", { "data-wk": "block", style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { submitHunterShot(null); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "不开枪"))) };
     } else if (phase === "day") {
       if (busy) inline = hintBox("…大家在发言");
       else if (boomPick && me && me.alive && me.role === "whitewolf") pick = { title: "💥 白狼王自爆", sub: "当场亮明狼身份、带走一人，然后直接天黑", body: h("div", null,
         pickRow(alive.filter(function (p) { return !p.isUser; }), null, function (nm) { doSelfDestruct(nm); }),
         h("div", { style: { display: "flex", justifyContent: "center", gap: 8 } },
-          h("button", { onClick: function () { doSelfDestruct(null); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "只自爆不带人"),
-          h("button", { onClick: function () { setBoomPick(false); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "6px 10px" } }, "取消"))) };
+          h("button", { onClick: function () { doSelfDestruct(null); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "只自爆不带人"),
+          h("button", { onClick: function () { setBoomPick(false); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "6px 10px" } }, "取消"))) };
       else if (me && me.alive) inline = h("div", null, roleBanner,
         h("div", { style: { display: "flex", gap: 8 } },
-          h("input", { "data-wk": "gameinput", "data-part": "speech", value: userSpeech, onChange: function (e) { setUserSpeech(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserSpeech(); }, placeholder: "轮到你发言（站边、表身份、抓狼…）", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { "data-wk": "block", onClick: submitUserSpeech, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "发言")),
-        (me.role === "whitewolf") ? h("button", { onClick: function () { setBoomPick(true); }, className: "active:opacity-80", style: { display: "block", margin: "8px auto 0", fontFamily: F_BODY, fontSize: 12.5, color: "#c0553f", background: "#c0553f18", border: "1px solid #c0553f66", borderRadius: 999, padding: "6px 16px" } }, "💥 自爆带走一人") : null);
+          h("input", { "data-wk": "gameinput", "data-part": "speech", value: userSpeech, onChange: function (e) { setUserSpeech(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserSpeech(); }, placeholder: "轮到你发言（站边、表身份、抓狼…）", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "block", onClick: submitUserSpeech, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "发言")),
+        (me.role === "whitewolf") ? h("button", { onClick: function () { setBoomPick(true); }, className: "active:opacity-80", style: { display: "block", margin: "8px auto 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#c0553f", background: "#c0553f18", border: "1px solid #c0553f66", borderRadius: 999, padding: "6px 16px" } }, "💥 自爆带走一人") : null);
       else inline = hintBox("…");
     } else if (phase === "dayvote") {
       if (busy) inline = hintBox("…计票中");
       else if (me && me.alive && me.noVote) inline = h("div", null,
-        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 8 } }, "你已翻牌白痴，没有投票权，看他们投。"),
-        h("button", { onClick: function () { runDayVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票"));
+        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "你已翻牌白痴，没有投票权，看他们投。"),
+        h("button", { onClick: function () { runDayVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票"));
       else if (me && me.alive) pick = { title: "投票放逐谁？", sub: "点谁就投谁", body: h("div", null,
         pickRow(alive.filter(function (p) { return p.name !== me.name; }), null, function (nm) { runDayVote(nm); }),
-        h("div", { "data-wk": "block", style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { runDayVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "弃票"))) };
-      else inline = h("button", { onClick: function () { runDayVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
+        h("div", { "data-wk": "block", style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { runDayVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "弃票"))) };
+      else inline = h("button", { onClick: function () { runDayVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
     } else if (phase === "result") {
       const mvpP = mvp && players.find(function (p) { return mvp.name && (p.name === mvp.name || mvp.name.indexOf(p.name) >= 0); });
       inline = h("div", null,
-        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: winner === "wolf" ? "#c0553f" : "#3f6d5a", marginBottom: 8 } }, winner === "wolf" ? "🐺 狼人获胜" : "🎉 好人获胜"),
+        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: winner === "wolf" ? "#c0553f" : "#3f6d5a", marginBottom: 8 } }, winner === "wolf" ? "🐺 狼人获胜" : "🎉 好人获胜"),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const won = function (q) { return isWolfRole(q.role) === (winner === "wolf"); };
           return { key: "werewolf", zh: "狼人杀", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
@@ -2611,30 +2611,30 @@
             + (me ? ("她抽到" + roleZh(me.role) + "，" + (me.alive ? "活到了终局" : "中途出局")) : "她观战") + "。"
             + (mvp && mvp.name ? "全场 MVP 是 " + mvp.name + "。" : "") };
         } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + roleZh(p.role); }).join("　")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + roleZh(p.role); }).join("　")),
         // 全场 MVP
         mvp ? h("div", { "data-wk": "block", style: { display: "flex", gap: 10, padding: "11px 13px", borderRadius: 13, background: t.tint + "14", border: "1px solid " + t.tint, marginBottom: 12 } },
           mvpP ? pAvatar(mvpP, 40) : null,
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, letterSpacing: 1, marginBottom: 2 } }, "★ 全场 MVP · " + mvp.name),
-            mvp.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.55, marginBottom: 4 } }, mvp.reason) : null,
-            mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「" + mvp.quote + "」")
-              : mvp.quotePending ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "感想留给言秋本人，等TA亲自写。") : null))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "center", marginBottom: 12 } }, api ? "评选全场 MVP 中…" : ""),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 2 } }, "★ 全场 MVP · " + mvp.name),
+            mvp.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55, marginBottom: 4 } }, mvp.reason) : null,
+            mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「" + mvp.quote + "」")
+              : mvp.quotePending ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "感想留给言秋本人，等TA亲自写。") : null))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginBottom: 12 } }, api ? "评选全场 MVP 中…" : ""),
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
     }
 
     // 底部：需要选择时只放一个小按钮（弹框里选），否则放 inline
     const bottom = pick
       ? (pickerOpen
-        ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "在弹框里选择 · 也可先关掉回看发言")
-        : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里做选择"))
+        ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "8px 0" } }, "在弹框里选择 · 也可先关掉回看发言")
+        : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里做选择"))
       : inline;
     if (wolfRedoRef.current && !busy && (phase === "day" || phase === "dayvote") && action) action = h("div", null, action,
       h("button", { "data-wk": "gameredo", onClick: redoSpeeches, className: "w-full active:opacity-60",
-        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
+        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
     const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "day" || phase === "dayvote" || phase === "reveal");
     const sendHeckle = async function () {
       const v = heckleText.trim(); if (!v || busy) return;
@@ -2725,19 +2725,19 @@
     }).filter(Boolean).sort(function (a, b) { return b.n - a.n; });
     if (!rows.length) return null;
     return h("div", { "data-wk": "gamestats", style: { marginBottom: 18, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "战绩本"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } }, "战绩本"),
       rows.map(function (r) {
         const on = open === r.c.id;
         return h("div", { key: r.c.id, style: { borderTop: "1px solid " + t.line } },
           h("button", { "data-wk": "gamestatsrow", "data-on": on ? "1" : "0", onClick: function () { setOpen(on ? "" : r.c.id); }, className: "active:opacity-70",
               style: { width: "100%", minHeight: 44, display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: "6px 0", textAlign: "left" } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, flexShrink: 0 } }, r.c.remark || r.c.name),
-            h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, flexShrink: 0 } }, r.c.remark || r.c.name),
+            h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
               "一起 " + r.n + " 局 · 你赢 " + r.me + " · TA 赢 " + r.ta + (r.fav ? " · 最常玩" + r.fav : "")),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, on ? "收起" : "›")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, on ? "收起" : "›")),
           on ? h("div", { style: { padding: "0 0 10px", display: "flex", flexWrap: "wrap", gap: 6 } },
             Object.keys(r.by).map(function (k) { const g = r.by[k];
-              return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line } }, k + " " + g.n + " 局 · 你 " + g.me + " : TA " + g.ta); })) : null);
+              return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line } }, k + " " + g.n + " 局 · 你 " + g.me + " : TA " + g.ta); })) : null);
       }));
   }
   function KeepMemBtn(props) {
@@ -2755,9 +2755,9 @@
     const nameOf = function (id) { const c = (host.characters || []).find(function (x) { return x.id === id; }); return c ? (c.remark || c.name) : ""; };
     return h("div", { "data-wk": "gameend" },
       rep && stake ? h("div", { "data-wk": "gamestakeend", style: { marginTop: 9, padding: "10px 13px", borderRadius: 12, background: t.tint + "12", border: "1px solid " + t.tint } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "彩头"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 2 } }, stake),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 5 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "彩头"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginTop: 2 } }, stake),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5 } },
           rep.meWin === false ? "这局你输了，该你兑现。" + (losers.length ? "一起输的还有 " + losers.map(nameOf).filter(Boolean).join("、") + "。" : "")
           : losers.length ? "该 " + losers.map(nameOf).filter(Boolean).join("、") + " 兑现。把战报发过去，看 TA 认不认账。"
           : "这局没人输，彩头先欠着。")) : null,
@@ -2766,11 +2766,11 @@
         const ok = rep && host.keepGameMemory && ids.length && host.keepGameMemory(ids, rep.text);
         if (ok) { setKept(true); toast("收进记忆了，他们会记得这一局"); }
         else toast("没有能收的：这局上场的都是 NPC");
-      }, className: "active:opacity-70", style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: kept ? t.fog : t.tint, background: "transparent", border: "1px dashed " + (kept ? t.line : t.tint), borderRadius: 10, padding: "9px 0" } },
+      }, className: "active:opacity-70", style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: kept ? t.fog : t.tint, background: "transparent", border: "1px dashed " + (kept ? t.line : t.tint), borderRadius: 10, padding: "9px 0" } },
         kept ? "已收进记忆" : "把这一局收进记忆（他们以后会记得）"),
       // 战报发给 TA：上场的每个真人角色一颗，点了就去那个聊天
       rep && ids.length && host.sendGameReport ? h("div", { "data-wk": "gamereport", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 9 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "战报发给"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "战报发给"),
         // 全发：上场的人一个个都发一份，不跳走（她 2026-10-12 转群友：「战报可以群发」）
         ids.filter(function (id) { return nameOf(id); }).length > 1 ? h("button", { key: "__all", "data-wk": "gamereportall", onClick: function () {
             const todo = ids.filter(function (id) { return nameOf(id) && !sent[id]; });
@@ -2779,7 +2779,7 @@
             const next = Object.assign({}, sent); todo.forEach(function (id) { next[id] = true; }); setSent(next);
             toast("战报发给了 " + todo.length + " 个人");
           }, className: "active:opacity-70",
-          style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "1px solid " + t.ink } }, "全发") : null,
+          style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, border: "1px solid " + t.ink } }, "全发") : null,
         // 发给群（她 2026-10-12：「还有可以发给群」）：群里大家一起看到这张战报卡，不跳走
         (host.sendGameReportGroup && host.reportGroups || []).map(function (g) {
           const k = "g:" + g.id;
@@ -2787,14 +2787,14 @@
               if (sent[k]) return;
               host.sendGameReportGroup(g.id, rep); setSent(Object.assign({}, sent, { [k]: true })); toast("战报发到群「" + g.name + "」了");
             }, className: "active:opacity-70",
-            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: sent[k] ? t.fog : t.ink, background: t.bg2, border: "1px dashed " + t.line } }, (sent[k] ? "✓ " : "") + "群 · " + g.name);
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sent[k] ? t.fog : t.ink, background: t.bg2, border: "1px dashed " + t.line } }, (sent[k] ? "✓ " : "") + "群 · " + g.name);
         }),
         ids.map(function (id) {
           const nm = nameOf(id); if (!nm) return null;
           return h("button", { key: id, "data-on": sent[id] ? "1" : "0", onClick: function () {
               host.sendGameReport(id, rep); setSent(Object.assign({}, sent, { [id]: true }));
             }, className: "active:opacity-70",
-            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: sent[id] ? t.fog : t.ink, background: t.bg2, border: "1px solid " + t.line } }, (sent[id] ? "✓ " : "") + nm);
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sent[id] ? t.fog : t.ink, background: t.bg2, border: "1px solid " + t.line } }, (sent[id] ? "✓ " : "") + nm);
         })) : null);
   }
   function realCharIds(players) { return (players || []).filter(function (p) { return !p.isNpc && !p.isUser && !p.engineer; }).map(function (p) { return p.key; }); }
@@ -2817,8 +2817,8 @@
   // 台下那一条输入行（四个游戏共用同一个形状）
   function heckleRow(t, val, setVal, onSend, busy) {
     return h("div", { "data-wk": "gamecheer", style: { display: "flex", gap: 8, marginBottom: 8 } },
-      h("input", { "data-wk": "gameinput", "data-part": "cheer", value: val, onChange: function (e) { setVal(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") onSend(); }, placeholder: "台下插一句：吐槽 / 起哄 / 带节奏…", style: { flex: 1, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-      h("button", { "data-wk": "gamecheersend", onClick: onSend, disabled: busy || !String(val || "").trim(), className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: busy || !String(val || "").trim() ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, "插嘴"));
+      h("input", { "data-wk": "gameinput", "data-part": "cheer", value: val, onChange: function (e) { setVal(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") onSend(); }, placeholder: "台下插一句：吐槽 / 起哄 / 带节奏…", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+      h("button", { "data-wk": "gamecheersend", onClick: onSend, disabled: busy || !String(val || "").trim(), className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: busy || !String(val || "").trim() ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, "插嘴"));
   }
 
   // 共享头像渲染器
@@ -2876,8 +2876,8 @@
         h("div", { onClick: props.evalOf ? function () { setLook(s); } : undefined, style: { position: "relative", flexShrink: 0, cursor: props.evalOf ? "pointer" : "default" } }, av(s, 34),
           s.mark ? h("div", { style: { position: "absolute", [flip ? "left" : "right"]: -5, bottom: -4 } }, s.mark) : null),
         h("div", { style: { minWidth: 0, flex: 1, textAlign: flip ? "right" : "left" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
-          s.sub != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: s.hot ? "#c0553f" : t.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.sub) : null));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
+          s.sub != null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: s.hot ? "#c0553f" : t.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.sub) : null));
     };
     if (two) return h("div", { "data-wk": "gamevs", style: { display: "flex", alignItems: "center", gap: 8, margin: "4px 0 12px" } },
       lookCard,
@@ -2959,11 +2959,11 @@
       transition: "transform .25s ease, opacity .25s ease"
     } },
       h("div", { style: { position: "relative" } }, props.avatar,
-        props.badge != null ? h("div", { style: { position: "absolute", top: -4, left: -6, minWidth: 15, height: 15, borderRadius: 999, background: t.ink, color: "#f3efe6", fontFamily: F_BODY, fontSize: 9, lineHeight: "15px", textAlign: "center", padding: "0 2px" } }, props.badge) : null,
-        props.mark ? h("div", { style: { position: "absolute", top: -7, right: -6, fontSize: 12 } }, props.mark) : null,
+        props.badge != null ? h("div", { style: { position: "absolute", top: -4, left: -6, minWidth: 15, height: 15, borderRadius: 999, background: t.ink, color: "#f3efe6", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", lineHeight: "15px", textAlign: "center", padding: "0 2px" } }, props.badge) : null,
+        props.mark ? h("div", { style: { position: "absolute", top: -7, right: -6, fontSize: "calc(12px * var(--app-fs, 1))" } }, props.mark) : null,
         dead ? h("div", { style: { position: "absolute", inset: -2, display: "flex", alignItems: "center", justifyContent: "center" } },
-          h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "2px solid #b0553f", color: "#b0553f", fontFamily: F_DISPLAY, fontSize: 13, lineHeight: "18px", textAlign: "center", background: "rgba(243,239,230,.7)", transform: "rotate(-14deg)" } }, "出")) : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: dead ? t.fog : t.sub, maxWidth: 46, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" } }, p.name + (p.isUser ? "(你)" : "")));
+          h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "2px solid #b0553f", color: "#b0553f", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: "18px", textAlign: "center", background: "rgba(243,239,230,.7)", transform: "rotate(-14deg)" } }, "出")) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: dead ? t.fog : t.sub, maxWidth: 46, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" } }, p.name + (p.isUser ? "(你)" : "")));
   }
   // 座位那一条：席位牌坐在桌沿上，不再靠一根细线隔开
   function seatRow(kids) {
@@ -3221,14 +3221,14 @@
 
     if (phase === "error") return h("div", { "data-wk": "gameplay", "data-part": "guess", "data-kind": "error", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
-        h("div", { style: { fontSize: 40 } }, K.emoji),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
-        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, K.emoji),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
+        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
 
     if (phase === "loading") return h("div", { "data-wk": "gameplay", "data-part": "guess", "data-kind": "loading", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
-        h("div", { style: { fontSize: 40 } }, K.emoji),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, kind === "haigui" ? "熬汤中·想一道好谜题…" : "想一个东西中…")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, K.emoji),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog } }, kind === "haigui" ? "熬汤中·想一道好谜题…" : "想一个东西中…")));
 
     const roster = seatRow(players.map(function (p) {
       return h(Seat, { key: p.key, t: t, p: p, avatar: pAvatar(p, 36), onClick: function () { setDetail(p); } });
@@ -3237,32 +3237,32 @@
     // 谜面卡（海龟汤常驻；25问显类别 + 计数）
     const puzzleCard = kind === "haigui"
       ? h("div", { "data-wk": "block", style: { background: t.tint + "12", border: "1px solid " + t.tint, borderRadius: 13, padding: "12px 14px", margin: "10px 16px 2px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, letterSpacing: 1, marginBottom: 5 } }, "🐢 汤面"),
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, ctx ? ctx.surface : ""))
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 5 } }, "🐢 汤面"),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, ctx ? ctx.surface : ""))
       : h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "10px 16px 2px" } },
-          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "类别提示：", h("b", { style: { color: t.ink } }, ctx ? ctx.category : "")),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: (limitLeft != null && limitLeft <= 5) ? "#c0553f" : t.tint } }, "剩 " + (limitLeft == null ? "∞" : limitLeft) + " 问"));
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "类别提示：", h("b", { style: { color: t.ink } }, ctx ? ctx.category : "")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (limitLeft != null && limitLeft <= 5) ? "#c0553f" : t.tint } }, "剩 " + (limitLeft == null ? "∞" : limitLeft) + " 问"));
 
     const logView = h("div", { "data-wk": "gamelog", "data-part": "guess", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "10px 16px 16px" } },
       log.map(function (it, i) {
-        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "8px 0", textAlign: "center" } }, it.text);
-        if (it.type === "solve") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: 14, color: "#3f6d5a" } }, "🎉 " + it.name + (it.isUser ? "(你)" : "") + " 破了题！" + (it.note ? "\n" + it.note : ""));
+        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 0", textAlign: "center" } }, it.text);
+        if (it.type === "solve") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#3f6d5a" } }, "🎉 " + it.name + (it.isUser ? "(你)" : "") + " 破了题！" + (it.note ? "\n" + it.note : ""));
         if (it.type === "q") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0 2px" } }, pAvatar(p, 28),
             h("div", { style: { flex: 1 } },
-              h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }) : null,
-              it.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.question) : null));
+              h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
+              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }) : null,
+              it.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.question) : null));
         }
         if (it.type === "a") {
           const c = VERDICT_COLOR[it.verdict] || t.tint;
-          return h("div", { "data-wk": "gameverdict", key: i, style: { display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px 36px", fontFamily: F_BODY, fontSize: 12.5 } },
+          return h("div", { "data-wk": "gameverdict", key: i, style: { display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px 36px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
             h("span", { style: { color: t.fog } }, "主持人"),
-            h("span", { style: { color: "#fff", background: c, borderRadius: 999, padding: "1px 9px", fontWeight: 700, fontSize: 12 } }, it.verdict || "…"),
+            h("span", { style: { color: "#fff", background: c, borderRadius: 999, padding: "1px 9px", fontWeight: 700, fontSize: "calc(12px * var(--app-fs, 1))" } }, it.verdict || "…"),
             it.note ? h("span", { style: { color: t.sub } }, it.note) : null);
         }
-        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
+        if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
         return null;
       }));
 
@@ -3270,12 +3270,12 @@
     let action;
     if (phase === "result") {
       action = h("div", null,
-        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 19, color: won ? "#3f6d5a" : t.sub, marginBottom: 6 } }, won ? "🎉 你破题了" : (log.some(function (x) { return x.type === "solve"; }) ? "这局被别人抢先破了" : "揭晓答案")),
+        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: won ? "#3f6d5a" : t.sub, marginBottom: 6 } }, won ? "🎉 你破题了" : (log.some(function (x) { return x.type === "solve"; }) ? "这局被别人抢先破了" : "揭晓答案")),
         h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, letterSpacing: 1, marginBottom: 4 } }, kind === "haigui" ? "汤底" : "答案"),
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, reveal || "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 4 } }, kind === "haigui" ? "汤底" : "答案"),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, reveal || "")),
         // 连坐比分：一场三题，谁破的记谁头上
-        scores.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, textAlign: "center", marginBottom: 10 } },
+        scores.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 10 } },
           scores.map(function (x, i) { return "第" + (i + 1) + "题 " + (x.solver ? (x.isUser ? "你" : x.solver) : "无人"); }).join(" · ")) : null,
         scores.length >= 3 ? (function () {
           const cnt = {};
@@ -3283,14 +3283,14 @@
           const best = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
           const top = best.length ? best.filter(function (k) { return cnt[k] === cnt[best[0]]; }) : [];
           return h("div", { "data-wk": "block", style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 13, padding: "10px 13px", marginBottom: 12, textAlign: "center" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.tint, marginBottom: 4 } }, "本 场 头 名"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, top.length ? top.join("、") + "（破 " + cnt[top[0]] + " 题）" : "这场谁也没赢，题赢了"));
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.tint, marginBottom: 4 } }, "本 场 头 名"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, top.length ? top.join("、") + "（破 " + cnt[top[0]] + " 题）" : "这场谁也没赢，题赢了"));
         })() : null,
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, scores.length >= 3 ? "散场 · 回中枢" : "返回"),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, scores.length >= 3 ? "散场 · 回中枢" : "返回"),
           scores.length < 3
-            ? h("button", { "data-wk": "block", onClick: nextPuzzle, disabled: busy, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "下一题（第 " + Math.min(3, scores.length + 1) + " / 3 题）")
-            : h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")),
+            ? h("button", { "data-wk": "block", onClick: nextPuzzle, disabled: busy, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "下一题（第 " + Math.min(3, scores.length + 1) + " / 3 题）")
+            : h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const line = scores.map(function (x, i) { return "第" + (i + 1) + "题" + (x.solver ? (x.isUser ? "她破的" : x.solver + "破的") : "没人破"); }).join("，");
           return { key: kind, zh: K.zh, ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && scores.some(function (x) { return !x.isUser && x.solver === q.name; }); }),
@@ -3298,28 +3298,28 @@
             text: "一起玩了「" + K.zh + "」" + (scores.length > 1 ? "连着 " + scores.length + " 题" : "") + "：" + line + "。" };
         } }));
     } else if (busy) {
-      action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在琢磨");
+      action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…大家在琢磨");
     } else if (guessing) {
       action = h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, kind === "haigui" ? "说出你还原的汤底真相" : "你觉得那个东西是？"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, kind === "haigui" ? "说出你还原的汤底真相" : "你觉得那个东西是？"),
         h("div", { style: { display: "flex", gap: 8 } },
-          h("input", { "data-wk": "gameinput", "data-part": "guess", value: guessText, autoFocus: true, onChange: function (e) { setGuessText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitGuess(); }, placeholder: kind === "haigui" ? "把你推理出的真相讲一遍…" : "直接写那个东西", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.tint, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { "data-wk": "block", onClick: submitGuess, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.tint, borderRadius: 12, padding: "0 16px" } }, "定"),
-          h("button", { onClick: function () { setGuessing(false); setGuessText(""); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "0 6px" } }, "×")));
+          h("input", { "data-wk": "gameinput", "data-part": "guess", value: guessText, autoFocus: true, onChange: function (e) { setGuessText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitGuess(); }, placeholder: kind === "haigui" ? "把你推理出的真相讲一遍…" : "直接写那个东西", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.tint, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "block", onClick: submitGuess, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.tint, borderRadius: 12, padding: "0 16px" } }, "定"),
+          h("button", { onClick: function () { setGuessing(false); setGuessText(""); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "0 6px" } }, "×")));
     } else if (me && cfg.mode !== "spectate") {
       action = h("div", null,
         h("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
-          h("input", { "data-wk": "gameinput", "data-part": "question", value: userQ, onChange: function (e) { setUserQ(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserQ(); }, placeholder: "问一个是 / 否问题…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { "data-wk": "block", onClick: submitUserQ, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "问")),
+          h("input", { "data-wk": "gameinput", "data-part": "question", value: userQ, onChange: function (e) { setUserQ(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserQ(); }, placeholder: "问一个是 / 否问题…", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "block", onClick: submitUserQ, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "问")),
         h("div", { style: { display: "flex", gap: 8, justifyContent: "center" } },
-          h("button", { onClick: function () { runRound(""); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "让他们问一轮"),
-          h("button", { onClick: function () { setGuessing(true); }, style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: "#fff", background: t.tint, borderRadius: 999, padding: "6px 16px" } }, "🎯 我要猜答案"),
-          h("button", { onClick: giveUp, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "6px 8px" } }, "看答案")));
+          h("button", { onClick: function () { runRound(""); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "让他们问一轮"),
+          h("button", { onClick: function () { setGuessing(true); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.tint, borderRadius: 999, padding: "6px 16px" } }, "🎯 我要猜答案"),
+          h("button", { onClick: giveUp, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "6px 8px" } }, "看答案")));
     } else {
       // 观战
       action = h("div", { style: { display: "flex", gap: 8, justifyContent: "center" } },
-        h("button", { onClick: function () { runRound(""); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "看他们问下一轮"),
-        h("button", { onClick: giveUp, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "6px 10px" } }, "看答案"));
+        h("button", { onClick: function () { runRound(""); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "看他们问下一轮"),
+        h("button", { onClick: giveUp, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "6px 10px" } }, "看答案"));
     }
 
     const canHeckle = cfg.mode === "spectate" && phase === "play";
@@ -3826,13 +3826,13 @@
     if (phase === "error") return h("div", { "data-wk": "gameplay", "data-part": "td", "data-kind": "error", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
         h(TDBottle, { size: 52 }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
-        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
+        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
 
     if (phase === "loading") return h("div", { "data-wk": "gameplay", "data-part": "td", "data-kind": "loading", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
         h(TDBottle, { size: 52 }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "大家围一圈坐好…")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog } }, "大家围一圈坐好…")));
 
     const roster = seatRow(players.map(function (p) {
       const isTgt = target && phase !== "idle" && p.name === target.name;
@@ -3842,29 +3842,29 @@
     const choiceColor = function (c) { return c === "大冒险" ? "#c0553f" : "#3f6d5a"; };
     const logView = h("div", { "data-wk": "gamelog", "data-part": "td", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "12px 16px 16px" } },
       log.map(function (it, i) {
-        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "6px 0", textAlign: "center" } }, it.text);
-        if (it.type === "spin") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.tint, margin: "12px 0 4px" } }, "— 瓶子指向了 " + it.name + (it.isUser ? "(你)" : ""));
-        if (it.type === "react") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, key: i, style: { display: "flex", gap: 7, margin: "4px 0 4px 14px", alignItems: "flex-start" } }, pAvatar(p, 22), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.5 } }, h("b", { style: { color: t.fog, fontWeight: 400 } }, it.name + "："), it.text)); }
+        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "6px 0", textAlign: "center" } }, it.text);
+        if (it.type === "spin") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 4px" } }, "— 瓶子指向了 " + it.name + (it.isUser ? "(你)" : ""));
+        if (it.type === "react") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, key: i, style: { display: "flex", gap: 7, margin: "4px 0 4px 14px", alignItems: "flex-start" } }, pAvatar(p, 22), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, h("b", { style: { color: t.fog, fontWeight: 400 } }, it.name + "："), it.text)); }
         if (it.type === "chat") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
           h("div", { style: { maxWidth: "78%" } },
-            h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
+            h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
         if (it.type === "star") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "gamestar", key: i, style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 14, padding: "12px 14px", margin: "12px 18px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.tint, textAlign: "center", marginBottom: 7 } }, "今 晚 之 星"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.tint, textAlign: "center", marginBottom: 7 } }, "今 晚 之 星"),
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 } }, pAvatar(p, 30),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, it.name + (it.isUser ? "(你)" : ""))),
-            it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.65, textAlign: "center" } }, it.reason) : null);
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, it.name + (it.isUser ? "(你)" : ""))),
+            it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, textAlign: "center" } }, it.reason) : null);
         }
         if (it.type === "td") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "block", key: i, style: { background: it.mine ? (t.tint + "10") : t.bg2, border: "1px solid " + (it.mine ? t.tint + "44" : t.line), borderRadius: 13, padding: "11px 13px", margin: "8px 0" } },
             h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 7 } }, pAvatar(p, 26),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: "#fff", background: choiceColor(it.choice), borderRadius: 999, padding: "2px 10px" } }, it.choice)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.55, marginBottom: 6 } }, (it.asker ? it.asker + "：" : "题目："), it.prompt),
-            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, it.response));
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, it.name + (it.mine ? "(你)" : "")),
+              h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: choiceColor(it.choice), borderRadius: 999, padding: "2px 10px" } }, it.choice)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55, marginBottom: 6 } }, (it.asker ? it.asker + "：" : "题目："), it.prompt),
+            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, it.response));
         }
         return null;
       }));
@@ -3873,35 +3873,35 @@
     if (phase === "spinning") action = h("div", { style: { textAlign: "center", padding: "12px 0" } },
       h("style", null, "@keyframes tdspin{to{transform:rotate(360deg)}}"),
       h("div", { style: { display: "flex", justifyContent: "center" } }, h(TDBottle, { size: 44, spin: true })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.tint, marginTop: 6, minHeight: 26 } }, spinName || "…"));
-    else if (busy && phase !== "userAnswer" && phase !== "userAsk") action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "12px 0" } }, "…在起哄");
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.tint, marginTop: 6, minHeight: 26 } }, spinName || "…"));
+    else if (busy && phase !== "userAnswer" && phase !== "userAsk") action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "…在起哄");
     else if (phase === "userChoose") action = h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, textAlign: "center", marginBottom: 10 } }, "轮到你了！选一个："),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 10 } }, "轮到你了！选一个："),
       h("div", { style: { display: "flex", gap: 12 } },
-        h("button", { onClick: function () { userChoose("真心话"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 13, padding: "13px" } }, "真心话"),
-        h("button", { onClick: function () { userChoose("大冒险"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 13, padding: "13px" } }, "大冒险")));
+        h("button", { onClick: function () { userChoose("真心话"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 13, padding: "13px" } }, "真心话"),
+        h("button", { onClick: function () { userChoose("大冒险"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 13, padding: "13px" } }, "大冒险")));
     else if (phase === "userAsk") action = h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, textAlign: "center", marginBottom: 9 } }, "轮到你给 " + (pendingAsk && pendingAsk.target ? pendingAsk.target.name : "TA") + " 出一道【" + (pendingAsk && pendingAsk.plan ? pendingAsk.plan.choice : "题") + "】"),
-      h("input", { "data-wk": "gameinput", "data-part": "ask", value: askInput, autoFocus: true, disabled: busy, onChange: function (e) { setAskInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserAsk(); }, placeholder: pendingAsk && pendingAsk.plan && pendingAsk.plan.choice === "真心话" ? "你想亲自问什么？" : "你想让 TA 当场做什么？", style: { width: "100%", fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…正在回答") :
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 9 } }, "轮到你给 " + (pendingAsk && pendingAsk.target ? pendingAsk.target.name : "TA") + " 出一道【" + (pendingAsk && pendingAsk.plan ? pendingAsk.plan.choice : "题") + "】"),
+      h("input", { "data-wk": "gameinput", "data-part": "ask", value: askInput, autoFocus: true, disabled: busy, onChange: function (e) { setAskInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserAsk(); }, placeholder: pendingAsk && pendingAsk.plan && pendingAsk.plan.choice === "真心话" ? "你想亲自问什么？" : "你想让 TA 当场做什么？", style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…正在回答") :
         h("div", { style: { display: "flex", gap: 8 } },
-          h("button", { "data-wk": "block", onClick: submitUserAsk, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "11px" } }, "我来出题"),
-          h("button", { "data-wk": "block", onClick: hostAskInstead, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 8px" } }, "没灵感 · 主持人问")));
+          h("button", { "data-wk": "block", onClick: submitUserAsk, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "11px" } }, "我来出题"),
+          h("button", { "data-wk": "block", onClick: hostAskInstead, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 8px" } }, "没灵感 · 主持人问")));
     else if (phase === "userAnswer") action = busy && !userPrompt
-      ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "12px 0" } }, "…在给你出题")
+      ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "…在给你出题")
       : h("div", null,
           h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 12, padding: "10px 13px", marginBottom: 8 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginBottom: 3 } }, (userPrompt && userPrompt.asker ? userPrompt.asker + " 出的 " : "") + (userPrompt && userPrompt.choice)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.6 } }, userPrompt && userPrompt.prompt)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, marginBottom: 3 } }, (userPrompt && userPrompt.asker ? userPrompt.asker + " 出的 " : "") + (userPrompt && userPrompt.choice)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, userPrompt && userPrompt.prompt)),
           h("div", { style: { display: "flex", gap: 8 } },
-            h("input", { "data-wk": "gameinput", "data-part": "answer", value: userResp, autoFocus: true, onChange: function (e) { setUserResp(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserResp(); }, placeholder: userPrompt && userPrompt.choice === "真心话" ? "老实交代…" : "描述你怎么完成…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-            h("button", { "data-wk": "block", onClick: submitUserResp, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "交")));
+            h("input", { "data-wk": "gameinput", "data-part": "answer", value: userResp, autoFocus: true, onChange: function (e) { setUserResp(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserResp(); }, placeholder: userPrompt && userPrompt.choice === "真心话" ? "老实交代…" : "描述你怎么完成…", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+            h("button", { "data-wk": "block", onClick: submitUserResp, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "交")));
     else if (wrap) {
       action = h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 10 } }, "这一场散了。改天再聚，或者现在就再开一场。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 10 } }, "这一场散了。改天再聚，或者现在就再开一场。"),
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
-          h("button", { "data-wk": "block", onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          h("button", { "data-wk": "block", onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const rounds = logDataRef.current.filter(function (x) { return x.type === "td"; }).length;
           // 真心话大冒险没有输赢（她 2026-10-12：「为啥真心话大冒险还有输赢」）：战报卡不写赢输，今晚之星只写进正文
@@ -3916,15 +3916,15 @@
       action = h("div", null,
         // 自由讨论输入：一轮做完后想聊多久聊多久
         h("div", { style: { display: "flex", gap: 8, marginBottom: 9 } },
-          h("input", { "data-wk": "gameinput", "data-part": "chat", value: chatInput, onChange: function (e) { setChatInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: spun ? "自由聊天…插句嘴 / 追问 / 起哄" : "先聊两句热热场，或直接转瓶子", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { "data-wk": "block", onClick: sendChat, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "说")),
+          h("input", { "data-wk": "gameinput", "data-part": "chat", value: chatInput, onChange: function (e) { setChatInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: spun ? "自由聊天…插句嘴 / 追问 / 起哄" : "先聊两句热热场，或直接转瓶子", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "block", onClick: sendChat, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "说")),
         h("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
-          h("button", { "data-wk": "block", onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让他们接着聊（你不用发）"),
-          h("button", { "data-wk": "block", onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "转下一轮" : "转瓶子")),
+          h("button", { "data-wk": "block", onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让他们接着聊（你不用发）"),
+          h("button", { "data-wk": "block", onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "转下一轮" : "转瓶子")),
         h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }),
         log.filter(function (x) { return x.type === "td"; }).length >= 3
           ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 9 } },
-              h("button", { "data-wk": "block", onClick: doWrap, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, background: "transparent", borderRadius: 999, padding: "6px 16px" } }, "散完这一场 · 评今晚之星"))
+              h("button", { "data-wk": "block", onClick: doWrap, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, background: "transparent", borderRadius: 999, padding: "6px 16px" } }, "散完这一场 · 评今晚之星"))
           : null);
     }
 
@@ -4740,13 +4740,13 @@
     const header = h(Head, { zh: "阿瓦隆", en: "Avalon", onBack: props.onBack, bg: "transparent" });
     if (phase === "error") return h("div", { "data-wk": "gameplay", "data-part": "avalon", "data-kind": "error", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
-        h("div", { style: { fontSize: 40 } }, "⚔️"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
-        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, "⚔️"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
+        h("button", { "data-wk": "block", onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
     if (phase === "loading") return h("div", { "data-wk": "gameplay", "data-part": "avalon", "data-kind": "loading", className: "h-full flex flex-col", style: table }, header,
       h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
-        h("div", { style: { fontSize: 40 } }, "⚔️"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "发牌·分配阵营与身份…")));
+        h("div", { style: { fontSize: "calc(40px * var(--app-fs, 1))" } }, "⚔️"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog } }, "发牌·分配阵营与身份…")));
 
     // 头像条：标出当前队长 + 被提议进队的人
     const roster = seatRow(players.map(function (p) {
@@ -4763,36 +4763,36 @@
         const dbl = players.length >= 7 && i === 3;
         const bg = r ? (r.success ? "#3f6d5a" : "#c0553f") : (cur ? t.tint : t.bg2);
         return h("div", { key: i, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } },
-          h("div", { "data-wk": "block", style: { width: 30, height: 30, borderRadius: 999, background: bg, border: "1px solid " + (r || cur ? "transparent" : t.line), color: r || cur ? "#fff" : t.fog, fontFamily: F_DISPLAY, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" } }, r ? (r.success ? "✓" : "✗") : (players.length ? (AV_QUEST[players.length] || AV_QUEST[5])[i] : "")),
-          dbl ? h("div", { style: { fontSize: 8, color: t.fog } }, "2失败") : h("div", { style: { fontSize: 8, color: "transparent" } }, "·"));
+          h("div", { "data-wk": "block", style: { width: 30, height: 30, borderRadius: 999, background: bg, border: "1px solid " + (r || cur ? "transparent" : t.line), color: r || cur ? "#fff" : t.fog, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, r ? (r.success ? "✓" : "✗") : (players.length ? (AV_QUEST[players.length] || AV_QUEST[5])[i] : "")),
+          dbl ? h("div", { style: { fontSize: "calc(8px * var(--app-fs, 1))", color: t.fog } }, "2失败") : h("div", { style: { fontSize: "calc(8px * var(--app-fs, 1))", color: "transparent" } }, "·"));
       }));
 
     const logView = h("div", { "data-wk": "gamelog", "data-part": "avalon", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "8px 16px 16px" } },
       log.map(function (it, i) {
-        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.65, margin: "8px 0", textAlign: "center" } }, it.text);
-        if (it.type === "phase") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.tint, margin: "12px 0 4px", letterSpacing: .5 } }, "· " + it.text + " ·");
+        if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, margin: "8px 0", textAlign: "center" } }, it.text);
+        if (it.type === "phase") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 4px", letterSpacing: .5 } }, "· " + it.text + " ·");
         if (it.type === "propose") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { margin: "6px 0" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "👑 " + it.leader + (it.isUser ? "(你)" : "") + " 提议：" + it.team.join("、")),
-          it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 2, lineHeight: 1.5 } }, "“" + it.reason + "”") : null);
-        if (it.type === "talk") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { margin: "3px 0", fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.55 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "👑 " + it.leader + (it.isUser ? "(你)" : "") + " 提议：" + it.team.join("、")),
+          it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2, lineHeight: 1.5 } }, "“" + it.reason + "”") : null);
+        if (it.type === "talk") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { margin: "3px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } },
           h("span", { style: { fontWeight: 700, color: it.mine ? t.tint : t.sub } }, "💬 " + it.name + (it.mine ? "(你)" : "") + "："), it.say);
         if (it.type === "votes") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { margin: "6px 0", background: t.bg2, borderRadius: 10, padding: "8px 11px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: it.approved ? "#3f6d5a" : "#c0553f", marginBottom: 4 } }, (it.approved ? "✓ 通过" : "✗ 否决") + "（赞成 " + it.yes + " · 反对 " + it.no + "）"),
-          it.votes.map(function (v, k) { return h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.5 } }, (v.approve ? "✔ " : "✘ ") + v.name + (v.mine ? "(你)" : "") + (v.reason ? "：" + v.reason : "")); }));
-        if (it.type === "questresult") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_DISPLAY, fontSize: 15, color: it.success ? "#3f6d5a" : "#c0553f" } }, "任务 " + it.n + (it.success ? " 成功 ✓" : " 失败 ✗") + "　（" + it.fails + " 张失败票）");
-        if (it.type === "assassin") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.6 } }, "🗡 刺客 " + it.by + " 指认梅林 → " + it.target + (it.reason ? "\n“" + it.reason + "”" : ""));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: it.approved ? "#3f6d5a" : "#c0553f", marginBottom: 4 } }, (it.approved ? "✓ 通过" : "✗ 否决") + "（赞成 " + it.yes + " · 反对 " + it.no + "）"),
+          it.votes.map(function (v, k) { return h("div", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, (v.approve ? "✔ " : "✘ ") + v.name + (v.mine ? "(你)" : "") + (v.reason ? "：" + v.reason : "")); }));
+        if (it.type === "questresult") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: it.success ? "#3f6d5a" : "#c0553f" } }, "任务 " + it.n + (it.success ? " 成功 ✓" : " 失败 ✗") + "　（" + it.fails + " 张失败票）");
+        if (it.type === "assassin") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, "🗡 刺客 " + it.by + " 指认梅林 → " + it.target + (it.reason ? "\n“" + it.reason + "”" : ""));
         return null;
       }));
 
     // ---- 底部动作 ----
     let inline = null, pick = null;
-    const roleBanner = me ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, textAlign: "center", marginBottom: 8, lineHeight: 1.6 } }, avRevealFor(me, players)) : null;
-    const teamChip = function (p, on, onTap) { return h("button", { "data-wk": "block", key: p.key, onClick: onTap, style: { display: "flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "4px 11px 4px 4px" } }, pAvatar(p, 20), p.name + (p.isUser ? "(你)" : "")); };
+    const roleBanner = me ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8, lineHeight: 1.6 } }, avRevealFor(me, players)) : null;
+    const teamChip = function (p, on, onTap) { return h("button", { "data-wk": "block", key: p.key, onClick: onTap, style: { display: "flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "4px 11px 4px 4px" } }, pAvatar(p, 20), p.name + (p.isUser ? "(你)" : "")); };
 
     if (phase === "reveal") {
       inline = h("div", null,
-        h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 12, padding: "11px 13px", marginBottom: 10, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 5 } }, "怎么玩"),
+        h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 12, padding: "11px 13px", marginBottom: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 5 } }, "怎么玩"),
           "共 5 个「任务」。好人要做成功 3 个，坏人要弄失败 3 个。每个任务两步：",
           h("br"), "① 当值『队长』提名几人组队（人数看下方圆圈）；",
           h("br"), "② 全场投票赞成/反对这支队——赞成过半才出发，否则换下一位队长重提（连否 5 次坏人直接赢）。",
@@ -4800,9 +4800,9 @@
           h("br"), "好人赢满 3 任务后，坏人里的刺客还有最后一击——指认谁是梅林，猜中就坏人翻盘。",
           h("br"), h("b", { style: { color: t.ink } }, "队长"), "开局随机第一个，之后按顺序轮流当。"),
         roleBanner,
-        h("button", { onClick: function () { saveCkpt(0, leaderIdx, 0, results, players); startQuest(0, leaderIdx, 0); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（观战）" : "记住身份 · 开始"));
+        h("button", { onClick: function () { saveCkpt(0, leaderIdx, 0, results, players); startQuest(0, leaderIdx, 0); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（观战）" : "记住身份 · 开始"));
     } else if (busy) {
-      inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…桌上正在博弈");
+      inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "…桌上正在博弈");
     } else if (phase === "lady" && ladyCtx) {
       if (!ladyCtx.seen) {
         pick = { title: "湖中仙女在你手上", sub: "挑一个人查验真实阵营——结果只有你看得到，宣布什么由你定。",
@@ -4811,12 +4811,12 @@
       } else {
         pick = { title: "查验结果（只有你知道）",
           body: h("div", null,
-            h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 15, color: t.ink, marginBottom: 6 } },
+            h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } },
               h("b", { style: { color: ladyCtx.seen.isEvil ? "#c0553f" : "#3f6d5a" } }, ladyCtx.seen.name + " 的真实阵营是【" + (ladyCtx.seen.isEvil ? "坏人" : "好人") + "】")),
-            h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "现在当众宣布——可以照实说，也可以撒谎。"),
+            h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "现在当众宣布——可以照实说，也可以撒谎。"),
             h("div", { style: { display: "flex", gap: 10 } },
-              h("button", { onClick: function () { submitLadyAnnounce("好人"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "12px" } }, "宣布【好人】"),
-              h("button", { onClick: function () { submitLadyAnnounce("坏人"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "12px" } }, "宣布【坏人】"))) };
+              h("button", { onClick: function () { submitLadyAnnounce("好人"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "12px" } }, "宣布【好人】"),
+              h("button", { onClick: function () { submitLadyAnnounce("坏人"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "12px" } }, "宣布【坏人】"))) };
       }
     } else if (phase === "propose") {
       if (leader && leader.isUser && cfg.mode !== "spectate") {
@@ -4824,8 +4824,8 @@
           body: h("div", null,
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginBottom: 12 } },
               players.map(function (p) { const on = teamSel.indexOf(p.name) >= 0; return teamChip(p, on, function () { setTeamSel(function (s) { return on ? s.filter(function (x) { return x !== p.name; }) : (s.length < needSize ? s.concat([p.name]) : s); }); }); })),
-            h("button", { "data-wk": "block", onClick: submitUserTeam, disabled: teamSel.length !== needSize, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: teamSel.length === needSize ? t.ink : t.line, borderRadius: 12, padding: "12px" } }, "提议这支队伍（" + teamSel.length + "/" + needSize + "）")) };
-      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "队长 " + (leader ? leader.name : "") + " 在组队…");
+            h("button", { "data-wk": "block", onClick: submitUserTeam, disabled: teamSel.length !== needSize, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: teamSel.length === needSize ? t.ink : t.line, borderRadius: 12, padding: "12px" } }, "提议这支队伍（" + teamSel.length + "/" + needSize + "）")) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "队长 " + (leader ? leader.name : "") + " 在组队…");
     } else if (phase === "vote") {
       if (me && cfg.mode !== "spectate") {
         const castVote = function (v) {
@@ -4836,19 +4836,19 @@
         };
         pick = { title: "对这支队伍投票", sub: "队长 " + (leader ? leader.name : "") + " 提议：" + team.join("、"),
           body: h("div", null,
-            h("input", { "data-wk": "gameinput", "data-part": "votesay", value: voteSay, onChange: function (e) { setVoteSay(e.target.value); }, placeholder: "投票前想说一句？（可空，大家都会听到）", className: "w-full outline-none px-3 py-2.5 rounded-xl", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line, marginBottom: 10 } }),
+            h("input", { "data-wk": "gameinput", "data-part": "votesay", value: voteSay, onChange: function (e) { setVoteSay(e.target.value); }, placeholder: "投票前想说一句？（可空，大家都会听到）", className: "w-full outline-none px-3 py-2.5 rounded-xl", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line, marginBottom: 10 } }),
             h("div", { style: { display: "flex", gap: 12 } },
-              h("button", { onClick: function () { castVote("approve"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "13px" } }, "✔ 赞成"),
-              h("button", { onClick: function () { castVote("reject"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "13px" } }, "✘ 反对"))) };
-      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "大家在投票…");
+              h("button", { onClick: function () { castVote("approve"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "13px" } }, "✔ 赞成"),
+              h("button", { onClick: function () { castVote("reject"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "13px" } }, "✘ 反对"))) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "大家在投票…");
     } else if (phase === "quest") {
       const meOnTeam = me && cfg.mode !== "spectate" && team.indexOf(me.name) >= 0;
       if (meOnTeam && me.side === "evil") {
         pick = { title: "你在任务队里 · 你是坏人", sub: "第 " + (questNum + 1) + " 个任务。出『失败』推进坏人取胜，但会暴露队里有内鬼。",
           body: h("div", { style: { display: "flex", gap: 12 } },
-            h("button", { onClick: function () { setPickerOpen(false); submitUserPlay("成功"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "13px" } }, "让任务成功"),
-            h("button", { onClick: function () { setPickerOpen(false); submitUserPlay("失败"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "13px" } }, "破坏任务")) };
-      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, meOnTeam ? "你是好人，只能让任务成功——出任务中…" : "队伍在执行任务…");
+            h("button", { onClick: function () { setPickerOpen(false); submitUserPlay("成功"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "13px" } }, "让任务成功"),
+            h("button", { onClick: function () { setPickerOpen(false); submitUserPlay("失败"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "13px" } }, "破坏任务")) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, meOnTeam ? "你是好人，只能让任务成功——出任务中…" : "队伍在执行任务…");
     } else if (phase === "assassin") {
       const assassin = players.find(function (p) { return p.role === "assassin"; });
       if (assassin && assassin.isUser && cfg.mode !== "spectate") {
@@ -4856,15 +4856,15 @@
         pick = { title: "你是刺客 · 指认梅林", sub: "好人赢了 3 个任务，但你猜中梅林就能翻盘。回想谁的组队 / 投票像早就知道坏人。",
           body: h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
             cands.map(function (p) { return teamChip(p, false, function () { setPickerOpen(false); settleAssassin(assassin, p, "（你的直觉）"); }); })) };
-      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "刺客在锁定梅林…");
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "10px 0" } }, "刺客在锁定梅林…");
     } else if (phase === "result") {
       const goodWin = winner === "good";
       inline = h("div", null,
-        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: goodWin ? "#3f6d5a" : "#c0553f", marginBottom: 8 } }, goodWin ? "⚔️ 亚瑟的忠臣获胜" : "🗡 莫德雷德的爪牙获胜"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + AV_ROLE_ZH[p.role] + (p.side === "evil" ? "🗡" : ""); }).join("　") + (assassinPick ? "　｜ 刺客指认了 " + assassinPick : "")),
+        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: goodWin ? "#3f6d5a" : "#c0553f", marginBottom: 8 } }, goodWin ? "⚔️ 亚瑟的忠臣获胜" : "🗡 莫德雷德的爪牙获胜"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + AV_ROLE_ZH[p.role] + (p.side === "evil" ? "🗡" : ""); }).join("　") + (assassinPick ? "　｜ 刺客指认了 " + assassinPick : "")),
         h("div", { style: { display: "flex", gap: 10 } },
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const won = function (q) { return (winner === "good") === (q.side === "good"); };
           return { key: "avalon", zh: "阿瓦隆", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
@@ -4876,8 +4876,8 @@
 
     const bottom = pick
       ? (pickerOpen
-        ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "在弹框里操作 · 也可先关掉回看局面")
-        : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里操作"))
+        ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "8px 0" } }, "在弹框里操作 · 也可先关掉回看局面")
+        : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里操作"))
       : inline;
 
     const canHeckle = cfg.mode === "spectate" && (phase === "propose" || phase === "vote" || phase === "quest");
@@ -5208,7 +5208,7 @@
       setSt(function (s) { const host = alt ? (s.r.host === "me" ? "ta" : "me") : s.r.host; return { r: mindNewRound(host, s.r.round + 1), score: s.score }; });
     };
     useEffect(function () { if (r.status === "done") push({ sys: true, text: "揭晓：" + (r.host === "me" ? "你想的" : cName + " 想的") + "是「" + r.secret + "」 · " + (r.result ? r.result.why : "") }); }, [r.status]);
-    const btn = function (label, on, primary, key) { return h("button", { key: key || label, "data-wk": "mindbtn", disabled: busy, onClick: on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy ? .5 : 1 } }, label); };
+    const btn = function (label, on, primary, key) { return h("button", { key: key || label, "data-wk": "mindbtn", disabled: busy, onClick: on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy ? .5 : 1 } }, label); };
     const lastQ = r.qs[r.qs.length - 1];
     return h("div", { "data-wk": "gameplay", "data-part": "mind", className: "h-full flex flex-col", style: gameTable("q25", t) },
       h(Head, { zh: "25 问", en: (r.host === "me" ? "你出题 · " + cName + " 猜" : cName + " 出题 · 你猜") + " · 第 " + r.round + " 局", onBack: props.onBack }),
@@ -5220,18 +5220,18 @@
           const q = r.qs[i]; return h("span", { key: i, title: q ? q.q : "", style: { width: 14, height: 14, borderRadius: 3, border: "1px solid " + t.line, background: q ? (q.a === "是" ? t.tint : q.a ? t.fog : t.line) : "transparent" } });
         })),
         h(GameTalkLog, { t: t, lines: lines, busy: busy, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: 320, empty: r.host === "me" ? "先在下面写好你想的东西" : cName + " 在想题…" }),
-        err ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginBottom: 8 } }, err) : null),
+        err ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginBottom: 8 } }, err) : null),
       h("div", { "data-wk": "mindbar", className: "shrink-0 px-4 pt-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line, background: t.bg } },
         r.status === "done" ? h("div", { className: "flex gap-2", style: { padding: "6px 0" } }, btn(alt ? "下一局（换人出题）" : "再来一局", next, true)) :
         r.host === "me" && r.status === "setup" ? h("div", { className: "flex gap-2", style: { padding: "6px 0" } },
-          h("input", { "data-wk": "gameinput", "data-part": "secret", value: secretDraft, onChange: function (e) { setSecretDraft(e.target.value.slice(0, 20)); }, placeholder: "你心里想的东西（" + cName + " 看不到）", style: { flex: 2, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
+          h("input", { "data-wk": "gameinput", "data-part": "secret", value: secretDraft, onChange: function (e) { setSecretDraft(e.target.value.slice(0, 20)); }, placeholder: "你心里想的东西（" + cName + " 看不到）", style: { flex: 2, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
           btn("锁住", lockSecret, true)) :
         r.host === "me" && r.status === "answer" && lastQ ? h("div", { className: "flex gap-2", style: { padding: "6px 0" } },
           (lastQ.guess ? ["是", "不是"] : MIND_ANS).map(function (a) { return btn(lastQ.guess ? (a === "是" ? "猜中了" : "不是") : a, function () { answer(a); }, a === "是", a); })) :
         h("div", { style: { padding: "6px 0" } },
           h("div", { className: "flex gap-2" },
             h("input", { "data-wk": "gameinput", "data-part": "ask", value: draft, onChange: function (e) { setDraft(e.target.value.slice(0, 60)); }, onKeyDown: function (e) { if (e.key === "Enter" && r.host === "ta") meAsk(false); },
-              placeholder: r.host === "ta" ? "问一个是非题，或者写下你猜的" : "跟 " + cName + " 说句话", style: { flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } })),
+              placeholder: r.host === "ta" ? "问一个是非题，或者写下你猜的" : "跟 " + cName + " 说句话", style: { flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } })),
           h("div", { className: "flex gap-2", style: { marginTop: 7 } },
             r.host === "ta" ? [btn("问", function () { meAsk(false); }, true, "q"), btn("我猜", function () { meAsk(true); }, false, "g"), btn("闲聊", chat, false, "c")] : [btn("说", chat, false, "c")]))));
   }
@@ -5415,35 +5415,35 @@
     };
     const me = meRef.current, ta = taRef.current;
     const pad = function (k, label) { return h("button", { key: k, "data-wk": "tetpad", "data-part": k, onPointerDown: function (e) { e.preventDefault(); hold(k); }, onPointerUp: release, onPointerLeave: release, onPointerCancel: release,
-      className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 18, touchAction: "none", userSelect: "none" } }, label); };
+      className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", touchAction: "none", userSelect: "none" } }, label); };
     const sendChat = function () { const v = draft.trim(); if (!v) return; setDraft(""); push({ me: true, text: v }); say("她刚跟你说了句话，接一句。", true, v); };
     return h("div", { "data-wk": "gameplay", "data-part": "tetris", className: "h-full flex flex-col", style: gameTable("tetris", t) },
       h(Head, { zh: "俄罗斯方块", en: coop ? "合作接力 · 和 " + cName + "（" + sk.zh + "）" : versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-4 pb-2", style: { paddingTop: 10 } },
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", alignItems: "flex-start" } },
           h("div", null,
-            h("div", { "data-wk": "tetturn", style: { fontFamily: F_BODY, fontSize: 11, color: coop && me && me.owner === "ta" ? t.tint : t.sub, marginBottom: 4 } }, (coop ? (me && status === "play" ? (me.owner === "ta" ? "轮到 " + cName + " 放" : "轮到你放") + " · " : "你俩 · ") : uName + " · ") + (me ? me.score : 0) + " 分 · " + (me ? me.lines : 0) + " 行" + (me && me.pendingGarbage ? " · 要顶上来 " + me.pendingGarbage + " 行" : "")),
+            h("div", { "data-wk": "tetturn", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: coop && me && me.owner === "ta" ? t.tint : t.sub, marginBottom: 4 } }, (coop ? (me && status === "play" ? (me.owner === "ta" ? "轮到 " + cName + " 放" : "轮到你放") + " · " : "你俩 · ") : uName + " · ") + (me ? me.score : 0) + " 分 · " + (me ? me.lines : 0) + " 行" + (me && me.pendingGarbage ? " · 要顶上来 " + me.pendingGarbage + " 行" : "")),
             me ? h(TetBoard, { g: me, cell: cell, onTouchStart: onTS, onTouchEnd: onTE }) : h("div", { style: { width: cell * 10, height: cell * 20, borderRadius: 6, background: "#1d1c22" } })),
           h("div", { style: { display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "下一个"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "下一个"),
             h(TetNext, { kinds: me ? T.next(me, versus ? 2 : 3) : [], cell: versus ? 7 : 10 }),
-            !versus ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "最高 " + best.current, h("br"), "等级 " + (me ? me.level : 1)) : null,
+            !versus ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "最高 " + best.current, h("br"), "等级 " + (me ? me.level : 1)) : null,
             versus ? h("div", { style: { marginTop: 6 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginBottom: 4 } }, cName + " · " + (ta ? ta.score : 0)),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, cName + " · " + (ta ? ta.score : 0)),
               ta ? h(TetBoard, { g: ta, cell: taCell, part: "ta" }) : h("div", { style: { width: taCell * 10, height: taCell * 20, borderRadius: 6, background: "#1d1c22" } })) : null)),
         h("div", { style: { marginTop: 10 } },
           h(GameTalkLog, { t: t, lines: lines, busy: talking, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: 110, empty: cName + " 在旁边" }))),
       h("div", { "data-wk": "tetbar", className: "shrink-0 px-4 pt-2", style: { paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid " + t.line, background: t.bg } },
         // 暂停（她 2026-10-16 转群友）：停的是主循环那一跳，TA 那块和掉落一起停；回来从停下那一刻接着算，不补跳
-        status === "pause" ? h("button", { "data-wk": "tetstart", "data-part": "resume", onClick: function () { setStatus("play"); }, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 14, border: "none" } }, "暂停中 · 点这里接着玩")
+        status === "pause" ? h("button", { "data-wk": "tetstart", "data-part": "resume", onClick: function () { setStatus("play"); }, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", border: "none" } }, "暂停中 · 点这里接着玩")
         : status === "play" ? h("div", { className: "flex gap-2", style: { padding: "4px 0 6px", opacity: coop && me && me.owner === "ta" ? .4 : 1 } }, pad("l", "←"), pad("rot", "↻"), pad("r", "→"), pad("down", "↓"), pad("drop", "⤓"),
-            h("button", { key: "pause", "data-wk": "tetpad", "data-part": "pause", onClick: function () { release(); setStatus("pause"); }, className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 }, "aria-label": "暂停" }, "Ⅱ"))
-          : h("button", { "data-wk": "tetstart", onClick: start, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 14, border: "none" } },
+            h("button", { key: "pause", "data-wk": "tetpad", "data-part": "pause", onClick: function () { release(); setStatus("pause"); }, className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" }, "aria-label": "暂停" }, "Ⅱ"))
+          : h("button", { "data-wk": "tetstart", onClick: start, className: "w-full active:opacity-80", style: { minHeight: 46, margin: "4px 0 6px", borderRadius: 12, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", border: "none" } },
               status === "done" ? (coop ? "你俩 " + (me ? me.score : 0) + " 分 · 再来一局" : versus ? (ta && ta.over && me && !me.over ? "你赢了 · 再来一局" : cName + " 赢了 · 再来一局") : "这局 " + (me ? me.score : 0) + " 分 · 再来一局") : "开始"),
         h("div", { className: "flex gap-2", style: { paddingBottom: 4 } },
           h("input", { "data-wk": "gameinput", "data-part": "tetchat", value: draft, onChange: function (e) { setDraft(e.target.value.slice(0, 60)); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: "跟 " + cName + " 说句话",
-            style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
-          h("button", { onClick: sendChat, style: { padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "说")),
+            style: { flex: 1, minWidth: 0, padding: "8px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
+          h("button", { onClick: sendChat, style: { padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "说")),
         status === "done" && char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
           const meWin = versus ? !!(ta && ta.over && me && !me.over) : null;
           return { key: "tetris", zh: "俄罗斯方块", ids: [char.id], wins: versus && !meWin ? [char.id] : [], meWin: meWin,
@@ -5710,15 +5710,15 @@
         h("div", { "data-wk": "gomokuchat", style: { display: "flex", gap: 8, marginTop: 12 } },
           h("input", { "data-wk": "gameinput", "data-part": "gomoku", value: heckle, onChange: function (e) { setHeckle(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendHeckle(); },
             placeholder: spectate ? "台下插一句…（空着按就是让他们说）" : "跟 " + cName + " 说一句…（空着按就是让 TA 开口）",
-            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-          h("button", { "data-wk": "gomokusend", onClick: sendHeckle, disabled: talking, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: talking ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, heckle.trim() ? "说" : "让 TA 说")),
-        h("div", { "data-wk": "block", style: { textAlign: "center", marginTop: 12 } }, h("span", { "data-wk": "gomokustatus", style: { display: "inline-flex", alignItems: "center", gap: 7, fontFamily: F_DISPLAY, fontSize: 14.5, color: winner ? "#f3efe6" : t.ink, background: winner ? t.ink : t.bg2, border: "1px solid " + (winner ? t.ink : t.line), borderRadius: 999, padding: "6px 15px", boxShadow: "0 2px 6px rgba(20,16,10,.08)" } },
+            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "gomokusend", onClick: sendHeckle, disabled: talking, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: talking ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, heckle.trim() ? "说" : "让 TA 说")),
+        h("div", { "data-wk": "block", style: { textAlign: "center", marginTop: 12 } }, h("span", { "data-wk": "gomokustatus", style: { display: "inline-flex", alignItems: "center", gap: 7, fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: winner ? "#f3efe6" : t.ink, background: winner ? t.ink : t.bg2, border: "1px solid " + (winner ? t.ink : t.line), borderRadius: 999, padding: "6px 15px", boxShadow: "0 2px 6px rgba(20,16,10,.08)" } },
           !winner && turn ? h(GmkStone, { side: turn, size: 12 }) : null, status)),
-        playNote && !winner ? h("div", { "data-wk": "gomokuplay", style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, playNote) : null,
+        playNote && !winner ? h("div", { "data-wk": "gomokuplay", style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, playNote) : null,
         !winner && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },
-          h("button", { "data-wk": "gomokuundo", onClick: undo, disabled: moves.length < 2 || turn !== userSide, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: moves.length < 2 || turn !== userSide ? .5 : 1 } }, "悔一步")) : null,
+          h("button", { "data-wk": "gomokuundo", onClick: undo, disabled: moves.length < 2 || turn !== userSide, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: moves.length < 2 || turn !== userSide ? .5 : 1 } }, "悔一步")) : null,
         winner ? h("div", { style: { marginTop: 14 } },
-          h("button", { "data-wk": "block", onClick: props.onBack, className: "active:opacity-80", style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "active:opacity-80", style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
           char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
             const res = winner === 3 ? "和棋" : nameOfSide(winner) + "赢了";
             // 言秋的记忆走 CC，不走 app 记忆库：跟别的桌一样认 ccSeat 开关
@@ -5749,21 +5749,21 @@
       if (flow) { if (endRef.current && lines.length) try { endRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {} }
       else if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
     }, [lines.length, props.busy]);
-    const bub = function (mine) { return { maxWidth: mine ? "78%" : "100%", padding: "7px 11px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, wordBreak: "break-word" }; };
+    const bub = function (mine) { return { maxWidth: mine ? "78%" : "100%", padding: "7px 11px", borderRadius: mine ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55, wordBreak: "break-word" }; };
     return h("div", { "data-wk": "gametalk", ref: ref, style: { maxHeight: flow ? "none" : (props.maxHeight || 190), minHeight: flow ? 0 : 64, overflowY: flow ? "visible" : "auto", display: "flex", flexDirection: "column", gap: 8, padding: "4px 2px", marginBottom: 12 } },
       lines.length ? (flow ? lines : lines.slice(-30)).map(function (l, i) {
         if (l.node) return h("div", { key: i, style: { alignSelf: "stretch" } }, l.node);   // 夹在对话里的一张卡（约会每站的小票）
-        if (l.sys) return h("div", { key: i, style: { alignSelf: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, l.text);
+        if (l.sys) return h("div", { key: i, style: { alignSelf: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, l.text);
         if (l.me) return h("div", { key: i, "data-wk": "gametalkrow", "data-me": "1", style: { display: "flex", justifyContent: "flex-end", gap: 7, alignItems: "flex-start" } },
           h("div", { style: bub(true) }, l.text), pAvatar({ isUser: true, name: props.uName, char: props.me }, 28));
         const c = props.charOf(l);
         return h("div", { key: i, "data-wk": "gametalkrow", "data-me": "0", style: { display: "flex", gap: 7, alignItems: "flex-start" } },
           pAvatar(c ? { char: c, name: l.name } : { name: l.name }, 28),
           h("div", { style: { minWidth: 0, maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-start" } },
-            props.names ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 0 2px 2px" } }, l.name) : null,
+            props.names ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 0 2px 2px" } }, l.name) : null,
             h("div", { style: bub(false) }, l.text, c ? h(GameVoiceDot, { p: { char: c }, k: (props.k || "gt") + i + "_" + l.at, text: l.text }) : null)));
-      }) : h("div", { style: { alignSelf: "center", margin: "auto 0", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, props.empty || ""),
-      props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingLeft: 36 } }, "…") : null,
+      }) : h("div", { style: { alignSelf: "center", margin: "auto 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, props.empty || ""),
+      props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, paddingLeft: 36 } }, "…") : null,
       flow ? h("div", { ref: endRef }) : null);
   }
 
@@ -6068,7 +6068,7 @@
 
     // ---- 画面 ----
     const head = h(Head, { zh: "你画我猜", onBack: props.onBack, bg: "transparent" });
-    const btn = function (label, on, opt) { return h("button", Object.assign({ onClick: on, className: "active:opacity-80", style: { minHeight: 40, padding: "0 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }, opt || {}), label); };
+    const btn = function (label, on, opt) { return h("button", Object.assign({ onClick: on, className: "active:opacity-80", style: { minHeight: 40, padding: "0 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line } }, opt || {}), label); };
     if (phase === "pool") {
       return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
         h("div", { "data-wk": "drawpool", className: "flex-1 overflow-y-auto", style: { padding: "8px 16px 24px" } },
@@ -6076,18 +6076,18 @@
           h("div", { "data-wk": "drawcover", style: { borderRadius: 16, overflow: "hidden", background: LID.draw.paper, boxShadow: "0 3px 0 " + LID.draw.band + ", 0 10px 22px rgba(40,30,20,.18)", marginBottom: 16 } },
             h("div", { style: { maxWidth: 260, margin: "0 auto" } }, h(GameLid, { k: "draw" })),
             h("div", { style: { background: LID.draw.band, color: LID.draw.bandInk, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, duo ? cName + " × " + nmOf(char2) : watchOnly ? "看 " + cName + " 画" : uName + " × " + cName),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .75 } }, (duo || watchOnly ? "" : "轮流画 · ") + DRAW_ROUNDS + " 轮"))),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))" } }, duo ? cName + " × " + nmOf(char2) : watchOnly ? "看 " + cName + " 画" : uName + " × " + cName),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .75 } }, (duo || watchOnly ? "" : "轮流画 · ") + DRAW_ROUNDS + " 轮"))),
           h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 13px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "词库 · " + (pool.words.length ? pool.words.length + " 个" : "还空着，先用内置的 " + DRAW_BUILTIN.length + " 个")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "写个主题（可空），一次生成一批，加进词库。每张画从词库里抽一个没用过的。"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } }, "词库 · " + (pool.words.length ? pool.words.length + " 个" : "还空着，先用内置的 " + DRAW_BUILTIN.length + " 个")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "写个主题（可空），一次生成一批，加进词库。每张画从词库里抽一个没用过的。"),
           h("div", { style: { display: "flex", gap: 8 } },
-            h("input", { "data-wk": "gameinput", "data-part": "drawtheme", value: theme, onChange: function (e) { setTheme(e.target.value); }, placeholder: "主题，比如：厨房里的东西", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
-            h("button", { "data-wk": "drawpoolgen", onClick: genWords, disabled: genBusy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: genBusy ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, genBusy ? "生成中…" : "生成一批")),
+            h("input", { "data-wk": "gameinput", "data-part": "drawtheme", value: theme, onChange: function (e) { setTheme(e.target.value); }, placeholder: "主题，比如：厨房里的东西", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+            h("button", { "data-wk": "drawpoolgen", onClick: genWords, disabled: genBusy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: genBusy ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, genBusy ? "生成中…" : "生成一批")),
           pool.words.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
-            pool.words.map(function (w) { return h("button", { key: w, onClick: function () { const n = { words: pool.words.filter(function (x) { return x !== w; }), theme: pool.theme }; setPool(n); saveDrawPool(n); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 9px" } }, w + " ×"); })) : null,
-          pool.words.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 10 } }, "点一个词就把它从词库删掉。") : null),
-          h("button", { "data-wk": "drawbegin", onClick: begin, className: "active:opacity-80", style: { width: "100%", marginTop: 18, fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "13px" } }, duo ? "开始（看 " + cName + " 和 " + nmOf(char2) + " 轮流画，" + DRAW_ROUNDS + " 轮）" : watchOnly ? "开始（看 " + cName + " 画 " + DRAW_ROUNDS + " 张）" : "开始（轮流画，" + DRAW_ROUNDS + " 轮）")));
+            pool.words.map(function (w) { return h("button", { key: w, onClick: function () { const n = { words: pool.words.filter(function (x) { return x !== w; }), theme: pool.theme }; setPool(n); saveDrawPool(n); }, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 9px" } }, w + " ×"); })) : null,
+          pool.words.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "点一个词就把它从词库删掉。") : null),
+          h("button", { "data-wk": "drawbegin", onClick: begin, className: "active:opacity-80", style: { width: "100%", marginTop: 18, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "13px" } }, duo ? "开始（看 " + cName + " 和 " + nmOf(char2) + " 轮流画，" + DRAW_ROUNDS + " 轮）" : watchOnly ? "开始（看 " + cName + " 画 " + DRAW_ROUNDS + " 张）" : "开始（轮流画，" + DRAW_ROUNDS + " 轮）")));
     }
     if (phase === "end") {
       const engOf = function (c) { return !!(c && cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)); };
@@ -6100,11 +6100,11 @@
             : [{ key: "u", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, sub: "猜中 " + score.me, hot: score.me > score.ta, on: score.me > score.ta },
                { key: "a", name: cName, char: char, sub: "猜中 " + score.ta, hot: score.ta > score.me, on: score.ta > score.me }] }),
           h("div", { "data-wk": "drawhistory", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "4px 13px" } },
-            history.map(function (x, i) { return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, fontFamily: F_BODY, fontSize: 13, color: t.sub, padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" } },
-              h("span", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", background: x.ok ? "#5d8b4c" : "#b9ab98" } }, x.ok ? "✓" : "×"),
+            history.map(function (x, i) { return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" } },
+              h("span", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", background: x.ok ? "#5d8b4c" : "#b9ab98" } }, x.ok ? "✓" : "×"),
               h("span", { style: { flex: 1, minWidth: 0 } }, x.drawer + " 画「", h("b", { style: { color: t.ink } }, x.word), "」"),
-              h("span", { style: { fontSize: 12, color: t.fog, flexShrink: 0 } }, x.ok ? (x.by ? x.by + " " : "") + "猜中" : "没猜中")); })),
-          btn("回中枢", props.onBack, { style: { width: "100%", marginTop: 14, minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
+              h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, x.ok ? (x.by ? x.by + " " : "") + "猜中" : "没猜中")); })),
+          btn("回中枢", props.onBack, { style: { width: "100%", marginTop: 14, minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
           char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
             const seats = [char, char2].filter(Boolean).map(function (c) { return { key: c.id, engineer: engOf(c) }; });
             const top = duo ? (score.ta > score.ta2 ? [char.id] : score.ta2 > score.ta ? [char2.id] : []) : (score.ta > score.me && !eng ? [char.id] : []);
@@ -6150,21 +6150,21 @@
         h("div", { "data-wk": "drawtalk" }, h(GameTalkLog, { t: t, lines: lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: busy, names: duo, k: "drw",
           charOf: function (l) { return findC(l.id) || char; }, empty: taDraws ? nmOf(drawer) + " 拿起了笔" : cName + " 在等你画" })),
         h("div", { style: { position: "relative", maxWidth: 420, margin: "14px auto 0" } }, tape,
-          !taDraws && !result ? h("div", { "data-wk": "drawword", style: { position: "absolute", right: 8, top: 8, zIndex: 1, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: "rgba(255,253,247,.92)", border: "1px dashed " + t.line, borderRadius: 8, padding: "3px 9px" } }, "你画：「" + word + "」") : null,
+          !taDraws && !result ? h("div", { "data-wk": "drawword", style: { position: "absolute", right: 8, top: 8, zIndex: 1, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: "rgba(255,253,247,.92)", border: "1px dashed " + t.line, borderRadius: 8, padding: "3px 9px" } }, "你画：「" + word + "」") : null,
           svgCanvas),
         !taDraws && !result ? h("div", { "data-wk": "drawtools", style: { display: "flex", gap: 8, alignItems: "center", justifyContent: "center", marginTop: 10, flexWrap: "wrap" } },
           Object.keys(DRAW_INK).map(function (k) { return h("button", { key: k, "data-on": ink === k ? "1" : "0", onClick: function () { setInk(k); }, style: { width: 28, height: 28, borderRadius: 999, background: DRAW_INK[k], border: ink === k ? "3px solid " + t.tint : "2px solid #fff", boxShadow: "0 0 0 1px " + t.line } }); }),
           btn("撤销", function () { setMyStrokes(function (S) { return S.slice(0, -1); }); }),
           btn("清空", function () { setMyStrokes([]); })) : null,
-        h("div", { "data-wk": "drawstatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginTop: 10 } }, status),
+        h("div", { "data-wk": "drawstatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, marginTop: 10 } }, status),
         result ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 12 } },
-            h("button", { "data-wk": "drawnext", onClick: nextTurn, className: "active:opacity-80", style: { minHeight: 44, padding: "0 24px", borderRadius: 12, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink } }, turn + 1 >= totalTurns ? "看结果" : "下一张"))
+            h("button", { "data-wk": "drawnext", onClick: nextTurn, className: "active:opacity-80", style: { minHeight: 44, padding: "0 24px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink } }, turn + 1 >= totalTurns ? "看结果" : "下一张"))
           : h("div", { "data-wk": "drawchat", style: { display: "flex", gap: 8, marginTop: 12 } },
             h("input", { "data-wk": "gameinput", "data-part": "draw", value: input, onChange: function (e) { setInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") (taDraws ? sendWhileTaDraws : showToTa)(); },
               placeholder: taDraws ? (duo ? "抢答，或者在边上说一句…" : "猜一个，或者跟 " + cName + " 说一句…") : "顺便说一句（可空）",
-              style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+              style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
             h("button", { "data-wk": "drawsend", onClick: taDraws ? sendWhileTaDraws : showToTa, disabled: busy || drawing || (taDraws && !segs.length) || (!taDraws && !myStrokes.length), className: "active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: (busy || drawing) ? t.line : t.tint, borderRadius: 11, padding: "0 14px", whiteSpace: "nowrap" } }, sendLabel)),
+              style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: (busy || drawing) ? t.line : t.tint, borderRadius: 11, padding: "0 14px", whiteSpace: "nowrap" } }, sendLabel)),
         !result && !busy && ((taDraws && !segs.length && lines.some(function (l) { return l.sys; })) || (!taDraws && tries >= 3))
           ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },
               taDraws ? btn("换一张", function () { setLines([]); taStart(word, drawer); }) : btn("算了，揭晓", function () { finishTurn(false, ""); }))
@@ -6286,7 +6286,7 @@
       const ok = hand && me && UnoCore.playable(c, state, current.hand) && (!state.drawnUid || c.uid === state.drawnUid), face = cardFace(c), wild = c.color === "W";
       return h("button", { "data-wk": "gameunocard", "data-on": hand ? "1" : "0", key: c.uid, onClick: function () { clickCard(c); }, disabled: hand && !ok, style: { animation: "gcardIn .3s ease-out both", width: hand ? 62 : 82, height: hand ? 92 : 116, flex: "0 0 auto", borderRadius: 14, border: "3px solid #f6f1e7", boxShadow: "0 3px 10px rgba(0,0,0,.18)", background: wild ? "conic-gradient(#d9584b 0 25%,#e0b735 0 50%,#459464 0 75%,#4382bf 0)" : col[c.color], color: "white", opacity: hand && !ok ? .42 : 1, padding: 5 } },
         h("span", { style: { width: "100%", height: "100%", borderRadius: "50%", background: "rgba(255,255,255,.94)", color: wild ? "#252525" : col[c.color], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(-11deg)", fontFamily: F_DISPLAY } },
-          h("b", { style: { fontSize: face[0].length > 2 ? 16 : 25, lineHeight: 1 } }, face[0]), face[1] ? h("small", { style: { fontFamily: F_BODY, fontSize: 9, marginTop: 5 } }, face[1]) : null));
+          h("b", { style: { fontSize: face[0].length > 2 ? 16 : 25, lineHeight: 1 } }, face[0]), face[1] ? h("small", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", marginTop: 5 } }, face[1]) : null));
     }
     return h("div", { "data-wk": "gameplay", "data-part": "uno", className: "h-full flex flex-col", style: gameTable("uno", t) },
       h(Head, { zh: "UNO", en: current ? ("轮到 " + current.name) : "", onBack: props.onBack, bg: "transparent" }),
@@ -6294,13 +6294,13 @@
         h(CardSeats, { t: t, evalOf: { host: props, key: "uno", zh: "UNO" }, log: state.log, seats: state.players.map(function (p, i) {
           return { key: p.key, name: p.name, cards: p.hand.length, char: cardSeatChar(props, p), isUser: p.isUser, on: i === state.turn && state.status === "playing", hot: state.winner === p.key, sub: p.hand.length + " 张" + (p.engineer ? " · CC亲打" : "") };
         }) }),
-        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 18, padding: "14px 0" } }, cardView(top, false), h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8, whiteSpace: "pre-line" } }, "规则：" + (state.rules && state.rules.stackD2 ? "+2 可叠加" : "官方不叠加") + "\n当前：" + UnoCore.LABEL[state.color] + "\n" + (state.direction > 0 ? "顺时针" : "逆时针") + (state.pendingDraw ? "\n累计待摸 " + state.pendingDraw + " 张" : ""))),
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 18, padding: "14px 0" } }, cardView(top, false), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.8, whiteSpace: "pre-line" } }, "规则：" + (state.rules && state.rules.stackD2 ? "+2 可叠加" : "官方不叠加") + "\n当前：" + UnoCore.LABEL[state.color] + "\n" + (state.direction > 0 ? "顺时针" : "逆时针") + (state.pendingDraw ? "\n累计待摸 " + state.pendingDraw + " 张" : ""))),
         h(CardLog, { t: t, part: "uno", log: state.log, talking: talking }),
-        state.status === "playing" && !chatMode ? h("div", { style: { textAlign: "right", marginTop: 8 } }, h("button", { onClick: function () { setChatMode(true); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "7px 13px", background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, busy ? "这手落定后暂停聊聊" : "暂停聊聊")) : null,
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
-        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+        state.status === "playing" && !chatMode ? h("div", { style: { textAlign: "right", marginTop: 8 } }, h("button", { onClick: function () { setChatMode(true); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "7px 13px", background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "这手落定后暂停聊聊" : "暂停聊聊")) : null,
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.tint } },
           (state.players.find(function (p) { return p.key === state.winner; }) || {}).name + " 赢啦！",
-          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, fontWeight: 400, color: t.sub } }, resultNotice) : null,
+          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 400, color: t.sub } }, resultNotice) : null,
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             const w = state.players.find(function (p) { return p.key === state.winner; });
             const meSeat = state.players.find(function (p) { return p.isUser; });
@@ -6308,10 +6308,10 @@
               text: "一起打了一局「UNO」，" + ((w && (w.isUser ? "她" : w.name)) || "有人") + " 赢了。" };
           } })) : null),
       state.status === "playing" && chatMode ? h("div", { "data-wk": "gameactions", "data-part": "uno", "data-kind": "chat", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", background: t.bg } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "牌局已暂停。你可以连发几条；只有按黑色键，他们才接话。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "牌局已暂停。你可以连发几条；只有按黑色键，他们才接话。"),
         h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } },
           h("textarea", { "data-wk": "gameinput", "data-part": "chat", value: tableTalk, onChange: function (e) { setTableTalk(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendTableMessage(); } }, placeholder: "在牌桌上说话……", rows: 2, style: { flex: 1, resize: "none", border: "1px solid " + t.line, borderRadius: 15, padding: "10px 12px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
-          h("button", { onClick: sendTableMessage, disabled: !tableTalk.trim(), style: { width: 44, height: 44, borderRadius: 999, border: 0, background: tableTalk.trim() ? t.tint : t.line, color: "white", fontSize: 19 } }, "↑")),
+          h("button", { onClick: sendTableMessage, disabled: !tableTalk.trim(), style: { width: 44, height: 44, borderRadius: 999, border: 0, background: tableTalk.trim() ? t.tint : t.line, color: "white", fontSize: "calc(19px * var(--app-fs, 1))" } }, "↑")),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 9 } },
           h("button", { onClick: inviteTableReplies, disabled: chatBusy, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "white", background: "#171715", fontFamily: F_BODY } }, chatBusy ? "他们正在接话…" : "请他们接话"),
           h("button", { onClick: function () { setChatMode(false); setError(""); }, disabled: chatBusy, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "11px 10px", color: t.ink, background: t.bg2, fontFamily: F_BODY } }, "继续打牌"))) :
@@ -6492,7 +6492,7 @@
     function nextRound() { const n = clone(); liarNewRound(n, n.nextStarter || 0); delete n.nextStarter; setState(n); }
     const total = liarTotal(state);
     const showAll = spectate || !!state.reveal || state.status === "finished";
-    const stepBtn = function (label, onClick, dis) { return h("button", { onClick: onClick, disabled: dis, style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: dis ? t.fog : t.ink, fontSize: 17 } }, label); };
+    const stepBtn = function (label, onClick, dis) { return h("button", { onClick: onClick, disabled: dis, style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: dis ? t.fog : t.ink, fontSize: "calc(17px * var(--app-fs, 1))" } }, label); };
     const pickOk = liarLegalBid(state.bid, pick, total);
     return h("div", { "data-wk": "gameplay", "data-part": "liar", className: "h-full flex flex-col", style: gameTable("liar", t) },
       h(Head, { zh: "骗子骰", en: state.status === "finished" ? "终局" : ("第 " + state.round + " 轮 · 轮到 " + (current ? current.name : "—")), onBack: props.onBack, bg: "transparent" }),
@@ -6507,47 +6507,47 @@
         h("div", { "data-wk": "gameliarbid", style: { position: "relative", borderRadius: 18, padding: "16px 14px 18px", marginBottom: 12, textAlign: "center", color: "#f4ead9",
             background: "radial-gradient(120% 90% at 50% 30%, #8a4a36 0%, #5e2f22 70%, #4a241a 100%)",
             boxShadow: "inset 0 0 0 3px rgba(255,235,200,.08), inset 0 10px 30px rgba(0,0,0,.35), 0 8px 18px rgba(40,20,10,.25)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".1em", opacity: .7 } }, "第 " + state.round + " 轮 · 桌上 " + total + " 颗 · 1 点万能"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".1em", opacity: .7 } }, "第 " + state.round + " 轮 · 桌上 " + total + " 颗 · 1 点万能"),
           state.bid ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 8 } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 32, lineHeight: 1 } }, state.bid.n),
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, opacity: .85 } }, "个"),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(32px * var(--app-fs, 1))", lineHeight: 1 } }, state.bid.n),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", opacity: .85 } }, "个"),
               h(Die, { v: state.bid.f, size: 40 }))
-            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, marginTop: 10, opacity: .85 } }, state.status === "finished" ? "收杯了" : "还没人叫"),
-          state.bid ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .75, marginTop: 6 } }, (state.players.find(function (p) { return p.key === state.bid.by; }) || {}).name + " 叫的") : null,
+            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", marginTop: 10, opacity: .85 } }, state.status === "finished" ? "收杯了" : "还没人叫"),
+          state.bid ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .75, marginTop: 6 } }, (state.players.find(function (p) { return p.key === state.bid.by; }) || {}).name + " 叫的") : null,
           showAll ? h("div", { "data-wk": "gameliarreveal", style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return p.dice && p.dice.length; }).map(function (p) {
             return h("div", { "data-wk": "block", key: p.key, style: { display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 64, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", width: 64, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
               h("div", { style: { display: "flex", gap: 4 } }, p.dice.map(function (d, j) { return h(Die, { key: j, v: d, size: 24, hot: !!(state.reveal && (d === state.reveal.bid.f || d === 1)) }); })));
           })) : null,
-          state.reveal ? h("div", { style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: 15 } }, "一共 " + state.reveal.got + " 个 " + state.reveal.bid.f + " · " + (state.reveal.got >= state.reveal.bid.n ? "够数" : "不够")) : null),
+          state.reveal ? h("div", { style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "一共 " + state.reveal.got + " 个 " + state.reveal.bid.f + " · " + (state.reveal.got >= state.reveal.bid.n ? "够数" : "不够")) : null),
         // 自己杯里的骰子（没轮到也看得见）
         !showAll && state.players.find(function (p) { return p.isUser; }) && state.players.find(function (p) { return p.isUser; }).lives > 0 ? h("div", { "data-wk": "gameliarcup", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginBottom: 12, padding: "10px 12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginRight: 4 } }, "我杯里"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginRight: 4 } }, "我杯里"),
           state.players.find(function (p) { return p.isUser; }).dice.map(function (d, j) { return h(Die, { key: j, v: d, size: 32 }); })) : null,
-        h("div", { "data-wk": "gamelog", "data-part": "liar", style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 200, overflowY: "auto" } }, state.log.slice(-12).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: x.kind === "sys" ? t.fog : t.sub, lineHeight: 1.65 } }, x.text); })),
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
-        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+        h("div", { "data-wk": "gamelog", "data-part": "liar", style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 200, overflowY: "auto" } }, state.log.slice(-12).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: x.kind === "sys" ? t.fog : t.sub, lineHeight: 1.65 } }, x.text); })),
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.tint } },
           ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 撑到了最后！",
-          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, fontWeight: 400, color: t.sub } }, resultNotice) : null,
+          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 400, color: t.sub } }, resultNotice) : null,
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             const w = state.players.find(function (p) { return p.key === state.winner; }), u = state.players.find(function (p) { return p.isUser; });
             return { key: "liar", zh: "骗子骰", ids: realCharIds(state.players), wins: w && realCharIds(state.players).indexOf(w.key) >= 0 ? [w.key] : [], meWin: u ? !!(w && w.isUser) : null,
               text: "一起玩了一局「骗子骰」，打了 " + state.round + " 轮，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 撑到了最后。" + (state.log.filter(function (x) { return x.kind === "sys" && /输一条命/.test(x.text); }).slice(-1).map(function (x) { return "最后一开：" + x.text.replace(/^亮骰：/, ""); })[0] || "") };
           } })) : null),
       state.status === "playing" && state.reveal ? h("div", { "data-wk": "gameactions", "data-part": "liar", "data-kind": "reveal", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gameliarnext", onClick: nextRound, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, "摇下一轮")) :
+        h("button", { "data-wk": "gameliarnext", onClick: nextRound, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "摇下一轮")) :
       state.status === "playing" && me ? h("div", { "data-wk": "gameactions", "data-part": "liar", "data-kind": "bid", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 9 } },
           stepBtn("−", function () { setPick({ n: Math.max(1, pick.n - 1), f: pick.f }); }, pick.n <= 1),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, minWidth: 54, textAlign: "center" } }, pick.n + " 个"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.ink, minWidth: 54, textAlign: "center" } }, pick.n + " 个"),
           stepBtn("+", function () { setPick({ n: Math.min(total, pick.n + 1), f: pick.f }); }, pick.n >= total),
           h("div", { style: { display: "flex", gap: 4, marginLeft: 6 } }, [2, 3, 4, 5, 6].map(function (f) {
             return h("button", { key: f, onClick: function () { setPick({ n: pick.n, f: f }); }, style: { padding: 2, borderRadius: 8, border: pick.f === f ? "2px solid " + t.tint : "2px solid transparent", background: "transparent" } }, h(Die, { v: f, size: 26 }));
           }))),
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: state.bid ? "1fr 1fr" : "1fr", gap: 8 } },
-          h("button", { "data-wk": "gameliarbidbtn", onClick: function () { userAct({ kind: "bid", n: pick.n, f: pick.f }); }, disabled: !pickOk, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: pickOk ? t.tint : t.line, fontFamily: F_BODY, fontSize: 14 } }, "叫 " + pick.n + " 个 " + pick.f),
-          state.bid ? h("button", { "data-wk": "gameliaropen", onClick: function () { userAct({ kind: "open" }); }, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: "#c0553f", fontFamily: F_BODY, fontSize: 14 } }, "开！") : null)) :
+          h("button", { "data-wk": "gameliarbidbtn", onClick: function () { userAct({ kind: "bid", n: pick.n, f: pick.f }); }, disabled: !pickOk, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: pickOk ? t.tint : t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "叫 " + pick.n + " 个 " + pick.f),
+          state.bid ? h("button", { "data-wk": "gameliaropen", onClick: function () { userAct({ kind: "open" }); }, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: "#c0553f", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "开！") : null)) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等本人掀杯看骰…" : (current ? current.name : "TA") + " 在看骰子…") : null);
   }
 
@@ -6639,10 +6639,10 @@
             backgroundImage: "linear-gradient(90deg, transparent 21px, rgba(208,83,63,.35) 21px, rgba(208,83,63,.35) 22.5px, transparent 22.5px), repeating-linear-gradient(180deg, transparent 0 29px, rgba(93,111,163,.18) 29px 30px)",
             backgroundPosition: "0 0, 0 19px",
             boxShadow: "0 1px 0 #ece5d6, 0 3px 0 #f5f0e6, 0 4px 0 #e4dccd, 0 10px 22px rgba(40,30,20,.18)" } },
-          state.status === "playing" ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: -8, fontFamily: F_BODY, fontSize: 11, color: "#fff", background: LID.story.hot, borderRadius: 4, padding: "3px 8px", boxShadow: "0 2px 4px rgba(0,0,0,.15)" } },
+          state.status === "playing" ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: -8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#fff", background: LID.story.hot, borderRadius: 4, padding: "3px 8px", boxShadow: "0 2px 4px rgba(0,0,0,.15)" } },
             "第 " + (Math.floor(state.lines.length / state.players.length) + 1) + " / " + state.laps + " 圈") : null,
-          state.status === "finished" ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#2f2a24", lineHeight: "30px", marginBottom: 0, textAlign: "center" } }, "《" + name + "》") : null,
-          h("p", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: "30px", color: "#2f2a24", margin: 0 } },
+          state.status === "finished" ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: "#2f2a24", lineHeight: "30px", marginBottom: 0, textAlign: "center" } }, "《" + name + "》") : null,
+          h("p", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: "30px", color: "#2f2a24", margin: 0 } },
             h("span", { style: { color: "#8a8173" } }, state.opener),
             state.lines.map(function (l, i) {
               return h("span", { "data-wk": "gamestoryline", "data-part": l.key === "user" ? "me" : "ta", key: i, title: l.name },
@@ -6651,24 +6651,24 @@
                 }));
             })),
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, state.lines.map(function (l, i) {
-            return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
+            return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
           }))),
-        state.log.length ? h("div", { "data-wk": "gamelog", "data-part": "story", style: { marginTop: 10, background: t.bg2, borderRadius: 13, padding: "9px 12px" } }, state.log.slice(-6).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.65 } }, x.text); })) : null,
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error, " ",
-          h("button", { onClick: retry, style: { color: t.tint, fontFamily: F_BODY, fontSize: 12, textDecoration: "underline", background: "transparent" } }, "再请一次")) : null,
+        state.log.length ? h("div", { "data-wk": "gamelog", "data-part": "story", style: { marginTop: 10, background: t.bg2, borderRadius: 13, padding: "9px 12px" } }, state.log.slice(-6).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65 } }, x.text); })) : null,
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error, " ",
+          h("button", { onClick: retry, style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", textDecoration: "underline", background: "transparent" } }, "再请一次")) : null,
         state.status === "finished" ? h("div", { style: { marginTop: 14 } },
           h("input", { "data-wk": "gameinput", "data-part": "title", value: title, onChange: function (e) { setTitle(e.target.value.slice(0, 20)); }, placeholder: "给它起个名字（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none", textAlign: "center" } }),
           h("button", { "data-wk": "gamestorycopy", onClick: function () { try { (typeof copyText === "function" ? copyText : function (s) { return navigator.clipboard.writeText(s); })("《" + name + "》\n" + full); setCopied(true); } catch (e) {} },
-            style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10 } }, copied ? "已复制全文" : "复制全文"),
+            style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10 } }, copied ? "已复制全文" : "复制全文"),
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             return { key: "story", zh: "故事接龙", ids: realCharIds(state.players), wins: [], meWin: null,
               text: "一起接龙写了一篇小故事《" + name + "》：" + full.slice(0, 240) + (full.length > 240 ? "……" : "") };
           } })) : null),
       state.status === "playing" && me ? h("div", { "data-wk": "gameactions", "data-part": "story", "data-kind": "write", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7 } }, "轮到你接", storyIsLast(state) ? "最后一句——帮它收个尾" : "", "，要用上：", h("b", { "data-wk": "gamestoryword", style: { color: t.tint, fontSize: 14 } }, "「" + state.word + "」")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 7 } }, "轮到你接", storyIsLast(state) ? "最后一句——帮它收个尾" : "", "，要用上：", h("b", { "data-wk": "gamestoryword", style: { color: t.tint, fontSize: "calc(14px * var(--app-fs, 1))" } }, "「" + state.word + "」")),
         h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } },
           h("textarea", { "data-wk": "gameinput", "data-part": "line", value: draft, onChange: function (e) { setDraft(e.target.value); }, rows: 2, placeholder: "接着往下写一句……", style: { flex: 1, resize: "none", border: "1px solid " + t.line, borderRadius: 15, padding: "10px 12px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
-          h("button", { "data-wk": "gamestorysend", onClick: submit, disabled: !draft.trim(), style: { width: 44, height: 44, borderRadius: 999, border: 0, background: draft.trim() ? t.tint : t.line, color: "white", fontSize: 19 } }, "↑"))) :
+          h("button", { "data-wk": "gamestorysend", onClick: submit, disabled: !draft.trim(), style: { width: 44, height: 44, borderRadius: 999, border: 0, background: draft.trim() ? t.tint : t.line, color: "white", fontSize: "calc(19px * var(--app-fs, 1))" } }, "↑"))) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在想怎么接…（要用上「" + state.word + "」）") : null);
   }
 
@@ -6747,11 +6747,11 @@
       return h("div", { "data-wk": "gamevsseat", "data-on": s.on ? "1" : "0", "data-out": s.out ? "1" : "0", key: s.key, style: { width: 80, display: "flex", flexDirection: "column", alignItems: "center", opacity: s.out ? .45 : 1, transition: "opacity .2s" } },
         h("div", { onClick: props.evalOf ? function () { setLook(s); } : undefined, style: { cursor: props.evalOf ? "pointer" : "default", position: "relative", borderRadius: 999, padding: 2, background: s.on ? "linear-gradient(135deg,#e0a23a,#f6d48a)" : s.hot ? "#c0553f" : "transparent", animation: s.on ? "gcardPulse 1.4s ease-in-out infinite" : "none" } },
           av(s, 46),
-          s.dealer ? h("span", { style: { position: "absolute", right: -4, bottom: -2, width: 18, height: 18, borderRadius: 999, background: "#fbf8f1", color: "#2f2a24", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.3)", fontFamily: F_DISPLAY } }, s.badge || "庄") : null),
-        h("div", { style: { marginTop: 5, maxWidth: 80, fontFamily: F_BODY, fontSize: 12, fontWeight: 600, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
-        h("div", { "data-wk": "gamecardchips", style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontFamily: F_BODY, fontSize: 11, color: s.hot ? "#c0553f" : t.fog, whiteSpace: "nowrap" } },
+          s.dealer ? h("span", { style: { position: "absolute", right: -4, bottom: -2, width: 18, height: 18, borderRadius: 999, background: "#fbf8f1", color: "#2f2a24", fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,.3)", fontFamily: F_DISPLAY } }, s.badge || "庄") : null),
+        h("div", { style: { marginTop: 5, maxWidth: 80, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 600, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
+        h("div", { "data-wk": "gamecardchips", style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: s.hot ? "#c0553f" : t.fog, whiteSpace: "nowrap" } },
           s.chips != null ? h(ChipStack, { n: s.chips, unit: s.unit, size: 11 }) : s.cards != null ? h(CardBacks, { n: s.cards }) : null, s.sub),
-        bub ? h("div", { "data-wk": "gamecardbubble", key: "b" + bub, style: { position: "relative", marginTop: 6, maxWidth: 96, padding: "5px 8px", borderRadius: 11, background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 11, lineHeight: 1.4, boxShadow: "0 3px 10px rgba(20,16,10,.12)", animation: "gcardPop .25s ease-out both", wordBreak: "break-all" } }, bub) : null);
+        bub ? h("div", { "data-wk": "gamecardbubble", key: "b" + bub, style: { position: "relative", marginTop: 6, maxWidth: 96, padding: "5px 8px", borderRadius: 11, background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.4, boxShadow: "0 3px 10px rgba(20,16,10,.12)", animation: "gcardPop .25s ease-out both", wordBreak: "break-all" } }, bub) : null);
     }));
   }
   // 牌桌的记录：桌上话用正文颜色，系统那几行淡一点；收着高度，桌子才是主角
@@ -6759,8 +6759,8 @@
     const t = props.t;
     // column-reverse：最新那行永远贴在底下看得见，不用手动往下滚
     return h("div", { "data-wk": "gamelog", "data-part": props.part, style: { background: t.bg2, borderRadius: 13, padding: "9px 12px", maxHeight: 150, overflowY: "auto", display: "flex", flexDirection: "column-reverse" } },
-      props.talking ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "他们边出牌边嘀咕…") : null,
-      props.log.slice(-12).reverse().map(function (x, i) { return h("div", { "data-wk": "gamelogline", "data-kind": x.kind, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: x.kind === "sys" ? t.fog : x.kind === "chat" ? t.ink : t.sub, lineHeight: 1.6 } }, x.text); }));
+      props.talking ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "他们边出牌边嘀咕…") : null,
+      props.log.slice(-12).reverse().map(function (x, i) { return h("div", { "data-wk": "gamelogline", "data-kind": x.kind, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: x.kind === "sys" ? t.fog : x.kind === "chat" ? t.ink : t.sub, lineHeight: 1.6 } }, x.text); }));
   }
   function cardTalk(state, n) { return state.log.slice(-(n || 8)).map(function (x) { return x.text; }).join("\n"); }
   // 桌上那块绒布（三样共用）
@@ -7042,7 +7042,7 @@
     const u = state.players.find(function (p) { return p.isUser; });
     const o = me ? pkOptions(state, state.turn) : null;
     const show = function (p) { return p.isUser || spectate || (state.showdown && state.showdown.some(function (s) { return s.key === p.key; })) || state.status === "finished"; };
-    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
+    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, label); };
     const talking = useCardTableTalk(props, state, setState, { on: cardLocal(cfg), zh: "德州扑克", ready: !!me || state.street === "done" || state.status === "finished", every: spectate ? state.players.length * 2 : 0,
       view: function () { return "第 " + state.hand + " / " + PK_HANDS + " 手；公共牌：" + (state.board.map(cardName).join(" ") || "还没发") + "；底池 " + pkPot(state)
         + "\n" + state.players.map(function (q) { return q.name + "：" + (q.folded ? "已弃" : q.allin ? "全押" : "剩 " + q.chips); }).join("，") + "\n最近：\n" + cardPublicLog(state); } });
@@ -7085,28 +7085,28 @@
             hot: !!(state.lastWon && state.lastWon[p.key] && state.street === "done"), sub: p.folded && p.inHand ? "弃了 · " + p.chips : p.allin ? "全押" : String(p.chips) };
         }) }),
         feltBox([
-          h("div", { key: "a", style: { display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, background: "rgba(0,0,0,.22)", fontFamily: F_BODY, fontSize: 12.5 } },
-            h(ChipStack, { n: pkPot(state), unit: 120, size: 16 }), h("b", { style: { fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".02em" } }, pkPot(state)),
-            state.street !== "done" && state.curBet ? h("span", { style: { opacity: .75, fontSize: 11.5 } }, "跟到 " + state.curBet) : null),
+          h("div", { key: "a", style: { display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 999, background: "rgba(0,0,0,.22)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+            h(ChipStack, { n: pkPot(state), unit: 120, size: 16 }), h("b", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", letterSpacing: ".02em" } }, pkPot(state)),
+            state.street !== "done" && state.curBet ? h("span", { style: { opacity: .75, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "跟到 " + state.curBet) : null),
           h("div", { key: "b", style: { display: "flex", justifyContent: "center", gap: 6, marginTop: 12, minHeight: 64 } }, [0, 1, 2, 3, 4].map(function (k) { return h(PlayCard, { key: k + (state.board[k] ? "c" + state.hand : "g"), c: state.board[k], ghost: !state.board[k], w: 46 }); })),
           h("div", { key: "c", "data-wk": "gamepokerhands", style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return p.inHand; }).map(function (p) {
             const sd = state.showdown && state.showdown.find(function (s) { return s.key === p.key; });
             return h("div", { "data-wk": "block", key: p.key, style: { display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px", opacity: p.folded ? .5 : 1 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 64, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", width: 64, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
               p.hole.map(function (c, j) { return h(PlayCard, { key: j + (show(p) ? "o" : "x") + state.hand, c: show(p) ? c : null, back: !show(p), flip: show(p) && !p.isUser && !spectate, w: 30 }); }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .85, marginLeft: 4 } }, sd ? sd.cat : p.folded ? "弃牌" : ""));
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85, marginLeft: 4 } }, sd ? sd.cat : p.folded ? "弃牌" : ""));
           }))
         ], "poker"),
         tr && trA && trB && tr.stage !== "done" ? h("div", { "data-wk": "gamepktruthbox", style: { marginBottom: 10, padding: "11px 13px", borderRadius: 14, background: t.bg2, border: "1px dashed " + t.tint } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } },
             tr.stage === "ask" && trA.isUser ? "这一手你赢得最多，问 " + trB.name + " 一个真心话：" : tr.stage === "answer" && trB.isUser ? trA.name + " 问你：" + (truthAskOf || "（看上面那句）") : truthBusy || tr.stage === "wait" ? "真心话进行中…" : trA.name + " 要问 " + trB.name + " 一个真心话…"),
           (tr.stage === "ask" && trA.isUser) || (tr.stage === "answer" && trB.isUser) ? h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
             h("input", { "data-wk": "input", value: truthLine, onChange: function (e) { setTruthLine(e.target.value); }, placeholder: tr.stage === "ask" ? "问一句…" : "照实说…", style: { flex: 1, minWidth: 0, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 12px", background: t.bg, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
-            h("button", { onClick: truthSend, disabled: !truthLine.trim() || truthBusy, style: { border: 0, borderRadius: 999, padding: "8px 14px", color: "#fff", background: truthLine.trim() ? t.tint : t.line, fontFamily: F_BODY, fontSize: 13 } }, tr.stage === "ask" ? "问" : "答"),
-            h("button", { onClick: function () { truthPush([], "", "done"); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "8px 10px", color: t.sub, background: "transparent", fontFamily: F_BODY, fontSize: 12 } }, "算了")) : null) : null,
+            h("button", { onClick: truthSend, disabled: !truthLine.trim() || truthBusy, style: { border: 0, borderRadius: 999, padding: "8px 14px", color: "#fff", background: truthLine.trim() ? t.tint : t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, tr.stage === "ask" ? "问" : "答"),
+            h("button", { onClick: function () { truthPush([], "", "done"); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "8px 10px", color: t.sub, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "算了")) : null) : null,
         h(CardLog, { t: t, part: "poker", log: state.log, talking: talking }),
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
-        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.tint } },
           ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 筹码最多！",
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             const w = state.players.find(function (p) { return p.key === state.winner; });
@@ -7114,12 +7114,12 @@
               text: "一起打了一局德州扑克，" + state.hand + " 手收桌，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 筹码最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.chips; }).join("，") + "。" };
           } })) : null),
       state.status === "playing" && state.street === "done" ? h("div", { "data-wk": "gameactions", "data-part": "poker", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gamepokernext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, state.hand >= PK_HANDS ? "收桌算账" : "发下一手")) :
+        h("button", { "data-wk": "gamepokernext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.hand >= PK_HANDS ? "收桌算账" : "发下一手")) :
       state.status === "playing" && me && o ? h("div", { "data-wk": "gameactions", "data-part": "poker", "data-kind": "bet", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         o.canRaise ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flexShrink: 0 } }, "加到"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, flexShrink: 0 } }, "加到"),
           h("input", { type: "range", min: o.minRaiseTo, max: o.maxTo, step: 10, value: Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)), onChange: function (e) { setRaiseTo(Number(e.target.value)); }, style: { flex: 1 } }),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, minWidth: 44, textAlign: "right" } }, Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)))) : null,
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, minWidth: 44, textAlign: "right" } }, Math.min(o.maxTo, Math.max(o.minRaiseTo, raiseTo)))) : null,
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 } },
           btn("弃牌", function () { userAct({ kind: "fold" }); }, "#7a6f66", false, { wk: "gamepokerfold" }),
@@ -7226,18 +7226,18 @@
         feltBox(state.players.filter(function (p) { return !p.out && (!p.isUser || state.status === "finished"); }).map(function (p) {
           const open = spectate || state.status === "finished";
           return h("div", { key: p.key, style: { marginBottom: 10 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .8, marginBottom: 6 } }, p.name + " 手里" + (tg && tg.key === p.key ? " · 点一张抽走" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .8, marginBottom: 6 } }, p.name + " 手里" + (tg && tg.key === p.key ? " · 点一张抽走" : "")),
             h("div", { style: { display: "flex", justifyContent: "center", gap: 4, flexWrap: "wrap" } }, p.hand.map(function (c, j) {
               const mine = tg && tg.key === p.key;
               return h(PlayCard, { key: j, c: open ? c : null, back: !open, w: 34, lift: mine && hover === j, hot: open && c.joker, onClick: mine ? function () { if (hover === j) userPick(j); else setHover(j); } : null });
             })));
         }).concat(state.status === "finished" && !state.players.some(function (p) { return !p.out; }) ? [] : []), "oldmaid"),
         u && !u.out && state.status === "playing" ? h("div", { "data-wk": "gameoldmaidmine", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginRight: 4 } }, "我手里"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginRight: 4 } }, "我手里"),
           u.hand.map(function (c, j) { return h(PlayCard, { key: j, c: c, w: 32, hot: c.joker }); })) : null,
         h(CardLog, { t: t, part: "oldmaid", log: state.log, talking: talking }),
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
-        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.tint } },
           ((state.players.find(function (p) { return p.key === state.loser; }) || {}).name || "没人") + " 拿着鬼牌，输了！",
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             const l = state.players.find(function (p) { return p.key === state.loser; });
@@ -7246,7 +7246,7 @@
               text: "一起玩了一局抽鬼牌，最后鬼牌落在" + ((l && (l.isUser ? "她" : l.name)) || "没人") + "手里。" };
           } })) : null),
       me ? h("div", { "data-wk": "gameactions", "data-part": "oldmaid", "data-kind": "pick", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7, textAlign: "center" } }, hover >= 0 ? "再点一下第 " + (hover + 1) + " 张就抽走，或者换一张" : "点 " + (tg ? tg.name : "TA") + " 的一张牌（点一下先举起来，再点一下抽走）"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 7, textAlign: "center" } }, hover >= 0 ? "再点一下第 " + (hover + 1) + " 张就抽走，或者换一张" : "点 " + (tg ? tg.name : "TA") + " 的一张牌（点一下先举起来，再点一下抽走）"),
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } })) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 的手悬在牌上…") : null);
   }
@@ -7363,7 +7363,7 @@
     function userAct(a) { try { const n = JSON.parse(JSON.stringify(state)); bjAct(n, Object.assign({}, a, { say: say })); setState(n); setSay(""); setError(""); } catch (e) { setError(e.message); } }
     function nextHand() { const n = JSON.parse(JSON.stringify(state)); bjNewHand(n); setState(n); }
     const u = state.players.find(function (p) { return p.isUser; });
-    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 14 } }, label); };
+    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, label); };
     const showDealer = state.phase === "done";
     const talking = useCardTableTalk(props, state, setState, { on: cardLocal(cfg), zh: "21 点", ready: !!me || state.phase === "done" || state.status === "finished", every: 0,
       view: function () { const dl = state.players.find(function (q) { return q.isDealer; }); return "第 " + state.hand + " / " + BJ_HANDS + " 手；" + (dl ? dl.name + " 坐庄，大家都跟 TA 比，赢的从 TA 筹码里出" : "庄家是手机") + "；庄家" + (showDealer ? "：" + state.dealer.map(cardName).join(" ") + "，" + bjValue(state.dealer) + " 点" : "亮着 " + cardName(state.dealer[0]))
@@ -7373,18 +7373,18 @@
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
         h(CardSeats, { t: t, evalOf: { host: props, key: "blackjack", zh: "21 点" }, log: state.log, seats: state.players.map(function (p, i) { return { key: p.key, name: p.name, chips: p.chips, unit: 25, dealer: p.isDealer, char: cardSeatChar(props, p), isUser: p.isUser, on: i === state.turn && state.phase === "play", out: !p.isDealer && p.chips < BJ_BET && !p.bet, hot: p.result === "赢" || p.result === "黑杰克", sub: (p.isDealer ? "坐庄 · " : p.result ? p.result + " · " : "") + p.chips }; }) }),
         feltBox([
-          h("div", { key: "d", style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .8 } }, ((state.players.find(function (p) { return p.isDealer; }) || {}).name ? state.players.find(function (p) { return p.isDealer; }).name + " 坐庄" : "庄家") + (showDealer ? " · " + bjValue(state.dealer) + " 点" : "")),
+          h("div", { key: "d", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .8 } }, ((state.players.find(function (p) { return p.isDealer; }) || {}).name ? state.players.find(function (p) { return p.isDealer; }).name + " 坐庄" : "庄家") + (showDealer ? " · " + bjValue(state.dealer) + " 点" : "")),
           h("div", { key: "dc", style: { display: "flex", justifyContent: "center", gap: 5, margin: "6px 0 12px" } }, state.dealer.map(function (c, j) { return h(PlayCard, { key: j + (j > 0 && showDealer ? "o" : "c") + state.hand, c: c, back: !showDealer && j > 0, flip: showDealer && j > 0, w: 46 }); })),
           h("div", { key: "ps", "data-wk": "gamebjhands", style: { display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return p.bet; }).map(function (p) {
             return h("div", { "data-wk": "block", key: p.key, style: { display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 60, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", width: 60, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
               p.cards.map(function (c, j) { return h(PlayCard, { key: j + "_" + state.hand, c: c, w: 30 }); }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, marginLeft: "auto" } }, bjValue(p.cards) + " 点" + (p.result ? " · " + p.result : "")));
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginLeft: "auto" } }, bjValue(p.cards) + " 点" + (p.result ? " · " + p.result : "")));
           }))
         ], "blackjack"),
         h(CardLog, { t: t, part: "blackjack", log: state.log, talking: talking }),
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
-        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.tint } },
           ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 筹码最多！",
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             const w = state.players.find(function (p) { return p.key === state.winner; });
@@ -7392,7 +7392,7 @@
               text: "一起玩了 " + state.hand + " 手 21 点，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 筹码最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.chips; }).join("，") + "。" };
           } })) : null),
       state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gamebjnext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, state.hand >= BJ_HANDS ? "散场算账" : "发下一手")) :
+        h("button", { "data-wk": "gamebjnext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.hand >= BJ_HANDS ? "散场算账" : "发下一手")) :
       me ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "play", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } },
@@ -7688,7 +7688,7 @@
     const toggle = function (uid) { setPick(function (p) { return p.indexOf(uid) >= 0 ? p.filter(function (x) { return x !== uid; }) : p.concat([uid]); }); };
     const lead = state.phase === "play" && (!state.last || state.last.by === state.turn || state.last.cleared);
     const pickCombo = me && state.phase === "play" ? ddzAnalyze((u ? u.hand : []).filter(function (c) { return pick.indexOf(c.uid) >= 0; })) : null;
-    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: 13.5 } }, label); };
+    const btn = function (label, onClick, color, dis, o) { const wk = o && o.wk; return h("button", { "data-wk": wk || undefined, onClick: onClick, disabled: dis, style: { border: 0, borderRadius: 999, padding: "11px 8px", color: "#fff", background: dis ? t.line : color, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, label); };
     const showAll = spectate || state.phase === "done" || state.status === "finished";
     return h("div", { "data-wk": "gameplay", "data-part": "doudizhu", className: "h-full flex flex-col", style: gameTable("doudizhu", t) },
       h(Head, { zh: "斗地主", en: state.status === "finished" ? "打完了" : ("第 " + state.round + " / " + DDZ_ROUNDS + " 局" + (actor ? " · " + (state.phase === "bid" ? actor.name + " 叫分" : "轮到 " + actor.name) : "")), onBack: props.onBack, bg: "transparent" }),
@@ -7700,23 +7700,23 @@
         }) }),
         feltBox([
           h("div", { key: "a", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .75, marginRight: 4 } }, "底牌"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .75, marginRight: 4 } }, "底牌"),
             (state.bottom || []).map(function (c, j) { return h(PlayCard, { key: j + (state.phase === "bid" ? "x" : "o") + state.round, c: c, back: state.phase === "bid" && !spectate, flip: state.phase !== "bid", w: 30 }); }),
-            state.bid && state.bid.n ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .85, marginLeft: 8 } }, state.bid.n + " 分" + (state.mult > 1 ? " × " + state.mult : "")) : null),
+            state.bid && state.bid.n ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85, marginLeft: 8 } }, state.bid.n + " 分" + (state.mult > 1 ? " × " + state.mult : "")) : null),
           h("div", { key: "b", "data-wk": "gameddzlast", style: { marginTop: 14, minHeight: 74, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 } },
             state.last && !state.last.cleared && state.phase !== "bid" ? [
-              h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .8 } }, state.players[state.last.by].name + " · " + DDZ_TYPE_ZH[state.last.combo.type]),
+              h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .8 } }, state.players[state.last.by].name + " · " + DDZ_TYPE_ZH[state.last.combo.type]),
               h("div", { key: "c", style: { display: "flex", justifyContent: "center", flexWrap: "wrap" } }, state.last.cards.map(function (c, j) { return h("div", { key: c.uid + state.log.length, style: { marginLeft: j ? -14 : 0 } }, h(PlayCard, { c: c, w: 38 })); }))
-            ] : h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .7 } }, state.phase === "bid" ? "叫分中" : state.phase === "play" ? (actor ? actor.name + " 领出" : "") : "")),
+            ] : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, state.phase === "bid" ? "叫分中" : state.phase === "play" ? (actor ? actor.name + " 领出" : "") : "")),
           showAll ? h("div", { key: "h", style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return !p.isUser && p.hand.length; }).map(function (p) {
             return h("div", { "data-wk": "block", key: p.key, style: { display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 54, flexShrink: 0, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", width: 54, flexShrink: 0, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
               h("div", { style: { display: "flex", flexWrap: "wrap", rowGap: 4 } }, p.hand.map(function (c, j) { return h("div", { key: c.uid, style: { marginLeft: j ? -10 : 0 } }, h(PlayCard, { c: c, w: 24 })); })));
           })) : null
         ], "doudizhu"),
         h(CardLog, { t: t, part: "doudizhu", log: state.log, talking: talking }),
-        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
-        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.tint } },
           ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 分最多！",
           h(KeepMemBtn, { t: t, host: props, rep: function () {
             const w = state.players.find(function (p) { return p.key === state.winner; });
@@ -7724,7 +7724,7 @@
               text: "一起打了 " + state.round + " 局斗地主，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 分最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.pts; }).join("，") + "。" };
           } })) : null),
       state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "doudizhu", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gameddznext", onClick: function () { act(function (n) { ddzNewRound(n); }); }, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, state.round >= DDZ_ROUNDS ? "算总分" : "下一局")) :
+        h("button", { "data-wk": "gameddznext", onClick: function () { act(function (n) { ddzNewRound(n); }); }, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.round >= DDZ_ROUNDS ? "算总分" : "下一局")) :
       me && u ? h("div", { "data-wk": "gameactions", "data-part": "doudizhu", "data-kind": state.phase, className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("div", { "data-wk": "gameddzhand", style: { display: "flex", flexWrap: "wrap", rowGap: 6, padding: "10px 0 6px 10px", justifyContent: "center" } }, u.hand.map(function (c, j) {
           return h("div", { key: c.uid, style: { marginLeft: j ? -14 : 0 } }, h(PlayCard, { c: c, w: 38, lift: pick.indexOf(c.uid) >= 0, onClick: state.phase === "play" ? function () { toggle(c.uid); } : null }));
@@ -7732,7 +7732,7 @@
         h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", margin: "6px 0 8px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         state.phase === "bid" ? h("div", { "data-wk": "gameddzbid", style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 } },
           [0, 1, 2, 3].map(function (n) { return h("button", { key: n, onClick: function () { act(function (s) { ddzBid(s, n, say); }); }, disabled: n > 0 && n <= state.bid.n,
-            style: { border: 0, borderRadius: 999, padding: "11px 6px", color: "#fff", background: n > 0 && n <= state.bid.n ? t.line : n ? t.tint : "#7a6f66", fontFamily: F_BODY, fontSize: 13.5 } }, n ? n + " 分" : "不叫"); })) :
+            style: { border: 0, borderRadius: 999, padding: "11px 6px", color: "#fff", background: n > 0 && n <= state.bid.n ? t.line : n ? t.tint : "#7a6f66", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, n ? n + " 分" : "不叫"); })) :
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 6 } },
           btn("提示", function () { setPick(ddzHint(state, state.turn)); }, "#7a6f66", false, { wk: "gameddzhint" }),
           btn("不出", function () { act(function (s) { ddzPlay(s, [], say); }); }, t.ink, lead, { wk: "gameddzpass" }),

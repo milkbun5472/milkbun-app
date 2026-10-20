@@ -415,14 +415,14 @@
           // ⚠️不关掉 iOS 自己那套长按行为，系统菜单会盖在确认框前面
           style: Object.assign({ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }, { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", background: "linear-gradient(105deg," + spineColor(b.id) + " 0 10%, " + spineColor(b.id) + "cc 10% 100%)", boxShadow: "0 3px 10px rgba(0,0,0,.18)", borderLeft: "3px solid rgba(0,0,0,.22)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 9px", textAlign: "left" }), "data-wk": "readpagebtn", "data-part": "1"
         },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.3, color: "#f3efe6", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, b.title),
           h("div", null,
-            (b.annotations && b.annotations.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.75)" } }, "批注 " + b.annotations.length) : null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.6)" } }, (b.page || 0) > 0 ? pct + "%" : "未读"))
+            (b.annotations && b.annotations.length) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.75)" } }, "批注 " + b.annotations.length) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.6)" } }, (b.page || 0) > 0 ? pct + "%" : "未读"))
         ),
         h("div", { style: { marginTop: 5, display: "flex", alignItems: "center", gap: 4 } },
           partner ? h(Avatar, { character: partner, size: 15, radius: 5 }) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, partner ? partner.name : "还没邀人")));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, partner ? partner.name : "还没邀人")));
     };
     // 空位：书架上那一格还没放书。原来是一条铺满整行的虚线圆角按钮——
     // 那是「新建」按钮，不是书架上的东西。
@@ -433,9 +433,9 @@
         // ⚠️颜色得从主题里来，别按「木头一定是深的」写死浅色字：
         //   pageSkin("wood") 跟着她的主题走，浅主题下那面墙是浅的，
         //   写死的浅字在上面等于隐形（第一版就是这样）。
-        style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", border: "1px dashed " + t.line, background: "rgba(127,127,127,.06)", color: t.sub, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, padding: "10px 8px" }, "data-wk": "readpagebtn", "data-part": "2"
+        style: { width: "100%", aspectRatio: "3/4.3", borderRadius: "3px 9px 9px 3px", border: "1px dashed " + t.line, background: "rgba(127,127,127,.06)", color: t.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, padding: "10px 8px" }, "data-wk": "readpagebtn", "data-part": "2"
       }, "空着一格", h("br"), "放本书进来"),
-      h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "txt / pdf"));
+      h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub } }, "txt / pdf"));
     // 一块搁板：书站在它上面。上缘一道亮边是光打在板沿上，下面一道暗影是板的厚度。
     const shelfBoard = function (k) {
       return h("div", { key: "sb" + k, "aria-hidden": "true", style: {
@@ -457,8 +457,8 @@
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8", style: { paddingTop: 8 } },
         rows,
         books.length === 0
-          ? h("div", { style: { textAlign: "center", color: t.sub, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 12, whiteSpace: "pre-line" } }, "书架还是空的。\n上传 txt 或已 OCR 的 pdf，点开就能邀角色一起读、逐段讲给你听、写批注、聊剧情。")
-          : h("div", { style: { marginTop: 2, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "长按封面可移除")
+          ? h("div", { style: { textAlign: "center", color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, paddingTop: 12, whiteSpace: "pre-line" } }, "书架还是空的。\n上传 txt 或已 OCR 的 pdf，点开就能邀角色一起读、逐段讲给你听、写批注、聊剧情。")
+          : h("div", { style: { marginTop: 2, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub } }, "长按封面可移除")
       ));
   }
 
@@ -895,9 +895,9 @@
         partner
           ? h("div", { style: { display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 } },
               h(Avatar, { character: partner, size: 24, radius: 7 }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "和 " + partner.name + " 一起读"),
-              h("button", { onClick: function () { setPickOpen(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint }, "data-wk": "readreaderbtn", "data-part": "1" }, "换人"))
-          : h("button", { onClick: function () { setPickOpen(true); }, style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.tint }, "data-wk": "readreaderbtn", "data-part": "2" }, "＋ 邀一个角色一起读")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "和 " + partner.name + " 一起读"),
+              h("button", { onClick: function () { setPickOpen(true); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint }, "data-wk": "readreaderbtn", "data-part": "1" }, "换人"))
+          : h("button", { onClick: function () { setPickOpen(true); }, style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint }, "data-wk": "readreaderbtn", "data-part": "2" }, "＋ 邀一个角色一起读")),
       // 第二行：左边是【这本书读到哪儿】，右边才是那几个钮。
       // ⚠️原来这一行硬塞了「每次批 N 条」「范围 N 页」「讲解显示中」三组＋批注册，
       //   窄屏上直接折成两行、每个词都断开（「批注册 7」断成「批注/册 7」）。
@@ -907,41 +907,41 @@
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
             h("div", { style: { width: Math.round(((pageIdx + 1) / Math.max(1, totalPages)) * 100) + "%", height: "100%", background: t.tint } })),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 4, whiteSpace: "nowrap" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 4, whiteSpace: "nowrap" } },
             "第 " + (pageIdx + 1) + " 页 / 共 " + totalPages + (annoCount ? " · 写过 " + annoCount + " 条" : ""))),
         h("button", { onClick: function () { props.onPatch({ showExplains: !explainOn }); },
           className: "shrink-0",
-          style: { fontFamily: F_BODY, fontSize: 11, color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "3" }, explainOn ? "讲解 开" : "讲解 关"),
+          style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "3" }, explainOn ? "讲解 开" : "讲解 关"),
         h("button", { onClick: function () { setBookOpen(true); }, className: "shrink-0",
-          style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "4" }, "批注册"),
+          style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "4" }, "批注册"),
         h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0",
-          style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "5" }, "设定")
+          style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" }, "data-wk": "readreaderbtn", "data-part": "5" }, "设定")
       )
       // 没邀人也能开「设定」（她 2026-10-14：「不用选人就可以设置」）：这时里头只有字体那一格
       : h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 8 } },
           h("button", { onClick: function () { setSetOpen(!setOpen); }, className: "shrink-0", "data-wk": "readreaderbtn", "data-part": "5",
-            style: { fontFamily: F_BODY, fontSize: 11, color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" } }, "设定")),
+            style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: setOpen ? t.ink : t.fog, border: "1px solid " + (setOpen ? t.ink : t.line), borderRadius: 999, padding: "4px 10px", whiteSpace: "nowrap" } }, "设定")),
       // 「设定」展开才出现：字体；邀了人再加一次批几条、覆盖几页
       setOpen ? h("div", { "data-wk": "block", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, marginTop: 9, padding: "9px 11px", borderRadius: 12, background: skinAlpha(t.bg2, "cc"), border: "1px solid " + t.line } },
         // 正文字体（群友 2026-10-14：「希望能让一起读界面字体修改为默认系统字体」，她：「不能多搞几个字体选择吗」）：
         //   名单只问 FontChoice 那一份（跟主题换字体同一份，one-public-mechanism），书宋＝原来那支，记在这本书上
         h("div", { "data-wk": "readfont", style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 5, width: "100%" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "字体"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "字体"),
           readFaces().map(function (o) { const on = (book.font || "") === o.key;
             return h("button", { key: o.key || "_def", "data-on": on ? "1" : "0", onClick: function () { readEnsureFont(o.key); props.onPatch({ font: o.key }); },
-              style: { fontFamily: o.stack || "'Noto Serif SC',serif", fontSize: 11.5, padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o.zh); })),
+              style: { fontFamily: o.stack || "'Noto Serif SC',serif", fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "3px 9px", borderRadius: 999, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, o.zh); })),
         partner ? h("button", { "data-wk": "readnarrstop", "data-on": book.narrStop === "page" ? "1" : "0", onClick: function () { props.onPatch({ narrStop: book.narrStop === "page" ? "go" : "page" }); },
-          style: { fontFamily: F_BODY, fontSize: 11.5, padding: "3px 10px", borderRadius: 999, color: t.sub, border: "1px solid " + t.line, background: "transparent" } },
+          style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "3px 10px", borderRadius: 999, color: t.sub, border: "1px solid " + t.line, background: "transparent" } },
           "TA 念：" + (book.narrStop === "page" ? "念完这页就停" : "一直往下念")) : null,
         partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "每次批"),
           h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")) : null,
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "条")) : null,
         partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "范围"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "范围"),
           h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")) : null,
-        partner && span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, span > 1 ? "页（从当前起）" : "页")) : null,
+        partner && span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, whiteSpace: "nowrap" } }, "本页～第 " + Math.min(totalPages, pageIdx + span) + " 页") : null
       ) : null);
 
     // ---- 正文页 ----
@@ -952,7 +952,7 @@
       style: Object.assign({ padding: "18px 20px 90px" },
         typeof pageSkin === "function" ? pageSkin("paper", t, { corner: false, strength: .85 }) : null),
       onMouseUp: catchSel, onTouchEnd: catchSel },
-      loading ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, paddingTop: 40 } }, "翻开中…")
+      loading ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", paddingTop: 40 } }, "翻开中…")
         : curParas.map(function (p, i) {
             const anns = annsForPara(i);
             const ex = explainOn ? explainAt(pageIdx, i) : null;
@@ -960,7 +960,7 @@
             const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
               // 正文段落：允许划线选中（覆盖全局 user-select:none）
-              h("p", { "data-wk": "readpara", "data-reading": narr && narr.page === pageIdx && narr.para === i ? "1" : "0", style: { fontFamily: readFontStack(book.font), fontSize: 16, lineHeight: 1.95, color: t.ink,
+              h("p", { "data-wk": "readpara", "data-reading": narr && narr.page === pageIdx && narr.para === i ? "1" : "0", style: { fontFamily: readFontStack(book.font), fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.95, color: t.ink,
                 margin: "0 0 14px", textIndent: "2em", position: "relative",
                 background: narr && narr.page === pageIdx && narr.para === i ? skinAlpha(t.tint, "1f") : "transparent", transition: "background .3s",
                 paddingLeft: 11, marginLeft: -11,
@@ -975,11 +975,11 @@
                 exCh ? h(Avatar, { character: exCh, size: 18, radius: 6 }) : null,
                 h("div", { style: { flex: 1 } },
                   h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 3 } },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.tint, letterSpacing: .3 } }, (ex.charName || "") + " · 讲解"),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.tint, letterSpacing: .3 } }, (ex.charName || "") + " · 讲解"),
                     (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rex" + pageIdx + "_" + i, text: ex.text, spk: exCh, tp: tp }) : null),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.72, color: t.ink } }, ex.text))) : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, ex.text))) : null,
               // 还没讲的段落：给个「讲讲这段」入口
-              (!ex && explainOn && partner) ? h("button", { key: "one_" + i, onClick: function () { explainOne(i); }, disabled: busy, style: { margin: "-8px 0 14px", fontFamily: F_BODY, fontSize: 11, color: t.fog, opacity: busy ? .5 : 1 }, "data-wk": "readreaderbtn", "data-part": "6" }, "▸ 让 " + partner.name + " 讲讲这段") : null,
+              (!ex && explainOn && partner) ? h("button", { key: "one_" + i, onClick: function () { explainOne(i); }, disabled: busy, style: { margin: "-8px 0 14px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, opacity: busy ? .5 : 1 }, "data-wk": "readreaderbtn", "data-part": "6" }, "▸ 让 " + partner.name + " 讲讲这段") : null,
               // 批注卡片
               anns.map(function (a) {
                 const ch = chOf(a.charId);
@@ -996,44 +996,44 @@
                   ch ? h(Avatar, { character: ch, size: 18, radius: 6 }) : null,
                   h("div", { style: { flex: 1 } },
                     h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 2 } },
-                      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: isRead ? "#3f6ea8" : t.tint } }, a.charName + (isRead ? " · 亲读" : "")),
+                      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: isRead ? "#3f6ea8" : t.tint } }, a.charName + (isRead ? " · 亲读" : "")),
                       (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rann" + a.id, text: a.note, spk: ch, tp: tp }) : null),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, a.note)));
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, a.note)));
               }));
           }));
 
     // ---- 底部翻页 + 动作条 ----
     const footer = h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 } },
-      h("button", { onClick: function () { gotoPage(pageIdx - 1); }, disabled: pageIdx <= 0, style: { fontFamily: F_BODY, fontSize: 13, color: pageIdx <= 0 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "7" }, "‹ 上一页"),
-      h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (pageIdx + 1) + " / " + totalPages,
-        h("button", { onClick: function () { setFull(function (v) { return !v; }); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readfull" }, full ? "退出全屏" : "全屏")),
-      h("button", { onClick: function () { gotoPage(pageIdx + 1); }, disabled: pageIdx >= totalPages - 1, style: { fontFamily: F_BODY, fontSize: 13, color: pageIdx >= totalPages - 1 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "8" }, "下一页 ›"));
+      h("button", { onClick: function () { gotoPage(pageIdx - 1); }, disabled: pageIdx <= 0, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageIdx <= 0 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "7" }, "‹ 上一页"),
+      h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (pageIdx + 1) + " / " + totalPages,
+        h("button", { onClick: function () { setFull(function (v) { return !v; }); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readfull" }, full ? "退出全屏" : "全屏")),
+      h("button", { onClick: function () { gotoPage(pageIdx + 1); }, disabled: pageIdx >= totalPages - 1, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageIdx >= totalPages - 1 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "8" }, "下一页 ›"));
 
     // 那排按钮原来浮在书页上、压着正文（群友 2026-10-09：「一起读能不能设置一个全屏，它有点挡着」）——
     //   现在自己占一行、排在翻页条上面，不再盖字；要更干净就点翻页条上的「全屏」。
     const actionBar = h("div", { className: "shrink-0", style: { display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, padding: "8px 10px 2px", borderTop: "1px solid " + t.line } },
-      h("button", { "data-wk": "block", onClick: doExplainPage, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.tint, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "9" }, busy ? "讲解中…" : "📖 讲这页"),
+      h("button", { "data-wk": "block", onClick: doExplainPage, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#f3efe6", background: t.tint, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "9" }, busy ? "讲解中…" : "📖 讲这页"),
       isYanqiu
         ? h(Fragment, null,
-            h("button", { "data-wk": "block", onClick: queueForYanqiu, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3f6ea8", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(63,110,168,.3)" }, "data-wk": "readreaderbtn", "data-part": "10" }, "📨 送这页给言秋"),
-            h("button", { "data-wk": "block", onClick: pullYanqiuReplies, disabled: pulling, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#3f6ea8", background: t.bg2, border: "1px solid #3f6ea855", borderRadius: 999, padding: "9px 14px", opacity: pulling ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "11" }, pulling ? "取…" : "📥 取批注"))
-        : h("button", { "data-wk": "block", onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "12" }, "✎ 批注"),
+            h("button", { "data-wk": "block", onClick: queueForYanqiu, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: "#3f6ea8", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(63,110,168,.3)" }, "data-wk": "readreaderbtn", "data-part": "10" }, "📨 送这页给言秋"),
+            h("button", { "data-wk": "block", onClick: pullYanqiuReplies, disabled: pulling, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#3f6ea8", background: t.bg2, border: "1px solid #3f6ea855", borderRadius: 999, padding: "9px 14px", opacity: pulling ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "11" }, pulling ? "取…" : "📥 取批注"))
+        : h("button", { "data-wk": "block", onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "12" }, "✎ 批注"),
       h("button", { "data-wk": "readnarr", "data-on": narr ? "1" : "0", onClick: function () { if (narr) narrStop(); else narrStart(pageIdx, 0); },
-        style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: narr ? "#fff" : t.ink, background: narr ? t.tint : t.bg2, border: "1px solid " + (narr ? t.tint : t.line), borderRadius: 999, padding: "9px 14px" } },
+        style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: narr ? "#fff" : t.ink, background: narr ? t.tint : t.bg2, border: "1px solid " + (narr ? t.tint : t.line), borderRadius: 999, padding: "9px 14px" } },
         narr ? (narr.st === "gen" ? "… 准备念" : "⏸ 停下") : "🔈 TA 念"),
-      h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" }, "data-wk": "readreaderbtn", "data-part": "13" }, "💬 讨论"));
+      h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" }, "data-wk": "readreaderbtn", "data-part": "13" }, "💬 讨论"));
 
     // ---- 划线后浮出的「让 Ta 讲这句」----
     const selBar = sel ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 100, display: "flex", justifyContent: "center", gap: 8, zIndex: 30, pointerEvents: "none" } },
       // 只念选中这一句（不往下接着念）
-      partner && partner.voiceId && tp ? h("button", { "data-wk": "readselread", onClick: function () { narrStop(); tp.toggle("rselread", sel.text, partner.voiceId); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.18)" } }, "🔈 念这句") : null,
-      h("button", { "data-wk": "block", onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" }, "data-wk": "readreaderbtn", "data-part": "14" }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句"),
-      isYanqiu ? h("button", { onClick: function () { setNoteSheet({ anchor: sel.text, val: "" }); setSel(null); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(201,106,148,.3)" }, "data-wk": "readreaderbtn", "data-part": "15" }, "✎ 记给言秋") : null) : null;
+      partner && partner.voiceId && tp ? h("button", { "data-wk": "readselread", onClick: function () { narrStop(); tp.toggle("rselread", sel.text, partner.voiceId); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 16px", boxShadow: "0 4px 16px rgba(0,0,0,.18)" } }, "🔈 念这句") : null,
+      h("button", { "data-wk": "block", onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" }, "data-wk": "readreaderbtn", "data-part": "14" }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句"),
+      isYanqiu ? h("button", { onClick: function () { setNoteSheet({ anchor: sel.text, val: "" }); setSel(null); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: "#c96a94", borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(201,106,148,.3)" }, "data-wk": "readreaderbtn", "data-part": "15" }, "✎ 记给言秋") : null) : null;
 
     const pageUserNotes = isYanqiu ? (book.annotations || []).filter(function (a) { return a.page === pageIdx && a.who === "user"; }) : [];
     const yqHead = (isYanqiu && (pageUserNotes.length || pendingHere.length)) ? h("div", { className: "shrink-0", style: { padding: "8px 16px", borderBottom: "1px solid " + t.line, background: t.bg2, maxHeight: 130, overflowY: "auto" } },
-      pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, characterText(partner, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」")) : null,
-      pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: 12, color: "#c96a94", lineHeight: 1.5, marginTop: 4 }, "data-wk": "readreader" }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
+      pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, characterText(partner, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」")) : null,
+      pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#c96a94", lineHeight: 1.5, marginTop: 4 }, "data-wk": "readreader" }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" }, "data-wk": "readreader", "data-part": "r2" },
       full ? h("div", { className: "shrink-0", style: { height: "env(safe-area-inset-top)" } }) : h(Head, { zh: book.title, sub: partner ? "和 " + partner.name + " 一起读" : "还没邀人", onBack: props.onBack }),
       full ? null : topbar, full ? null : yqHead, reader, selBar, full ? null : actionBar, footer,
@@ -1109,7 +1109,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "2px 16px 30px" } },
         rows.length
           ? h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "2px 2px 16px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "2px 2px 16px" } },
                 "这本书你俩一共写了 " + rows.length + " 条 · 落在 " + byPage.length + " 页上 · 长按一条可删"),
               byPage.map(function (g) {
                 return h("div", { key: g.page, style: { display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }, "data-wk": "readannobook", "data-part": "r2" },
@@ -1117,15 +1117,15 @@
                   h("button", { onClick: function () { props.onGoto(g.page); },
                     className: "shrink-0 active:opacity-60 self-stretch flex flex-col items-end",
                     style: { width: 34, paddingTop: 1 }, "data-wk": "readannobookbtn", "data-part": "1" },
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1 } }, g.page + 1),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginTop: 2 } }, "页"),
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, lineHeight: 1 } }, g.page + 1),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "页"),
                     h("div", { style: { width: 1, flex: 1, minHeight: 12, background: t.line, marginTop: 6, marginRight: 1 } })),
                   h("div", { style: { flex: 1, minWidth: 0 } },
                     g.paras.map(function (pa) {
                       const quote = (pa.items[0] && pa.items[0].anchor) || paraOf(g.page, pa.para);
                       return h("div", { key: pa.para, style: { marginBottom: 14 }, "data-wk": "readannobook", "data-part": "r3" },
                         // 原文只印这一次
-                        quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginBottom: 6, paddingBottom: 5, borderBottom: "1px dashed " + t.line } },
+                        quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, marginBottom: 6, paddingBottom: 5, borderBottom: "1px dashed " + t.line } },
                           "「" + quote + "…」") : null,
                         pa.items.map(function (r, i) {
                           const ch = r.charId ? props.chOf(r.charId) : null;
@@ -1138,20 +1138,20 @@
                             style: Object.assign({ WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none" }, { marginBottom: 8, paddingLeft: 9, borderLeft: "2px solid " + skinAlpha(tone, "55") }) }),
                             h("div", { style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 2 } },
                               ch ? h(Avatar, { character: ch, size: 14, radius: 5 }) : null,
-                              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),
-                            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.72, color: t.ink } }, r.text));
+                              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: tone } }, (r.name || "") + " · " + WHAT[r.kind])),
+                            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.72, color: t.ink } }, r.text));
                         }));
                     })));
               }))
-          : h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, paddingTop: 60 } },
+          : h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, paddingTop: 60 } },
               "这本还没有一条批注。\n回去点「讲这页」或「批注」，写下的都会攒到这儿。")),
       // 记进TA的记忆：这一册就是「你俩一起读过这本书」的全部证据，
       // 要喂回主线的话，从这儿喂才对得上。
       rows.length ? h("div", { className: "shrink-0", style: { padding: "10px 16px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 14px)", borderTop: "1px solid " + t.line } },
         h("button", { onClick: props.onRemember, disabled: props.busy, className: "w-full active:opacity-70",
-          style: { borderRadius: 14, padding: "12px 0", background: t.ink, color: t.bg2, opacity: props.busy ? .5 : 1, fontFamily: F_DISPLAY, fontSize: 14 }, "data-wk": "readannobookbtn", "data-part": "remember" },
+          style: { borderRadius: 14, padding: "12px 0", background: t.ink, color: t.bg2, opacity: props.busy ? .5 : 1, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" }, "data-wk": "readannobookbtn", "data-part": "remember" },
           props.busy ? "正在收拢…" : ("让 " + ((props.partner && props.partner.name) || "Ta") + " 把这本记住")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 7, lineHeight: 1.6 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginTop: 7, lineHeight: 1.6 } },
           book.rememberedAt
             ? ("上次记住是在写了 " + (book.rememberedCount || 0) + " 条的时候 · 现在是 " + rows.length + " 条")
             : characterText(props.partner, "把这些浓缩成一两句，进他的记忆库。只写记忆，不动好感和心情。"))) : null);
@@ -1167,13 +1167,13 @@
       h("div", { "data-wk": "block", style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px 26px", maxHeight: "70%", overflowY: "auto", boxShadow: "0 -6px 20px rgba(0,0,0,.18)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
           props.partner ? h(Avatar, { character: props.partner, size: 22, radius: 7 }) : null,
-          h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (props.partner ? props.partner.name : "Ta") + " 讲讲这句"),
-          h("button", { onClick: props.onClose, style: { fontFamily: F_BODY, fontSize: 18, color: t.fog }, "data-wk": "readselexplainsheetbtn", "data-part": "close" }, "×")),
-        h("div", { "data-wk": "block", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.7, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.line, borderRadius: "0 8px 8px 0", marginBottom: 12 } }, "「" + d.q + "」"),
+          h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, (props.partner ? props.partner.name : "Ta") + " 讲讲这句"),
+          h("button", { onClick: props.onClose, style: { fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog }, "data-wk": "readselexplainsheetbtn", "data-part": "close" }, "×")),
+        h("div", { "data-wk": "block", style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.line, borderRadius: "0 8px 8px 0", marginBottom: 12 } }, "「" + d.q + "」"),
         d.busy
-          ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "6px 2px" } }, (props.partner ? props.partner.name : "Ta") + " 在想怎么讲…")
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "6px 2px" } }, (props.partner ? props.partner.name : "Ta") + " 在想怎么讲…")
           : h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, d.a),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, d.a),
               (tp && typeof TtsDot === "function" && d.a) ? h("div", { style: { marginTop: 4 } }, h(TtsDot, { k: "rsel", text: d.a, spk: props.partner, tp: tp })) : null)));
   }
 
@@ -1184,21 +1184,21 @@
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 55, display: "flex", flexDirection: "column", justifyContent: "flex-end" }, "data-wk": "readnotesheet" },
       h("div", { onClick: props.onClose, style: { flex: 1, background: "rgba(0,0,0,.3)" }, "data-wk": "readnotesheettap", "data-part": "close" }),
       h("div", { "data-wk": "block", style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px 24px", boxShadow: "0 -6px 20px rgba(0,0,0,.18)" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "记一条给言秋"),
-        props.anchor ? h("div", { "data-wk": "block", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, lineHeight: 1.6, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid #c96a94", borderRadius: "0 8px 8px 0", marginBottom: 10 } }, "「" + String(props.anchor).slice(0, 200) + "」") : null,
-        h("textarea", { "data-wk": "textarea", value: v, onChange: function (e) { setV(e.target.value); }, autoFocus: true, placeholder: "写下你对这句的想法…（TA在 CC 读了会回你）", rows: 3, style: { width: "100%", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", boxSizing: "border-box" }, "data-wk": "readnotesheettext", "data-part": "写下你对这句的想法…（T" }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "记一条给言秋"),
+        props.anchor ? h("div", { "data-wk": "block", style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid #c96a94", borderRadius: "0 8px 8px 0", marginBottom: 10 } }, "「" + String(props.anchor).slice(0, 200) + "」") : null,
+        h("textarea", { "data-wk": "textarea", value: v, onChange: function (e) { setV(e.target.value); }, autoFocus: true, placeholder: "写下你对这句的想法…（TA在 CC 读了会回你）", rows: 3, style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", boxSizing: "border-box" }, "data-wk": "readnotesheettext", "data-part": "写下你对这句的想法…（T" }),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
-          h("button", { onClick: props.onClose, style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 0" }, "data-wk": "readnotesheetbtn", "data-part": "close" }, "取消"),
-          h("button", { onClick: function () { props.onSave(v); }, style: { flex: 2, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 8, padding: "9px 0" }, "data-wk": "readnotesheetbtn", "data-part": "2" }, "记下"))));
+          h("button", { onClick: props.onClose, style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 0" }, "data-wk": "readnotesheetbtn", "data-part": "close" }, "取消"),
+          h("button", { onClick: function () { props.onSave(v); }, style: { flex: 2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: "#c96a94", borderRadius: 8, padding: "9px 0" }, "data-wk": "readnotesheetbtn", "data-part": "2" }, "记下"))));
   }
 
   // ---- 步进器 ----
   function Stepper(props) {
     const t = props.t || useTheme();
-    const btn = function (label, fn, dis) { return h("button", { onClick: fn, disabled: dis, style: { width: 22, height: 22, borderRadius: 6, border: "1px solid " + t.line, color: dis ? t.line : t.sub, fontFamily: F_BODY, fontSize: 14, lineHeight: "20px", background: t.bg2 }, "data-wk": "readstepperbtn" }, label); };
+    const btn = function (label, fn, dis) { return h("button", { onClick: fn, disabled: dis, style: { width: 22, height: 22, borderRadius: 6, border: "1px solid " + t.line, color: dis ? t.line : t.sub, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: "20px", background: t.bg2 }, "data-wk": "readstepperbtn" }, label); };
     return h("div", { style: { display: "flex", alignItems: "center", gap: 5 }, "data-wk": "readstepperbtn", "data-part": "r2" },
       btn("−", function () { props.onChange(Math.max(props.min, props.value - 1)); }, props.value <= props.min),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, minWidth: 12, textAlign: "center" } }, props.value),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, minWidth: 12, textAlign: "center" } }, props.value),
       btn("+", function () { props.onChange(Math.min(props.max, props.value + 1)); }, props.value >= props.max));
   }
 
@@ -1207,16 +1207,16 @@
     const t = props.t;
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 40, background: "rgba(0,0,0,.35)", display: "flex", flexDirection: "column", justifyContent: "flex-end" }, onClick: props.onClose, "data-wk": "readpartnerpicker" },
       h("div", { onClick: function (e) { e.stopPropagation(); }, style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px 26px", maxHeight: "70%", overflowY: "auto" }, "data-wk": "readpartnerpickertap", "data-part": "1" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 12 } }, "邀谁一起读"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginBottom: 12 } }, "邀谁一起读"),
         (props.characters || []).length === 0
-          ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有角色，先去「人格档案馆」建一个")
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有角色，先去「人格档案馆」建一个")
           : props.characters.map(function (c) {
               return h("button", { key: c.id, onClick: function () { props.onPick(c.id); }, style: { width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "10px 6px", borderBottom: "1px solid " + t.line, textAlign: "left" }, "data-wk": "readpartnerpicker", "data-part": "r2" },
                 h(Avatar, { character: c, size: 34, radius: 10 }),
                 h("div", { style: { flex: 1 } },
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, c.tagline || "")),
-                c.id === props.currentId ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "当前") : null);
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, c.tagline || "")),
+                c.id === props.currentId ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint } }, "当前") : null);
             }),
         // ── 这本算哪间房的（她 2026-09-12：「我就是想在某个房间开一起读的开关」）──
         // ⚠️只有挑定了人才问：房间是挂在【某个人】名下的，没有人就没有房间可选。
@@ -1229,18 +1229,18 @@
             const on = cur === id;
             return h("button", { key: id, onClick: function () { props.onPickRoom && props.onPickRoom(id); },
               style: { width: "100%", textAlign: "left", padding: "9px 10px", marginTop: 6, borderRadius: 10, background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.tint : t.line) }, "data-wk": "readpartnerpicker", "data-part": "r3", "data-on": on ? "1" : "0" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.ink : t.sub } }, name),
-              note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, note) : null);
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.ink : t.sub } }, name),
+              note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, note) : null);
           };
           return h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line }, "data-wk": "readpartnerpicker", "data-part": "r4" },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".1em", color: t.fog, marginBottom: 2 } }, "这本算哪间房的"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".1em", color: t.fog, marginBottom: 2 } }, "这本算哪间房的"),
             row("main", "主聊天", "读过什么TA平时就会提起"),
             rooms.map(function (r) { return row(r.id, r.name || "没名字的房间",
               window.ChatRooms.doorLine ? window.ChatRooms.doorLine(r) : ""); }),
-            rooms.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "这个人名下还没有别的房间"));
+            rooms.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "这个人名下还没有别的房间"));
         })() : null,
         h("button", { onClick: props.onClose, className: "w-full active:opacity-70",
-          style: { marginTop: 18, padding: "11px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14 }, "data-wk": "readpartnerpickerbtn", "data-part": "close" }, "好了")));
+          style: { marginTop: 18, padding: "11px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" }, "data-wk": "readpartnerpickerbtn", "data-part": "close" }, "好了")));
   }
 
   // ---- 半屏讨论抽屉 ----
@@ -1260,29 +1260,29 @@
         typeof pageSkin === "function" ? pageSkin("paper", t, { corner: false, strength: .9 }) : { background: t.bg }) },
         h("div", { style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px", borderBottom: "1px solid " + t.line } },
           props.partner ? h(Avatar, { character: props.partner, size: 22, radius: 7 }) : null,
-          h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "和 " + (props.partner ? props.partner.name : "") + " 讨论"),
+          h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "和 " + (props.partner ? props.partner.name : "") + " 讨论"),
           // ⚠️名字跟着它真做的事改：v67.54 起这一下只把刚才聊的收进【这本书自己的记录】，
           //   一个字都不进记忆库。进记忆库那条路在批注册底下（「把这本记住」），只有那一条。
-          h("button", { onClick: props.onEnd, disabled: props.ending, style: { fontFamily: F_BODY, fontSize: 12, color: t.tint }, "data-wk": "readdiscusssheetbtn", "data-part": "end" }, props.ending ? "收拢中…" : "收进这本书"),
+          h("button", { onClick: props.onEnd, disabled: props.ending, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint }, "data-wk": "readdiscusssheetbtn", "data-part": "end" }, props.ending ? "收拢中…" : "收进这本书"),
           h("button", { onClick: props.onClose, "aria-label": "返回", className: "flex items-center justify-center active:opacity-60", style: { width: 40, height: 40, marginRight: -8, flexShrink: 0 }, "data-wk": "readdiscusssheetbtn", "data-part": "返回" },
             h("svg", { width: 11, height: 20, viewBox: "0 0 11 20", "aria-hidden": "true" },
               h("path", { d: "M9 1.5 2 10l7 8.5", fill: "none", stroke: t.fog, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" })))),
         h("div", { className: "flex-1 overflow-y-auto", style: { padding: "12px 14px" } },
-          props.chat.length === 0 ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 12.5, paddingTop: 20, lineHeight: 1.7 } }, characterText(props.partner, "就读到的这一段，随便聊——\n人物为什么这么做、你俩怎么看、接下来会怎样。\n说过的话留在这本书里，下次接着读他还记得。"))
+          props.chat.length === 0 ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", paddingTop: 20, lineHeight: 1.7 } }, characterText(props.partner, "就读到的这一段，随便聊——\n人物为什么这么做、你俩怎么看、接下来会怎样。\n说过的话留在这本书里，下次接着读他还记得。"))
             : props.chat.map(function (m, i) {
                 const mine = m.role === "user";
                 return h("div", { key: i, style: { display: "flex", alignItems: "flex-end", gap: 3, justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 8 }, "data-wk": "readdiscusssheet", "data-part": "r2" },
-                  h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: 13, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, m.content),
+                  h("div", { "data-wk": "block", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: 13, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, whiteSpace: "pre-wrap", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, m.content),
                   (!mine && tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rdis" + i, text: m.content, spk: props.partner, tp: tp }) : null);
               }),
-          props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "2px 4px" } }, (props.partner ? props.partner.name : "Ta") + " 在想…") : null,
+          props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "2px 4px" } }, (props.partner ? props.partner.name : "Ta") + " 在想…") : null,
           h("div", { ref: endRef })),
         props.replyTo ? h("div", { "data-wk": "readreplyquote", style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "回 " + (props.replyTo.who || "Ta") + " 批的：「" + String(props.replyTo.note || "").replace(/\s+/g, " ") + "」"),
-          h("button", { onClick: props.onClearReply, "aria-label": "不回这句了", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, width: 28, height: 28 } }, "×")) : null,
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "回 " + (props.replyTo.who || "Ta") + " 批的：「" + String(props.replyTo.note || "").replace(/\s+/g, " ") + "」"),
+          h("button", { onClick: props.onClearReply, "aria-label": "不回这句了", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.fog, width: 28, height: 28 } }, "×")) : null,
         h("div", { style: { flexShrink: 0, display: "flex", gap: 8, padding: "10px 14px", borderTop: "1px solid " + t.line } },
-          h("input", { "data-wk": "input", value: props.draft, onChange: function (e) { props.onDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") props.onSend(); }, placeholder: "说说你的看法…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "9px 13px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" }, "data-wk": "readdiscusssheetinput", "data-part": "说说你的看法…" }),
-          h("button", { "data-wk": "block", onClick: props.onSend, disabled: props.busy, style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 999, padding: "0 16px", opacity: props.busy ? .6 : 1 }, "data-wk": "readdiscusssheetbtn", "data-part": "send" }, "发送"))));
+          h("input", { "data-wk": "input", value: props.draft, onChange: function (e) { props.onDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") props.onSend(); }, placeholder: "说说你的看法…", style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" }, "data-wk": "readdiscusssheetinput", "data-part": "说说你的看法…" }),
+          h("button", { "data-wk": "block", onClick: props.onSend, disabled: props.busy, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 999, padding: "0 16px", opacity: props.busy ? .6 : 1 }, "data-wk": "readdiscusssheetbtn", "data-part": "send" }, "发送"))));
   }
 
   window.ReadTogether = ReadTogether;

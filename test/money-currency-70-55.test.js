@@ -151,7 +151,7 @@ test("钱包那几个大数都接上了缩放，而且一律不许换行", () =>
 });
 
 test("收入来源那一行：名目让步，金额一个字都不许折", () => {
-  const seg = screens.slice(screens.indexOf('secTitle("收入来源")'), screens.indexOf('secTitle("收入来源")') + 1400);
+  const seg = screens.slice(screens.indexOf('secTitle("收入来源")'), screens.indexOf('secTitle("收入来源")') + 2400);
   assert.match(seg, /className: "flex items-center min-w-0", style: \{ flex: 1, marginRight: 10 \}/, "名目那半边不会让步");
   assert.match(seg, /textOverflow: "ellipsis", whiteSpace: "nowrap" \} \}, s\.name\)/, "名目该省略号，不该换行");
   assert.match(seg, /color: t\.ink, flexShrink: 0, whiteSpace: "nowrap" \} \}, "\+" \+ fmtMoney\(s\.amount, char\.id\)\)/, "金额那半边会被挤折");

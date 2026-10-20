@@ -97,7 +97,7 @@ test("刻度和事件块对得上：整点块的 top 必须等于那条整点线
     if (abs && typeof st.top === "number") {
       const y = st.top + off;
       if (st.height === 1) tops.line.push(y);
-      else if (st.fontSize === 10 && typeof x.ch[0] === "string") tops.label.push({ top: y, text: x.ch[0] });
+      else if ((st.fontSize === 10 || st.fontSize === "calc(10px * var(--app-fs, 1))") && typeof x.ch[0] === "string") tops.label.push({ top: y, text: x.ch[0] });
     }
     if (x.props && x.props.className && String(x.props.className).indexOf("absolute") >= 0 && typeof st.top === "number") tops.block.push({ top: st.top + off, h: st.height });
     const inner = abs ? off + (Number(st.paddingTop) || 0) : off + (Number(st.paddingTop) || 0) + (Number(st.marginTop) || 0);
@@ -158,7 +158,7 @@ test("时间轴永远是整 24 小时，凌晨拉得上去", () => {
   (function walk(x) { if (!x) return; if (Array.isArray(x)) return x.forEach(walk);
     if (x.type === undefined) return;
     const st = (x.props && x.props.style) || {};
-    if (st.position === "absolute" && st.fontSize === 10 && typeof x.ch[0] === "string" && /^\d{2}:00$/.test(x.ch[0])) labels.push(x.ch[0]);
+    if (st.position === "absolute" && (st.fontSize === 10 || st.fontSize === "calc(10px * var(--app-fs, 1))") && typeof x.ch[0] === "string" && /^\d{2}:00$/.test(x.ch[0])) labels.push(x.ch[0]);
     walk(x.ch); walk(x.props && x.props.children); })(ctx.Calendar(props()));
   assert.ok(labels.includes("00:00"), "凌晨那一格必须在：" + labels.slice(0, 5).join(","));
   assert.ok(labels.includes("24:00"));
@@ -277,7 +277,7 @@ test("月视图铺满剩下的高度，不再被大标题挤扁", () => {
   assert.ok(!/pb-24/.test(seg));
   // 日期和农历都放大了
   assert.match(seg, /width: 36, height: 36/);
-  assert.match(seg, /fontSize: 19, color: isT/);
+  assert.match(seg, /fontSize: "calc\(19px \* var\(--app-fs, 1\)\)", color: isT/);
 });
 
 test("顶栏收成一行，不再有「日历 / CALENDAR」大标题", () => {
@@ -324,7 +324,7 @@ test("备忘录提醒填了时刻就落在时间轴上，点开跳回备忘录�
 test("从日历进的提醒，看完了要送回日历；自己在备忘录点开的照旧留在备忘录", () => {
   assert.match(memo, /const \[fromCal, setFromCal\] = useState\(false\)/);
   assert.match(memo, /setDetail\(\{ kind: "reminder", id: want \}\); setFromCal\(true\)/, "只有跳进来那一次才立旗子");
-  assert.match(memo, /const leaveIfFromCal = \(\) => \{[\s\S]{0,240}?setFromCal\(false\)/);
+  assert.match(memo, /const leaveIfFromCal = \(\) => \{[\s\S]{0,480}?setFromCal\(false\)/);
   // 三个出口都要送回去：关详情、返回键、编辑表单关掉（含保存和删除）
   assert.match(memo, /const closeDetail = \(\) => \{ setDetail\(null\); leaveIfFromCal\(\); \}/);
   assert.match(memo, /const backOut = \(\) => \{ if \(!leaveIfFromCal\(\)\) props\.onBack/);

@@ -29,19 +29,19 @@
     const g = !!props.glass;
     return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: g ? "rgba(120,110,170,.28)" : pageColor("ledger", "bg2", "rgba(20,19,15,0.5)"), backdropFilter: g ? "blur(6px)" : "blur(3px)", padding: 24 }, onClick: props.onCancel, "data-wk": "ldgfielddialogsubmit" },
       h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: g ? "linear-gradient(150deg, rgba(255,255,255,.82), rgba(246,242,255,.72))" : t.bg2, border: g ? "1px solid rgba(255,255,255,.9)" : "none", boxShadow: g ? "0 0 0 1px rgba(160,155,210,.3), inset 1.5px 1.5px 0 #fff, 0 14px 34px rgba(110,100,180,.25)" : "none", backdropFilter: g ? "blur(16px) saturate(1.3)" : "none", borderRadius: 20, padding: "20px 18px 16px", animation: "fadeUp .2s ease both", transform: lift ? "translateY(-" + Math.round(lift / 2) + "px)" : "none", transition: "transform .18s ease" }, "data-wk": "ldgfielddialogtap", "data-part": "1" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 16, textAlign: "center" } }, props.title),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, marginBottom: 16, textAlign: "center" } }, props.title),
         (props.fields || []).map(f => h("div", { key: f.key, style: { marginBottom: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 5 } }, f.label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 5 } }, f.label),
           // 图标：从画好的那一套里挑一个（不再让她填 emoji）
           f.type === "icon" ? h("div", { "data-ledger-iconpick": true, style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 } },
             Object.keys(CATEGORY_ART).map(k => h("button", { key: k, type: "button", onClick: () => set(f.key, k), "aria-label": "图标 " + k, className: "active:opacity-70",
               style: { height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1.5px solid " + (vals[f.key] === k ? "#e48cb2" : "transparent"), background: vals[f.key] === k ? "rgba(248,210,228,.45)" : "transparent" }, "data-wk": "ldgfielddialogbtn", "data-part": "图标 " },
               h(CategoryGlyph, { icon: k, size: 26 })))) :
           h("input", { "data-wk": "input", value: vals[f.key], onChange: e => set(f.key, e.target.value), placeholder: f.placeholder || "", maxLength: f.maxLength || 40, disabled: f.locked,
-            style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: f.locked ? t.fog : t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 10, padding: "10px 12px", outline: "none" }, "data-wk": "ldgfielddialoginput", "data-part": "1" }))),
+            style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: f.locked ? t.fog : t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 10, padding: "10px 12px", outline: "none" }, "data-wk": "ldgfielddialoginput", "data-part": "1" }))),
         h("div", { className: "flex gap-3", style: { marginTop: 6 } },
-          h("button", { onClick: props.onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" }, "data-wk": "ldgfielddialogbtn", "data-part": "cancel" }, "取消"),
-          h("button", { "data-wk": "block", onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: g ? "#713c5b" : "#fff", background: g ? "radial-gradient(70% 55% at 40% 18%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%), linear-gradient(160deg, #fcd6e8, #efa3c7)" : pageColor("ledger", "accent", ACCENT), boxShadow: g ? "0 0 0 1px rgba(214,140,180,.45), inset 0 0 0 1px rgba(255,255,255,.6), 0 4px 10px rgba(220,140,185,.3)" : "none", padding: "12px 0", borderRadius: 12, border: "none" }, "data-wk": "ldgfielddialogbtn", "data-part": "3" }, props.submitLabel || "保存"))));
+          h("button", { onClick: props.onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" }, "data-wk": "ldgfielddialogbtn", "data-part": "cancel" }, "取消"),
+          h("button", { "data-wk": "block", onClick: submit, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: g ? "#713c5b" : "#fff", background: g ? "radial-gradient(70% 55% at 40% 18%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%), linear-gradient(160deg, #fcd6e8, #efa3c7)" : pageColor("ledger", "accent", ACCENT), boxShadow: g ? "0 0 0 1px rgba(214,140,180,.45), inset 0 0 0 1px rgba(255,255,255,.6), 0 4px 10px rgba(220,140,185,.3)" : "none", padding: "12px 0", borderRadius: 12, border: "none" }, "data-wk": "ldgfielddialogbtn", "data-part": "3" }, props.submitLabel || "保存"))));
   }
 
   // ============================================================
@@ -297,7 +297,7 @@
   // 屏幕上的数字：电子等宽字、屏幕墨色
   const lcdNum = (sk, size, color) => ({ fontFamily: sk.digit, fontSize: size, color: color || sk.lcd, fontWeight: 700, fontVariantNumeric: "tabular-nums", letterSpacing: sk.id === "glass" ? ".02em" : 0 });
   // 印在外壳上的小字（丝印）：像机器上印的「BUDGET」那种，但写中文
-  const silk = (sk, text, extra) => h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, letterSpacing: sk.id === "glass" ? ".12em" : 0, color: sk.ink }, extra || {}) }, text);
+  const silk = (sk, text, extra) => h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, letterSpacing: sk.id === "glass" ? ".12em" : 0, color: sk.ink }, extra || {}) }, text);
   // 分类自己挑的图标（新建分类时从画好的那一套里选），账单行、排行、记一笔都从这里拿
   function catIconOf(settings, type, name) {
     const c = ((settings && settings.cats && settings.cats[type]) || []).find(x => x.name === name);
@@ -432,9 +432,9 @@
   //   玻璃皮（她 2026-09-29「日历框也做成第三页这样而不是裸的一行」）：整条垫一块她给的透明滑轨，像一枚小胶囊屏
   const MonthNav = ({ mk, setMk, sk }) => h("div", { "data-ledger-monthnav": true, style: Object.assign({ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, margin: "0 0 10px" },
       sk.id === "glass" ? { width: "fit-content", marginLeft: "auto", marginRight: "auto", padding: "4px 10px", minHeight: 48, background: "url(assets/ledger/rail.webp?v=259) center / 100% 100% no-repeat" } : {}) },
-    h("button", { onClick: () => setMk(m => shiftMonth(m, -1)), "aria-label": "上个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: 18, color: sk.sub }), "data-wk": "ldgmonthnavbtn", "data-part": "上个月" }, "‹"),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 500, color: sk.ink, minWidth: 96, textAlign: "center" } }, fmtMonth(mk)),
-    h("button", { onClick: () => setMk(m => shiftMonth(m, 1)), "aria-label": "下个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: 18, color: sk.sub }), "data-wk": "ldgmonthnavbtn", "data-part": "下个月" }, "›"));
+    h("button", { onClick: () => setMk(m => shiftMonth(m, -1)), "aria-label": "上个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: "calc(18px * var(--app-fs, 1))", color: sk.sub }), "data-wk": "ldgmonthnavbtn", "data-part": "上个月" }, "‹"),
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 500, color: sk.ink, minWidth: 96, textAlign: "center" } }, fmtMonth(mk)),
+    h("button", { onClick: () => setMk(m => shiftMonth(m, 1)), "aria-label": "下个月", className: "active:opacity-50", style: flatKey({ width: 40, height: 40, fontSize: "calc(18px * var(--app-fs, 1))", color: sk.sub }), "data-wk": "ldgmonthnavbtn", "data-part": "下个月" }, "›"));
   // 切换：一条很淡的底槽，选中那一格是一颗粉色糖果小胶囊（有高光、略鼓），其余就是字
   // 切换（她：做成一条透明滑轨）：一根细长的透明亚克力轨道（略凹、透明边），
   //   选中项下面滑着一小块半透明粉色树脂；字就印在轨道上
@@ -447,7 +447,7 @@
           transition: "left .22s cubic-bezier(.3,.7,.3,1)" } }) : null,
       items.map(([k, zh]) => { const on = value === k;
         return h("button", { key: k, onClick: () => onChange(k), "aria-pressed": on, className: "flex-1 active:opacity-80",
-          style: { position: "relative", zIndex: 1, minHeight: 36, borderRadius: 16, fontFamily: F_BODY, fontSize: 13, letterSpacing: glass ? ".06em" : 0, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
+          style: { position: "relative", zIndex: 1, minHeight: 36, borderRadius: 16, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: glass ? ".06em" : 0, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
             background: glass ? "transparent" : (on ? "#fff" : "transparent"), border: "none", boxShadow: glass ? "none" : (on ? "0 1px 3px rgba(0,0,0,.08)" : "none") }, "data-wk": "ldgcandyseg", "data-part": "r2", "data-on": on ? "1" : "0" }, zh); }));
   };
   // 整页壳：外壳铺底，顶栏透明（mobile-ui-layout §3.5）
@@ -623,7 +623,7 @@
     const tabTitle = { wallet: "我的钱包", stats: "统计", cal: "日历", me: "我的" }[tab];
     // 顶栏：多币种时右边一颗切换键（只有一种币就不出现）
     const curSwitch = curs.length > 1 ? h("button", { onClick: () => { const i = curs.findIndex(c => c.code === code); setSetting({ viewCur: curs[(i + 1) % curs.length].code }); }, "aria-label": "换币种", className: "active:opacity-60",
-      style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent }, "data-wk": "ldgpagebtn", "data-part": "换币种" }, cur.label) : null;
+      style: { minWidth: 40, height: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: sk.accent }, "data-wk": "ldgpagebtn", "data-part": "换币种" }, cur.label) : null;
 
     const main = h("div", { "data-wk": "ledgerpage", "data-part": "ledger", className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
       h("div", { className: tab === "wallet" && sk.id === "glass" ? "lg-wallet-head shrink-0" : "shrink-0" }, h(Head, { zh: sk.id === "glass" ? "" : tabTitle, onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true, right: curSwitch }),
@@ -650,7 +650,7 @@
               background: on ? (sk.id === "glass" ? "radial-gradient(80% 60% at 50% 15%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%), linear-gradient(180deg, #ece4ff, #d9ccfb)" : "rgba(60,54,40,.08)") : "transparent",
               boxShadow: on && sk.id === "glass" ? "inset 0 -1px 2px rgba(150,125,225,.35), 0 2px 6px rgba(150,125,225,.22)" : "none" } },
               h(LIcon, { k: ic, size: 20, color: on ? sk.ink : sk.fog, sw: on ? 2.1 : 1.6 })),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.fog } }, zh)); })));
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.fog } }, zh)); })));
 
     const renderOverlay = top => {
       let over = null;
@@ -713,7 +713,7 @@
   const HAND_ZH = "'Kaiti SC','STKaiti','KaiTi','Long Cang',cursive";
   const WIDE = "'Avenir Next','Futura','Century Gothic','Helvetica Neue',Arial,sans-serif";
   // 页边印着的一列小字（像机身上的丝印）
-  const edgeText = (lines, style) => h("div", { className: "lg-edge", "aria-hidden": "true", style: Object.assign({ position: "absolute", fontFamily: WIDE, fontSize: 7.5, letterSpacing: ".22em", lineHeight: 1.9, color: "rgba(92,92,130,.55)", pointerEvents: "none", whiteSpace: "pre" }, style) }, lines.join("\n"));
+  const edgeText = (lines, style) => h("div", { className: "lg-edge", "aria-hidden": "true", style: Object.assign({ position: "absolute", fontFamily: WIDE, fontSize: "calc(7.5px * var(--app-fs, 1))", letterSpacing: ".22em", lineHeight: 1.9, color: "rgba(92,92,130,.55)", pointerEvents: "none", whiteSpace: "pre" }, style) }, lines.join("\n"));
   // 银色链子 + 一只透明树脂兔子挂件
   function KeyChain({ style }) {
     return h("svg", { width: 44, height: 150, viewBox: "0 0 44 150", "aria-hidden": "true", style: Object.assign({ position: "absolute", overflow: "visible", pointerEvents: "none" }, style), "data-wk": "ldgkeychain" },
@@ -758,18 +758,18 @@
         background: "linear-gradient(125deg,#e6e0fb 0%,#f3dff0 28%,#d9e6fb 55%,#ece0fa 80%,#f6e6f3 100%)",
         boxShadow: "inset 0 1px 0 #fff, inset 0 -4px 10px rgba(150,130,220,.2), inset 0 0 0 1px rgba(255,255,255,.55)" } },
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(112deg, transparent 32%, rgba(255,255,255,.65) 43%, rgba(214,236,255,.35) 49%, transparent 58%)" } }),
-      h("div", { style: { position: "absolute", left: 22, top: 20, fontFamily: WIDE, fontSize: 12.5, fontWeight: 700, letterSpacing: ".16em", color: "#4d4f86" } }, "QIUQIU WALLET"),
+      h("div", { style: { position: "absolute", left: 22, top: 20, fontFamily: WIDE, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: ".16em", color: "#4d4f86" } }, "QIUQIU WALLET"),
       h("div", { "data-wk": "block", style: { position: "absolute", left: 22, top: 52, width: 38, height: 29, borderRadius: 6, background: "linear-gradient(135deg,#f7f5fc,#c9c4dc 60%,#eeebf6)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.3)" } },
         h("div", { style: { position: "absolute", left: 12, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", right: 10, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }),
         h("div", { style: { position: "absolute", inset: "8px 0", borderTop: "1px solid rgba(120,110,160,.3)", borderBottom: "1px solid rgba(120,110,160,.3)" } })),
-      h("div", { style: { position: "absolute", left: 22, bottom: 18, fontFamily: WIDE, fontSize: 10.5, letterSpacing: ".1em", lineHeight: 1.3, color: "#5c5e8c" } }, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)"),
+      h("div", { style: { position: "absolute", left: 22, bottom: 18, fontFamily: WIDE, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", lineHeight: 1.3, color: "#5c5e8c" } }, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)"),
       h("svg", { width: 66, height: 66, viewBox: "0 0 70 70", style: { position: "absolute", right: 26, bottom: 30 }, fill: "none", stroke: "rgba(255,255,255,.98)", strokeWidth: 2.2, strokeLinecap: "round", "aria-hidden": "true" },
         h("path", { d: "M25 30c-4-10-4-22 1-24s7 10 6 22M45 30c4-10 4-22-1-24s-7 10-6 22" }),
         h("path", { d: "M14 50c0-12 9-21 21-21s21 9 21 21-9 14-21 14-21-2-21-14z" }),
         h("circle", { cx: 28, cy: 48, r: 1.5, fill: "#fff" }), h("circle", { cx: 42, cy: 48, r: 1.5, fill: "#fff" }), h("path", { d: "M32 53c1.5 1.2 4.5 1.2 6 0" })),
       h(Sparkle, { size: 16, style: { position: "absolute", right: 16, bottom: 88 } }),
       // 卡上的两张贴纸：椭圆的 QIUQIU、底边一条条码
-      h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 9px", borderRadius: 999, transform: "rotate(-14deg)", fontFamily: WIDE, fontSize: 8.5, fontWeight: 700, letterSpacing: ".08em", color: "#55588a",
+      h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 9px", borderRadius: 999, transform: "rotate(-14deg)", fontFamily: WIDE, fontSize: "calc(8.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: ".08em", color: "#55588a",
         background: "linear-gradient(160deg, rgba(255,255,255,.95), rgba(222,226,246,.9))", boxShadow: "0 1px 2px rgba(90,90,140,.25), inset 0 1px 0 #fff" } }, "QIUQIU"),
       h("div", { "data-wk": "block", style: { position: "absolute", left: "50%", bottom: 0, transform: "translateX(-40%)", padding: "4px 8px 2px", borderRadius: "4px 4px 0 0", background: "rgba(255,255,255,.85)", boxShadow: "0 -1px 2px rgba(90,90,140,.15)" } }, miniBarcode(90, 16, "card")));
     const key = (label, tone, glyph, onClick) => { const [a, b] = JELLY[tone];
@@ -782,7 +782,7 @@
           boxShadow: "inset 0 0 0 3px rgba(255,255,255,.6), inset 0 0 0 4px " + b + "33, inset 0 3px 4px #fff, inset 0 -4px 8px " + b + "33, 0 3px 0 " + b + "40, 0 8px 16px rgba(110,112,160,.14)" }, "data-wk": "ldgwallethomeykkey" },
         screws(),
         h(JellyGlyph, { k: glyph, tone, size: 42 }),
-        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 14, fontWeight: 700, letterSpacing: ".06em", color: ink } }, label)); };
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: ".06em", color: ink } }, label)); };
     // ⚠️她 2026-09-29：「我让你完全复制没让你自己画」——实物部件（卡套+链子兔子、便签、三颗键、试管、票根、页脚）
     //   直接用她那张整页样张裁下来的图（assets/ledger/，按 960 宽的原图坐标裁），位置和宽度也按原图比例摆；
     //   只有会变的东西（余额、座右铭、预算数字和进度、最近账单）用字写在上面。
@@ -802,17 +802,17 @@
           display: "flex", flexDirection: "column", justifyContent: "space-between",
           background: "#e9eafa", "--lg-acct-hue": ty.hue + "deg",
           boxShadow: "inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255,255,255,.8)" }, "data-wk": "ldgwallethomeyk" },
-        h("div", null, h("div", { style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: "#2b2c55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+        h("div", null, h("div", { style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 800, color: "#2b2c55", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
           h("span", { style: { width: 12, height: 8, borderRadius: 2, background: ty.tint, flexShrink: 0 } }), a.name),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#77789a", marginTop: 1 } }, ty.zh + " · " + c.label)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#77789a", marginTop: 1 } }, ty.zh + " · " + c.label)),
         cs ? h("div", null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 0 } }, cs.dueDate ? "本期应还" : "欠款"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#5c5e80", marginTop: 0 } }, cs.dueDate ? "本期应还" : "欠款"),
           h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(cs.dueDate ? cs.due : cs.owed)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cs.due && cs.daysLeft >= 0 && cs.daysLeft <= 3 ? sk.over : "#77789a", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: cs.due && cs.daysLeft >= 0 && cs.daysLeft <= 3 ? sk.over : "#77789a", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             (cs.dueDate ? (cs.due ? (cs.daysLeft < 0 ? "已过还款日 " + (-cs.daysLeft) + " 天" : cs.daysLeft === 0 ? "今天要还" : "还有 " + cs.daysLeft + " 天还款") : "本期已还清") : "") +
             (cs.avail != null ? (cs.dueDate ? " · " : "") + "可用 " + money(cs.avail) : "")))
           : h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#5c5e80", marginTop: 0 } }, "余额"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#5c5e80", marginTop: 0 } }, "余额"),
             h("div", { style: Object.assign(numStyle(sk, 19, "#1d1e44"), { fontWeight: 800 }) }, money(acctBalance(a, data.txns))))); };
     const at = (x, w) => ({ marginLeft: (x / 960 * 100) + "%", width: (w / 960 * 100) + "%" });
     const pic = (src, x, w, extra, props2) => h("img", Object.assign({ src: IMG + src + ".webp" + IMG_V, alt: "", draggable: false, style: Object.assign({ display: "block", height: "auto" }, at(x, w), extra || {}) }, props2 || {}));
@@ -823,12 +823,12 @@
     const tubeFill = Math.max(.06, used);
     return h("div", { className: "lg-wallet-main", style: { position: "relative", padding: "0 0 26px", overflowX: "clip" }, "data-wk": "ldgwallethomeyk", "data-part": "r2" },
       // 页面周围的小字和星星（照样张，是字不是图，所以日期会跟着变）
-      edgeText(["GOOD", "THINGS", "TAKE TIME."], { right: 46, top: 2, zIndex: 3, fontSize: 8, color: "rgba(92,92,130,.72)" }),
+      edgeText(["GOOD", "THINGS", "TAKE TIME."], { right: 46, top: 2, zIndex: 3, fontSize: "calc(8px * var(--app-fs, 1))", color: "rgba(92,92,130,.72)" }),
       h(Sparkle, { size: 18, style: { position: "absolute", right: 18, top: 12, zIndex: 3 } }),
-      edgeText(["SINCE", String(now.getFullYear()), "· · ·"], { right: 4, top: 118, zIndex: 3, fontSize: 7.5 }),
-      edgeText(["SPEND", "", "SAVE", "· · ·", "HAPPIER", "·"], { left: 4, top: 150, zIndex: 0, zIndex: 3, fontSize: 7.5 }),
+      edgeText(["SINCE", String(now.getFullYear()), "· · ·"], { right: 4, top: 118, zIndex: 3, fontSize: "calc(7.5px * var(--app-fs, 1))" }),
+      edgeText(["SPEND", "", "SAVE", "· · ·", "HAPPIER", "·"], { left: 4, top: 150, zIndex: 0, zIndex: 3, fontSize: "calc(7.5px * var(--app-fs, 1))" }),
       h(Sparkle, { size: 14, style: { position: "absolute", left: 10, top: 262, zIndex: 3 } }),
-      edgeText([MON, String(now.getFullYear()), "/ " + pad(now.getMonth() + 1)], { right: 4, top: 350, zIndex: 3, fontSize: 9.5, letterSpacing: ".3em", color: "rgba(92,92,130,.65)" }),
+      edgeText([MON, String(now.getFullYear()), "/ " + pad(now.getMonth() + 1)], { right: 4, top: 350, zIndex: 3, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".3em", color: "rgba(92,92,130,.65)" }),
       h(Sparkle, { size: 16, style: { position: "absolute", right: 2, top: 404, zIndex: 3 } }),
       h(Sparkle, { size: 11, style: { position: "absolute", left: 4, top: 470, zIndex: 3 } }),
       // 卡套 + 卡 + 链子兔子（原图）。加了账户就变成卡包：第一张还是这张总卡，往左滑是一张张账户卡，
@@ -846,12 +846,12 @@
         h("img", { src: IMG + "card.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "82%", height: "auto", margin: "0 0 0 9%", transform: "rotate(-3deg)" } })),
       // 余额（字）+ 便签（原图）
       h("div", { className: "lg-balance", style: { position: "relative", margin: "4px 20px 6px", minHeight: 150 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, slideAcct ? slideAcct.name + " · 本月结余" : "本月结余"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#23244a" } }, slideAcct ? slideAcct.name + " · 本月结余" : "本月结余"),
         h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } },
           h("div", { "data-ledger-balance": true, style: Object.assign(numStyle(sk, 36, shownNet < 0 ? sk.over : "#1d1e44"), { fontWeight: 800 }) }, hide ? cur.symbol + " ****" : fmtMoney(shownNet, cur)),
           h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 40 }), "data-wk": "ldgwallethomeykbtn", "data-part": "togglehide" }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 24, color: "#23244a" }))),
         // 座右铭：一行、小一点，装在一条淡淡的透明框里（她 2026-09-29：喜欢之前那种有点透明框的）
-        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto-y2k", style: { marginTop: 10, minHeight: 36, padding: "6px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13, color: "#44465f",
+        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto-y2k", style: { marginTop: 10, minHeight: 36, padding: "6px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#44465f",
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", background: "rgba(255,255,255,.42)", borderBottom: "1px dashed rgba(255,255,255,.95)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.7)" }, "data-wk": "ldgwallethomeykbtn", "data-part": "motto" },
           "「" + motto + "」"),
         h("img", { src: IMG + "note.webp" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", right: -18, top: -6, width: "40%", height: "auto", transform: "rotate(-6deg)" } })),
@@ -863,15 +863,15 @@
       // 预算：字 + 原图试管，里面的液体按真实进度画
       h("button", { onClick: props.onEditBudget, className: "w-full text-left active:opacity-90", "data-ledger-wallet-budget": true, style: { display: "block", padding: "4px 0 10px" }, "data-wk": "ldgwallethomeykbtn", "data-part": "editbudget" },
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "0 20px 2px 24px" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "本月预算"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#23244a" } }, "本月预算"),
           bs ? h("span", { style: { display: "flex", alignItems: "baseline", gap: 14 } },
-            h("span", { className: "lg-hand", style: { fontSize: 16, color: "#6d6c8c", transform: "rotate(-8deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
-            h("span", { style: numStyle(sk, 15, bs.left < 0 ? sk.over : "#23244a") }, Math.round(bs.used * 100) + "%")) : h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.fog } }, "＋ 设个每月预算")),
+            h("span", { className: "lg-hand", style: { fontSize: "calc(16px * var(--app-fs, 1))", color: "#6d6c8c", transform: "rotate(-8deg)", display: "inline-block" } }, bs.left < 0 ? "Oops :(" : "Keep going :)"),
+            h("span", { style: numStyle(sk, 15, bs.left < 0 ? sk.over : "#23244a") }, Math.round(bs.used * 100) + "%")) : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.fog } }, "＋ 设个每月预算")),
         h("div", { "data-ledger-rail": true, style: { position: "relative", width: "92%", margin: "0 4%" } },
           h("img", { src: IMG + "tube.webp" + IMG_V, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
           h("div", { "aria-hidden": "true", style: { position: "absolute", left: "4.2%", top: "33%", height: "34%", width: (tubeFill * 91.6) + "%", borderRadius: 999,
             background: bs && bs.left < 0 ? "linear-gradient(180deg,#f7c7d9,#e58db1)" : "linear-gradient(180deg,#d9d2fb,#a79cef 55%,#9387e3)", boxShadow: "inset 0 1.5px 0 rgba(255,255,255,.85), inset 0 -1px 2px rgba(80,70,170,.3)" } })),
-        bs ? h("div", { style: { display: "flex", justifyContent: "space-between", margin: "4px 20px 0 24px", fontFamily: F_BODY, fontSize: 14, color: "#4a4b6a" } },
+        bs ? h("div", { style: { display: "flex", justifyContent: "space-between", margin: "4px 20px 0 24px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#4a4b6a" } },
           h("span", { style: numStyle(sk, 14, "#4a4b6a") }, fmtMoney(s.exp, cur) + " / " + fmtMoney(bs.budget, cur)),
           h("span", null, bs.left < 0 ? "超了  " : "还能花  ", h("span", { style: numStyle(sk, 14, bs.left < 0 ? sk.over : "#23244a") }, fmtMoney(Math.abs(bs.left), cur)))) : null),
       // 最近：左边原图票根 + 右边字
@@ -879,10 +879,10 @@
         h("img", { src: IMG + "stub.webp" + IMG_V, alt: "", draggable: false, "aria-hidden": "true", style: { position: "absolute", left: "-9%", top: -10, width: "26%", height: "auto", zIndex: 2, pointerEvents: "none", transform: "rotate(-2deg)" } }),
         h("div", { style: { flex: 1, minWidth: 0, margin: "0 16px 0 20%", position: "relative", zIndex: 1 } },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6, borderBottom: "1px solid " + LINE } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#23244a" } }, "最近"),
-            h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 14, color: "#6b62b8" }, "data-wk": "ldgwallethomeykbtn", "data-part": "bills" }, "全部账单 ›")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#23244a" } }, "最近"),
+            h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#6b62b8" }, "data-wk": "ldgwallethomeykbtn", "data-part": "bills" }, "全部账单 ›")),
           recent.length ? recent.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) }))
-            : h("div", { style: { padding: "22px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: sk.fog } }, "还没有记账，点上面「记一笔」"))),
+            : h("div", { style: { padding: "22px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog } }, "还没有记账，点上面「记一笔」"))),
       // 页脚（原图）
       h("div", { style: { marginTop: 18 } }, pic("foot", 60, 850, softStyle)));
   }
@@ -902,11 +902,11 @@
         border: glass ? "1px solid rgba(255,255,255,.95)" : "none",
         boxShadow: glass ? "0 16px 30px rgba(130,110,200,.24), inset 0 1px 0 #fff, inset 0 -6px 14px rgba(150,130,220,.25), inset 0 0 0 1px rgba(255,255,255,.6)" : "0 6px 16px rgba(0,0,0,.15)" } },
       glass ? h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(115deg, transparent 30%, rgba(255,255,255,.6) 42%, transparent 54%)" } }) : null,
-      h("div", { style: { position: "absolute", left: 20, top: 18, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, letterSpacing: ".16em", color: glass ? "#6a5fa6" : "#fff" } }, glass ? "QIUQIU WALLET" : cur.label + " · " + cur.code),
+      h("div", { style: { position: "absolute", left: 20, top: 18, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 800, letterSpacing: ".16em", color: glass ? "#6a5fa6" : "#fff" } }, glass ? "QIUQIU WALLET" : cur.label + " · " + cur.code),
       h("div", { "data-wk": "block", style: { position: "absolute", left: 20, top: 50, width: 36, height: 27, borderRadius: 6, background: glass ? "linear-gradient(135deg,#f6f3fc,#c7c1dc 60%,#eeeaf7)" : "linear-gradient(135deg,#e8cf94,#b89150)", boxShadow: "inset 0 0 0 1px rgba(120,110,160,.28)" } },
         h("div", { style: { position: "absolute", left: 11, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, top: 13, height: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", right: 9, top: 0, bottom: 0, width: 1, background: "rgba(120,110,160,.3)" } }), h("div", { style: { position: "absolute", inset: "7px 0", borderTop: "1px solid rgba(120,110,160,.3)", borderBottom: "1px solid rgba(120,110,160,.3)" } })),
-      h("div", { style: { position: "absolute", left: 20, bottom: 15, fontFamily: "Arial,sans-serif", fontSize: 10.5, letterSpacing: ".09em", lineHeight: 1.2, color: glass ? "rgba(90,80,140,.72)" : "rgba(255,255,255,.8)" } }, glass ? h(Fragment, null, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)") : "这个月记了 " + s.count + " 笔"),
+      h("div", { style: { position: "absolute", left: 20, bottom: 15, fontFamily: "Arial,sans-serif", fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".09em", lineHeight: 1.2, color: glass ? "rgba(90,80,140,.72)" : "rgba(255,255,255,.8)" } }, glass ? h(Fragment, null, "GOOD THINGS", h("br"), "COST MONEY", h("br"), "BUT ALSO", h("br"), "MAKE ME HAPPY :)") : "这个月记了 " + s.count + " 笔"),
       glass ? h("svg", { width: 70, height: 70, viewBox: "0 0 70 70", style: { position: "absolute", right: 18, bottom: 12, opacity: .9 }, fill: "none", stroke: "rgba(255,255,255,.95)", strokeWidth: 2.2, strokeLinecap: "round", "aria-hidden": "true" },
         h("path", { d: "M25 30c-4-10-4-22 1-24s7 10 6 22M45 30c4-10 4-22-1-24s-7 10-6 22" }),
         h("path", { d: "M14 50c0-12 9-21 21-21s21 9 21 21-9 14-21 14-21-2-21-14z" }),
@@ -922,7 +922,7 @@
         style: glass ? Object.assign(glassTinted(a, b), { position: "relative", aspectRatio: "1 / 1", maxHeight: 112, gap: 4, borderRadius: 18, marginBottom: 4, transition: "transform .08s" })
           : jellyKey(sk, tone, false, { minHeight: 88, gap: 4, borderRadius: 14 }), "data-wk": "ldgwallethomebigkey" },
         h(JellyGlyph, { k: glyph, tone, size: glass ? 44 : 26 }),
-        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: 13, fontWeight: 500, color: glass ? ink : sk.ink } }, label)); };
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 500, color: glass ? ink : sk.ink } }, label)); };
     const mrec = (data.monthly || {})[lmk];
     const ls = summarize(data.txns, code, lmk);
     const cellsN = 20, used = bs ? Math.min(1, bs.used) : 0;
@@ -933,14 +933,14 @@
       // 余额（参考图）：一块亚克力里「当前余额」+ 大数字 + 眼睛，右上角一颗星，下面一行「」小字
       h("div", { className: "lg-balance", style: Object.assign({ position: "relative", padding: "14px 16px 12px", marginBottom: 14 }, sk.shell) },
         glass ? h(Sparkle, { size: 20, style: { position: "absolute", right: 14, top: 10 } }) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub } }, "本月结余"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: sk.sub } }, "本月结余"),
         h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4 } },
           h("div", { "data-ledger-balance": true, style: numStyle(sk, 30, s.net < 0 ? sk.over : sk.ink) }, hide ? cur.symbol + " ****" : fmtMoney(s.net, cur)),
           h("button", { onClick: props.onToggleHide, "aria-label": hide ? "显示金额" : "藏起金额", className: "active:opacity-60 flex items-center justify-center", style: flatKey({ width: 40, height: 36 }), "data-wk": "ldgwallethomebtn", "data-part": "togglehide" }, h(LIcon, { k: hide ? "eyeOff" : "eye", size: 20, color: sk.ink }))),
-        h("div", { className: "lg-balance-summary", style: { display: "flex", gap: 14, marginTop: 2, fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } },
+        h("div", { className: "lg-balance-summary", style: { display: "flex", gap: 14, marginTop: 2, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.fog } },
           h("span", null, "收入 ", h("span", { style: numStyle(sk, 11.5, sk.inc) }, hide ? "****" : fmtMoney(s.inc, cur))),
           h("span", null, "支出 ", h("span", { style: numStyle(sk, 11.5, sk.sub) }, hide ? "****" : fmtMoney(s.exp, cur)))),
-        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto", style: { marginTop: 8, minHeight: 32, padding: "4px 10px", borderRadius: 10, background: glass ? "rgba(255,255,255,.4)" : "transparent", fontFamily: F_BODY, fontSize: 12.5, color: sk.sub }, "data-wk": "ldgwallethomebtn", "data-part": "motto" }, "「" + motto + "」", glass ? h(Heart, { size: 12, style: { marginLeft: 4, verticalAlign: "-1px" } }) : null)),
+        h("button", { onClick: props.onMotto, className: "w-full text-left active:opacity-60 lg-motto", style: { marginTop: 8, minHeight: 32, padding: "4px 10px", borderRadius: 10, background: glass ? "rgba(255,255,255,.4)" : "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.sub }, "data-wk": "ldgwallethomebtn", "data-part": "motto" }, "「" + motto + "」", glass ? h(Heart, { size: 12, style: { marginLeft: 4, verticalAlign: "-1px" } }) : null)),
       h("div", { className: "lg-bigkeys", style: { display: "flex", gap: 10, marginBottom: 16 } },
         bigKey("记一笔", "pink", "plus", () => props.onAdd("expense")),
         bigKey("收入", "blue", "bag", () => props.onAdd("income")),
@@ -952,23 +952,23 @@
             silk(sk, "本月预算"),
             h("span", { style: numStyle(sk, 12, bs.left < 0 ? sk.over : sk.sub) }, Math.round(bs.used * 100) + "%")),
           h(Bar, { pct: used, over: bs.left < 0, sk, rail: true }),
-          h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } },
+          h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.fog } },
             h("span", { style: numStyle(sk, 11.5, sk.fog) }, fmtMoney(s.exp, cur) + " / " + fmtMoney(bs.budget, cur)),
             h("span", { style: { color: bs.left < 0 ? sk.over : sk.sub, fontWeight: 600 } }, bs.left < 0 ? "超了 " + fmtMoney(-bs.left, cur) : "还能花 " + fmtMoney(bs.left, cur))))
-          : h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog } }, "＋ 设个每月预算")),
+          : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog } }, "＋ 设个每月预算")),
       h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 2px 8px" } },
         silk(sk, "最近"),
-        h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.accent }, "data-wk": "ldgwallethomebtn", "data-part": "bills" }, "全部账单 ›")),
+        h("button", { onClick: props.onBills, className: "active:opacity-60", style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: sk.accent }, "data-wk": "ldgwallethomebtn", "data-part": "bills" }, "全部账单 ›")),
       recent.length ? h(StripSlot, { sk }, recent.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) })))
-        : h("div", { style: Object.assign({ padding: "22px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, marginBottom: 20 }, sk.shell) }, "还没有记账，点上面「记一笔」"),
+        : h("div", { style: Object.assign({ padding: "22px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog, marginBottom: 20 }, sk.shell) }, "还没有记账，点上面「记一笔」"),
       // 上月结算：这台机器吐出来的一张小票，角色的月度盘点写在虚线框里
       (ls.exp || ls.inc) ? h(Receipt, { sk, title: parseInt(lmk.split("-")[1], 10) + "月结算", sub: fmtMonth(lmk), no: lmk.replace("-", "") },
         [["本月支出", fmtMoney(ls.exp, cur), null], ["本月收入", fmtMoney(ls.inc, cur), "#2f9c7f"], ["结余", fmtMoney(ls.net, cur), null, true]].map(([k, v, c, big], i) =>
           h("div", { key: i, style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: big ? "10px 0 0" : "4px 0", borderTop: big ? "1px dashed rgba(60,60,80,.3)" : "none", marginTop: big ? 6 : 0 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#5c5a66" } }, k),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#5c5a66" } }, k),
             h("span", { style: { fontFamily: DIGIT, fontWeight: 700, fontSize: big ? 18 : 13.5, color: c || "#2d2c36" } }, v))),
         (mrec && (mrec.comments || []).length) ? h("div", { style: { marginTop: 12, border: "1.5px dashed rgba(60,60,80,.3)", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 } },
-          mrec.comments.map((cm, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: "#3f3d49" } }, h("b", null, cm.charName + "："), cm.text)))
+          mrec.comments.map((cm, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#3f3d49" } }, h("b", null, cm.charName + "："), cm.text)))
           : null) : null);
   }
   // 插信息条的那一格：外壳上开的一道凹槽，一条条小票条插在里面
@@ -999,8 +999,8 @@
     if (sk.id !== "glass") return null;
     return h("div", { "data-ledger-wordmark": word, style: { position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "space-between", margin: "0 2px 12px" }, "data-wk": "ldgwordmark" },
       h("div", null,
-        h("div", { className: "lg-word", style: { fontSize: 17, color: sk.ink } }, word),
-        hand ? h("div", { className: "lg-hand", style: { fontSize: 15, color: "#b27aa6", marginTop: -1, transform: "rotate(-3deg)", transformOrigin: "left" } }, hand) : null),
+        h("div", { className: "lg-word", style: { fontSize: "calc(17px * var(--app-fs, 1))", color: sk.ink } }, word),
+        hand ? h("div", { className: "lg-hand", style: { fontSize: "calc(15px * var(--app-fs, 1))", color: "#b27aa6", marginTop: -1, transform: "rotate(-3deg)", transformOrigin: "left" } }, hand) : null),
       star !== false ? h(Sparkle, { size: 22, style: { marginBottom: 6 } }) : null);
   }
   function StripSlot({ sk, children }) {
@@ -1015,14 +1015,14 @@
       sk.id === "glass" ? h(Clip, { style: { right: 18, top: -16, zIndex: 3, transform: "rotate(18deg)" } }) : null,
       sk.id === "glass" ? null : teeth(true),
       h("div", { style: { background: PAPER, backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,.018) 0 1px, transparent 1px 3px)", padding: "14px 18px 14px" } },
-        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 16, fontWeight: 800, letterSpacing: ".1em", color: "#2d2c36" } }, title),
-        sub ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: "#8f8c98", marginTop: 3, letterSpacing: ".12em" } }, sub) : null,
-        no ? h("div", { style: { textAlign: "center", fontFamily: DIGIT, fontSize: 10, color: "#a09daa", marginTop: 3, letterSpacing: ".1em" } }, "No." + String(no).toUpperCase().slice(-8)) : null,
+        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 800, letterSpacing: ".1em", color: "#2d2c36" } }, title),
+        sub ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8f8c98", marginTop: 3, letterSpacing: ".12em" } }, sub) : null,
+        no ? h("div", { style: { textAlign: "center", fontFamily: DIGIT, fontSize: "calc(10px * var(--app-fs, 1))", color: "#a09daa", marginTop: 3, letterSpacing: ".1em" } }, "No." + String(no).toUpperCase().slice(-8)) : null,
         h("div", { style: { borderTop: "1px dashed rgba(60,60,80,.3)", margin: "12px 0 8px" } }),
         children,
         // 手写的一句 + 一颗心 + 小兔子贴纸（参考图小票上那种）
         sk.id === "glass" ? h("div", { style: { position: "relative", margin: "12px 0 2px", minHeight: 40 } },
-          h("div", { className: "lg-hand", style: { fontSize: 18, color: "#6d5a8e", lineHeight: 1.1, transform: "rotate(-4deg)", transformOrigin: "left" } }, "Manage money,", h("br"), h("span", { style: { whiteSpace: "nowrap" } }, "manage a happier me ", h(Heart, { size: 13, style: { verticalAlign: "-1px" } }))),
+          h("div", { className: "lg-hand", style: { fontSize: "calc(18px * var(--app-fs, 1))", color: "#6d5a8e", lineHeight: 1.1, transform: "rotate(-4deg)", transformOrigin: "left" } }, "Manage money,", h("br"), h("span", { style: { whiteSpace: "nowrap" } }, "manage a happier me ", h(Heart, { size: 13, style: { verticalAlign: "-1px" } }))),
           h(Bunny, { size: 30, style: { position: "absolute", right: 0, bottom: -4, transform: "rotate(8deg)" } })) : null,
         foot || null),
       sk.id === "glass" ? h("div", { style: { height: 8, background: "linear-gradient(135deg, " + PAPER + " 25%, transparent 25%) -7px 0 / 14px 14px, linear-gradient(225deg, " + PAPER + " 25%, transparent 25%) -7px 0 / 14px 14px" } }) : teeth(false));
@@ -1048,7 +1048,7 @@
         h("circle", { cx: 70, cy: 70, r: R, fill: "none", stroke: sk.line, strokeWidth: 18 }),
         parts.map((p, i) => { const len = total ? p.v / total * C : 0; const el = h("circle", { key: i, cx: 70, cy: 70, r: R, fill: "none", stroke: p.c, strokeWidth: 18, strokeDasharray: Math.max(0, len - 1.5) + " " + C, strokeDashoffset: -acc, transform: "rotate(-90 70 70)" }); acc += len; return el; })),
       h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
-        h("div", { style: numStyle(sk, 16) }, fmtMoney(total, cur)), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginTop: 2 } }, label)));
+        h("div", { style: numStyle(sk, 16) }, fmtMoney(total, cur)), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sk.sub, marginTop: 2 } }, label)));
     return h("div", { "data-ledger-cd": true, style: { position: "relative", width: 150, height: 150, flexShrink: 0 }, "data-wk": "ldgdonut", "data-part": "r2" },
       // 盘面：虹彩透明（锥形渐变），带一点厚度
       h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, borderRadius: "50%",
@@ -1068,7 +1068,7 @@
         h("circle", { cx: 75, cy: 75, r: 40, fill: "rgba(255,255,255,.55)", stroke: "rgba(255,255,255,.9)", strokeWidth: 1 })),
       h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
         h("div", { style: numStyle(sk, total >= 10000 ? 14 : 16) }, fmtMoney(total, cur)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".1em", color: sk.sub, marginTop: 2 } }, label)));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".1em", color: sk.sub, marginTop: 2 } }, label)));
   }
   function CurView(props) {
     const { sk, code, cur, txns, settings } = props;
@@ -1111,17 +1111,17 @@
         h("div", { style: Object.assign({ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }, sk.acrylic) },
           h(Donut, { parts, total, label: kind === "income" ? "本月收入" : "本月支出", cur, sk }),
           h("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 } },
-            list.length ? list.slice(0, 6).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 7, fontFamily: F_BODY, fontSize: 12, color: sk.ink } },
+            list.length ? list.slice(0, 6).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 7, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.ink } },
               h("span", { style: { width: 8, height: 8, borderRadius: 2, background: catTint(settings, kind, c.name), flexShrink: 0, boxShadow: "0 0 4px " + catTint(settings, kind, c.name) } }),
               h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
               h("span", { style: numStyle(sk, 11.5) }, Math.round(c.amount / (total || 1) * 100) + "%")))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub } }, kind === "income" ? "这个月还没有收入" : "这个月还没有支出"))),
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub } }, kind === "income" ? "这个月还没有收入" : "这个月还没有支出"))),
         h("div", { style: { marginTop: 12 } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk }))), null, "lg-pnl-hero"),
       // 多币种折合（她 2026-09-29）：设了主币和汇率才出现，只是换算着看，不改任何一笔
       (function () {
         if ((settings.currencies || []).length < 2 || !settings.baseCur) return null;
         const ct = convertTotal(txns, settings, mk, kind), bc = (settings.currencies || []).find(c => c.code === ct.base) || { symbol: "", label: ct.base };
-        return h("div", { "data-ledger-converted": true, style: { margin: "-6px 4px 14px", fontFamily: F_BODY, fontSize: 12, color: sk.sub, textAlign: "center" }, "data-wk": "ldgcurview", "data-part": "r2" },
+        return h("div", { "data-ledger-converted": true, style: { margin: "-6px 4px 14px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, textAlign: "center" }, "data-wk": "ldgcurview", "data-part": "r2" },
           "所有币种折合成" + bc.label + "，这个月" + (kind === "income" ? "收入" : "花了") + " ", h("span", { style: numStyle(sk, 13, sk.ink) }, fmtMoney(ct.sum, bc)),
           ct.missing.length ? h("span", { style: { color: sk.fog } }, "（" + ct.missing.join("、") + " 还没填汇率，没算进去）") : null);
       })(),
@@ -1132,9 +1132,9 @@
         const td = todayKey(), todayExp = mk === td.slice(0, 7) ? monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + netAmt(x), 0) : null;
         // 三块并排的小读数屏
         const row = (label, val, note, key, first) => h("div", { key, style: { flex: 1, textAlign: "center", padding: "2px 4px", borderLeft: first ? "none" : "1px solid " + LINE } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.sub, marginBottom: 3 } }, label),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sk.sub, marginBottom: 3 } }, label),
           h("div", { style: numStyle(sk, 14.5) }, fmtMoney(val, cur)),
-          note ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.sub, marginTop: 2 } }, note) : null);
+          note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: sk.sub, marginTop: 2 } }, note) : null);
         return h("div", { "data-ledger-daily": true, className: pnlCls, style: Object.assign({ display: "flex", padding: "12px 6px", marginBottom: 14 }, pnl), "data-wk": "ldgcurview", "data-part": "r3" },
           todayExp != null ? row("今天花了", todayExp, "", "today", true) : null,
           row("日均支出", da.avg, "按 " + da.days + " 天算", "avg", todayExp == null),
@@ -1147,25 +1147,25 @@
           const n = Math.max(0, Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100);
           props.onSetBudget && props.onSetBudget(n);
         }, "好", { placeholder: "比如 2000" });
-        if (!bs) return h("button", { onClick: edit, className: "active:opacity-60", style: { display: "block", margin: "0 0 14px 4px", minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: sk.fog }, "data-wk": "ldgcurview", "data-part": "r4" }, "＋ 设个每月预算");
+        if (!bs) return h("button", { onClick: edit, className: "active:opacity-60", style: { display: "block", margin: "0 0 14px 4px", minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog }, "data-wk": "ldgcurview", "data-part": "r4" }, "＋ 设个每月预算");
         const over = bs.left < 0, pct = Math.min(1, bs.used);
         return h("div", { "data-ledger-budget": true, className: pnlCls, style: Object.assign({ padding: "12px 14px 14px", marginBottom: 16 }, pnl), "data-wk": "ldgcurview", "data-part": "r5" },
           h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
             silk(sk, "本月预算"),
-            h("button", { onClick: edit, "aria-label": "改预算", className: "active:opacity-60 flex items-center gap-1", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12, color: sk.sub }, "data-wk": "ldgcurviewbtn", "data-part": "改预算" }, fmtMoney(bs.budget, cur), h(IPencil, { size: 13, color: sk.fog }))),
+            h("button", { onClick: edit, "aria-label": "改预算", className: "active:opacity-60 flex items-center gap-1", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub }, "data-wk": "ldgcurviewbtn", "data-part": "改预算" }, fmtMoney(bs.budget, cur), h(IPencil, { size: 13, color: sk.fog }))),
           h("div", { style: { marginBottom: 10 } },
             h(Bar, { pct, over, sk, rail: true }),
-            h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 7, fontFamily: F_BODY, fontSize: 11.5, color: sk.sub } },
+            h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 7, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.sub } },
               h("span", null, "已用 ", h("span", { style: numStyle(sk, 11.5) }, Math.round(bs.used * 100) + "%")),
               h("span", { style: { color: over ? sk.over : sk.sub } }, over ? "超了 " : "还剩 ", h("span", { style: numStyle(sk, 11.5, over ? sk.over : sk.ink) }, fmtMoney(over ? -bs.left : bs.left, cur))))),
-          bs.perDay != null ? h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11.5, color: sk.sub } },
+          bs.perDay != null ? h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.sub } },
             h("span", null, over ? "这个月已经超支了" : "剩下每天可花（含今天，还有 " + bs.daysLeft + " 天）"),
             over ? null : h("span", { style: numStyle(sk, 14) }, fmtMoney(bs.perDay, cur))) : null,
           // 今天实际花的对上「今天能花的」：超了照实标出来
           bs.perDay != null && !over ? (function () {
             const td = todayKey(), spent = monthTxns.filter(x => x.date === td && isExpense(x)).reduce((a, x) => a + netAmt(x), 0);
             const allow = (bs.left + spent) / bs.daysLeft;   // 今天开张前剩的钱摊到含今天的这几天，就是今天原本能花的
-            return h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: F_BODY, fontSize: 11.5, color: sk.sub }, "data-wk": "ldgcurview", "data-part": "r6" },
+            return h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.sub }, "data-wk": "ldgcurview", "data-part": "r6" },
               h("span", null, "今天已花"),
               h("span", { style: { color: spent > allow ? sk.over : sk.sub, fontWeight: 600 } }, fmtMoney(spent, cur) + " / " + fmtMoney(allow, cur)));
           })() : null);
@@ -1178,15 +1178,15 @@
             return h("button", { key: c.name, onClick: () => props.onOpenCat && props.onOpenCat(c.name, kind, mk), "data-ledger-rank": c.name, className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", gap: 10, minHeight: 44 }, "data-wk": "ldgcurview", "data-part": "r7" },
               h(CatTile, { tint, emoji: meta.emoji || c.emoji, name: c.name, icon: meta.icon, size: 30, sk }),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12.5, color: sk.ink, marginBottom: 5 } },
+                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.ink, marginBottom: 5 } },
                   h("span", { style: { fontWeight: 600 } }, c.name),
                   h("span", { style: numStyle(sk, 12) }, fmtMoney(c.amount, cur) + " " + Math.round(c.amount / (total || 1) * 100) + "%")),
                 // 设了分类上限：条按「用了上限的几成」画，快到了变粉、超了变红（她 2026-09-29）
                 (() => { const lim = kind === "income" ? 0 : catBudgetOf(settings, code, c.name);
                   return lim ? h(Fragment, null, h(Bar, { pct: Math.min(1, c.amount / lim), over: c.amount > lim, color: c.amount / lim >= .8 ? "#ec8fb3" : tint, height: 6, sk }),
-                      h("div", { "data-ledger-catlimit": c.name, style: { fontFamily: F_BODY, fontSize: 10.5, color: c.amount > lim ? sk.over : sk.fog, marginTop: 3 } }, c.amount > lim ? "超了上限 " + fmtMoney(c.amount - lim, cur) : "上限 " + fmtMoney(lim, cur) + " · 还能花 " + fmtMoney(lim - c.amount, cur)))
+                      h("div", { "data-ledger-catlimit": c.name, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: c.amount > lim ? sk.over : sk.fog, marginTop: 3 } }, c.amount > lim ? "超了上限 " + fmtMoney(c.amount - lim, cur) : "上限 " + fmtMoney(lim, cur) + " · 还能花 " + fmtMoney(lim - c.amount, cur)))
                     : h(Bar, { pct: c.amount / maxCat, color: tint, height: 6, sk }); })()),
-              h("span", { style: { color: sk.fog, fontSize: 15 } }, "›")); }))) : null,
+              h("span", { style: { color: sk.fog, fontSize: "calc(15px * var(--app-fs, 1))" } }, "›")); }))) : null,
       // 近六个月：屏上的像素柱，一格一格往上垒
       bay("近六个月支出",
         h("div", { style: Object.assign({ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 12px 8px" }, sk.acrylic) },
@@ -1204,7 +1204,7 @@
                     filter: now ? "hue-rotate(55deg) saturate(1.1)" : "none" } }) : null)
               : h("div", { style: { width: "100%", maxWidth: 24, height: 84, display: "flex", alignItems: "flex-end", borderRadius: 12, background: sk.line } },
                 h("div", { style: { width: "100%", height: lit ? Math.max(10, lit * 8.4) : 0, borderRadius: 12, background: sk.accent } })),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: now ? sk.ink : sk.sub, fontWeight: now ? 800 : 500 } }, parseInt(x.m.split("-")[1], 10) + "月")); }))));
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: now ? sk.ink : sk.sub, fontWeight: now ? 800 : 500 } }, parseInt(x.m.split("-")[1], 10) + "月")); }))));
   }
 
   // ============================================================
@@ -1230,9 +1230,9 @@
           h("img", { src: "assets/ledger/title-bills.webp?v=290", alt: "BILLS", draggable: false, "data-ledger-title": "bills", style: { display: "block", width: "64%", height: "auto", margin: "-6px 0 8px -2%" } }))
         : h(WordMark, { sk, word: "MY BILLS", hand: "small money, big happiness" }),
         catF ? h("div", { "data-ledger-catfilter": catF, style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
-          h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.ink }, sk.card), "data-wk": "ldgbillsviewbtn", "data-part": "不再只看" },
+          h("button", { onClick: () => setCatF(""), "aria-label": "不再只看" + catF, className: "active:opacity-70 flex items-center", style: Object.assign({ gap: 6, minHeight: 36, padding: "0 12px 0 6px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: sk.ink }, sk.card), "data-wk": "ldgbillsviewbtn", "data-part": "不再只看" },
             h(CategoryGlyph, { name: catF, icon: catIconOf(settings, kind === "income" ? "income" : "expense", catF), size: 22 }), "只看" + catF, h("span", { style: { color: sk.fog, marginLeft: 2 } }, "×"))) : null,
-        q != null ? h("input", { "data-wk": "input", autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: 14, color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic), "data-wk": "ldgbillsviewinput", "data-part": "搜备注、分类或金额" })
+        q != null ? h("input", { "data-wk": "input", autoFocus: true, value: q, onChange: e => setQ(e.target.value), placeholder: "搜备注、分类或金额", style: Object.assign({ width: "100%", minHeight: 42, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: sk.ink, outline: "none", marginBottom: 12 }, sk.acrylic), "data-wk": "ldgbillsviewinput", "data-part": "搜备注、分类或金额" })
           : h(MonthNav, { mk, setMk, sk }),
         h("div", { style: { marginBottom: 10 } }, h(CandySeg, { items: [["all", "全部"], ["expense", "支出"], ["income", "收入"]], value: kind, onChange: setKind, sk })),
         // 本月汇总条（她 2026-09-29）：滑下去也钉在顶上。算的就是眼下列出来的这些——筛了分类、搜了字，数跟着变；转账不算收支
@@ -1240,7 +1240,7 @@
           const exp = monthTxns.filter(isExpense).reduce((a, x) => a + netAmt(x), 0);
           const inc = monthTxns.filter(x => x.type === "income").reduce((a, x) => a + (Number(x.amount) || 0), 0);
           const cell = (label, val, color, first) => h("div", { style: { flex: 1, textAlign: "center", borderLeft: first ? "none" : "1px solid " + LINE } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog } }, label),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sk.fog } }, label),
             h("div", { style: Object.assign(numStyle(sk, 14, color), { marginTop: 1, whiteSpace: "nowrap" }) }, val));
           return h("div", { "data-ledger-billsum": true, style: { position: "sticky", top: 0, zIndex: 5, display: "flex", alignItems: "center", padding: "8px 4px", margin: "0 -6px 12px", borderRadius: 14,
               background: sk.id === "glass" ? "linear-gradient(160deg,rgba(255,255,255,.82),rgba(240,238,252,.72))" : pageColor("ledger", "bg", "#f2ece0"),
@@ -1251,11 +1251,11 @@
         })(),
         monthTxns.length ? h("div", { className: "lg-bills-list", style: { display: "flex", flexDirection: "column", gap: 4 } },
           groupByDay(monthTxns).map(g => h("div", { key: g.date, "data-ledger-day": g.date },
-            h("div", { className: "lg-bills-date", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 6px 6px", fontFamily: F_BODY, fontSize: 11.5, fontWeight: 600, color: sk.sub } },
+            h("div", { className: "lg-bills-date", style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 6px 6px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", fontWeight: 600, color: sk.sub } },
               h("span", null, dayLabel(g.date)),
               h("span", { style: numStyle(sk, 11, sk.fog) }, [g.exp ? "支 " + fmtMoney(g.exp, cur) : "", g.inc ? "收 " + fmtMoney(g.inc, cur) : ""].filter(Boolean).join("  "))),
             h(StripSlot, { sk }, g.rows.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) }))))))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "40px 0" } }, kw ? "没搜到" : "这个月还没有记账")));
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog, textAlign: "center", padding: "40px 0" } }, kw ? "没搜到" : "这个月还没有记账")));
   }
 
 
@@ -1278,23 +1278,23 @@
     return h(Fragment, null, ledgerPage(sk, sk.id === "glass" ? "" : "存钱目标", props.onBack, null,
       h("div", { className: "px-5 pb-8", "data-ledger-goals": true },
         sk.id === "glass" ? h(WordMark, { sk, word: "SAVING", hand: "a brighter me ♡" }) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: sk.fog, lineHeight: 1.6, margin: "0 4px 14px" } }, "存进去、取出来都只记在目标自己身上，不算花钱，也不动账户余额。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.fog, lineHeight: 1.6, margin: "0 4px 14px" } }, "存进去、取出来都只记在目标自己身上，不算花钱，也不动账户余额。"),
         goals.map(g => { const st = goalState(g), on = open === g.id;
           return h("div", { key: g.id, "data-ledger-goal": g.id, style: Object.assign({ padding: "12px 14px", marginBottom: 12, borderRadius: 18 }, sk.id === "glass" ? { background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "0 3px 10px rgba(140,130,200,.12)" } : sk.shell), "data-wk": "ldggoalsview" },
             h("button", { onClick: () => setOpen(on ? null : g.id), className: "w-full text-left active:opacity-80", style: { display: "block", minHeight: 40 }, "data-wk": "ldggoalsviewbtn", "data-part": "1", "data-on": on ? "1" : "0" },
               h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 800, color: sk.ink } }, (st.done ? "♡ " : "") + g.name),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 800, color: sk.ink } }, (st.done ? "♡ " : "") + g.name),
                 h("span", { style: numStyle(sk, 12.5, sk.sub) }, money(st.saved) + " / " + money(st.target))),
               h("div", { style: { margin: "8px 0 6px" } }, h(Bar, { pct: st.pct, sk, rail: true })),
-              h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11, color: sk.fog } },
+              h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: sk.fog } },
                 h("span", null, st.done ? "存满了" : "还差 " + money(st.left)),
                 h("span", null, g.due ? (st.days < 0 ? "已过 " + fmtDay(g.due) : fmtDay(g.due) + (st.perMonth ? " · 每月存 " + money(st.perMonth) : "")) : Math.round(st.pct * 100) + "%"))),
             on ? h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
-              h("button", { onClick: () => ask(g, 1), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#6b3a5a", background: "linear-gradient(160deg,#fcd6e8,#efa3c7)" }, "data-wk": "ldggoalsviewbtn", "data-part": "2" }, "存一笔"),
-              h("button", { onClick: () => ask(g, -1), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: sk.sub, border: "1px solid " + sk.line }, "data-wk": "ldggoalsviewbtn", "data-part": "3" }, "取出来"),
+              h("button", { onClick: () => ask(g, 1), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: "#6b3a5a", background: "linear-gradient(160deg,#fcd6e8,#efa3c7)" }, "data-wk": "ldggoalsviewbtn", "data-part": "2" }, "存一笔"),
+              h("button", { onClick: () => ask(g, -1), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.sub, border: "1px solid " + sk.line }, "data-wk": "ldggoalsviewbtn", "data-part": "3" }, "取出来"),
               h("button", { onClick: () => props.onConfirm("删掉目标「" + g.name + "」？", "只删这个目标和它的存取记录，账本里的账一笔都不动。", () => props.onPersist(d => { d.settings.goals = (d.settings.goals || []).filter(x => x.id !== g.id); })),
                 "aria-label": "删掉这个目标", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 }, "data-wk": "ldggoalsviewbtn", "data-part": "删掉这个目标" }, h(ITrash, { size: 17, color: sk.fog }))) : null); }),
-        h("button", { onClick: () => setAdding(true), className: "w-full active:opacity-70", style: { minHeight: 48, borderRadius: 16, border: "1px dashed " + sk.line, fontFamily: F_BODY, fontSize: 13, color: sk.fog }, "data-wk": "ldggoalsviewbtn", "data-part": "5" }, "＋ 新的存钱目标"))),
+        h("button", { onClick: () => setAdding(true), className: "w-full active:opacity-70", style: { minHeight: 48, borderRadius: 16, border: "1px dashed " + sk.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.fog }, "data-wk": "ldggoalsviewbtn", "data-part": "5" }, "＋ 新的存钱目标"))),
       adding ? h(FieldDialog, { glass: sk.id === "glass", title: "新的存钱目标", submitLabel: "好",
         fields: [{ key: "name", label: "存来做什么", placeholder: "比如 回国机票", required: true }, { key: "target", label: "目标金额（" + cur.label + "）", placeholder: "比如 6000", required: true }, { key: "due", label: "想在哪天前存够（可留空，写成 2027-01-31）", placeholder: "2027-01-31" }],
         onSubmit: v => { const target = Math.round((parseFloat(String(v.target).replace(/[^\d.]/g, "")) || 0) * 100) / 100; if (!(target > 0)) return;
@@ -1313,15 +1313,15 @@
     const ys = yearStats(data.txns, code, year);
     const key = code + "-" + year, saved = (data.yearly || {})[key];
     const money = v => fmtMoney(v, cur);
-    const row = (k, v) => h("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 0", fontFamily: F_BODY, fontSize: 12.5, color: "#5c5a66" } }, h("span", null, k), h("span", { style: { fontWeight: 700, color: "#2d2c36", textAlign: "right" } }, v));
+    const row = (k, v) => h("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#5c5a66" } }, h("span", null, k), h("span", { style: { fontWeight: 700, color: "#2d2c36", textAlign: "right" } }, v));
     const mName = mk => mk ? parseInt(mk.slice(5), 10) + "月" : "—";
     return ledgerPage(sk, sk.id === "glass" ? "" : "年度回顾", props.onBack, null,
       h("div", { className: "px-5 pb-8", "data-ledger-year": year },
         sk.id === "glass" ? h(WordMark, { sk, word: "MY YEAR", hand: "small money, big happiness" }) : null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 10 } },
-          h("button", { onClick: () => setYear(y => y - 1), "aria-label": "上一年", className: "active:opacity-50", style: { width: 40, height: 40, fontSize: 18, color: sk.sub }, "data-wk": "ldgyearviewbtn", "data-part": "上一年" }, "‹"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 600, color: sk.ink, minWidth: 80, textAlign: "center" } }, year + " 年"),
-          h("button", { onClick: () => setYear(y => Math.min(new Date().getFullYear(), y + 1)), "aria-label": "下一年", className: "active:opacity-50", style: { width: 40, height: 40, fontSize: 18, color: sk.sub }, "data-wk": "ldgyearviewbtn", "data-part": "下一年" }, "›")),
+          h("button", { onClick: () => setYear(y => y - 1), "aria-label": "上一年", className: "active:opacity-50", style: { width: 40, height: 40, fontSize: "calc(18px * var(--app-fs, 1))", color: sk.sub }, "data-wk": "ldgyearviewbtn", "data-part": "上一年" }, "‹"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 600, color: sk.ink, minWidth: 80, textAlign: "center" } }, year + " 年"),
+          h("button", { onClick: () => setYear(y => Math.min(new Date().getFullYear(), y + 1)), "aria-label": "下一年", className: "active:opacity-50", style: { width: 40, height: 40, fontSize: "calc(18px * var(--app-fs, 1))", color: sk.sub }, "data-wk": "ldgyearviewbtn", "data-part": "下一年" }, "›")),
         ys.count ? h(Receipt, { sk, title: year + " 年度小票", sub: cur.label + " · " + ys.count + " 笔", no: key,
           foot: h(Barcode, { seed: key }) },
           row("一整年花了", money(ys.exp)),
@@ -1333,18 +1333,18 @@
           ys.biggest ? row("最贵的一笔", (ys.biggest.note || ys.biggest.category) + " " + money(netAmt(ys.biggest))) : null,
           ys.priciest ? row("最能花的月", mName(ys.priciest) + " " + money(ys.priciestAmt)) : null,
           ys.cheapest && ys.cheapest !== ys.priciest ? row("最省的月", mName(ys.cheapest) + " " + money(ys.cheapestAmt)) : null,
-          ys.catList.length > 1 ? h("div", { style: { marginTop: 8 } }, ys.catList.slice(0, 5).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 8, margin: "5px 0", fontFamily: F_BODY, fontSize: 11.5, color: "#5c5a66" } },
+          ys.catList.length > 1 ? h("div", { style: { marginTop: 8 } }, ys.catList.slice(0, 5).map(c => h("div", { key: c.name, style: { display: "flex", alignItems: "center", gap: 8, margin: "5px 0", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#5c5a66" } },
             h("span", { style: { width: 58, flexShrink: 0 } }, c.name), h("div", { style: { flex: 1 } }, h(Bar, { pct: c.amount / ys.catList[0].amount, height: 5, sk })), h("span", { style: { width: 64, textAlign: "right" } }, money(c.amount))))) : null)
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "40px 0" } }, "这一年还没有" + cur.label + "的账"),
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog, textAlign: "center", padding: "40px 0" } }, "这一年还没有" + cur.label + "的账"),
         ys.count && props.canComment ? h("div", { style: { marginTop: 4 } },
           silk(sk, "TA 们看了你这一年", { marginBottom: 10 }),
           (saved && saved.comments || []).map((cm, i) => { const ch = (props.characters || []).find(c => c.id === cm.charId);
             return h("div", { key: i, style: { display: "flex", gap: 10, marginBottom: 12 }, "data-wk": "ldgyearview" },
               ch ? h(Avatar, { character: ch, size: 34, radius: 10 }) : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: sk.line, flexShrink: 0 } }),
-              h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginBottom: 3 } }, cm.charName),
-                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text))); }),
+              h("div", { style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, marginBottom: 3 } }, cm.charName),
+                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text))); }),
           h("button", { disabled: busy, onClick: async () => { setBusy(true); try { await props.onGenerate(year, ys); } finally { setBusy(false); } }, "data-ledger-yeargen": true, className: "w-full active:opacity-80",
-            style: { minHeight: 44, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" }, "data-wk": "ldgyearviewbtn", "data-part": "3" },
+            style: { minHeight: 44, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" }, "data-wk": "ldgyearviewbtn", "data-part": "3" },
             busy ? "TA 们在看…" : saved ? "再让 TA 们说说" : "让能看账本的 TA 们说说")) : null));
   }
 
@@ -1381,10 +1381,10 @@
         // 她给的空吊牌挂在日历框右边，月份缩写是代码印的——到十月就自己变 OCT.
         glass ? h("div", { "data-ledger-tag": true, "aria-hidden": "true", style: { position: "absolute", right: -40, top: 28, width: 38, zIndex: 2, pointerEvents: "none", transform: "rotate(-3deg)" } },
           h("img", { src: LA + "tag.webp" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
-          h("span", { style: { position: "absolute", left: "38%", top: "58%", transform: "translate(-50%,-50%)", writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: 12, fontWeight: 800, letterSpacing: "2px", color: sk.accent } },
+          h("span", { style: { position: "absolute", left: "38%", top: "58%", transform: "translate(-50%,-50%)", writingMode: "vertical-rl", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 800, letterSpacing: "2px", color: sk.accent } },
             ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][m - 1] + ".")) : null,
         h("div", { "data-ledger-cal": true, style: Object.assign({ padding: "10px 2px" }, sk.acrylic) },
-          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: sk.sub } }, w))),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 } }, "日一二三四五六".split("").map(w => h("div", { key: w, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, color: sk.sub } }, w))),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 } },
             cells.map((k, i) => { if (!k) return h("div", { key: "e" + i, "data-wk": "ldgcalview", "data-part": "r2" });
               const d = byDay[k], on = sel === k, lv = d && d.exp ? .12 + .88 * (d.exp / max) : 0;
@@ -1405,12 +1405,12 @@
                 null); })))),
       // 玻璃皮：这天的流水像夹在活页本里——左边一列她给的圆孔纵向铺；右下角盖一枚 DAILY 邮戳，印的是选中那天
       h("div", { "data-ledger-dayfile": true, style: glass ? { position: "relative", paddingLeft: 30, paddingBottom: 96, marginLeft: -8, background: "url(" + LA + "holes.webp" + LV + ") left 2px top 0 / 22px auto repeat-y" } : undefined },
-      h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 12, fontWeight: 600, color: sk.sub, margin: "0 6px 8px" } }, h("span", null, dayLabel(sel)), byDay[sel] ? h("span", { style: numStyle(sk, 12, sk.sub) }, "支 " + fmtMoney(byDay[sel].exp, cur)) : null),
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 600, color: sk.sub, margin: "0 6px 8px" } }, h("span", null, dayLabel(sel)), byDay[sel] ? h("span", { style: numStyle(sk, 12, sk.sub) }, "支 " + fmtMoney(byDay[sel].exp, cur)) : null),
       selRows.length ? h(StripSlot, { sk }, selRows.map(x => h(TxnRow, { key: x.id, txn: x, cur, sk, settings, onClick: () => props.onOpenTxn(x.id) })))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.fog, textAlign: "center", padding: "24px 0" } }, "这天没有记账"),
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.fog, textAlign: "center", padding: "24px 0" } }, "这天没有记账"),
       glass ? h("div", { "data-ledger-stamp": true, "aria-hidden": "true", style: { position: "absolute", right: -4, bottom: 4, width: 132, transform: "rotate(-8deg)", opacity: .78, pointerEvents: "none" } },
         h("img", { src: LA + "stamp.webp" + LV, alt: "", draggable: false, style: { display: "block", width: "100%", height: "auto" } }),
-        [[sy.slice(2), "28%"], [sm, "46.5%"], [sd, "64%"]].map((t, i) => h("span", { key: i, style: { position: "absolute", left: t[1], top: "52%", transform: "translate(-50%,-50%)", fontFamily: F_BODY, fontSize: 11, fontWeight: 800, letterSpacing: ".5px", color: sk.accent } }, t[0]))) : null));
+        [[sy.slice(2), "28%"], [sm, "46.5%"], [sd, "64%"]].map((t, i) => h("span", { key: i, style: { position: "absolute", left: t[1], top: "52%", transform: "translate(-50%,-50%)", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", fontWeight: 800, letterSpacing: ".5px", color: sk.accent } }, t[0]))) : null));
   }
 
   // ============================================================
@@ -1420,8 +1420,8 @@
     const { sk, settings, cur, code } = props;
     const vis = (settings.visibleTo || []).length;
     const row = (label, note, onClick, first) => h("button", { onClick, className: "w-full flex items-center active:opacity-70", style: { minHeight: 52, padding: "0 16px", borderTop: first ? "none" : "1px solid " + sk.line }, "data-wk": "ldgmeviewbtn", "data-part": "1" },
-      h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 14, fontWeight: 600, color: sk.ink } }, label),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginRight: 6 } }, note),
+      h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: sk.ink } }, label),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, marginRight: 6 } }, note),
       h("span", { style: { color: sk.fog } }, "›"));
     // 第四页照她给的素材做（2026-09-29）：标题、两张皮肤预览、四个设置图标、右边一列书签都是她出的图；
     //   皮肤名、选中的粉框、编号和英文小字是代码印的
@@ -1430,14 +1430,14 @@
       const PREV = { glass: "skin-glass", paper: "skin-paper" };
       const grow = (n, icon, label, en, note, onClick) => h("button", { key: n, onClick, "data-ledger-merow": n, className: "w-full flex items-center active:opacity-70",
           style: { minHeight: 62, padding: "6px 12px 6px 10px", gap: 10, marginBottom: 8, borderRadius: 18, background: "linear-gradient(160deg,rgba(255,255,255,.62),rgba(236,234,250,.42))", border: "1px solid rgba(255,255,255,.85)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px rgba(140,130,200,.12)" }, "data-wk": "ldgmeviewbtn", "data-part": "2" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, width: 18, letterSpacing: ".5px" } }, (n < 10 ? "0" : "") + n),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: sk.fog, width: 18, letterSpacing: ".5px" } }, (n < 10 ? "0" : "") + n),
         // 存钱目标 / 年度回顾还没有专门的图标，先借她给过的果冻柱和 DAILY 邮戳
         h("img", { src: LA + ({ goal: "col-full", year: "stamp" }[icon] || "ic-" + icon) + ".webp" + LV, alt: "", draggable: false, style: { width: 40, height: 40, flexShrink: 0, objectFit: "contain" } }),
         h("span", { style: { width: 1, alignSelf: "stretch", margin: "6px 2px", background: LINE } }),
         h("span", { style: { flex: 1, minWidth: 0, textAlign: "left" } },
-          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
-          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "2px", color: sk.fog, marginTop: 2 } }, en)),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: sk.sub, marginRight: 4, whiteSpace: "nowrap", flexShrink: 0 } }, note),
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, color: sk.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "2px", color: sk.fog, marginTop: 2 } }, en)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sk.sub, marginRight: 4, whiteSpace: "nowrap", flexShrink: 0 } }, note),
         h("span", { style: { color: sk.fog } }, "›"));
       return h("div", { className: "px-5 pb-8 lg-me", style: { position: "relative", overflow: "clip" }, "data-wk": "ldgmeview" },
         h("style", null, PNL_CSS),
@@ -1452,10 +1452,10 @@
             SKIN_LIST.map(x => { const on = sk.id === x.id;
               return h("button", { key: x.id, onClick: () => props.onSkin(x.id), "data-ledger-skin": x.id, className: "flex-1 text-left active:opacity-80",
                 style: { position: "relative", overflow: "hidden", borderRadius: 16, padding: "0 7px 7px", minHeight: 0, background: "rgba(255,255,255,.4)", border: on ? "2px solid " + sk.pink : "1px solid rgba(255,255,255,.8)", boxShadow: on ? "0 0 0 3px color-mix(in srgb, " + sk.pink + " 18%, transparent)" : "none" }, "data-wk": "ldgmeview", "data-part": "r2", "data-on": on ? "1" : "0" },
-                on ? h("span", { style: { position: "absolute", right: 6, top: 6, zIndex: 1, fontFamily: F_BODY, fontSize: 9, fontWeight: 700, color: "#fff", background: sk.pink, borderRadius: 999, padding: "1px 6px" } }, "✓ 当前使用") : null,
+                on ? h("span", { style: { position: "absolute", right: 6, top: 6, zIndex: 1, fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: sk.pink, borderRadius: 999, padding: "1px 6px" } }, "✓ 当前使用") : null,
                 h("img", { src: LA + PREV[x.id] + ".webp" + LV, alt: "", draggable: false, style: { display: "block", width: "118%", maxWidth: "none", height: "auto", margin: "2px -9% -2px" } }),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 800, color: sk.ink, lineHeight: 1.3 } }, x.zh),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: sk.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, x.sub)); })),
           grow(1, "acct", "账户", "ACCOUNTS", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct")),
           grow(2, "piggy", "每月预算", "BUDGET", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
           grow(3, "lock", "谁能看到我的账", "PRIVACY", vis ? vis + " 位" : "谁都看不到", () => props.onSettings("visible")),
@@ -1465,7 +1465,7 @@
           grow(7, "export", "导出账单", "EXPORT", "CSV", props.onExport),
           grow(8, "goal", "存钱目标", "SAVING", (settings.goals || []).filter(g => g.currency === code).length ? (settings.goals || []).filter(g => g.currency === code).length + " 个" : "还没有", props.onGoals),
           grow(9, "year", "年度回顾", "MY YEAR", String(new Date().getFullYear()), props.onYear)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: sk.fog, lineHeight: 1.6, margin: "4px 4px 0" } }, h("span", { style: { fontStyle: "italic", color: sk.accent, marginRight: 6 } }, "✳ " + "NOTE"), "文字和点缀色能在 设置 → 主题工作台 里调；玻璃和贴纸是图片，不跟着变。♡"));
     }
     return h("div", { className: "px-5 pb-8", "data-wk": "ldgmeview", "data-part": "r3" },
       h(WordMark, { sk, word: "MY STUFF", hand: "a better me :)" }),
@@ -1477,8 +1477,8 @@
               style: Object.assign({}, pv.page, { borderRadius: 16, padding: 10, minHeight: 112, border: on ? "2px solid " + sk.pink : "1px solid " + sk.line, boxShadow: on ? "0 0 0 3px " + sk.pink + "30" : "none" }), "data-wk": "ldgmeview", "data-part": "r4", "data-on": on ? "1" : "0" },
               h("div", { style: Object.assign({ height: 26, marginBottom: 6 }, pv.shell, { borderRadius: 10 }) }),
               h("div", { style: Object.assign({ height: 16, marginBottom: 8 }, pv.screen, { borderRadius: 6 }) }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 800, color: pv.ink } }, x.zh + (on ? " ✓" : "")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pv.fog, marginTop: 2 } }, x.sub)); }))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 800, color: pv.ink } }, x.zh + (on ? " ✓" : "")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: pv.fog, marginTop: 2 } }, x.sub)); }))),
       h("div", { style: Object.assign({ overflow: "hidden" }, sk.shell) },
         row("账户", (settings.accounts || []).length ? (settings.accounts || []).length + " 个" : "还没加", () => props.onSettings("acct"), true),
         row("每月预算", (settings.budgets || {})[code] ? fmtMoney(settings.budgets[code], cur) : "没设", props.onEditBudget),
@@ -1489,7 +1489,7 @@
         row("导出账单", "CSV", props.onExport),
         row("存钱目标", (settings.goals || []).filter(g => g.currency === code).length + " 个", props.onGoals),
         row("年度回顾", String(new Date().getFullYear()), props.onYear)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, lineHeight: 1.6, margin: "10px 4px 0" } }, "颜色还能在 设置 → 主题工作台 里单独调。"));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: sk.fog, lineHeight: 1.6, margin: "10px 4px 0" } }, "颜色还能在 设置 → 主题工作台 里单独调。"));
   }
 
   // 单条信息条：像一张插进钱包凹槽里的小票条——左边一排打孔，彩色塑料小方块，右边金额最清楚
@@ -1502,16 +1502,16 @@
     const glass = sk.id === "glass";
     return h("button", { onClick: props.onClick, className: "w-full active:opacity-80 text-left", "data-ledger-strip": true,
       style: Object.assign({ padding: "10px 12px", display: "flex", alignItems: "center", gap: 11, minHeight: 58 }, sk.card, { borderRadius: sk.id === "glass" ? 0 : 16 }), "data-wk": "ldgtxnrow" },
-      xfer ? h("div", { "aria-hidden": "true", style: { width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: sk.sub, background: "rgba(200,196,236,.35)", border: "1px solid rgba(255,255,255,.7)" } }, "⇄")
+      xfer ? h("div", { "aria-hidden": "true", style: { width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(18px * var(--app-fs, 1))", color: sk.sub, background: "rgba(200,196,236,.35)", border: "1px solid rgba(255,255,255,.7)" } }, "⇄")
         : h(CatTile, { tint: catTint(settings, isInc ? "income" : "expense", txn.category), emoji: txn.catEmoji, name: txn.category, icon: txn.catIcon || catIconOf(settings, isInc ? "income" : "expense", txn.category), size: 38, sk }),
       h("div", { style: { flex: 1, minWidth: 0 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 500, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, xfer ? (txn.note || acctName(settings, txn.from) + " → " + acctName(settings, txn.to)) : (txn.note || txn.category)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: sk.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 500, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, xfer ? (txn.note || acctName(settings, txn.from) + " → " + acctName(settings, txn.to)) : (txn.note || txn.category)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: sk.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           when + ((txn.comments || []).length ? " · " + txn.comments.length + " 条批注" : ""))),
       h("div", { style: { textAlign: "right", flexShrink: 0 } },
         h("div", { style: numStyle(sk, 15.5, xfer ? sk.sub : isInc ? sk.inc : sk.exp) }, (xfer ? "" : isInc ? "+ " : "- ") + fmtMoney(xfer ? txn.amount : netAmt(txn), cur)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: sk.fog, marginTop: 2 } }, xfer ? "转账" : (refundSum(txn) ? "已退 " + fmtMoney(refundSum(txn), cur) + " · " : "") + txn.category + (txn.account ? " · " + acctName(settings, txn.account) : ""))),
-      h("span", { style: { color: sk.fog, fontSize: 16, marginLeft: -2 } }, "›"));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sk.fog, marginTop: 2 } }, xfer ? "转账" : (refundSum(txn) ? "已退 " + fmtMoney(refundSum(txn), cur) + " · " : "") + txn.category + (txn.account ? " · " + acctName(settings, txn.account) : ""))),
+      h("span", { style: { color: sk.fog, fontSize: "calc(16px * var(--app-fs, 1))", marginLeft: -2 } }, "›"));
   }
 
   // ============================================================
@@ -1526,7 +1526,7 @@
     const comments = txn.comments || [];
     const charById = id => (props.characters || []).find(c => c.id === id);
     const tm = txn.ts ? new Date(txn.ts) : null;
-    const line = (k, v, big) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "3px 0", fontFamily: F_BODY, fontSize: 12.5, color: "#5c5a66" } }, h("span", null, k), h("span", { style: { fontFamily: DIGIT, fontWeight: 700, fontSize: big ? 18 : 12.5, color: "#2d2c36" } }, v));
+    const line = (k, v, big) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "3px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#5c5a66" } }, h("span", null, k), h("span", { style: { fontFamily: DIGIT, fontWeight: 700, fontSize: big ? 18 : 12.5, color: "#2d2c36" } }, v));
     return h("div", { className: "h-full flex flex-col", style: Object.assign({}, sk.page), "data-wk": "ldgtxnview" },
       h(Head, { zh: xfer ? "这笔转账" : isInc ? "这笔进账" : "这笔账", onBack: props.onBack, ink: sk.ink, bg: "transparent", noLine: true,
         right: h("div", { className: "flex items-center" },
@@ -1534,7 +1534,7 @@
           h("button", { onClick: () => setConfirmDel(true), "aria-label": "删掉这一笔", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 }, "data-wk": "ldgtxnviewbtn", "data-part": "删掉这一笔" }, h(ITrash, { size: 18, color: sk.sub }))) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: { overscrollBehavior: "contain" } },
         h(Receipt, { sk, title: sk.id === "glass" ? "QIUQIU MART" : (isInc ? "进账小票" : "小票"), sub: sk.id === "glass" ? "GOOD LIFE EVERYDAY" : "生活也值得被记录", no: txn.id,
-          foot: h(Fragment, null, h(Barcode, { seed: txn.id }), h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: "#8f8c98", letterSpacing: ".14em" } }, "记账让生活更清晰", sk.id === "glass" ? h("div", { style: { fontSize: 12, marginTop: 2 } }, "THANK YOU!") : null)) },
+          foot: h(Fragment, null, h(Barcode, { seed: txn.id }), h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8f8c98", letterSpacing: ".14em" } }, "记账让生活更清晰", sk.id === "glass" ? h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 2 } }, "THANK YOU!") : null)) },
           line(txn.note || txn.category, (isInc ? "+" : "") + fmtMoney(txn.amount, cur), true),
           xfer ? line("从", acctName(props.settings, txn.from)) : line("分类", txn.category),
           xfer ? line("到", acctName(props.settings, txn.to)) : txn.account ? line("账户", acctName(props.settings, txn.account)) : null,
@@ -1543,20 +1543,20 @@
           (txn.refunds || []).map((r, i) => line("退回 · " + fmtDay(r.date) + (r.note ? " " + r.note : ""), "−" + fmtMoney(r.amount, cur))),
           (txn.refunds || []).length ? line("实际花了", fmtMoney(netAmt(txn), cur), true) : null),
         props.onForwardToChat && (props.characters || []).length ? h("button", { "data-ledger-share": true, onClick: () => setShare(true), className: "lg-key lg-share-key w-full active:opacity-80",
-          style: jellyKey(sk, "lilac", false, { minHeight: 44, marginBottom: 16, fontFamily: F_BODY, fontSize: 13, fontWeight: 700 }), "data-wk": "ldgtxnviewbtn", "data-part": "3" }, "拿这笔账给 TA 看") : null,
+          style: jellyKey(sk, "lilac", false, { minHeight: 44, marginBottom: 16, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700 }), "data-wk": "ldgtxnviewbtn", "data-part": "3" }, "拿这笔账给 TA 看") : null,
         // 退款 / AA 回款：挂在这一笔上，这笔按净额算（她 2026-09-29）
         !xfer && !isInc ? h("div", { style: { display: "flex", gap: 8, marginBottom: 16 } },
           h("button", { onClick: () => requestAppPrompt("退回多少", "退款或者别人 AA 还你的钱。会从这笔里扣掉，不算收入。最多还能退 " + fmtMoney(netAmt(txn), cur) + "。", "", v => {
               const n = Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100;
               if (n > 0) props.onRefund && props.onRefund(Math.min(n, netAmt(txn)), "");
             }, "好", { placeholder: "比如 12.5" }), "data-ledger-refund": true, className: "active:opacity-80",
-            style: { flex: 1, minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" }, "data-wk": "ldgtxnviewbtn", "data-part": "比如 12.5" }, "＋ 退款 / AA 回款"),
+            style: { flex: 1, minHeight: 40, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: sk.ink, background: "rgba(255,255,255,.55)", border: "1px solid rgba(160,150,220,.35)" }, "data-wk": "ldgtxnviewbtn", "data-part": "比如 12.5" }, "＋ 退款 / AA 回款"),
           (txn.refunds || []).length ? h("button", { onClick: () => props.onRefund && props.onRefund(null), className: "active:opacity-80",
-            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: sk.sub, background: "transparent", border: "1px solid rgba(160,150,220,.3)" }, "data-wk": "ldgtxnviewbtn", "data-part": "5" }, "撤掉最后一笔退款") : null) : null,
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, background: "transparent", border: "1px solid rgba(160,150,220,.3)" }, "data-wk": "ldgtxnviewbtn", "data-part": "5" }, "撤掉最后一笔退款") : null) : null,
         xfer ? null : h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } },
           silk(sk, "角色批注" + (comments.length ? " · " + comments.length : "")),
           (props.characters && props.characters.length)
-            ? h("button", { "data-wk": "block", onClick: () => setPick(true), className: "active:opacity-80", style: { minHeight: 36, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: sk.ink, background: sk.id === "glass" ? "linear-gradient(180deg, #ffe6ef, #ffcfe0)" : sk.accent, boxShadow: "inset 0 1px 0 #fff" }, "data-wk": "ldgtxnviewbtn", "data-part": "6" },
+            ? h("button", { "data-wk": "block", onClick: () => setPick(true), className: "active:opacity-80", style: { minHeight: 36, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: sk.ink, background: sk.id === "glass" ? "linear-gradient(180deg, #ffe6ef, #ffcfe0)" : sk.accent, boxShadow: "inset 0 1px 0 #fff" }, "data-wk": "ldgtxnviewbtn", "data-part": "6" },
                 comments.length ? "再让 TA 们说说" : "让角色批注")
             : null),
         xfer ? null : comments.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
@@ -1566,12 +1566,12 @@
               ch ? h(Avatar, { character: ch, size: 34, radius: 10 })
                  : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: sk.line, flexShrink: 0 } }),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 } }, cm.charName,
-                  cm.auto ? h("span", { style: { fontSize: 9.5, color: GOLD, border: "1px solid " + GOLD + "55", borderRadius: 999, padding: "1px 7px" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 } }, cm.charName,
+                  cm.auto ? h("span", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))", color: GOLD, border: "1px solid " + GOLD + "55", borderRadius: 999, padding: "1px 7px" } },
                     cm.event === "big" ? "自己注意到 · 大额" : cm.event === "freq" ? "自己注意到 · 频率" : cm.event === "night" ? "自己注意到 · 深夜" : cm.event === "income" ? "自己注意到 · 进账" : "自己注意到") : null),
-                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text)));
+                h("div", { style: Object.assign({ padding: "9px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, lineHeight: 1.55 }, sk.card, { borderRadius: 14, borderTopLeftRadius: 4 }) }, cm.text)));
           }))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.fog, textAlign: "center", padding: "20px 0" } },
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.fog, textAlign: "center", padding: "20px 0" } },
               (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『人格档案馆』建个角色")),
       share ? h(LedgerSharePicker, { sk, characters: props.characters, onClose: () => setShare(false), onShare: c => {
         if (props.onForwardToChat(txn.id, c.id) !== false) setShare(false);
@@ -1589,10 +1589,10 @@
     return h("div", { "data-ledger-sharepicker": true, className: "h-full flex flex-col", style: Object.assign({}, sk.page, { position: "absolute", inset: 0, zIndex: 50 }), "data-wk": "ldgledgersharepicker" },
       h(Head, { zh: "拿给谁看", onBack: onClose, ink: sk.ink, bg: "transparent", noLine: true }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8", style: { overscrollBehavior: "contain" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: sk.sub, lineHeight: 1.6, marginBottom: 16 } }, "只分享这一笔和你写的备注。选好后去聊天，可以接着说你想聊的话。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: sk.sub, lineHeight: 1.6, marginBottom: 16 } }, "只分享这一笔和你写的备注。选好后去聊天，可以接着说你想聊的话。"),
         (characters || []).map(c => h("button", { key: c.id, onClick: () => onShare(c), "data-ledger-recipient": c.id, className: "w-full text-left lg-key lg-share-key flex items-center gap-3",
           style: jellyKey(sk, "clear", false, { minHeight: 56, padding: "8px 12px", marginBottom: 10 }), "data-wk": "ldgledgersharepickerbtn", "data-part": "1" },
-          h(Avatar, { character: c, size: 36, radius: 10 }), h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: sk.ink } }, c.remark || c.name)))));
+          h(Avatar, { character: c, size: 36, radius: 10 }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: sk.ink } }, c.remark || c.name)))));
   }
 
   // ============================================================
@@ -1626,12 +1626,12 @@
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, background: pageColor("ledger", "bg2", "rgba(20,18,15,0.4)"), display: "flex", flexDirection: "column", justifyContent: "flex-end" }, onClick: props.onClose, "data-wk": "ldgcommentpicker" },
       h("div", { onClick: e => e.stopPropagation(), style: { background: t.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "20px 20px calc(env(safe-area-inset-bottom, 0px) + 20px)", maxHeight: "78%", display: "flex", flexDirection: "column", marginBottom: lift || 0, transition: "margin-bottom .18s ease" }, "data-wk": "ldgcommentpickertap", "data-part": "1" },
         h("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 4 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "让谁看看这笔账"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink } }, "让谁看看这笔账"),
           (!busy && chars.length > 1) ? h("button", { onClick: toggleAll, className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 12, color: allOn ? t.sub : pageColor("ledger", "accent", ACCENT), background: "transparent", border: "none", flexShrink: 0, paddingTop: 3 }, "data-wk": "ldgcommentpickerbtn", "data-part": "1" }, allOn ? "取消全选" : "全选") : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 16, lineHeight: 1.5 } }, "可多选，一次生成全部——省一次 API。TA 们会按各自人设和此刻心情说一句。"),
+            style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: allOn ? t.sub : pageColor("ledger", "accent", ACCENT), background: "transparent", border: "none", flexShrink: 0, paddingTop: 3 }, "data-wk": "ldgcommentpickerbtn", "data-part": "1" }, allOn ? "取消全选" : "全选") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 16, lineHeight: 1.5 } }, "可多选，一次生成全部——省一次 API。TA 们会按各自人设和此刻心情说一句。"),
         busy
-          ? h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "TA 们正在看你的账本…")
+          ? h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "TA 们正在看你的账本…")
           : h(Fragment, null,
               h("div", { style: { flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } },
                 chars.map(c => {
@@ -1640,11 +1640,11 @@
                     style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 12, background: on ? pageColor("ledger", "accent", ACCENT) : t.bg2, border: "1px solid " + (on ? pageColor("ledger", "accent", ACCENT) : t.line) }, "data-wk": "ldgcommentpicker", "data-part": "r2", "data-on": on ? "1" : "0" },
                     h(Avatar, { character: c, size: 32, radius: 9 }),
                     h("div", { style: { minWidth: 0, flex: 1 } },
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-                      md ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? "rgba(255,255,255,0.75)" : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, md) : null));
+                      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+                      md ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: on ? "rgba(255,255,255,0.75)" : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, md) : null));
                 })),
               h("button", { onClick: run, disabled: !sel.length, className: "w-full active:opacity-85",
-                style: { background: sel.length ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgcommentpickerbtn", "data-part": "2" },
+                style: { background: sel.length ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600 }, "data-wk": "ldgcommentpickerbtn", "data-part": "2" },
                 sel.length ? "生成批注（" + sel.length + " 人）" : "选一个或几个角色"))));
   }
 
@@ -1709,45 +1709,45 @@
     };
     const glass = sk.id === "glass";
     const key = (k, label) => h("button", { key: k, onClick: () => press(k), "aria-label": k === "del" ? "退格" : label, className: "lg-key lg-number-key lg-gloss lg-gloss-soft",
-      style: jellyKey(sk, "clear", false, { minHeight: 44, fontFamily: sk.digit, fontSize: 19, fontWeight: 700, borderRadius: 13 }), "data-wk": "ldgaddsheetbtn", "data-part": "1" }, label);
-    const chip = (content, onClick, extra) => h("button", { onClick, className: "lg-key flex items-center gap-1", style: jellyKey(sk, "clear", false, Object.assign({ minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub, borderRadius: 999 }, extra || {})), "data-wk": "ldgaddsheetbtn", "data-part": "2" }, content);
+      style: jellyKey(sk, "clear", false, { minHeight: 44, fontFamily: sk.digit, fontSize: "calc(19px * var(--app-fs, 1))", fontWeight: 700, borderRadius: 13 }), "data-wk": "ldgaddsheetbtn", "data-part": "1" }, label);
+    const chip = (content, onClick, extra) => h("button", { onClick, className: "lg-key flex items-center gap-1", style: jellyKey(sk, "clear", false, Object.assign({ minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: sk.sub, borderRadius: 999 }, extra || {})), "data-wk": "ldgaddsheetbtn", "data-part": "2" }, content);
 
     // 整页，不用半窗（施工规则/no-half-sheet.md）
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column" }, "data-wk": "ldgaddsheetsave" },
       h("div", { "data-wk": "ledgerpage", "data-part": "addsheet", className: "h-full flex flex-col", style: Object.assign({}, sk.page) },
         h(Head, { zh: edit ? "改这一笔" : "记一笔", onBack: props.onClose, ink: sk.ink, bg: "transparent", noLine: true,
-          right: h("button", { onClick: save, disabled: !canSave, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "lilac" : "clear", !canSave, { minWidth: 56, height: 34, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 800, color: canSave ? sk.ink : sk.fog }), "data-wk": "ldgaddsheetbtn", "data-part": "3" }, "完成") }),
+          right: h("button", { onClick: save, disabled: !canSave, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "lilac" : "clear", !canSave, { minWidth: 56, height: 34, borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 800, color: canSave ? sk.ink : sk.fog }), "data-wk": "ldgaddsheetbtn", "data-part": "3" }, "完成") }),
         h("div", { style: { padding: "0 20px 10px" } }, h(CandySeg, { items: [["expense", "支出"], ["income", "收入"], ["transfer", "转账"]], value: type, onChange: v => { setType(v); setCat(null); }, sk })),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "4px 20px 10px" } },
           isXfer ? h("div", { "data-ledger-xfer": true },
-            accts.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: sk.sub, lineHeight: 1.7, padding: "18px 4px" } },
+            accts.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.sub, lineHeight: 1.7, padding: "18px 4px" } },
                 "转账要在同一个币种下至少有两个账户。去「我的 → 账户」加上，比如一张储蓄卡、一张信用卡——还信用卡就是从储蓄卡转给信用卡。")
               : [["从", from, setFrom], ["到", to, setTo]].map(([lab, val, setv]) => h("div", { key: lab, style: { marginBottom: 14 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: sk.sub, marginBottom: 6 } }, lab + "哪个账户"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: sk.sub, marginBottom: 6 } }, lab + "哪个账户"),
                 h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, accts.map(a => { const on = val === a.id, ty = acctType(a.type);
                   return h("button", { key: a.id, onClick: () => setv(a.id), "aria-pressed": on, className: "active:opacity-70 flex items-center gap-2",
-                    style: { minHeight: 40, padding: "0 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
+                    style: { minHeight: 40, padding: "0 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: on ? 700 : 500, color: on ? sk.ink : sk.sub,
                       background: on ? ty.tint + "40" : "rgba(255,255,255,.4)", border: "1.5px solid " + (on ? ty.tint : "rgba(160,160,200,.25)") }, "data-wk": "ldgaddsheet", "data-on": on ? "1" : "0" },
                     h("span", { style: { width: 16, height: 11, borderRadius: 3, background: ty.tint } }), a.name); }))))) :
           h("div", { "data-ledger-catgrid": true, className: "lg-add-grid", style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 } },
             catList.map(c => { const on = cat && cat.name === c.name;
               return h("button", { key: c.name, onClick: () => setCat(c), "aria-pressed": !!on, className: "lg-add-category active:opacity-70 flex flex-col items-center", style: { gap: 5, padding: "4px 0" }, "data-wk": "ldgaddsheet", "data-part": "r2" },
                 h(CatTile, { tint: catTint(props.settings, type, c.name), emoji: c.emoji, name: c.name, icon: c.icon, size: 50, on, sk }),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, fontWeight: on ? 600 : 400, color: on ? sk.ink : sk.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" } }, c.name)); }),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", fontWeight: on ? 600 : 400, color: on ? sk.ink : sk.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" } }, c.name)); }),
             h("button", { onClick: () => setDialog({ kind: "cat" }), className: "lg-add-custom active:opacity-70 flex flex-col items-center", style: { gap: 5, padding: "4px 0" }, "data-wk": "ldgaddsheetbtn", "data-part": "4" },
-              h("div", { style: Object.assign({ width: 50, height: 50, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: sk.fog }, sk.well) }, "＋"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: sk.fog } }, "自定义")))),
+              h("div", { style: Object.assign({ width: 50, height: 50, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(22px * var(--app-fs, 1))", color: sk.fog }, sk.well) }, "＋"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sk.fog } }, "自定义")))),
         // 底下这一整块是机器的操作台：一块金额屏 + 备注条 + 一排小胶囊键 + 数字键盘
         h("div", { className: "shrink-0 lg-console", style: Object.assign({ padding: "12px 14px calc(env(safe-area-inset-bottom) * 0.4 + 8px)" }, glass ? Object.assign({}, sk.shell, { borderRadius: "24px 24px 0 0", borderBottom: "none" }) : { borderTop: "1px solid " + sk.line }) },
           h("div", { "data-ledger-amount": true, style: Object.assign({ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 6px 14px", marginBottom: 8 }, glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE, padding: "4px 4px 6px" }) : sk.screen) },
             h("span", { style: lcdNum(sk, 20, "rgba(43,52,82,.6)") }, cur ? cur.symbol : ""),
             h("span", { style: Object.assign({ flex: 1 }, lcdNum(sk, 30, amount ? sk.lcd : "rgba(43,52,82,.3)")) }, amount || "0.00"),
-            amount ? h("button", { onClick: () => setAmount(""), "aria-label": "清空金额", className: "active:opacity-60", style: { width: 40, height: 40, color: "rgba(43,52,82,.5)", fontSize: 18 }, "data-wk": "ldgaddsheetbtn", "data-part": "清空金额" }, "⊗") : null),
+            amount ? h("button", { onClick: () => setAmount(""), "aria-label": "清空金额", className: "active:opacity-60", style: { width: 40, height: 40, color: "rgba(43,52,82,.5)", fontSize: "calc(18px * var(--app-fs, 1))" }, "data-wk": "ldgaddsheetbtn", "data-part": "清空金额" }, "⊗") : null),
           h("input", { "data-wk": "input", value: note, onChange: e => setNote(e.target.value), placeholder: "备注：这一笔是什么（可留空）", maxLength: 60,
-            style: Object.assign({ width: "100%", minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 13, color: sk.ink, outline: "none", marginBottom: 8 }, (glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE }) : sk.well), { borderRadius: 12 }), "data-wk": "ldgaddsheetinput", "data-part": "备注：这一笔是什么（可留" }),
+            style: Object.assign({ width: "100%", minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sk.ink, outline: "none", marginBottom: 8 }, (glass ? Object.assign({}, FLAT, { borderBottom: "1px solid " + LINE }) : sk.well), { borderRadius: 12 }), "data-wk": "ldgaddsheetinput", "data-part": "备注：这一笔是什么（可留" }),
           h("div", { className: "lg-entry-options", style: { display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
             // 日期：一颗小胶囊，底下压着一个透明的原生日期框，点了照样弹系统日期
-            h("label", { className: "lg-key flex items-center", style: jellyKey(sk, "clear", false, { position: "relative", minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: sk.sub, borderRadius: 999 }) },
+            h("label", { className: "lg-key flex items-center", style: jellyKey(sk, "clear", false, { position: "relative", minHeight: 34, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: sk.sub, borderRadius: 999 }) },
               date === todayStr() ? "今天" : fmtDay(date),
               h("input", { type: "date", value: date, onChange: e => e.target.value && setDate(e.target.value), "aria-label": "日期", style: { position: "absolute", inset: 0, opacity: 0, width: "100%" }, "data-wk": "ldgaddsheetinput", "data-part": "日期" })),
             curs.length > 1 ? chip(cur.label, () => { const i = curs.findIndex(c => c.code === code); setCode(curs[(i + 1) % curs.length].code); }) : null,
@@ -1759,7 +1759,7 @@
           h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.1fr", gap: 7 } },
             h("div", { style: { gridColumn: "1 / 4", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7 } },
               ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map(k => key(k, k)), key("del", "⌫")),
-            h("button", { onClick: save, disabled: !canSave, "data-ledger-done": true, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "pink" : "clear", false, { borderRadius: 16, fontFamily: F_BODY, fontSize: 16, fontWeight: 800, color: canSave ? "#9c2256" : sk.fog, opacity: canSave ? 1 : .7 }), "data-wk": "ldgaddsheetbtn", "data-part": "6" }, edit ? "保存" : "完成")))),
+            h("button", { onClick: save, disabled: !canSave, "data-ledger-done": true, className: "lg-key" + (glass ? " lg-gloss" : ""), style: jellyKey(sk, canSave ? "pink" : "clear", false, { borderRadius: 16, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 800, color: canSave ? "#9c2256" : sk.fog, opacity: canSave ? 1 : .7 }), "data-wk": "ldgaddsheetbtn", "data-part": "6" }, edit ? "保存" : "完成")))),
       dialog && dialog.kind === "cat" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新分类", submitLabel: "添加",
         fields: [{ key: "name", label: "名称", placeholder: "如 咖啡", required: true }, { key: "icon", label: "图标", type: "icon" }],
         onSubmit: submitCat, onCancel: () => setDialog(null) }) : null,
@@ -1850,17 +1850,17 @@
               chars.map((c, i) => { const on = sel.includes(c.id);
                 return h("button", { key: c.id, onClick: () => toggle(c.id), "aria-pressed": on, className: "w-full active:opacity-80 flex items-center", style: { gap: 14, minHeight: 60, padding: "6px 2px", borderTop: i ? "1px solid " + LINE : "none" }, "data-wk": "ldgsettingssheet", "data-part": "r2" },
                   h("span", { style: { padding: 2, borderRadius: 14, background: "linear-gradient(150deg,#fff,rgba(214,206,246,.8))", boxShadow: "0 2px 6px rgba(140,130,200,.25)", flexShrink: 0 } }, h(Avatar, { character: c, size: 42, radius: 12 })),
-                  h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, c.name),
+                  h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.name),
                   h("img", { src: LA + (on ? "chk-on" : "chk-off") + ".webp" + LV, alt: "", draggable: false, style: { width: 32, height: 32, flexShrink: 0, objectFit: "contain" } })); }))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) :
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) :
           tab === "visible" ? h(Fragment, null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "被选中的角色在聊天里能自然感知你本月的真实收支和几笔大开销，按人设关心或调侃你。只是让 TA 知道，不碰任何余额。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "被选中的角色在聊天里能自然感知你本月的真实收支和几笔大开销，按人设关心或调侃你。只是让 TA 知道，不碰任何余额。"),
             chars.length ? chars.map(c => { const on = sel.includes(c.id);
               return h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full active:opacity-80", style: { ...rowStyle, marginBottom: 8 }, "data-wk": "ldgsettingssheet", "data-part": "r3" },
                 h(Avatar, { character: c, size: 36, radius: 10 }),
-                h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
+                h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, c.name),
                 h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "1.5px solid " + (on ? pageColor("ledger", "accent", ACCENT) : t.line), background: on ? pageColor("ledger", "accent", ACCENT) : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null));
-            }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) : null,
+            }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) : null,
           // ---- 账户 ----
           tab === "acct" ? h(Fragment, null,
             (s.accounts || []).map(a => { const ty = acctType(a.type), c = curs.find(x => x.code === a.currency) || { symbol: "", label: a.currency };
@@ -1871,41 +1871,41 @@
                     h("span", { style: { position: "absolute", right: -2, bottom: 0, width: 12, height: 12, borderRadius: 99, background: ty.tint, border: "2px solid #fff" } }))
                   : h("div", { "data-wk": "block", style: { width: 34, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#fff," + ty.tint + ")", border: "1px solid " + ty.tint, flexShrink: 0 } }),
                 h("div", { style: { flex: 1, minWidth: 0 } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, a.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, ty.zh + " · " + c.label)),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, color: t.ink } }, a.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, ty.zh + " · " + c.label)),
                 h("div", { style: { textAlign: "right" } },
                   cs ? h(Fragment, null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.ink } }, "欠 " + fmtAmt(cs.owed, c)),
-                    cs.dueDate ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: cs.due && cs.daysLeft <= 3 ? EXP : t.fog, marginTop: 2 } }, "本期应还 " + fmtAmt(cs.due, c) + " · " + fmtDay(cs.dueDate)) : null)
-                    : h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.ink } }, fmtAmt(acctBalance(a, props.txns || []), c))),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.ink } }, "欠 " + fmtAmt(cs.owed, c)),
+                    cs.dueDate ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: cs.due && cs.daysLeft <= 3 ? EXP : t.fog, marginTop: 2 } }, "本期应还 " + fmtAmt(cs.due, c) + " · " + fmtDay(cs.dueDate)) : null)
+                    : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.ink } }, fmtAmt(acctBalance(a, props.txns || []), c))),
                 h("span", { style: { color: t.fog } }, "›")); }),
-            h("button", { onClick: () => setAcctEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, marginBottom: 18 }, "data-wk": "ldgsettingssheetbtn", "data-part": "2" }, "＋ 添加账户"),
+            h("button", { onClick: () => setAcctEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginBottom: 18 }, "data-wk": "ldgsettingssheetbtn", "data-part": "2" }, "＋ 添加账户"),
             // 她 2026-09-29「搞开关给不给」：能看账本的角色，看不看得到账户余额，单独一个开关，默认不给
             h("button", { onClick: () => props.onPersist(d => { d.settings.shareAcct = !d.settings.shareAcct; }), "data-ledger-shareacct": true, "aria-pressed": !!s.shareAcct, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, minHeight: 56 }, "data-wk": "ldgsettingssheetbtn", "data-part": "3" },
               h("div", { style: { flex: 1 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "角色也能看到账户余额"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, "只对「谁能看到」里选中的角色生效。关着的时候 TA 们只知道收支，不知道你卡里有多少、欠多少。")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "角色也能看到账户余额"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.5 } }, "只对「谁能看到」里选中的角色生效。关着的时候 TA 们只知道收支，不知道你卡里有多少、欠多少。")),
               h("span", { style: { width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative", background: s.shareAcct ? pageColor("ledger", "accent", ACCENT) : t.line, transition: "background .2s" } },
                 h("span", { style: { position: "absolute", top: 3, left: s.shareAcct ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .2s" } })))) : null,
           // ---- 周期账单 ----
           tab === "recur" ? h(Fragment, null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "房租、订阅、话费这类每月固定的，设一次，到了那天打开记账就自动记上一笔；快到的前三天会提醒你。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 14, lineHeight: 1.55 } }, "房租、订阅、话费这类每月固定的，设一次，到了那天打开记账就自动记上一笔；快到的前三天会提醒你。"),
             (s.recurring || []).map(r => { const c = curs.find(x => x.code === r.currency) || { symbol: "" }, nx = recurNext(r);
               return h("button", { key: r.id, onClick: () => setRecurEdit(r), "data-ledger-recur": r.id, className: "w-full active:opacity-80 text-left", style: { ...rowStyle, marginBottom: 8, minHeight: 56 }, "data-wk": "ldgsettingssheet", "data-part": "r5" },
                 h("span", { style: { width: 28, display: "flex", justifyContent: "center" } }, h(CategoryGlyph, { name: r.category, icon: r.catIcon, size: 26 })),
                 h("div", { style: { flex: 1, minWidth: 0 } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: t.ink } }, r.name || r.category),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, recurWhen(r) + " · " + r.category + (r.account ? " · " + acctName(s, r.account) : "") + " · 下次 " + fmtDay(nx.date))),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: r.type === "income" ? INC : t.ink } }, (r.type === "income" ? "+" : "") + fmtAmt(r.amount, c)),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, color: t.ink } }, r.name || r.category),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, recurWhen(r) + " · " + r.category + (r.account ? " · " + acctName(s, r.account) : "") + " · 下次 " + fmtDay(nx.date))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: r.type === "income" ? INC : t.ink } }, (r.type === "income" ? "+" : "") + fmtAmt(r.amount, c)),
                 h("span", { style: { color: t.fog } }, "›")); }),
-            h("button", { onClick: () => setRecurEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "ldgsettingssheetbtn", "data-part": "4" }, "＋ 添加周期账单")) : null,
+            h("button", { onClick: () => setRecurEdit({}), className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", minHeight: 48, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" }, "data-wk": "ldgsettingssheetbtn", "data-part": "4" }, "＋ 添加周期账单")) : null,
           // ---- 币种管理 ----
           tab === "cur" ? h(Fragment, null,
             curs.map(c => h("div", { key: c.code, style: { ...rowStyle, marginBottom: 8 } },
               h("div", { style: { width: 30, height: 22, borderRadius: 5, background: "linear-gradient(135deg,#e8cf94,#b89150)", flexShrink: 0 } }),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.label + " " + c.symbol),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: "0.08em" } }, c.code)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, c.label + " " + c.symbol),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: "0.08em" } }, c.code)),
               // 折合用：主币 / 汇率（她 2026-09-29）。只影响统计页那一行「折合」，不动任何一笔账
               curs.length > 1 ? h("button", { "data-ledger-rate": c.code, className: "active:opacity-70", onClick: () => {
                   if (!s.baseCur) { props.onPersist(d => { d.settings.baseCur = c.code; }); props.toast && props.toast(c.label + " 设成主币了，其他币填汇率就能折合"); return; }
@@ -1914,19 +1914,19 @@
                   requestAppPrompt("汇率", "1 " + c.label + " 等于多少" + bc.label + "？只用来折合着看。", String((s.rates || {})[c.code] || ""), v => {
                     const n = parseFloat(String(v).replace(/[^\d.]/g, "")) || 0; props.onPersist(d => { d.settings.rates = { ...(d.settings.rates || {}), [c.code]: n > 0 ? n : undefined }; });
                   }, "好", { placeholder: "比如 0.19" }); },
-                  style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11, color: s.baseCur === c.code ? "#fff" : t.sub, background: s.baseCur === c.code ? "#a79cef" : "transparent", border: "1px solid " + t.line, flexShrink: 0 }, "data-wk": "ldgsettingssheetbtn", "data-part": "比如 0.19" },
+                  style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: s.baseCur === c.code ? "#fff" : t.sub, background: s.baseCur === c.code ? "#a79cef" : "transparent", border: "1px solid " + t.line, flexShrink: 0 }, "data-wk": "ldgsettingssheetbtn", "data-part": "比如 0.19" },
                 s.baseCur === c.code ? "主币" : !s.baseCur ? "设为主币" : (s.rates || {})[c.code] ? "×" + s.rates[c.code] : "填汇率") : null,
               iconBtn(IPencil, () => editCur(c), t.sub), iconBtn(ITrash, () => delCur(c)))),
-            h("button", { onClick: addCur, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "ldgsettingssheetbtn", "data-part": "6" }, "＋ 添加币种")) : null,
+            h("button", { onClick: addCur, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" }, "data-wk": "ldgsettingssheetbtn", "data-part": "6" }, "＋ 添加币种")) : null,
           // ---- 分类管理 ----
           tab === "cat" ? h(Fragment, null,
 g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", "支出分类"], ["income", "收入分类"]], value: catType, onChange: setCatType, sk: props.sk })) :
             h("div", { "data-wk": "block", style: { display: "flex", gap: 4, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: 3, marginBottom: 14 } },
               ["expense", "income"].map(k => h("button", { key: k, onClick: () => setCatType(k), className: "flex-1 active:opacity-80",
-                style: { padding: "7px 0", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, border: "none", background: catType === k ? (k === "income" ? INC : EXP) : "transparent", color: catType === k ? "#fff" : t.sub }, "data-wk": "ldgsettingssheetbtn", "data-part": "7" }, k === "income" ? "收入分类" : "支出分类"))),
+                style: { padding: "7px 0", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, border: "none", background: catType === k ? (k === "income" ? INC : EXP) : "transparent", color: catType === k ? "#fff" : t.sub }, "data-wk": "ldgsettingssheetbtn", "data-part": "7" }, k === "income" ? "收入分类" : "支出分类"))),
             cats.map(c => h("div", { key: c.name, style: { ...rowStyle, marginBottom: 8 } },
               h("span", { style: { width: 28, display: "flex", justifyContent: "center" } }, h(CategoryGlyph, { name: c.name, emoji: c.emoji, icon: c.icon, size: 26 })),
-              h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
+              h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, c.name),
               // 分类上限（支出分类才有）：按统计页当前看的币种存（她 2026-09-29）
               catType === "expense" ? h("button", { "data-ledger-setlimit": c.name, className: "active:opacity-70", onClick: () => {
                   const code = props.code, curLabel = (curs.find(x => x.code === code) || { label: code }).label;
@@ -1934,20 +1934,20 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
                     const n = Math.round((parseFloat(String(v).replace(/[^\d.]/g, "")) || 0) * 100) / 100;
                     props.onPersist(d => { const all = { ...(d.settings.catBudgets || {}) }; const m = { ...(all[code] || {}) }; if (n > 0) m[c.name] = n; else delete m[c.name]; all[code] = m; d.settings.catBudgets = all; });
                   }, "好", { placeholder: "比如 800" }); },
-                  style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11, color: catBudgetOf(s, props.code, c.name) ? t.ink : t.fog, background: "transparent", border: "1px solid " + t.line, flexShrink: 0 }, "data-wk": "ldgsettingssheetbtn", "data-part": "比如 800" },
+                  style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: catBudgetOf(s, props.code, c.name) ? t.ink : t.fog, background: "transparent", border: "1px solid " + t.line, flexShrink: 0 }, "data-wk": "ldgsettingssheetbtn", "data-part": "比如 800" },
                 catBudgetOf(s, props.code, c.name) ? "上限 " + catBudgetOf(s, props.code, c.name) : "设上限") : null,
               iconBtn(IPencil, () => editCat(c), t.sub), iconBtn(ITrash, () => delCat(c)))),
-            h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "ldgsettingssheetbtn", "data-part": "9" }, "＋ 添加分类")) : null),
+            h("button", { onClick: addCat, className: "w-full active:opacity-70", style: { ...rowStyle, justifyContent: "center", border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" }, "data-wk": "ldgsettingssheetbtn", "data-part": "9" }, "＋ 添加分类")) : null),
         // 底部主按钮（可见性 tab 才需要保存；管理 tab 即时生效，给「完成」）
         g ? h("div", { className: "shrink-0", style: { position: "relative", display: "flex", justifyContent: "center", padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
             decoImg("hand-small", { left: 2, bottom: "calc(env(safe-area-inset-bottom, 0px) + 62px)", width: 84, transform: "rotate(-8deg)" }),
             decoImg("binder", { right: 4, bottom: "calc(env(safe-area-inset-bottom, 0px) + 40px)", width: 60, transform: "rotate(10deg)" }),
             h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, "data-ledger-setsave": true, className: "active:opacity-85",
-              style: { position: "relative", width: "74%", minHeight: 52, border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 15.5, fontWeight: 700, letterSpacing: ".2em", color: "#5b4f9e",
+              style: { position: "relative", width: "74%", minHeight: 52, border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(15.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: ".2em", color: "#5b4f9e",
                 background: "url(assets/ledger/rail.webp?v=259) center / 100% 100% no-repeat" }, "data-wk": "ldgsettingssheetbtn", "data-part": "10" }, tab === "visible" ? "保存" : "完成"))
         : h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + pageColor("ledger", "line", "rgba(60,54,40,.12)") } },
           h("button", { onClick: tab === "visible" ? saveVisible : props.onClose, className: "w-full active:opacity-85",
-            style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgsettingssheetbtn", "data-part": "11" },
+            style: { background: pageColor("ledger", "accent", ACCENT), color: "#fff", border: "none", borderRadius: 999, padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600 }, "data-wk": "ldgsettingssheetbtn", "data-part": "11" },
             tab === "visible" ? "保存" : "完成"))),
       // 弹窗们
       dialog && dialog.kind === "addcur" ? h(FieldDialog, { glass: (typeof sk !== "undefined" && sk && sk.id === "glass") || !!(props.sk && props.sk.id === "glass"), title: "新币种", submitLabel: "添加", fields: [{ key: "label", label: "名称", placeholder: "如 日元", required: true }, { key: "code", label: "三字母代码", placeholder: "JPY", maxLength: 4, required: true }, { key: "symbol", label: "符号（可留空）", placeholder: "¥", maxLength: 3 }], onSubmit: submitAddCur, onCancel: () => setDialog(null) }) : null,
@@ -2007,10 +2007,10 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
       props.onSave(Object.assign(base, { day: D, startMk, lastMk: !r0.every ? (r0.lastMk || "") : "" }));
     };
     const g = props.sk && props.sk.id === "glass";
-    const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
+    const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 6px" } }, txt);
     const input = (val, set, ph, mode) => h("input", { "data-wk": "input", value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 20,
-      style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" }, "data-wk": "ldgrecureditorinput", "data-part": "1" });
-    const pill = (on, txt, onClick, tint, key) => h("button", { key: key || txt, onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
+      style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" }, "data-wk": "ldgrecureditorinput", "data-part": "1" });
+    const pill = (on, txt, onClick, tint, key) => h("button", { key: key || txt, onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: on ? 700 : 500,
       color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) }, "data-wk": "ldgrecureditorbtn", "data-part": "1", "data-on": on ? "1" : "0" }, txt);
     const wrap = kids => h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, kids);
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 58, display: "flex", flexDirection: "column" }, "data-wk": "ldgrecureditorsave" },
@@ -2027,9 +2027,9 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
           accts.length ? h(Fragment, null, label("从哪个账户（可不选）"), wrap([pill(!acct, "不记账户", () => setAcct(""), null, "none")].concat(accts.map(a => pill(acct === a.id, a.name, () => setAcct(a.id), acctType(a.type).tint, a.id))))) : null,
           every === "month" ? h(Fragment, null, label("每月几号（1–28）"), input(day, setDay, "1", "numeric"))
             : h(Fragment, null, label("每周几"), wrap([1, 2, 3, 4, 5, 6, 7].map(n => pill(wd === n, WD[n], () => setWd(n), null, "wd" + n)))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "到了那天打开记账会自动记上；那天没打开，下次打开时补上。删掉这条以后不再记，已经记上的不会动。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "到了那天打开记账会自动记上；那天没打开，下次打开时补上。删掉这条以后不再记，已经记上的不会动。")),
         h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("button", { "data-wk": "block", onClick: save, disabled: !ok, className: "w-full active:opacity-85", style: { minHeight: 48, background: ok ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgrecureditorbtn", "data-part": "3" }, "保存"))),
+          h("button", { "data-wk": "block", onClick: save, disabled: !ok, className: "w-full active:opacity-85", style: { minHeight: 48, background: ok ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600 }, "data-wk": "ldgrecureditorbtn", "data-part": "3" }, "保存"))),
       confirmDel ? h(ConfirmDialog, { title: "删掉「" + (r0.name || r0.category || "") + "」？", body: "以后不再自动记这一笔；已经记上的那些会留着。", confirmLabel: "删掉", danger: true, onConfirm: () => props.onDelete(r0), onCancel: () => setConfirmDel(false) }) : null);
   }
 
@@ -2058,10 +2058,10 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
         init: credit ? -Math.abs(v) : v, limit: credit ? num(limit) : 0, billDay: credit ? day(billDay) : 0, dueDay: credit ? day(dueDay) : 0 });
     };
     const g = props.sk && props.sk.id === "glass";
-    const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "14px 0 6px" } }, txt);
+    const label = txt => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 6px" } }, txt);
     const input = (val, set, ph, mode) => h("input", { "data-wk": "input", value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: mode || "text", maxLength: 16,
-      style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" }, "data-wk": "ldgaccteditorinput", "data-part": "1" });
-    const pill = (on, txt, onClick, tint) => h("button", { onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 500,
+      style: { width: "100%", minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: g ? "rgba(255,255,255,.55)" : t.bg2, border: "1px solid " + (g ? "rgba(170,160,220,.4)" : t.line), borderRadius: 12, padding: "0 12px", outline: "none" }, "data-wk": "ldgaccteditorinput", "data-part": "1" });
+    const pill = (on, txt, onClick, tint) => h("button", { onClick, "aria-pressed": on, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: on ? 700 : 500,
       color: on ? t.ink : t.sub, background: on ? (tint ? tint + "45" : "rgba(200,190,240,.45)") : "transparent", border: "1.5px solid " + (on ? (tint || pageColor("ledger", "accent", ACCENT)) : t.line) }, "data-wk": "ldgaccteditorbtn", "data-part": "1", "data-on": on ? "1" : "0" }, txt);
     return h("div", { style: { position: "absolute", inset: 0, zIndex: 58, display: "flex", flexDirection: "column" }, "data-wk": "ldgaccteditorsave" },
       h("div", { "data-wk": "ledgerpage", "data-part": "accteditor", className: "h-full flex flex-col", style: Object.assign({}, props.sk ? props.sk.page : paperBg()) },
@@ -2077,9 +2077,9 @@ g ? h("div", { style: { marginBottom: 14 } }, h(CandySeg, { items: [["expense", 
             h("div", { style: { display: "flex", gap: 10 } },
               h("div", { style: { flex: 1 } }, label("账单日（每月几号，1–28）"), input(billDay, setBillDay, "5", "numeric")),
               h("div", { style: { flex: 1 } }, label("还款日（每月几号，1–28）"), input(dueDay, setDueDay, "25", "numeric"))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "设了账单日就按周期算：账单日那天之前刷的算这一期应还，之后刷的算下一期。还信用卡在「记一笔 → 转账」里，从储蓄卡转给这张卡。")) : null),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "设了账单日就按周期算：账单日那天之前刷的算这一期应还，之后刷的算下一期。还信用卡在「记一笔 → 转账」里，从储蓄卡转给这张卡。")) : null),
         h("div", { className: "shrink-0", style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("button", { "data-wk": "block", onClick: save, disabled: !name.trim(), className: "w-full active:opacity-85", style: { minHeight: 48, background: name.trim() ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600 }, "data-wk": "ldgaccteditorbtn", "data-part": "3" }, "保存"))),
+          h("button", { "data-wk": "block", onClick: save, disabled: !name.trim(), className: "w-full active:opacity-85", style: { minHeight: 48, background: name.trim() ? pageColor("ledger", "accent", ACCENT) : t.line, color: "#fff", border: "none", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600 }, "data-wk": "ldgaccteditorbtn", "data-part": "3" }, "保存"))),
       confirmDel ? h(ConfirmDialog, { title: "删掉「" + (a0.name || "") + "」？", body: used ? "记在它上面的收支会留着、照样算进统计，只是不再属于哪个账户；跟它有关的转账会显示成「已删的账户」。" : "这个账户上还没有账，可以放心删。", confirmLabel: "删掉", danger: true, onConfirm: () => props.onDelete(a0), onCancel: () => setConfirmDel(false) }) : null);
   }
 

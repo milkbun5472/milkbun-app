@@ -123,7 +123,7 @@ test("骰子账也成了一块，自己那个开关删干净了", () => {
 test("战役卡：骰面上刻着第几章、底下一排章节点、落幕盖个戳", () => {
   const card = grab("    const campCard = c => {", "    // ---- 组建队伍", 6000);
   assert.match(card, /viewBox: "0 0 40 44"/, "那枚二十面骰没了");
-  assert.match(card, /fontSize: 17, fontWeight: 600, color: seal \} \}, String\(cur\)\)/, "骰面上没刻章数");
+  assert.match(card, /fontSize: "calc\(17px \* var\(--app-fs, 1\)\)", fontWeight: 600, color: seal \} \}, String\(cur\)\)/, "骰面上没刻章数");
   assert.match(card, /c\.stages\.map\(\(st, i\) => \{/, "章节点没了");
   assert.match(card, /const passed = st\.done \|\| c\.ended;/);
   assert.match(card, /transform: "rotate\(-11deg\)"[\s\S]{0,200}"落幕"/, "落幕那枚戳没了");
@@ -136,6 +136,6 @@ test("小分队卡：五项属性画成五根柱子，还带表头", () => {
   const sb = grab("    const statBars = (stats, col) =>", "    const plusSheet", 4000);
   assert.match(sb, /STATS\.map\(\(\[k, zh\]\) => h\("span"/, "柱子不是按 STATS 生成的");
   assert.match(sb, /height: Math\.max\(3, Math\.round\(\(\(stats \|\| \{\}\)\[k\] \|\| 0\) \/ 90 \* 18\)\)/, "柱子高度没按属性值来");
-  assert.match(sb, /fontSize: 7\.5, color: t\.fog \} \}, zh\[0\]\)/, "五根柱子没有表头，认不出哪根是哪项");
+  assert.match(sb, /fontSize: "calc\(7\.5px \* var\(--app-fs, 1\)\)", color: t\.fog \} \}, zh\[0\]\)/, "五根柱子没有表头，认不出哪根是哪项");
   assert.ok(!/STATS\.map\(\(\[k, zh\]\) => zh \+ \(v\.stats \|\| \{\}\)\[k\]\)\.join\(" "\)/.test(sb), "旧的那串数字还堆在那儿");
 });

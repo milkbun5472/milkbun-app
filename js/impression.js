@@ -101,9 +101,9 @@
     // 相册内页：深色卡纸 + 一点点纸纹（两道极淡的斜光，不是纯色块）
     // 底已经由 S.wrap 一路铺到顶了，这儿只管留白
     const pageStyle = { flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 15px 40px" };
-    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, color: pageColor("impression", "ink", "rgba(243,236,224,.92)"),
+    const handLabel = { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(243,236,224,.92)"),
       letterSpacing: ".04em" };
-    const footNote = { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("impression", "fog", "rgba(243,236,224,.45)"), lineHeight: 1.85 };
+    const footNote = { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.45)"), lineHeight: 1.85 };
 
     const S = {
       // ⚠️台面要一直铺到最顶上（她 2026-09-03：「这背景没延伸到顶部啊」）：
@@ -113,7 +113,7 @@
         background: MOUNT + " linear-gradient(146deg,rgba(255,255,255,.055),transparent 42%,rgba(0,0,0,.16))",
         backgroundBlendMode: "overlay" },
       btn: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.accent : "rgba(243,236,224,.34)"),
-        background: on ? t.accent : "transparent", color: on ? "#fff" : pageColor("impression", "ink", "rgba(243,236,224,.9)"), fontFamily: F_BODY, fontSize: 12 })
+        background: on ? t.accent : "transparent", color: on ? "#fff" : pageColor("impression", "ink", "rgba(243,236,224,.9)"), fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" })
     };
     // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 换过来：
     // 手写那条身上一个 data-wk 挂点都没有，「月度印象」这一页的主题 CSS 抓不到顶栏；
@@ -274,9 +274,9 @@
         ["他自己", e.him]
       ].filter(x => String(x[1] || "").trim());
       const hasBack = backRows.length > 0;
-      const penHead = { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".22em", textIndent: ".22em",
+      const penHead = { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".22em", textIndent: ".22em",
         color: pageColor("impression", "fog", "rgba(120,100,72,.62)"), marginBottom: 7 };
-      const penText = { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 2,
+      const penText = { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 2,
         color: pageColor("impression", "ink", "rgba(43,36,28,.9)") };
       // 相片的背面：没有图，只有铅笔字。纸纹比正面更旧一点（背面本来就是压在册子里那一面）
       // ⚠️backface-visibility 只管【看不看得见】，不保证【点不点得着】：Safari/iOS 里
@@ -292,19 +292,19 @@
         backgroundImage: "radial-gradient(90% 70% at 15% 8%,rgba(146,116,72,.17),transparent 62%),"
           + "radial-gradient(90% 70% at 88% 94%,rgba(146,116,72,.15),transparent 60%)",
         boxShadow: "0 16px 40px rgba(0,0,0,.42)", padding: "34px 26px 26px", overflowY: "auto" } },
-        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, letterSpacing: ".04em",
+        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", letterSpacing: ".04em",
           color: pageColor("impression", "fog", "rgba(120,100,72,.68)"), marginBottom: 22 } },
           M.monthLabel(e.monthKey) + "　背面"),
         hasBack
           ? backRows.map((r, i) => h("div", { "data-wk": "impbackrow", key: i, style: { marginBottom: 24 } },
               h("div", { style: penHead }, "〔" + r[0] + "〕"),
               h("div", { style: penText }, r[1])))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 2,
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 2,
               color: pageColor("impression", "fog", "rgba(120,100,72,.7)") } },
               "这张是早先贴的，背面还空着。",
               h("br"),
               "翻回正面，点下面那个「补写背面」。"),
-        hasBack ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, textAlign: "right", marginTop: 4,
+        hasBack ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", textAlign: "right", marginTop: 4,
           color: pageColor("impression", "ink", "rgba(94,79,58,.75)") } }, "—— " + (c.name || "TA")) : null);
       return h("div", { "data-wk": "impdetail", style: S.wrap }, header(M.monthLabel(e.monthKey)),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 18px 40px" } },
@@ -335,7 +335,7 @@
               boxShadow: "0 2px 6px rgba(0,0,0,.22)", pointerEvents: "none" } }),
             h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: pageColor("impression", "bg2", "rgba(20,17,14,.24)") } },
               e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
-                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: pageColor("impression", "fog", "rgba(243,236,224,.6)"), textAlign: "center", padding: 20 } }, "还没有剪影"),
+                : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.6)"), textAlign: "center", padding: 20 } }, "还没有剪影"),
               // 这张也压四个相角，和珍藏册那一页是同一本册子里的东西（v61.22）
               corners(22),
               // 三个关键词照「初形象生成」那套挂：白点＋细线＋金边小签，点朝画面里侧
@@ -345,7 +345,7 @@
                   const dot = h("div", { "data-wk": "block", key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
                   const line = h("div", { key: "l", style: { width: 20, height: 1, background: pageColor("impression", "bg2", "rgba(255,255,255,.85)"), flexShrink: 0 } });
                   const chip = h("div", { "data-wk": "imptag", key: "c", style: { background: pageColor("impression", "bg2", "rgba(97,84,56,.86)"), border: "1px solid rgba(246,239,226,.55)",
-                    color: pageColor("impression", "ink", "#f6efe2"), padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+                    color: pageColor("impression", "ink", "#f6efe2"), padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
                     letterSpacing: ".06em", whiteSpace: "nowrap", backdropFilter: "blur(2px)" } }, tag);
                   return h("div", { key: i, style: { position: "absolute", top: [24, 49, 74][i] + "%", [onLeft ? "left" : "right"]: "5%",
                     display: "flex", alignItems: "center", gap: 7 } },
@@ -358,15 +358,15 @@
               // 窄机上宁可字距收窄，也不许换行——所以右边这句字号和字距都压了一档。
               h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8,
                 paddingBottom: 11, marginBottom: 13, borderBottom: "1px solid rgba(120,100,72,.20)" } },
-                h("div", { "data-wk": "impcardname", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
+                h("div", { "data-wk": "impcardname", style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
                   "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, hasBack ? (e.firstShift ? "在这之前 →" : "印象变了哪儿 →") : "背面还空着 →")),
-              e.title ? h("div", { "data-wk": "impcardtitle", style: { fontFamily: F_DISPLAY, fontSize: 20, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, hasBack ? (e.firstShift ? "在这之前 →" : "印象变了哪儿 →") : "背面还空着 →")),
+              e.title ? h("div", { "data-wk": "impcardtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)") } }, "“"),
-                h("div", { "data-wk": "impquote", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, e.quote),
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)"), textAlign: "right" } }, "”")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))))),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: "calc(36px * var(--app-fs, 1))", lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)") } }, "“"),
+                h("div", { "data-wk": "impquote", style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, e.quote),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: "calc(36px * var(--app-fs, 1))", lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)"), textAlign: "right" } }, "”")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))))),
           h("div", { "data-wk": "impactions", style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { "data-wk": "impbtn", "data-part": "save", onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { "data-wk": "impbtn", "data-part": "rewrite", onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
@@ -396,7 +396,7 @@
         style: { position: "relative", width: "calc((100% - 26px) / 2)", cursor: "pointer" } },
         h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4",
           border: "1px dashed rgba(243,236,224,.30)", display: "flex", alignItems: "center", justifyContent: "center",
-          textAlign: "center", padding: 12, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8,
+          textAlign: "center", padding: 12, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.8,
           color: pageColor("impression", "fog", "rgba(243,236,224,.62)") } },
           busy ? "在写…" : "贴上 " + M.monthLabel(openMonth) + "的那一张" + (withArt ? "" : "（只写字）"),
           corners(15)),
@@ -417,10 +417,10 @@
               plate({ deg: tilt(i), corner: 15 },
                 e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
                   : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: F_BODY, fontSize: 11, color: pageColor("impression", "fog", "rgba(243,236,224,.55)") } }, "只有字")),
+                      fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.55)") } }, "只有字")),
               h("div", { "data-wk": "impmonthlabel", style: Object.assign({}, handLabel, { marginTop: 9 }) }, M.monthLabel(e.monthKey)),
               // 三个词写成相片底下那行铅笔小字，不是一排药丸
-              h("div", { "data-wk": "impmonthsub", style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("impression", "fog", "rgba(243,236,224,.55)"), marginTop: 2,
+              h("div", { "data-wk": "impmonthsub", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.55)"), marginTop: 2,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 (e.tags || []).slice(0, 3).join(" · ") || e.title || ""))),
             emptySlot),
@@ -446,7 +446,7 @@
     // ---- 头像墙：一摞一摞的相片，谁的厚就是谁攒得多 ----
     return h("div", { "data-wk": "imppage", style: S.wrap }, header("月度印象"),
       h("div", { style: pageStyle },
-        h("div", { "data-wk": "impintro", style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "fog", "rgba(243,236,224,.62)"), lineHeight: 1.9, marginBottom: 20 } },
+        h("div", { "data-wk": "impintro", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.62)"), lineHeight: 1.9, marginBottom: 20 } },
           "每个月，每个人眼里的你长得都不一样。", h("br"), "一张剪影、三个词、一句TA亲口说的话。"),
         (props.characters || []).length ? h("div", { "data-wk": "impchars", style: { display: "flex", flexWrap: "wrap", gap: "30px 22px", alignItems: "flex-start" } },
           (props.characters || []).map((c, i) => {
@@ -469,12 +469,12 @@
                   cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
                   h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
                     avatarOf(c, 44)))),
-              h("div", { "data-wk": "impcharname", style: Object.assign({}, handLabel, { marginTop: 10, fontSize: 12, overflow: "hidden",
+              h("div", { "data-wk": "impcharname", style: Object.assign({}, handLabel, { marginTop: 10, fontSize: "calc(12px * var(--app-fs, 1))", overflow: "hidden",
                 textOverflow: "ellipsis", whiteSpace: "nowrap" }) }, c.name),
-              h("div", { "data-wk": "impcharsub", style: { fontFamily: F_BODY, fontSize: 10, color: pageColor("impression", "fog", "rgba(243,236,224,.5)"), marginTop: 1 } },
+              h("div", { "data-wk": "impcharsub", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.5)"), marginTop: 1 } },
                 n ? n + " 个月" : "还没有"));
           }))
-          : h("div", { "data-wk": "impempty", style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: pageColor("impression", "fog", "rgba(243,236,224,.6)") } }, "还没有角色。")));
+          : h("div", { "data-wk": "impempty", style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.6)") } }, "还没有角色。")));
   }
   window.ImpressionApp = ImpressionApp;
 })();

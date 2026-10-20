@@ -36,7 +36,7 @@ test("底栏只吃 0.4 条安全区，和主聊天输入栏、购物底栏同一
   assert.match(seg, /paddingBottom: COMPOSER_PAD_BOTTOM/);
   // 图标/字号/间距也对齐购物那条
   assert.match(seg, /h\(it\.G, \{ size: 21,/);
-  assert.match(seg, /fontSize: 10, fontWeight: on \? 600 : 400/);
+  assert.match(seg, /fontSize: "calc\(10px \* var\(--app-fs, 1\)\)", fontWeight: on \? 600 : 400/);
   assert.match(seg, /className: "flex-1 py-2 flex flex-col items-center gap-0\.5 active:opacity-60"/);
   assert.match(screens, /paddingBottom: COMPOSER_PAD_BOTTOM \} \},\n(?:\s*\/\/[^\n]*\n)*\s*\[\["home", "首页", GShop\]/, "购物那条底栏是这把尺子的出处");
 });

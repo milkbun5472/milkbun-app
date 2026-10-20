@@ -23,7 +23,7 @@ test("消息列表：灰地白格，顶栏走公共 Head，24px 自写大标题�
     "聊天格子不再是白格，或者置顶那层淡灰丢了");
   // 顶栏是公共 Head（透明让地透上来），不再自己写一条
   assert.match(seg, /h\(Head, \{\s*zh: TITLES\[tab\],\s*onBack: onBack,\s*bg: "transparent"/, "顶栏没走公共 Head");
-  assert.ok(!/fontSize: 24/.test(seg), "24px 的自写大标题还在");
+  assert.ok(!/fontSize: "calc\(24px \* var\(--app-fs, 1\)\)"/.test(seg), "24px 的自写大标题还在");
   // 建群的 ＋ 还在（挪进了 Head 右槽），可点区不缩水
   assert.match(seg, /tab === "chats" \? h\("button", \{\s*onClick: onNewGroup/, "聊天 tab 右上的 ＋ 丢了");
   assert.match(cut(seg, "onClick: onNewGroup", "IPlus"), /height: 34/, "＋ 的可点高度没了");
@@ -63,8 +63,8 @@ test("日历：外壳自己铺底，月名收成 20px", () => {
   assert.match(seg, /className: "h-full flex flex-col overflow-hidden", style: Object\.assign\(\{ position: "relative" \}/, "日历外壳没铺底");
   assert.match(seg, /pageSkin\("paper", t, \{ base: t\.bg2/, "外壳铺的不是纸");
   assert.ok(!/style: \{ position: "relative", background: t\.bg2 \}/.test(seg), "又退回平色了");
-  assert.match(seg, /fontSize: 20, color: t\.ink, letterSpacing: "0\.02em"/, "月名不是 20px 了");
-  assert.ok(!/fontSize: 34/.test(seg), "34px 的月名还在");
+  assert.match(seg, /fontSize: "calc\(20px \* var\(--app-fs, 1\)\)", color: t\.ink, letterSpacing: "0\.02em"/, "月名不是 20px 了");
+  assert.ok(!/fontSize: "calc\(34px \* var\(--app-fs, 1\)\)"/.test(seg), "34px 的月名还在");
 });
 
 test("线下两间屋：没图时顶栏透明，别再压一条平色带", () => {

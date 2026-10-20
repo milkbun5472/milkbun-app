@@ -140,7 +140,7 @@ test("一件东西：他心里那句是这一页唯一的主角", () => {
   assert.match(src, /item\.thought \? h\("div", \{ style: \{ position: "relative", marginTop: 26, background: FIELD_PAPER, color: FIELD_INK/,
     "那句话跟这一页的地皮成了同一种材质，一眼分不出来了");
   assert.match(src, /boxShadow: "0 16px 34px rgba\(0,0,0,\.42\)"/, "纸没有压在图上的样子");
-  assert.match(src, /fontFamily: "'Noto Serif SC',serif", fontSize: 17/, "那句话没有比说明大");
+  assert.match(src, /fontFamily: "'Noto Serif SC',serif", fontSize: "calc\(17px \* var\(--app-fs, 1\)\)"/, "那句话没有比说明大");
   assert.match(src, /"—— " \+ \(char \? char\.name : characterText\(char, "他"\)\) \+ " 没说出口"/);
   // note 不再包成一张跟它平起平坐的卡片
   assert.ok(src.indexOf("borderRadius: 10, padding") < 0, "说明又做成了跟那句话平起平坐的卡片");
@@ -158,7 +158,7 @@ test("没出图不是坏了，是还没画；画图、重画、再看一遍都�
   assert.match(dwell, /open\.img \? "重画这儿的样子" : "画一张这儿的样子"/);
   assert.match(dwell, /busy \? "正在再看一遍…" : "再去看一遍"/);
   // 没图的时候不该摆一个点不开的「点开看全屏」
-  assert.match(photo, /src \? h\("div"[\s\S]{0,220}"点开看全屏"\) : null/, "没图时还挂着看全屏的提示");
+  assert.match(photo, /src \? h\("div"[\s\S]{0,400}"点开看全屏"\) : null/, "没图时还挂着看全屏的提示");
 });
 
 test("出图开关：默认开、关得掉、记得住", () => {

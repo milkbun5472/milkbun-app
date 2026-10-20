@@ -14,7 +14,7 @@ const live = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 test("① 两支都有这个标题", () => {
   // 建房那支写死这一句，编辑那支按 draft.main 分两种说法——所以一共两处
   assert.equal((live.match(/"这扇门带进带出什么"/g) || []).length, 2, "两支里有一支没有这个标题");
-  assert.match(live, /h\("div", \{ style: \{ fontFamily: F_DISPLAY, fontSize: 14, color: t\.ink \} \}, "这扇门带进带出什么"\)/,
+  assert.match(live, /h\("div", \{ style: \{ fontFamily: F_DISPLAY, fontSize: "calc\(14px \* var\(--app-fs, 1\)\)", color: t\.ink \} \}, "这扇门带进带出什么"\)/,
     "建房那支的标题没了");
   assert.match(live, /draft\.main \? "主聊天记得什么、写回什么" : "这扇门带进带出什么"/,
     "编辑那支没补上标题");

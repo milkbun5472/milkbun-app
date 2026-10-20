@@ -300,7 +300,7 @@
       url ? [h(React.Fragment, { key: "a" }, layer(a, 0)), h(React.Fragment, { key: "b" }, layer(b, 1))]
         : poster ? h("img", { src: resolveImg(poster), alt: "陪伴原图", style: { width: "100%", height: "100%", objectFit: fit || "cover" } }) : null,
       controls && url ? h("button", { type: "button", onClick: () => setPaused(!paused), style: Object.assign({ position: "absolute", right: 10, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", zIndex: 2, minHeight: 40, padding: "0 12px", border: "1px solid #ffffff88", background: "#24221ecc", color: "#fff", fontFamily: F_BODY }, controlStyle || {}) }, paused ? "播放画面" : "暂停画面") : null,
-      !url && videoRef ? h("div", { style: { position: "absolute", bottom: 8, left: 8, right: 8, color: "#fff", background: "#24221ecc", padding: 8, fontSize: 11 } }, "本机视频暂不可用：从「导出全部数据」的备份导回来，或在动态形象里重新导入") : null);
+      !url && videoRef ? h("div", { style: { position: "absolute", bottom: 8, left: 8, right: 8, color: "#fff", background: "#24221ecc", padding: 8, fontSize: "calc(11px * var(--app-fs, 1))" } }, "本机视频暂不可用：从「导出全部数据」的备份导回来，或在动态形象里重新导入") : null);
   }
   // 一格的画面：有视频放视频，只有图就放图，都没有就交给调用方（画头像）
   function MotionStage({ slot, style, controls, controlStyle, fit }) {
@@ -313,10 +313,10 @@
   function VideoApiConfig() {
     const t = useTheme(), [c, setC] = useState(load), [err, setErr] = useState("");
     const set = patch => { try { setC(save(patch)); setErr(""); } catch (e) { setErr(e.message); } };
-    const input = { width: "100%", minWidth: 0, minHeight: 42, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13 };
-    const row = (label, child) => h("div", { style: { display: "block", marginTop: 14, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, h("span", { style: { display: "block", marginBottom: 6 } }, label), child);
+    const input = { width: "100%", minWidth: 0, minHeight: 42, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" };
+    const row = (label, child) => h("div", { style: { display: "block", marginTop: 14, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, h("span", { style: { display: "block", marginBottom: 6 } }, label), child);
     const sites = (list, cur, pick) => h("div", { style: { display: "grid", gap: 6 } }, list.map(([name, url]) => h("button", { key: url, "aria-label": name, type: "button", onClick: () => pick(url), "aria-pressed": cur === url, style: Object.assign({}, input, { textAlign: "left", borderLeft: (cur === url ? "5px" : "1px") + " solid " + (cur === url ? t.accent : t.line) }) }, name)));
-    const note = text => h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, text);
+    const note = text => h("p", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, text);
     // 型号：常用的放进候选，也能手填（两家上新很快，控制台里开通的是哪个就填哪个）
     const modelField = (label, value, list, onSet, id) => h(React.Fragment, null,
       row(label, h("input", { "data-wk": "input", "aria-label": label, list: id, value, onChange: e => onSet(e.target.value), style: input })),
@@ -342,7 +342,7 @@
         row("时长", h("select", { "aria-label": "即梦时长", value: a.duration, onChange: e => sa({ duration: Number(e.target.value) }), style: input }, [3, 4, 5, 6, 8, 10, 12].map(n => h("option", { key: n, value: n }, n + " 秒")))),
         note("走火山方舟的视频生成任务接口：首帧就是你选的那张图，镜头固定、不加水印。型号要先在方舟控制台开通；不同型号支持的时长和画质不一样，以控制台为准。浏览器直连被跨域拦住时，接口地址换成支持方舟的中转站。")); };
     return h("div", { "data-video-api-config": "" },
-      h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "给图片制作一段动态陪伴画面。视频接口独立配置；只有点击生成才创建收费任务，满意后保存，循环播放不再调用。"),
+      h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub } }, "给图片制作一段动态陪伴画面。视频接口独立配置；只有点击生成才创建收费任务，满意后保存，循环播放不再调用。"),
       row("开启视频生成", h("input", { type: "checkbox", "aria-label": "开启视频生成", checked: c.enabled, onChange: e => set({ enabled: e.target.checked }), style: { width: 22, height: 22 } })),
       row("用哪一家", h("select", { "aria-label": "视频厂家", value: c.vendor, onChange: e => set({ vendor: e.target.value }), style: input }, VENDORS.map(([v, zh]) => h("option", { key: v, value: v }, zh)))),
       c.vendor === "kling" ? kling() : c.vendor === "seedance" ? ark() : h(React.Fragment, null,
@@ -352,7 +352,7 @@
       row("视频模型", h("select", { "aria-label": "视频模型", value: c.model, onChange: e => set({ model: e.target.value, resolution: resolutions(e.target.value)[0], duration: durations(e.target.value, resolutions(e.target.value)[0])[0] }), style: input }, MODELS.map(m => h("option", { key: m, value: m }, m)))),
       row("画质", h("select", { "aria-label": "视频画质", value: c.resolution, onChange: e => set({ resolution: e.target.value }), style: input }, resolutions(c.model).map(r => h("option", { key: r, value: r }, r)))),
       row("时长", h("select", { "aria-label": "视频时长", value: c.duration, onChange: e => set({ duration: Number(e.target.value) }), style: input }, durations(c.model, c.resolution).map(n => h("option", { key: n, value: n }, n + " 秒")))),
-      h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "H3 可选 4～15 秒，H3 Max 可选 5～15 秒；旧型号保留原时长。H3 官方站直连可能被浏览器跨域拦截，此时接口地址需填写支持 MiniMax V2 的中转地址（下面可以自己搭一个）。密钥与语音设置分别保存。到「动态形象」里制作和预览；模型是否开放、费用以对应站点账户为准。")),
+      h("p", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, "H3 可选 4～15 秒，H3 Max 可选 5～15 秒；旧型号保留原时长。H3 官方站直连可能被浏览器跨域拦截，此时接口地址需填写支持 MiniMax V2 的中转地址（下面可以自己搭一个）。密钥与语音设置分别保存。到「动态形象」里制作和预览；模型是否开放、费用以对应站点账户为准。")),
       typeof RelayHelp === "function" && typeof MINIMAX_API_SITES !== "undefined" ? h(RelayHelp, { toast: typeof toast === "function" ? toast : null, hosts: MINIMAX_API_SITES.slice(0, 2), what: "再生成一段试试" }) : null,
       err ? h("p", { role: "alert", style: { color: t.accent } }, err) : null);
   }
@@ -374,8 +374,8 @@
           style: { minHeight: on ? 86 : 72, padding: "4px 0 6px", border: "none", background: on ? "#3a352d" : "transparent", opacity: on ? 1 : .62, borderRadius: "2px 2px 0 0", transition: "min-height .2s" } },
           holes(on),
           h("div", { "data-wk": "block", style: { height: on ? 34 : 26, margin: "4px 6px", borderRadius: 2, background: thumb ? "center/cover no-repeat url(\"" + resolveImg(thumb) + "\")" : "rgba(255,255,255,.08)", border: "1px solid " + (on ? "rgba(255,255,255,.7)" : "rgba(255,255,255,.18)") } }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: on ? "#fff" : "rgba(255,255,255,.75)", fontWeight: on ? 600 : 400 } }, sc.zh),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.5)", marginTop: 1 } }, own ? (own.videoRef ? "视频" : "图片") : sc.id === "default" ? "头像" : "跟平时"));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? "#fff" : "rgba(255,255,255,.75)", fontWeight: on ? 600 : 400 } }, sc.zh),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.5)", marginTop: 1 } }, own ? (own.videoRef ? "视频" : "图片") : sc.id === "default" ? "头像" : "跟平时"));
       }));
   }
   function PomodoroVideoEditor({ character, onBack, onSaved, toast, scene: slotScene, onScene }) {
@@ -425,9 +425,9 @@
     const forgetJob = () => requestAppConfirm("放弃这次视频任务？", "已经提交的任务不会取消或退款。之后重新生成会另计费；当前已选中的陪伴图保留。", () => { if (controller.current) controller.current.abort(); const old = job(id); patchMap(JOBS, id, null); if (old && old.draftRef && (!media(id) || media(id).videoRef !== old.draftRef)) blobOp(old.draftRef, null, true).catch(() => {}); setRecord(null); setMessage(""); }, "放弃任务");
     const importTask = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { const r = await importTaskVideo(id, f); update(r); }); };
     const importLocal = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { await importVideo(id, f, imageRef); onSaved(); toast && toast("视频已导入并设为陪伴图"); onBack(); }); };
-    const btn = { minHeight: 44, padding: "10px 12px", border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, borderRadius: 3 };
-    const input = { width: "100%", minWidth: 0, padding: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, borderRadius: 3 };
-    const heading = text => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, margin: "18px 0 8px" } }, text);
+    const btn = { minHeight: 44, padding: "10px 12px", border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", borderRadius: 3 };
+    const input = { width: "100%", minWidth: 0, padding: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, borderRadius: 3 };
+    const heading = text => h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, margin: "18px 0 8px" } }, text);
     const paper = { backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.035) 0 2px,transparent 2px 26px),linear-gradient(163deg," + t.bg + "," + t.bg2 + ")" };
     if (configOpen) return h("div", { "data-wk": "pompage", "data-part": "pomodorovideoeditor", className: "h-full flex flex-col", style: paper }, h(Head, { zh: "视频 API", bg: "transparent", onBack: () => setConfigOpen(false) }), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } }, h(VideoApiConfig)));
     const showRef = record && record.draftRef || existing && existing.imageRef === imageRef && existing.videoRef;
@@ -438,10 +438,10 @@
       h(Head, { zh: "动态形象", bg: "transparent", onBack, right: h("button", { onClick: () => { savedScroll.current = scroller.current ? scroller.current.scrollTop : 0; setConfigOpen(true); }, style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
       h("div", { ref: scroller, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
         h(SceneStrip, { cid: character.id, scene: slotScene, onScene: x => { if (!busy) onScene && onScene(x); }, t }),
-        h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub, marginTop: 10 } }, character.name + "「" + sceneZh + "」的样子：" + ((SCENES.find(x => x.id === slotScene) || {}).sub || "") + "。可以只挂一张图，也可以做成一段会动的；哪格空着就跟「平时」一样。"),
+        h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 10 } }, character.name + "「" + sceneZh + "」的样子：" + ((SCENES.find(x => x.id === slotScene) || {}).sub || "") + "。可以只挂一张图，也可以做成一段会动的；哪格空着就跟「平时」一样。"),
         showRef ? h(LoopVideo, { key: showRef, videoRef: showRef, poster: showPoster, controls: true, style: { width: "100%", aspectRatio: "3 / 4", maxHeight: 420, overflow: "hidden", borderRadius: 3, background: t.bg2 } }) : imageURL ? h("img", { src: imageURL, alt: "待制作的陪伴原图", style: { width: "100%", maxHeight: 420, objectFit: "contain", display: "block", background: t.bg2 } }) : h("div", { style: { padding: "40px 20px", background: t.bg2, textAlign: "center", color: t.sub, fontFamily: F_BODY } }, "先放一张人物图在桌上"),
         record && record.draftRef ? h("button", { onClick: useDraft, disabled: busy, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, "满意，就一直用这段") : null,
-        h("div", { role: message ? "status" : undefined, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub, marginTop: 10, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, message || (record && !record.taskId ? "上次提交没有拿到任务编号。请先到 MiniMax 控制台核对，避免重复付费。" : "画面与声音分开保存，视频本体保存在这台设备；换设备前请导出备份。")),
+        h("div", { role: message ? "status" : undefined, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 10, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, message || (record && !record.taskId ? "上次提交没有拿到任务编号。请先到 MiniMax 控制台核对，避免重复付费。" : "画面与声音分开保存，视频本体保存在这台设备；换设备前请导出备份。")),
         heading("原图"),
         h("input", { ref: imagePicker, type: "file", accept: "image/jpeg,image/png,image/webp", onChange: chooseImage, hidden: true }),
         h("button", { disabled: busy || !!record, onClick: () => imagePicker.current.click(), style: btn }, "上传图片"),
@@ -449,17 +449,17 @@
         h("button", { disabled: busy || !!record, onClick: generateImage, style: Object.assign({}, btn, { width: "100%", marginTop: 8 }) }, "用图像 API 生成新图"),
         heading("让它怎么动"),
         h("textarea", { "data-wk": "textarea", "aria-label": "视频动作描述", value: motion, onChange: e => setMotion(e.target.value), disabled: busy || !!record, maxLength: 2000, rows: 4, style: input }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, marginTop: 6 } }, "轻动作更合适。播放时首尾会自动淡接，不用强求最后一帧回到原位。当前：" + summary()),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, marginTop: 6 } }, "轻动作更合适。播放时首尾会自动淡接，不用强求最后一帧回到原位。当前：" + summary()),
         state ? h("div", { "data-video-task-status": "", role: "status", style: { marginTop: 14, padding: "12px 0", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink, overflowWrap: "anywhere" } },
-          h("div", { style: { fontSize: 14, fontWeight: 600, marginBottom: 6 } }, state.title),
-          h("div", { style: { fontSize: 12, lineHeight: 1.8, color: t.sub } }, state.detail),
-          record.taskId ? h("div", { style: { fontSize: 11, lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "任务编号：" + record.taskId) : null,
-          record.lastError ? h("div", { style: { fontSize: 11, lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "上次请求提示：" + record.lastError) : null) : null,
+          h("div", { style: { fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, marginBottom: 6 } }, state.title),
+          h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub } }, state.detail),
+          record.taskId ? h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "任务编号：" + record.taskId) : null,
+          record.lastError ? h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "上次请求提示：" + record.lastError) : null) : null,
         !record ? h("button", { disabled: busy || !imageRef, onClick: createVideo, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, busy ? "正在处理…" : "生成动画（按视频接口计费）") : h("div", { style: { display: "grid", gap: 8, marginTop: 12 } },
           record.taskId && !record.draftRef ? h("button", { disabled: busy, onClick: () => run(inspect), style: btn }, busy ? "正在等待原任务…" : "查询原任务 / 重试下载") : null,
           record.downloadUrl && /^https?:\/\//i.test(record.downloadUrl) && !record.draftRef ? h("button", { onClick: async () => { const ok = await copyText(record.downloadUrl); toast && toast(ok ? "链接已复制，切到 Safari 粘贴打开" : "请长按下方链接复制"); report(ok ? "链接已复制。请切到 Safari，粘贴到地址栏打开，保存到文件后回来导入。" : "自动复制没有成功，请长按下面的链接复制，再切到 Safari 打开。"); }, style: btn }, "复制原视频链接（去 Safari 打开）") : null,
           record.downloadUrl && !record.draftRef ? h("div", null,
-            h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "复制链接后切到 Safari，粘贴到地址栏打开；保存到「文件」后回来导入。请在 Safari 打开，原生壳内打开可能触发重新开屏。链接过期可查询原任务更新。"),
+            h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub } }, "复制链接后切到 Safari，粘贴到地址栏打开；保存到「文件」后回来导入。请在 Safari 打开，原生壳内打开可能触发重新开屏。链接过期可查询原任务更新。"),
             h("input", { "data-wk": "input", "aria-label": "原视频下载链接", type: "text", readOnly: true, value: record.downloadUrl, onFocus: e => e.target.select(), style: Object.assign({}, input, { marginBottom: 8 }) }),
             h("input", { ref: taskVideoPicker, type: "file", accept: "video/mp4,video/webm", hidden: true, onChange: importTask }),
             h("button", { disabled: busy, onClick: () => taskVideoPicker.current.click(), style: Object.assign({}, btn, { width: "100%" }) }, "导入这次任务的视频")) : null,

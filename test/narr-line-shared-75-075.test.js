@@ -6,5 +6,5 @@ assert.strictEqual(c.split('"data-wk": "narrink"').length - 1, 1, "旁白行只�
 assert.ok((c.match(/return h\(NarrLine, \{/g) || []).length >= 2, "单聊和群聊都走 NarrLine");
 const a = c.indexOf("function NarrLine("), b = c.indexOf("function SysNote(", a);
 assert.ok(a > 0 && b > a);
-assert.ok(c.slice(a, b).includes("fontSize: 12.5"), "按单聊的字号");
+assert.ok(c.slice(a, b).includes("fontSize: \"calc(12.5px * var(--app-fs, 1))\""), "按单聊的字号");
 console.log("narr-line shared ok");

@@ -7,16 +7,16 @@
     const t = useTheme();
     const [pasting, setPasting] = useState(false), [text, setText] = useState("");
     if (!pasting) return h("button", { onClick: () => setPasting(true), className: "w-full py-2.5 active:opacity-70",
-      style: { minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 } },
+      style: { minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } },
       openZh || "挑不开文件？把主题包 JSON 贴进来");
     return h("div", null,
       h("textarea", { "data-wk": "textarea", value: text, onChange: e => setText(e.target.value), placeholder: ph || "把导出的那份 .json 整个贴在这儿", rows: 5, className: "w-full outline-none",
-        style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px" } }),
+        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px" } }),
       h("div", { className: "flex gap-2", style: { marginTop: 8 } },
         h("button", { onClick: async () => { if (!text.trim()) return; if (await onText(text)) { setText(""); setPasting(false); } },
-          className: "flex-1 py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "贴上去"),
+          className: "flex-1 py-2.5 active:opacity-70", style: { minHeight: 40, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "贴上去"),
         h("button", { onClick: () => { setPasting(false); setText(""); }, className: "px-4 py-2.5 active:opacity-60",
-          style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消")));
+          style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "取消")));
   }
   g.ThemePackPasteBox = ThemePackPasteBox;
 
@@ -41,9 +41,9 @@
     return h("div", { style: { marginTop: 12 } },
       h("button", { onClick: copyForAI, className: "w-full active:opacity-70",
         style: { minHeight: 44, marginBottom: 10, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, copied === "ok" ? "已复制 · 复制给别的 AI" : "复制给别的 AI"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "连同这页全部挂点和写法规矩一起复制。发给 DeepSeek、豆包它们，就不会再说「没有 html、是空壳」")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, copied === "ok" ? "已复制 · 复制给别的 AI" : "复制给别的 AI"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "连同这页全部挂点和写法规矩一起复制。发给 DeepSeek、豆包它们，就不会再说「没有 html、是空壳」")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 7, lineHeight: 1.65 } },
         "抓得住的挂点（点一下写进上面的编辑框）。样式几乎全是内联写死的，"
         + "所以每一条声明都要带 !important，不带等于没写。"),
       // 换一台手机就错位（她 2026-09-30）——原来这儿摆的是一张变量表，她说看不懂。改成现成的几条：
@@ -53,17 +53,17 @@
         const presets = studio.sizePresets ? studio.sizePresets(page) : [];
         const add = code => setCSS((String(css || "").trim() ? String(css).replace(/\s*$/, "") + "\n\n" : "") + code);
         return h("div", { style: { marginBottom: 10, padding: "9px 10px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 2 } }, "换手机不走样 · 点一下加进去"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7, lineHeight: 1.55 } }, "要分给别人用的美化，高度和宽度别写死数字，用下面这几条：它们会跟着每台手机自己算。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } }, "换手机不走样 · 点一下加进去"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 7, lineHeight: 1.55 } }, "要分给别人用的美化，高度和宽度别写死数字，用下面这几条：它们会跟着每台手机自己算。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6 } }, presets.map(function (p) {
             return h("button", { key: p[0], onClick: function () { add(p[2]); }, className: "active:opacity-70",
               style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, p[0]),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, p[1]));
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink } }, p[0]),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, p[1]));
           })),
           h("details", { style: { marginTop: 8 } },
-            h("summary", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, cursor: "pointer" } }, "会写 CSS 的看这里：能用的几个值"),
-            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
+            h("summary", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, cursor: "pointer" } }, "会写 CSS 的看这里：能用的几个值"),
+            h("div", { style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.ink, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
               "var(--app-h)  屏幕可视高度\nvar(--app-vh) 高度的 1%\nvar(--app-w)  屏幕宽度\nvar(--app-safe-top) / var(--app-safe-bottom)  刘海 / 底部横条\nvar(--app-kb) 键盘占掉的高度\nhtml[data-screen-size=\"short|mid|tall\"] …  按屏幕高矮分开写")));
       })(),
       // 挂点叠起来（她 2026-10-19：「选挂点太长了刷不到下面保存」）：默认收着，点标题才展开，一组一组开
@@ -72,21 +72,21 @@
         return h("div", { key: row[0], "data-wk": "csshookgroup", "data-open": isOpen ? "1" : "0", style: { marginBottom: 8 } },
           h("button", { onClick: function () { setOpenRows(function (o) { return Object.assign({}, o, { [row[0]]: !isOpen }); }); }, "aria-expanded": isOpen ? "true" : "false",
             className: "w-full flex items-center justify-between active:opacity-70",
-            style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink } },
+            style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } },
             h("span", null, row[0] + " · " + (row[1] || []).length + " 个挂点"),
-            h("span", { style: { color: t.fog, fontSize: 11 } }, isOpen ? "收起" : "展开")),
+            h("span", { style: { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } }, isOpen ? "收起" : "展开")),
           !isOpen ? null : h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 6 } },
             (row[1] || []).map(function (hk) {
               return h("button", { key: hk[0], onClick: function () { put(hk[0]); }, className: "active:opacity-70",
                 style: { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, textAlign: "left" } },
-                h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.ink } }, hk[0]),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, hk[1]));
+                h("div", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink } }, hk[0]),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, hk[1]));
             })));
       }),
       // 全 App 那一栏最容易让人白写（群友 2026-10-03：「那个全 app 的我弄了没什么效果」）：先说清它管什么、整体风格该去哪改
-      page === "all" ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", marginBottom: 8 } },
+      page === "all" ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", marginBottom: 8 } },
         "想换整个 App 的风格（底色、字色、强调色），先去「基础配色」「字体」「壁纸」——每一页都跟着它们走。这一栏的 CSS 只抓得住下面这几样共用部件：顶栏、头像、半窗、弹出卡、新消息横幅、开关、输入框。每一页自己的卡片和底纹在这里改不到，要去那一页单独写。") : null,
-      !grp && page !== "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog } },
+      !grp && page !== "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog } },
         "这一页只有上面这几个通用的。正文里的卡片、按钮、列表还没挂钩子——底色、字色、顶栏、半窗、空状态改得动，单独改某一张卡片改不动。") : null);
   }
   // ② 插一张图：进图片保险箱，光标处写 url("iv_…")。别处的图直接写 url("https://…") 也行，只是那个网站删了图就没了
@@ -105,7 +105,7 @@
       } catch (err) { toast && toast("图片读取失败：" + (err.message || err)); }
     };
     return h(React.Fragment, null,
-      h("button", { onClick: () => file.current && file.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "7px 11px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5 } }, "插入图库图片"),
+      h("button", { onClick: () => file.current && file.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "7px 11px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "插入图库图片"),
       h("input", { ref: file, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }));
   }
   g.CssHookPicker = CssHookPicker;
@@ -273,7 +273,7 @@
         try { studio.preview(next); } catch (_) {}
         toast("已按这台手机的宽度缩放到 " + Math.round(fit.zoom * 100) + "%，正在预览；不合适去「全 App 多大」拖拉条或点「还原」");
       },
-      className: "w-full active:opacity-70", style: { minHeight: 44, marginBottom: 10, borderRadius: 12, border: "1px solid " + t.ink, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } },
+      className: "w-full active:opacity-70", style: { minHeight: 44, marginBottom: 10, borderRadius: 12, border: "1px solid " + t.ink, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
       "一键适配我的手机（这份是在宽 " + fit.made + " 的手机上做的，你的是 " + fit.mine + "）");
     const togglePick = k => { const sel = Object.assign({}, pick, { [k]: !pick[k] }); setPick(sel); if (incoming) livePick(incoming, sel); };
     // 「挑哪几样」那一排：导出和导入共用这一份（方块、禁用态、「这份包里没有」都只画在这儿）。
@@ -282,8 +282,8 @@
       h("button", { key: x.key, onClick: () => x.has && onToggle(x.key), disabled: !x.has,
         className: "w-full flex items-center active:opacity-70 disabled:opacity-40",
         style: { gap: 9, minHeight: 40, textAlign: "left" } },
-        h("span", { style: { flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: "1px solid " + (x.has && sel[x.key] ? t.ink : t.line), background: x.has && sel[x.key] ? t.ink : "transparent", color: t.bg2, fontSize: 11, lineHeight: "16px", textAlign: "center" } }, x.has && sel[x.key] ? "✓" : ""),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: x.has ? t.ink : t.fog } }, x.zh + (x.has ? "" : missZh))));
+        h("span", { style: { flexShrink: 0, width: 17, height: 17, borderRadius: 5, border: "1px solid " + (x.has && sel[x.key] ? t.ink : t.line), background: x.has && sel[x.key] ? t.ink : "transparent", color: t.bg2, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "16px", textAlign: "center" } }, x.has && sel[x.key] ? "✓" : ""),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: x.has ? t.ink : t.fog } }, x.zh + (x.has ? "" : missZh))));
     const importTheme = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
       let text = "";
@@ -313,8 +313,8 @@
       },
         // 拉手：抽屉面正中那一道横杠
         h("span", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: 6, marginLeft: -13, width: 26, height: 3, borderRadius: 3, background: on ? t.tint : t.line } }),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .65, marginTop: 4 } }, sub));
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", opacity: .65, marginTop: 4 } }, sub));
     };
     // ── 字体（v71.03，她 2026-09-18 转小红书里读者问「怎么换字体」）──────────
     // 全 App 的字体只有正文和标题两支，都在 core.js 里写成了 CSS 变量，
@@ -383,9 +383,9 @@
           border: "1px solid " + (on ? t.ink : t.line),
           background: on ? t.bg2 : "rgba(127,127,127,.05)",
           boxShadow: on ? "0 5px 14px -9px rgba(0,0,0,.6)" : "none" } },
-        h("div", { style: { fontFamily: f.stack || (kind === "display" ? "'Fraunces',serif" : "'Archivo','Noto Serif SC',system-ui,sans-serif"), fontSize: 19, color: t.ink, lineHeight: 1.35 } }, f.zh),
-        h("div", { style: { fontFamily: f.stack || "'Archivo','Noto Serif SC',system-ui,sans-serif", fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.5 } }, "今天也想你 · 0123"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 5 } }, f.hint));
+        h("div", { style: { fontFamily: f.stack || (kind === "display" ? "'Fraunces',serif" : "'Archivo','Noto Serif SC',system-ui,sans-serif"), fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.35 } }, f.zh),
+        h("div", { style: { fontFamily: f.stack || "'Archivo','Noto Serif SC',system-ui,sans-serif", fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.5 } }, "今天也想你 · 0123"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, f.hint));
     };
     const [slots, setSlots] = useState(() => studio.pageSlots(page));
     useEffect(() => { setSlots(studio.pageSlots(page)); }, [page]);
@@ -406,7 +406,7 @@
         // ── 整套换（v62.42）：仓库自带的几套，点一下整套换掉；她单独换过的那几张不动 ──
         // 每一套画成【一张贴纸纸】：三张缩略贴在纸上、纸角翘一点；选中的那张纸压在最上面（墨色边、不翘角）。
         // 不是一排药丸——药丸搬到哪个 app 都成立，一张贴纸纸只有换图标这一处成立。
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "整套换：点一张贴纸纸整套换掉。你自己单独换过的 App 不受影响。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "整套换：点一张贴纸纸整套换掉。你自己单独换过的 App 不受影响。"),
         h("div", { className: "flex flex-wrap", style: { gap: 10, marginBottom: 14 } },
           [["", "出厂线稿", 0]].concat(studio.packList()).map(([pk, name, n]) => {
             const on = (draft.iconPack || "") === pk;
@@ -417,25 +417,25 @@
                 transform: on ? "none" : "rotate(-1.2deg)" } },
               h("div", { className: "flex items-center", style: { gap: 5, marginBottom: 5, minHeight: 22 } },
                 peek.length ? peek.map((src, i) => h("img", { key: i, src, alt: "", style: { width: 22, height: 22, borderRadius: 6, objectFit: "contain" } }))
-                  : h("div", { style: { width: 22, height: 22, borderRadius: 6, border: "1px dashed " + t.line, display: "grid", placeItems: "center", color: t.fog, fontSize: 12 } }, pk ? "…" : "◌")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, name),
-              pk ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, n + " / " + studio.appIconList().length + " 张") : null,
-              on ? h("span", { style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: 999, background: t.ink, color: t.bg2, fontSize: 10, display: "grid", placeItems: "center" } }, "✓") : null);
+                  : h("div", { style: { width: 22, height: 22, borderRadius: 6, border: "1px dashed " + t.line, display: "grid", placeItems: "center", color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, pk ? "…" : "◌")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, name),
+              pk ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, n + " / " + studio.appIconList().length + " 张") : null,
+              on ? h("span", { style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: 999, background: t.ink, color: t.bg2, fontSize: "calc(10px * var(--app-fs, 1))", display: "grid", placeItems: "center" } }, "✓") : null);
           })),
         // ── 图标自带底（她 2026-09-04 要的那个开关）：图里已经画了玻璃方块的，别再套一层 ──
         h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginBottom: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px" } },
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "图标自带底，不套玻璃"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, "图里已经画了方块和圆角的，开了它主屏就不再垫那块玻璃；线稿图标不受影响")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "图标自带底，不套玻璃"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.4 } }, "图里已经画了方块和圆角的，开了它主屏就不再垫那块玻璃；线稿图标不受影响")),
           h("button", { onClick: () => patchDraft({ iconBare: !draft.iconBare }), className: "shrink-0 active:opacity-70", "aria-pressed": draft.iconBare ? "true" : "false",
             style: { width: 44, height: 26, borderRadius: 999, background: draft.iconBare ? t.ink : t.line, position: "relative", transition: "background .15s" } },
             h("div", { "data-wk": "block", style: { position: "absolute", top: 3, left: draft.iconBare ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: t.bg2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } }))),
         // ── 一次多张：按文件名对上 App（文件叫 cast.png 或 人格档案馆.png 都认）──
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, flex: 1 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
-          h("button", { onClick: () => iconFiles.current && iconFiles.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "一次选多张")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, flex: 1 } }, "点 App 选择图片。素材进入现有图片保险箱；没换的继续使用原图标。"),
+          h("button", { onClick: () => iconFiles.current && iconFiles.current.click(), className: "shrink-0 active:opacity-70", style: { minHeight: 40, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "一次选多张")),
         iconTray.length ? h("div", { "data-wk": "icontray", style: { marginBottom: 12, border: "1px dashed " + t.line, borderRadius: 14, padding: "10px 10px 8px", background: t.bg2 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
             trayPick >= 0 ? "选中了一张，点下面要换的那个 App" : "这 " + iconTray.length + " 张认不出是哪个 App：点一张，再点下面的 App；或者照列表顺序一次排上去"),
           h("div", { className: "flex", style: { gap: 8, overflowX: "auto", paddingBottom: 4 } }, iconTray.map((it, i) => h("button", { key: i, "data-wk": "icontrayimg", "data-on": trayPick === i ? "1" : "0",
             onClick: () => setTrayPick(p => p === i ? -1 : i), className: "shrink-0 active:opacity-70",
@@ -448,20 +448,20 @@
                 const n = Math.min(iconTray.length, keys.length);
                 patchDraft({ icons }); setIconTray(v => v.slice(n)); setTrayPick(-1);
                 toast("照列表顺序排上了 " + n + " 张，不对的点那个 App 再换"); },
-              className: "active:opacity-70", style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, background: "transparent" } }, "照列表顺序排上去"),
+              className: "active:opacity-70", style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, background: "transparent" } }, "照列表顺序排上去"),
             h("button", { onClick: () => { setIconTray([]); setTrayPick(-1); }, className: "active:opacity-70",
-              style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, background: "transparent" } }, "这几张不要了"))) : null,
+              style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, background: "transparent" } }, "这几张不要了"))) : null,
         h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } }, studio.appIconList().map(([key,label]) => { const ref = draft.icons[key], packSrc = studio.packIconSrc(draft.iconPack, key), src = ref ? resolveImg(ref) : packSrc; return h("div", { key, style: { padding: 9, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } }, h("button", { "data-wk": "iconslot", "data-on": trayPick >= 0 ? "1" : "0", onClick: () => {
             if (trayPick >= 0 && iconTray[trayPick]) { const it = iconTray[trayPick]; patchDraft({ icons: { ...draft.icons, [key]: it.ref } }); setIconTray(v => v.filter((_, j) => j !== trayPick)); setTrayPick(-1); return; }
-            setPickKey(key); iconFile.current && iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left", outline: trayPick >= 0 ? "1px dashed " + t.line : "none", outlineOffset: 3, borderRadius: 11 } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
+            setPickKey(key); iconFile.current && iconFile.current.click(); }, className: "w-full flex items-center gap-3 active:opacity-70", style: { textAlign: "left", outline: trayPick >= 0 ? "1px dashed " + t.line : "none", outlineOffset: 3, borderRadius: 11 } }, src ? h("img", { src, style: { width: 40, height: 40, borderRadius: 11, objectFit: draft.iconBare ? "contain" : "cover" } }) : h("div", { style: { width: 40, height: 40, borderRadius: 11, background: t.bg, display: "grid", placeItems: "center", color: t.fog } }, "+"), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, label)), ref ? h("button", { onClick: () => clearIcon(key), style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent, marginTop: 5 } }, packSrc ? "退回整套里那张" : "恢复原图标") : null); })),
         h("input", { ref: iconFile, type: "file", accept: "image/*", onChange: chooseIcon, style: { display: "none" } }),
         h("input", { ref: iconFiles, type: "file", accept: "image/*", multiple: true, onChange: chooseIcons, style: { display: "none" } })),
       section === "css" && h("div", null,
         h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 10 } },
           h("select", { value: page, onChange: e => setPage(e.target.value), style: { flex: 1, minWidth: 0, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY } }, studio.PAGES.map(([k,l]) => h("option", { key: k, value: k }, l))),
           h("button", { onClick: peek, disabled: page === "all", className: "shrink-0 active:opacity-70 disabled:opacity-35",
-            style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, whiteSpace: "nowrap" } }, "去这一页看看")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: -4, marginBottom: 10 } },
+            style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, "去这一页看看")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: -4, marginBottom: 10 } },
           page === "all" ? "「全 App」不是某一页——挑一页再点右边那颗。" : "点右边那颗直接跳到这一页看真的样子，底下会浮一条「回去改」送你回来。"),
         // ── 这一页多大（v72.32，她 2026-09-20：「做拉条选大小」）──────────
         // ⚠️它放大的是整页（字、头像、间距一起按比例变），不是只有字——
@@ -470,7 +470,7 @@
         // 「全 App」这一档也能调：它是底数，某一页再单独调就盖过它。
         (function () {
           // 主屏不放大：它是按一屏高度排死的，放大就把底下那排连设置一起挤出屏幕（cleanZoom 那儿写了由来）
-          if (page === "home") return h("div", { style: { marginBottom: 14, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } }, "主屏不跟着放大：它是按一屏排好的，放大了最底下那排（连设置）会被挤出屏幕。");
+          if (page === "home") return h("div", { style: { marginBottom: 14, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, "主屏不跟着放大：它是按一屏排好的，放大了最底下那排（连设置）会被挤出屏幕。");
           const z = ((draft.pageZoom || {})[page]) || 1;
           const setZ = v => {
             const one = Object.assign({}, draft.pageZoom || {});
@@ -483,16 +483,16 @@
           return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
             fit ? fitBtn(fit) : null,
             h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
-              h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
+              h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
                 page === "all" ? "全 App 多大" : "这一页多大"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: z === 1 ? t.fog : t.ink } }, Math.round(z * 100) + "%"),
-              z !== 1 ? h("button", { onClick: () => setZ(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 6px" } }, "还原") : null),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: z === 1 ? t.fog : t.ink } }, Math.round(z * 100) + "%"),
+              z !== 1 ? h("button", { onClick: () => setZ(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 6px" } }, "还原") : null),
             h("input", {
               type: "range", value: z, min: studio.ZOOM_MIN || 0.8, max: studio.ZOOM_MAX || 1.4, step: 0.05,
               onChange: e => setZ(e.target.value),
               className: "w-full", style: { accentColor: t.ink, height: 28 }
             }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 4 } },
               "整页一起按比例放大：字、头像、间距都跟着走，版面不会乱。"
               + (page === "all" ? "这是底数，某一页再单独调就盖过它。" : "没调过的页面跟着「全 App」那一档。")
               + "点下面「先预览 30 秒」看真的样子。"));
@@ -506,8 +506,8 @@
           //   （她 2026-09-07：「我让秋秋改梦境变白还是没有变化」）。名单只有 ThemeStudio 那一份。
           const own = (studio.OWN_PALETTE || {})[page];
           if (own) return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: "rgba(194,90,74,.07)" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 3 } }, "这一页换不了色"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 3 } }, "这一页换不了色"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog } },
               "它的颜色不是从主题里取的（" + own + "），所以在这儿换几支色一点变化都不会有。"
               + "要让它能换，得先把这一页接到主题上——那是一次施工。上面的页面 CSS 照旧能改它的顶栏、半窗这些共用件。"));
           const cur = (draft.pageTokens || {})[page] || {};
@@ -519,10 +519,10 @@
           };
           return h("div", { style: { marginBottom: 14, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
             h("div", { className: "flex items-center justify-between", style: { marginBottom: 3 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "这一页单独换几支色"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "这一页单独换几支色"),
               Object.keys(cur).length ? h("button", { onClick: () => { const all = { ...(draft.pageTokens || {}) }; delete all[page]; patchDraft({ pageTokens: all }); },
-                className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "全部还原") : null),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginBottom: 9 } },
+                className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent } }, "全部还原") : null),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginBottom: 9 } },
               "这一页的卡片、按钮、列表都是从这几支色里取的颜色。想整页换个调子，改这儿比写 CSS 管用——CSS 抓不住那些没挂点的东西，这个不用挂点。"),
             h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } },
               (studio.TOKENS || []).map(function (tk) {
@@ -532,17 +532,17 @@
                   // 色圈全 App 只有 components.js 的 ColorDot 那一颗（施工规则/one-public-mechanism.md）
                   h(ColorDot, { value: val, onChange: v => put(k, v), label: tk[1], size: 24 }),
                   h("span", { style: { minWidth: 0, flex: 1 } },
-                    h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, tk[1]),
-                    h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 9.5, color: t.fog } }, on ? val : "跟随全局")),
+                    h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink } }, tk[1]),
+                    h("span", { style: { display: "block", fontFamily: "monospace", fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } }, on ? val : "跟随全局")),
                   on ? h("button", { onClick: e => { e.preventDefault(); put(k, ""); }, className: "shrink-0 active:opacity-70",
-                    style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还原") : null);
+                    style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "还原") : null);
               })));
         })(),
-        h("textarea", { "data-wk": "textarea", ref: cssEditor, value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: 11.5, lineHeight: 1.65 } }),
+        h("textarea", { "data-wk": "textarea", ref: cssEditor, value: css, onChange: e => setCSS(e.target.value), placeholder: ".message-bubble {\n  border-radius: 18px;\n}", style: { width: "100%", minHeight: 230, resize: "vertical", padding: 12, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: "monospace", fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.65 } }),
         h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 8 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.55, color: t.fog } }, "光标放到 background-image 后面，再选一张图；这里只存保险箱门牌，导出主题包会把原图一起带走。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.fog } }, "光标放到 background-image 后面，再选一张图；这里只存保险箱门牌，导出主题包会把原图一起带走。"),
           h(CssImageButton, { css: css, setCSS: setCSS, editorRef: cssEditor, toast: toast })),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 8 } }, page === "all" ? "全 App CSS 风险较高，也必须先预览。" : "选择器会自动加当前页面前缀，不会串到别处；远程 @import 和脚本式 CSS 会被拒绝。"),
         // ── 这一页抓得住的挂点（v65.05）：她在这儿手写 CSS，界面上却从没说过【能抓住什么】——只能猜类名。
         //   v74.318 起跟「只给 TA 写 CSS」共用 CssHookPicker（名单仍只有 ThemeStudio 那一份）。
         h(CssHookPicker, { page: page, css: css, setCSS: setCSS }),
@@ -553,31 +553,31 @@
         (() => {
           const st = studio.cssStale ? studio.cssStale(css) : null;
           return st ? h("div", { "data-wk": "block", style: { marginTop: 10, borderRadius: 12, padding: "10px 12px", background: "rgba(194,90,74,0.09)", border: "1px solid rgba(194,90,74,0.28)" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.ink } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
               "「" + st.name + "」有更新（v" + st.from + " → v" + st.to + "）。上面这段是旧的，点下面那颗按钮重新灌一次才吃得到。"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 4 } },
               "⚠️重新灌会盖掉你在这段里改过的东西——想留就先存进下面的槽位。")) : null;
         })(),
         (studio.CSS_BUILTINS[page] || []).length ? h("div", { style: { marginTop: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "内置（点一下灌进上面的编辑框，再改成你要的）"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "内置（点一下灌进上面的编辑框，再改成你要的）"),
           h("div", { className: "flex flex-wrap", style: { gap: 7 } },
             studio.CSS_BUILTINS[page].map(([nm, code]) => h("button", { key: nm, onClick: () => { setCSS(code); clearSkin(); toast("「" + nm + "」已灌进编辑框，先预览看看"); },
-              className: "active:opacity-70", style: { minHeight: 40, padding: "8px 13px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, nm)))) : null,
+              className: "active:opacity-70", style: { minHeight: 40, padding: "8px 13px", borderRadius: 10, border: "1px solid " + t.ink, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, nm)))) : null,
         h("div", { style: { marginTop: 12 } },
           // ⚠️她 2026-09-11：「现在只能 5 套，改成可以自定义再加吧，然后可以 ❌ 删除」。
           //   所以这儿不再摆五个固定格子（空格也占着位置），而是【存了几套就摆几个】，
           //   末尾永远跟着一颗「＋ 存成新的一套」。
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } },
             "你自己存的（点一下读回编辑框，× 删掉）：" + (slots.length ? slots.length + " 套" : "还没存过")),
           h("div", { className: "flex flex-wrap", style: { gap: 7 } },
             slots.map((sl, i) => h("div", { key: i, className: "flex items-center", style: { gap: 4, minHeight: 40, padding: "6px 8px 6px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2 } },
               h("button", { onClick: () => { setCSS(sl.css); toast("读出「" + sl.name + "」"); },
-                className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, sl.name),
+                className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, sl.name),
               h("button", {
                 onClick: () => requestAppConfirm("删掉「" + sl.name + "」？", "这一套 CSS 就没了；正用着的主题不受影响。",
                   () => { setSlots(studio.clearSlot(page, i)); toast("删掉了"); }, "删掉"),
                 "aria-label": "删掉这一套", className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "0 3px" } }, "×"))).concat([
+                style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "0 3px" } }, "×"))).concat([
             h("button", { key: "add", onClick: () => {
                 const cur = page === "all" ? (draft.globalCSS || "") : (draft.pageCSS[page] || "");
                 if (!cur.trim()) { toast("编辑框还是空的，先写点东西再存"); return; }
@@ -591,9 +591,9 @@
                     setSlots(studio.addSlot(page, nm, cur)); toast("存好了：" + nm);
                   }, "存进去", { maxLength: 12 });
               }, className: "active:opacity-70",
-              style: { minHeight: 40, padding: "6px 13px", borderRadius: 10, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "＋ 存成新的一套")])))),
+              style: { minHeight: 40, padding: "6px 13px", borderRadius: 10, border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "＋ 存成新的一套")])))),
       section === "fonts" && h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75, marginBottom: 12 } },
           "换的是整个 App 的字，聊天、日记、查手机全都跟着变。挑完先预览看看，再点正式应用。"),
         // ── 字号（她 2026-10-20：「为什么不能单独改字体」）：只放大字，头像和间距不动。
         //   一页一页接上（先线上聊天），没接上的页面不跟着变——说明里如实写出来。
@@ -602,50 +602,50 @@
           const setFs = v => patchDraft({ fontScale: Math.round(Number(v) * 100) / 100 });
           return h("div", { "data-wk": "fontscale", style: { marginBottom: 18, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px", background: t.bg2 } },
             h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
-              h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "字号"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: z === 1 ? t.fog : t.ink } }, Math.round(z * 100) + "%"),
-              z !== 1 ? h("button", { onClick: () => setFs(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 6px" } }, "还原") : null),
+              h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "字号"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: z === 1 ? t.fog : t.ink } }, Math.round(z * 100) + "%"),
+              z !== 1 ? h("button", { onClick: () => setFs(1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 6px" } }, "还原") : null),
             h("input", { type: "range", value: z, min: 0.85, max: 1.5, step: 0.05, onChange: e => setFs(e.target.value), className: "w-full", style: { accentColor: t.ink, height: 28 } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
-              "只放大字，头像、间距、版面不动。现在管得到：线上单聊（气泡、顶栏、时间、卡片上的字）、线下（单人和群线下，连设置和往期）、群聊、心声卡、日记、查手机里的各个 app，别的页面还在一页一页接。想整页一起放大，用「页面 CSS」里的「全 App 多大」。"));
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+              "只放大字，头像、间距、版面不动。整个 App 都跟着变，只有主屏和主屏上的小组件不动（主屏是按一屏排好的）。想整页一起放大，用「页面 CSS」里的「全 App 多大」。"));
         })(),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "正文"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 7 } }, "正文"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 18 } },
           faces.map(f => fontCard("body", f))),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "标题"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginBottom: 7 } }, "页眉、栏目名、按钮上那些大一号的字。"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 7 } }, "标题"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 7 } }, "页眉、栏目名、按钮上那些大一号的字。"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 12 } },
           faces.map(f => fontCard("display", f))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginBottom: 18 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 18 } },
           "写着「自带」的那几支用手机里本来就有的字，断网也在；其余几支第一次用要联网下载一下。"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 7 } }, "自己加的字"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.75, marginBottom: 9 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 7 } }, "自己加的字"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.75, marginBottom: 9 } },
           "传文件：woff2 / woff / ttf / otf 都行，woff2 最小，中文字体优先找它。传进来就存在这台机器上，断网也在，导出主题包会一起打包。",
           h("br"), "贴链接：中文网字计划、Google Fonts 那种「引入代码」里的 CSS 链接。不占地方、按用到的字下载所以快，但断网就没有。"),
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
           h("button", { onClick: () => fontFile.current && fontFile.current.click(), className: "flex-1 py-3",
-            style: { borderRadius: 11, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "传字体文件"),
+            style: { borderRadius: 11, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "传字体文件"),
           h("button", { onClick: addFontLink, className: "flex-1 py-3",
-            style: { borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "贴一条链接")),
+            style: { borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "贴一条链接")),
         h("input", { ref: fontFile, type: "file", accept: ANY_FILE, onChange: chooseFontFile, style: { display: "none" } }),
         customFonts.length
           ? h("div", { style: { display: "grid", gap: 6, marginBottom: 10 } },
               customFonts.map(c => h("div", { key: c.id, className: "flex items-center",
                 style: { gap: 8, padding: "8px 10px", borderRadius: 9, border: "1px solid " + t.line } },
                 h("div", { className: "flex-1 min-w-0" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, c.kind === "file" ? "文件 · 存在这台机器上" : "链接 · 要联网")),
-                h("button", { onClick: () => dropCustom(c), className: "active:opacity-70", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "4px 8px" } }, "删掉"))))
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, c.kind === "file" ? "文件 · 存在这台机器上" : "链接 · 要联网")),
+                h("button", { onClick: () => dropCustom(c), className: "active:opacity-70", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "4px 8px" } }, "删掉"))))
           : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } },
           "最多 " + ((FC && FC.CUSTOM_MAX) || 8) + " 支。加完的字会出现在上面那两栏里，跟内置的一起挑。",
           h("br"), "⚠️字体是有版权的东西，商用字体别往外发主题包。")),
       section === "package" && h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75, marginBottom: 12 } }, "导出会把真实图标图片一起装包。导入只进入预览，不会静默覆盖现用主题。"),
         // 只导出一样（她 2026-09-22：「比如只导入 app 图标 或者只导入背景」）。
         // 跟导入那头共用同一份名单和同一排方块——这儿是【发】，那儿是【收】。
         h("div", { style: { marginBottom: 12, padding: "11px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } }, "这次导出带上哪几样："),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "这次导出带上哪几样："),
           partRows(studio.packParts({ profile: draft, baseTheme: theme, wallpaper: wallpaper,
             bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, home: studio.homeSnapshot ? studio.homeSnapshot() : null }),
             xPick, k => setXPick(p => Object.assign({}, p, { [k]: !p[k] })), "（你还没弄过）")),
@@ -662,11 +662,11 @@
         // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。
         // 勾一下就立刻改预览，所以她是【看着】挑的，不是盲选完再按确认。
         incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginBottom: 8 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } },
             "这份包里带了这些，勾掉的不会动你现在的："),
           fitNow ? fitBtn(fitNow) : null,
           partRows(studio.packParts(incoming), pick, togglePick, "（这份包里没有）"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 6 } },
             "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。顶栏会自动让开这台手机的刘海，不会钻进状态栏。")) : null,
         // 贴一份：手机上挑不开文件的时候，这条路永远死不了（照表情包「贴上去」那个先例）
         h("div", { style: { marginTop: 12 } }, h(ThemePackPasteBox, { onText: applyPack }))),

@@ -74,11 +74,11 @@
           h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.1))" } }),
           sg.cover ? h("img", { src: sg.cover, alt: "", style: { position: "absolute", left: 14, top: 16, width: 62, height: 62, borderRadius: 8, objectFit: "cover", boxShadow: "0 3px 10px rgba(0,0,0,.35)" } }) : null,
           h("div", { style: { position: "absolute", left: 90, right: 12, top: 22, color: "#fff" } },
-            h("div", { style: { fontFamily: FD, fontSize: 15, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S(sg.title) || "一首歌"),
-            h("div", { style: { fontFamily: FB, fontSize: 11, opacity: .8, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S(sg.artist)))),
+            h("div", { style: { fontFamily: FD, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S(sg.title) || "一首歌"),
+            h("div", { style: { fontFamily: FB, fontSize: "calc(11px * var(--app-fs, 1))", opacity: .8, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, S(sg.artist)))),
         h("div", { style: { padding: "10px 13px 11px" } },
-          p.text ? h("div", { style: { fontFamily: FB, fontSize: 12.5, lineHeight: 1.65, color: t.ink, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "「" + p.text + "」") : null,
-          h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: FB, fontSize: 10, color: t.fog, marginTop: 7, letterSpacing: 1 } },
+          p.text ? h("div", { style: { fontFamily: FB, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "「" + p.text + "」") : null,
+          h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: FB, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 7, letterSpacing: 1 } },
             h("span", null, "—— " + (p.name || "")), h("span", null, "一起听 · 广场")))));
   }
   window.ListenShareCard = ListenShareCard;

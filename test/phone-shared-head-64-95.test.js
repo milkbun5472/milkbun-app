@@ -74,7 +74,7 @@ test("剩下的手写顶栏只有这几条，而且每条都是【它在模仿�
   assert.match(phone, /const searchHead = h\("div"/, "微信聊天页那条");
   assert.match(phone, /const contactsHead = h\("div"/, "微信通讯录那条");
   assert.match(phone, /const plainHead = h\("div"/, "微信朋友圈/我那条");
-  assert.match(phone, /const chrome = \(title, sub, back\) =>[\s\S]{0,400}"‹"/, "相册那条");
+  assert.match(phone, /const chrome = \(title, sub, back\) =>[\s\S]{0,800}"‹"/, "相册那条");
   assert.match(phone, /const chans = \["发现"\]\.concat/, "小红书那排频道 tab");
 });
 
@@ -95,7 +95,7 @@ test("PhoneSubPage 只剩一份，而且就是共用 Head", () => {
   const i = phone.indexOf("function PhoneSubPage({");
   assert.ok(i > 0, "PhoneSubPage 不见了");
   const seg = phone.slice(i, phone.indexOf("\n}\n", i));
-  assert.match(seg, /h\(Head, \{ zh: title \|\| "",[\s\S]{0,140}ink: ink,[\s\S]{0,40}onBack: onClose/, "它没走共用 Head");
+  assert.match(seg, /h\(Head, \{ zh: title \|\| "",[\s\S]{0,280}ink: ink,[\s\S]{0,80}onBack: onClose/, "它没走共用 Head");
   assert.doesNotMatch(seg, /IArrow/, "还自己画着返回箭头");
   assert.doesNotMatch(seg, /safeTop/, "还自己吃着刘海");
   assert.ok(phone.split("h(PhoneSubPage").length - 1 >= 5, "用它的地方少了，先弄清为什么");

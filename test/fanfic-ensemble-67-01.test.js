@@ -133,6 +133,6 @@ test("挑人不是一排勾选框，选中态也不只靠色", () => {
   assert.match(cp, /cast\.length >= CAST_MAX \? cast : cast\.concat/, "没有上限，能点进二十个人");
   const wt = grab("WayTag");
   assert.match(wt, /ficTagStyle\(ficTagKind\(props\.tag\), t, false\)/, "另画了一套标签，没用这个 app 已有的那套");
-  assert.match(wt, /on \? h\("span", \{ style: \{ fontSize: 11 \} \}, "✓"\) : null/, "选中态只有色差");
+  assert.match(wt, /on \? h\("span", \{ style: \{ fontSize: "calc\(11px \* var\(--app-fs, 1\)\)" \} \}, "✓"\) : null/, "选中态只有色差");
   assert.match(wt, /minHeight: 40/);
 });

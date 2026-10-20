@@ -40,7 +40,7 @@
   ];
   // 名字旁边的称号（她 2026-10-17：「管理模式的专属称号放在我名字旁边，这样评论也能让她们知道我是谁」）：
   //   一枚小小的朱红印章，后端只让管理口令挂；没挂的人这里什么都不画
-  const Badge = ({ b }) => b ? h("span", { "data-wk": "nestbadge", style: { display: "inline-block", marginLeft: 5, padding: "0 5px", fontFamily: F_BODY, fontSize: 10.5, lineHeight: "16px",
+  const Badge = ({ b }) => b ? h("span", { "data-wk": "nestbadge", style: { display: "inline-block", marginLeft: 5, padding: "0 5px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: "16px",
     color: "#fff", background: "#a0383f", borderRadius: 3, verticalAlign: "1px", letterSpacing: .5, whiteSpace: "nowrap" } }, b) : null;
   // 她给一帖标的：收到了／修好了（后端只认管理口令改）
   const STATUS = { got: { zh: "收到了", color: "#b38a35" }, fixed: { zh: "修好了", color: "#71834f" } };
@@ -263,9 +263,9 @@
       : "新消息提醒没查成（" + hm(L.at) + "）：" + L.err;
     const now = async () => { setBusy(true); try { await W.check(); W.markSeen(); } catch (e) {} setBusy(false); redraw(x => x + 1); };
     return h("div", { "data-wk": "nestwatchline", className: "shrink-0 flex items-center px-4", style: { gap: 8, paddingBottom: 6 } },
-      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11, color: L && !L.ok ? "#a0383f" : t.fog, lineHeight: 1.5 } }, txt),
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: L && !L.ok ? "#a0383f" : t.fog, lineHeight: 1.5 } }, txt),
       h("button", { "data-wk": "nestwatchnow", disabled: busy, onClick: now, className: "shrink-0 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px", opacity: busy ? .5 : 1 } }, busy ? "在查……" : "现在查一次"));
+        style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, minHeight: 26, padding: "0 9px", opacity: busy ? .5 : 1 } }, busy ? "在查……" : "现在查一次"));
   }
 
   // 首页那一排能收起（她 2026-10-16：「3x3太占位置了」）：收着时只剩一行写着现在看的是哪一格，点开挑完自己收回去
@@ -275,10 +275,10 @@
       const cur = KIND[kind];
       return h("div", { "data-wk": "nestcubbies", className: "shrink-0 px-4 pt-2 pb-3" },
         h("button", { "data-wk": "nestcubbyfold", onClick: () => setOpen(true), className: "w-full flex items-center active:opacity-70",
-          style: { gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 12, background: hex6(t.ink) ? t.ink + "0d" : t.bg2, fontFamily: F_BODY, fontSize: 13.5, color: t.ink } },
+          style: { gap: 8, minHeight: 44, padding: "0 14px", borderRadius: 12, background: hex6(t.ink) ? t.ink + "0d" : t.bg2, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } },
           h("span", { style: { width: 14, height: 3, borderRadius: 2, background: cur ? cur.color : t.ink } }),
           h("span", { style: { fontWeight: 600 } }, cur ? cur.zh : "全部"),
-          h("span", { style: { marginLeft: "auto", fontSize: 12.5, color: t.fog } }, "换一格 ▾")));
+          h("span", { style: { marginLeft: "auto", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "换一格 ▾")));
     }
     const pick0 = onPick;
     onPick = fold ? (k => { setOpen(false); pick0(k); }) : pick0;
@@ -292,7 +292,7 @@
         const on = k.key === kind, kc = (KIND[k.key] || {}).color;
         return h("button", { key: k.key || "all", "data-wk": "nestcubby", "data-on": on ? "1" : "0", onClick: () => onPick(k.key),
           className: "active:opacity-70 flex flex-col items-center justify-center",
-          style: { minHeight: 48, padding: "6px 2px 5px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5, letterSpacing: .5,
+          style: { minHeight: 48, padding: "6px 2px 5px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", letterSpacing: .5,
             color: on ? t.ink : t.fog, fontWeight: on ? 600 : 400,
             background: on ? t.bg2 : "transparent",
             boxShadow: on ? "0 1px 0 " + t.line + ", 0 4px 10px -6px rgba(0,0,0,.35)" : "none",
@@ -307,7 +307,7 @@
 
   const Btn = ({ t, onClick, children, solid, disabled, wk, wide }) => h("button", { onClick, disabled, "data-wk": wk || "nestbtn",
     className: "active:opacity-60 disabled:opacity-40" + (wide ? " flex-1" : ""),
-    style: { minHeight: 44, padding: "0 18px", borderRadius: 12, fontFamily: F_BODY, fontSize: 14, fontWeight: solid ? 600 : 400,
+    style: { minHeight: 44, padding: "0 18px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: solid ? 600 : 400,
       border: "1px solid " + (solid ? t.ink : t.line), background: solid ? t.ink : t.bg2, color: solid ? t.bg : t.ink } }, children);
 
   // 一枚小印章：这一类的一个字，盖在列表每一条的左边
@@ -317,7 +317,7 @@
       background: tint(K.color, "1f"), color: K.color, border: "1px solid " + tint(K.color, "40"), fontFamily: F_BODY, fontSize: s * .42, fontWeight: 700 } }, K.seal);
   };
   const card = t => ({ background: t.bg2, borderRadius: 14, border: "1px solid " + t.line, boxShadow: "0 1px 2px rgba(0,0,0,.04)" });
-  const label = (t, txt) => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, letterSpacing: .5, marginBottom: 8 } }, txt);
+  const label = (t, txt) => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, letterSpacing: .5, marginBottom: 8 } }, txt);
 
   // ── 放哪儿：全 App，或者某一个人的聊天窗／某一个群／某一个人的线下 ─────
   //   CSS 三处都能放；整套聊天美化只有聊天窗和群（线下没有那一套皮）。
@@ -327,22 +327,22 @@
     const list = tab === "group" ? (props.groups || []).map(g => ({ id: g.id, name: g.name || "未命名的群" })) : chars.map(c => ({ id: c.id, name: c.name }));
     const zh = { chat: "聊天窗", group: "群聊", offline: "线下" };
     return h("div", { "data-wk": "nestplace", style: Object.assign({ marginTop: 16, padding: 14 }, card(t)) },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 600, color: t.ink } }, "放哪儿"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 600, color: t.ink } }, "放哪儿"),
       onAll ? h(React.Fragment, null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "全 App：接在全局 CSS 草稿后面，预览满意再保存。只给一处：放进那个人或那个群自己的 CSS，直接生效。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "全 App：接在全局 CSS 草稿后面，预览满意再保存。只给一处：放进那个人或那个群自己的 CSS，直接生效。"),
         h("div", { className: "flex", style: { gap: 8, marginTop: 12 } },
           h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: onAll, wk: "nestplaceall" }, "全 App"),
           h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放")))
       : h(React.Fragment, null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "整套换上，直接生效。不满意在那一页的设置里点「↶ 回到上一版」。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "整套换上，直接生效。不满意在那一页的设置里点「↶ 回到上一版」。"),
         h("div", { style: { marginTop: 10 } }, h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放"))),
       h("div", { "data-wk": "nestplacetabs", style: { marginTop: 14 } },
         h(Cubbies, { t, kind: tab, onPick: setTab, cols: slots.length, flush: true, items: slots.map(k => ({ key: k, zh: zh[k] })) })),
       h("div", { style: { marginTop: 6 } },
         list.length ? list.map(x => h("button", { key: x.id, "data-wk": "nestplacerow", disabled: busy, onClick: () => onPick(tab, x.id, x.name), className: "w-full flex items-center justify-between active:opacity-70 disabled:opacity-40",
-          style: { minHeight: 46, padding: "0 4px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } },
-          h("span", { className: "truncate" }, x.name), h("span", { style: { color: t.fog, fontSize: 12.5, flexShrink: 0 } }, "放这儿 ›")))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 4px" } }, tab === "group" ? "还没有群" : "还没有角色")));
+          style: { minHeight: 46, padding: "0 4px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } },
+          h("span", { className: "truncate" }, x.name), h("span", { style: { color: t.fog, fontSize: "calc(12.5px * var(--app-fs, 1))", flexShrink: 0 } }, "放这儿 ›")))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "14px 4px" } }, tab === "group" ? "还没有群" : "还没有角色")));
   }
 
   // ── 账号那几样小图标（铃铛、书签、回形针）：跟上面 GNest 一样只画线 ──────────
@@ -370,16 +370,16 @@
       h("div", { className: "flex items-center justify-between" },
         h("span", { "aria-hidden": true, style: { width: big ? 32 : 26, height: big ? 32 : 26, borderRadius: 999, border: "1.5px solid " + K.color, color: K.color,
           display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: big ? 14 : 12, fontWeight: 700, transform: "rotate(-8deg)" } }, K.seal),
-        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, h(StatusChip, { st: it.status, big }), it.returned ? h("span", { "data-wk": "nestreturnedchip", style: { fontFamily: F_BODY, fontSize: big ? 12.5 : 11, color: "#a0383f", border: "1px solid #a0383f", borderRadius: 4, padding: "0 5px" } }, "退回了") : null, (KZH[it.kind] || "") + " · " + fmtDay(it.created) + (it.edited ? " · 改于 " + fmtDay(it.edited) : ""))),
+        h("span", { className: "inline-flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, h(StatusChip, { st: it.status, big }), it.returned ? h("span", { "data-wk": "nestreturnedchip", style: { fontFamily: F_BODY, fontSize: big ? 12.5 : 11, color: "#a0383f", border: "1px solid #a0383f", borderRadius: 4, padding: "0 5px" } }, "退回了") : null, (KZH[it.kind] || "") + " · " + fmtDay(it.created) + (it.edited ? " · 改于 " + fmtDay(it.edited) : ""))),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: big ? 20 : 15, lineHeight: 1.35, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, it.title),
       // 墙上那张：有小图就别一张拍立得（白边、反着歪一点），没有就只有字
       !big && it.thumb ? h("div", { "data-wk": "nestpolaroid", style: { margin: "8px 2px 2px", padding: "5px 5px 14px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)", transform: "rotate(" + (-tilt(it.id) * 1.6) + "deg)" } },
         h("img", { src: NEST + "/img/" + it.id + "/t" + (it.edited ? "?v=" + it.edited : ""), alt: "", loading: "lazy", style: { display: "block", width: "100%", height: "auto", background: t.bg } })) : null,
-      big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub || t.ink, lineHeight: 1.75, marginTop: 8, whiteSpace: "pre-wrap" } }, it.intro) : null,
-      !big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.intro) : null,
+      big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub || t.ink, lineHeight: 1.75, marginTop: 8, whiteSpace: "pre-wrap" } }, it.intro) : null,
+      !big && it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.intro) : null,
       big && foot ? h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line } }, foot) : null,
-      big ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub || t.fog, marginTop: 6 } }, "by " + (it.nick || "无名"), h(Badge, { b: it.badge })),
-      big ? null : h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
+      big ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub || t.fog, marginTop: 6 } }, "by " + (it.nick || "无名"), h(Badge, { b: it.badge })),
+      big ? null : h("div", { className: "flex items-center", style: { gap: 10, marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } },
         h("span", { className: "inline-flex items-center", style: { gap: 3, color: it.liked ? "#c0717f" : t.fog } }, h(IHeart, { size: 13, color: it.liked ? "#c0717f" : t.fog, filled: it.liked }), it.likes || 0),
         h("span", null, "留言 " + (it.comments || 0)),
         it.mine ? h("span", { style: { marginLeft: "auto" } }, "我贴的") : null));
@@ -482,27 +482,27 @@
       } catch (e) { preview = ""; }
     }
     const pill = ({ on, onClick, icon, txt, wk }) => h("button", { "data-wk": wk || undefined, "data-on": on ? "1" : "0", onClick, className: "active:opacity-60 inline-flex items-center justify-center",
-      style: { gap: 5, minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + (on ? "#c0717f" : t.line), background: t.bg2, color: on ? "#c0717f" : t.ink, fontFamily: F_BODY, fontSize: 13.5 } }, icon, txt);
+      style: { gap: 5, minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + (on ? "#c0717f" : t.line), background: t.bg2, color: on ? "#c0717f" : t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, icon, txt);
     return h("div", { "data-wk": "nestdetail", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: it ? KZH[it.kind] : "小窝", onBack: onClose, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-6" },
-        err ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, err) :
-        !it ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, "在拿……") :
+        err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, err) :
+        !it ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, "在拿……") :
         h(React.Fragment, null,
           // 揭下来的那张纸条：底部是署名和关注，不放圆头像
           h(Slip, { t, it, big: true, foot: h("div", { className: "flex items-center justify-between" },
-            h("button", { "data-wk": "nestsign", onClick: () => it.uid && onUser(it.uid), className: "active:opacity-60 min-w-0 truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, textAlign: "left" } }, "— " + (it.nick || "无名"), h(Badge, { b: it.badge })),
+            h("button", { "data-wk": "nestsign", onClick: () => it.uid && onUser(it.uid), className: "active:opacity-60 min-w-0 truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "— " + (it.nick || "无名"), h(Badge, { b: it.badge })),
             h("div", { className: "flex items-center", style: { gap: 10, flexShrink: 0 } },
-              it.uid && (!me || me.id !== it.uid) ? h("button", { "data-wk": "nestfollow", "data-on": follow ? "1" : "0", onClick: doFollow, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: follow ? t.fog : (t.tint || t.ink) } }, follow ? "已关注" : "＋关注") : null,
+              it.uid && (!me || me.id !== it.uid) ? h("button", { "data-wk": "nestfollow", "data-on": follow ? "1" : "0", onClick: doFollow, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: follow ? t.fog : (t.tint || t.ink) } }, follow ? "已关注" : "＋关注") : null,
               // 导入次数只给作者本人看（她 2026-10-16）：后端只在是你的东西时才带这个数，没带就不显示
-              it.imports != null ? h("span", { "data-wk": "nestimports", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "被导入 " + it.imports + " 次 · 只有你看得到") : null)) }),
+              it.imports != null ? h("span", { "data-wk": "nestimports", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "被导入 " + it.imports + " 次 · 只有你看得到") : null)) }),
           // 被退回的：作者和她看得到原因
-          it.returned ? h("div", { "data-wk": "nestreturned", style: { marginTop: 14, padding: "12px 14px", border: "1px solid #a0383f", borderRadius: 10, background: tint("#a0383f", "10"), fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } },
+          it.returned ? h("div", { "data-wk": "nestreturned", style: { marginTop: 14, padding: "12px 14px", border: "1px solid #a0383f", borderRadius: 10, background: tint("#a0383f", "10"), fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
             h("div", { style: { fontWeight: 600, color: "#a0383f" } }, "这件被退回了，先收起来，别人看不到"),
             h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4 } }, "原因：" + it.returned),
-            it.mine ? h("div", { style: { fontSize: 12.5, color: t.fog, marginTop: 4 } }, "照着改一改，点「编辑」保存，就会重新摆回墙上原来的位置。") : null) : null,
+            it.mine ? h("div", { style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "照着改一改，点「编辑」保存，就会重新摆回墙上原来的位置。") : null) : null,
           // 帖子：正文就摆在纸条底下，整段读，不折叠
-          isPost || isDoc ? h("div", { "data-wk": isDoc ? "nestdocbody" : "nestpostbody", style: Object.assign({ marginTop: 14, fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.85,
+          isPost || isDoc ? h("div", { "data-wk": isDoc ? "nestdocbody" : "nestpostbody", style: Object.assign({ marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.85,
             whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 16 }, card(t)) }, preview) : null,
           // 动作：导入最大，赞、收藏、复制、删
           h("div", { "data-wk": "nestactions", className: "flex flex-wrap", style: { gap: 8, marginTop: 16 } },
@@ -517,7 +517,7 @@
           admin && !it.returned ? (retOpen
             ? h("div", { "data-wk": "nestreturnform", style: { marginTop: 10 } },
                 h("textarea", { value: retText, maxLength: 300, rows: 3, placeholder: "写给作者：为什么退回、要改哪儿", onChange: e => setRetText(e.target.value), className: "w-full outline-none",
-                  style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", resize: "vertical" } }),
+                  style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", resize: "vertical" } }),
                 h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
                   h(Btn, { t, onClick: () => setRetOpen(false), wk: "nestreturncancel" }, "算了"),
                   h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: doReturn, wk: "nestreturnsend" }, "退回给作者")))
@@ -529,7 +529,7 @@
             onPick: placeOne, onAll: it.kind === "css" ? doImport : null, onCancel: () => setPlacing(false) }) : null,
           h(Shots, { t, it, props }),
           preview && !isPost && !isDoc ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
-            h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.7,
+            h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7,
               whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 14, maxHeight: "46vh", overflowY: "auto" }, card(t)) }, preview.slice(0, 6000))) : null,
           h(Guestbook, { t, item: it, me, props, onUser, onLogin, onCount: n => setIt(x => Object.assign({}, x, { comments: n })) }))));
   }
@@ -591,27 +591,27 @@
     const ruled = { backgroundImage: "repeating-linear-gradient(" + t.bg2 + " 0 29px," + t.line + " 29px 30px)", lineHeight: "30px" };
     return h("div", { "data-wk": "nestbook", style: { marginTop: 22 } },
       h("div", { style: Object.assign({ padding: "10px 14px 8px", background: t.bg2, border: "1px solid " + t.line }, ruled) },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "留言簿" + (top.length ? " · " + (list || []).filter(c => !c.deleted).length + " 条" : "")),
-        list == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "在翻……")
-        : !top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没人签过，第一句留给你。")
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "留言簿" + (top.length ? " · " + (list || []).filter(c => !c.deleted).length + " 条" : "")),
+        list == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "在翻……")
+        : !top.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没人签过，第一句留给你。")
         : top.map(c => h("div", { key: c.id, "data-wk": "nestnote", style: { padding: "0 0 6px" } },
-            h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub || t.fog } }, c.deleted ? h("span", null, "（这一条擦掉了）") : who(c), h("span", { style: { color: t.fog } }, ago(c.created))),
-            c.deleted ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, wordBreak: "break-word", whiteSpace: "pre-wrap" } }, c.body),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, tools(c)),
+            h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub || t.fog } }, c.deleted ? h("span", null, "（这一条擦掉了）") : who(c), h("span", { style: { color: t.fog } }, ago(c.created))),
+            c.deleted ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word", whiteSpace: "pre-wrap" } }, c.body),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, tools(c)),
             kids(c.id).map(r => h("div", { key: r.id, "data-wk": "nestclip", style: { position: "relative", margin: "6px 0 4px 18px", padding: "6px 10px", lineHeight: 1.6,
                 background: "#faeeda", color: "#412402", transform: "rotate(" + tilt(r.id) * 0.6 + "deg)", boxShadow: "0 4px 8px -7px rgba(0,0,0,.4)" } },
               h("span", { "aria-hidden": true, style: { position: "absolute", top: -11, left: -9 } }, h(IClip, { size: 18, color: "#854f0b" })),
-              h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#633806" } },
+              h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#633806" } },
                 h("span", null, who(r), r.to ? " → " + r.to : ""), h("span", null, ago(r.created))),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, wordBreak: "break-word", whiteSpace: "pre-wrap" } }, r.body),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#854f0b" } }, tools(r))))))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", wordBreak: "break-word", whiteSpace: "pre-wrap" } }, r.body),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#854f0b" } }, tools(r))))))),
       // 写一句：没登录就是一颗「登录以后才能签」
       h("div", { "data-wk": "nestcompose", style: { marginTop: 12 } },
-        to ? h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } },
+        to ? h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } },
           h("span", null, "回 " + to.name + "：" + String(to.body || "").slice(0, 20)), h("button", { onClick: () => setTo(null), className: "active:opacity-60" }, "不回了")) : null,
         me ? h("div", { className: "flex", style: { gap: 8 } },
             h("input", { "data-wk": "input", ref: inputRef, value: text, maxLength: 500, onChange: e => setText(e.target.value), placeholder: to ? "回她一句" : "在留言簿上写一句",
-              className: "flex-1 min-w-0 outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 13px" } }),
+              className: "flex-1 min-w-0 outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 13px" } }),
             h(Btn, { t, solid: true, disabled: busy || !text.trim(), onClick: send, wk: "nestsignbtn" }, busy ? "……" : "签上"))
           : h(Btn, { t, wide: true, onClick: onLogin, wk: "nestloginask" }, "登录以后才能签")));
   }
@@ -641,20 +641,20 @@
         try { await api("/auth/password", { method: "POST", body: { old, password: neu } }); props.toast("改好了"); } catch (e) { props.toast(e.message); }
       }, "改好");
     }, "下一步");
-    const stat = (n, txt) => h("div", { style: { textAlign: "center" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, n), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, txt));
+    const stat = (n, txt) => h("div", { style: { textAlign: "center" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }, n), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, txt));
     return h("div", { "data-wk": "nestprofile", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: self ? "我的小窝" : (d ? d.user.name : "小窝"), onBack: onClose, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-8" },
-        err ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, err) :
-        !d ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, "在拿……") :
+        err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, err) :
+        !d ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, "在拿……") :
         h(React.Fragment, null,
           // 借书证：名字、来了多少天、贴了多少、关注和粉丝
           h("div", { "data-wk": "nestcard", style: { background: t.bg2, border: "1px solid " + t.line, padding: "14px 16px", position: "relative" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: 2 } }, "小 窝 借 书 证"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, letterSpacing: 2 } }, "小 窝 借 书 证"),
             h("div", { className: "flex items-end justify-between", style: { marginTop: 8, borderBottom: "1px solid " + t.line, paddingBottom: 10 } },
               h("div", { className: "min-w-0" },
-                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, d.user.name, h(Badge, { b: d.user.badge })),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, "来了 " + daysSince(d.user.created) + " 天")),
+                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.ink } }, d.user.name, h(Badge, { b: d.user.badge })),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "来了 " + daysSince(d.user.created) + " 天")),
               self ? null : h(Btn, { t, solid: !d.followed, onClick: doFollow, wk: "nestfollow" }, d.followed ? "已关注" : "＋ 关注")),
             h("div", { className: "flex justify-around", style: { marginTop: 10 } }, stat(d.items.length, "贴的"), stat(d.following, "关注"), stat(d.followers, "粉丝"))),
           self ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
@@ -663,13 +663,13 @@
           self && adminToken() ? h(BadgeSet, { t, props, cur: d.user.badge || "", onSet: b => setD(x => Object.assign({}, x, { user: Object.assign({}, x.user, { badge: b }) })) }) : null,
           self ? h("div", { style: { marginTop: 16 } }, h(Cubbies, { t, kind: tab, onPick: setTab, cols: 3, flush: true,
             items: [{ key: "mine", zh: "我贴的" }, { key: "favs", zh: "我收藏的" }, { key: "following", zh: "我关注的" }] })) : null,
-          tab === "mine" || !self ? (d.items.length ? h(Wall, { t, items: d.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, self ? "还没贴过，回首页右上角「＋ 传一个」。" : "她还没贴过东西。"))
-          : !got ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, "在拿……")
-          : got.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, got.error)
-          : tab === "favs" ? ((got.items || []).length ? h(Wall, { t, items: got.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没收藏过。"))
+          tab === "mine" || !self ? (d.items.length ? h(Wall, { t, items: d.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "28px 4px", textAlign: "center" } }, self ? "还没贴过，回首页右上角「＋ 传一个」。" : "她还没贴过东西。"))
+          : !got ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, "在拿……")
+          : got.error ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, got.error)
+          : tab === "favs" ? ((got.items || []).length ? h(Wall, { t, items: got.items, onOpen }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没收藏过。"))
           : h("div", { style: { marginTop: 10 } }, (got.users || []).length ? got.users.map(u => h("button", { key: u.id, "data-wk": "nestperson", onClick: () => onUser(u.id), className: "w-full flex items-center justify-between active:opacity-70",
-              style: { minHeight: 46, padding: "0 4px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, h("span", { className: "truncate" }, u.name), h("span", { style: { color: t.fog, fontSize: 12 } }, "›")))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没关注谁。")))));
+              style: { minHeight: 46, padding: "0 4px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, h("span", { className: "truncate" }, u.name), h("span", { style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, "›")))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "28px 4px", textAlign: "center" } }, "还没关注谁。")))));
   }
 
   // ── 收到的小纸条：谁评了你、谁回了你、谁关注了你、关注的人贴了新的 ──────────
@@ -682,15 +682,15 @@
     return h("div", { "data-wk": "nestnotices", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "收到的小纸条", onBack: onClose, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-8" },
-        err ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, err) :
-        list == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "24px 4px" } }, "在拿……") :
-        !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "36px 4px", textAlign: "center" } }, "还没有人给你递纸条。") :
+        err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, err) :
+        list == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "24px 4px" } }, "在拿……") :
+        !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "36px 4px", textAlign: "center" } }, "还没有人给你递纸条。") :
         list.map(n => h("button", { key: n.id, "data-wk": "nestnotice", "data-on": n.seen ? "0" : "1", onClick: () => n.kind === "follow" ? onUser(n.fromUid) : onOpen(n.item),
             className: "w-full text-left active:opacity-70", style: { display: "block", marginBottom: 12, padding: "10px 12px", background: n.seen ? t.bg2 : "#faeeda", border: "1px solid " + t.line,
               transform: "rotate(" + tilt(n.id) * 0.5 + "deg)" } },
-          h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: n.seen ? t.fog : "#633806" } }, h("span", null, n.from || (n.kind === "return" ? "小窝管理员" : "")), h("span", null, ago(n.created))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: n.seen ? t.ink : "#412402", marginTop: 2, lineHeight: 1.6 } }, line(n)),
-          n.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: n.seen ? t.fog : "#854f0b", marginTop: 2 } }, "「" + n.text + "」") : null))));
+          h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: n.seen ? t.fog : "#633806" } }, h("span", null, n.from || (n.kind === "return" ? "小窝管理员" : "")), h("span", null, ago(n.created))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: n.seen ? t.ink : "#412402", marginTop: 2, lineHeight: 1.6 } }, line(n)),
+          n.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: n.seen ? t.fog : "#854f0b", marginTop: 2 } }, "「" + n.text + "」") : null))));
   }
 
   // ── 登录／注册／用恢复码改密码；注册和恢复之后先给她看恢复码，确认存好了才进 ──────
@@ -708,13 +708,13 @@
       setBusy(false);
     };
     const field = (val, set, ph, type, max) => h("input", { "data-wk": "input", value: val, type: type || "text", maxLength: max, placeholder: ph, autoComplete: type === "password" ? (mode === "login" ? "current-password" : "new-password") : "username",
-      onChange: e => set(e.target.value), className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 13px", marginTop: 10 } });
+      onChange: e => set(e.target.value), className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 13px", marginTop: 10 } });
     if (rec) return h("div", { "data-wk": "nestrecovery", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "你的恢复码", bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-6 pb-8" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.8 } }, "忘了密码，只能靠这一串改回来。它只在这里出现这一次，小窝也看不到原文——截图或者抄到备忘录里存好。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8 } }, "忘了密码，只能靠这一串改回来。它只在这里出现这一次，小窝也看不到原文——截图或者抄到备忘录里存好。"),
         h("div", { "data-wk": "block", style: { margin: "18px 0", padding: "18px 12px", background: "#faeeda", border: "1px dashed #854f0b", textAlign: "center",
-          fontFamily: "ui-monospace,Menlo,monospace", fontSize: 21, letterSpacing: 2, color: "#412402", userSelect: "all", wordBreak: "break-all" } }, rec.code),
+          fontFamily: "ui-monospace,Menlo,monospace", fontSize: "calc(21px * var(--app-fs, 1))", letterSpacing: 2, color: "#412402", userSelect: "all", wordBreak: "break-all" } }, rec.code),
         h("div", { className: "flex", style: { gap: 8 } },
           h(Btn, { t, wide: true, onClick: async () => props.toast((await copyText(rec.code)) ? "恢复码复制好了，记得贴到别处存着" : "复制不了，长按那串字自己选"), wk: "nestreccopy" }, "复制"),
           h(Btn, { t, solid: true, wide: true, onClick: () => onDone(rec.user), wk: "nestrecok" }, "我存好了"))));
@@ -723,7 +723,7 @@
       h(Head, { zh: mode === "recover" ? "用恢复码改密码" : "小窝账号", onBack: onClose, bg: "transparent" }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-4 pb-8" },
         mode === "recover" ? null : h(Cubbies, { t, kind: mode, onPick: setMode, cols: 2, flush: true, items: tabs }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.7, marginTop: 14 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 14 } },
           mode === "register" ? "不用邮箱。起个昵称（2 到 16 个字，别人看到的就是它）、设个密码；注册完会给你一串恢复码。"
           : mode === "recover" ? "填昵称、注册时给你的那串恢复码，再设一个新密码。改完旧的恢复码作废，会给你一串新的。"
           : "不登录也能逛、能导入；要贴东西、留言、点赞收藏关注，先登录。"),
@@ -733,7 +733,7 @@
         h("div", { className: "flex", style: { marginTop: 16 } }, h(Btn, { t, solid: true, wide: true, disabled: busy || !name.trim() || !pw || (mode === "recover" && !code.trim()), onClick: go, wk: "nestloginbtn" },
           busy ? "……" : mode === "login" ? "登录" : mode === "register" ? "注册" : "改好密码并登录")),
         mode === "register" ? null : h("button", { "data-wk": "nestforgot", onClick: () => setMode(mode === "recover" ? "login" : "recover"), className: "active:opacity-60",
-          style: { marginTop: 14, fontFamily: F_BODY, fontSize: 12.5, color: t.tint || t.ink } }, mode === "recover" ? "← 想起来了，回去登录" : "忘了密码？用恢复码")));
+          style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint || t.ink } }, mode === "recover" ? "← 想起来了，回去登录" : "忘了密码？用恢复码")));
   }
 
   // 管理模式下、自己的页里：挂名字旁边那枚称号（最多 8 个字，空着保存＝摘掉）
@@ -743,10 +743,10 @@
       try { const d = await api("/admin/badge", { method: "POST", body: { badge: v.trim() } }); onSet(d.badge); props.toast(d.badge ? "挂上了" : "摘掉了"); } catch (e) { props.toast(e.message); }
       setBusy(false); };
     return h("div", { "data-wk": "nestbadgeset", style: { marginTop: 12, padding: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "名字旁边的称号：你的署名、留言、借书证上都会带着它，大家一看就知道是你。最多 8 个字，清空再保存就是摘掉。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "名字旁边的称号：你的署名、留言、借书证上都会带着它，大家一看就知道是你。最多 8 个字，清空再保存就是摘掉。"),
       h("div", { className: "flex", style: { gap: 8 } },
         h("input", { value: v, maxLength: 8, onChange: e => setV(e.target.value), className: "flex-1 min-w-0 outline-none",
-          style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px" } }),
+          style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px" } }),
         h(Btn, { t, solid: true, disabled: busy, onClick: save, wk: "nestbadgesave" }, "保存")));
   }
 
@@ -969,7 +969,7 @@
           images: shots.map(x => x.full), thumb: shots.length ? shots[0].thumb : undefined } }); props.toast("传上去了"); onDone(d.id, kind); }
       catch (e) { props.toast("没传上去：" + e.message); setBusy(false); }
     };
-    const inputStyle = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", resize: "none" };
+    const inputStyle = { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", resize: "none" };
     const field = (val, set, ph, max, area) => h(area ? "textarea" : "input", { value: val, maxLength: max, placeholder: ph, rows: area ? 3 : undefined,
       onChange: e => set(e.target.value), className: "w-full outline-none", style: inputStyle });
     const k = KIND[kind];
@@ -985,29 +985,29 @@
       h(Head, { zh: edit ? "改一改" : "传一个上去", onBack: onClose, bg: "transparent" }),
       edit ? null : h(Cubbies, { t, kind, noAll: true, onPick: setKind }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, edit ? (isPost ? "标题、正文、截图都能改；底下的留言和赞都留着。" : "名字、简介、截图都能改。内容不想换就别动下面这几格，原来的留着；换了以后，已经导进别人手机的那份不会跟着变，想要新的得再导一次。留言、赞、收藏都留着。") : k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。美化里的图（头像框、挂件、背景、图标、贴纸）会压小了一起传；不带记忆和聊天，也不带自己传的字体文件。署名就是你的小窝昵称，随时能删。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, padding: "0 4px 12px" } }, edit ? (isPost ? "标题、正文、截图都能改；底下的留言和赞都留着。" : "名字、简介、截图都能改。内容不想换就别动下面这几格，原来的留着；换了以后，已经导进别人手机的那份不会跟着变，想要新的得再导一次。留言、赞、收藏都留着。") : k.hint + (isPost ? "。大家都看得到，也都能在底下回；署名就是你的小窝昵称，随时能删。" : "。美化里的图（头像框、挂件、背景、图标、贴纸）会压小了一起传；不带记忆和聊天，也不带自己传的字体文件。署名就是你的小窝昵称，随时能删。")),
         // ① 从手机文件选（帖子没有文件）
         isPost ? null : h("div", { style: Object.assign({ padding: 14 }, card(t)) },
           h("div", { className: "flex items-center", style: { gap: 10 } },
             h(Seal, { k: kind, size: 32 }),
             h("div", { className: "min-w-0 flex-1" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, color: t.ink } }, "从手机里选文件"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, where))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600, color: t.ink } }, "从手机里选文件"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, where))),
           h("div", { style: { marginTop: 12 } },
             h(Btn, { t, solid: !file, onClick: () => fileRef.current && fileRef.current.click(), wk: "nestfile" }, file ? "换一份" : "选文件"),
             h("input", { ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: readFile })),
-          file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
+          file ? h("div", { "data-wk": "nestfilechip", style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, padding: "8px 10px", borderRadius: 10, background: tint(k.color, "14") } },
             "已选 " + file.name + " · 读到" + file.note) : null),
         // ② 从 app 里直接挑（七类都能挑）；主题／美化／CSS 还能整份贴
         rows ? h("div", { style: { marginTop: 14 } }, label(t, (kind === "theme" ? "或者直接用手机上正用着的" : kind === "look" ? "或者直接挑一套正用着的、存过的" : kind === "css" ? "或者直接挑一段手机上写着的" : "或者从 app 里挑") + (multi ? "（可以挑好几条）" : "")),
           h("div", { style: Object.assign({ padding: "2px 12px" }, card(t)) },
             rows.length ? rows.map((r, i) => h("button", { key: r.id, onClick: () => toggle(r.id), className: "w-full flex items-start active:opacity-70",
               style: { gap: 10, minHeight: 46, padding: "10px 0", textAlign: "left", borderTop: i ? "1px solid " + t.line : "none" } },
-              h("span", { style: { flexShrink: 0, marginTop: 2, width: 18, height: 18, borderRadius: multi ? 5 : 999, border: "1.5px solid " + (pick[r.id] ? k.color : t.line), background: pick[r.id] ? k.color : "transparent", color: "#fff", fontSize: 11, lineHeight: "15px", textAlign: "center" } }, pick[r.id] ? "✓" : ""),
+              h("span", { style: { flexShrink: 0, marginTop: 2, width: 18, height: 18, borderRadius: multi ? 5 : 999, border: "1.5px solid " + (pick[r.id] ? k.color : t.line), background: pick[r.id] ? k.color : "transparent", color: "#fff", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "15px", textAlign: "center" } }, pick[r.id] ? "✓" : ""),
               h("span", { className: "min-w-0" },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, r.name),
-                r.sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, r.sub) : null)))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))) : null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, r.name),
+                r.sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, r.sub) : null)))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "14px 0" } }, "手上还没有能传的" + k.zh))) : null,
         isPost ? h("div", { "data-wk": "nestpostwrite" }, label(t, "想说什么（最多 4000 字）"),
           h("textarea", { "data-wk": "textarea", value: text, maxLength: 4000, rows: 8, placeholder: "哪里不好用、想要什么、遇到了什么，都可以写；配一张截图更好懂",
             onChange: e => setText(e.target.value), className: "w-full outline-none", style: Object.assign({}, inputStyle, { resize: "vertical" }) })) : null,
@@ -1023,9 +1023,9 @@
             shots.map((x, k) => h("div", { "data-wk": "block", key: k, style: { position: "relative", padding: "4px 4px 12px", background: "#fff", boxShadow: "0 2px 6px -3px rgba(0,0,0,.35)" } },
               h("img", { src: x.thumb, alt: "", style: { display: "block", width: 76, height: 100, objectFit: "cover" } }),
               h("button", { "aria-label": "拿掉这张", onClick: () => setShots(a => a.filter((_, i) => i !== k)), className: "active:opacity-60",
-                style: { position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: t.bg, fontSize: 13, lineHeight: "24px" } }, "×"))),
+                style: { position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: t.bg, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: "24px" } }, "×"))),
             shots.length < 3 ? h("button", { "data-wk": "nestshotadd", onClick: () => shotRef.current && shotRef.current.click(), className: "active:opacity-60",
-              style: { width: 84, height: 116, border: "1.5px dashed " + t.line, borderRadius: 4, background: t.bg2, color: t.fog, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-line" } }, "＋\n加截图") : null),
+              style: { width: 84, height: 116, border: "1.5px dashed " + t.line, borderRadius: 4, background: t.bg2, color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-line" } }, "＋\n加截图") : null),
           h("input", { ref: shotRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onChange: pickShots }))),
       h("div", { className: "shrink-0 flex px-4 pt-3", style: { paddingBottom: "calc(12px + " + COMPOSER_PAD_BOTTOM + ")", borderTop: "1px solid " + t.line, background: tint(t.bg, "f2") } },
         h(Btn, { t, solid: true, wide: true, disabled: busy, onClick: send, wk: "nestsend" }, busy ? "在传……" : edit ? "改好了" : isPost ? "贴上去" : "传上去")));
@@ -1091,38 +1091,38 @@
     if (top && top.v === "login") return h(Login, { t, props, onClose: pop, onDone: u => { const next = after.current; after.current = null; setMe(u); setStack(s => s.slice(0, -1).concat(next ? [next] : [])); } });
     if (top && top.v === "upload") return h(Upload, { t, props, initialKind: kind || "theme", onClose: pop,
       onDone: (id, k) => { setStack([]); setSort("new"); if (k !== kind && kind) setKind(k); else load(0); } });
-    const empty = (txt) => h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "36px 8px", textAlign: "center", lineHeight: 1.8, whiteSpace: "pre-line" } }, txt);
+    const empty = (txt) => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "36px 8px", textAlign: "center", lineHeight: 1.8, whiteSpace: "pre-line" } }, txt);
     const bell = h("button", { "data-wk": "nestbell", "aria-label": "收到的小纸条", onClick: () => me ? push({ v: "notices" }) : needLogin({ v: "notices" }), className: "active:opacity-60 relative",
         style: { width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.ink } },
       h(IBell, { size: 20 }),
       unread ? h("span", { "data-wk": "nestdot", style: { position: "absolute", top: 3, right: 2, minWidth: 15, height: 15, padding: "0 4px", borderRadius: 999, background: "#c0503f", color: "#fff",
-        fontFamily: F_BODY, fontSize: 10, lineHeight: "15px", textAlign: "center" } }, unread > 99 ? "99+" : unread) : null);
+        fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: "15px", textAlign: "center" } }, unread > 99 ? "99+" : unread) : null);
     return h("div", { "data-wk": "nestpage", className: "h-full flex flex-col", style: shell(t) },
       h(Head, { zh: "秋秋小窝", sub: adminToken() ? "管理中" : "", onBack: props.onBack, onTitleTap, bg: "transparent",
         right: h("div", { className: "flex items-center", style: { gap: 4 } }, bell,
           h("button", { "data-wk": "nestupbtn", onClick: () => me ? push({ v: "upload" }) : needLogin({ v: "upload" }), className: "active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
+            style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, color: t.bg, background: t.ink, borderRadius: 999, minHeight: 30, padding: "0 11px" } }, kind === "post" ? "＋ 写一帖" : "＋ 传一个")) }),
       adminToken() ? h(WatchLine, { t }) : null,
       h(Cubbies, { t, kind, onPick: setKind, fold: true }),
       h("div", { className: "shrink-0 flex items-center px-4 pb-3", style: { gap: 8 } },
         h("div", { "data-wk": "nestsearch", className: "flex-1 min-w-0 flex items-center", style: { gap: 6, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "0 11px" } },
           h(ISearch, { size: 15, color: t.fog }),
           h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜东西，也搜人", maxLength: 40, className: "flex-1 min-w-0 outline-none",
-            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "transparent", border: "none", padding: "9px 0" } })),
+            style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", padding: "9px 0" } })),
         h("button", { "data-wk": "nestme", onClick: () => me ? openUser(me.id) : needLogin(), className: "active:opacity-60 truncate",
-          style: { flexShrink: 0, maxWidth: 96, minHeight: 40, padding: "0 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },
+          style: { flexShrink: 0, maxWidth: 96, minHeight: 40, padding: "0 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } },
           me ? me.name : "登录"),
         h("button", { "data-wk": "nestsort", onClick: () => setSort(s => s === "new" ? "old" : "new"), className: "active:opacity-60",
-          style: { flexShrink: 0, minHeight: 40, padding: "0 10px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },
+          style: { flexShrink: 0, minHeight: 40, padding: "0 10px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } },
           sort === "new" ? "新↓" : "旧↑")),
       h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
         people.length ? h("div", { "data-wk": "nestpeople", className: "flex flex-wrap", style: { gap: 8, padding: "4px 0 10px" } },
           people.map(u => h("button", { key: u.id, onClick: () => openUser(u.id), className: "active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px" } }, "@" + u.name))) : null,
+            style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px" } }, "@" + u.name))) : null,
         err ? empty(err)
         : (!items.length && !loading) ? empty(qLive ? "没找到。" : "这面墙还空着。\n右上角「＋ 传一个」，贴第一张上去。")
         : h(Wall, { t, items, onOpen: openItem }),
-        loading ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 4px", textAlign: "center" } }, "在拿……")
+        loading ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 4px", textAlign: "center" } }, "在拿……")
         : more ? h("div", { style: { padding: "6px 0 14px", textAlign: "center" } }, h(Btn, { t, onClick: () => load(items.length) }, "再往下翻")) : null));
   }
 

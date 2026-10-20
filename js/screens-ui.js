@@ -25,15 +25,15 @@ function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
   })();
   const curName = (characters.find(c => c.id === cid) || {}).name || "—";
   return h(PageSheet, { onClose, tall: true },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, "导入长文进记忆库"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（TA 写过的长回忆、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "导入长文进记忆库"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（TA 写过的长回忆、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
     h("div", { className: "flex gap-2 overflow-x-auto", style: { marginBottom: 10, paddingBottom: 2 } },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => setCid(c.id), className: "px-3 py-1 rounded-full whitespace-nowrap active:opacity-70",
-        style: { fontFamily: F_BODY, fontSize: 12, background: cid === c.id ? t.ink : "transparent", color: cid === c.id ? t.bg2 : t.fog, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
-    h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 12, placeholder: "在这里粘贴长文…", style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
-    txt.trim() ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "预计导入约 " + estN + " 条，绑给「" + curName + "」") : null,
+        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", background: cid === c.id ? t.ink : "transparent", color: cid === c.id ? t.bg2 : t.fog, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
+    h("textarea", { "data-wk": "textarea", value: txt, onChange: e => setTxt(e.target.value), rows: 12, placeholder: "在这里粘贴长文…", style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, resize: "none", lineHeight: 1.6 } }),
+    txt.trim() ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "预计导入约 " + estN + " 条，绑给「" + curName + "」") : null,
     h("button", { onClick: () => { if (txt.trim() && cid) { onImport(cid, txt); onClose(); } }, className: "w-full mt-3 active:opacity-70",
-      style: { background: txt.trim() && cid ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, "导入并建索引"));
+      style: { background: txt.trim() && cid ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "导入并建索引"));
 }
 // 卡片上写的每一条都得是真的。原来那个 FILE 编号是拿 id 哈希出来的假卷宗号——
 // 跟日记那条假条形码一个毛病（她 2026-08-30 让删的），这里不再有。
@@ -69,13 +69,13 @@ function CastSection({ no, title, en, tint, children }) {
     h("span", { style: { position: "absolute", top: 0, right: 0, bottom: 0, left: 46, pointerEvents: "none", background: "repeating-linear-gradient(58deg, rgba(255,255,255,.42) 0px, rgba(255,255,255,.42) 1px, transparent 1px, transparent 9px)" } }),
     h("div", { className: "flex items-stretch", style: { position: "relative", borderBottom: "1px solid " + t.line } },
       // 索引页签：色带 + 编号，底下切一个小豁口，像活页夹上的分隔页
-      h("div", { "data-wk": "block", className: "flex items-center justify-center shrink-0", style: { position: "relative", width: 46, minHeight: 56, background: accent, color: "#fff", fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: ".12em", boxShadow: "inset -1px 0 2px rgba(0,0,0,.18)" } },
+      h("div", { "data-wk": "block", className: "flex items-center justify-center shrink-0", style: { position: "relative", width: 46, minHeight: 56, background: accent, color: "#fff", fontFamily: "'Archivo',sans-serif", fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".12em", boxShadow: "inset -1px 0 2px rgba(0,0,0,.18)" } },
         no,
         h("span", { style: { position: "absolute", left: 0, right: 0, bottom: -1, height: 5, background: t.bg2, clipPath: "polygon(50% 100%, 0 0, 100% 0)" } })),
       h("div", { className: "flex-1 min-w-0 flex items-center gap-3 px-4 py-3" },
         h("div", { className: "min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink, whiteSpace: "nowrap" } }, title),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".18em", color: t.fog, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, en)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, title),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: ".18em", color: t.fog, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, en)),
         // 引线：一排小点拉到右边尽头
         h("span", { className: "flex-1", style: { height: 1, minWidth: 12, background: "repeating-linear-gradient(90deg, " + t.line + " 0 2px, transparent 2px 6px)" } }),
         h("span", { style: { width: 5, height: 5, borderRadius: 999, background: accent, opacity: .85, flexShrink: 0 } }))),
@@ -88,10 +88,10 @@ function AskQiuLine({ text, onAsk, quiet }) {
   if (!onAsk) return null;
   // quiet：列表底下那一行，不带框、居中小字
   if (quiet) return h("button", { onClick: onAsk, "data-wk": "askqiu", className: "w-full active:opacity-60",
-    style: { display: "block", margin: "18px 0 6px", padding: "6px 8px", background: "transparent", border: "none", textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog } },
+    style: { display: "block", margin: "18px 0 6px", padding: "6px 8px", background: "transparent", border: "none", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog } },
     text, h("span", { style: { color: t.sub, marginLeft: 4, whiteSpace: "nowrap" } }, "问秋秋 ›"));
   return h("button", { onClick: onAsk, "data-wk": "askqiu", className: "w-full text-left active:opacity-60",
-    style: { display: "block", margin: "10px 0 4px", padding: "9px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.sub } },
+    style: { display: "block", margin: "10px 0 4px", padding: "9px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub } },
     text, h("span", { style: { color: t.ink, marginLeft: 4, whiteSpace: "nowrap" } }, "问秋秋 ›"));
 }
 function Cast({
@@ -133,8 +133,8 @@ function Cast({
   // 但里面换成【放着不动也成立】的东西：时区、生日、人设厚度。
   // 好感 / 情侣第几天 / 刚聊过都拿掉了——那是关系的近况，不是档案。
   const cell = (label, value, dim) => h("div", { className: "flex-1 min-w-0", style: { padding: "8px 10px" } },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".18em", color: t.fog } }, label),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dim ? t.fog : t.ink, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, value));
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(7.5px * var(--app-fs, 1))", letterSpacing: ".18em", color: t.fog } }, label),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: dim ? t.fog : t.ink, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, value));
   const cards = characters.map(c => {
     const accent = c.color || t.tint;
     const tz = c.tz ? ("UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", ""))) : "跟随本地";
@@ -182,12 +182,12 @@ function Cast({
         h("div", { "data-wk": "castavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 6px rgba(46,38,29,.22)", transform: "rotate(-1.6deg)" } },
           h(Avatar, { character: c, size: 58, radius: 3 })),
         h("div", { className: "flex-1 min-w-0", style: { paddingTop: 1 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".05em", color: t.fog } }, "卷宗"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(7.5px * var(--app-fs, 1))", letterSpacing: ".05em", color: t.fog } }, "卷宗"),
           h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
-            h("div", { "data-wk": "castname", style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
-            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
-          sum ? h("div", { "data-wk": "castsum", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
+            h("div", { "data-wk": "castname", style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
+          sum ? h("div", { "data-wk": "castsum", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
+              : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
       // 底部信息栏
       h("div", { "data-wk": "castinfo", className: "flex items-stretch", style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.34)" } },
         cell("时区", tz, !c.tz),
@@ -205,10 +205,10 @@ function Cast({
         className: "w-full flex items-center gap-2 active:opacity-60",
         style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.2)", padding: "10px 12px 10px 10px", textAlign: "left" }
       },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".05em", color: t.fog, flexShrink: 0 } }, "心上"),
-        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: hn ? t.ink : t.fog, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(7.5px * var(--app-fs, 1))", letterSpacing: ".05em", color: t.fog, flexShrink: 0 } }, "心上"),
+        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: hn ? t.ink : t.fog, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
           hn ? "TA 自己攒下 " + hn + " 条念想" : "还空着——聊得多了会自己长出来"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, flexShrink: 0 } }, "›")) : null);
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, "›")) : null);
   });
   return h("div", { "data-wk": "castpage", className: "h-full flex flex-col", style: DESK(t.accent || t.tint) },
     // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
@@ -217,8 +217,8 @@ function Cast({
     //（施工规则/mobile-ui-layout.md §3.5）。
     h(Head, { zh: "人格档案馆", bg: "transparent", onBack,
       right: h("div", { className: "flex items-center", style: { gap: 4 } },
-        onMove && characters.length > 1 ? h("button", { onClick: () => setSorting(v => !v), className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: sorting ? t.ink : t.sub, fontWeight: sorting ? 600 : 400, padding: "8px 4px" } }, sorting ? "完成" : "排序") : null,
-        !sorting && onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
+        onMove && characters.length > 1 ? h("button", { onClick: () => setSorting(v => !v), className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: sorting ? t.ink : t.sub, fontWeight: sorting ? 600 : 400, padding: "8px 4px" } }, sorting ? "完成" : "排序") : null,
+        !sorting && onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "8px 4px" } }, "导入") : null,
         h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       characters.length === 0
@@ -227,19 +227,19 @@ function Cast({
             // 大标题换成一条细的：一屏 844 高，28px 标题＋留白吃掉快 200px，
             // 只剩两张半卡看得见（mobile-ui-layout.md 也不许子页面放大标题）
             h("div", { key: "cnt", "data-wk": "castcount", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "共 " + characters.length + " 份卷宗"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "共 " + characters.length + " 份卷宗"),
               // ⚠️长按这种手势【看不见】，不写一句就等于没有（说明书上写着能克隆，
               //   可她今天才发现从来点不出来——两头都得补上）
-              onClone ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, "长按一张卡＝克隆一份") : null),
+              onClone ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginLeft: "auto" } }, "长按一张卡＝克隆一份") : null),
             sorting
               // 排序模式：卡收成一行一个，只留名字和三颗按钮——大卡一屏两张半，挪起来要滑很久
               ? h("div", { "data-wk": "block", key: "sort", style: { background: "rgba(255,255,255,.55)", borderRadius: 12, border: "1px solid " + t.line, overflow: "hidden" } },
                   characters.map((c, i) => {
                     const btn = (label, dir, off) => h("button", { onClick: () => onMove(c.id, dir), disabled: off, className: "active:opacity-50",
-                      style: { minWidth: 40, height: 34, borderRadius: 8, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: off ? t.line : t.ink } }, label);
+                      style: { minWidth: 40, height: 34, borderRadius: 8, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: off ? t.line : t.ink } }, label);
                     return h("div", { key: c.id, className: "flex items-center gap-3", style: { padding: "9px 10px", borderTop: i ? "1px solid " + t.line : "none" } },
                       h(Avatar, { character: c, size: 36, radius: 6 }),
-                      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+                      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
                       h("div", { className: "flex", style: { gap: 6 } }, btn("置顶", "top", i === 0), btn("↑", -1, i === 0), btn("↓", 1, i === characters.length - 1)));
                   }))
               : h("div", { key: "list" }, cards),
@@ -354,40 +354,40 @@ function CastForm({
   // 预设那一排、自选那颗彩虹圈、选中的那道圈，都归它画。
   const palette = h("div", null,
     h(ColorDot, { value: color, onChange: setColor, label: "底色", size: 28, palette: AV_COLORS }),
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".1em", color: t.fog, marginTop: 8 } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".1em", color: t.fog, marginTop: 8 } },
       String(color || "").toUpperCase() + (isPreset ? "" : " · 自定义")));
   const timezone = h("div", null,
-    h("select", { value: tz, onChange: e => setTz(e.target.value), className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", padding: "6px 0", border: "none" } },
+    h("select", { value: tz, onChange: e => setTz(e.target.value), className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "transparent", padding: "6px 0", border: "none" } },
       h("option", { value: "" }, "跟随系统（默认）"),
       TZ_OPTS.map(o => h("option", { key: o[0], value: o[0] }, "UTC" + (o[0][0] === "-" ? o[0] : "+" + o[0].replace("+", "")) + " · " + o[1]))),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开时间感知后，Ta 会按自己所在时区报时间；日程仍按你本地日期。"));
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开时间感知后，Ta 会按自己所在时区报时间；日程仍按你本地日期。"));
   // 生日和年龄分成两栏（v63.65，她 2026-09-05：「年龄和生日分开吧」）。
   // 三种填法都成立：年月日全填（自动算、可改）／只填月日（岁数手填）／生日不知道（只填岁数）。
   // ⚠️「跟着生日走」＝这一栏【留空】，不是把算出来的数填进去：填进去了，
   //   明年生日一过它就是个旧数字，而生日那条链本来是会自己加一的。
   const birthdayField = h("div", null,
-    h("input", { "data-wk": "input", value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五 / 不知道就留空", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
-    (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填。只填月日也行——那到日子照样会记得，岁数在下面单独填。"),
+    h("input", { "data-wk": "input", value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五 / 不知道就留空", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "6px 0" } }),
+    (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填。只填月日也行——那到日子照样会记得，岁数在下面单独填。"),
     typeof BirthdayHint === "function" ? h(BirthdayHint, { value: birthday }) : null);
   const ageField = h("div", null,
     h("div", { className: "flex items-baseline", style: { gap: 8 } },
       h("input", { "data-wk": "input", value: ageInput, onChange: e => setAgeInput(e.target.value.replace(/[^\d]/g, "").slice(0, 4)),
         inputMode: "numeric",
         placeholder: autoAge != null ? "跟着生日走（现在 " + autoAge + "）" : "多大了",
-        className: "flex-1 min-w-0 bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
-      agePinned ? h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, fontWeight: 600, flexShrink: 0 } }, "岁") : null,
+        className: "flex-1 min-w-0 bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "6px 0" } }),
+      agePinned ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: accent, fontWeight: 600, flexShrink: 0 } }, "岁") : null,
       (agePinned && autoAge != null) ? h("button", { onClick: () => setAgeInput(""), className: "shrink-0 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "改回跟着生日") : null),
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "改回跟着生日") : null),
     // 手填的岁数会跟着长（v64.17，她 2026-09-05：「王爷不应该有个现实年份，
     // 但是TA也确实可以年龄增加的」）。所以这儿要说清【从哪天起算、什么时候加一】，
     // 不然她看见一个数不知道它明年还是不是这个数。
     agePinned ? h("div", { className: "flex items-center justify-between", style: { marginTop: 8, gap: 12 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "就停在这个岁数",
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "就停在这个岁数",
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } },
           ageFrozen ? characterText({ gender }, "他永远这么大——设定上不长的那种才勾。") : "不勾＝跟着时间长。")),
       h(Toggle, { on: ageFrozen, onChange: () => setAgeFrozen(v => !v) })) : null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6 } },
       agePinned
         ? (ageFrozen
             ? characterText({ gender }, "停住了：时间过去他也还是这个数。")
@@ -399,33 +399,33 @@ function CastForm({
   const appearanceFields = h("div", null,
     h("div", { className: "flex items-center gap-3 mb-3" },
       h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55 } }, "参考照用来锁定长相；接好图像 API 后可生成生活照。")),
-    h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]].map(o => h("button", { "data-wk": "block", key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55 } }, "参考照用来锁定长相；接好图像 API 后可生成生活照。")),
+    h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]].map(o => h("button", { "data-wk": "block", key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
     h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相 / 发型 / 身材 / 气质……" }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "生图身份锁"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 9, marginBottom: 4 } }, "生图身份锁"),
     h(LineArea, { value: photoCanon, onChange: e => setPhotoCanon(e.target.value), rows: 3, placeholder: "年龄、性别、种族、体型等不可随机的视觉事实" }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "固定服装锁"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 9, marginBottom: 4 } }, "固定服装锁"),
     h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 3, placeholder: "每张图都必须保留的服装" }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "随身不摘的东西"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 9, marginBottom: 4 } }, "随身不摘的东西"),
     h(LineArea, { value: photoAccessories, onChange: e => setPhotoAccessories(e.target.value), rows: 2, placeholder: "眼镜、耳钉、戒指等固定配件" }));
   // 预置那排只是 MiniMax 的 ID；换了别家就只留手填框，免得点了一个那家不认的
   const ttsProv = typeof loadTtsApi === "function" ? loadTtsApi().provider : "minimax";
   const voiceFields = h("div", null,
-    ttsProv === "minimax" && h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { "data-wk": "block", key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
-    h("input", { "data-wk": "input", value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
+    ttsProv === "minimax" && h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { "data-wk": "block", key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
+    h("input", { "data-wk": "input", value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
   return h("div", { "data-wk": "castfpage", className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
     h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
       bg: "rgba(255,255,255,.32)", barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
-      right: h("button", { "data-wk": "castfsave", onClick: save, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档") }),
+      right: h("button", { "data-wk": "castfsave", onClick: save, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档") }),
     // 照片那几样收成一张小单子（她 2026-10-17「现在看起来很别扭」）：封面上只留照片、名字、标签，点照片才弹出来
     photoMenu ? h(Sheet, { onClose: () => setPhotoMenu(false) }, (() => {
       const row = (label, fn, opt) => h("button", { key: label, onClick: () => { setPhotoMenu(false); fn(); }, className: "w-full text-left active:opacity-60",
-        style: { display: "block", padding: "13px 4px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: (opt && opt.color) || t.ink, background: "transparent" } }, label);
+        style: { display: "block", padding: "13px 4px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: (opt && opt.color) || t.ink, background: "transparent" } }, label);
       return h("div", { "data-wk": "castfphotomenu" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".08em", color: t.fog, marginBottom: 8 } }, "这张照片"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".08em", color: t.fog, marginBottom: 8 } }, "这张照片"),
         h(FilePick, { accept: "image/*", label: "从相册换一张", onChange: async e => { const f = e.target.files && e.target.files[0]; if (!f) return; setPhotoMenu(false); try { setAvatarImage(await resizeImageFile(f, 400, 0.85)); } catch (err) {} e.target.value = ""; } },
-          h("span", { style: { display: "block", padding: "13px 4px", fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "从相册换一张")),
+          h("span", { style: { display: "block", padding: "13px 4px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "从相册换一张")),
         row("贴一张图（相册打不开时）", () => requestAppPrompt("贴一张图", "相册打不开时走这儿：把图片地址粘进来（http 开头，或者 data: 开头的那种长串都行）。", "", v => { const u = String(v || "").trim(); if (u && /^(https?:|data:image\/)/i.test(u)) setAvatarImage(u); }, "用这张")),
         genAvatar ? row(avBusy ? "生成中…" : avatarImage ? "重新生成" : "生成头像", () => { if (!avBusy) genAvatar(); }, { color: t.tint }) : null,
         avatarImage ? row("存到手机", () => { if (window.saveImgOriginal) window.saveImgOriginal(avatarImage, (name || "头像") + "-头像").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")); }) : null,
@@ -445,9 +445,9 @@ function CastForm({
         h("span", { style: { position: "absolute", right: 18, top: 0, width: 34, height: 7, borderRadius: "0 0 4px 4px", background: accent, opacity: .8 } }),
         h("div", { style: { position: "relative", padding: "17px 16px 16px 22px" } },
           h("div", { className: "flex items-center justify-between", style: { marginBottom: 14 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "卷宗封面"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".08em", color: t.fog } }, "卷宗封面"),
             // 「在册」谁都是在册，那是句废话；只有还没存下来的这一档才值得说
-            initial ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".05em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 8px" } }, "待归档")),
+            initial ? null : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".05em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 8px" } }, "待归档")),
           h("div", { className: "flex items-center gap-4" },
             h("div", { "data-wk": "castfavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
               h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3,
@@ -455,11 +455,11 @@ function CastForm({
                 onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar, noActions: true, onTap: () => setPhotoMenu(true) }),
               null),
             h("div", { className: "flex-1 min-w-0" },
-              h("input", { "data-wk": "castfname", value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
+              h("input", { "data-wk": "castfname", value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: t.ink } }),
               h("span", { style: { display: "block", height: 1, background: t.line, margin: "5px 0 7px" } }),
-              h("textarea", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", rows: 2, className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: t.fog, resize: "none" } }))),
+              h("textarea", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", rows: 2, className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, resize: "none" } }))),
           h("div", { "data-wk": "castfcolor", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),
       h(CastSection, { no: "01", title: "人物底稿", en: characterText({ gender }, "他是谁、从哪儿来"), tint: accent },
         h(LineField, { zh: "人设", en: "Persona" }, h(LineArea, { value: persona, onChange: e => setPersona(e.target.value), rows: 9, placeholder: "性格、说话风格、背景、当前关系阶段……" })),
@@ -471,9 +471,9 @@ function CastForm({
         h(LineField, { zh: "性别", en: "Gender" }, h("div", null,
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
             [["他", "他"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),
-              style: { fontFamily: F_BODY, fontSize: 13, color: gender === o[0] ? "#fff" : t.ink, background: gender === o[0] ? t.tint : "transparent",
+              style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: gender === o[0] ? "#fff" : t.ink, background: gender === o[0] ? t.tint : "transparent",
                 border: "1px solid " + (gender === o[0] ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } },
             "应用里的称呼按这项设置显示。旧角色没填过性别的沿用“他”，新建默认 TA；已选的称呼不变，不改聊天和存档正文。")))),
       h(CastSection, { no: "03", title: "视觉档案", en: "长什么样、出图照着谁", tint: accent },
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
@@ -482,13 +482,13 @@ function CastForm({
           h("div", { "data-wk": "castflang", style: { display: "flex", flexWrap: "wrap", gap: 7 } },
             [["", "中文"]].concat(LANG_OPTS.map(x => [x, x])).concat([["__other", "其他…"]]).map(o => { const on = o[0] === "__other" ? langOther : (!langOther && lang === o[0]);
               return h("button", { key: o[0] || "zh", "data-on": on ? "1" : "0", onClick: () => { if (o[0] === "__other") { setLangOther(true); if (LANG_OPTS.indexOf(lang) >= 0) setLang(""); } else { setLangOther(false); setLang(o[0]); } },
-                style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]); })),
-          langOther ? h(LineInput, { value: lang, onChange: e => setLang(e.target.value), placeholder: "比如 法语、俄语、上海话", style: { fontSize: 15, fontFamily: F_BODY, marginTop: 8 } }) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+                style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]); })),
+          langOther ? h(LineInput, { value: lang, onChange: e => setLang(e.target.value), placeholder: "比如 法语、俄语、上海话", style: { fontSize: "calc(15px * var(--app-fs, 1))", fontFamily: F_BODY, marginTop: 8 } }) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } },
             "TA 平时主要说什么话，跟你说话、发朋友圈都用它。什么时候冒别的话写在人设里。选了中文以外的，这个人的「外语消息自带中译」会帮你打开。"))),
         h(LineField, { zh: "音色 · 语音消息用", en: "Voice" }, voiceFields)),
-      initial && onReset ? h("button", { "data-wk": "castfreset", onClick: () => onReset(initial.id), className: "mt-4 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 40 } }, "↺ 完全重置（留下卷宗，清掉跟 TA 的一切）") : null,
-      initial ? h("button", { "data-wk": "castfdel", onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
+      initial && onReset ? h("button", { "data-wk": "castfreset", onClick: () => onReset(initial.id), className: "mt-4 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, minHeight: 40 } }, "↺ 完全重置（留下卷宗，清掉跟 TA 的一切）") : null,
+      initial ? h("button", { "data-wk": "castfdel", onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
 }
 
 // ============================================================
@@ -738,7 +738,7 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
       onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp },
       links.length === 0
         ? h("div", { "data-wk": "tiesempty", "data-part": "board", className: "h-full flex items-center justify-center px-10 text-center",
-            style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } },
+            style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } },
             nameOf(centerId) + " 还没有任何关系。\n点右上「＋」给 TA 加一段。")
         : h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 0, height: 0,
             transform: "translate(" + pan.x + "px," + pan.y + "px) scale(" + k + ")" } },
@@ -766,7 +766,7 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
                 style: { position: "absolute", left: c.mx, top: c.my, transform: "translate(-50%,-50%)",
                   maxWidth: TIE_LABEL_MAX, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   background: tieKindColor(L.label, t.ink), color: t.bg2, padding: "2px 7px", borderRadius: 3,
-                  fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.4,
+                  fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.4,
                   opacity: lit ? 1 : 0.1, transition: "opacity .18s", cursor: "pointer" } }, L.label);
             }),
             [centerId].concat(links.map(L => L.other)).map(card)),
@@ -782,26 +782,26 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
         background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
         boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
         h("div", { className: "flex items-center", style: { gap: 8 } },
-          h("div", { "data-wk": "tiespanelname", className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+          h("div", { "data-wk": "tiespanelname", className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } },
             nameOf(centerId) + (selLink.both ? " ⇄ " : selLink.out ? " → " : " ← ") + nameOf(selLink.other)),
           // 光秃秃 12px 两个字几乎点不中（她 2026-09-29：「编辑键有点难点动」）——给足 36px 高的一颗胶囊
           h("button", { "data-wk": "tiespanelbtn", "data-part": "edit", onClick: () => onEditEdge(centerId, selLink.other), className: "active:opacity-60 shrink-0",
-            style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + t.tint, fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "编辑"),
+            style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + t.tint, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint } }, "编辑"),
           h("button", { "data-wk": "tiespanelbtn", "data-part": "close", onClick: () => setSel(null), className: "active:opacity-60 shrink-0",
-            style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "收起")),
-        selLink.label ? h("div", { "data-wk": "tiespanellabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 14, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selLink.label) : null,
-        selLink.note ? h("div", { "data-wk": "tiespanelnote", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STX(selLink.note)) : null,
+            style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "收起")),
+        selLink.label ? h("div", { "data-wk": "tiespanellabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selLink.label) : null,
+        selLink.note ? h("div", { "data-wk": "tiespanelnote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STX(selLink.note)) : null,
         // 对方那一头写得不一样时，也摆出来——一段关系两边看法不同本来就是内容
         (selLink.backLabel || selLink.backNote) ? h("div", { "data-wk": "tiespanelback", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 } }, nameOf(selLink.other) + "那头写的"),
-          selLink.backLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: t.sub } }, selLink.backLabel) : null,
-          selLink.backNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 2, whiteSpace: "pre-wrap" } }, selLink.backNote) : null) : null) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, nameOf(selLink.other) + "那头写的"),
+          selLink.backLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub } }, selLink.backLabel) : null,
+          selLink.backNote ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 2, whiteSpace: "pre-wrap" } }, selLink.backNote) : null) : null) : null,
       h("div", { "data-wk": "tieszoom", style: { position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 6 } },
         [["＋", () => setK(v => Math.min(2.6, v * 1.35))],
          ["－", () => setK(v => Math.max(0.42, v / 1.35))],
          ["⌖", recenter]].concat(moved ? [["⟲", resetLayout]] : [])
          .map(([lb, fn]) => h("button", { "data-wk": "tieszoombtn", "data-part": lb, key: lb, onClick: fn, className: "active:opacity-70",
-          style: { width: 32, height: 32, borderRadius: 10, fontFamily: F_BODY, fontSize: 14, color: t.ink,
+          style: { width: 32, height: 32, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink,
             background: "rgba(246,244,239,.92)", border: "1px solid " + t.line, boxShadow: "0 1px 5px rgba(0,0,0,.08)" } }, lb)))));
 }
 // ============================================================
@@ -920,7 +920,7 @@ function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen
     onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp },
     !order.length
       ? h("div", { "data-wk": "tiesempty", "data-part": "net", className: "h-full flex items-center justify-center px-10 text-center",
-          style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } },
+          style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } },
           "还没有任何两个人连起来。\n回上一页给谁加一段关系，这儿就有网了。")
       : h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 0, height: 0,
           transform: "translate(" + pan.x + "px," + pan.y + "px) scale(" + k + ")" } },
@@ -944,7 +944,7 @@ function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen
               style: { position: "absolute", left: c.mx, top: c.my, transform: "translate(-50%,-50%)",
                 maxWidth: TIE_LABEL_MAX, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 background: tieKindColor(L.label, t.ink), color: t.bg2, padding: "2px 7px", borderRadius: 3,
-                fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.4, pointerEvents: "none" } }, L.label);
+                fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.4, pointerEvents: "none" } }, L.label);
           }),
           order.map(id => h("div", { "data-wk": "tiesnode", key: id,
             onPointerDown: () => { ptr.current.node = id; ptr.current.live = null; },
@@ -974,24 +974,24 @@ function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen
       background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
       boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
-        h("div", { "data-wk": "tiespanelname", className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+        h("div", { "data-wk": "tiespanelname", className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } },
           nameOf(selPair.a) + (selPair.both ? " ⇄ " : selPair.out ? " → " : " ← ") + nameOf(selPair.b)),
         h("button", { "data-wk": "tiespanelbtn", "data-part": "walk", onClick: () => onOpen(selPair.a), className: "active:opacity-60 shrink-0",
-          style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "从这儿走"),
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "从这儿走"),
         h("button", { "data-wk": "tiespanelbtn", "data-part": "close", onClick: () => setSel(null), className: "active:opacity-60 shrink-0",
-          style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginLeft: 2 } }, "收起")),
-      selPair.label ? h("div", { "data-wk": "tiespanellabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 14, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selPair.label) : null,
-      selPair.note ? h("div", { "data-wk": "tiespanelnote", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, selPair.note) : null,
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginLeft: 2 } }, "收起")),
+      selPair.label ? h("div", { "data-wk": "tiespanellabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selPair.label) : null,
+      selPair.note ? h("div", { "data-wk": "tiespanelnote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, selPair.note) : null,
       (selPair.backLabel || selPair.backNote) ? h("div", { "data-wk": "tiespanelback", style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 } }, nameOf(selPair.b) + "那头写的"),
-        selPair.backLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: t.sub } }, selPair.backLabel) : null,
-        selPair.backNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 2, whiteSpace: "pre-wrap" } }, selPair.backNote) : null) : null) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, nameOf(selPair.b) + "那头写的"),
+        selPair.backLabel ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub } }, selPair.backLabel) : null,
+        selPair.backNote ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 2, whiteSpace: "pre-wrap" } }, selPair.backNote) : null) : null) : null,
     h("div", { "data-wk": "tieszoom", style: { position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 6 } },
       [["＋", () => setK(v => Math.min(2.6, v * 1.35))],
        ["－", () => setK(v => Math.max(0.3, v / 1.35))],
        ["⌖", () => { setSel(null); fitNow(); }]].concat(moved ? [["⟲", () => { setDrag({}); setSel(null); if (onSavePos) onSavePos(null, null); setTimeout(fitNow, 0); }]] : [])
        .map(([lb, fn]) => h("button", { "data-wk": "tieszoombtn", "data-part": lb, key: lb, onClick: fn, className: "active:opacity-70",
-        style: { width: 32, height: 32, borderRadius: 10, fontFamily: F_BODY, fontSize: 14, color: t.ink,
+        style: { width: 32, height: 32, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink,
           background: "rgba(246,244,239,.92)", border: "1px solid " + t.line, boxShadow: "0 1px 5px rgba(0,0,0,.08)" } }, lb))));
 }
 
@@ -1028,16 +1028,16 @@ function TiesWalk({ startId, me, profile, profileFor, allChars, rels, tiePos, on
       right: h("div", { className: "flex items-center" },
         // 她参考图右上角那个「全部」：走着走着想看看整张网长什么样
         h("button", { "data-wk": "tieswalkbtn", "data-part": "net", "data-on": netOpen ? "1" : "0", onClick: () => setNetOpen(!netOpen), className: "active:opacity-60 flex items-center justify-center",
-          style: { height: 38, padding: "0 7px", fontFamily: F_BODY, fontSize: 12, color: netOpen ? t.ink : t.tint } }, netOpen ? "回到这个人" : "全部"),
+          style: { height: 38, padding: "0 7px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: netOpen ? t.ink : t.tint } }, netOpen ? "回到这个人" : "全部"),
         h("button", { "data-wk": "tieswalkbtn", "data-part": "exit", onClick: onClose, className: "active:opacity-60 flex items-center justify-center",
-          style: { width: 40, height: 38, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "退出")) }),
+          style: { width: 40, height: 38, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "退出")) }),
     // 走过的路：不是面包屑装饰，是【她怎么走到这儿的】那条线索，点任意一站直接跳回去
     (!netOpen && trail.length > 1) && h("div", { "data-wk": "tiestrail", className: "shrink-0 flex items-center px-4 pb-2",
       style: { gap: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" } },
       trail.map((id, i) => h(Fragment, { key: id + "_" + i },
-        i > 0 && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "›"),
+        i > 0 && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "›"),
         h("button", { "data-wk": "tiestrailitem", "data-on": i === trail.length - 1 ? "1" : "0", onClick: () => setTrail(p => p.slice(0, i + 1)), className: "shrink-0 active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 11, whiteSpace: "nowrap",
+          style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", whiteSpace: "nowrap",
             color: i === trail.length - 1 ? t.ink : t.sub,
             padding: "2px 8px", borderRadius: 999,
             background: i === trail.length - 1 ? "rgba(0,0,0,.06)" : "transparent" } }, nameOf(id))))),
@@ -1198,9 +1198,9 @@ function Ties({
     const ch = charOf(id);
     return h("div", { "data-wk": "tieschip", className: "flex items-center gap-1.5" },
       id === "me"
-        ? h("div", { style: { width: 24, height: 24, borderRadius: 7, background: profile.color || t.tint, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11, color: "#fff" } }, me.slice(0, 1))
+        ? h("div", { style: { width: 24, height: 24, borderRadius: 7, background: profile.color || t.tint, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#fff" } }, me.slice(0, 1))
         : h(Avatar, { character: ch, size: 24, radius: 7 }),
-      h("span", { "data-wk": "tieschipname", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, nameOf(id)));
+      h("span", { "data-wk": "tieschipname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, nameOf(id)));
   };
   // ---- 某个人的关系伙伴 ----
   const partnersOf = id => cards.filter(c => c.a === id || c.b === id);
@@ -1226,10 +1226,10 @@ function Ties({
       style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px" }
     },
       h("div", { className: "flex items-center gap-2 mb-2" },
-        h("span", { "data-wk": "tiesrowarrow", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog } }, arrow),
+        h("span", { "data-wk": "tiesrowarrow", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog } }, arrow),
         h(Chip, { id: other })),
-      h("div", { "data-wk": "tiesrowlabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 17, color: t.ink } }, labelText || "未命名"),
-      noteText && h("div", { "data-wk": "tiesrownote", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, noteText));
+      h("div", { "data-wk": "tiesrowlabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, labelText || "未命名"),
+      noteText && h("div", { "data-wk": "tiesrownote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5, color: t.sub, marginTop: 4 } }, noteText));
   };
   // 伙伴是配角时，关系卡下面直接挂TA的简介——配角没有自己的资料页，
   // 这儿是唯一能读到全文、也能改的地方（她 2026-08-25：「简介打不开看全部」）。
@@ -1242,12 +1242,12 @@ function Ties({
     return h("div", { "data-wk": "tiesrow", "data-part": "npc", className: "mb-2.5", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px" } },
       h("div", { onClick: () => openEdit(card.a, card.b), className: "active:opacity-70", style: { cursor: "pointer" } },
         h("div", { className: "flex items-center gap-2 mb-2" },
-          h("span", { "data-wk": "tiesrowarrow", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog } }, "⇄"),
+          h("span", { "data-wk": "tiesrowarrow", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog } }, "⇄"),
           h(Chip, { id: other }),
-          h("span", { "data-wk": "tiesrownpctag", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "只在群里出场")),
-        h("div", { "data-wk": "tiesrowlabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 17, color: t.ink } }, e.label || "未命名")),
+          h("span", { "data-wk": "tiesrownpctag", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "只在群里出场")),
+        h("div", { "data-wk": "tiesrowlabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, e.label || "未命名")),
       h(NpcBrief, { npc: npc, onSave: onSaveNpcBrief }),
-      onDeleteNpc ? h("button", { "data-wk": "tiesnpcdel", onClick: () => onDeleteNpc(npc.id), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除这个配角") : null);
+      onDeleteNpc ? h("button", { "data-wk": "tiesnpcdel", onClick: () => onDeleteNpc(npc.id), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent } }, "删除这个配角") : null);
   };
 
   // ---- 详情视图 ----
@@ -1307,7 +1307,7 @@ function Ties({
     [["", "全部"], ["_main", "主面具"]].concat(maskList.map(m => [m.id, m.label || m.name || "未命名"]))
       .map(([v, label]) => h("button", { "data-wk": "tiesmask", "data-on": maskPick === v ? "1" : "0",
         key: v || "_all", onClick: () => setMaskPick(v), className: "shrink-0 active:opacity-70",
-        style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999,
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "5px 11px", borderRadius: 999,
           background: maskPick === v ? t.ink : "transparent", color: maskPick === v ? t.bg2 : t.fog,
           border: "1px solid " + (maskPick === v ? t.ink : t.line) } }, label))) : null;
   const faceStrip = h("div", { "data-wk": "tiesfaces", className: "shrink-0 flex items-end gap-2 px-4 pb-2",
@@ -1323,7 +1323,7 @@ function Ties({
           (id === "me" && !profile.avatarImage)
             ? h("div", { style: { width: "100%", height: "100%", background: profile.color || t.tint, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: on ? 19 : 14 } }, me.slice(0, 1))
             : h(Avatar, { character: ch, size: on ? 46 : 34, radius: 0 })),
-        on ? h("div", { "data-wk": "tiesfacename", style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.ink, marginTop: 3, maxWidth: 66,
+        on ? h("div", { "data-wk": "tiesfacename", style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, marginTop: 3, maxWidth: 66,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, id === "me" ? me : nameOf(id)) : null);
     }));
   // 标题和段数也跟着筛子走：选了面具还写着主面具的名字、数着全部人的段数，
@@ -1339,7 +1339,7 @@ function Ties({
       bg: "transparent", noLine: true, onBack,
       right: h("div", { "data-wk": "tiesheadbtns", className: "flex items-center" },
         // 明入口：点脸进去是顺手，但只有顺手的入口等于没入口——她得知道有这么一页
-        characters.length > 0 ? h("button", { "data-wk": "tieswalkentry", onClick: () => setMapAt(boardId), className: "active:opacity-50 flex items-center justify-center", style: { height: 38, padding: "0 6px", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "走一圈") : null,
+        characters.length > 0 ? h("button", { "data-wk": "tieswalkentry", onClick: () => setMapAt(boardId), className: "active:opacity-50 flex items-center justify-center", style: { height: 38, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "走一圈") : null,
         characters.length > 0 ? h("button", { "data-wk": "tiesaddbtn", onClick: openNew, className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) : null) }),
     faceStrip,
     maskStrip,
@@ -1359,7 +1359,7 @@ function Ties({
         }),
     // 配角的简介只有单人页能读全文、能改、能删（她 2026-08-25 定的），入口留在这儿
     boardId !== "me" ? h("button", { "data-wk": "tiesdetailentry", onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
+      style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
       comp, setComp, characters, profile, me, nameOf, onCreateNpc, onAddMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
@@ -1380,7 +1380,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
 
   const seg = (val, cur, onClick, txt) => h("button", { "data-wk": "tiesseg", "data-part": val, "data-on": val === cur ? "1" : "0",
     onClick, style: {
-      flex: 1, fontFamily: F_BODY, fontSize: 13, padding: "9px 0", borderRadius: 12,
+      flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 0", borderRadius: 12,
       background: val === cur ? t.ink : "transparent", color: val === cur ? t.bg2 : t.sub,
       border: "1px solid " + (val === cur ? t.ink : t.line), transition: "all .15s"
     }
@@ -1400,7 +1400,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       }
     },
       h(Avatar, { character: ch, size: 32, radius: 9 }),
-      h("span", { "data-wk": "tiespickname", className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+      h("span", { "data-wk": "tiespickname", className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } },
         id === "me" ? (me || "我") : (ch ? ch.name : "?")),
       selected && h(ICheck, { size: 15, color: t.tint }));
   };
@@ -1415,14 +1415,14 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
     h("textarea", { "data-wk": "tiescompdesc",
       value: val, onChange: e => onChange(e.target.value.slice(0, 500)), rows: 3, maxLength: 500,
       placeholder: ph, className: "w-full bg-transparent outline-none resize-none",
-      style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, borderBottom: "1px solid " + t.line, paddingBottom: 8 }
+      style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, borderBottom: "1px solid " + t.line, paddingBottom: 8 }
     }),
-    h("div", { "data-wk": "tiescompcount", className: "text-right", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, (val || "").length + "/500"));
+    h("div", { "data-wk": "tiescompcount", className: "text-right", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, (val || "").length + "/500"));
 
   return h(PageSheet, { onClose, tall: true },
     // header
     h("div", { "data-wk": "tiescomphead", className: "flex items-center justify-between mb-5" },
-      h("span", { "data-wk": "tiescomptitle", style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, c.edit ? "编辑关系" : "新增关系"),
+      h("span", { "data-wk": "tiescomptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: t.ink } }, c.edit ? "编辑关系" : "新增关系"),
       h("div", { className: "flex items-center gap-3" },
         c.edit && h("button", { "data-wk": "tiescompbtn", "data-part": "delete", onClick: onDelete, className: "active:opacity-50" }, h(ITrash, { size: 18, color: t.fog })),
         c.tab !== "npc" && h("button", { "data-wk": "tiescompbtn", "data-part": "save", onClick: onSave, disabled: !valid, className: "active:opacity-50", style: { opacity: valid ? 1 : 0.35 } }, h(ICheck, { size: 20, color: t.ink })))),
@@ -1452,36 +1452,36 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       c.meChar !== "me" ? h("div", { "data-wk": "tiesnpcmode", style: { display: "flex", gap: 8, marginBottom: 14 } },
         [["gen", "按人设生成"], ["hand", "自己写"]].map(x => { const on = (c.npcHand ? "hand" : "gen") === x[0];
           return h("button", { "data-wk": "tiesnpcmodebtn", "data-part": x[0], "data-on": on ? "1" : "0", key: x[0], onClick: () => set({ npcHand: x[0] === "hand" }), className: "active:opacity-70",
-            style: { flex: 1, fontFamily: F_BODY, fontSize: 13, padding: "8px 0", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, x[1]); })) : null,
+            style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "8px 0", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, x[1]); })) : null,
       (c.meChar === "me" || c.npcHand) ? h(Fragment, null,
         h(Eyebrow, { style: { marginBottom: 8 } }, "TA 叫什么"),
         h("input", { "data-wk": "tiesnpcinput", "data-part": "name",
           value: c.npcName || "", onChange: e => set({ npcName: e.target.value.slice(0, 24) }),
           placeholder: "名字或称呼",
           className: "w-full bg-transparent outline-none pb-2",
-          style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+          style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
         }),
         h(Eyebrow, { style: { margin: "16px 0 8px" } }, c.meChar === "me" ? "你俩什么关系" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 的谁"),
         h("input", { "data-wk": "tiesnpcinput", "data-part": "rel",
           value: c.npcRel || "", onChange: e => set({ npcRel: e.target.value.slice(0, 60) }),
           placeholder: c.meChar === "me" ? "我闺蜜 / 我表妹 / 一个办公室的同事（可以不填）" : "TA 的副将 / 她师姐 / 户部侍郎（可以不填）",
           className: "w-full bg-transparent outline-none pb-2",
-          style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, borderBottom: "1px solid " + t.line }
+          style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
         }),
         h(Eyebrow, { style: { margin: "16px 0 8px" } }, "TA 是个什么人"),
         h("textarea", { "data-wk": "tiesnpcinput", "data-part": "brief",
           value: c.npcBrief || "", onChange: e => set({ npcBrief: e.target.value.slice(0, 4000) }), rows: 6,
           placeholder: c.meChar === "me" ? "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、你俩怎么认识的。" : "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、和 " + (nameOf(c.meChar) || "这个角色") + " 怎么认识的。",
           className: "w-full bg-transparent outline-none resize-none",
-          style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" }
+          style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" }
         }),
-        h("div", { "data-wk": "tiesnpchint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+        h("div", { "data-wk": "tiesnpchint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
           c.meChar === "me" ? "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 身边的人，【不认识你】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 " + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
         h("button", { "data-wk": "tiesnpcsubmit", "data-part": "add",
           onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
             if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
           className: "w-full active:opacity-70",
-          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))",
             opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
         }, "加进来")
       ) : h(Fragment, null,
@@ -1490,16 +1490,16 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
           value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
           placeholder: "陆闻 / TA的属下 / 她师姐",
           className: "w-full bg-transparent outline-none pb-2",
-          style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+          style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
         }),
-        h("div", { "data-wk": "tiesnpchint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+        h("div", { "data-wk": "tiesnpchint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
           "写人设里提到过的名字，或者一个位置（「TA的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
             + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
             + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
         h("button", { "data-wk": "tiesnpcsubmit", "data-part": "gen",
           onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
           className: "w-full active:opacity-70",
-          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+          style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))",
             opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
         }, npcBusy ? "生成中…" : "生成")),
       (npcsOf ? npcsOf(c.meChar) : []).length ? h("div", { "data-wk": "tiesnpclist", style: { marginTop: 18 } },
@@ -1509,7 +1509,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
           style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
         },
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { "data-wk": "tiesnpcname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.name),
+            h("div", { "data-wk": "tiesnpcname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, n.name),
             h(NpcBrief, { npc: n, onSave: onSaveNpcBrief, compact: true }),
             // 跟我认不认识（她 2026-09-15：「万一 npc 是我和 ab 的共友那不认识也不成立」）。
             // 默认不认识——多数配角确实是角色那边的人；共友是那一小撮，得她自己点亮。
@@ -1518,7 +1518,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
               h("button", { "data-wk": "tiesnpcknows", "data-on": n.knowsUser ? "1" : "0",
                 onClick: () => onSaveNpcKnows(n.id, { knowsUser: !n.knowsUser }),
                 className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999,
+                style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "2px 8px", borderRadius: 999,
                   border: "1px solid " + (n.knowsUser ? t.tint : t.line),
                   color: n.knowsUser ? t.tint : t.fog }
               }, n.knowsUser ? "✓ 也认识我" : "跟我不认识"),
@@ -1527,12 +1527,12 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
                 onBlur: e => onSaveNpcKnows(n.id, { knowsUser: true, knowsUserNote: e.target.value }),
                 placeholder: "你俩什么交情？（一块儿打过两年球…）",
                 className: "w-full bg-transparent outline-none",
-                style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 5,
+                style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5,
                   borderBottom: "1px solid " + t.line, paddingBottom: 3 }
               }) : null,
-              n.knowsUser ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } },
+              n.knowsUser ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 4 } },
                 "TA 只是认识你这个人——你跟谁是什么关系，TA 一概不知道。") : null) : null),
-          onDeleteNpc ? h("button", { "data-wk": "tiesnpcitemdel", onClick: () => onDeleteNpc(n.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除") : null)))) : null
+          onDeleteNpc ? h("button", { "data-wk": "tiesnpcitemdel", onClick: () => onDeleteNpc(n.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, padding: "0 2px" } }, "删除") : null)))) : null
     ) : h(Fragment, null,
 
     // participants
@@ -1554,11 +1554,11 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       value: c.label, onChange: e => set({ label: e.target.value }),
       placeholder: "青梅竹马、前任、互相试探",
       className: "w-full bg-transparent outline-none pb-2",
-      style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+      style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
     }),
     h("div", { "data-wk": "tiespresets", className: "flex flex-wrap gap-1.5 mt-3 mb-2" }, REL_PRESETS.map(p => h("button", { "data-wk": "tiespreset", "data-on": c.label === p ? "1" : "0",
       key: p, onClick: () => set({ label: p }),
-      style: { fontFamily: F_BODY, fontSize: 11, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
+      style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
     }, p))),
     // 让 TA 写（她 2026-09-15：「如果我想把他连 b 我得自己写了」）。
     // ⚠️写完落进输入框【给她改】，不是直接存——生成的东西一律先过她的眼睛。
@@ -1573,9 +1573,9 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
           _why: d.why || "", _known: d.known
         })),
         disabled: !!relBusy, className: "active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, opacity: relBusy ? 0.4 : 1 }
+        style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, opacity: relBusy ? 0.4 : 1 }
       }, relBusy ? "在想…" : "让 TA 写一版 ✎"),
-      c._why ? h("div", { "data-wk": "tiesdraftwhy", style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog, marginTop: 5 } },
+      c._why ? h("div", { "data-wk": "tiesdraftwhy", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 5 } },
         (c._known === false ? "它判断这俩其实不该认识：" : "它的依据：") + c._why + "（写好的两句在下面，随便改）") : null) : null,
 
     // 关系方向
@@ -1596,7 +1596,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       onClick: () => set({ split: !c.split }),
       className: "flex items-center justify-between w-full mb-3 active:opacity-70"
     },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "两个方向分别描述"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "两个方向分别描述"),
       h("div", { style: { width: 40, height: 23, borderRadius: 999, padding: 2, background: c.split ? t.ink : t.line, transition: "background .2s" } },
         h("div", { style: { width: 19, height: 19, borderRadius: 999, background: "#fff", transform: c.split ? "translateX(17px)" : "translateX(0)", transition: "transform .2s" } }))),
 
@@ -1604,9 +1604,9 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
     h(Eyebrow, { style: { marginBottom: 8 } }, "关系描述"),
     (c.dir === "double" && c.split)
       ? h(Fragment, null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, nA + " 眼中的 " + nB),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, nA + " 眼中的 " + nB),
           descBox(c.noteFwd, v => set({ noteFwd: v }), "写清楚这段关系的背景、张力和禁忌。"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, nB + " 眼中的 " + nA),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, nB + " 眼中的 " + nA),
           descBox(c.noteBwd, v => set({ noteBwd: v }), "写清楚这段关系的背景、张力和禁忌。"))
       : descBox(c.note, v => set({ note: v }), "写清楚这段关系的背景、张力和禁忌。")));
 }
@@ -1692,13 +1692,13 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
         const on = loreScopeEnabled(e, x[0]);
         return h("span", { key: x[0], title: x[1],
           style: { width: 17, height: 17, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: F_BODY, fontSize: 10, lineHeight: 1,
+            fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1,
             color: on ? t.bg : (none ? t.accent : t.fog),
             background: on ? t.ink : "transparent",
             border: "1px solid " + (on ? t.ink : (none ? t.accent + "66" : t.line)),
             opacity: on ? 1 : (none ? 1 : .7) } }, LORE_STAMP[x[0]] || "?");
       }),
-      none ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, alignSelf: "center", marginLeft: 4 } }, "一处也没盖 · 发不出去") : null);
+      none ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.accent, alignSelf: "center", marginLeft: 4 } }, "一处也没盖 · 发不出去") : null);
   };
   const card = (e, i) => {
     const off = e.enabled === false;
@@ -1711,20 +1711,20 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
           // 这一条什么时候会翻出来：常驻是一枚夹在书里的签，关键词就把那个词本身写出来
           h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 } },
             always
-              ? h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: 10, color: t.ink } },
+              ? h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.ink } },
                   h("span", { style: { width: 7, height: 12, background: t.ink, clipPath: "polygon(0 0,100% 0,100% 100%,50% 74%,0 100%)", display: "inline-block" } }), "常驻")
-              : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "1px 6px", maxWidth: 168, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "1px 6px", maxWidth: 168, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   (e.regex ? "/" + kw + "/" : "「" + kw + "」") + " 才翻出来"),
-            e.category && e.category !== "默认" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, e.category) : null,
-            h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginLeft: "auto" } }, "P" + (e.priority || 3))),
-          h("div", { "data-wk": "loretitle", style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
-          h("div", { "data-wk": "lorebody", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
+            e.category && e.category !== "默认" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, e.category) : null,
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginLeft: "auto" } }, "P" + (e.priority || 3))),
+          h("div", { "data-wk": "loretitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
+          h("div", { "data-wk": "lorebody", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
           // 给谁看：这个 app 里「谁」是有脸的，别写成一串名字
           h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginTop: 10, flexWrap: "wrap" } },
             people.length
               ? h("div", { style: { display: "flex", alignItems: "center" } }, people.slice(0, 4).map((c, ix) => h("div", { key: c.id, style: { marginLeft: ix ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 1.5px " + t.bg } }, h(Avatar, { character: c, size: 19, radius: 999 }))),
-                  people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
-              : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "所有角色"),
+                  people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
+              : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "所有角色"),
             h("span", { style: { marginLeft: "auto" } }, stampRow(e)))),
         h("button", { "data-wk": "loreswitch", "data-on": off ? "0" : "1", onClick: () => onSave({ ...e, enabled: off }), className: "active:opacity-65", "aria-label": off ? "启用词条" : "停用词条",
           style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
@@ -1735,15 +1735,15 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
     style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
     face ? h("span", { style: { borderRadius: 6, padding: 1, border: "1.5px solid " + (on ? t.ink : "transparent"), display: "flex" } }, glyph)
       : h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
+        fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.bg : t.sub,
         background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, glyph),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", color: on ? t.ink : t.fog } }, zh));
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", color: on ? t.ink : t.fog } }, zh));
   // 翻法＝活页夹的分隔页标签：一排从纸边伸出来的小舌头，翻到的那张满高、跟底下那页连成一张纸
   const loreViewTabs = () => h("div", { style: { display: "flex", gap: 4, marginTop: 12, borderBottom: "1px solid " + t.ink, alignItems: "flex-end" } },
     [["scope", "按去向"], ["char", "按角色"], ["cat", "按分类"]].map(x => {
       const on = view === x[0];
       return h("button", { key: x[0], "data-wk": "loreview", "data-on": on ? "1" : "0", onClick: () => setView(x[0]), className: "active:opacity-65",
-        style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.ink : t.fog, background: on ? t.bg2 : "transparent",
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog, background: on ? t.bg2 : "transparent",
           border: "1px solid " + (on ? t.ink : t.line), borderBottom: "none", borderRadius: "7px 7px 0 0",
           padding: on ? "7px 14px 7px" : "4px 12px 4px", marginBottom: on ? -1 : 0, position: "relative" } }, x[1]);
     }));
@@ -1754,12 +1754,12 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
       // 抬头不再是一句大标语 + 一行英文小字（那个排法换个后台照样成立）：
       // 只留一句说清这本书怎么用，和两个真的数
       h("section", { "data-wk": "loreintro", style: { padding: "14px 0 13px", borderBottom: "1px solid " + t.line } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7 } },
           "一条设定要盖够章才送得出去：给谁看、什么时候翻出来、去哪几处，三样都对上才会进上下文。"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7 } }, enabledN + " 条在用 · 其中 " + constantN + " 条常驻")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 7 } }, enabledN + " 条在用 · 其中 " + constantN + " 条常驻")),
       // 筛选就是那排章：顶上这一排既是筛选器，也是每一条身上那些字的对照表
       h("section", { "data-wk": "lorefilter", style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
-        h("input", { "data-wk": "input", value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
+        h("input", { "data-wk": "input", value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }),
         loreViewTabs(),
         h("div", { style: { display: "flex", gap: 9, overflowX: "auto", paddingTop: 12, WebkitOverflowScrolling: "touch" } },
           view === "scope" ? [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x =>
@@ -1769,24 +1769,24 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
           : [["all", "全部", "全"], ["pub", "共用", "众"]].map(x => stampChip(x[0], charFilter === x[0], x[2], x[1], () => setCharFilter(x[0])))
             .concat((characters || []).filter(c => list.some(e => (e.charIds || []).includes(c.id))).map(c =>
               stampChip(c.id, charFilter === c.id, h(Avatar, { character: c, size: 26, radius: 5 }), c.remark || c.name, () => setCharFilter(c.id), true)))),
-        h("div", { style: { display: "flex", gap: 14, marginTop: 12 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 10.5, color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
+        h("div", { style: { display: "flex", gap: 14, marginTop: 12 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
       h("div", { style: { paddingBottom: 12 } },
-        pickedChar && !shown.length ? h("div", { style: { padding: "22px 0", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有只绑给 TA 的词条") : null,
+        pickedChar && !shown.length ? h("div", { style: { padding: "22px 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "还没有只绑给 TA 的词条") : null,
         (shown.length || pickedChar) ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
-          h("button", { "data-wk": "block", onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条"))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
+          h("button", { "data-wk": "block", onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "写第一条"))),
         pickedChar && pubShown.length ? h("section", { key: "pub" },
-          h("button", { "data-wk": "block", onClick: () => setPubOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: "14px 0", fontFamily: F_BODY, fontSize: 12, color: t.sub, borderTop: "1px solid " + t.line, width: "100%", textAlign: "left" } },
+          h("button", { "data-wk": "block", onClick: () => setPubOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, borderTop: "1px solid " + t.line, width: "100%", textAlign: "left" } },
             (pubOpen ? "▾ " : "▸ ") + "TA 也看得到的共用词条 · " + pubShown.length + " 条"),
           pubOpen ? pubShown.map(card) : null) : null,
       (trash && trash.length) ? h("section", { style: { borderTop: "1px solid " + t.line, padding: "14px 0 6px" } },
-        h("button", { "data-wk": "block", onClick: () => setTrashOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+        h("button", { "data-wk": "block", onClick: () => setTrashOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } },
           (trashOpen ? "▾ " : "▸ ") + "最近删除 · " + trash.length + " 条（留 30 天）"),
         trashOpen ? trash.map(x => h("div", { key: x.entry.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px dashed " + t.line } },
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.entry.title || "未命名设定"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "删于 " + new Date(x.deletedTs).toLocaleString())),
-          h("button", { "data-wk": "block", onClick: () => onRestore && onRestore(x.entry.id), className: "active:opacity-65 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: "transparent", border: "1px solid " + t.ink, borderRadius: 999, padding: "4px 12px" } }, "放回去"))) : null) : null),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.entry.title || "未命名设定"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "删于 " + new Date(x.deletedTs).toLocaleString())),
+          h("button", { "data-wk": "block", onClick: () => onRestore && onRestore(x.entry.id), className: "active:opacity-65 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "1px solid " + t.ink, borderRadius: 999, padding: "4px 12px" } }, "放回去"))) : null) : null),
     editing && h(WorldBookEntryPage, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
@@ -1834,10 +1834,10 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     if (f.regex) { try { new RegExp(keyword, "i"); } catch (_) { setError("正则表达式写错了，模型永远触发不到它"); return; } }
     onSave(Object.assign({}, f, { title: String(f.title || "").trim() || "未命名设定", payload, keyword, alwaysOn: !!f.alwaysOn, ensemble: false, id: entry && entry.id ? entry.id : "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now() }));
   };
-  const field = { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 0, padding: "11px 12px", width: "100%", outline: "none" };
-  const lbl = (s, sub) => h("div", { "data-wk": "loreedlabel", style: { margin: "18px 0 8px" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, s), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, sub) : null);
+  const field = { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 0, padding: "11px 12px", width: "100%", outline: "none" };
+  const lbl = (s, sub) => h("div", { "data-wk": "loreedlabel", style: { margin: "18px 0 8px" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, s), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, sub) : null);
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
-    h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
+    h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
     h("button", { "data-wk": "block", onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: val ? t.ink : t.line, position: "relative" } }, h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff" } })));
   // 半窗 → 整页（v64.24）。按 no-half-sheet.md 的判据问一句「填这张表的时候，
   // 需要同时看见底下那份目录吗」——不需要。而它是一张长表单：标题、正文（光 minHeight
@@ -1846,42 +1846,42 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
   // 底走 binderSkin —— 这一张就是从那本活页夹里抽出来的，材质得是同一张纸。
   return h("div", { "data-wk": "loreedit", className: "absolute inset-0 z-50 h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: isNew ? "新建设定" : "编辑设定", sub: "给谁看、什么时候翻出来、去哪几处", bg: "transparent", onBack: onClose,
-      right: isNew ? h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, importing ? "读取中" : "导入") : onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null }),
+      right: isNew ? h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, importing ? "读取中" : "导入") : onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent } }, "删除") : null }),
     h("input", { ref: importRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
-    importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, importError),
+    importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, importError),
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
     h("input", { "data-wk": "input", value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
-    h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, "data-wk": "lorecat", "data-on": (f.category || "") === x ? "1" : "0", onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: 10.5 } }, x))),
-    f.category === "照做" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.65, marginTop: 8 } },
+    h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, "data-wk": "lorecat", "data-on": (f.category || "") === x ? "1" : "0", onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, x))),
+    f.category === "照做" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 8 } },
       "「照做」不是设定，是给 TA 的输出指令：这条被翻出来的那一轮，TA 会照着正文去做。适合「提到冰箱就发一张冰箱小卡」这种——把 HTML 模板和怎么填写进正文，配上关键词触发。") : null,
-    f.category === "生图" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.65, marginTop: 8 } },
+    f.category === "生图" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 8 } },
       "「生图」只在画图时用：拼进发给图像接口的画面要求，聊天、线下这些地方一个字都不带。适合画风、配色、这个世界的服装建筑。选「每次常驻」就张张都带；选「按话题触发」时关键词对的是这张图的画面描述。下面「去哪几处」对它不起作用。") : null,
     lbl("交给模型的正文", f.category === "照做" ? "写清楚什么时候、发什么、照什么格式；网页小卡的模板整块贴进来" : "只写事实、背景或规则；模型看到的是这里，不是标题"),
     h("textarea", { "data-wk": "textarea", value: f.payload, onChange: e => { set({ payload: e.target.value }); setError(""); }, rows: 6, placeholder: "例如：港口城每晚十一点宵禁，钟声后只有持银色通行证的人可以上街。", style: Object.assign({}, field, { resize: "vertical", minHeight: 132, lineHeight: 1.65 }) }),
     lbl("谁能拿到", "不选角色就是公共设定；绑定后只有该角色本人或有 Ta 在场的群聊能拿到"),
-    h("button", { onClick: () => set({ charIds: [] }), className: "active:opacity-65", style: { width: "100%", textAlign: "left", border: "1px solid " + (!(f.charIds || []).length ? t.ink : t.line), background: !(f.charIds || []).length ? t.ink : "transparent", color: !(f.charIds || []).length ? t.bg : t.sub, padding: "10px 11px", fontFamily: F_BODY, fontSize: 12 } }, "所有角色 · 公共设定"),
-    h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7, marginTop: 7 } }, (characters || []).map(c => { const on = (f.charIds || []).includes(c.id); return h("button", { key: c.id, onClick: () => toggleChar(c.id), className: "active:opacity-70", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", fontFamily: F_BODY, fontSize: 11.5, color: on ? t.bg : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), padding: "9px 10px" } }, c.remark || c.name); })),
+    h("button", { onClick: () => set({ charIds: [] }), className: "active:opacity-65", style: { width: "100%", textAlign: "left", border: "1px solid " + (!(f.charIds || []).length ? t.ink : t.line), background: !(f.charIds || []).length ? t.ink : "transparent", color: !(f.charIds || []).length ? t.bg : t.sub, padding: "10px 11px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "所有角色 · 公共设定"),
+    h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7, marginTop: 7 } }, (characters || []).map(c => { const on = (f.charIds || []).includes(c.id); return h("button", { key: c.id, onClick: () => toggleChar(c.id), className: "active:opacity-70", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.bg : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), padding: "9px 10px" } }, c.remark || c.name); })),
     lbl("什么时候出现", "常驻适合核心世界规则；触发适合只在谈到某件事时才需要的背景"),
     h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
-      [[true, "每次常驻", "不等关键词"], [false, "按话题触发", "命中才注入"]].map(x => h("button", { key: String(x[0]), onClick: () => { set({ alwaysOn: x[0] }); setError(""); }, className: "active:opacity-70 text-left", style: { border: "1px solid " + (!!f.alwaysOn === x[0] ? t.ink : t.line), background: !!f.alwaysOn === x[0] ? t.ink : "transparent", color: !!f.alwaysOn === x[0] ? t.bg : t.ink, padding: "11px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 12.5 } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: 10, opacity: .65, marginTop: 3 } }, x[2])))),
+      [[true, "每次常驻", "不等关键词"], [false, "按话题触发", "命中才注入"]].map(x => h("button", { key: String(x[0]), onClick: () => { set({ alwaysOn: x[0] }); setError(""); }, className: "active:opacity-70 text-left", style: { border: "1px solid " + (!!f.alwaysOn === x[0] ? t.ink : t.line), background: !!f.alwaysOn === x[0] ? t.ink : "transparent", color: !!f.alwaysOn === x[0] ? t.bg : t.ink, padding: "11px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", opacity: .65, marginTop: 3 } }, x[2])))),
     !f.alwaysOn ? h("div", { style: { marginTop: 9 } },
       h("input", { "data-wk": "input", value: f.keyword, onChange: e => { set({ keyword: e.target.value }); setError(""); }, placeholder: "关键词用逗号、顿号或竖线隔开，全角半角都行", style: field }),
       toggle("把关键词当正则", "仅在你确实需要表达式匹配时打开", !!f.regex, () => set({ regex: !f.regex }))) : null,
     lbl("会去哪些地方", "只有勾中的功能可以取到这条；角色绑定和触发条件仍然继续生效"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } }, LORE_SCOPE_UI.map(([k, label, desc]) => { const on = loreScopeEnabled(f, k); return h("button", { key: k, onClick: () => { setScope(k); setError(""); }, className: "active:opacity-70 text-left", style: { minHeight: 62, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink, padding: "9px 10px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12 } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.35, opacity: .62, marginTop: 3 } }, desc)); })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: 1.35, opacity: .62, marginTop: 3 } }, desc)); })),
     lbl("注入顺序", "数字越大越靠前；冲突时仍以更明确、更近期的系统规则为准"),
-    h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: 13, color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
+    h("div", { "data-wk": "block", style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { height: 38, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (f.priority || 3) === n ? t.bg : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n))),
     h("div", { style: { marginTop: 17, borderTop: "1px solid " + t.line } }, toggle("启用这条", "关闭后保留内容，但任何地方都不会注入", f.enabled !== false, () => set({ enabled: f.enabled === false }))),
     h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, padding: "12px", marginTop: 4 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: t.fog } }, "这条会怎么送出去"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginTop: 6 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em", color: t.fog } }, "这条会怎么送出去"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, marginTop: 6 } },
         (f.charIds || []).length ? "只给：" + (f.charIds || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean).join("、") : "给所有角色",
         " · ", f.alwaysOn ? "每次常驻" : "话题触发",
         " · 去往 ", loreScopeNames(f).join(" / ") || "无")),
-    error ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, lineHeight: 1.5, marginTop: 12 } }, error) : null,
-    h("button", { "data-wk": "loresave", onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, "保存并交给筛选器")));
+    error ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, lineHeight: 1.5, marginTop: 12 } }, error) : null,
+    h("button", { "data-wk": "loresave", onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, "保存并交给筛选器")));
 }
 function charWorldsSave(d) { try { localStorage.setItem(CHAR_WORLDS_KEY, JSON.stringify({ worlds: d.worlds || [], of: d.of || {} })); } catch (e) {} }
 function forumSetWorld(w) { try { localStorage.setItem(FORUM_WORLD_KEY, w || ""); } catch (e) {} try { window.dispatchEvent(new CustomEvent("lisa-forum-world")); } catch (e) {} }
@@ -1989,13 +1989,13 @@ function ForumWorlds({ characters, forumOff, onToggleForumChar, charToggles }) {
     const of = {}; Object.keys(d.of).forEach(k => { if (d.of[k] !== w.id) of[k] = d.of[k]; });
     put({ worlds: d.worlds.filter(x => x.id !== w.id), of });
   }, "拆掉");
-  const chip = { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2 };
+  const chip = { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: t.bg2 };
   // 论坛设置分成几格收着（她 2026-10-01：「设置能不能整理一下搞几个分类 dropdown，现在太长了」）：
   //   点标题摊开、再点收起；收着的时候右边那句说明这一格现在是什么状态。
   const [open, setOpen] = useState("");
   // 那一格的样子搬去了公共的 FoldRow（递手机那张单子也用它）
   const fold = (key, title, state, kids) => h(FoldRow, { key, title, state, open: open === key, onToggle: () => setOpen(v => v === key ? "" : key) }, kids);
-  const note = s => h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, s);
+  const note = s => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, s);
   const onN = (characters || []).filter(c => !(forumOff || []).includes(c.id)).length;
   return h("div", null,
     fold("chars", "在逛论坛的角色", (characters || []).length ? onN + " / " + (characters || []).length + " 个在逛" : "还没有角色",
@@ -2008,14 +2008,14 @@ function ForumWorlds({ characters, forumOff, onToggleForumChar, charToggles }) {
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: d.worlds.length ? 10 : 0 } },
       h("span", { style: Object.assign({}, chip, { display: "inline-flex", alignItems: "center", color: t.sub }) }, "同一个世界"),
       d.worlds.map(w => h("span", { key: w.id, className: "inline-flex items-center", style: Object.assign({}, chip, { padding: 0 }) },
-        h("button", { onClick: () => editLore(w), className: "active:opacity-70", style: { minHeight: 34, padding: "0 4px 0 12px", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, w.name + (w.lore ? " · 有世界观" : "")),
-        h("button", { onClick: () => drop(w), "aria-label": "拆掉" + w.name, className: "active:opacity-70", style: { minWidth: 34, minHeight: 34, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "×"))),
+        h("button", { onClick: () => editLore(w), className: "active:opacity-70", style: { minHeight: 34, padding: "0 4px 0 12px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, w.name + (w.lore ? " · 有世界观" : "")),
+        h("button", { onClick: () => drop(w), "aria-label": "拆掉" + w.name, className: "active:opacity-70", style: { minWidth: 34, minHeight: 34, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "×"))),
       h("button", { onClick: add, className: "active:opacity-70", style: Object.assign({}, chip, { borderStyle: "dashed" }) }, "＋ 新开一个世界")),
     d.worlds.length > 0 && h("div", { className: "space-y-1" }, (characters || []).map(c => h("div", { key: c.id, className: "flex items-center gap-3", style: { minHeight: 44 } },
       h(Avatar, { character: c, size: 30, radius: 15 }),
-      h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.remark || c.name),
+      h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
       h("button", { onClick: () => cycle(c.id), className: "active:opacity-70", style: Object.assign({}, chip, { color: charWorldOf(c.id, d) ? t.accent : t.sub }) }, nameOf(charWorldOf(c.id, d)) + " ›")))),
-    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点世界名写它的世界观，点 × 拆掉。"))),
+    d.worlds.length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "点右边那格换到下一个世界；点世界名写它的世界观，点 × 拆掉。"))),
     d.worlds.length > 0 && fold("pick", "现在逛哪个世界", nameOf(cur),
       h("div", null,
         note("默认是「全部」大杂烩：所有世界的帖子都看得到，哪个世界的角色都能去任何帖子底下说话。切到某个世界，就只看、只刷那个世界的，也只有那个世界的人碰面。"),
@@ -2286,7 +2286,7 @@ function Forum({
   // 正在看着的时候又到了一波，也算新——它确实是刚冒出来的。
   const isFreshFloor = f => !!f && f.authorType !== "me" && floorArrivedAt(f) > openCursorRef.current;
   const isFreshReply = r => !!r && r.authorType !== "me" && Number(r.ts || 0) > openCursorRef.current;
-  const newTag = () => h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: FORUM_SKIN.accent, borderRadius: 999, padding: "1px 6px", marginLeft: 6, flexShrink: 0 } }, "新");
+  const newTag = () => h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 999, padding: "1px 6px", marginLeft: 6, flexShrink: 0 } }, "新");
   const closePost = () => {
     setOpen(null); setReplyTo(null);
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -2332,9 +2332,9 @@ function Forum({
     markPostRead(open.id);
     markNoticesRead(forumNotices.filter(n => n.post.id === open.id).map(n => n.id));
   }, [open && open.id, forumNow, comments]);
-  const tag = txt => { const bs = forumBoardSkin(txt); return h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".02em", padding: "2px 8px", borderRadius: 999, border: "1px solid " + bs[0] + "33", background: bs[1], color: bs[0] } }, txt); };
+  const tag = txt => { const bs = forumBoardSkin(txt); return h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".02em", padding: "2px 8px", borderRadius: 999, border: "1px solid " + bs[0] + "33", background: bs[1], color: bs[0] } }, txt); };
   // 版块不是一排通用药丸：照公告栏上剪角、钉住的分类纸签来画。
-  const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { "data-wk": "block", key: b, "data-wk": "fochip", "data-on": sel ? "1" : "0", onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: 12.5, boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
+  const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { "data-wk": "block", key: b, "data-wk": "fochip", "data-on": sel ? "1" : "0", onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
   const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
   const isAlt = a => !!(a && a.authorType === "character_alt" && !a.anon);
@@ -2396,13 +2396,13 @@ function Forum({
       ? h("div", { onClick: e => { e.stopPropagation(); clickableChar ? goProfile(a.authorId) : (clickableAlt ? goAltProfile(a) : goNpcProfile(a)); }, className: "cursor-pointer active:opacity-70", style: { flexShrink: 0 } }, avatarFor(a, size, anon))
       : avatarFor(a, size, anon);
   };
-  const accountBadge = a => isAlt(a) ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#7355a6", background: "rgba(115,85,166,.11)", border: "1px solid rgba(115,85,166,.35)", borderRadius: 999, padding: "1px 6px" } }, "小号") : null;
+  const accountBadge = a => isAlt(a) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#7355a6", background: "rgba(115,85,166,.11)", border: "1px solid rgba(115,85,166,.35)", borderRadius: 999, padding: "1px 6px" } }, "小号") : null;
 
   // ---- 帖子底部操作条 ----
   function actBar(p) {
     const isL = liked.has(p.id);
     const isB = bookmarked.has(p.id);
-    const bs = { fontFamily: F_BODY, fontSize: 12, flexShrink: 0, whiteSpace: "nowrap" };
+    const bs = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", flexShrink: 0, whiteSpace: "nowrap" };
     // 显示的也用现算那份（同一小时内稳定，不会每次渲染跳一下）
     const lc = forumLiveCounts(p, forumNow);
     // ⚠️gap-5 是【固定】20px×5＝100px，加上四个数字和两个图标，赞和阅读一上万就顶出去了
@@ -2413,7 +2413,7 @@ function Forum({
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.rtCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((lc.likeCount || 0) + (isL ? 1 : 0)))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.viewCount || 0))),
-      h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
+      h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? FORUM_SKIN.accent : FORUM_SKIN.fog, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1 } }, isB ? "★" : "☆"),
       h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60", style: bs }, h(ISend, { size: 15, color: FORUM_SKIN.fog })));
   }
   // 删掉这一帖：摆在卡片【右上角】，不进那一排数字。
@@ -2425,7 +2425,7 @@ function Forum({
     if (!onDeletePost) return null;
     return h("button", { onClick: e => { e.stopPropagation(); askDelPost(p); },
       title: "删掉这一帖", className: "shrink-0 active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 4 } }, "✕");
+      style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 4 } }, "✕");
   }
   // 删一帖之前要不要问一句：自己写的删了回不来，网友的刷新就回来了
   function askDelPost(p) {
@@ -2448,13 +2448,13 @@ function Forum({
       style: { borderRadius: 12, overflow: "hidden", background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, breakInside: "avoid", WebkitColumnBreakInside: "avoid", marginBottom: 8, display: "inline-block", width: "100%" } },
       img ? h("img", { src: img, alt: "", style: { display: "block", width: "100%", height: hgt, objectFit: "cover" } })
         : h("div", { style: { height: hgt, padding: 12, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", background: "linear-gradient(160deg," + bs[1] + "," + bs[0] + "33)",
-            fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: FORUM_SKIN.ink, overflow: "hidden" } }, (ph && ph.desc) || p.title || ""),
+            fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.45, color: FORUM_SKIN.ink, overflow: "hidden" } }, (ph && ph.desc) || p.title || ""),
       h("div", { style: { padding: "8px 9px 9px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.45, color: FORUM_SKIN.ink, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.title || String(p.body || "").slice(0, 40)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.45, color: FORUM_SKIN.ink, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.title || String(p.body || "").slice(0, 40)),
         h("div", { className: "flex items-center gap-1.5", style: { marginTop: 7 } },
           avatarBtn(p, 18, p.anon),
-          h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, flexShrink: 0 } }, "♡ " + likes))));
+          h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, flexShrink: 0 } }, "♡ " + likes))));
   }
   function postRow(p, showBoard) {
     const unread = unreadFloors(p.id);
@@ -2470,23 +2470,23 @@ function Forum({
           h("div", { className: "grid items-start", style: { gridTemplateColumns: "minmax(0,1fr) auto", columnGap: 8, minWidth: 0 } },
             h("div", { className: "min-w-0" },
               h("div", { className: "flex items-center gap-1.5 min-w-0" },
-                h("span", { "data-wk": "foname", className: "min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
+                h("span", { "data-wk": "foname", className: "min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
                 accountBadge(p)),
               h("div", { className: "flex items-center gap-1.5 min-w-0", style: { marginTop: 1 } },
-                !p.anon && h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + (p.authorHandle || p.authorName)),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, flexShrink: 0, whiteSpace: "nowrap" } }, "· " + timeAgo(p.ts)),
+                !p.anon && h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + (p.authorHandle || p.authorName)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, flexShrink: 0, whiteSpace: "nowrap" } }, "· " + timeAgo(p.ts)),
                 showBoard && h("span", { style: { flexShrink: 0 } }, tag(p.board)))),
             h("div", { className: "flex items-center", style: { flexShrink: 0 } },
-              unread > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复") : null,
+              unread > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复") : null,
               delBtn(p))),
           // 接着哪一条：点得进去。有这一行，「同一件事被几个帖说」才看得出来，
           // 不然那条接话的帖在列表里跟别的一模一样。
           p.refTitle ? h("button", { onClick: e => { e.stopPropagation(); const t0 = (posts || []).find(x => x && x.id === p.refPostId); if (t0) openPost(t0); },
-            className: "active:opacity-60 text-left", style: { display: "block", maxWidth: "100%", fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            className: "active:opacity-60 text-left", style: { display: "block", maxWidth: "100%", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
-          p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, STW(p, STX(p.title))),
-          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
-          forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
+          p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, STW(p, STX(p.title))),
+          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
+          forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
           actBar(p))));
   }
 
@@ -2503,11 +2503,11 @@ function Forum({
           h("div", { className: "grid items-start", style: { gridTemplateColumns: "minmax(0,1fr) auto", columnGap: 8, minWidth: 0 } },
             h("div", { className: "min-w-0" },
               h("div", { className: "flex items-center gap-1.5 min-w-0" },
-                h("button", { onClick: () => { if(c)goProfile(c.id);else if(isAlt(cm))goAltProfile(cm);else goNpcProfile(cm); }, className: "active:opacity-60 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: cm.authorType === "me" ? t.accent : (c ? t.tint : t.ink), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" } }, nm),
+                h("button", { onClick: () => { if(c)goProfile(c.id);else if(isAlt(cm))goAltProfile(cm);else goNpcProfile(cm); }, className: "active:opacity-60 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: cm.authorType === "me" ? t.accent : (c ? t.tint : t.ink), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" } }, nm),
                 accountBadge(cm)),
-              !cm.anon && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
+              !cm.anon && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
               // 转发这一楼（群友 2026-10-18）：跟转帖同一个面板，私聊、群聊、论坛私信都能去
               cm.content && h("button", { onClick: e => { e.stopPropagation(); setFwd({ board: post.board, title: "「" + String(post.title || "").slice(0, 20) + "」里的一楼", body: cm.content, authorName: cm.authorName, anon: !!(cm.anon || post.anon) }); },
@@ -2516,8 +2516,8 @@ function Forum({
               onDeleteFloor && cm.id && h("button", { onClick: e => { e.stopPropagation();
                 requestAppConfirm("删掉这一楼", (cm.authorType === "me" ? "这楼是你自己写的，删了回不来。" : "") + "楼里的楼中楼也一起删。", () => onDeleteFloor(post.id, cm.id), "删掉"); },
                 title: "删掉这一楼", className: "shrink-0 active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
-          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, STW(cm, STX(atClean(cm.content)))) : null,
+                style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
+          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 2 } }, STW(cm, STX(atClean(cm.content)))) : null,
           forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { "data-wk": "foreplies", className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
@@ -2526,22 +2526,22 @@ function Forum({
             // 深度仍然只有两层：回楼中楼落在同一层里，用「回复 @某某」标出对象。
             //   （贴吧/微博就是这么做的；真做三层嵌套在手机上没法读，老数据也要迁。）
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
-              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId, r);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
+              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId, r);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
               accountBadge(r),
-              r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
-              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
+              r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
+              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, STW(r, STX(atClean(r.content)))),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, STW(r, STX(atClean(r.content)))),
               h("button", {
                 onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName) }),
                 className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 7 }
+                style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginLeft: 7 }
               }, "回复"))),
-            (gen && gen.forumReplyMe === cm.id) && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "3px 0" } }, "楼里的人正在回你…")),
+            (gen && gen.forumReplyMe === cm.id) && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "3px 0" } }, "楼里的人正在回你…")),
           h("div", { className: "flex items-center gap-4 mt-1.5" },
-            h("button", { onClick: () => setReplyTo({ floorId: cm.id, name: nm }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "回复"),
-            h("button", { onClick: () => toggleLike(cm.id), className: "flex items-center gap-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: isL ? "#e0245e" : t.fog } }, h(IHeart, { size: 13, color: isL ? "#e0245e" : t.fog, filled: isL }), h("span", null, fmtNum((cm.likeCount || 0) + (isL ? 1 : 0))))))));
+            h("button", { onClick: () => setReplyTo({ floorId: cm.id, name: nm }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "回复"),
+            h("button", { onClick: () => toggleLike(cm.id), className: "flex items-center gap-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: isL ? "#e0245e" : t.fog } }, h(IHeart, { size: 13, color: isL ? "#e0245e" : t.fog, filled: isL }), h("span", null, fmtNum((cm.likeCount || 0) + (isL ? 1 : 0))))))));
   }
 
   const sendReply = () => {
@@ -2582,24 +2582,24 @@ function Forum({
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
-              h("div", { className:"flex items-center gap-1.5 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } },
+              h("div", { className:"flex items-center gap-1.5 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } },
                 h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")), accountBadge(p)),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts))),
             delBtn(p)),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           forumPhotoCard(p, 280),
           h("div", { className: "mt-3" }, tag(p.board)),
           actBar(p),
-          c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
-          alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
+          c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
+          alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
         h("div", { className: "px-4 pt-3 pb-1 flex items-center justify-between" },
           h(Eyebrow, null, "全部回复 · " + (p.replyCount || 0)),
           // 换一批（群友 2026-10-09）：AI 写的楼撤掉重刷，她写的、她插过话的楼留着
-          onRegenFloors && list.length > 0 && !moreC && !loadingC && h("button", { "data-wk": "foregen", onClick: () => requestAppConfirm("这帖底下换一批回复？", "别人写的楼会撤掉、重新刷一轮；你自己写的楼和你回过话的楼都留着。", () => onRegenFloors(p), "换一批"), className: "active:opacity-60 ml-auto mr-3", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "换一批"),
-          h("button", { onClick: () => onMoreComments(p), disabled: moreC || loadingC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, moreC ? "旧楼已放出 · 生成中…" : (loadingC ? "首批正在生成…" : (waitingFloors > 0 ? "↻ 放出旧楼并生成" : "↻ 更多回复")))),
+          onRegenFloors && list.length > 0 && !moreC && !loadingC && h("button", { "data-wk": "foregen", onClick: () => requestAppConfirm("这帖底下换一批回复？", "别人写的楼会撤掉、重新刷一轮；你自己写的楼和你回过话的楼都留着。", () => onRegenFloors(p), "换一批"), className: "active:opacity-60 ml-auto mr-3", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "换一批"),
+          h("button", { onClick: () => onMoreComments(p), disabled: moreC || loadingC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, moreC ? "旧楼已放出 · 生成中…" : (loadingC ? "首批正在生成…" : (waitingFloors > 0 ? "↻ 放出旧楼并生成" : "↻ 更多回复")))),
         loadingC && h(Spinner, { label: "楼里的人正在赶来…" }),
-        !loadingC && waitingFloors > 0 && h("div", { "data-wk": "block", className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
+        !loadingC && waitingFloors > 0 && h("div", { "data-wk": "block", className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
         !loadingC && list.length === 0 && h(Empty, { text: "还没有楼层", sub: "点上面「更多回复」让大家来" }),
         list.map((cm, i) => floorRow(p, cm, i))),
       // ⚠️「发送」被挤出屏幕右边（她 2026-09-19 截图：两个字断成两行、还切掉一半）。
@@ -2607,18 +2607,18 @@ function Forum({
       //   于是「发送」换行、又被圆角裁掉。min-w-0 也得给输入框，不然它撑着不肯让。
       //   右边距顺手吃掉安全区：横屏和带圆角的机器上那几像素本来就不该占。
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.95)", paddingTop: 10, paddingBottom: COMPOSER_PAD_BOTTOM, paddingLeft: "calc(12px + env(safe-area-inset-left))", paddingRight: "calc(12px + env(safe-area-inset-right))" } },
-        replyTo && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "0 4px 4px" } }, "回复 " + replyTo.name + " · ", h("button", { onClick: () => setReplyTo(null), style: { color: t.accent } }, "取消")),
+        replyTo && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "0 4px 4px" } }, "回复 " + replyTo.name + " · ", h("button", { onClick: () => setReplyTo(null), style: { color: t.accent } }, "取消")),
         !replyTo && rPhotoOn && h("div", { style: { padding: "0 0 8px" } }, h(PhotoAttach, { value: rPhoto, onChange: setRPhoto, toast: toast })),
         h("div", { className: "flex items-center gap-2", style: { minWidth: 0 } },
           !replyTo && h("button", { onClick: () => { if (rPhotoOn) setRPhoto(null); setRPhotoOn(!rPhotoOn); }, "aria-label": "配图", className: "shrink-0 flex items-center justify-center active:opacity-60", style: { width: 40, height: 40 } }, h(PGlyph, { k: "album", size: 20, color: rPhotoOn ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
-          h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
-          h("button", { onClick: sendReply, "data-wk": "fosend", className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, "发送"))));
+          h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
+          h("button", { onClick: sendReply, "data-wk": "fosend", className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, "发送"))));
   }
 
   // ---- 角色/我 主页 ----
   function profileView(isMe) {
     const c = isMe ? null : charOf(profileId);
-    if (!isMe && !c) return h("div", { className: "flex-1 flex items-center justify-center px-8", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.8, textAlign: "center" } }, "这个人已经不在人格档案馆里了，主页打不开。");
+    if (!isMe && !c) return h("div", { className: "flex-1 flex items-center justify-center px-8", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.8, textAlign: "center" } }, "这个人已经不在人格档案馆里了，主页打不开。");
     // 她现在挂着小号：这一页就是小号的主页（名字、头像、帖子都是小号那份）
     const onAlt = isMe && forumMe && forumMe.using === "alt";
     const altNm = ((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼";
@@ -2632,57 +2632,57 @@ function Forum({
         h("div", { className: "flex items-start gap-3" },
           av,
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, isMe ? (onAlt ? altNm : meChar.name) : c.name),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, isMe ? (onAlt ? altNm : meChar.name) : c.name),
             // 切号：像真的贴吧一样，切过去以后发帖、回楼、私信都用这个号
             isMe ? h("button", { onClick: () => { onEditMe({ using: onAlt ? "main" : "alt" }); toast && toast(onAlt ? "切回大号了" : "切到小号「" + altNm + "」了，发帖、回楼、私信都用它"); },
-              className: "active:opacity-70", style: { marginTop: 6, minHeight: 30, padding: "0 11px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+              className: "active:opacity-70", style: { marginTop: 6, minHeight: 30, padding: "0 11px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } },
               onAlt ? "切回大号" : "切到小号「" + altNm + "」") : null,
             // 用哪张面具发：只有跟这张面具聊的角色认得出是你，别的角色当陌生网友
             isMe && !onAlt && (forumMasks || []).length > 1 ? h("div", { "data-wk": "forummaskrow", className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 8 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "用哪张面具发："),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "用哪张面具发："),
               forumMasks.map(m => { const on = (forumMaskNow || "") === m.id;
                 return h("button", { key: m.id || "main", "data-wk": "forummask", "data-on": on ? "1" : "0", onClick: () => { onEditMe({ maskUse: m.id }); toast && toast("现在用「" + m.name + "」发帖、回楼；只有跟这张面具聊的角色认得出是你"); },
-                  className: "active:opacity-70", style: { minHeight: 28, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11.5 } },
+                  className: "active:opacity-70", style: { minHeight: 28, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } },
                   m.name + (m.label ? "（" + m.label + "）" : "")); })) : null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + meta.handle)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "@" + meta.handle)),
           isMe
-            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
+            ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEmFans(String((forumMe && forumMe.followers) || 0)); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "编辑资料")
             : h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
-              h("button", { "data-wk": "block", onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? (((followBack || {})[c.id] || {}).on ? "互相关注" : "已关注") : (((followBack || {})[c.id] || {}).on ? "回关" : "关注")),
+              h("button", { "data-wk": "block", onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? (((followBack || {})[c.id] || {}).on ? "互相关注" : "已关注") : (((followBack || {})[c.id] || {}).on ? "回关" : "关注")),
               // 私信TA【大号】（v59.75）。这条线会喂回聊天，跟线上/线下一起算同一段关系。
               // ⚠️小号主页（altProfileView）上故意【没有】这个按钮：小号私信一旦喂回聊天，
               //   「TA知道两边是同一个人、她不知道」这个玩法当场塌掉，TA迟早说漏。
               onStartCharPM ? h("button", {
                 onClick: () => { const tid = onStartCharPM(c); if (tid) { setProfileId(null); setNav("pm"); setPmId(tid);  setFromPost(null); } },
                 className: "px-3.5 py-1.5 active:opacity-70",
-                style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent }
+                style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.accent }
               }, "私信 TA") : null)),
-        meta.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 10, lineHeight: 1.5 } }, STX(meta.bio)),
+        meta.bio && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, marginTop: 10, lineHeight: 1.5 } }, STX(meta.bio)),
         // 互关（群友 2026-10-16）：他回关了你就亮出来；他还关注了谁也摊开给你看（有你就把你排第一个）
-        !isMe && ((followBack || {})[c.id] || {}).on ? h("div", { "data-wk": "forummutual", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, marginTop: 8 } },
+        !isMe && ((followBack || {})[c.id] || {}).on ? h("div", { "data-wk": "forummutual", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, marginTop: 8 } },
           flw.includes(c.id) ? "你们互相关注 · TA " + timeAgo(((followBack || {})[c.id] || {}).at) + "回关的" : "TA 关注了你") : null,
         !isMe && followingOf ? (function () {
           const names = (((followBack || {})[c.id] || {}).on ? ["你"] : []).concat(followingOf(c.id));
-          return names.length ? h("div", { "data-wk": "forumfollowing", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "TA 关注了：" + names.join("、")) : null;
+          return names.length ? h("div", { "data-wk": "forumfollowing", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "TA 关注了：" + names.join("、")) : null;
         })() : null,
         !isMe && Array.isArray(meta.boardPrefs) && meta.boardPrefs.length > 0 && h("div", { className: "flex items-center gap-1.5 flex-wrap", style: { marginTop: 9 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "常逛"),
-          meta.boardPrefs.map(b => h("span", { key: b, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, border: `1px solid ${t.line}`, borderRadius: 999, padding: "2px 7px" } }, b)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "· " + (meta.participation || "随缘出现"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "常逛"),
+          meta.boardPrefs.map(b => h("span", { key: b, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, border: `1px solid ${t.line}`, borderRadius: 999, padding: "2px 7px" } }, b)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "· " + (meta.participation || "随缘出现"))),
         // 吧龄／关注／粉丝：数字一长（「1.2万 粉丝」）这一行就顶出去了，得能折行
         h("div", { className: "flex items-center flex-wrap gap-x-4 gap-y-1 mt-3", style: { minWidth: 0 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, whiteSpace: "nowrap" } }, forumAge(meta.joinTs)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, forumAge(meta.joinTs)),
           isMe
-            ? h("button", { onClick: () => setFollowListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注 ›"))
-            : h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
+            ? h("button", { onClick: () => setFollowListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注 ›"))
+            : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
         // 首页排版放在「我」里（她 2026-10-07：「单列双列的设置放进我里面吧不要放现在那里」）
         isMe && h("div", { className: "flex items-center gap-2 mt-3" },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "首页排版"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "首页排版"),
           [[false, "单列"], [true, "双列 · 小红书"]].map(([v, zh]) => h("button", { key: zh, "data-wk": "folayout", "data-on": cardLayout === v ? "1" : "0", onClick: () => setCardLayout(v),
-            className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12,
+            className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
               color: cardLayout === v ? FORUM_SKIN.paper : FORUM_SKIN.sub, background: cardLayout === v ? FORUM_SKIN.accent : "transparent", border: "1px solid " + (cardLayout === v ? FORUM_SKIN.accent : FORUM_SKIN.line) } }, zh))),
-        !isMe && h("button", { onClick: () => onGenCharPost(c, "日常吧"), disabled: gen && gen.forum === "char_" + c.id, className: "mt-3 px-3.5 py-1.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, gen && gen.forum === "char_" + c.id ? "发帖中…" : "＋ 让 TA 发一条")),
+        !isMe && h("button", { onClick: () => onGenCharPost(c, "日常吧"), disabled: gen && gen.forum === "char_" + c.id, className: "mt-3 px-3.5 py-1.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, gen && gen.forum === "char_" + c.id ? "发帖中…" : "＋ 让 TA 发一条")),
       mine.length === 0 && h(Empty, { text: isMe ? "你还没发过帖" : "TA 还没有公开发帖", sub: isMe ? "" : "匿名吧的帖子不会显示在这里" }),
       mine.map(p => postRow(p, true)));
   }
@@ -2760,11 +2760,11 @@ function Forum({
         h("div", { className: "flex items-start gap-3" },
           h(NpcAvatar, { seed: npcProfile.handle || npcProfile.name, size: 62 }),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, npcProfile.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + npcProfile.handle),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, npcProfile.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "@" + npcProfile.handle),
             h("div", { className: "flex gap-1.5 mt-2 flex-wrap" }, tag(regular ? "常驻熟面孔" : "路过网友"), encounters > 0 && tag("碰见过 " + encounters + " 次"))),
           h("div", { className: "shrink-0 flex flex-col items-end gap-1.5" },
-            h("button", { "data-wk": "block", onClick: () => toggleNpcFollow(id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: following ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: following ? t.bg2 : t.ink } }, following ? "已关注" : "关注"),
+            h("button", { "data-wk": "block", onClick: () => toggleNpcFollow(id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: following ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: following ? t.bg2 : t.ink } }, following ? "已关注" : "关注"),
             // 主动去私信这个人（她 2026-09-01 点名）。开场白喂的是TA【自己在吧里说过的话】：
             // 不喂的话写出来的是「一个网友」，换成谁都成立。
             h("button", {
@@ -2775,17 +2775,17 @@ function Forum({
               },
               disabled: gen && (gen.forumPM === "start"),
               className: "px-3.5 py-1.5 active:opacity-70 disabled:opacity-40",
-              style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent }
+              style: { borderRadius: 999, border: `1px solid ${FORUM_SKIN.accent}66`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.accent }
             }, gen && gen.forumPM === "start" ? "去敲门…" : "私信 TA"))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginTop: 11 } }, regular ? "这是会在不同帖子里再次出现的固定网友；主页只展示公开发言。" : "这位网友只在当时的公开帖子里路过，不会被系统硬写成常驻熟人。"),
-        latest > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 7 } }, "最近活跃 · " + timeAgo(latest))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 11 } }, regular ? "这是会在不同帖子里再次出现的固定网友；主页只展示公开发言。" : "这位网友只在当时的公开帖子里路过，不会被系统硬写成常驻熟人。"),
+        latest > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 7 } }, "最近活跃 · " + timeAgo(latest))),
       relations.length > 0 && h("div", { className: "px-4 py-4", style: { borderBottom: `1px solid ${t.line}` } },
         h(Eyebrow, null, "经常一起出现 · " + relations.length),
         h("div", { className: "space-y-2 mt-2.5" }, relations.map(x => h("button", { key: x.peer.id, onClick: () => setNpcProfile(x.peer), className: "w-full flex items-center gap-3 text-left active:opacity-70", style: { padding: "9px 10px", borderRadius: 12, background: t.bg2 } },
           h(NpcAvatar, { seed: x.peer.handle || x.peer.name, size: 38 }),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, x.peer.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: t.fog, marginTop: 2 } }, x.tone)),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, x.peer.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.45, color: t.fog, marginTop: 2 } }, x.tone)),
           h(IChevR, { size: 15, color: t.fog }))))),
       authored.length > 0 && h(React.Fragment, null,
         h("div", { className: "px-4 pt-4 pb-1" }, h(Eyebrow, null, "公开发帖 · " + authored.length)),
@@ -2793,9 +2793,9 @@ function Forum({
       h("div", { className: "px-4 pt-4 pb-1" }, h(Eyebrow, null, "公开回帖足迹 · " + traces.length)),
       traces.length === 0 && h(Empty, { text: "暂时没有更多公开足迹", sub: "以后在别的楼碰见，足迹会接着长" }),
       traces.slice(0, 80).map(x => h("button", { key: x.id, onClick: () => openPost(x.post), className: "w-full text-left px-4 py-3 active:opacity-70", style: { borderBottom: `1px solid ${t.line}` } },
-        h("div", { className: "flex items-center gap-2" }, tag(x.kind), h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, timeAgo(x.ts))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.sub, marginTop: 5 } }, STX(x.text)),
-        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "来自《" + (x.post.title || "帖子") + "》"))));
+        h("div", { className: "flex items-center gap-2" }, tag(x.kind), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, timeAgo(x.ts))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 5 } }, STX(x.text)),
+        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "来自《" + (x.post.title || "帖子") + "》"))));
   }
 
   // ---- 私信列表 / 会话 ----
@@ -2803,13 +2803,13 @@ function Forum({
     const list = pms || [];
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 flex items-center gap-2 my-4" },
-        h("button", { onClick: onRefreshPMs, disabled: gen && gen.forumPM === "refresh", className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, gen && gen.forumPM === "refresh" ? "刷新中…" : "↻ 刷新 · 看看有没有人私信我"),
+        h("button", { onClick: onRefreshPMs, disabled: gen && gen.forumPM === "refresh", className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, gen && gen.forumPM === "refresh" ? "刷新中…" : "↻ 刷新 · 看看有没有人私信我"),
         // 清理（她 2026-09-01：「加一个清理可以清掉私信」）。
         // 私信答的是【现在还挂着谁】，不是发生过什么——聊完了、不想理了就该能删掉。
-        list.length > 0 && h("button", { onClick: () => setPmClean(v => !v), className: "shrink-0 px-3 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: pmClean ? t.accent : t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, pmClean ? "完成" : "清理")),
+        list.length > 0 && h("button", { onClick: () => setPmClean(v => !v), className: "shrink-0 px-3 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: pmClean ? t.accent : t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, pmClean ? "完成" : "清理")),
       pmClean && list.length > 0 && h("div", { className: "px-4 pb-3 flex items-center justify-between gap-3" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "点右边的 ✕ 删掉一条"),
-        h("button", { onClick: () => { onClearPMs && onClearPMs(); setPmClean(false); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "全部清掉 " + list.length + " 条")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "点右边的 ✕ 删掉一条"),
+        h("button", { onClick: () => { onClearPMs && onClearPMs(); setPmClean(false); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent } }, "全部清掉 " + list.length + " 条")),
       list.length === 0 && h(Empty, { text: "还没有私信", sub: "点上面刷新，说不定有网友（或喷子）来找你" }),
       list.map(th => {
         const last = th.messages[th.messages.length - 1] || { from: "npc", text: "" };
@@ -2817,9 +2817,9 @@ function Forum({
           h("button", { onClick: () => { setPmId(th.id); onMarkPMRead(th.id); }, className: "flex-1 min-w-0 text-left flex items-center gap-3 active:opacity-70" },
             h(NpcAvatar, { seed: th.npcName, size: 42 }),
             h("div", { className: "flex-1 min-w-0" },
-              h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.alt && tag("小号"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
-              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + (last.photo ? "[照片]" : last.text)))),
-          pmClean && h("button", { onClick: () => onDelPM && onDelPM(th.id), "aria-label": "删掉和 " + th.npcName + " 的私信", className: "shrink-0 active:opacity-60", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.accent, fontFamily: F_BODY, fontSize: 14 } }, "✕"));
+              h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.alt && tag("小号"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, (last.from === "me" ? "我：" : "") + (last.photo ? "[照片]" : last.text)))),
+          pmClean && h("button", { onClick: () => onDelPM && onDelPM(th.id), "aria-label": "删掉和 " + th.npcName + " 的私信", className: "shrink-0 active:opacity-60", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.accent, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "✕"));
       }));
   }
 
@@ -2829,20 +2829,20 @@ function Forum({
       forumNotices.length === 0 && h(Empty, { text: "还没有人回复你", sub: "你发帖或在楼里说话后，新的直接回复会出现在这里" }),
       // 一键已读（群友 2026-10-11：「一边刷一边回已经都看过了，回复那边还显示都没看过」）
       unreadNoticeCount > 0 && h("div", { className: "px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, unreadNoticeCount + " 条没看"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, unreadNoticeCount + " 条没看"),
         h("button", { "data-wk": "forumnoticeallread", onClick: () => markNoticesRead(forumNotices.map(n => n.id)), className: "ml-auto active:opacity-60",
-          style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12.5, color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
+          style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
       forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: noticeIsRead(n) ? "transparent" : t.bg2 } },
         h("button", { onClick: () => openNotice(n), className: "flex-1 min-w-0 text-left flex gap-3 active:opacity-70" },
           avatarFor(n.author, 38, n.author && n.author.anon),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-1.5" },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.authorName),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, n.kind + " · " + timeAgo(n.ts)),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, n.authorName),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, n.kind + " · " + timeAgo(n.ts)),
               !noticeIsRead(n) && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 3 } }, STX(n.content)),
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "来自《" + (n.post.title || "帖子") + "》"))),
-        h("button", { onClick: () => replyFromNotice(n), className: "shrink-0 self-center active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent + "66", borderRadius: 999, padding: "5px 11px" } }, "回复"))));
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginTop: 3 } }, STX(n.content)),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, "来自《" + (n.post.title || "帖子") + "》"))),
+        h("button", { onClick: () => replyFromNotice(n), className: "shrink-0 self-center active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent + "66", borderRadius: 999, padding: "5px 11px" } }, "回复"))));
   }
   function pmThread() {
     const th = (pms || []).find(x => x.id === pmId);
@@ -2852,26 +2852,26 @@ function Forum({
     return h("div", { className: "flex-1 flex flex-col min-h-0" },
       // 加微信（群友 2026-10-15 许愿）：只给网友那种（角色本来就在你通讯录里）；加上了就变成去单聊
       !th.charId && (onAskWechat || th.wechatId) ? h("div", { className: "shrink-0 px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, th.wechatId ? "已经加了微信，在 通讯录 → 配角 里" : "聊得来可以问TA要微信，加不加TA自己定"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, th.wechatId ? "已经加了微信，在 通讯录 → 配角 里" : "聊得来可以问TA要微信，加不加TA自己定"),
         th.wechatId
-          ? (onOpenWechat ? h("button", { "data-wk": "pmwechat", onClick: () => onOpenWechat(th.wechatId), className: "ml-auto active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent, padding: "6px 2px" } }, "去微信聊") : null)
-          : h("button", { "data-wk": "pmwechat", disabled: sending, onClick: () => onAskWechat(th.id), className: "ml-auto active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent, padding: "6px 2px" } }, "加个微信")) : null,
+          ? (onOpenWechat ? h("button", { "data-wk": "pmwechat", onClick: () => onOpenWechat(th.wechatId), className: "ml-auto active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.accent, padding: "6px 2px" } }, "去微信聊") : null)
+          : h("button", { "data-wk": "pmwechat", disabled: sending, onClick: () => onAskWechat(th.id), className: "ml-auto active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.accent, padding: "6px 2px" } }, "加个微信")) : null,
       h("div", { className: "flex-1 overflow-y-auto px-5 py-4 space-y-2.5" },
         th.messages.map((m, i) => h(Fragment, { key: i },
           // 时间：跟上一条隔了五分钟以上（或第一条）才插一行，跟聊天里一样
-          m.ts && (i === 0 || !th.messages[i - 1].ts || m.ts - th.messages[i - 1].ts > 300000) ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0" } }, vDate(m.ts, th.charId || null).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })) : null,
+          m.ts && (i === 0 || !th.messages[i - 1].ts || m.ts - th.messages[i - 1].ts > 300000) ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "4px 0" } }, vDate(m.ts, th.charId || null).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })) : null,
           h("div", { className: "flex " + (m.from === "me" ? "justify-end" : "justify-start"), onClick: () => onDelPMMsg && setPmSel(pmSel === i ? -1 : i) },
           m.photo ? h("div", { "data-wk": "pmphoto", style: { maxWidth: "76%" }, onClick: e => { e.stopPropagation(); setPhotoView({ ...m.photo, pmAt: { tid: th.id, i } }); } }, h(PhotoCard, { m: m.photo, max: 200 })) :
-          h("div", { "data-wk": "block", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, STX(m.text))))),
-        sending && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
+          h("div", { "data-wk": "block", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, STX(m.text))))),
+        sending && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
       // 点中一条：只删这一条（清理那颗删的是整个对话）
       pmSel >= 0 && th.messages[pmSel] ? h("div", { "data-wk": "pmmsgdel", className: "shrink-0 px-4 py-2 flex items-center", style: { borderTop: `1px solid ${t.line}`, gap: 10 } },
-        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "选中：" + (th.messages[pmSel].photo ? "[照片]" : String(th.messages[pmSel].text || ""))),
-        h("button", { onClick: () => setPmSel(-1), className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "取消"),
-        h("button", { onClick: () => { onDelPMMsg(th.id, pmSel); setPmSel(-1); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删掉这条")) : null,
+        h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "选中：" + (th.messages[pmSel].photo ? "[照片]" : String(th.messages[pmSel].text || ""))),
+        h("button", { onClick: () => setPmSel(-1), className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "取消"),
+        h("button", { onClick: () => { onDelPMMsg(th.id, pmSel); setPmSel(-1); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "删掉这条")) : null,
       h("div", { className: "shrink-0 px-4 py-3 flex gap-2", style: { borderTop: `1px solid ${t.line}` } },
-        h("input", { "data-wk": "input", value: pmText, onChange: e => setPmText(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "回 " + th.npcName + "…", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
-        h("button", { onClick: send, disabled: sending, className: "px-4 rounded-lg active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发送")));
+        h("input", { "data-wk": "input", value: pmText, onChange: e => setPmText(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "回 " + th.npcName + "…", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
+        h("button", { onClick: send, disabled: sending, className: "px-4 rounded-lg active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "发送")));
   }
 
   // ---- 主页版块列表 ----
@@ -2895,33 +2895,33 @@ function Forum({
         //   左边标题＋帖数点了展开，右边「全部标为已读」——两颗分开的键，别把按钮套进按钮里
         h("div", { className: "flex items-center", style: { borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
           h("button", { "data-wk": "fonewhead", onClick: () => setNewPostsOpen(v => !v), "aria-expanded": newPostsOpen ? "true" : "false", className: "flex-1 min-w-0 flex items-center justify-between pl-3 pr-2 py-2 active:opacity-60" },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖 " + (newPostsOpen ? "▴" : "▾"))),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, "新帖在这里"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖 " + (newPostsOpen ? "▴" : "▾"))),
           // 一键已读（她 2026-10-12：「有时候不想看」）：这几帖不再算新，下次进来也不算
           h("button", { "data-wk": "fonewallread", onClick: () => { setNewPostSeen(x => x.concat(forumNewCharPosts.map(p => p.id))); try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} setNewPostsOpen(false); },
-            className: "shrink-0 pl-2 pr-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, borderLeft: "1px solid " + FORUM_SKIN.line } }, "全部标为已读")),
+            className: "shrink-0 pl-2 pr-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, borderLeft: "1px solid " + FORUM_SKIN.line } }, "全部标为已读")),
         newPostsOpen && forumNewCharPosts.slice(0, 8).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
-          h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, p.board)))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
+          h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: FORUM_SKIN.fog, flexShrink: 0 } }, p.board)))),
       forumUnreadRows.length > 0 && h("div", { "data-wk": "block", className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 5px 14px rgba(42,55,38,.05)", overflow: "hidden" } },
         h("button", { "data-wk": "fonewhead", onClick: () => setNewRepliesOpen(v => !v), "aria-expanded": newRepliesOpen ? "true" : "false", className: "w-full flex items-center justify-between px-3 py-2 active:opacity-60", style: { borderBottom: newRepliesOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新回复在这里"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumUnreadRows.length + " 个帖子 · " + forumUnreadTotal + " 条 " + (newRepliesOpen ? "▴" : "▾"))),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, "新回复在这里"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent } }, forumUnreadRows.length + " 个帖子 · " + forumUnreadTotal + " 条 " + (newRepliesOpen ? "▴" : "▾"))),
         newRepliesOpen && forumUnreadRows.slice(0, 4).map(x => h("button", { key: x.post.id, onClick: () => openPost(x.post), className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
-          h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (x.post.title || "帖子") + "》"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, x.post.board),
-          h("span", { style: { minWidth: 36, textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, "+" + x.count))),
-        newRepliesOpen && forumUnreadRows.length > 4 && h("div", { className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, "还有 " + (forumUnreadRows.length - 4) + " 个帖子，读完上面几条后会继续列出")),
-      arrived > 0 && !forumNewCharPosts.length && h("div", { "data-wk": "block", className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
+          h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (x.post.title || "帖子") + "》"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: FORUM_SKIN.fog, flexShrink: 0 } }, x.post.board),
+          h("span", { style: { minWidth: 36, textAlign: "right", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, flexShrink: 0 } }, "+" + x.count))),
+        newRepliesOpen && forumUnreadRows.length > 4 && h("div", { className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog } }, "还有 " + (forumUnreadRows.length - 4) + " 个帖子，读完上面几条后会继续列出")),
+      arrived > 0 && !forumNewCharPosts.length && h("div", { "data-wk": "block", className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
       tab === "收藏" && shown.length === 0 && h(Empty, { text: "还没有收藏帖子", sub: "看到想留着的，点帖子下面的 ☆" }),
       tab !== "关注" && tab !== "收藏" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
       cardLayout ? h("div", { "data-wk": "fonotes", style: { columnCount: 2, columnGap: 8, padding: "10px 10px 0" } }, shown.map(noteCard)) : shown.map(p => postRow(p, false)),
-      arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
+      arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
         "每一帖右上角那个 ✕ 单独删它；整版清空在吧规那条横杠右边"));
   }
 
@@ -2932,8 +2932,8 @@ function Forum({
     const go = () => onGenSearch(searchQ.trim());
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 py-3 flex gap-2", style: { borderBottom: `1px solid ${t.line}` } },
-        h("input", { "data-wk": "input", value: searchQ, onChange: e => setSearchQ(e.target.value), onKeyDown: e => e.key === "Enter" && go(), placeholder: "搜个吧 / 话题（留空随机刷）", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
-        h("button", { onClick: go, disabled: busy, className: "px-4 rounded-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, busy ? "…" : "刷")),
+        h("input", { "data-wk": "input", value: searchQ, onChange: e => setSearchQ(e.target.value), onKeyDown: e => e.key === "Enter" && go(), placeholder: "搜个吧 / 话题（留空随机刷）", className: "flex-1 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
+        h("button", { onClick: go, disabled: busy, className: "px-4 rounded-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "…" : "刷")),
       busy && arr.length === 0 && h(Spinner, { label: "正在逛别的吧…" }),
       !busy && arr.length === 0 && h(Empty, { text: "还没逛到别的吧", sub: "搜个话题，或留空直接点「刷」随机逛" }),
       arr.map(p => postRow(p, true)));
@@ -2976,7 +2976,7 @@ function Forum({
     }).concat([
       // 开个吧：排在最后，虚线描边——它不是一个吧，是一个「再开一个」的空位
       h("button", { key: "__newboard", onClick: () => setNewBoard({ name: "", about: "" }), className: "active:opacity-70 whitespace-nowrap flex items-center",
-        style: { minHeight: 40, padding: "6px 13px", borderRadius: 4, background: "transparent", color: FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: 12.5, border: "1px dashed " + FORUM_SKIN.line } }, "＋ 开个吧")
+        style: { minHeight: 40, padding: "6px 13px", borderRadius: 4, background: "transparent", color: FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px dashed " + FORUM_SKIN.line } }, "＋ 开个吧")
     ])),
     // 吧规：版块顶上一条细横杠，永远只有一行高。
     // ⚠️她 2026-09-15：「吧规叠着太占地方了嘤」——原来那版展开就把三条铺在这儿，
@@ -2994,25 +2994,25 @@ function Forum({
       //   它和吧规是两颗并排的兄弟按钮，不是套在一起的（套着点哪儿都会展开吧规）。
       h("div", { "data-wk": "forules", className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
         h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "flex-1 min-w-0 flex items-center text-left active:opacity-60", style: { gap: 6 } },
-          h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, myBoardNow && !myRules.length ? "简介" : "吧规"),
-          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, boardRules[0]),
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9.5, color: FORUM_SKIN.line } }, rulesOpen ? "收起" : (myBoardNow && !myRules.length ? "展开" : "共 " + boardRules.length + " 条"))),
-        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
-        myBoardNow && h("button", { onClick: () => dropBoard(tab), className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "拆吧"),
-        onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: 9.5, lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
+          h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "15px" } }, myBoardNow && !myRules.length ? "简介" : "吧规"),
+          h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog } }, boardRules[0]),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.line } }, rulesOpen ? "收起" : (myBoardNow && !myRules.length ? "展开" : "共 " + boardRules.length + " 条"))),
+        myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
+        myBoardNow && h("button", { onClick: () => dropBoard(tab), className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "拆吧"),
+        onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
       rulesOpen && h("div", { "data-wk": "block", onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "fadeUp .18s ease both" } },
-        boardRules.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: FORUM_SKIN.sub } },
+        boardRules.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
     (!inSub && nav === "home") && h("div", { "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
-      [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
+      [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
     (!inSub) && h("div", { "data-wk": "fonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
       [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
-        nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
-        nx[0] === "notice" && unreadNoticeCount > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -23, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadNoticeCount > 99 ? "99+" : unreadNoticeCount)); })),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))" } }, nx[2]),
+        nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(8.5px * var(--app-fs, 1))", fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
+        nx[0] === "notice" && unreadNoticeCount > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -23, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(8.5px * var(--app-fs, 1))", fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadNoticeCount > 99 ? "99+" : unreadNoticeCount)); })),
     refreshMenu && !inSub && nav === "home" && tab !== "收藏" && h(React.Fragment, null,
       h("div", { onClick: () => setRefreshMenu(false), style: { position: "absolute", inset: 0, zIndex: 40 } }),
       h("div", { "data-wk": "block", style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "fadeUp .16s ease both" } },
@@ -3020,8 +3020,8 @@ function Forum({
          onGenCharPosts && ["请TA们发帖", tab === "关注" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab)]]
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
             style: { display: "block", minHeight: 44, padding: "7px 11px", borderRadius: 7, borderTop: k ? "1px solid " + FORUM_SKIN.line : "none" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: FORUM_SKIN.ink } }, x[0]),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, x[0]),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 1 } }, x[1]))),
         // 角色发帖带配图时要不要顺手画出来（她 2026-09-28，跟朋友圈那个是同一个开关件）
         h("div", { style: { padding: "0 11px", borderTop: "1px solid " + FORUM_SKIN.line } }, h(AutoImgSwitch, { storeKey: "x_forumAutoImg" })))),
     // 悬浮发帖按钮（主页/搜索）
@@ -3029,14 +3029,14 @@ function Forum({
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "私聊"),
-      h("div", { className: "space-y-1 max-h-44 overflow-y-auto mb-3" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { onForwardToChat(fwd, c); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h(Avatar, { character: c, size: 32, radius: 8 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name)))),
-      (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "群聊"),
-      onForwardToPM && (pms || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 8px" } }, "论坛私信"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "私聊"),
+      h("div", { className: "space-y-1 max-h-44 overflow-y-auto mb-3" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { onForwardToChat(fwd, c); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h(Avatar, { character: c, size: 32, radius: 8 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)))),
+      (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "群聊"),
+      onForwardToPM && (pms || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0 8px" } }, "论坛私信"),
       onForwardToPM && (pms || []).length > 0 && h("div", { "data-wk": "fwdpm", className: "space-y-1 max-h-40 overflow-y-auto mb-3" }, (pms || []).slice(0, 30).map(th => h("button", { key: th.id, onClick: () => { onForwardToPM(fwd, th.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60", style: { minHeight: 40 } },
         h(Avatar, { character: { name: th.npcName }, size: 32, radius: 999 }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, th.npcName + (th.alt ? "（小号聊的）" : ""))))),
-      h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, th.npcName + (th.alt ? "（小号聊的）" : ""))))),
+      h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { "data-wk": "block", style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(15px * var(--app-fs, 1))" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, g.name))))),
     // 我发帖 composer
     photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: photoView.pmAt && typeof window.forumPMGenImage === "function" ? (!photoView.imageRef ? () => window.forumPMGenImage(photoView.pmAt.tid, photoView.pmAt.i) : null)
         : !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null,
@@ -3047,26 +3047,26 @@ function Forum({
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),
       // 用哪个号发：匿名吧本来就匿名，不用挑（群友 2026-10-06：「论坛能开小号发帖吗」）
       cbBoard !== "匿名吧" ? h("div", { className: "flex items-center gap-1.5 mb-3 flex-wrap" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginRight: 4 } }, "用哪个号"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginRight: 4 } }, "用哪个号"),
         chip("大号 · " + ((forumMe && forumMe.handle) || meChar.name), cbAs === "main", () => setCbAs("main")),
         chip("小号 · " + (((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼"), cbAs === "alt", () => setCbAs("alt"))) : null,
-      h("input", { "data-wk": "input", value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: 15, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
-      h("textarea", { "data-wk": "textarea", value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
+      h("input", { "data-wk": "input", value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
+      h("textarea", { "data-wk": "textarea", value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
       h("div", { className: "mt-2" }, h(PhotoAttach, { value: cbPhoto, onChange: setCbPhoto, toast: toast })),
-      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs); setCbTitle(""); setCbBody(""); setCbPhoto(null); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "发布")),
+      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs); setCbTitle(""); setCbBody(""); setCbPhoto(null); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "发布")),
     // 编辑我的资料
     // 开个吧：居中一张卡（不做半窗，no-half-sheet.md）——吧名、这个吧聊什么、吧规（一行一条）
     newBoard && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setNewBoard(null), maxWidth: 340, wk: "centercard" },
       h("div", { style: { padding: "16px 17px 17px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FORUM_SKIN.ink } }, newBoard.editOf ? "编辑「" + newBoard.editOf + "」" : "开个吧"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, margin: "3px 0 12px", lineHeight: 1.6 } }, "开好就挂在版块那一排里，刷新、发帖、角色逛论坛都会来"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, newBoard.editOf ? "编辑「" + newBoard.editOf + "」" : "开个吧"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, margin: "3px 0 12px", lineHeight: 1.6 } }, "开好就挂在版块那一排里，刷新、发帖、角色逛论坛都会来"),
         h("input", { "data-wk": "input", value: newBoard.name, autoFocus: true, onChange: e => setNewBoard(Object.assign({}, newBoard, { name: e.target.value })), placeholder: "吧名，后面的「吧」字会自己加上",
-          className: "w-full outline-none px-3 py-2.5 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          className: "w-full outline-none px-3 py-2.5 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
         h("input", { "data-wk": "input", value: newBoard.about, onChange: e => setNewBoard(Object.assign({}, newBoard, { about: e.target.value })), onKeyDown: e => e.key === "Enter" && openBoard(), placeholder: "这个吧聊什么（可以不写）",
-          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
         h("textarea", { "data-wk": "textarea", value: newBoard.rules || "", onChange: e => setNewBoard(Object.assign({}, newBoard, { rules: e.target.value })), rows: 3, placeholder: "吧规（可以不写）：一行一条，最多八条",
-          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "挂在这个吧的置顶；网友偶尔会拿它说事，发错地方也会有人提一句，不是每层楼都管人"),
+          className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: t.bg2, color: t.ink, border: "1px solid " + t.line, resize: "none" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, lineHeight: 1.6, marginTop: 4 } }, "挂在这个吧的置顶；网友偶尔会拿它说事，发错地方也会有人提一句，不是每层楼都管人"),
         // 颜色：点一个就是这个吧的色；不点就按吧名自动给一个
         h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 12 } }, FORUM_CUSTOM_SKINS.map((sk, i) => {
           const on = (Number.isInteger(newBoard.skin) ? newBoard.skin : forumHash(forumBoardName(newBoard.name)) % FORUM_CUSTOM_SKINS.length) === i;
@@ -3075,36 +3075,36 @@ function Forum({
             h("span", { style: { width: 24, height: 24, borderRadius: 999, background: sk[0], boxShadow: on ? "0 0 0 2px " + FORUM_SKIN.paper + ", 0 0 0 4px " + sk[0] : "none" } }));
         })),
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          h("button", { onClick: () => setNewBoard(null), className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 8, fontFamily: F_BODY, fontSize: 13, color: FORUM_SKIN.sub, border: "1px solid " + FORUM_SKIN.line } }, "算了"),
-          h("button", { onClick: openBoard, className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 8, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: FORUM_SKIN.paper, background: FORUM_SKIN.accent } }, newBoard.editOf ? "保存" : "开吧")))),
+          h("button", { onClick: () => setNewBoard(null), className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: FORUM_SKIN.sub, border: "1px solid " + FORUM_SKIN.line } }, "算了"),
+          h("button", { onClick: openBoard, className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: FORUM_SKIN.paper, background: FORUM_SKIN.accent } }, newBoard.editOf ? "保存" : "开吧")))),
     editMe && h(PageSheet, { onClose: () => setEditMe(false) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "编辑我的贴吧资料"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "贴吧 id"),
-      h("input", { "data-wk": "input", value: emHandle, onChange: e => setEmHandle(e.target.value), placeholder: "你的网名", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-3", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "签名"),
-      h("textarea", { "data-wk": "textarea", value: emBio, onChange: e => setEmBio(e.target.value), placeholder: "一句话签名…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, minHeight: 80, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, "小号叫什么"),
-      h("input", { "data-wk": "input", value: emAlt, onChange: e => setEmAlt(e.target.value.slice(0, 20)), placeholder: "另一个网名，发帖时可以选用它", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "用小号发的帖，楼里谁都认不出是你，认识你的角色也不知道；只有他翻你手机的时候才可能发现。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, "大号粉丝数"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, "贴吧 id"),
+      h("input", { "data-wk": "input", value: emHandle, onChange: e => setEmHandle(e.target.value), placeholder: "你的网名", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-3", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, "签名"),
+      h("textarea", { "data-wk": "textarea", value: emBio, onChange: e => setEmBio(e.target.value), placeholder: "一句话签名…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", minHeight: 80, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "小号叫什么"),
+      h("input", { "data-wk": "input", value: emAlt, onChange: e => setEmAlt(e.target.value.slice(0, 20)), placeholder: "另一个网名，发帖时可以选用它", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "用小号发的帖，楼里谁都认不出是你，认识你的角色也不知道；只有他翻你手机的时候才可能发现。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "大号粉丝数"),
       h("input", { "data-wk": "forumfans", value: emFans, onChange: e => setEmFans(e.target.value.replace(/[^\d]/g, "").slice(0, 10)), inputMode: "numeric", placeholder: "比如 120000",
-        className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "照你的设定填就行；之后用大号发帖还会自己慢慢涨。"),
-      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim(), ...(emFans !== "" ? { followers: Math.max(0, parseInt(emFans, 10) || 0) } : {}) }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
+        className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "照你的设定填就行；之后用大号发帖还会自己慢慢涨。"),
+      h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim(), ...(emFans !== "" ? { followers: Math.max(0, parseInt(emFans, 10) || 0) } : {}) }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "保存")),
     // 谁在逛论坛
     settingsOpen && h(PageSheet, { onClose: () => setSettingsOpen(false) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),
-      h(ForumWorlds, { characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { "data-wk": "block", style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); })) })),
+      h(ForumWorlds, { characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name), h("div", { "data-wk": "block", style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); })) })),
     // 我关注的角色 + 公开网友目录，点进各自主页
     followListOpen && h(PageSheet, { onClose: () => setFollowListOpen(false) },
       h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色、小号与普通网友共用这张公开关注名单；小号不会显示背后真身"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色、小号与普通网友共用这张公开关注名单；小号不会显示背后真身"),
       followedChars.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "去角色或网友主页点关注" }),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
-        followedChars.map(c => h("button", { key: c.id, onClick: () => { setFollowListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "角色 · @" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))), h(IChevR, { size: 16, color: t.fog }))),
+        followedChars.map(c => h("button", { key: c.id, onClick: () => { setFollowListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "角色 · @" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))), h(IChevR, { size: 16, color: t.fog }))),
         npcFollows.map(id => knownAltProfiles().get(id) || knownNpcProfiles().get(id)).filter(Boolean).map(n => n.key
-          ? h("button", { key: n.key, onClick: () => { setFollowListOpen(false); setAltProfile({authorId:n.authorId,name:n.name,handle:n.handle}); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(AltAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { className:"flex items-center gap-1.5", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },h("span",null,n.name),accountBadge({authorType:"character_alt"})), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "小号 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))
-          : h("button", { key: n.id, onClick: () => { setFollowListOpen(false); setNpcProfile(n); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(NpcAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, n.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "网友 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))))));
+          ? h("button", { key: n.key, onClick: () => { setFollowListOpen(false); setAltProfile({authorId:n.authorId,name:n.name,handle:n.handle}); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(AltAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { className:"flex items-center gap-1.5", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } },h("span",null,n.name),accountBadge({authorType:"character_alt"})), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "小号 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))
+          : h("button", { key: n.id, onClick: () => { setFollowListOpen(false); setNpcProfile(n); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(NpcAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, n.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "网友 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))))));
 }
 
 // ============================================================
@@ -3173,12 +3173,12 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
         placeholder,
         "data-wk": "input",
         className: "flex-1 bg-transparent outline-none",
-        style: { fontFamily: F_BODY, fontSize: 13, color: ink, marginLeft: 7, minWidth: 0, width: 0 }
+        style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: ink, marginLeft: 7, minWidth: 0, width: 0 }
       }),
       h("button", {
         onClick: onGo, disabled: busy,
         className: "shrink-0 active:opacity-70 disabled:opacity-50 flex items-center justify-center",
-        style: { height: 28, padding: "0 15px", borderRadius: 999, background: accent, fontFamily: F_BODY, fontSize: 12.5, color: accentInk }
+        style: { height: 28, padding: "0 15px", borderRadius: 999, background: accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: accentInk }
       }, busy ? "找…" : "搜索")),
     h("button", { onClick: onGo, disabled: busy, "aria-label": "换一批", className: "active:opacity-50 disabled:opacity-40 shrink-0 flex items-center justify-center", style: { width: 32, height: 32 } },
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
@@ -3236,15 +3236,15 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
     h("div", { "data-wk": "shopgridscroll", className: "flex-1 overflow-y-auto px-2.5 py-2.5", style: { background: MSHOP.bg } },
       list.length === 0
         ? h("div", { "data-wk": "shopempty", "data-part": "home", className: "text-center", style: { paddingTop: 80 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.fog } }, busy ? "正在为你挑好物…" : "这个分类还没有商品。\n点右上角刷新，看看有什么。"),
-            !busy && h("button", { "data-wk": "shopgenbtn", "data-part": "empty", onClick: () => doGen(false), className: "mt-4 px-5 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "刷新商品"))
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, color: t.fog } }, busy ? "正在为你挑好物…" : "这个分类还没有商品。\n点右上角刷新，看看有什么。"),
+            !busy && h("button", { "data-wk": "shopgenbtn", "data-part": "empty", onClick: () => doGen(false), className: "mt-4 px-5 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "刷新商品"))
         : h("div", null,
             h("div", { "data-wk": "shopgrid", className: "grid grid-cols-2 gap-2.5" }, list.map((it, gi) => {
               const c = shopTone(it, gi);
               return h("button", { "data-wk": "shopcard", key: it.uid, onClick: () => setDetail(it), className: "text-left active:opacity-85", style: { background: MSHOP.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06)", WebkitTapHighlightColor: "transparent" } },
                 // 图位：没有真图就别假装有图。一块从名字认出来的品类色 + 右下角的品类标。
                 toneSwatch(c, { height: 112 }, h(React.Fragment, null,
-                  c.word ? h("div", { "data-wk": "shopcardtag", style: { position: "absolute", right: 7, bottom: 7, padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10, color: c.ink } }, c.word) : null,
+                  c.word ? h("div", { "data-wk": "shopcardtag", style: { position: "absolute", right: 7, bottom: 7, padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: c.ink } }, c.word) : null,
                   onToggleWish ? h("button", { "data-wk": "shopwishbtn", "data-part": "card", "data-on": inWish(it) ? "1" : "0",
                     onClick: e => { e.stopPropagation(); onToggleWish(it); },
                     "aria-label": inWish(it) ? "不想要了" : "想要",
@@ -3252,14 +3252,14 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                     style: { position: "absolute", right: 6, top: 6, width: 26, height: 26, borderRadius: 999, background: "rgba(255,255,255,.85)" }
                   }, h(IHeart, { size: 14, color: inWish(it) ? MSHOP.price : "#b9b9c2" })) : null)),
                 h("div", { "data-wk": "shopcardbody", style: { padding: "8px 9px 10px" } },
-                  h("div", { "data-wk": "shopcardname", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink, lineHeight: 1.42, minHeight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
-                  it.desc ? h("div", { "data-wk": "shopcarddesc", className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 3 } }, it.desc) : null,
+                  h("div", { "data-wk": "shopcardname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.42, minHeight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
+                  it.desc ? h("div", { "data-wk": "shopcarddesc", className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MSHOP.orange, background: MSHOP.soft, borderRadius: 3 } }, it.desc) : null,
                   h("div", { className: "flex items-end justify-between", style: { marginTop: 6 } },
                     h("div", { className: "min-w-0" },
                       h("div", { "data-wk": "shopcardprice", style: { lineHeight: 1 } },
-                        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: MSHOP.price, fontWeight: 700 } }, "¥"),
-                        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: MSHOP.price, fontWeight: 700, letterSpacing: "-0.02em" } }, it.price)),
-                      it.sales ? h("div", { "data-wk": "shopcardsales", className: "truncate", style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim, marginTop: 3 } }, it.sales) : null),
+                        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.price, fontWeight: 700 } }, "¥"),
+                        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: MSHOP.price, fontWeight: 700, letterSpacing: "-0.02em" } }, it.price)),
+                      it.sales ? h("div", { "data-wk": "shopcardsales", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 3 } }, it.sales) : null),
                     h("button", { "data-wk": "shopcardadd",
                       onClick: e => { e.stopPropagation(); onAddCart(it); toast("已加入购物车"); },
                       "aria-label": "加入购物车",
@@ -3267,7 +3267,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                       style: { width: 28, height: 28, borderRadius: 999, background: MSHOP.orange, boxShadow: "0 1px 4px rgba(255,80,0,.35)" }
                     }, h(IPlus, { size: 15, color: "#fff" })))));
             })),
-            h("button", { "data-wk": "shopgenbtn", "data-part": "more", onClick: () => doGen(true), disabled: busy, className: "w-full mt-4 mb-2 py-3 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, letterSpacing: "0.1em", color: t.fog } }, busy ? "加载中…" : "继续看 ↓"))));
+            h("button", { "data-wk": "shopgenbtn", "data-part": "more", onClick: () => doGen(true), disabled: busy, className: "w-full mt-4 mb-2 py-3 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", letterSpacing: "0.1em", color: t.fog } }, busy ? "加载中…" : "继续看 ↓"))));
 
   // ---------- 购物车 ----------
   const shopHead = (zh, right) => h(Head, { zh, onBack, bg: MSHOP.card, ink: MSHOP.ink, subInk: MSHOP.dim, lineInk: MSHOP.line, right: right || null });
@@ -3275,7 +3275,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
     shopHead("购物车"),
     h("div", { "data-wk": "shopcartlist", className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       cartItems.length === 0
-        ? h("div", { "data-wk": "shopempty", "data-part": "cart", className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: 13, color: MSHOP.dim } }, "购物车是空的")
+        ? h("div", { "data-wk": "shopempty", "data-part": "cart", className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.dim } }, "购物车是空的")
         : cartItems.map((it, ci) => {
             const on = sel.includes(it.uid);
             const c = shopTone(it, ci);
@@ -3284,76 +3284,76 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
               // 缩略图位：和商品流那边同一套品类色，一眼认得出是同一件东西
               // 点缩略图／名字进详情（群友 2026-10-09：加了购物车、首页又刷掉了，就再也发不了给角色）
               h("div", { "data-wk": "shopcartthumb", onClick: () => setDetail(Object.assign({}, it, { _fromCart: true })), role: "button", className: "shrink-0 relative active:opacity-80", style: { width: 54, height: 54, borderRadius: 9, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } },
-                c.word ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: F_BODY, fontSize: 9, color: "rgba(255,255,255,.92)" } }, c.word) : null),
+                c.word ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "rgba(255,255,255,.92)" } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0", onClick: () => setDetail(Object.assign({}, it, { _fromCart: true })), role: "button" },
-                h("div", { "data-wk": "shopcartname", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
-                h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: 16, fontWeight: 700, color: MSHOP.price, marginTop: 4 } }, "¥" + it.price)),
+                h("div", { "data-wk": "shopcartname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
+                h("div", { "data-wk": "shopcartprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price, marginTop: 4 } }, "¥" + it.price)),
               h("button", { "data-wk": "shopcartdel", onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: MSHOP.dim })));
           })),
     cartItems.length > 0 && h("div", { "data-wk": "shopcartbar", className: "shrink-0 px-4 py-2.5 flex items-center gap-3", style: { background: MSHOP.card, borderTop: "1px solid " + MSHOP.line } },
       h("button", { "data-wk": "shopcartall", "data-on": sel.length === cartItems.length && cartItems.length ? "1" : "0", onClick: () => setSel(sel.length === cartItems.length ? [] : cartItems.map(x => x.uid)), className: "active:opacity-60 flex items-center gap-2" },
         h("span", { style: { width: 20, height: 20, borderRadius: 999, border: "1.5px solid " + (sel.length === cartItems.length && cartItems.length ? MSHOP.orange : "#d6d6de"), background: sel.length === cartItems.length && cartItems.length ? MSHOP.orange : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, sel.length === cartItems.length && cartItems.length ? h(ICheck, { size: 12, color: "#fff" }) : null),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.sub } }, "全选")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.sub } }, "全选")),
       h("div", { "data-wk": "shopcarttotal", className: "flex-1 text-right" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.sub } }, "合计 "),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, fontWeight: 700, color: MSHOP.price } }, "¥"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, fontWeight: 700, color: MSHOP.price } }, selTotal)),
-      h("button", { "data-wk": "shopcheckout", onClick: () => { if (!selItems.length) { toast("请先选择商品"); return; } setSheet("actions"); }, className: "px-6 py-2.5 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 600, background: selItems.length ? MSHOP.orange : "#d8d8e0", color: "#fff", borderRadius: 999, boxShadow: selItems.length ? "0 2px 8px rgba(255,80,0,.32)" : "none" } }, "结算 " + (selItems.length || ""))));
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.sub } }, "合计 "),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, selTotal)),
+      h("button", { "data-wk": "shopcheckout", onClick: () => { if (!selItems.length) { toast("请先选择商品"); return; } setSheet("actions"); }, className: "px-6 py-2.5 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, background: selItems.length ? MSHOP.orange : "#d8d8e0", color: "#fff", borderRadius: 999, boxShadow: selItems.length ? "0 2px 8px rgba(255,80,0,.32)" : "none" } }, "结算 " + (selItems.length || ""))));
 
   // ---------- 我的（订单）----------
   const myView = h("div", { "data-wk": "shopmy", className: "flex-1 flex flex-col min-h-0" },
     shopHead("我的"),
     h("div", { "data-wk": "shopmylist", className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       // 待发货
-      h("div", { "data-wk": "shopsection", "data-part": "shipping", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待发货 · " + shipping.length),
+      h("div", { "data-wk": "shopsection", "data-part": "shipping", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待发货 · " + shipping.length),
       shipping.length === 0
-        ? h("div", { "data-wk": "shopempty", "data-part": "shipping", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, marginBottom: 18 } }, "暂无待发货")
+        ? h("div", { "data-wk": "shopempty", "data-part": "shipping", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 18 } }, "暂无待发货")
         : h("div", { className: "space-y-2", style: { marginBottom: 18 } }, shipping.map(o => {
             const left = o.arriveTs - now;
             return h("div", { "data-wk": "shoporder", "data-part": "shipping", key: o.id, className: "p-3.5", style: { background: MSHOP.card, borderRadius: 11, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
               h("div", { className: "flex items-center justify-between" },
                 h("div", { className: "min-w-0 flex-1" },
-                  h("div", { "data-wk": "shopordername", className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
-                  h("div", { "data-wk": "shopordermeta", style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.dim, marginTop: 3 } }, (o.price ? "¥" + o.price : "") + (o.price && o.payLabel ? " · " : "") + (o.payLabel || (o.price ? "" : "礼物")))),
+                  h("div", { "data-wk": "shopordername", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
+                  h("div", { "data-wk": "shopordermeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 3 } }, (o.price ? "¥" + o.price : "") + (o.price && o.payLabel ? " · " : "") + (o.payLabel || (o.price ? "" : "礼物")))),
                 h("div", { className: "text-right shrink-0 ml-3" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim } }, shopShipWord(o.cat)),
-                  h("div", { "data-wk": "shoporderleft", style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: MSHOP.orange } }, shopFmtLeft(left)))));
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MSHOP.dim } }, shopShipWord(o.cat)),
+                  h("div", { "data-wk": "shoporderleft", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 600, color: MSHOP.orange } }, shopFmtLeft(left)))));
           })),
       // 待收货
-      h("div", { "data-wk": "shopsection", "data-part": "receiving", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待收货 · " + receiving.length),
+      h("div", { "data-wk": "shopsection", "data-part": "receiving", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待收货 · " + receiving.length),
       receiving.length === 0
-        ? h("div", { "data-wk": "shopempty", "data-part": "receiving", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, marginBottom: 18 } }, "暂无待收货")
+        ? h("div", { "data-wk": "shopempty", "data-part": "receiving", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 18 } }, "暂无待收货")
         : h("div", { "data-wk": "block", className: "space-y-2", style: { marginBottom: 18 } }, receiving.map(o => h("div", { "data-wk": "shoporder", "data-part": "receiving", key: o.id, className: "p-3.5", style: { background: MSHOP.card, borderRadius: 11, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
             h("div", { className: "flex items-center justify-between mb-2.5" },
               h("div", { className: "min-w-0 flex-1" },
-                h("div", { "data-wk": "shopordername", className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
-                h("div", { "data-wk": "shopordermeta", style: { fontFamily: F_BODY, fontSize: 11, color: "#3f8a54", marginTop: 2 } }, "已送达" + (o.fromCharId ? " · " + (charById(o.fromCharId) ? charById(o.fromCharId).name : "") + " 送的" : ""))),
-              o.price ? h("div", { "data-wk": "shoporderprice", style: { fontFamily: F_DISPLAY, fontSize: 16, fontWeight: 700, color: MSHOP.price } }, "¥" + o.price) : null),
+                h("div", { "data-wk": "shopordername", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
+                h("div", { "data-wk": "shopordermeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#3f8a54", marginTop: 2 } }, "已送达" + (o.fromCharId ? " · " + (charById(o.fromCharId) ? charById(o.fromCharId).name : "") + " 送的" : ""))),
+              o.price ? h("div", { "data-wk": "shoporderprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥" + o.price) : null),
             h("div", { className: "flex gap-2" },
-              h("button", { "data-wk": "shoporderbtn", "data-part": "use", onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "收下"),
-              h("button", { "data-wk": "shoporderbtn", "data-part": "regift", onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
+              h("button", { "data-wk": "shoporderbtn", "data-part": "use", onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "收下"),
+              h("button", { "data-wk": "shoporderbtn", "data-part": "regift", onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
       // 想要清单：看上了但没买的。它真正的用处在【TA知道你想要什么】——
       // 单子会进TA的上下文，TA记不记得、送不送，是TA自己的事。
       wishList.length ? h("div", null,
         h("div", { "data-wk": "shopsection", "data-part": "wish", className: "flex items-center", style: { gap: 6, marginBottom: 8, paddingLeft: 2 } },
           h(IHeart, { size: 12, color: MSHOP.price }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub } }, "想要的 · " + wishList.length),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub } }, "想要的 · " + wishList.length),
           h("span", { className: "flex-1" }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim } }, "他们看得到")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MSHOP.dim } }, "他们看得到")),
         h("div", { style: { marginBottom: 18 } }, wishList.map((w, wi) => {
           const c = shopTone(w, wi);
           return h("div", { "data-wk": "shopwishrow", key: w.uid || wi, className: "flex items-center gap-3", style: { background: MSHOP.card, borderRadius: 11, padding: "9px 11px", marginBottom: 8, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
             h("div", { "data-wk": "shopwishthumb", className: "shrink-0", style: { width: 38, height: 38, borderRadius: 8, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } }),
             h("div", { className: "flex-1 min-w-0" },
-              h("div", { "data-wk": "shopwishname", className: "truncate", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink } }, w.name),
-              Number(w.price) ? h("div", { "data-wk": "shopwishprice", style: { fontFamily: F_DISPLAY, fontSize: 13.5, fontWeight: 700, color: MSHOP.price, marginTop: 2 } }, "¥" + w.price) : null),
+              h("div", { "data-wk": "shopwishname", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink } }, w.name),
+              Number(w.price) ? h("div", { "data-wk": "shopwishprice", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price, marginTop: 2 } }, "¥" + w.price) : null),
             onToggleWish ? h("button", { "data-wk": "shopwishbtn", "data-part": "row", "data-on": "1", onClick: () => onToggleWish(w), "aria-label": "不想要了", className: "shrink-0 active:opacity-60 p-1" }, h(IHeart, { size: 15, color: MSHOP.price })) : null);
         }))) : null,
       // 我的物品：按【怎么来的】归组——自己买的一堆，谁送的各一堆。
       // 原先是一条条纯文字，东西一多就分不清哪件是谁给的（她 2026-08-29）。
-      h("div", { "data-wk": "shopsection", "data-part": "inventory", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · " + (inventory || []).length),
+      h("div", { "data-wk": "shopsection", "data-part": "inventory", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · " + (inventory || []).length),
       (inventory || []).length === 0
-        ? h("div", { "data-wk": "shopempty", "data-part": "inventory", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, paddingBottom: 20 } }, "还没有已入库的物品")
+        ? h("div", { "data-wk": "shopempty", "data-part": "inventory", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.dim, paddingBottom: 20 } }, "还没有已入库的物品")
         : h("div", { style: { paddingBottom: 24 } }, (() => {
             const groups = [];
             const byKey = {};
@@ -3369,12 +3369,12 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
             return groups.map(g => h("div", { "data-wk": "shopinvgroup", key: g.key, style: { marginBottom: 14 } },
               h("div", { "data-wk": "shopinvgrouphead", className: "flex items-center", style: { gap: 6, marginBottom: 7, paddingLeft: 2 } },
                 g.giver ? h(Avatar, { character: g.giver, size: 20, radius: 999 }) : null,
-                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.giver ? MSHOP.ink : MSHOP.sub } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: g.giver ? MSHOP.ink : MSHOP.sub } },
                   g.dreamy ? ((g.giver ? (g.giver.remark || g.giver.name) : "谁") + " 的梦里带出来的") : g.giver ? (g.giver.remark || g.giver.name) + " 送的" : "自己买的"),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, "· " + g.items.length)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MSHOP.dim } }, "· " + g.items.length)),
               // 这一组一直在起作用，只是她看不见（v63.98）：它每轮都进TA的上下文。
               // ⚠️只说到「眼熟」为止——说破它从哪儿来，这个设定就没了。
-              g.dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim, lineHeight: 1.6, margin: "-2px 0 7px 2px" } },
+              g.dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MSHOP.dim, lineHeight: 1.6, margin: "-2px 0 7px 2px" } },
                 "TA见了会眼熟，但说不上在哪见过。放太久没人提起，它自己会淡掉。") : null,
               h("div", { "data-wk": "shopinvgrid", className: "grid grid-cols-3", style: { gap: 8 } }, g.items.map((it, i) => {
                 const c = shopTone(it, i);
@@ -3383,12 +3383,12 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                 return h("button", { "data-wk": "shopinvtile", "data-on": it.onMe ? "1" : "0", key: it.id || i, onClick: () => setInvItem(it), className: "text-left active:opacity-70 block w-full",
                   style: { background: MSHOP.card, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)", opacity: st === "fading" ? .45 : 1 } },
                   h("div", { "data-wk": "shopinvthumb", style: { position: "relative", height: 56, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } },
-                    c.word ? h("span", { style: { position: "absolute", right: 5, bottom: 4, fontFamily: F_BODY, fontSize: 8.5, color: "rgba(255,255,255,.9)" } }, c.word) : null,
-                    it.qty > 1 ? h("span", { "data-wk": "shopinvqty", style: { position: "absolute", left: 5, top: 5, padding: "0 5px", borderRadius: 999, background: "rgba(0,0,0,.32)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px", color: "#fff" } }, "×" + it.qty) : null,
-                    it.onMe ? h("span", { "data-wk": "shopinvonme", style: { position: "absolute", left: 5, top: 5, padding: "0 6px", borderRadius: 999, background: "rgba(255,80,0,.9)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px", color: "#fff" } }, "带着") : null),
+                    c.word ? h("span", { style: { position: "absolute", right: 5, bottom: 4, fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.9)" } }, c.word) : null,
+                    it.qty > 1 ? h("span", { "data-wk": "shopinvqty", style: { position: "absolute", left: 5, top: 5, padding: "0 5px", borderRadius: 999, background: "rgba(0,0,0,.32)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "15px", color: "#fff" } }, "×" + it.qty) : null,
+                    it.onMe ? h("span", { "data-wk": "shopinvonme", style: { position: "absolute", left: 5, top: 5, padding: "0 6px", borderRadius: 999, background: "rgba(255,80,0,.9)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "15px", color: "#fff" } }, "带着") : null),
                   h("div", { style: { padding: "6px 7px 8px" } },
-                    h("div", { "data-wk": "shopinvname", style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.ink, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 30 } }, it.name),
-                    it.addedTs ? h("div", { "data-wk": "shopinvtime", style: { fontFamily: F_BODY, fontSize: 9, color: MSHOP.dim, marginTop: 3 } },
+                    h("div", { "data-wk": "shopinvname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 30 } }, it.name),
+                    it.addedTs ? h("div", { "data-wk": "shopinvtime", style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 3 } },
                       new Date(it.addedTs).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })) : null));
               }))));
             })())));
@@ -3409,16 +3409,16 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       },
         h("div", { "data-wk": "shopdetailhero", style: { position: "relative", height: 180, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)", borderRadius: "18px 18px 0 0" } },
           h("div", { style: { position: "absolute", inset: 0, borderRadius: "18px 18px 0 0", background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
-          c.word ? h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: 11, color: c.ink } }, c.word) : null,
-          h("button", { "data-wk": "shopdetailclose", onClick: () => setDetail(null), "aria-label": "关闭", className: "active:opacity-70", style: { position: "absolute", left: 12, top: 12, width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 15, color: MSHOP.ink } }, "✕")),
+          c.word ? h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: c.ink } }, c.word) : null,
+          h("button", { "data-wk": "shopdetailclose", onClick: () => setDetail(null), "aria-label": "关闭", className: "active:opacity-70", style: { position: "absolute", left: 12, top: 12, width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink } }, "✕")),
         h("div", { style: { padding: "14px 16px 16px" } },
           h("div", { "data-wk": "shopdetailprice", style: { lineHeight: 1 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, fontWeight: 700, color: MSHOP.price } }, "¥"),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, fontWeight: 700, color: MSHOP.price, letterSpacing: "-0.02em" } }, detail.price),
-            detail.sales ? h("span", { "data-wk": "shopdetailsales", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginLeft: 10 } }, detail.sales) : null),
-          h("div", { "data-wk": "shopdetailname", style: { fontFamily: F_BODY, fontSize: 15, color: MSHOP.ink, lineHeight: 1.5, marginTop: 9 } }, detail.name),
-          detail.desc ? h("div", { "data-wk": "shopdetaildesc", className: "inline-block", style: { marginTop: 8, padding: "3px 9px", fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 4 } }, detail.desc) : null,
-          h("div", { "data-wk": "shopdetailnote", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 12, lineHeight: 1.7 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price } }, "¥"),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(30px * var(--app-fs, 1))", fontWeight: 700, color: MSHOP.price, letterSpacing: "-0.02em" } }, detail.price),
+            detail.sales ? h("span", { "data-wk": "shopdetailsales", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginLeft: 10 } }, detail.sales) : null),
+          h("div", { "data-wk": "shopdetailname", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.5, marginTop: 9 } }, detail.name),
+          detail.desc ? h("div", { "data-wk": "shopdetaildesc", className: "inline-block", style: { marginTop: 8, padding: "3px 9px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.orange, background: MSHOP.soft, borderRadius: 4 } }, detail.desc) : null,
+          h("div", { "data-wk": "shopdetailnote", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 12, lineHeight: 1.7 } },
             "钱包里还有 ¥" + (Math.round((Number(wallet) || 0) * 100) / 100)
               + ((Number(wallet) || 0) < (Number(detail.price) || 0) ? "——这件买不起，可以让TA代付或用亲属卡。" : "")),
           // 拿给谁看：买之前问问TA。和随身物「摆到TA面前」是同一个动作语言，
@@ -3428,17 +3428,17 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
               ? h("button", { "data-wk": "shopaskbtn",
                   onClick: () => setAskFor(chars.length === 1 ? chars[0].id : ""),
                   className: "w-full py-2.5 active:opacity-75",
-                  style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 999, border: "1px solid " + MSHOP.orange, color: MSHOP.orange }
+                  style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + MSHOP.orange, color: MSHOP.orange }
                 }, "拿给TA看看 · 问问值不值得买")
               : h("div", null,
-                  h("div", { "data-wk": "shopasklabel", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 9 } }, "拿给谁看"),
+                  h("div", { "data-wk": "shopasklabel", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.sub, marginBottom: 9 } }, "拿给谁看"),
                   h("div", { className: "flex flex-wrap", style: { gap: 8 } }, chars.map(ch => h("button", { "data-wk": "shopaskchar",
                     key: ch.id,
                     onClick: () => { onAskChar(ch.id, detail); setAskFor(null); setDetail(null); },
                     className: "flex items-center active:opacity-70",
                     style: { gap: 6, padding: "5px 11px 5px 5px", borderRadius: 999, background: MSHOP.bg }
                   }, h(Avatar, { character: ch, size: 24, radius: 999 }),
-                     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink } }, ch.remark || ch.name)))))) : null,
+                     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.ink } }, ch.remark || ch.name)))))) : null,
           h("div", { "data-wk": "shopdetailbar", className: "flex items-center", style: { gap: 9, marginTop: 16 } },
             onToggleWish ? h("button", { "data-wk": "shopwishbtn", "data-part": "detail", "data-on": inWish(detail) ? "1" : "0",
               onClick: () => onToggleWish(detail),
@@ -3446,16 +3446,16 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
               style: { width: 50, height: 46 }
             },
               h(IHeart, { size: 19, color: inWish(detail) ? MSHOP.price : "#b0b0ba" }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: inWish(detail) ? MSHOP.price : MSHOP.dim, marginTop: 2 } }, inWish(detail) ? "已想要" : "想要")) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: inWish(detail) ? MSHOP.price : MSHOP.dim, marginTop: 2 } }, inWish(detail) ? "已想要" : "想要")) : null,
             detail._fromCart ? null : h("button", { "data-wk": "shopdetailbtn", "data-part": "cart",
               onClick: () => { onAddCart(detail); toast("已加入购物车"); setDetail(null); },
               className: "flex-1 py-3 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, borderRadius: 999, background: "linear-gradient(90deg,#ff9500,#ff7000)", color: "#fff" }
+              style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600, borderRadius: 999, background: "linear-gradient(90deg,#ff9500,#ff7000)", color: "#fff" }
             }, "加入购物车"),
             detail._fromCart ? null : h("button", { "data-wk": "shopdetailbtn", "data-part": "buy",
               onClick: () => { onAddCart(detail); setDetail(null); setNav("cart"); },
               className: "flex-1 py-3 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, borderRadius: 999, background: "linear-gradient(90deg,#ff5000,#ff2d00)", color: "#fff", boxShadow: "0 3px 10px rgba(255,60,0,.32)" }
+              style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600, borderRadius: 999, background: "linear-gradient(90deg,#ff5000,#ff2d00)", color: "#fff", boxShadow: "0 3px 10px rgba(255,60,0,.32)" }
             }, "去结算")))));
   })() : null;
 
@@ -3466,14 +3466,14 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       key: k, onClick: () => setNav(k), className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60 relative"
     },
       h(G, { size: 21, color: nav === k ? MSHOP.orange : MSHOP.dim }),
-      h("span", { "data-wk": "shopnavlabel", style: { fontFamily: F_BODY, fontSize: 10, color: nav === k ? MSHOP.orange : MSHOP.dim, fontWeight: nav === k ? 600 : 400 } }, zh),
-      k === "cart" && cartItems.length > 0 && h("span", { "data-wk": "shopnavbadge", "data-part": "cart", style: { position: "absolute", top: 2, right: "50%", marginRight: -18, background: MSHOP.price, color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 999, padding: "0 5px", lineHeight: "15px" } }, String(cartItems.length)),
+      h("span", { "data-wk": "shopnavlabel", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: nav === k ? MSHOP.orange : MSHOP.dim, fontWeight: nav === k ? 600 : 400 } }, zh),
+      k === "cart" && cartItems.length > 0 && h("span", { "data-wk": "shopnavbadge", "data-part": "cart", style: { position: "absolute", top: 2, right: "50%", marginRight: -18, background: MSHOP.price, color: "#fff", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", borderRadius: 999, padding: "0 5px", lineHeight: "15px" } }, String(cartItems.length)),
       // 东西到了她得知道。送达只翻卡片状态、不弹提示（4 秒一轮，弹起来会打断她在做的事），
       // 所以在底栏点一个红点——标准做法，不打扰。
       k === "my" && receiving.length > 0 && h("span", { "data-wk": "shopnavbadge", "data-part": "my", style: { position: "absolute", top: 4, right: "50%", marginRight: -14, width: 8, height: 8, borderRadius: 999, background: MSHOP.price, boxShadow: "0 0 0 1.5px " + MSHOP.card } }))));
 
   // ---------- 结算动作 / 对象选择 Sheet ----------
-  const chip = (label, onClick, primary) => h("button", { "data-wk": "shopsheetbtn", "data-on": primary ? "1" : "0", onClick, className: "w-full py-3 active:opacity-75", style: { fontFamily: F_DISPLAY, fontSize: 16, borderRadius: 12, marginBottom: 10, background: primary ? t.ink : t.bg2, color: primary ? t.bg2 : t.ink, border: primary ? "none" : "1px solid " + t.line } }, label);
+  const chip = (label, onClick, primary) => h("button", { "data-wk": "shopsheetbtn", "data-on": primary ? "1" : "0", onClick, className: "w-full py-3 active:opacity-75", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", borderRadius: 12, marginBottom: 10, background: primary ? t.ink : t.bg2, color: primary ? t.bg2 : t.ink, border: primary ? "none" : "1px solid " + t.line } }, label);
   let sheetEl = null;
   if (sheet === "actions") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
@@ -3492,32 +3492,32 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
         (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "gift", { type: "char", id: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
-          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
+          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
         (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => setSheet({ kind: "giftgroup", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
-          h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "群")),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, " · 当着群里的面送"))))));
+          h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "群")),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, " · 当着群里的面送"))))));
   } else if (sheet && sheet.kind === "giftgroup") {
     const grp = (groups || []).find(g => g.id === sheet.id);
     const mem = ((grp && grp.memberIds) || []).map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "在「" + ((grp && grp.name) || "群聊") + "」里送给谁"),
-      h("div", { "data-wk": "shopsheethint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 10 } },
+      h("div", { "data-wk": "shopsheethint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } },
         "当着大家的面递过去，不走快递。送完你还能接着说话，说完按【回复】大家再一起接。"),
       mem.length
         ? h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, mem.map(c => h("button", { "data-wk": "shoppickrow", "data-part": "member", key: c.id, onClick: () => { const gid = sheet.id; setSheet(null); onCheckout(sel, "gift", { type: "group", id: gid, toId: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
             h(Avatar, { character: c, size: 38, radius: 9 }),
-            h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))))
-        : h("div", { "data-wk": "shopempty", "data-part": "group", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px 2px", lineHeight: 1.7 } }, "这个群里还没有成员。"));
+            h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))))
+        : h("div", { "data-wk": "shopempty", "data-part": "group", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "10px 2px", lineHeight: 1.7 } }, "这个群里还没有成员。"));
   } else if (sheet === "paylater") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "请谁帮我付"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
         (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "char", id: c.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
-          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
+          h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name))),
         (groups || []).map(g => h("button", { "data-wk": "shoppickrow", "data-part": "group", key: g.id, onClick: () => { setSheet(null); onCheckout(sel, "paylater", { type: "group", id: g.id }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
-          h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "群")),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, " · 群聊"))))));
+          h("div", { className: "flex items-center justify-center", style: { width: 38, height: 38, borderRadius: 9, background: t.bg2 } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "群")),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, g.name, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, " · 群聊"))))));
   } else if (sheet === "kinship") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "用谁的亲属卡"),
@@ -3526,8 +3526,8 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
         return h("button", { "data-wk": "shoppickrow", "data-part": "kinship", key: cd.charId, onClick: () => { setSheet(null); onCheckout(sel, "kinship", { type: "char", id: cd.charId }); setSel([]); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
           h(Avatar, { character: c, size: 38, radius: 9 }),
           h("div", { className: "flex-1 text-left" },
-            h("div", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name || "亲属卡"),
-            h("div", { "data-wk": "shopkinleft", style: { fontFamily: F_BODY, fontSize: 11, color: remaining >= selTotal ? t.fog : t.accent } }, "剩余额度 " + ((typeof Money !== "undefined" && Money) ? Money.say(remaining, cd.charId) : "¥" + remaining))));
+            h("div", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.name || "亲属卡"),
+            h("div", { "data-wk": "shopkinleft", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: remaining >= selTotal ? t.fog : t.accent } }, "剩余额度 " + ((typeof Money !== "undefined" && Money) ? Money.say(remaining, cd.charId) : "¥" + remaining))));
       })));
   } else if (invItem) {
     // 已入库那件东西的几个动词（她 2026-09-05：「送了收到了没用了」）。
@@ -3542,11 +3542,11 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
           .flatMap(pl => (pl.zones || []).map((z, zi) => ({ c: c, pl: pl, z: z, zi: zi }))))
       : [];
     const row = (zh, sub, fn, tone) => h("button", { "data-wk": "shopinvact", key: zh, onClick: fn, className: "w-full text-left active:opacity-60", style: { padding: "11px 2px" } },
-      h("div", { "data-wk": "shopinvactname", style: { fontFamily: F_DISPLAY, fontSize: 15, color: tone || MSHOP.ink } }, zh),
-      sub ? h("div", { "data-wk": "shopinvactsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 2, lineHeight: 1.55 } }, sub) : null);
+      h("div", { "data-wk": "shopinvactname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: tone || MSHOP.ink } }, zh),
+      sub ? h("div", { "data-wk": "shopinvactsub", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 2, lineHeight: 1.55 } }, sub) : null);
     sheetEl = h(Sheet, { onClose: gone, skin: { background: MSHOP.card } },
-      h("div", { "data-wk": "shopinvtitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: MSHOP.ink } }, invItem.name),
-      dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 3, lineHeight: 1.6 } },
+      h("div", { "data-wk": "shopinvtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: MSHOP.ink } }, invItem.name),
+      dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 3, lineHeight: 1.6 } },
         "TA见了会眼熟，但说不上在哪见过。") : null,
       h("div", { style: { height: 1, background: MSHOP.line, margin: "12px 0 4px" } }),
       invItem._leave
@@ -3556,15 +3556,15 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
                   className: "w-full text-left active:opacity-60 flex items-center gap-3", style: { padding: "9px 2px" } },
                   h(Avatar, { character: sp.c, size: 30, radius: 999 }),
                   h("div", { className: "min-w-0" },
-                    h("div", { "data-wk": "shoppickname", className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink } }, sp.z.name),
-                    h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, (sp.c.remark || sp.c.name) + " · " + sp.pl.name)))))
-            : h("div", { "data-wk": "shopempty", "data-part": "spot", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, padding: "10px 2px", lineHeight: 1.7 } },
+                    h("div", { "data-wk": "shoppickname", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: MSHOP.ink } }, sp.z.name),
+                    h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MSHOP.dim } }, (sp.c.remark || sp.c.name) + " · " + sp.pl.name)))))
+            : h("div", { "data-wk": "shopempty", "data-part": "spot", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MSHOP.dim, padding: "10px 2px", lineHeight: 1.7 } },
                 "还没有可以放的地方。先去【去处】串个门，写出TA常待的那几块地方，再回来放。"))
         : invItem._gift
         ? h("div", { className: "max-h-80 overflow-y-auto" }, (characters || []).map(c =>
             h("button", { "data-wk": "shoppickrow", "data-part": "char", key: c.id, onClick: () => { const it = invItem; gone(); onGiftInv && onGiftInv(it.id, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
               h(Avatar, { character: c, size: 34, radius: 9 }),
-              h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 15, color: MSHOP.ink } }, c.remark || c.name))))
+              h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink } }, c.remark || c.name))))
         // 梦里带出来的那几件只剩【带在身上】这一格（她 2026-09-06：「梦里带出来的
         // 不应该有这些吧」）。剩下那四个动词全都把它当成一件【真东西】在处置：
         //   用掉   —— 吃了喝了记进「用过的」，可它压根没真的存在过；
@@ -3585,7 +3585,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
               () => { if (!(characters || []).length) { toast("还没有角色"); return; } setInvItem(Object.assign({}, invItem, { _gift: true })); }),
             dreamy ? null : row("收进衣柜", "衣服鞋帽收进【我的衣柜】，别堆在物品里。",
               () => { const it = invItem; gone(); onClosetInv && onClosetInv(it.id, "日常"); }),
-            dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 10, lineHeight: 1.75 } },
+            dreamy ? h("div", { "data-wk": "shopinvdreamy", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 10, lineHeight: 1.75 } },
               "它只能你自己带着。送不出去、收不进衣柜、也放不到TA屋里——" +
               "梦里带出来的东西留不住，没人再提起，它自己就淡回梦里去了。") : null));
   } else if (sheet && sheet.kind === "regift") {
@@ -3593,10 +3593,10 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       h(Eyebrow, { style: { marginBottom: 12 } }, "转赠给谁"),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => h("button", { "data-wk": "shoppickrow", "data-part": "regift", key: c.id, onClick: () => { const oid = sheet.orderId; setSheet(null); onReceiveGift(oid, c.id); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
         h(Avatar, { character: c, size: 38, radius: 9 }),
-        h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)))));
+        h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)))));
   }
 
-  const asStrip = payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
+  const asStrip = payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a6a20" } },
     "正在用" + payAs.name + "的手机 · 花的是他的钱（还有 ¥" + payAs.balance + "），买的东西像他送你的一样寄过来") : null;
   return h("div", { "data-wk": "shoppage", className: "h-full flex flex-col" },
     asStrip,
@@ -3684,7 +3684,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
       return h("button", { "data-wk": "tkoslot", "data-on": on ? "1" : "0", key: s.key, onClick: () => onPick(s.key), className: "flex-1 active:opacity-70", "aria-pressed": on,
         style: { minHeight: 46, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 0 } },
         h("span", { "data-wk": "tkoslotname", style: { fontFamily: F_BODY, fontSize: on ? 15 : 13.5, fontWeight: on ? 700 : 400, color: on ? MTAKE.ink : MTAKE.sub, whiteSpace: "nowrap", textAlign: "center" } }, s.zh),
-        h("span", { "data-wk": "tkoslottime", style: { fontFamily: F_BODY, fontSize: 9, color: on ? MTAKE.sub : MTAKE.dim, textAlign: "center", marginTop: 1, marginBottom: 6 } }, (s.from % 24) + "–" + (s.to % 24) + " 点"),
+        h("span", { "data-wk": "tkoslottime", style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: on ? MTAKE.sub : MTAKE.dim, textAlign: "center", marginTop: 1, marginBottom: 6 } }, (s.from % 24) + "–" + (s.to % 24) + " 点"),
         h("span", { style: { position: "relative", display: "block", height: 8 } },
           h("span", { "data-wk": "tkoslotbar", style: { position: "absolute", left: 1, right: 1, top: on ? 2 : 3.5, height: on ? 4 : 1, borderRadius: 999, background: on ? MTAKE.yellow : MTAKE.line } }),
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
@@ -3732,9 +3732,9 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
   const doGen = () => { if (!busy) onGen(slot, search); };
   const head = (zh, back, right) => h(Head, { zh, onBack: back, bg: MTAKE.card, ink: MTAKE.ink, subInk: MTAKE.dim, lineInk: MTAKE.line, right: right || null });
   const cardStyle = { background: MTAKE.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,.06)" };
-  const tag = (txt, key) => h("span", { "data-wk": "tkotag", key, className: "inline-block", style: { padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: "#9a6a00", background: MTAKE.soft, borderRadius: 3, whiteSpace: "nowrap" } }, txt);
-  const sectionLabel = txt => h("div", { "data-wk": "tkosection", style: { fontFamily: F_BODY, fontSize: 11.5, color: MTAKE.sub, margin: "4px 2px 8px" } }, txt);
-  const inputStyle = { width: "100%", height: 38, borderRadius: 10, border: "1px solid " + MTAKE.line, background: MTAKE.bg, padding: "0 11px", fontFamily: F_BODY, fontSize: 13, color: MTAKE.ink, outline: "none" };
+  const tag = (txt, key) => h("span", { "data-wk": "tkotag", key, className: "inline-block", style: { padding: "1.5px 6px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#9a6a00", background: MTAKE.soft, borderRadius: 3, whiteSpace: "nowrap" } }, txt);
+  const sectionLabel = txt => h("div", { "data-wk": "tkosection", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MTAKE.sub, margin: "4px 2px 8px" } }, txt);
+  const inputStyle = { width: "100%", height: 38, borderRadius: 10, border: "1px solid " + MTAKE.line, background: MTAKE.bg, padding: "0 11px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MTAKE.ink, outline: "none" };
   // 加减：跟购物的加号同一种圆钮，减号是描边的那一颗
   const plusBtn = uid => h("button", { "data-wk": "tkoqtybtn", "data-part": "plus", onClick: () => bump(uid, 1), "aria-label": "加一份", className: "shrink-0 active:scale-90 flex items-center justify-center",
     style: { width: 28, height: 28, borderRadius: 999, background: MTAKE.yellow, boxShadow: "0 1px 4px rgba(242,169,0,.4)" } }, h(IPlus, { size: 15, color: MTAKE.ink }));
@@ -3746,8 +3746,8 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
   if (shop && pay) {
     const pickRow = (c, onClick, extra) => h("button", { "data-wk": "tkopickrow", key: c.id || c.charId, onClick, className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 2px" } },
       h(Avatar, { character: c, size: 36, radius: 9 }),
-      h("span", { "data-wk": "tkopickname", className: "flex-1 text-left", style: { fontFamily: F_BODY, fontSize: 14, color: MTAKE.ink } }, c.remark || c.name),
-      extra ? h("span", { "data-wk": "tkopickextra", style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim } }, extra) : null);
+      h("span", { "data-wk": "tkopickname", className: "flex-1 text-left", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: MTAKE.ink } }, c.remark || c.name),
+      extra ? h("span", { "data-wk": "tkopickextra", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim } }, extra) : null);
     // 拿他手机点（payAs）：只剩「用他的钱」这一种付法
     const modes = payAs ? [["his", "用" + payAs.name + "的钱付", "他还有 ¥" + payAs.balance + "，送到你这儿"]] : [
       ["buy", "自己付", "余额 ¥" + wallet],
@@ -3759,8 +3759,8 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
     if (payMode === "paylater") targets = [
       ...(characters || []).map(c => pickRow(c, () => submit("paylater", { type: "char", id: c.id }))),
       ...(groups || []).map(g => h("button", { "data-wk": "tkopickrow", "data-part": "group", key: g.id, onClick: () => submit("paylater", { type: "group", id: g.id }), className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 2px" } },
-        h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 9, background: MTAKE.bg } }, h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: MTAKE.dim } }, "群")),
-        h("span", { "data-wk": "tkopickname", style: { fontFamily: F_BODY, fontSize: 14, color: MTAKE.ink } }, g.name)))];
+        h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 9, background: MTAKE.bg } }, h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MTAKE.dim } }, "群")),
+        h("span", { "data-wk": "tkopickname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: MTAKE.ink } }, g.name)))];
     else if (payMode === "kinship") targets = cards.map(cd => { const c = charById(cd.charId); return c ? pickRow(c, () => submit("kinship", { type: "char", id: cd.charId }), "还能刷 ¥" + Math.round(((cd.limit || 0) - (cd.used || 0)) * 100) / 100) : null; });
     else if (payMode === "forchar") targets = (characters || []).map(c => pickRow(c, () => submit("forchar", { type: "char", id: c.id })));
     return h("div", { "data-wk": "tkopaypage", className: "h-full flex flex-col", style: { background: MTAKE.bg } },
@@ -3772,15 +3772,15 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
             h("div", { className: "flex items-center", style: { gap: 10 } },
               toneSwatch(takeoutTone({ name: shop.kind + shop.name }, 0), { width: 34, height: 34, borderRadius: 8, flexShrink: 0 }),
               h("div", { className: "min-w-0" },
-                h("div", { "data-wk": "tkoreceiptshop", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: MTAKE.ink } }, shop.name),
-                h("div", { "data-wk": "tkoreceipteta", style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 1 } }, "约 " + shop.eta + " 分钟送到"))),
+                h("div", { "data-wk": "tkoreceiptshop", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: MTAKE.ink } }, shop.name),
+                h("div", { "data-wk": "tkoreceipteta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 1 } }, "约 " + shop.eta + " 分钟送到"))),
             h("div", { style: { borderTop: "1px dashed #e2dccb", margin: "11px 0 8px" } }),
-            bagItems.map(x => h("div", { "data-wk": "tkoreceiptline", key: x.name, className: "flex justify-between", style: { gap: 10, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: MTAKE.ink } },
+            bagItems.map(x => h("div", { "data-wk": "tkoreceiptline", key: x.name, className: "flex justify-between", style: { gap: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: MTAKE.ink } },
               h("span", { style: { wordBreak: "break-word" } }, x.name, x.qty > 1 ? h("span", { style: { color: MTAKE.dim } }, " ×" + x.qty) : null),
               h("span", { className: "shrink-0" }, "¥" + Math.round(x.price * x.qty * 100) / 100))),
             h("div", { style: { borderTop: "1px dashed #e2dccb", margin: "8px 0 9px" } }),
             h("div", { "data-wk": "tkoreceipttotal", className: "flex items-baseline justify-between" },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.sub } }, "合计 " + bagCount + " 份"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.sub } }, "合计 " + bagCount + " 份"),
               takeoutPrice(bagTotal, 22)),
             h("input", { "data-wk": "tkoremark", value: remark, onChange: e => setRemark(e.target.value), maxLength: 80, placeholder: "给店家的备注（口味、放门口……）", style: Object.assign({}, inputStyle, { marginTop: 12 }) })),
           h("div", { "data-wk": "tkoreceiptedge", style: { height: 7, background: "linear-gradient(-45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x, linear-gradient(45deg, transparent 5px, #fff 0) 0 0 / 10px 7px repeat-x" } })),
@@ -3790,15 +3790,15 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
           return h("div", { "data-wk": "tkopaymode", "data-part": k, "data-on": on ? "1" : "0", key: k, style: Object.assign({}, cardStyle, { marginBottom: 9, outline: on ? "1.5px solid " + MTAKE.yellow : "none" }) },
             h("button", { "data-wk": "tkopaymodebtn", onClick: () => k === "buy" ? submit("buy") : k === "his" ? submit("his", { type: "char", id: payAs.id }) : setPayMode(on ? null : k), className: "w-full flex items-center justify-between active:opacity-70", style: { padding: "12px 14px", minHeight: 52, gap: 10 } },
               h("span", { className: "text-left min-w-0" },
-                h("span", { "data-wk": "tkopaymodename", style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, color: MTAKE.ink } }, zh),
-                h("span", { "data-wk": "tkopaymodesub", style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 2 } }, sub)),
+                h("span", { "data-wk": "tkopaymodename", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink } }, zh),
+                h("span", { "data-wk": "tkopaymodesub", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 2 } }, sub)),
               k === "buy"
-                ? h("span", { "data-wk": "tkopaygo", className: "shrink-0", style: { padding: "6px 14px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: MTAKE.ink } }, "付款")
-                : h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? MTAKE.price : MTAKE.dim } }, on ? "收起" : "选人 ›")),
+                ? h("span", { "data-wk": "tkopaygo", className: "shrink-0", style: { padding: "6px 14px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: MTAKE.ink } }, "付款")
+                : h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? MTAKE.price : MTAKE.dim } }, on ? "收起" : "选人 ›")),
             on && targets ? h("div", { "data-wk": "tkopaytargets", style: { padding: "0 12px 6px", borderTop: "1px solid " + MTAKE.line } },
               k === "forchar" ? h("input", { "data-wk": "tkosay", value: say, onChange: e => setSay(e.target.value), maxLength: 80, placeholder: "写一句给TA（印在小票上，可以不写）",
                 style: Object.assign({}, inputStyle, { margin: "10px 0 4px" }) }) : null,
-              targets.length ? targets : h("div", { "data-wk": "tkoempty", "data-part": "targets", style: { fontFamily: F_BODY, fontSize: 12, color: MTAKE.dim, padding: "12px 2px" } }, "还没有可以选的人")) : null);
+              targets.length ? targets : h("div", { "data-wk": "tkoempty", "data-part": "targets", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MTAKE.dim, padding: "12px 2px" } }, "还没有可以选的人")) : null);
         }),
         h("div", { style: { height: 20 } })));
   }
@@ -3812,25 +3812,25 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
         // 店招：一块这家店的品类色，名字压在上面
         toneSwatch(sc, { height: 92, padding: "0 16px", display: "flex", alignItems: "flex-end" },
           h("div", { "data-wk": "tkoshophead", style: { position: "relative", paddingBottom: 12, color: sc.onDark ? "#fff" : MTAKE.ink } },
-            h("div", { "data-wk": "tkoshopname", style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.2 } }, shop.name),
+            h("div", { "data-wk": "tkoshopname", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.2 } }, shop.name),
             h("div", { className: "flex", style: { gap: 6, marginTop: 5 } },
-              shop.kind ? h("span", { "data-wk": "tkoshopchip", "data-part": "kind", style: { padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10.5, color: sc.ink } }, shop.kind) : null,
-              h("span", { "data-wk": "tkoshopchip", "data-part": "eta", style: { padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10.5, color: sc.ink } }, "约 " + shop.eta + " 分钟")))),
+              shop.kind ? h("span", { "data-wk": "tkoshopchip", "data-part": "kind", style: { padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sc.ink } }, shop.kind) : null,
+              h("span", { "data-wk": "tkoshopchip", "data-part": "eta", style: { padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sc.ink } }, "约 " + shop.eta + " 分钟")))),
         h("div", { "data-wk": "tkodishes", className: "px-3 py-3" },
           shop.dishes.map((x, di) => {
             const c = takeoutTone(x, di + 1);
             const n = qty[x.uid] || 0;
             return h("div", { "data-wk": "tkodish", "data-on": n > 0 ? "1" : "0", key: x.uid, className: "flex", style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9, gap: 11 }) },
               toneSwatch(c, { width: 76, height: 76, borderRadius: 9, flexShrink: 0 },
-                c.word ? h("div", { "data-wk": "tkodishword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 9.5, color: c.ink } }, c.word) : null),
+                c.word ? h("div", { "data-wk": "tkodishword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0 flex flex-col" },
-                h("div", { "data-wk": "tkodishname", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),
+                h("div", { "data-wk": "tkodishname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),
                 x.desc ? h("div", { "data-wk": "tkodishdesc", style: { marginTop: 4 } }, tag(x.desc)) : null,
                 h("div", { className: "flex items-end justify-between", style: { marginTop: "auto", paddingTop: 6 } },
                   takeoutPrice(x.price, 19),
                   h("div", { className: "flex items-center", style: { gap: 8 } },
                     n > 0 ? minusBtn(x.uid) : null,
-                    n > 0 ? h("span", { "data-wk": "tkodishqty", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 600, minWidth: 14, textAlign: "center", color: MTAKE.ink } }, n) : null,
+                    n > 0 ? h("span", { "data-wk": "tkodishqty", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, minWidth: 14, textAlign: "center", color: MTAKE.ink } }, n) : null,
                     plusBtn(x.uid)))));
           }),
           h("div", { style: { height: 12 } }))),
@@ -3838,15 +3838,15 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
       h("div", { "data-wk": "tkobagbar", className: "shrink-0 flex items-center", style: { background: MTAKE.deep, padding: "8px 8px 8px 12px", paddingBottom: "calc(8px + " + COMPOSER_PAD_BOTTOM + ")", gap: 10 } },
         h("div", { "data-wk": "tkobagicon", "data-on": bagCount ? "1" : "0", className: "relative shrink-0 flex items-center justify-center", style: { width: 42, height: 42, borderRadius: 999, background: bagCount ? MTAKE.yellow : "rgba(255,255,255,.12)" } },
           h(GTakeout, { size: 21, color: bagCount ? MTAKE.ink : "rgba(255,255,255,.5)" }),
-          bagCount ? h("span", { "data-wk": "tkobagcount", style: { position: "absolute", top: -3, right: -3, minWidth: 17, height: 17, padding: "0 4px", borderRadius: 999, background: MTAKE.price, color: "#fff", fontFamily: F_BODY, fontSize: 10, lineHeight: "17px", textAlign: "center" } }, bagCount) : null),
+          bagCount ? h("span", { "data-wk": "tkobagcount", style: { position: "absolute", top: -3, right: -3, minWidth: 17, height: 17, padding: "0 4px", borderRadius: 999, background: MTAKE.price, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: "17px", textAlign: "center" } }, bagCount) : null),
         h("div", { className: "flex-1 min-w-0", style: { color: "#fff" } },
           bagCount ? h("div", { "data-wk": "tkobagtotal", style: { lineHeight: 1 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, fontWeight: 700 } }, "¥"),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, fontWeight: 700 } }, bagTotal))
-            : h("div", { "data-wk": "tkobagtotal", style: { fontFamily: F_BODY, fontSize: 13, opacity: .6 } }, "还没点"),
-          h("div", { "data-wk": "tkobageta", style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .6, marginTop: 3 } }, "约 " + shop.eta + " 分钟送到")),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))", fontWeight: 700 } }, "¥"),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", fontWeight: 700 } }, bagTotal))
+            : h("div", { "data-wk": "tkobagtotal", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", opacity: .6 } }, "还没点"),
+          h("div", { "data-wk": "tkobageta", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", opacity: .6, marginTop: 3 } }, "约 " + shop.eta + " 分钟送到")),
         h("button", { "data-wk": "tkobagpay", "data-on": bagCount ? "1" : "0", onClick: () => { if (!bagCount) { toast("还没点东西"); return; } setPay(true); }, className: "shrink-0 active:opacity-80",
-          style: { padding: "11px 24px", borderRadius: 999, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, background: bagCount ? MTAKE.yellow : "rgba(255,255,255,.14)", color: bagCount ? MTAKE.ink : "rgba(255,255,255,.5)" } }, "去结算")));
+          style: { padding: "11px 24px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, background: bagCount ? MTAKE.yellow : "rgba(255,255,255,.14)", color: bagCount ? MTAKE.ink : "rgba(255,255,255,.5)" } }, "去结算")));
   }
 
   // ---------- 附近 ----------
@@ -3858,23 +3858,23 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
     h("div", { "data-wk": "tkoshoplist", ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-2.5", style: { background: MTAKE.bg } },
       shops.length === 0
         ? h("div", { "data-wk": "tkoempty", "data-part": "near", className: "text-center", style: { paddingTop: 80 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: MTAKE.dim, whiteSpace: "pre-line" } }, busy ? "正在看附近开着的店…" : "这个钟点还没刷过。\n看看附近有什么开着。"),
-            !busy ? h("button", { "data-wk": "tkogenbtn", onClick: doGen, className: "mt-4 px-5 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 600, background: MTAKE.yellow, borderRadius: 999, color: MTAKE.ink } }, "刷新附近") : null)
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, color: MTAKE.dim, whiteSpace: "pre-line" } }, busy ? "正在看附近开着的店…" : "这个钟点还没刷过。\n看看附近有什么开着。"),
+            !busy ? h("button", { "data-wk": "tkogenbtn", onClick: doGen, className: "mt-4 px-5 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 600, background: MTAKE.yellow, borderRadius: 999, color: MTAKE.ink } }, "刷新附近") : null)
         : shops.map((s, si) => {
             const c = takeoutTone({ name: s.kind + s.name }, si);
             const low = s.dishes.reduce((m, x) => Math.min(m, x.price), Infinity);
             return h("button", { "data-wk": "tkoshopcard", key: s.id, onClick: () => openShop(s), className: "w-full text-left flex active:opacity-85",
               style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9, gap: 11, WebkitTapHighlightColor: "transparent" }) },
               toneSwatch(c, { width: 84, height: 84, borderRadius: 10, flexShrink: 0 },
-                c.word ? h("div", { "data-wk": "tkoshopcardword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 9.5, color: c.ink } }, c.word) : null),
+                c.word ? h("div", { "data-wk": "tkoshopcardword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { "data-wk": "tkoshopcardname", className: "truncate", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 600, color: MTAKE.ink } }, s.name),
-                h("div", { "data-wk": "tkoshopcardmeta", className: "flex items-center", style: { gap: 6, marginTop: 4, fontFamily: F_BODY, fontSize: 11, color: MTAKE.sub } },
+                h("div", { "data-wk": "tkoshopcardname", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink } }, s.name),
+                h("div", { "data-wk": "tkoshopcardmeta", className: "flex items-center", style: { gap: 6, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.sub } },
                   h("span", { style: { color: MTAKE.ink, fontWeight: 600 } }, s.eta + " 分钟"),
                   isFinite(low) ? h("span", null, "· ¥" + low + " 起") : null),
                 h("div", { "data-wk": "tkoshopcarddishes", className: "flex flex-wrap", style: { gap: 4, marginTop: 6, maxHeight: 40, overflow: "hidden" } },
                   s.kind ? tag(s.kind, "k") : null,
-                  s.dishes.slice(0, 3).map((x, k) => h("span", { "data-wk": "tkoshopcarddish", key: k, style: { padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: MTAKE.sub, background: MTAKE.bg, borderRadius: 3, whiteSpace: "nowrap", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" } }, x.name)))));
+                  s.dishes.slice(0, 3).map((x, k) => h("span", { "data-wk": "tkoshopcarddish", key: k, style: { padding: "1.5px 6px", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MTAKE.sub, background: MTAKE.bg, borderRadius: 3, whiteSpace: "nowrap", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" } }, x.name)))));
           })));
 
   // ---------- 订单 ----------
@@ -3882,8 +3882,8 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
   const takeoutWords = o => {
     const d = o.takeout || {};
     return h(React.Fragment, null,
-      d.remark ? h("div", { "data-wk": "tkoremarktext", style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 4, wordBreak: "break-word" } }, "备注：" + d.remark) : null,
-      d.note ? h("div", { "data-wk": "tkonote", style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.6, color: "#6d5f4b", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2dccb", wordBreak: "break-word" } },
+      d.remark ? h("div", { "data-wk": "tkoremarktext", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 4, wordBreak: "break-word" } }, "备注：" + d.remark) : null,
+      d.note ? h("div", { "data-wk": "tkonote", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#6d5f4b", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e2dccb", wordBreak: "break-word" } },
         "「" + d.note + "」" + (o.fromCharId && charById(o.fromCharId) ? " —— " + (charById(o.fromCharId).remark || charById(o.fromCharId).name) : "")) : null);
   };
   const orderCard = (o, oi, body) => h("div", { "data-wk": "tkoorder", key: o.id, style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9 }) },
@@ -3891,10 +3891,10 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
       toneSwatch(takeoutTone({ name: o.name }, oi), { width: 54, height: 54, borderRadius: 9, flexShrink: 0 }),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-          h("span", { "data-wk": "tkoordershop", className: "truncate", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, color: MTAKE.ink } }, (o.takeout && o.takeout.shop) || o.name),
+          h("span", { "data-wk": "tkoordershop", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink } }, (o.takeout && o.takeout.shop) || o.name),
           o.price ? h("span", { "data-wk": "tkoorderprice", className: "shrink-0" }, takeoutPrice(o.price, 16)) : null),
-        o.takeout && o.takeout.items ? h("div", { "data-wk": "tkoorderitems", style: { fontFamily: F_BODY, fontSize: 12, color: MTAKE.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
-        o.payLabel ? h("div", { "data-wk": "tkoorderpay", style: { fontFamily: F_BODY, fontSize: 10.5, color: MTAKE.dim, marginTop: 3 } }, o.payLabel) : null)),
+        o.takeout && o.takeout.items ? h("div", { "data-wk": "tkoorderitems", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MTAKE.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
+        o.payLabel ? h("div", { "data-wk": "tkoorderpay", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 3 } }, o.payLabel) : null)),
     takeoutWords(o),
     body);
   const ordersView = h("div", { "data-wk": "tkoorders", className: "flex-1 flex flex-col min-h-0" },
@@ -3906,17 +3906,17 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
         const pct = Math.max(4, Math.min(96, Math.round((1 - (o.arriveTs - now) / total) * 100)));
         return orderCard(o, oi, h("div", { "data-wk": "tkoride", style: { marginTop: 10 } },
           h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.sub } }, "骑手在路上"),
-            h("span", { "data-wk": "tkoridetime", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: MTAKE.price } }, "还有 " + takeoutFmtLeft(o.arriveTs - now))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.sub } }, "骑手在路上"),
+            h("span", { "data-wk": "tkoridetime", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: MTAKE.price } }, "还有 " + takeoutFmtLeft(o.arriveTs - now))),
           h("div", { "data-wk": "tkoridebar", style: { position: "relative", height: 6, borderRadius: 999, background: MTAKE.line } },
             h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: MTAKE.yellow, transition: "width .6s ease" } }),
             h("div", { "data-wk": "block", style: { position: "absolute", left: pct + "%", top: -3, width: 12, height: 12, marginLeft: -6, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }))));
-      }) : h("div", { "data-wk": "tkoempty", "data-part": "riding", style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, margin: "0 2px 16px" } }, "没有在路上的"),
+      }) : h("div", { "data-wk": "tkoempty", "data-part": "riding", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.dim, margin: "0 2px 16px" } }, "没有在路上的"),
       sectionLabel("送到了 · " + arrived.length),
       arrived.length ? arrived.map((o, oi) => orderCard(o, oi, h("div", { "data-wk": "tkoarrived", className: "flex items-center justify-between", style: { marginTop: 10 } },
-        h("span", { "data-wk": "tkoarrivedtext", style: { fontFamily: F_BODY, fontSize: 11.5, color: MTAKE.ok } }, "已送达" + (o.fromCharId && charById(o.fromCharId) ? " · " + charById(o.fromCharId).name + " 点的" : "")),
-        h("button", { "data-wk": "tkoeatbtn", onClick: () => onEat(o.id), className: "active:opacity-70", style: { padding: "7px 18px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: MTAKE.ink } }, "吃完了"))))
-        : h("div", { "data-wk": "tkoempty", "data-part": "arrived", style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, margin: "0 2px 16px" } }, "没有等着吃的"),
+        h("span", { "data-wk": "tkoarrivedtext", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: MTAKE.ok } }, "已送达" + (o.fromCharId && charById(o.fromCharId) ? " · " + charById(o.fromCharId).name + " 点的" : "")),
+        h("button", { "data-wk": "tkoeatbtn", onClick: () => onEat(o.id), className: "active:opacity-70", style: { padding: "7px 18px", borderRadius: 999, background: MTAKE.yellow, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: MTAKE.ink } }, "吃完了"))))
+        : h("div", { "data-wk": "tkoempty", "data-part": "arrived", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.dim, margin: "0 2px 16px" } }, "没有等着吃的"),
       sectionLabel("吃过的 · " + (log || []).length),
       // 一行放不下店名加菜名（她 2026-09-28 截图）：点一下整条展开看全，再点收回
       (log || []).length ? h("div", { "data-wk": "tkolog", style: Object.assign({}, cardStyle, { padding: "2px 12px" }) }, (log || []).slice(0, 60).map((o, li) => {
@@ -3927,13 +3927,13 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
           h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
             h("span", { "data-wk": "tkologname", className: open ? "" : "truncate", style: { fontFamily: F_BODY, fontSize: open ? 14 : 12.5, fontWeight: open ? 600 : 400, color: MTAKE.ink, wordBreak: "break-word" } },
               open ? ((o.takeout && o.takeout.shop) || o.name) : o.name),
-            h("span", { "data-wk": "tkologtime", className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: MTAKE.dim } }, (d.getMonth() + 1) + "/" + d.getDate() + (open ? "" : " ›"))),
+            h("span", { "data-wk": "tkologtime", className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MTAKE.dim } }, (d.getMonth() + 1) + "/" + d.getDate() + (open ? "" : " ›"))),
           open ? h("div", { style: { marginTop: 5 } },
-            o.takeout && o.takeout.items ? h("div", { "data-wk": "tkologitems", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: MTAKE.sub, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
-            h("div", { "data-wk": "tkologmeta", style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 3 } },
+            o.takeout && o.takeout.items ? h("div", { "data-wk": "tkologitems", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: MTAKE.sub, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
+            h("div", { "data-wk": "tkologmeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 3 } },
               [o.price ? "¥" + o.price : "", o.payLabel || "", String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " 吃完的"].filter(Boolean).join(" · ")),
             takeoutWords(o)) : null);
-      })) : h("div", { "data-wk": "tkoempty", "data-part": "log", style: { fontFamily: F_BODY, fontSize: 12.5, color: MTAKE.dim, margin: "0 2px" } }, "还没吃过"),
+      })) : h("div", { "data-wk": "tkoempty", "data-part": "log", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.dim, margin: "0 2px" } }, "还没吃过"),
       h("div", { style: { height: 20 } })));
 
   // 底栏跟购物那条同一个形状，选中换成外卖的深色
@@ -3942,11 +3942,11 @@ function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards,
       key: k, onClick: () => setNav(k), className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60 relative"
     },
       h(G, { size: 21, color: nav === k ? MTAKE.yellowD : MTAKE.dim }),
-      h("span", { "data-wk": "tkonavlabel", style: { fontFamily: F_BODY, fontSize: 10, color: nav === k ? MTAKE.deep : MTAKE.dim, fontWeight: nav === k ? 700 : 400 } }, zh),
+      h("span", { "data-wk": "tkonavlabel", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: nav === k ? MTAKE.deep : MTAKE.dim, fontWeight: nav === k ? 700 : 400 } }, zh),
       k === "orders" && (riding.length + arrived.length) > 0 && h("span", { "data-wk": "tkonavbadge", style: { position: "absolute", top: 4, right: "50%", marginRight: -14, width: 8, height: 8, borderRadius: 999, background: MTAKE.price, boxShadow: "0 0 0 1.5px " + MTAKE.card } }))));
 
   return h("div", { "data-wk": "tkopage", className: "h-full flex flex-col", style: { background: MTAKE.bg } },
-    payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
+    payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", paddingTop: safeTop(7), background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#8a6a20" } },
       "正在用" + payAs.name + "的手机点外卖 · 花的是他的钱（还有 ¥" + payAs.balance + "）") : null,
     nav === "near" || payAs ? nearView : ordersView,
     bottomNav);
@@ -3964,18 +3964,18 @@ function MyKinPage({ characters, cards, charId, wallet, onPick, onIssue, onEdit,
   const shell = (title, kids) => h("div", { "data-wk": "mykinpage", className: "h-full flex flex-col", style: DESK(t.accent) },
     h(Head, { zh: title, bg: "transparent", onBack }),
     h("div", { "data-wk": "mykinscroll", className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } }, kids));
-  const btn = (label, fn, strong, dis) => h("button", { "data-wk": "mykinbtn", "data-part": label, "data-on": strong ? "1" : "0", onClick: fn, disabled: dis, className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 12, border: "1px solid " + (strong ? t.ink : t.line), background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 13, opacity: dis ? .45 : 1 } }, label);
+  const btn = (label, fn, strong, dis) => h("button", { "data-wk": "mykinbtn", "data-part": label, "data-on": strong ? "1" : "0", onClick: fn, disabled: dis, className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 12, border: "1px solid " + (strong ? t.ink : t.line), background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", opacity: dis ? .45 : 1 } }, label);
   const field = (val, set, ph, num) => h("input", { "data-wk": "mykininput", value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: num ? "numeric" : undefined, className: "w-full outline-none",
-    style: { minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 13px", fontFamily: F_BODY, fontSize: 14 } });
-  const label = x => h("div", { "data-wk": "mykinlabel", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "18px 0 8px" } }, x);
+    style: { minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 13px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } });
+  const label = x => h("div", { "data-wk": "mykinlabel", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "18px 0 8px" } }, x);
   if (!c) return shell("给 TA 开亲属卡", [
     label("给谁开"),
     h("div", { "data-wk": "mykinpicks", key: "p", className: "flex flex-wrap", style: { gap: 12 } }, characters.map(x => {
       const has = (cards || []).some(k => k.charId === x.id);
       return h("button", { "data-wk": "mykinpick", "data-on": has ? "1" : "0", key: x.id, onClick: () => onPick(x.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } },
         h(Avatar, { character: x, size: 46 }),
-        h("div", { "data-wk": "mykinpickname", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.remark || x.name),
-        has ? h("div", { "data-wk": "mykinpickhas", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.accent } }, "已开") : null);
+        h("div", { "data-wk": "mykinpickname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.remark || x.name),
+        has ? h("div", { "data-wk": "mykinpickhas", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.accent } }, "已开") : null);
     }))]);
   if (!card) return shell("给 " + c.name + " 开亲属卡", [
     h("div", { "data-wk": "mykinface", "data-part": "new", key: "f", style: { marginTop: 10 } }, h(KinshipCardFace, { character: c, limit: Number(limit) || 0, used: null, note })),
@@ -3983,14 +3983,14 @@ function MyKinPage({ characters, cards, charId, wallet, onPick, onIssue, onEdit,
     label("想说的一句（会签在卡背面）"), field(note, setNote, "不写也行"),
     h("div", { "data-wk": "mykindaily", key: "d", className: "flex items-center justify-between", style: { marginTop: 18, gap: 12 } },
       h("div", null,
-        h("div", { "data-wk": "mykindailyname", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "平时花钱也能刷"),
-        h("div", { "data-wk": "mykindailysub", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "关着：只有聊天时 TA 想刷才刷。开着：TA 每天的开销里也可能刷你的卡，第二天一起告诉你。")),
+        h("div", { "data-wk": "mykindailyname", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "平时花钱也能刷"),
+        h("div", { "data-wk": "mykindailysub", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "关着：只有聊天时 TA 想刷才刷。开着：TA 每天的开销里也可能刷你的卡，第二天一起告诉你。")),
       h(Toggle, { on: daily, onChange: () => setDaily(v => !v) })),
     h("div", { "data-wk": "mykingo", key: "go", style: { marginTop: 24 } }, btn("把卡递给 " + c.name, () => onIssue(c.id, Number(limit) || 0, note.trim(), daily), true, !(Number(limit) > 0)))]);
   const ledger = card.ledger || [];
   return shell(c.name + " 手里的亲属卡", [
     h("div", { "data-wk": "mykinface", "data-part": "issued", "data-on": card.frozen ? "1" : "0", key: "f", style: { marginTop: 10, opacity: card.frozen ? .55 : 1 } }, h(KinshipCardFace, { character: c, limit: card.limit, used: card.used || 0, note: card.note })),
-    card.frozen ? h("div", { "data-wk": "mykinfrozen", key: "fz", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginTop: 8 } }, "冻结中：TA 现在刷不了") : null,
+    card.frozen ? h("div", { "data-wk": "mykinfrozen", key: "fz", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, marginTop: 8 } }, "冻结中：TA 现在刷不了") : null,
     h("div", { "data-wk": "mykinactions", key: "b", className: "flex flex-wrap", style: { gap: 8, marginTop: 14 } },
       btn(card.frozen ? "解冻" : "冻结", () => onEdit(c.id, card.frozen ? "unfreeze" : "freeze")),
       btn(card.daily ? "不让 TA 平时刷" : "平时花钱也能刷", () => onEdit(c.id, "daily")),
@@ -4001,11 +4001,11 @@ function MyKinPage({ characters, cards, charId, wallet, onPick, onIssue, onEdit,
     label("账单（" + ledger.length + " 笔）"),
     ledger.length ? ledger.map(l => h("div", { "data-wk": "mykinrow", key: l.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
       h("div", { style: { flex: 1, minWidth: 0 } },
-        h("div", { "data-wk": "mykinrowname", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, l.item),
-        h("div", { "data-wk": "mykinrowtime", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, new Date(l.ts).toLocaleString() + (l.source === "daily" ? " · 平时花钱" : " · 聊天时"))),
-      h("div", { "data-wk": "mykinrowamount", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "-" + mTight(l.amount)),
-      h("button", { "data-wk": "mykinrowask", onClick: () => onEdit(c.id, "ask", l), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, minHeight: 36, padding: "0 4px" } }, "问问 TA"))) :
-      h("div", { "data-wk": "mykinempty", key: "e", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "TA 还一笔都没刷过")]);
+        h("div", { "data-wk": "mykinrowname", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, l.item),
+        h("div", { "data-wk": "mykinrowtime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, new Date(l.ts).toLocaleString() + (l.source === "daily" ? " · 平时花钱" : " · 聊天时"))),
+      h("div", { "data-wk": "mykinrowamount", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "-" + mTight(l.amount)),
+      h("button", { "data-wk": "mykinrowask", onClick: () => onEdit(c.id, "ask", l), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, minHeight: 36, padding: "0 4px" } }, "问问 TA"))) :
+      h("div", { "data-wk": "mykinempty", key: "e", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "20px 0", textAlign: "center" } }, "TA 还一笔都没刷过")]);
 }
 function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
   const t = useTheme();
@@ -4013,7 +4013,7 @@ function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
   const [amt, setAmt] = useState("");
   const [quitting, setQuitting] = useState(false);
   const [why, setWhy] = useState("");
-  if (!card) return h("div", { "data-wk": "kinbillpage", "data-part": "empty", className: "h-full flex flex-col", style: DESK(t.accent) }, h(Head, { zh: "亲属卡", bg: "transparent", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "卡片不存在"));
+  if (!card) return h("div", { "data-wk": "kinbillpage", "data-part": "empty", className: "h-full flex flex-col", style: DESK(t.accent) }, h(Head, { zh: "亲属卡", bg: "transparent", onBack }), h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "卡片不存在"));
   const c = character || {};
   const ledger = card.ledger || [];
   // 卡摊在同一张桌子上（v62.83）：卡面早就合格了，桌子还是米白，
@@ -4027,36 +4027,36 @@ function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
       // 申请加额度
       h("div", { "data-wk": "kinbillraise", className: "px-5 mb-3" },
         !asking
-          ? h("button", { "data-wk": "kinbillraisebtn", onClick: () => setAsking(true), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "申请加额度")
+          ? h("button", { "data-wk": "kinbillraisebtn", onClick: () => setAsking(true), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "申请加额度")
           : h("div", { "data-wk": "kinbillraiseform", className: "p-4", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
-              h("div", { "data-wk": "kinbillraisehint", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "想让 " + (c.name || "TA") + " 加多少额度（可留空让 TA 看着给）"),
+              h("div", { "data-wk": "kinbillraisehint", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "想让 " + (c.name || "TA") + " 加多少额度（可留空让 TA 看着给）"),
               h("div", { className: "flex items-center gap-2" },
-                h("input", { "data-wk": "kinbillraiseinput", value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", placeholder: "金额", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
-                h("button", { "data-wk": "kinbillraisego", "data-part": "send", onClick: () => { onRaise(amt); setAsking(false); setAmt(""); }, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "申请"),
-                h("button", { "data-wk": "kinbillraisego", "data-part": "cancel", onClick: () => { setAsking(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消")))),
+                h("input", { "data-wk": "kinbillraiseinput", value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", placeholder: "金额", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+                h("button", { "data-wk": "kinbillraisego", "data-part": "send", onClick: () => { onRaise(amt); setAsking(false); setAmt(""); }, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 8 } }, "申请"),
+                h("button", { "data-wk": "kinbillraisego", "data-part": "cancel", onClick: () => { setAsking(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "取消")))),
       // 账单
       h("div", { "data-wk": "kinbillledger", className: "px-5 pb-10" },
-        h("div", { "data-wk": "kinbilltitle", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.14em", color: t.fog, marginBottom: 10 } }, "刷卡账单"),
+        h("div", { "data-wk": "kinbilltitle", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.14em", color: t.fog, marginBottom: 10 } }, "刷卡账单"),
         ledger.length === 0
-          ? h("div", { "data-wk": "kinbillempty", className: "text-center mt-6", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有刷过这张卡。\n去购物 App 结算时选「用亲属卡付」。")
+          ? h("div", { "data-wk": "kinbillempty", className: "text-center mt-6", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "还没有刷过这张卡。\n去购物 App 结算时选「用亲属卡付」。")
           : ledger.map(l => h("div", { "data-wk": "kinbillrow", key: l.id, className: "py-3.5", style: { borderBottom: "1px solid " + t.line } },
               h("div", { className: "flex items-center justify-between" },
                 h("div", { className: "min-w-0 flex-1" },
-                  h("div", { "data-wk": "kinbillrowname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, l.item),
-                  h("div", { "data-wk": "kinbillrowtime", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(l.ts))),
-                h("div", { "data-wk": "kinbillrowamount", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "-¥" + l.amount))))),
+                  h("div", { "data-wk": "kinbillrowname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, l.item),
+                  h("div", { "data-wk": "kinbillrowtime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, fmtStamp(l.ts))),
+                h("div", { "data-wk": "kinbillrowamount", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "-¥" + l.amount))))),
       // 退卡（她 2026-09-19）。摆在账单最后、卡面和流水都看过之后，不跟「申请加额度」并排——
       // 那两件事方向相反，并排放迟早会点错。留一行字可以填：那句话会跟着通知卡落进聊天，
       // TA 下一轮就看得见；不填也行，卡照退。
       onUnbind ? h("div", { "data-wk": "kinbillquit", className: "px-5 pb-12" },
         !quitting
-          ? h("button", { "data-wk": "kinbillquitbtn", onClick: () => setQuitting(true), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999 } }, "把这张卡退回去")
+          ? h("button", { "data-wk": "kinbillquitbtn", onClick: () => setQuitting(true), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 999 } }, "把这张卡退回去")
           : h("div", { "data-wk": "kinbillquitform", className: "p-4", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
-              h("div", { "data-wk": "kinbillquithint", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, "要不要留一句话？" + (c.name || "TA") + "会在聊天里看到这张退卡通知，等你下次说话时由 Ta 自己反应。"),
-              h("input", { "data-wk": "kinbillquitinput", value: why, onChange: e => setWhy(e.target.value), maxLength: 60, placeholder: "想说的话（可以不填）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+              h("div", { "data-wk": "kinbillquithint", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, "要不要留一句话？" + (c.name || "TA") + "会在聊天里看到这张退卡通知，等你下次说话时由 Ta 自己反应。"),
+              h("input", { "data-wk": "kinbillquitinput", value: why, onChange: e => setWhy(e.target.value), maxLength: 60, placeholder: "想说的话（可以不填）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
               h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
-                h("button", { "data-wk": "kinbillquitgo", "data-part": "confirm", onClick: () => { onUnbind(why); setQuitting(false); setWhy(""); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "解绑"),
-                h("button", { "data-wk": "kinbillquitgo", "data-part": "cancel", onClick: () => { setQuitting(false); setWhy(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "再想想")))) : null));
+                h("button", { "data-wk": "kinbillquitgo", "data-part": "confirm", onClick: () => { onUnbind(why); setQuitting(false); setWhy(""); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 8 } }, "解绑"),
+                h("button", { "data-wk": "kinbillquitgo", "data-part": "cancel", onClick: () => { setQuitting(false); setWhy(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "再想想")))) : null));
 }
 
 // ============================================================
@@ -4206,7 +4206,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const addLoc = () => { if (localFile) { onAddLocal(localFile, title, artist); setLocalFile(null); setTitle(""); setArtist(""); } };
   // 输入框＝【刻在板子上的槽】，不是浮着的圆角框（v63.54）：底色比板深一档、
   // 直角、上沿一道内影——手指按下去像按进一条槽里，而不是点一张卡片。
-  const field = { fontFamily: F_BODY, fontSize: 13.5, background: hex6(t.ink) ? t.ink + "0a" : t.bg, color: t.ink,
+  const field = { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: hex6(t.ink) ? t.ink + "0a" : t.bg, color: t.ink,
     border: "1px solid " + t.line, borderRadius: 3, padding: "10px 11px", width: "100%", outline: "none",
     boxShadow: hex6(t.ink) ? "inset 0 2px 4px -2px " + t.ink + "3d" : "none" };
   // 三段【不是药丸】（v62.46，tabs-not-plain-pills）：同一页的云村那排早就做成了
@@ -4238,7 +4238,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const trackNo = (n, on, source) => h("span", { className: "shrink-0 flex items-center justify-center", style: { width: 26 } },
     on ? h("span", { className: "flex items-end", style: { gap: 2, height: 12 } },
         [9, 12, 7].map((hh, i2) => h("span", { key: i2, style: { width: 2, height: hh, borderRadius: 1, background: t.accent || "#8a6d3b" } })))
-      : n != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, n)
+      : n != null ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, n)
       : ic(source === "netease" ? "cloud" : "note", t.fog, 14));
   // 歌曲行（列表用）。opts: {queue, inPlaylist(plId), canRename, no}
   const songRow = (s, opts) => { opts = opts || {}; const editing = renameId === s.id; const on = s.id === nowId;
@@ -4247,10 +4247,10 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       editing
         ? h("input", { "data-wk": "input", key: "e", value: renameText, onChange: e => setRenameText(e.target.value), onKeyDown: e => { if (e.key === "Enter") { onRenameSong(s.id, renameText); setRenameId(null); } }, style: Object.assign({ flex: 1, minWidth: 0 }, field) })
         : h("button", { key: "b", onClick: () => onPlaySong(s.id, opts.queue), className: "flex-1 min-w-0 active:opacity-70", style: { textAlign: "left", minHeight: 40 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: on ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(s.title)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.why || s.artist || (s.source === "netease" ? "网易云" : "本地"))),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: on ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(s.title)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.why || s.artist || (s.source === "netease" ? "网易云" : "本地"))),
       editing
-        ? h("button", { key: "s", onClick: () => { onRenameSong(s.id, renameText); setRenameId(null); }, className: "shrink-0 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 8, minHeight: 40 } }, "存")
+        ? h("button", { key: "s", onClick: () => { onRenameSong(s.id, renameText); setRenameId(null); }, className: "shrink-0 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 8, minHeight: 40 } }, "存")
         : null,
       !editing && opts.canRename ? rowBtn("pen", t.fog, () => { setRenameId(s.id); setRenameText(s.title); }, "改名") : null,
       !editing ? rowBtn("plus", t.fog, () => setPickFor({ song: s }), "加到歌单") : null,
@@ -4261,13 +4261,13 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const addSong = (plId, isNew) => { const it = pickFor; if (!it) return; let id = plId; if (isNew) id = onCreatePlaylist("新歌单 " + ((playlists.length || 0) + 1), []); if (it.isResult) onAddResultToPlaylist(id, it.song); else onAddToPlaylist(id, it.song); setPickFor(null); };
   const pickerOverlay = pickFor ? h("div", { onClick: () => setPickFor(null), style: { position: "absolute", inset: 0, zIndex: 40, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-end" } },
     h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg, borderRadius: "20px 20px 0 0", padding: "16px 18px 26px", maxHeight: "70%", overflowY: "auto" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 3 } }, "加到歌单"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (pickFor.song.title || pickFor.song.name || "") + "》"),
-      h("button", { onClick: () => addSong(null, true), className: "w-full text-left active:opacity-70", style: { padding: "11px 6px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.tint } }, "新建一个歌单"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 3 } }, "加到歌单"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (pickFor.song.title || pickFor.song.name || "") + "》"),
+      h("button", { onClick: () => addSong(null, true), className: "w-full text-left active:opacity-70", style: { padding: "11px 6px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.tint } }, "新建一个歌单"),
       playlists.length ? playlists.map(pl => h("button", { key: pl.id, onClick: () => addSong(pl.id), className: "w-full flex items-center justify-between text-left active:opacity-70", style: { padding: "11px 6px", borderBottom: "1px solid " + t.line } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, pl.name),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (pl.songs || []).length + " 首")))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 6px" } }, "还没有歌单，点上面新建一个"))) : null;
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, pl.name),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (pl.songs || []).length + " 首")))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "10px 6px" } }, "还没有歌单，点上面新建一个"))) : null;
 
   // ============ 播放 tab ============
   // ── 唱片封套＝「一起」这一块（v62.81）───────────────────────────────
@@ -4283,7 +4283,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         h("div", { style: { width: 44, height: 44, borderRadius: 999, padding: 2, border: "2px solid " + (on ? (t.accent || t.ink) : "transparent"), boxShadow: on ? "0 4px 10px rgba(30,28,24,.18)" : "none" } },
           c ? h(Avatar, { character: c, size: 36, radius: 999 })
             : h("div", { style: { width: 36, height: 36, borderRadius: 999, border: "1.5px dashed " + (on ? t.ink : t.fog), display: "flex", alignItems: "center", justifyContent: "center" } }, ic("note", on ? t.ink : t.fog, 16))),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.ink : t.fog, whiteSpace: "nowrap" } }, c ? c.name : "自己听"));
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog, whiteSpace: "nowrap" } }, c ? c.name : "自己听"));
     }));
   const sleeveCard = h("div", { "data-wk": "block", className: "w-full", style: { marginTop: 22, position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 6,
       boxShadow: "0 6px 16px rgba(30,28,24,.10), inset 0 0 0 1px rgba(255,255,255,.5)",
@@ -4295,8 +4295,8 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       partner ? h(Avatar, { character: partner, size: 48, radius: 999 })
         : h("div", { style: { width: 48, height: 48, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, ic("note", t.fog, 20)),
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, partner ? "和 " + partner.name + " 一起听" : "自己听"),
-        !partner ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "点一下，挑个人一起听") : null),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, partner ? "和 " + partner.name + " 一起听" : "自己听"),
+        !partner ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "点一下，挑个人一起听") : null),
       h("span", { "aria-hidden": "true", style: { flexShrink: 0, color: t.fog, transform: pickWho ? "rotate(90deg)" : "none", transition: "transform .15s" } }, ic("next", t.fog, 14))),
     // ⚠️这儿原来还有一行开关「让 TA 在聊天里聊这首歌」——撤掉了（她 2026-09-06：
     //   「一起听这一句不会在偷偷调用吧，能不能不要了」）。它确实在偷偷调用：
@@ -4310,14 +4310,14 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     //   一起听房里进来的不看这一格：那时候本来就落在房里。
     partner && onSetTalkStay ? h("div", { className: "flex items-center", "data-wk": "listenstay", style: { gap: 10, borderTop: "1px dashed " + t.line, margin: "0 14px", padding: "10px 0 12px" } },
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "说的话只留在一起听里"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "说的话只留在一起听里"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } },
           listenRoomName ? "现在是从「" + listenRoomName + "」进来的，说的话落在那间房里" : "打开后边听边说不进单聊，全部的话在播放页底下「刚才说的」里翻")),
       h(Toggle, { on: !!data.talkStay, onChange: () => onSetTalkStay(!data.talkStay) })) : null,
     partner && onSetTalkNote && data.talkStay && !listenRoomName ? h("div", { className: "flex items-center", "data-wk": "listenstay", style: { gap: 10, margin: "0 14px", padding: "0 0 12px" } },
       h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "单聊里留一张小条"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "单聊里留一张小条"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } },
           data.talkNote === false ? "关着：单聊里什么都不留，回到单聊TA不知道你们刚一起听过" : "开着：单聊里一张「一起听」小条，写听了哪几首和最后几句，TA回到单聊接得上")),
       h(Toggle, { on: data.talkNote !== false, onChange: () => onSetTalkNote(data.talkNote === false) })) : null);
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
@@ -4326,18 +4326,18 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
     showLyric
       ? h("div", { ref: lyricBoxRef, "data-wk": "listenlyric", onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
-          lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "找歌词中…")
-            : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
+          lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "找歌词中…")
+            : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
             : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.sub, opacity: i === lyricActive ? 1 : .82, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s,opacity .2s" } }, STX(l.text))))
       // ── 封面舞台（v62.92）：碟撤了。封面已经是整页的底（见下面 coverField），
       //   这儿只留一块透明的位子让它露出来，点一下换封面。碟上那 148px 的小封面跟整页的封面是同一张，
       //   留着就是同一样东西两份（她 2026-09-05：「封面整个代替掉页面」）。
       : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "w-full active:opacity-90", "aria-label": "换封面",
           style: { height: talk ? 130 : 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
 
-    h("div", { "data-wk": "listentitle", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(now.title)),
-    h("div", { "data-wk": "listenartist", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
+    h("div", { "data-wk": "listentitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(now.title)),
+    h("div", { "data-wk": "listenartist", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
     h("div", { "data-wk": "listenctrl", className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
       cbtn(ic("heart", now.fav ? "solid" : t.fog, 20), () => onToggleFav(now.id), { bg: t.bg2 }),
       // 加进本地歌单（复用底部选择层）
@@ -4345,9 +4345,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       // 加进她真网易云歌单（仅网易云歌 + 已连账号；openCvAdd 在下方云村区声明，闭包延迟取用没有 TDZ 问题）
       (now.source === "netease" && now.neteaseId && cookie) ? cbtn(ic("cloudplus", t.tint, 20), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { bg: t.bg2 }) : null,
       // 歌词页开关
-      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
+      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 }),
       // 这首歌的歌评（她 2026-10-17）：一首一页，刷过的留着
-      cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { bg: t.bg2 })),
+      cbtn(h("span", { "data-wk": "listentalkopen", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "评"), () => { setTalkSong(now); setTalkBack("play"); setNav("songtalk"); }, { bg: t.bg2 })),
     // ── 进度＝唱针的行程（v62.46）────────────────────────────────────
     // 原来这儿是一根【原生 <input type="range">】：一页程序画的唱片沟纹中间躺着一根
     // iOS 系统滑块，是整页最裸的一件东西（审美审计点名）。
@@ -4367,18 +4367,18 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
           transform: "rotate(11deg)", boxShadow: "0 2px 5px rgba(0,0,0,.28)",
           left: "calc(9px + (100% - 18px) * " + frac.toFixed(4) + " - 4.5px)" } })),
       h("div", { className: "flex items-center justify-between" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, fmt(cur)),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, dur ? fmt(dur) : "--:--"))),
-    player && player.err ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 2, textAlign: "center" } }, player.err) : null,
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, fmt(cur)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, dur ? fmt(dur) : "--:--"))),
+    player && player.err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, marginTop: 2, textAlign: "center" } }, player.err) : null,
     h("div", { className: "flex items-center justify-center gap-3", style: { marginTop: 8 } },
       // 后退键左边：播放模式（列表循环 / 单曲循环 / 随机）
       cbtn(ic(({ order: "repeat", one: "repeatone", shuffle: "shuffle" })[playMode || "order"], (playMode && playMode !== "order") ? (t.accent || "#8a6d3b") : t.ink, 20), onCyclePlayMode, { size: 44, style: { background: (playMode && playMode !== "order") ? (t.accent || "#8a6d3b") + "22" : "transparent" } }),
       cbtn(ic("prev", t.ink, 24), () => onStep(-1), { size: 50 }),
-      cbtn(player && player.loading ? h("span", { style: { color: t.bg2, fontSize: 13 } }, "…") : playing ? ic("pause", t.bg2, 30) : ic("play", t.bg2, 30), onTogglePlay, { bg: t.ink, size: 70 }),
+      cbtn(player && player.loading ? h("span", { style: { color: t.bg2, fontSize: "calc(13px * var(--app-fs, 1))" } }, "…") : playing ? ic("pause", t.bg2, 30) : ic("play", t.bg2, 30), onTogglePlay, { bg: t.ink, size: 70 }),
       cbtn(ic("next", t.ink, 24), () => onStep(1), { size: 50 }),
       // 前进键右边：当前队列/歌单顺序
       cbtn(ic("list", showQueue ? (t.accent || "#8a6d3b") : t.ink, 20), () => setShowQueue(v => !v), { size: 44, style: { background: showQueue ? (t.accent || "#8a6d3b") + "22" : "transparent" } })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, ({ order: "列表循环", one: "单曲循环", shuffle: "随机播放" })[playMode || "order"]),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, ({ order: "列表循环", one: "单曲循环", shuffle: "随机播放" })[playMode || "order"]),
     talk ? talk.bar : null,
     // 和谁听：那张封套（sleeveCard 在上面）
     sleeveCard,
@@ -4386,23 +4386,23 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     showQueue ? h("div", { className: "w-full", style: { marginTop: 14 } },
       h(Eyebrow, { style: { marginBottom: 8 } }, "当前队列 · " + nowQueue.length),
       h("div", { className: "space-y-1", style: { maxHeight: "34vh", overflowY: "auto" } }, nowQueue.map((s, i) => h("button", { key: s.id + "_" + i, "data-wk": "listenqueue", "data-on": s.id === nowId ? "1" : "0", onClick: () => onPlaySong(s.id, nowQueue.map(x => x.id)), className: "w-full flex items-center gap-2.5 active:opacity-70", style: { textAlign: "left", padding: "6px 8px", borderRadius: 10, background: s.id === nowId ? (t.accent || "#8a6d3b") + "14" : "transparent" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: s.id === nowId ? (t.accent || "#8a6d3b") : t.fog, width: 18, flexShrink: 0, textAlign: "center" } }, String(i + 1)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: s.id === nowId ? (t.accent || "#8a6d3b") : t.fog, width: 18, flexShrink: 0, textAlign: "center" } }, String(i + 1)),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: s.id === nowId ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(s.title)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "")))))) : null)
-    : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "80px 24px", lineHeight: 1.9 } }, "还没有歌\n" + (apiBase ? "去「发现」搜一首，或去「设置」贴链接 / 传本地" : "去「设置」贴链接 / 传本地，配了搜索接口就能搜歌"));
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: s.id === nowId ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, STX(s.title)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "")))))) : null)
+    : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "80px 24px", lineHeight: 1.9 } }, "还没有歌\n" + (apiBase ? "去「发现」搜一首，或去「设置」贴链接 / 传本地" : "去「设置」贴链接 / 传本地，配了搜索接口就能搜歌"));
 
   // ============ 首页 tab（浏览 + 添加 + 设置）============
   const homeTab = h("div", { className: "px-6 pb-6" },
     h("div", { style: { padding: "14px 0", borderBottom: "1px solid " + t.line } },
-      h("label", { htmlFor: "listen-music-provider", style: { display: "block", fontFamily: F_BODY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "音乐源"),
+      h("label", { htmlFor: "listen-music-provider", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "音乐源"),
       h("select", { id: "listen-music-provider", value: musicProvider, style: field, onChange: e => {
         stopQrLogin();
         setLyrics({});
         setCv(p => ({ ...p, me: null, daily: null, pls: null, open: null, openSongs: null, results: null, likeIds: null, fm: null, recent: null, tops: null, busy: false }));
         onSetMusicProvider(e.target.value);
       } }, h("option", { value: "gd" }, "GD 音乐台 · 免 Cookie（默认）"), h("option", { value: "netease" }, "网易云 · 自己的接口")),
-      gdMusic ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 8 } },
+      gdMusic ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 8 } },
         h("a", { href: "https://music.gdstudio.xyz", target: "_blank", rel: "noopener noreferrer", style: { color: t.tint } }, "来源：GD 音乐台（music.gdstudio.xyz）"),
         "。仅限非商业学习试用，五分钟最多 50 次请求。不发送你的网易云 Cookie；原接口与账号设置保留。到「发现」搜歌。") : null),
     // ⚠️v62.81 撤掉了这儿的搜索条和旁边那颗上传钮（她 2026-09-05：「发现那里显示我的账号和搜索，
@@ -4414,8 +4414,8 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       return h("button", { "data-wk": "listenkeepalive", "data-on": kaOn ? "1" : "0", onClick: () => (player && player.songId === KEEPALIVE_ID) ? onTogglePlay() : onPlaySong(KEEPALIVE_ID), className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ marginTop: 12, padding: "11px 13px", textAlign: "left" }, kaOn) },
         h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #3a3a42 0 34%, #23232a 35%)", display: "flex", alignItems: "center", justifyContent: "center", animation: kaOn ? "wk-spin 9s linear infinite" : "none" } }, ic("moon", "#e6dcc4", 17)),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "静音保活"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1, lineHeight: 1.4 } }, kaOn ? "正放着 · 手机后台醒着接消息（无声，别锁太久 iOS 仍会挂起）" : "点一下：放段无声音频撑住后台，让 TA 更容易后台发消息来")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, "静音保活"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1, lineHeight: 1.4 } }, kaOn ? "正放着 · 手机后台醒着接消息（无声，别锁太久 iOS 仍会挂起）" : "点一下：放段无声音频撑住后台，让 TA 更容易后台发消息来")),
         h("div", { style: { flexShrink: 0, width: 30, height: 30, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } },
           kaOn ? h("div", { "data-wk": "block", style: { display: "flex", gap: 2.5 } }, h("div", { style: { width: 3, height: 11, borderRadius: 2, background: t.bg2 } }), h("div", { style: { width: 3, height: 11, borderRadius: 2, background: t.bg2 } }))
           : h("div", { style: { width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "9px solid " + t.bg2, marginLeft: 2 } })));
@@ -4443,23 +4443,23 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
               h("input", { "data-wk": "input", value: link, onChange: e => setLink(e.target.value), placeholder: "贴网易云分享链接或歌曲ID", style: Object.assign({ marginBottom: 8 }, field) }),
               h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "歌名（选填，填了角色聊得更准）", style: Object.assign({ marginBottom: 8 }, field) }),
               h("div", { className: "flex items-center gap-2" },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: 1, lineHeight: 1.4 } }, "分享→复制链接贴进来；VIP/无版权可能放不出"),
-                h("button", { "data-wk": "block", onClick: addNet, disabled: !link.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "7px 18px", borderRadius: 10, flexShrink: 0 } }, "添加")))
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flex: 1, lineHeight: 1.4 } }, "分享→复制链接贴进来；VIP/无版权可能放不出"),
+                h("button", { "data-wk": "block", onClick: addNet, disabled: !link.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "7px 18px", borderRadius: 10, flexShrink: 0 } }, "添加")))
           : h("div", null,
-              h("button", { onClick: () => audioFileRef.current && audioFileRef.current.click(), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: localFile ? t.ink : t.tint, border: "1px dashed " + t.line, borderRadius: 8, padding: "10px", marginBottom: 8 } }, localFile ? "已选 · " + localFile.name.slice(0, 24) : "选一个音频文件"),
+              h("button", { onClick: () => audioFileRef.current && audioFileRef.current.click(), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: localFile ? t.ink : t.tint, border: "1px dashed " + t.line, borderRadius: 8, padding: "10px", marginBottom: 8 } }, localFile ? "已选 · " + localFile.name.slice(0, 24) : "选一个音频文件"),
               h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "歌名（留空=文件名）", style: Object.assign({ marginBottom: 8 }, field) }),
               h("div", { className: "flex items-center gap-2" },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: 1, lineHeight: 1.4 } }, "只存这台设备，不上传；清缓存会没"),
-                h("button", { "data-wk": "block", onClick: addLoc, disabled: !localFile, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "7px 18px", borderRadius: 10, flexShrink: 0 } }, "添加"))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flex: 1, lineHeight: 1.4 } }, "只存这台设备，不上传；清缓存会没"),
+                h("button", { "data-wk": "block", onClick: addLoc, disabled: !localFile, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "7px 18px", borderRadius: 10, flexShrink: 0 } }, "添加"))),
       !gdMusic && h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 12, paddingTop: 10 } },
         apiEdit
           ? h("div", null,
               h("input", { "data-wk": "input", value: apiInput, onChange: e => setApiInput(e.target.value), placeholder: "https://你的-netease-api.vercel.app", style: Object.assign({ marginBottom: 8 }, field) }),
-              h("button", { onClick: () => setApiInput("https://yanqiu-vps.tail542792.ts.net/music"), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginBottom: 8 } }, "一键填咱家 VPS 的接口"),
+              h("button", { onClick: () => setApiInput("https://yanqiu-vps.tail542792.ts.net/music"), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, marginBottom: 8 } }, "一键填咱家 VPS 的接口"),
               h("div", { className: "flex gap-2" },
-                h("button", { onClick: () => { onSetApiBase(apiInput); setApiEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "保存"),
-                h("button", { onClick: () => setApiEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "取消")))
-          : h("button", { onClick: () => { setApiInput(apiBase || ""); setApiEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: apiBase ? t.fog : t.tint } }, apiBase ? "已连搜索接口 · 改" : "配网易云搜索接口（自部署后填地址，就能搜歌名）"),
+                h("button", { onClick: () => { onSetApiBase(apiInput); setApiEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 8 } }, "保存"),
+                h("button", { onClick: () => setApiEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 8 } }, "取消")))
+          : h("button", { onClick: () => { setApiInput(apiBase || ""); setApiEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: apiBase ? t.fog : t.tint } }, apiBase ? "已连搜索接口 · 改" : "配网易云搜索接口（自部署后填地址，就能搜歌名）"),
         // 还没接口、或者正在改的时候，底下挂着怎么搭（群里 2026-10-14：「除了 cookie 还要啥」——要的是这个接口）
         (!apiBase || apiEdit) ? h(NeteaseApiHelp, { toast: typeof toast === "function" ? toast : null }) : null),
       // 可选：网易云账号 Cookie（放 VIP 歌用）——服务端注入的可不填
@@ -4467,21 +4467,21 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         ckEdit
           ? h("div", null,
               h("textarea", { "data-wk": "textarea", value: ckInput, onChange: e => setCkInput(e.target.value), rows: 3, placeholder: "粘贴网易云 Cookie（一般是 MUSIC_U=…；只想放免费歌可留空）", style: Object.assign({ marginBottom: 8, resize: "vertical", lineHeight: 1.4 }, field) }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "只存这台设备。填了后点歌会带上它 → 后端转发给网易云 → 能放你账号的 VIP 歌。Cookie 会过期，失效了重登换一份。"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "只存这台设备。填了后点歌会带上它 → 后端转发给网易云 → 能放你账号的 VIP 歌。Cookie 会过期，失效了重登换一份。"),
               h("div", { className: "flex gap-2" },
-                h("button", { onClick: () => { onSetCookie(ckInput); setCkEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "保存"),
-                h("button", { onClick: () => setCkEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "取消")))
+                h("button", { onClick: () => { onSetCookie(ckInput); setCkEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 8 } }, "保存"),
+                h("button", { onClick: () => setCkEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 8 } }, "取消")))
           : h("div", null,
               h("div", { className: "flex items-center justify-between gap-2" },
-                h("button", { onClick: () => { setCkInput(cookie || ""); setCkEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: cookie ? t.fog : t.tint, textAlign: "left" } }, cookie ? "已填账号 Cookie（可放 VIP）· 改" : "配账号 Cookie（可放 VIP 歌，选填）"),
-                h("button", { onClick: onTestLogin, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 10px" } }, "测登录"),
-                h("button", { "data-wk": "block", onClick: startQrLogin, disabled: qr.busy, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: t.ink, borderRadius: 8, padding: "4px 10px", opacity: qr.busy ? 0.5 : 1 } }, qr.busy ? "生成中…" : "扫码登录")),
+                h("button", { onClick: () => { setCkInput(cookie || ""); setCkEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: cookie ? t.fog : t.tint, textAlign: "left" } }, cookie ? "已填账号 Cookie（可放 VIP）· 改" : "配账号 Cookie（可放 VIP 歌，选填）"),
+                h("button", { onClick: onTestLogin, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 10px" } }, "测登录"),
+                h("button", { "data-wk": "block", onClick: startQrLogin, disabled: qr.busy, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 8, padding: "4px 10px", opacity: qr.busy ? 0.5 : 1 } }, qr.busy ? "生成中…" : "扫码登录")),
               // 扫码登录：手机网易云 App 扫这个码 → 自动拿 Cookie，免手贴（后端 /login/qr/*）
               qr.img ? h("div", { style: { marginTop: 10, textAlign: "center" } },
                 h("img", { src: qr.img, style: { width: 160, height: 160, borderRadius: 10, border: "1px solid " + t.line, background: "#fff" } }),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: qr.status === "done" ? "#3f7d4e" : t.fog, marginTop: 6 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: qr.status === "done" ? "#3f7d4e" : t.fog, marginTop: 6 } },
                   qr.status === "waiting" ? "打开手机网易云 App 扫一扫" : qr.status === "scanned" ? "扫到了，在手机上点确认" : qr.status === "done" ? "登录成功，Cookie 已自动存好（仅本机）" : qr.status === "expired" ? "码过期了，再点一次扫码登录" : "…"),
-                qr.status !== "done" ? h("button", { onClick: stopQrLogin, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "取消") : null) : null)) : null));
+                qr.status !== "done" ? h("button", { onClick: stopQrLogin, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "取消") : null) : null)) : null));
 
   // ============ 我的 tab（歌单）============
   // cv（云村/账号态）在这里声明：「我的」tab 渲染时直接读它，声明放云村区会 TDZ 白屏
@@ -4514,8 +4514,8 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         boxShadow: hex6(t.ink) ? "inset 0 0 0 1px " + t.ink + "1a" : "none" } },
       s.cover ? null : ic("note", t.fog, 16)),
     h("button", { key: "b", onClick: () => playCloud(s, o.srcId), className: "flex-1 min-w-0 active:opacity-70", style: { textAlign: "left", minHeight: 40 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云")),
     !gdMusic ? rowBtn("heart", (cv.likeIds && cv.likeIds.has(String(s.id))) ? "solid" : t.fog, () => likeSong(s), "红心") : null,
     rowBtn("plus", t.fog, () => onAddNeteaseResult(s), "收进咱家歌库"),
     !gdMusic ? rowBtn("cloudplus", t.tint, () => openCvAdd(s), "加进网易云歌单") : null,
@@ -4571,28 +4571,28 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     h("button", { onClick: () => openCloudPl(pl), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
       h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
       h("div", { className: "min-w-0 flex-1" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首" + (pl.freq ? " · " + pl.freq : pl.mine ? "" : " · 收藏")))),
-    pl.mine ? h("button", { onClick: () => delRealPl(pl), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a4442e" } }, "删") : null,
-    h("span", { style: { color: t.fog, fontSize: 16 } }, "›"));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, pl.count + " 首" + (pl.freq ? " · " + pl.freq : pl.mine ? "" : " · 收藏")))),
+    pl.mine ? h("button", { onClick: () => delRealPl(pl), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#a4442e" } }, "删") : null,
+    h("span", { style: { color: t.fog, fontSize: "calc(16px * var(--app-fs, 1))" } }, "›"));
   const cvSection = (title, right) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 4, marginTop: 14 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title), right || null);
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, title), right || null);
   const mineTab = h("div", { className: "px-6 pb-6" },
     openPlObj
       ? h("div", null, // 歌单详情（含「我喜欢的音乐」）
           h("div", { className: "flex items-center gap-2", style: { marginTop: 8, marginBottom: 12 } },
-            h("button", { onClick: () => setOpenPl(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "‹ 歌单"),
+            h("button", { onClick: () => setOpenPl(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "‹ 歌单"),
             h("div", { className: "flex-1 min-w-0 flex items-center justify-center gap-1.5" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, openPlObj.name),
-              !isFavView ? h("button", { onClick: () => requestAppPrompt("歌单改名", "", openPlObj.name, function (nv) { if (String(nv || "").trim()) onRenamePlaylist(openPlObj.id, String(nv).trim()); }, "改好了", { maxLength: 24 }), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 4px", minHeight: 32 } }, "改名") : null),
-            !isFavView ? h("button", { onClick: () => { onDeletePlaylist(openPlObj.id); setOpenPl(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "删除") : h("div", { style: { width: 28 } })),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, openPlObj.name),
+              !isFavView ? h("button", { onClick: () => requestAppPrompt("歌单改名", "", openPlObj.name, function (nv) { if (String(nv || "").trim()) onRenamePlaylist(openPlObj.id, String(nv).trim()); }, "改好了", { maxLength: 24 }), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 4px", minHeight: 32 } }, "改名") : null),
+            !isFavView ? h("button", { onClick: () => { onDeletePlaylist(openPlObj.id); setOpenPl(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "删除") : h("div", { style: { width: 28 } })),
           (openPlObj.songs || []).length
             ? h("div", null, (openPlObj.songs || []).map((s, i2) => songRow(s, { no: i2 + 1, queue: (openPlObj.songs || []).map(x => x.id), inPlaylist: isFavView ? null : openPlObj.id })))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", lineHeight: 1.8 } }, isFavView ? "还没有收藏的歌。听到喜欢的点一下红心就会收进这里。" : "这个歌单还没歌。去「发现」搜歌，在歌里点加号收进来——下面也能从「全部」挑。"),
+            : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 0", lineHeight: 1.8 } }, isFavView ? "还没有收藏的歌。听到喜欢的点一下红心就会收进这里。" : "这个歌单还没歌。去「发现」搜歌，在歌里点加号收进来——下面也能从「全部」挑。"),
           // 从全部歌里挑加入（复制一份进歌单，和「全部」互不影响）——收藏歌单不需要
           (!isFavView && songs.length) ? h("div", { style: { marginTop: 16 } },
             h(Eyebrow, { style: { marginBottom: 8 } }, "从全部歌加入"),
-            h("div", { className: "flex flex-wrap gap-2" }, songs.filter(s => !(openPlObj.songs || []).some(x => (s.neteaseId && x.neteaseId === s.neteaseId) || x.id === s.id)).map(s => h("button", { "data-wk": "block", key: s.id, onClick: () => onAddToPlaylist(openPlObj.id, s), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px" } }, STX(s.title))))) : null)
+            h("div", { className: "flex flex-wrap gap-2" }, songs.filter(s => !(openPlObj.songs || []).some(x => (s.neteaseId && x.neteaseId === s.neteaseId) || x.id === s.id)).map(s => h("button", { "data-wk": "block", key: s.id, onClick: () => onAddToPlaylist(openPlObj.id, s), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px" } }, STX(s.title))))) : null)
       : h("div", null,
           // 网易云账号区（v54.51）：把她真账号的「我喜欢的音乐」和自建歌单搬进「我的」，
           // 和网易云 App 的我的页一个样；点开跳到推荐页的歌单详情（写权限都在那边）
@@ -4600,8 +4600,8 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
             h("button", { onClick: () => { setNav("cloud"); openLikePl(); }, className: "w-full flex items-center gap-3 active:opacity-80", style: sleeve({ padding: "11px 13px", textAlign: "left" }) },
               h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 4, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我喜欢的音乐"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 网易云账号"))),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "我喜欢的音乐"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 网易云账号"))),
             // 我建的（网易云里我自己建的，可删）。⚠️「我喜欢的音乐」不列进来——
             // 它是账号自动建的那一张，上面已经有一张专门的大卡了。列进来就是同一样东西两份。
             (() => { const mine = (cv.pls || []).filter(p => p.mine && p.name !== "我喜欢的音乐");
@@ -4613,7 +4613,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
               h("input", { "data-wk": "input", value: cvPlName, onChange: e => setCvPlName(e.target.value), placeholder: "在网易云账号里新建歌单", style: field }),
               h("button", { onClick: () => { if (cvPlName.trim()) createRealPl(cvPlName.trim()); }, disabled: !cvPlName.trim(),
                 className: "active:opacity-70 disabled:opacity-40",
-                style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 10, padding: "0 14px" } }, "建")),
+                style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 10, padding: "0 14px" } }, "建")),
             // 我收藏的（别人的歌单，没有写权限，所以不给删）
             (() => { const fav = (cv.pls || []).filter(p => !p.mine);
               return fav.length ? h("div", { style: { marginTop: 14 } },
@@ -4621,42 +4621,42 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
                 fav.map(cvPlRow)) : null; })(),
             // 最近播放：原来藏在「发现」的第四个药丸里，可它答的是「我听过什么」——是我的东西。
             h(Eyebrow, { style: { marginTop: 16, marginBottom: 2 } }, "最近播放"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "你网易云账号的听歌记录——在这儿听的也会登记进去。这是「听过什么」，不是「存了什么」"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, "你网易云账号的听歌记录——在这儿听的也会登记进去。这是「听过什么」，不是「存了什么」"),
             cv.recent
               ? (cv.recent.length ? cv.recent.slice(0, 15).map((s2, i2) => cloudRow(s2, { no: i2 + 1 }))
-                 : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "12px 0", textAlign: "center" } }, "没有最近播放"))
+                 : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "12px 0", textAlign: "center" } }, "没有最近播放"))
               // ⚠️写成 onClick: loadRecent 会 TDZ——那是【立刻取引用】，而 loadRecent
               //   声明在云村区、也就是这一段后面。包一层箭头才是等点了再取。
               : h("button", { onClick: () => loadRecent(), className: "w-full active:opacity-70",
-                  style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "12px 0" } }, "看最近播放的 →"),
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint, padding: "12px 0" } }, "看最近播放的 →"),
             h(Eyebrow, { style: { marginTop: 14, marginBottom: 2 } }, "本地 · 一起听")) : null,
           // 本地收藏（点左侧打开看列表；右侧圆钮直接播放）
           h("div", { className: "w-full flex items-center gap-3", style: sleeve({ marginTop: 8, padding: "11px 13px" }) },
             h("button", { onClick: () => setOpenPl("__fav__"), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-80 text-left" },
               h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 4, background: "linear-gradient(135deg,#8a6d3b,#cfc0a0)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("heart", "#fff", 24)),
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, (!gdMusic && apiBase && cookie) ? "本地收藏" : "我喜欢的音乐"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, favs.length + " 首 · 咱家歌库的收藏"))),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, (!gdMusic && apiBase && cookie) ? "本地收藏" : "我喜欢的音乐"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, favs.length + " 首 · 咱家歌库的收藏"))),
             h("button", { onClick: () => favs.length && onPlaySong(favs[0].id, favs.map(s => s.id)), className: "shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 18))),
           // 创建歌单
           h("div", { className: "flex gap-2", style: { marginTop: 14 } },
             h("input", { "data-wk": "input", value: plName, onChange: e => setPlName(e.target.value), placeholder: "新建歌单名", style: field }),
-            h("button", { onClick: () => { if (plName.trim()) { const id = onCreatePlaylist(plName.trim(), []); setPlName(""); setOpenPl(id); } }, disabled: !plName.trim(), className: "active:opacity-75 disabled:opacity-40", style: { background: t.bg, color: t.ink, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 4, flexShrink: 0, minHeight: 44 } }, "建")),
+            h("button", { onClick: () => { if (plName.trim()) { const id = onCreatePlaylist(plName.trim(), []); setPlName(""); setOpenPl(id); } }, disabled: !plName.trim(), className: "active:opacity-75 disabled:opacity-40", style: { background: t.bg, color: t.ink, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "0 16px", borderRadius: 4, flexShrink: 0, minHeight: 44 } }, "建")),
           // 角色歌单生成
           h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", marginTop: 14 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "根据角色人设生成歌单"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, marginBottom: 10, lineHeight: 1.4 } }, "让 TA 推 10 首自己会单曲循环的歌，自动去网易云拉成能直接听的歌单（需先配搜索接口）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "根据角色人设生成歌单"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, marginBottom: 10, lineHeight: 1.4 } }, "让 TA 推 10 首自己会单曲循环的歌，自动去网易云拉成能直接听的歌单（需先配搜索接口）"),
             plCharPick
-              ? h("div", { className: "flex flex-wrap gap-2" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPlCharPick(false); onGenCharPlaylist(c); }, className: "active:opacity-70 flex items-center gap-1.5", style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 10px 5px 5px" } }, h(Avatar, { character: c, size: 24, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, c.name))))
-              : h("button", { "data-wk": "block", onClick: () => setPlCharPick(true), disabled: !!genCharPl, className: "w-full active:opacity-75 disabled:opacity-50", style: { background: t.bg, color: t.ink, border: "1px dashed " + (hex6(t.ink) ? t.ink + "55" : t.line), fontFamily: F_DISPLAY, fontSize: 14, padding: "10px", borderRadius: 4, minHeight: 44 } }, genCharPl ? "生成中…" : "选一个角色生成")),
+              ? h("div", { className: "flex flex-wrap gap-2" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPlCharPick(false); onGenCharPlaylist(c); }, className: "active:opacity-70 flex items-center gap-1.5", style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 10px 5px 5px" } }, h(Avatar, { character: c, size: 24, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, c.name))))
+              : h("button", { "data-wk": "block", onClick: () => setPlCharPick(true), disabled: !!genCharPl, className: "w-full active:opacity-75 disabled:opacity-50", style: { background: t.bg, color: t.ink, border: "1px dashed " + (hex6(t.ink) ? t.ink + "55" : t.line), fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "10px", borderRadius: 4, minHeight: 44 } }, genCharPl ? "生成中…" : "选一个角色生成")),
           // 已有歌单列表（角色生成的歌单也在这儿）
           playlists.length ? h("div", { style: { marginTop: 16 } },
             h(Eyebrow, { style: { marginBottom: 8 } }, "歌单 · " + playlists.length),
             h("div", { className: "space-y-2" }, playlists.map(pl => { const ch = pl.charId ? (characters || []).find(c => c.id === pl.charId) : null; const q = (pl.songs || []).map(s => s.id); return h("div", { key: pl.id, className: "flex items-center gap-3", style: sleeve({ padding: "9px 11px" }) },
               h("button", { onClick: () => { if (q.length) onPlaySong(q[0], q); }, className: "shrink-0 active:opacity-70", style: { width: 46, height: 46, borderRadius: 4, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + ")" : "linear-gradient(135deg,#a8b4c0,#cfc9bd)", display: "flex", alignItems: "center", justifyContent: "center" } }, ch ? h(Avatar, { character: ch, size: 26, radius: 999 }) : ic("note", "#fff", 18)),
               h("button", { onClick: () => setOpenPl(pl.id), className: "flex-1 min-w-0 text-left active:opacity-70" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (pl.songs || []).length + " 首" + (ch ? " · " + ch.name : ""))),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (pl.songs || []).length + " 首" + (ch ? " · " + ch.name : ""))),
               h("button", { onClick: () => { if (q.length) onPlaySong(q[0], q); }, className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 16))); }))) : null,
           // ⚠️「存在这儿的」必须排在歌单列表【后面】：它动辄几十首，插在前面就把
           //   角色生成的那几个歌单挤到翻不到的地方（她 2026-09-03 报的正是这个，
@@ -4666,7 +4666,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
             // ⚠️它跟上面的「最近播放」不是一回事，得说清楚，不然两栏看着一样
             //  （她 2026-09-03：「这个最近播放和下面的全部有啥区别」）：
             //   最近播放＝你听过什么（网易云账号的记录）；这一栏＝你在这儿存了什么。
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } },
               "咱家歌库里存着的歌——跟网易云账号没关系，在这儿删只影响这一栏，不动任何歌单"),
             h("div", null, songs.map((s2, i2) => songRow(s2, { no: i2 + 1, canRename: true })))) : null));
 
@@ -4678,7 +4678,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
       style: { position: "relative", color: on ? t.ink : t.fog, transform: on ? "translateY(-1px)" : "none" } },
       on ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: 0, left: "50%", marginLeft: -9, width: 18, height: 3, borderRadius: 2, background: t.accent || t.ink } }) : null,
       iconEl,
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: on ? ".06em" : "0" } }, label)); };
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: on ? ".06em" : "0" } }, label)); };
 
   // ============ 云村 tab（v54.46 全量返工）：登录后就是一个小网易云 ============
   // 她搬到 VPS 后要的「完全搬进来」：搜索全库 / 日推 / 私人FM(带垃圾桶) / 排行榜 /
@@ -4818,14 +4818,14 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   };
   const cvAddSheet = cvAddPick ? h("div", { className: "absolute inset-0 z-40 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: () => setCvAddPick(null) },
     h("div", { "data-wk": "block", className: "w-full", style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px calc(env(safe-area-inset-bottom) + 18px)", maxHeight: "60%", overflowY: "auto" }, onClick: e => e.stopPropagation() },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 4 } }, "加进网易云歌单"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "《" + cvAddPick.name + "》→ 会真实写进你的网易云账号"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "加进网易云歌单"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } }, "《" + cvAddPick.name + "》→ 会真实写进你的网易云账号"),
       (cv.pls || []).filter(p => p.mine).map(pl => h("button", { key: pl.id, onClick: () => addToRealPl(pl, cvAddPick), className: "w-full flex items-center gap-3 py-2.5 active:opacity-70", style: { borderBottom: "1px solid " + t.line, textAlign: "left" } },
         h("div", { style: { flexShrink: 0, width: 38, height: 38, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=80y80)" : t.bg2 } }),
         h("div", { className: "min-w-0 flex-1" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, pl.count + " 首")))),
-      ((cv.pls || []).filter(p => p.mine).length === 0) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "14px 0" } }, "没找到你自己建的歌单——先去网易云 App 建一个（比如「赢言秋的歌」），回来刷新云村就有了") : null)) : null;
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, pl.count + " 首")))),
+      ((cv.pls || []).filter(p => p.mine).length === 0) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "14px 0" } }, "没找到你自己建的歌单——先去网易云 App 建一个（比如「赢言秋的歌」），回来刷新云村就有了") : null)) : null;
   const likeSong = async s => {
     const liked = cv.likeIds && cv.likeIds.has(String(s.id));
     try {
@@ -4850,25 +4850,25 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
     if (isMine(x.by)) return h(Avatar, { character: { avatarImage: (profile || {}).avatarImage, name: (profile || {}).name }, size, radius: 999 });
     const c = (characters || []).find(y => y.id === x.by); if (c) return h(Avatar, { character: c, size, radius: 999 });
     const hu = hueOf(x.name); return h("div", { style: { width: size, height: size, borderRadius: 999, flexShrink: 0, background: "hsl(" + hu + ",32%,78%)", color: "hsl(" + hu + ",35%,30%)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: size * .42 } }, String(x.name || "?").slice(0, 1)); };
-  const nameTag = x => h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: isMine(x.by) ? (t.accent || t.tint) : isChar(x.by) ? t.ink : t.fog } }, x.name,
-    isChar(x.by) ? h("span", { style: { fontSize: 9.5, color: t.tint, border: "1px solid " + t.tint, borderRadius: 4, padding: "0 3px", marginLeft: 5, verticalAlign: 1 } }, "你认识") : null);
+  const nameTag = x => h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: isMine(x.by) ? (t.accent || t.tint) : isChar(x.by) ? t.ink : t.fog } }, x.name,
+    isChar(x.by) ? h("span", { style: { fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.tint, borderRadius: 4, padding: "0 3px", marginLeft: 5, verticalAlign: 1 } }, "你认识") : null);
   // 一条评论（网易云的样子）：点正文就是回他
   const talkRow = (x, onPick, onDel) => h("div", { key: x.id, "data-wk": "listencomment", className: "flex", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
     sqAv(x, 30),
     h("div", { className: "flex-1 min-w-0" },
       h("div", { className: "flex items-center justify-between", style: { gap: 8 } }, nameTag(x),
-        h("span", { className: "flex items-center", style: { gap: 3, fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, likeTxt(x.likes), ic("heart", t.fog, 14))),
-      h("button", { onClick: () => onPick(x), className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.7, marginTop: 3, minHeight: 28 } },
+        h("span", { className: "flex items-center", style: { gap: 3, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, likeTxt(x.likes), ic("heart", t.fog, 14))),
+      h("button", { onClick: () => onPick(x), className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, marginTop: 3, minHeight: 28 } },
         x.to ? h("span", { style: { color: t.fog } }, "回复@" + x.to + "：") : null, x.text),
-      h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, gap: 4 } }, agoOf(x.ts), isMine(x.by) ? null : " · 回复",
-        onDel ? h("button", { "data-wk": "listendel", onClick: () => onDel(x), className: "active:opacity-60", style: { marginLeft: "auto", minHeight: 32, minWidth: 40, color: t.fog, fontSize: 10.5 } }, "删除") : null)));
+      h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, gap: 4 } }, agoOf(x.ts), isMine(x.by) ? null : " · 回复",
+        onDel ? h("button", { "data-wk": "listendel", onClick: () => onDel(x), className: "active:opacity-60", style: { marginLeft: "auto", minHeight: 32, minWidth: 40, color: t.fog, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, "删除") : null)));
   const hotOf = items => (items || []).filter(x => (x.likes || 0) >= 20).slice().sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 5);
   const sendBox = (val, setVal, to, onSend, busy, ph, clearTo) => h("div", { style: { marginTop: 8 } },
-    to ? h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4, gap: 4 } }, "回复@" + to, h("button", { onClick: clearTo, style: { color: t.tint, minHeight: 32, padding: "0 6px" } }, "不回了")) : null,
+    to ? h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4, gap: 4 } }, "回复@" + to, h("button", { onClick: clearTo, style: { color: t.tint, minHeight: 32, padding: "0 6px" } }, "不回了")) : null,
     h("div", { className: "flex", style: { gap: 6 } },
       h("input", { "data-wk": "input", value: val, onChange: e => setVal(e.target.value), onKeyDown: e => { if (e.key === "Enter" && val.trim() && !busy) onSend(); }, placeholder: ph, className: "flex-1 min-w-0 outline-none",
-        style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
-      h("button", { "data-wk": "block", onClick: onSend, disabled: !val.trim() || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发送")));
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
+      h("button", { "data-wk": "block", onClick: onSend, disabled: !val.trim() || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, busy ? "…" : "发送")));
   const openTalk = (song, back) => { setTalkSong(song); setTalkBack(back || "square"); setTalkDraft(""); setTalkTo(""); setNav("songtalk"); };
   // 歌的那一条：封面上一颗播放键，点就放（这页的沟纹、碟她撤过，不再加回来）
   const sleeveRow = (song, onPlay, onTalk) => h("div", { className: "flex items-center", style: { gap: 10, padding: 8, borderRadius: 12, background: t.bg, border: "1px solid " + t.line, marginTop: 10 } },
@@ -4878,45 +4878,45 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
           : h("div", { style: { position: "absolute", left: 0, top: 0, width: 56, height: 56, borderRadius: 8, background: t.line } }),
         h("span", { style: { position: "absolute", left: 18, top: 18, width: 20, height: 20, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", "#333", 12))),
       h("div", { className: "min-w-0 flex-1" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (song && song.title) || ""),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 } }, (song && song.artist) || ""))),
-    onTalk ? h("button", { "data-wk": "listensqtalk", onClick: onTalk, className: "active:opacity-70", style: { minWidth: 48, minHeight: 44, fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "歌评 ›") : null);
-  const actBtn = (wk, icon, label, on, fn) => h("button", { "data-wk": wk, onClick: fn, className: "flex items-center active:opacity-60", style: { gap: 4, minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12, color: on ? (t.accent || t.tint) : t.sub } }, icon ? ic(icon, on ? (t.accent || t.tint) : t.sub, 16) : null, label);
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (song && song.title) || ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 } }, (song && song.artist) || ""))),
+    onTalk ? h("button", { "data-wk": "listensqtalk", onClick: onTalk, className: "active:opacity-70", style: { minWidth: 48, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "歌评 ›") : null);
+  const actBtn = (wk, icon, label, on, fn) => h("button", { "data-wk": wk, onClick: fn, className: "flex items-center active:opacity-60", style: { gap: 4, minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? (t.accent || t.tint) : t.sub } }, icon ? ic(icon, on ? (t.accent || t.tint) : t.sub, 16) : null, label);
   const postCard = p => { const cms = p.comments || [], open = sqAll === p.id, hot = hotOf(cms), preview = (hot.length ? hot : cms).slice(0, 2);
     return h("div", { key: p.id, "data-wk": "listensqpost", style: { padding: 14, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 12px rgba(40,30,20,.05)", marginBottom: 12 } },
       h("div", { className: "flex items-center", style: { gap: 10 } }, sqAv(p, 38),
-        h("div", { className: "min-w-0 flex-1" }, nameTag(p), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, agoOf(p.ts) + " · 分享单曲")),
-        h("button", { "data-wk": "listendel", onClick: () => onDelSquare && onDelSquare(p.id), className: "active:opacity-60", style: { minHeight: 40, minWidth: 40, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "删除")),
-      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.8, marginTop: 9, whiteSpace: "pre-wrap" } }, p.text) : null,
+        h("div", { className: "min-w-0 flex-1" }, nameTag(p), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, agoOf(p.ts) + " · 分享单曲")),
+        h("button", { "data-wk": "listendel", onClick: () => onDelSquare && onDelSquare(p.id), className: "active:opacity-60", style: { minHeight: 40, minWidth: 40, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
+      p.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8, marginTop: 9, whiteSpace: "pre-wrap" } }, p.text) : null,
       sleeveRow(p.song, () => onPlaySquare && onPlaySquare(p), () => openTalk(p.song, "square")),
       h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
-        h("span", { className: "flex items-center", style: { gap: 4, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, ic("heart", t.fog, 16), likeTxt(p.likes) || "赞"),
+        h("span", { className: "flex items-center", style: { gap: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, ic("heart", t.fog, 16), likeTxt(p.likes) || "赞"),
         actBtn("listensqreply", null, "评论" + (cms.length ? " " + cms.length : ""), open, () => { setSqAll(open ? null : p.id); setSqOpen(p.id); setSqTo(""); }),
         actBtn("listensqshare", "regift", "转给TA", sqShare === p.id, () => setSqShare(sqShare === p.id ? null : p.id))),
       sqShare === p.id ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 4 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { onShareSquare && onShareSquare(p, c); setSqShare(null); }, className: "flex items-center active:opacity-70",
-        style: { minHeight: 40, padding: "0 12px 0 4px", gap: 6, borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, h(Avatar, { character: c, size: 30, radius: 999 }), c.remark || c.name))) : null,
+        style: { minHeight: 40, padding: "0 12px 0 4px", gap: 6, borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, h(Avatar, { character: c, size: 30, radius: 999 }), c.remark || c.name))) : null,
       !open && preview.length ? h("button", { onClick: () => { setSqAll(p.id); setSqOpen(p.id); }, className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", marginTop: 6, padding: "8px 10px", borderRadius: 10, background: t.bg } },
-        preview.map(c => h("div", { key: c.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, h("span", { style: { color: t.ink } }, c.name + "："), c.text)),
-        cms.length > preview.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 2 } }, "查看全部 " + cms.length + " 条评论 ›") : null) : null,
+        preview.map(c => h("div", { key: c.id, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, h("span", { style: { color: t.ink } }, c.name + "："), c.text)),
+        cms.length > preview.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, marginTop: 2 } }, "查看全部 " + cms.length + " 条评论 ›") : null) : null,
       open ? h("div", { style: { marginTop: 6 } },
-        hot.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 0 0" } }, "热门评论") : null,
+        hot.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 0 0" } }, "热门评论") : null,
         hot.map(c => talkRow(c, x => { setSqOpen(p.id); setSqTo(isMine(x.by) ? "" : x.name); }, x => onDelSquareComment && onDelSquareComment(p.id, x.id))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "10px 0 0" } }, "最新评论"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "10px 0 0" } }, "最新评论"),
         cms.filter(c => hot.indexOf(c) < 0).slice().reverse().map(c => talkRow(c, x => { setSqOpen(p.id); setSqTo(isMine(x.by) ? "" : x.name); }, x => onDelSquareComment && onDelSquareComment(p.id, x.id))),
-        h("button", { "data-wk": "listensqmore", onClick: () => onMoreSquare && onMoreSquare(p.id), disabled: squareBusy === p.id, className: "w-full active:opacity-70 disabled:opacity-50", style: { minHeight: 40, marginTop: 8, borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, squareBusy === p.id ? "大家在写…" : "再刷点评论"),
+        h("button", { "data-wk": "listensqmore", onClick: () => onMoreSquare && onMoreSquare(p.id), disabled: squareBusy === p.id, className: "w-full active:opacity-70 disabled:opacity-50", style: { minHeight: 40, marginTop: 8, borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, squareBusy === p.id ? "大家在写…" : "再刷点评论"),
         sendBox(sqDraft, setSqDraft, sqTo, () => { const v = sqDraft; setSqDraft(""); onReplySquare && onReplySquare(p.id, v, sqTo); setSqTo(""); }, squareBusy === p.id, sqTo ? "回复@" + sqTo : "说点什么", () => setSqTo(""))) : null); };
   const squareTab = h("div", { className: "px-4 py-3", "data-wk": "listensquare" },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 10, gap: 10 } },
-      h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, "广场"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, canSearch ? "大家最近在听什么" : "先在「设置」里配好音乐源")),
+      h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink } }, "广场"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, canSearch ? "大家最近在听什么" : "先在「设置」里配好音乐源")),
       h("button", { "data-wk": "listensqgen", onClick: () => onGenSquare && onGenSquare(), disabled: !!genSquare || !canSearch, className: "active:opacity-80 disabled:opacity-50",
-        style: { minHeight: 40, padding: "0 18px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, flexShrink: 0 } }, genSquare ? "在挑歌…" : "刷一刷")),
+        style: { minHeight: 40, padding: "0 18px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", flexShrink: 0 } }, genSquare ? "在挑歌…" : "刷一刷")),
     // 她自己发一帖：用正在放的那首
     now ? h("div", { "data-wk": "listensqcompose", style: { padding: 12, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line, marginBottom: 12 } },
-      h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, now.cover ? h("img", { src: now.cover, alt: "", style: { width: 28, height: 28, borderRadius: 5, objectFit: "cover" } }) : null, "分享正在放的 " + (LQ.songLine ? LQ.songLine(now) : now.title)),
+      h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, now.cover ? h("img", { src: now.cover, alt: "", style: { width: 28, height: 28, borderRadius: 5, objectFit: "cover" } }) : null, "分享正在放的 " + (LQ.songLine ? LQ.songLine(now) : now.title)),
       sendBox(sqPostDraft, setSqPostDraft, "", () => { const v = sqPostDraft; setSqPostDraft(""); onPostSquare && onPostSquare(v, now); }, !!squareBusy, "听的时候在想什么", null)) : null,
     square.length ? square.map(postCard)
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "40px 0", lineHeight: 1.8 } }, "还没人发帖", h("br"), "点右上「刷一刷」，你的人、论坛那几位熟面孔和路人会来分享在听的歌"));
+      : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "40px 0", lineHeight: 1.8 } }, "还没人发帖", h("br"), "点右上「刷一刷」，你的人、论坛那几位熟面孔和路人会来分享在听的歌"));
   // 一首歌的歌评整页：刷过的按门牌留在 listen.songTalk 里
   const stKey = talkSong && LQ.songKey ? LQ.songKey(talkSong) : "";
   const stPage = stKey ? ((data.songTalk || {})[stKey] || {}) : {};
@@ -4924,54 +4924,54 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
   const partnerNow = (characters || []).find(c => c.id === data.partnerId) || null;
   const pickTalk = x => setTalkTo(isMine(x.by) ? "" : x.name);
   const songTalkTab = talkSong ? h("div", { className: "px-4 py-3", "data-wk": "listentalk" },
-    h("button", { onClick: () => setNav(talkBack || "square"), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, minHeight: 40 } }, "‹ 返回"),
+    h("button", { onClick: () => setNav(talkBack || "square"), style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, minHeight: 40 } }, "‹ 返回"),
     h("div", { style: { position: "relative", overflow: "hidden", borderRadius: 16, padding: 14, marginBottom: 12, background: t.bg2, border: "1px solid " + t.line } },
       talkSong.cover ? h("div", { "aria-hidden": "true", style: { position: "absolute", inset: -20, background: "center/cover no-repeat url(" + talkSong.cover + ")", filter: "blur(18px)", opacity: .35 } }) : null,
       h("div", { className: "flex items-center", style: { position: "relative", gap: 12 } },
         talkSong.cover ? h("img", { src: talkSong.cover, alt: "", style: { width: 64, height: 64, borderRadius: 10, objectFit: "cover", boxShadow: "0 4px 12px rgba(0,0,0,.2)" } }) : null,
-        h("div", { className: "min-w-0 flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, talkSong.title || ""),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2 } }, talkSong.artist || ""),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "评论 " + stItems.length)))),
+        h("div", { className: "min-w-0 flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }, talkSong.title || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, talkSong.artist || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "评论 " + stItems.length)))),
     h("button", { "data-wk": "listentalkgen", onClick: () => onGenSongTalk && onGenSongTalk(talkSong), disabled: songTalkBusy === stKey, className: "w-full active:opacity-80 disabled:opacity-50",
-      style: { minHeight: 44, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, songTalkBusy === stKey ? "大家在写…" : (stItems.length ? "再刷一批歌评" : "刷歌评")),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, margin: "6px 0 4px" } },
+      style: { minHeight: 44, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, songTalkBusy === stKey ? "大家在写…" : (stItems.length ? "再刷一批歌评" : "刷歌评")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "6px 0 4px" } },
       (partnerNow ? "正在陪你听的「" + (partnerNow.remark || partnerNow.name) + "」每批一定会留一条。" : "") + "刷过的留在这首歌这一页，换歌再回来还在。点谁的评论就是回他。"),
     stItems.length ? h("div", null,
-      stHot.length ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "12px 0 0" } }, "精彩评论") : null,
+      stHot.length ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, margin: "12px 0 0" } }, "精彩评论") : null,
       stHot.map(x => talkRow(x, pickTalk, y => onDelSongTalk && onDelSongTalk(talkSong, y.id))),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "14px 0 0" } }, "最新评论"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, margin: "14px 0 0" } }, "最新评论"),
       stItems.filter(x => stHot.indexOf(x) < 0).slice().reverse().map(x => talkRow(x, pickTalk, y => onDelSongTalk && onDelSongTalk(talkSong, y.id))))
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "24px 0" } }, "这首歌底下还没有评论")) : null;
+      : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "24px 0" } }, "这首歌底下还没有评论")) : null;
   // 歌评页的输入框钉在最底下（她 2026-10-17：「歌评不在最下面」）：占的是底栏那一格，跟聊天的输入栏一个位置
   const songTalkBar = talkSong ? h("div", { "data-wk": "listentalkbar", className: "shrink-0", style: { padding: "2px 14px 10px", borderTop: "1px solid " + t.line, background: t.bg } },
     sendBox(talkDraft, setTalkDraft, talkTo, () => { const v = talkDraft; setTalkDraft(""); onReplySongTalk && onReplySongTalk(talkSong, v, talkTo); setTalkTo(""); }, songTalkBusy === stKey, talkTo ? "回复@" + talkTo : "写一条歌评", () => setTalkTo(""))) : null;
   const cloudTab = h("div", { className: "px-4 py-3" },
     cv.open
       ? h("div", null,
-          h("button", { onClick: () => setCv(p => ({ ...p, open: null, openSongs: null })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 8 } }, "‹ 云村"),
+          h("button", { onClick: () => setCv(p => ({ ...p, open: null, openSongs: null })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "‹ 云村"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 10 } },
             h("div", { style: { width: 54, height: 54, borderRadius: 10, background: cv.open.cover ? "center/cover no-repeat url(" + cv.open.cover + "?param=120y120)" : (cv.open.id === "__like__" ? "linear-gradient(135deg,#e0576b,#f0a8c0)" : t.bg2), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" } }, cv.open.cover ? null : (cv.open.id === "__like__" ? ic("heart", "#fff", 22) : null)),
             h("div", null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cv.open.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cv.open.count + " 首" + (cv.open.mine ? " · 我建的（可移歌）" : ""))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, cv.open.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, cv.open.count + " 首" + (cv.open.mine ? " · 我建的（可移歌）" : ""))),
             (cv.openSongs && cv.openSongs.length) ? h("button", { onClick: () => playAllCloud(cv.openSongs, cv.open.id === "__like__" ? 0 : cv.open.id), className: "ml-auto shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 16)) : null),
-          cv.openSongs ? (cv.openSongs.length ? cv.openSongs.map((s, i2) => cloudRow(s, { no: i2 + 1, srcId: cv.open.id === "__like__" ? 0 : cv.open.id, removable: cv.open.mine ? cv.open : null })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "这个歌单是空的")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "拉歌单中…"))
+          cv.openSongs ? (cv.openSongs.length ? cv.openSongs.map((s, i2) => cloudRow(s, { no: i2 + 1, srcId: cv.open.id === "__like__" ? 0 : cv.open.id, removable: cv.open.mine ? cv.open : null })) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "20px 0", textAlign: "center" } }, "这个歌单是空的")) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "20px 0", textAlign: "center" } }, "拉歌单中…"))
       : h("div", null,
           h("div", { style: cvPaper },
           cv.me ? h("div", { className: "flex items-center gap-3", style: { marginBottom: 10 } },
             h("div", { style: { width: 44, height: 44, borderRadius: 999, background: cv.me.avatar ? "center/cover no-repeat url(" + cv.me.avatar + "?param=100y100)" : t.bg2 } }),
             h("div", null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, cv.me.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "网易云账号已连 · 操作会真实写回"))) : (cv.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0" } }, "连你的网易云账号中…") : null),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, cv.me.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "网易云账号已连 · 操作会真实写回"))) : (cv.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 0" } }, "连你的网易云账号中…") : null),
           // 搜索全库：结果行上红心/☁＋/收进家全都能用
           h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
             h("input", { "data-wk": "input", value: cv.q, onChange: e => { const v = e.target.value; setCv(p => ({ ...p, q: v })); }, onKeyDown: e => { if (e.key === "Enter") cvSearch(); }, placeholder: "搜网易云全库：歌名 / 歌手", style: field }),
-            h("button", { "data-wk": "block", onClick: cvSearch, disabled: cv.searching, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 8, flexShrink: 0 } }, cv.searching ? "…" : "搜"))),
+            h("button", { "data-wk": "block", onClick: cvSearch, disabled: cv.searching, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "0 16px", borderRadius: 8, flexShrink: 0 } }, cv.searching ? "…" : "搜"))),
           cv.results
             ? h("div", null,
-                h("button", { onClick: () => setCv(p => ({ ...p, results: null, q: "" })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 4 } }, "‹ 清空搜索结果"),
-                cv.results.length ? cv.results.map((s, i2) => cloudRow(s, { no: i2 + 1 })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没搜到"))
-            : (gdMusic || !cookie) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, padding: "14px 4px" } }, gdMusic ? "GD 音乐台 · 网易云曲库试用。搜歌后可播放、收藏到本地歌单；不接账号日推和私人电台。" : "先能搜。到「设置」里扫码连上网易云账号，这儿才有今天给你的、私人FM 和大家在听的榜。")
+                h("button", { onClick: () => setCv(p => ({ ...p, results: null, q: "" })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, "‹ 清空搜索结果"),
+                cv.results.length ? cv.results.map((s, i2) => cloudRow(s, { no: i2 + 1 })) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 0", textAlign: "center" } }, "没搜到"))
+            : (gdMusic || !cookie) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, padding: "14px 4px" } }, gdMusic ? "GD 音乐台 · 网易云曲库试用。搜歌后可播放、收藏到本地歌单；不接账号日推和私人电台。" : "先能搜。到「设置」里扫码连上网易云账号，这儿才有今天给你的、私人FM 和大家在听的榜。")
             : h("div", null,
                 h("div", { className: "flex gap-1.5 items-end", style: { marginTop: 4 } }, cvChip("rec", "今天给你的"), cvChip("top", "大家在听")),
                 // 架板：碟插在里头。两侧是架子的挡板（细竖线），底下一道厚轨——
@@ -4986,13 +4986,13 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
                   //   这一栏是【发现】——装还不属于她的东西；「我喜欢的音乐」是她已经有的，
                   //   在「我的」里有一张专门的大卡。同一样东西原来在三个地方各有一份。
                   (cv.daily && cv.daily.length) ? h("div", null,
-                    cvSection("每日推荐", h("button", { onClick: () => playAllCloud(cv.daily), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "播放全部")),
+                    cvSection("每日推荐", h("button", { onClick: () => playAllCloud(cv.daily), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "播放全部")),
                     cv.daily.slice(0, 30).map((s, i2) => cloudRow(s, { no: i2 + 1 }))) : null,
-                  cvSection("私人FM", h("button", { onClick: loadFm, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, cv.fm ? "再来一批" : "开一波")),
-                  cv.fm ? (cv.fm.length ? cv.fm.map(s => cloudRow(s, { trash: true })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "都丢垃圾桶了，再来一批")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 0 8px" } }, "网易云那套私人电台——垃圾桶那一下会真实反馈「不喜欢」")) : null,
+                  cvSection("私人FM", h("button", { onClick: loadFm, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, cv.fm ? "再来一批" : "开一波")),
+                  cv.fm ? (cv.fm.length ? cv.fm.map(s => cloudRow(s, { trash: true })) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "8px 0" } }, "都丢垃圾桶了，再来一批")) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 0 8px" } }, "网易云那套私人电台——垃圾桶那一下会真实反馈「不喜欢」")) : null,
                 cv.sub === "top" ? h("div", { style: { marginTop: 6 } },
-                  cv.tops ? cv.tops.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉榜单中…")) : null,
-                (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null))));
+                  cv.tops ? cv.tops.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉榜单中…")) : null,
+                (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null))));
 
   // ── 底：封面就是这一页（v62.92）─────────────────────────────────
   // 她 2026-09-05：「封面整个代替掉页面」「我们这个纹理背景方向错了，TA放在听歌软件里不好看」。
@@ -5133,63 +5133,63 @@ function CotConfig({ toast, activeProfile }) {
     if (!sel) { toast && toast("先在上面选一个要删的预设"); return; }
     requestAppConfirm("删除预设「" + sel + "」？", "删除后不能恢复。", () => { const saved = save({ ...cfg, presets: (cfg.presets || []).filter(x => x.name !== sel) }); if ((saved.presets || []).some(x => x.name === sel)) return toast && toast("这次没删成功，原预设还在"); setSel(""); toast && toast("已删除"); }, "删除");
   };
-  const inputSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
-  const chip = (label, onClick) => h("button", { onClick, className: "active:opacity-60", style: { fontFamily: "monospace", fontSize: 12, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub, background: "transparent" } }, label);
+  const inputSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const chip = (label, onClick) => h("button", { onClick, className: "active:opacity-60", style: { fontFamily: "monospace", fontSize: "calc(12px * var(--app-fs, 1))", padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub, background: "transparent" } }, label);
   return h("div", { className: "pt-4 pb-4" },
     // 总开关
     h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
       h("div", { style: { paddingRight: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用创作小稿"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这五处：同人文、加笔、小剧场、梦境、群聊线下——普通角色的单人线下和所有线上聊天都不走这条。开了之后可以再单独关掉其中某一处。它不是模型的隐秘推理，不进正文，每段正文旁能展开看。留空 = 不启用。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "启用创作小稿"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "落笔前先写四行写作计划，再写正文。用它的是这五处：同人文、加笔、小剧场、梦境、群聊线下——普通角色的单人线下和所有线上聊天都不走这条。开了之后可以再单独关掉其中某一处。它不是模型的隐秘推理，不进正文，每段正文旁能展开看。留空 = 不启用。")),
       h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启创作小稿" : "已关闭"); } })),
     activeProfile ? h("div", { "data-wk": "block", className: "rounded-xl px-3 py-3 mt-3", style: { background: t.bg2, border: "1px solid " + (modelStatus.disabled ? "#d7a04b" : t.line) } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: modelStatus.disabled ? "#a66b13" : t.fog, marginTop: 3 } }, modelStatus.disabled ? "这个模型在线下写小稿时返回过空正文，已自动停掉线下这一路（同人文、梦境照常尝试）。" : "这个模型可以正常写小稿；万一不按格式返回，会保住正文并标明这一轮没写成。"),
-      modelStatus.disabled ? h("button", { onClick: () => { if (typeof retryOfflineCotModel === "function") retryOfflineCotModel(activeProfile); setModelStatus(offlineCotModelStatus(activeProfile)); toast && toast("已解除保险，下一轮重新试一次"); }, className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "重新试一次") : null) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: modelStatus.disabled ? "#a66b13" : t.fog, marginTop: 3 } }, modelStatus.disabled ? "这个模型在线下写小稿时返回过空正文，已自动停掉线下这一路（同人文、梦境照常尝试）。" : "这个模型可以正常写小稿；万一不按格式返回，会保住正文并标明这一轮没写成。"),
+      modelStatus.disabled ? h("button", { onClick: () => { if (typeof retryOfflineCotModel === "function") retryOfflineCotModel(activeProfile); setModelStatus(offlineCotModelStatus(activeProfile)); toast && toast("已解除保险，下一轮重新试一次"); }, className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, "重新试一次") : null) : null,
     // 单块开关（她 2026-09-04：「所有地方都单独接开关，全局开了再决定单块开不开」）
     // ⚠️总开关关着时这一段整块变灰：不然「全关着」和「这一块关着」长得一样，
     //   她按了没反应会以为坏了。名单来自 engine.js 的 COT_SPOTS，不在这儿另抄一份。
     cfg.enabled && typeof COT_SPOTS !== "undefined" ? h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline gap-2 mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "哪几处要写"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "关掉的那处照旧生成，只是不写小稿")),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "哪几处要写"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "关掉的那处照旧生成，只是不写小稿")),
       COT_SPOTS.map(function (sp) {
         var on = (cfg.blocks || {})[sp.key] !== false;
         return h("div", { key: sp.key, className: "flex items-center justify-between py-2.5", style: { borderBottom: "1px solid " + t.line } },
           h("div", { style: { paddingRight: 12, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, sp.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, sp.note)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, sp.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, sp.note)),
           h(Toggle, { on: on, onChange: function (v) { var nb = Object.assign({}, cfg.blocks || {}); nb[sp.key] = v; save({ ...cfg, blocks: nb }); } }));
       })) : null,
     // 预设
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline gap-2 mb-2" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "预设"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "存好几套，换着用不用重填")),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "预设"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "存好几套，换着用不用重填")),
       h("div", { className: "flex gap-2" },
         h("select", { value: sel, onChange: e => loadPreset(e.target.value), style: { ...inputSt, flex: 1, appearance: "none", WebkitAppearance: "none" } },
           h("option", { value: "" }, "选择一套载入…"),
           h("optgroup", { label: "内置" }, COT_BUILTIN.map(pr => h("option", { key: "b:" + pr.name, value: pr.name }, pr.name + " · " + pr.note))),
           (cfg.presets || []).length ? h("optgroup", { label: "我存的" }, (cfg.presets || []).map(pr => h("option", { key: pr.name, value: pr.name }, pr.name))) : null),
-        h("button", { onClick: saveAsPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 11, border: "1px solid " + t.line, color: t.ink } }, "存为"),
-        h("button", { onClick: delPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "0 14px", borderRadius: 11, border: "1px solid " + t.line, color: "#a24a4a" } }, "删除"))),
+        h("button", { onClick: saveAsPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "0 16px", borderRadius: 11, border: "1px solid " + t.line, color: t.ink } }, "存为"),
+        h("button", { onClick: delPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "0 14px", borderRadius: 11, border: "1px solid " + t.line, color: "#a24a4a" } }, "删除"))),
     // 思考方式
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-2" },
         h("div", { className: "flex items-baseline gap-2" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "小稿检查方式"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "落笔前先按这几条过一遍")),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "小稿检查方式"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "落笔前先按这几条过一遍")),
         h("div", { className: "flex gap-2 flex-wrap" }, COT_BUILTIN.map(function (pr) {
           // ⚠️不许用 window.confirm：PWA 里它被系统吞掉、直接返回 false 且不抛异常，
           //   于是编辑框里已经写了东西时这几颗按钮全变成摆设（components.js requestAppConfirm）
           const take = function () { setThink(pr.think); setSel(pr.name); };
-          return h("button", { key: pr.name, onClick: function () { if (!(cfg.think || "").trim()) return take(); requestAppConfirm("用「" + pr.name + "」替换当前内容？", "现在写的这段会被盖掉。", take, "替换"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, pr.name);
+          return h("button", { key: pr.name, onClick: function () { if (!(cfg.think || "").trim()) return take(); requestAppConfirm("用「" + pr.name + "」替换当前内容？", "现在写的这段会被盖掉。", take, "替换"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent } }, pr.name);
         }))),
       h("div", { className: "flex gap-2 mb-2" }, chip("{{char}}", () => insertVar("{{char}}")), chip("{{user}}", () => insertVar("{{user}}"))),
       h("textarea", { "data-wk": "textarea", ref: taRef, value: cfg.think || "", onChange: e => setThink(e.target.value), rows: 9,
         placeholder: "写下你希望创作小稿检查的步骤，一行一条。\n\n· {{char}} 会替换成角色名，{{user}} 替换成你的名字\n· 留空 = 不启用，剧情走默认方式\n· 小稿不进正文，每条正文旁可展开查看\n· 上面三套内置的可以直接点，点完再改成你要的",
-        style: { width: "100%", outline: "none", resize: "vertical", padding: "11px 13px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。检查越具体，正文通常越贴；小稿会占少量输出额度。")));
+        style: { width: "100%", outline: "none", resize: "vertical", padding: "11px 13px", borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.75, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。检查越具体，正文通常越贴；小稿会占少量输出额度。")));
 }
 // 图像 API（角色自拍）设置：开关 + 端点/密钥/模型/尺寸/质量。存 x_imgApi（图本身进 IndexedDB 不在这）。
 // MiniMax 语音 TTS 配置：懒生成（点开语音那条才合成收费），成品缓存在本机重播免费
@@ -5213,23 +5213,23 @@ function VoiceEarsConfig({ toast }) {
     setTesting(false);
   };
   const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
-    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, label),
     /*#__PURE__*/React.createElement("input", {
       value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
       className: "w-full outline-none px-3 py-2 rounded-xl",
-      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
+      style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
     }));
   return /*#__PURE__*/React.createElement("div", null,
-    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
       "真声通话的耳朵：书房 Mac 上的语音识别服务。填好后，单人通话里会多一个🎙按钮——按下就是真的用声音聊，识别在书房、脑子和嗓子都在本机。两栏留空=功能隐藏。"),
     inp("识别服务地址", "base", "https://…ts.net/voice"),
     inp("门锁 k", "k", "voice-token"),
     /*#__PURE__*/React.createElement("button", {
       onClick: test, disabled: testing,
       className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
-      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" }
+      style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.tint, color: "#fff" }
     }, testing ? "测试中…" : "🔬 测一下耳朵"),
-    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
+    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
 // 自定义语音端点（一张嘴）：跟上面那对耳朵是对称件，同一台书房 Mac。
 // 她 2026-09-13 实测：iOS 把「高音质／增强」音色留给系统朗读和 Siri，不给网页，
@@ -5257,20 +5257,20 @@ function VoiceMouthConfig({ toast }) {
     setTesting(false);
   };
   const inp = (label, key, ph) => h("div", { className: "mb-2" },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, label),
     h("input", { "data-wk": "input", value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
       className: "w-full outline-none px-3 py-2 rounded-xl",
-      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" } }));
+      style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" } }));
   return h("div", null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
       "电台朗读的嗓子：自己架的语音服务（仓库里 tools/tts-mouth 那一份，用微软在线语音，免费、不要密钥）。填好后电台就用它念；没填、或者那台机器没开，自动退回系统音色，不会哑掉。"),
     inp("语音服务地址", "base", "https://…ts.net/tts"),
     inp("门锁 k", "k", "voice-token"),
     inp("音色（可留空用服务端默认）", "voice", "zh-CN-YunxiNeural"),
     h("button", { onClick: test, disabled: testing,
       className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
-      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
-    msg && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
+      style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
+    msg && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
 // 网易云接口怎么搭（她 2026-10-14 要的内置教程）：跟 Fish 中转那块同一个样子，点开才有。
 //   要点只有一个：Cookie 是交给接口转发的，接口空着 Cookie 就没用、「扫码登录」也不出来。
@@ -5281,36 +5281,36 @@ function QuietHoursBox({ t, toast }) {
   const [q, setQ] = useState(() => ({ on: false, from: "00:00", to: "08:00", noPro: true, noBg: false, ...(loadJSON("x_quiet", null) || {}) }));
   const put = patch => setQ(p => { const n = { ...p, ...patch }; saveJSON("x_quiet", n); return n; });
   const row = (label, note, val, fn, wk) => h("button", { onClick: fn, "data-wk": wk, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 44, gap: 12, textAlign: "left" } },
-    h("div", null, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, label), note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, note) : null),
+    h("div", null, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, label), note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, note) : null),
     h("span", { style: { flexShrink: 0, width: 44, height: 26, borderRadius: 13, padding: 3, background: val ? t.ink : t.line } },
       h("span", { style: { display: "block", width: 20, height: 20, borderRadius: 10, background: t.bg2, transform: val ? "translateX(18px)" : "none", transition: "transform .18s" } })));
   const tm = (k) => h("input", { type: "time", value: q[k] || "", onChange: e => put({ [k]: e.target.value }), "data-wk": "input",
-    style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14 } });
+    style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } });
   return h("div", { "data-wk": "quiethours", style: { marginTop: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
     row("我的作息 · 免打扰", "按这台手机的钟。到了这段时间，下面勾上的那几样就停；过了自己恢复。", q.on, () => put({ on: !q.on }), "quiettoggle"),
     q.on ? h("div", null,
-      h("div", { className: "flex items-center", style: { gap: 8, margin: "6px 0 4px", fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "从", tm("from"), "到", tm("to")),
+      h("div", { className: "flex items-center", style: { gap: 8, margin: "6px 0 4px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "从", tm("from"), "到", tm("to")),
       row("这段时间不发主动消息", "谁都不来找你，醒着的也不来。你自己设的提醒照常到。", q.noPro, () => put({ noPro: !q.noPro }), "quietpro"),
       row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停；点开看一下也不会被带着跑起来。你自己点了要的（比如在日记、周刊里点生成）照常出。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg")) : null);
 }
 function NeteaseApiHelp({ toast }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const p = { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 };
-  const mono = { fontFamily: "monospace", fontSize: 11, background: t.bg2, border: "1px solid " + t.line, borderRadius: 6, padding: "1px 5px", wordBreak: "break-all" };
+  const p = { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75 };
+  const mono = { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", background: t.bg2, border: "1px solid " + t.line, borderRadius: 6, padding: "1px 5px", wordBreak: "break-all" };
   const copy = async (txt, done) => { const ok = typeof copyText === "function" && await copyText(txt); toast && toast(ok ? done : "没复制上，长按自己选"); };
   return h("div", { "data-wk": "neteasehelp", style: { marginTop: 6 } },
-    h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, padding: "4px 0", minHeight: 40 } }, open ? "收起 ▴" : "没有接口？自己搭一个（免费，十来分钟）▾"),
+    h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint || t.ink, padding: "4px 0", minHeight: 40 } }, open ? "收起 ▴" : "没有接口？自己搭一个（免费，十来分钟）▾"),
     open ? h("div", { style: { marginTop: 4, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg } },
       h("div", { style: p }, "网页不能直接找网易云要歌，中间要一个替你去问的小服务，就是这个接口。Cookie 也是交给它转发的：接口空着，Cookie 填了也只能听 30 秒试听，「扫码登录」也不会出来。"),
       h("div", { style: Object.assign({}, p, { marginTop: 6 }) }, "① 登录 GitHub，搜 ", h("span", { style: mono }, "NeteaseCloudMusicApi"), "，挑一个最近还在更新的仓库，右上角 Fork → Create fork。"),
-      h("button", { onClick: () => copy("NeteaseCloudMusicApi", "复制好了，去 GitHub 搜"), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint || t.ink, padding: "2px 0 6px" } }, "复制搜索词"),
+      h("button", { onClick: () => copy("NeteaseCloudMusicApi", "复制好了，去 GitHub 搜"), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint || t.ink, padding: "2px 0 6px" } }, "复制搜索词"),
       h("div", { style: p }, "② 用 GitHub 账号登录 vercel.com → Add New → Project → 找到刚 Fork 的仓库点 Import → 什么都不改，直接 Deploy。等一两分钟，拿到一个 ", h("span", { style: mono }, "https://名字.vercel.app"), " 的地址。"),
       h("div", { style: p }, "③ 先验一下：浏览器打开 ", h("span", { style: mono }, "你的地址/search?keywords=周杰伦"), "，看到一大堆 JSON 就是通了；404 或报错就是没部署好，回第②步。"),
       h("div", { style: p }, "④ 回到这里点「配网易云搜索接口」，填到 .vercel.app 为止，后面什么都不加，保存。搜一首歌，搜得出来就接好了。"),
       h("div", { style: p }, "⑤ 接好以后这一块会多出「扫码登录」：用手机网易云 App 扫一扫，在手机上点确认，Cookie 就自动存好了（只存在这台设备）。过期了重扫一次。"),
-      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11, marginTop: 6 }) }, "别用别人现成的公共接口：Cookie 就是你网易云账号的钥匙。搜得到放不了多半是没登录或 Cookie 过期；有些歌是版权下架，会员也放不了。Vercel 的地址常被网易云封，哪天突然全不行了，删掉重新部署一次换个地址。"),
-      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11 }) }, "嫌麻烦：上面音乐源直接选「GD 音乐台 · 免 Cookie 试用」，不用接口也不用登录。")) : null);
+      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))", marginTop: 6 }) }, "别用别人现成的公共接口：Cookie 就是你网易云账号的钥匙。搜得到放不了多半是没登录或 Cookie 过期；有些歌是版权下架，会员也放不了。Vercel 的地址常被网易云封，哪天突然全不行了，删掉重新部署一次换个地址。"),
+      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" }) }, "嫌麻烦：上面音乐源直接选「GD 音乐台 · 免 Cookie 试用」，不用接口也不用登录。")) : null);
 }
 function FishRelayHelp({ toast }) { return h(RelayHelp, { toast }); }
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
@@ -5408,24 +5408,24 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     } catch (e) { setMarkErr(String((e && e.message) || e)); }
     finally { setMarkBusy(false); }
   };
-  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
-  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, label), node);
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax / ElevenLabs / Fish Audio 语音合成。选了音色的角色语音能点 ▶ 真听；点开才生成，生成过的存在本机。按服务商规则计费。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "语音 TTS · 角色真发声"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax / ElevenLabs / Fish Audio 语音合成。选了音色的角色语音能点 ▶ 真听；点开才生成，生成过的存在本机。按服务商规则计费。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才生成）" : "已关闭"); } })),
     c.enabled ? h("div", { className: "pt-3" },
       h("div", { className: "flex items-center justify-between mb-3" },
         h("div", { style: { paddingRight: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "气泡底下的「听一下」"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "关掉后普通文字气泡底下不再挂「听一下」；语音条照样能点开听。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "气泡底下的「听一下」"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "关掉后普通文字气泡底下不再挂「听一下」；语音条照样能点开听。")),
         h(Toggle, { on: !c.noListen, onChange: v => set({ noListen: !v }) })),
       row("声音从哪来（角色档案填对应的音色 ID）", h("div", { style: { display: "flex", gap: 6 } },
         [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"]].map(pair =>
           h("button", { key: pair[0], onClick: () => set({ provider: pair[0] }), className: "active:opacity-70",
-            style: { flex: 1, fontFamily: F_BODY, fontSize: 12, padding: "8px 2px", borderRadius: 8, background: c.provider === pair[0] ? t.tint : t.bg2, border: "1px solid " + (c.provider === pair[0] ? t.tint : t.line), color: c.provider === pair[0] ? "#fff" : t.sub } }, pair[1])))),
+            style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "8px 2px", borderRadius: 8, background: c.provider === pair[0] ? t.tint : t.bg2, border: "1px solid " + (c.provider === pair[0] ? t.tint : t.line), color: c.provider === pair[0] ? "#fff" : t.sub } }, pair[1])))),
       c.provider === "elevenlabs" ? h("div", null,
         row("密钥 API Key（elevenlabs.io → Developers → API Keys）", h("input", { "data-wk": "input", value: c.elKey || "", onChange: e => set({ elKey: e.target.value }), placeholder: "sk_…", type: "password", style: inSt })),
         row("模型（可以自己填，照 ElevenLabs 文档上的 model_id）", voiceModelInput(c.elModel, "eleven_multilingual_v2", "el-models",
@@ -5439,13 +5439,13 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         //   原来是写死三个的下拉，新模型填不进去。改成输入框＋候选，候选点一下就填，新名字照 fish.audio 文档写。
         row("模型（可以自己填，照 fish.audio 文档上的模型名）", voiceModelInput(c.fishModel, "s1", "fish-models", [["s1", "推荐"], ["speech-1.6", ""], ["speech-1.5", ""]], v => set({ fishModel: v }), inSt)),
         row("默认音色 ID（试听和音色库里没写 ID 的地方用它）", h("input", { "data-wk": "input", value: c.fishVoice || "", onChange: e => set({ fishVoice: e.target.value }), placeholder: "声音页网址最后那串 ID", style: inSt }))) : null,
-      c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
+      c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
       c.provider === "minimax" ? h("div", null,
       row("接口地址（key 在哪个平台申请的就点哪个，别混）", h("div", null,
         h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } },
           MINIMAX_API_SITES.map(pair =>
             h("button", { key: pair[1], onClick: () => set({ baseUrl: pair[1] }), className: "active:opacity-70",
-              style: { flex: 1, fontFamily: F_BODY, fontSize: 10, padding: "7px 2px", borderRadius: 8, background: t.bg2, border: "1px solid " + ((c.baseUrl || "").trim() === pair[1] ? t.tint : t.line), color: (c.baseUrl || "").trim() === pair[1] ? t.tint : t.sub } }, pair[0]))),
+              style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", padding: "7px 2px", borderRadius: 8, background: t.bg2, border: "1px solid " + ((c.baseUrl || "").trim() === pair[1] ? t.tint : t.line), color: (c.baseUrl || "").trim() === pair[1] ? t.tint : t.sub } }, pair[0]))),
         h("input", { "data-wk": "input", value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: inSt }))),
       row("GroupId（MiniMax 控制台·账户信息里）", h("input", { "data-wk": "input", value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
       row("密钥 API Key", h("input", { "data-wk": "input", value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "eyJ…", type: "password", style: inSt })),
@@ -5464,12 +5464,12 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
             h("option", { value: "__custom" }, "自己填…")),
           custom ? h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value.trim(), modelCustom: true }), placeholder: "例如官网上新出的模型名", style: Object.assign({}, inSt, { marginTop: 6 }) }) : null));
       })(),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。")) : null,
-      h("button", { "data-wk": "block", onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。")) : null,
+      h("button", { "data-wk": "block", onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
       // ---- 语气标记验货台 ----
       c.provider === "minimax" && h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
           "⭐实测过了（她 2026-09-21 在这儿听的）：**停顿 <#0.5#> 认**，圆括号里的英文标记不认——那几个词会被当成单词念出来。"
           + "所以角色那边只教了停顿这一样；万一正文里真出现了别的标记，送去合成之前会剥掉，不用管。"
           + "这一格仍旧把【你写的原文】原样送上去，想再验一次、或者换个模型再试都行。"
@@ -5479,30 +5479,30 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("input", { "data-wk": "input", value: markVid, onChange: e => setMarkVid(e.target.value), placeholder: "音色 voice_id（留空用预置的 female-shaonv）", style: Object.assign({}, inSt, { marginBottom: 8 }) }),
         // 听到的 vs 看到的：剥标记只有 engine 那一支 ttsMarkStrip，这儿不另写一份
         h("div", { "data-wk": "block", style: { padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, marginBottom: 8 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } },
             (typeof ttsHasMark === "function" && ttsHasMark(markTxt))
               ? "气泡里会显示成（标记剥掉之后）"
               : "这句里没有标记——听到的和看到的会是同一份"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" } },
             (typeof ttsMarkStrip === "function" ? ttsMarkStrip(markTxt) : markTxt) || "（空）")),
-        h("button", { "data-wk": "block", onClick: runMark, disabled: markBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, markBusy ? "合成中…" : "🔊 按原文合成（带标记）"),
-        markErr ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "9px 11px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, markErr) : null),
+        h("button", { "data-wk": "block", onClick: runMark, disabled: markBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, markBusy ? "合成中…" : "🔊 按原文合成（带标记）"),
+        markErr ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "9px 11px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, markErr) : null),
       // ---- 克隆音色：传人声样本 → 得到专属 voice_id → 填进角色档案 ----
       c.provider === "minimax" && h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "🎤 克隆音色"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "传一段【只有一个人说话、没背景音乐】的干净人声（10 秒~5 分钟，mp3/wav/m4a），起一个专属 voice_id——克隆好后去角色档案把「音色」填成这个 id 就是 TA 的声音了。⚠️ 克隆按次收费（比合成贵），確認样本干净再点；只克隆你有权使用的声音。"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "🎤 克隆音色"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "传一段【只有一个人说话、没背景音乐】的干净人声（10 秒~5 分钟，mp3/wav/m4a），起一个专属 voice_id——克隆好后去角色档案把「音色」填成这个 id 就是 TA 的声音了。⚠️ 克隆按次收费（比合成贵），確認样本干净再点；只克隆你有权使用的声音。"),
         // accept 不能只写 audio/*：iOS 会只给录音/媒体库入口、选不了「文件」里的 mp3——列明扩展名才会出现文件 App 选项
-        h("input", { type: "file", accept: ".mp3,.m4a,.wav,.aac,audio/mpeg,audio/mp4,audio/wav,audio/*", onChange: e => { setCloneFile(e.target.files && e.target.files[0] || null); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, display: "block", width: "100%" } }),
+        h("input", { type: "file", accept: ".mp3,.m4a,.wav,.aac,audio/mpeg,audio/mp4,audio/wav,audio/*", onChange: e => { setCloneFile(e.target.files && e.target.files[0] || null); }, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8, display: "block", width: "100%" } }),
         h("input", { "data-wk": "input", value: cloneId, onChange: e => setCloneId(e.target.value), placeholder: "起个 voice_id（字母开头≥8位，如 GuChao2026）", style: Object.assign({}, inSt, { marginBottom: 8 }) }),
-        h("button", { "data-wk": "block", onClick: runClone, disabled: cloning || !cloneFile || !cloneId.trim(), className: "w-full active:opacity-80 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, cloning ? "上传克隆中…（可能要一会儿）" : "上传并克隆"),
-        cloneMsg ? h("div", { "data-wk": "block", style: { marginTop: 10, padding: "10px 12px", background: cloneMsg.ok ? "rgba(63,109,90,0.08)" : "rgba(194,90,74,0.08)", border: "1px solid " + (cloneMsg.ok ? "rgba(63,109,90,0.3)" : "rgba(194,90,74,0.3)"), borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: cloneMsg.ok ? "#3f6d5a" : "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, cloneMsg.text) : null),
+        h("button", { "data-wk": "block", onClick: runClone, disabled: cloning || !cloneFile || !cloneId.trim(), className: "w-full active:opacity-80 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, cloning ? "上传克隆中…（可能要一会儿）" : "上传并克隆"),
+        cloneMsg ? h("div", { "data-wk": "block", style: { marginTop: 10, padding: "10px 12px", background: cloneMsg.ok ? "rgba(63,109,90,0.08)" : "rgba(194,90,74,0.08)", border: "1px solid " + (cloneMsg.ok ? "rgba(63,109,90,0.3)" : "rgba(194,90,74,0.3)"), borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, color: cloneMsg.ok ? "#3f6d5a" : "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, cloneMsg.text) : null),
       // ---- 我的音色库：克过的 voice_id 清单（试听/备注/指派给角色/补录）----
       h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "🗂 我的音色库" + (vlib.length ? " · " + vlib.length : "")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "克隆成功的音色自动记在这，可试听、写备注、一键指派给角色。以前克过没登记的，补录 voice_id 即可。「移除」只是清单删掉，不影响 MiniMax 账号里的音色。"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "🗂 我的音色库" + (vlib.length ? " · " + vlib.length : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "克隆成功的音色自动记在这，可试听、写备注、一键指派给角色。以前克过没登记的，补录 voice_id 即可。「移除」只是清单删掉，不影响 MiniMax 账号里的音色。"),
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
           h("input", { "data-wk": "input", value: manualId, onChange: e => setManualId(e.target.value), placeholder: "补录已有的 voice_id", style: Object.assign({}, inSt, { flex: 1, width: "auto", minWidth: 0 }) }),   // minWidth:0：输入框默认不肯缩，长 id 会把「补录」挤出屏（她 2026-10-18 截图）
-          h("button", { onClick: () => { addVoice(manualId); setManualId(""); }, disabled: !manualId.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.ink, border: "none", borderRadius: 10, padding: "0 16px", flexShrink: 0, minHeight: 40 } }, "补录")),
+          h("button", { onClick: () => { addVoice(manualId); setManualId(""); }, disabled: !manualId.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: t.ink, border: "none", borderRadius: 10, padding: "0 16px", flexShrink: 0, minHeight: 40 } }, "补录")),
         vlib.length === 0 ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, vlib.map(v => {
           // trim 匹配：手填 voiceId 多打空格也算在用（和 ttsSpeak 的沉稳匹配保持一致）
           const users = (characters || []).filter(ch => String(ch.voiceId || "").trim() === String(v.id).trim());
@@ -5510,12 +5510,12 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
           return h("div", { key: v.id, style: { border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", background: t.bg2 } },
             h("div", { className: "flex items-center gap-2" },
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { style: { fontFamily: "'Archivo',ui-monospace,monospace", fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.id),
-                users.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, marginTop: 2 } }, "→ " + users.map(u => u.remark || u.name).join("、") + " 在用") : null),
-              h("button", { onClick: () => vtp.toggle(v.id, "你好呀，我是这个音色，听听合不合适？", v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", background: "transparent" } }, meP ? (vtp.play.st === "gen" ? "…" : "⏸") : "试听"),
-              h("button", { "data-wk": "block", onClick: () => setAssignFor(assignFor === v.id ? null : v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: t.tint, border: "none", borderRadius: 999, padding: "6px 12px" } }, "指派"),
-              h("button", { onClick: () => requestAppConfirm("从清单移除这个音色？", "不影响 MiniMax 账号。", () => saveVlib(vlib.filter(x => x.id !== v.id)), "移除"), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, border: "none", background: "transparent", padding: "2px 4px" } }, "✕")),
-            h("input", { "data-wk": "input", value: v.note || "", onChange: e => saveVlib(vlib.map(x => x.id === v.id ? { ...x, note: e.target.value } : x)), placeholder: "备注（谁的声音 / 什么感觉）", style: { width: "100%", outline: "none", marginTop: 8, padding: "7px 10px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12, background: t.bg, color: t.sub, border: "1px solid " + t.line } }),
+                h("div", { style: { fontFamily: "'Archivo',ui-monospace,monospace", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.id),
+                users.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, marginTop: 2 } }, "→ " + users.map(u => u.remark || u.name).join("、") + " 在用") : null),
+              h("button", { onClick: () => vtp.toggle(v.id, "你好呀，我是这个音色，听听合不合适？", v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", background: "transparent" } }, meP ? (vtp.play.st === "gen" ? "…" : "⏸") : "试听"),
+              h("button", { "data-wk": "block", onClick: () => setAssignFor(assignFor === v.id ? null : v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff", background: t.tint, border: "none", borderRadius: 999, padding: "6px 12px" } }, "指派"),
+              h("button", { onClick: () => requestAppConfirm("从清单移除这个音色？", "不影响 MiniMax 账号。", () => saveVlib(vlib.filter(x => x.id !== v.id)), "移除"), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, border: "none", background: "transparent", padding: "2px 4px" } }, "✕")),
+            h("input", { "data-wk": "input", value: v.note || "", onChange: e => saveVlib(vlib.map(x => x.id === v.id ? { ...x, note: e.target.value } : x)), placeholder: "备注（谁的声音 / 什么感觉）", style: { width: "100%", outline: "none", marginTop: 8, padding: "7px 10px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", background: t.bg, color: t.sub, border: "1px solid " + t.line } }),
             // 语速调节（v47.89）：压亢奋只靠语速（音调绝不动，防变声成八戒）。老 calm 兼容成 0.85
             (() => {
               const sp = (v.speed != null && isFinite(v.speed)) ? Number(v.speed) : (v.calm ? 0.85 : 1.0);
@@ -5524,43 +5524,43 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
               return h("div", { style: { marginTop: 10 } },
                 h("div", { className: "flex items-center justify-between", style: { marginBottom: 3 } },
                   h("div", null,
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "语速 · 压亢奋"),
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 6 } }, "音色太亢奋就往左拖，越左越稳")),
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: sp < 0.99 ? t.tint : t.fog } }, lbl + " " + sp.toFixed(2))),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "语速 · 压亢奋"),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, "音色太亢奋就往左拖，越左越稳")),
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sp < 0.99 ? t.tint : t.fog } }, lbl + " " + sp.toFixed(2))),
                 h(Slider, { value: sp, min: 0.6, max: 1.0, step: 0.01, onChange: setSp }),
                 h("div", { className: "flex items-center gap-2", style: { marginTop: 6 } },
-                  h("button", { onClick: () => vtp.toggle(v.id + "_prev", "嗯，就这样吧。今天先到这里，你早点休息。", v.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, vtp.play && vtp.play.k === (v.id + "_prev") ? (vtp.play.st === "gen" ? "合成中…" : "⏸ 停") : "▶ 试平静句"),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "拖动后重听这句对比")));
+                  h("button", { onClick: () => vtp.toggle(v.id + "_prev", "嗯，就这样吧。今天先到这里，你早点休息。", v.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, vtp.play && vtp.play.k === (v.id + "_prev") ? (vtp.play.st === "gen" ? "合成中…" : "⏸ 停") : "▶ 试平静句"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "拖动后重听这句对比")));
             })(),
             // 语速调过（<1）却没角色在用 → 警告：实际聊天不会变
-            v.speed != null && v.speed < 0.99 && users.length === 0 ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#c25a4a", marginTop: 6, lineHeight: 1.6, background: "rgba(194,90,74,0.08)", borderRadius: 8, padding: "6px 9px" } }, "⚠️ 语速设置只对试听生效——没有角色在用这个 voice_id。去角色档案把「音色」填成上面这个 id（一字不差、别多空格），实际聊天里 TA 的语音才会跟着变。") : null,
+            v.speed != null && v.speed < 0.99 && users.length === 0 ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#c25a4a", marginTop: 6, lineHeight: 1.6, background: "rgba(194,90,74,0.08)", borderRadius: 8, padding: "6px 9px" } }, "⚠️ 语速设置只对试听生效——没有角色在用这个 voice_id。去角色档案把「音色」填成上面这个 id（一字不差、别多空格），实际聊天里 TA 的语音才会跟着变。") : null,
             // 情绪模式（v48.31）：MiniMax 的 emotion 参数会把声音往预设情绪模板上掰——克隆音色被掰就不像本人了。
             // 原声=永不传 emotion（平台试听就是这样，克隆音最像）；跟内容=角色标的语气优先、平静句不传；锁平静=强制 neutral 模板
             h("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed " + t.line } },
               h("div", { style: { marginBottom: 6 } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "情绪模式"),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 6 } }, "克隆音色听着不像本人 → 选「原声」")),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "情绪模式"),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, "克隆音色听着不像本人 → 选「原声」")),
               h("div", { className: "flex flex-wrap items-center gap-2" },
                 [["auto", "跟内容"], ["none", "原声·最像"], ["neutral", "锁平静"]].map(pair => h("button", {
                   key: pair[0],
                   onClick: () => { saveVlib(vlib.map(x => x.id === v.id ? { ...x, emoMode: pair[0] } : x)); toast && toast(pair[0] === "none" ? "原声：合成时完全不带情绪参数——克隆音色最像本人（角色标的语气会被忽略）" : pair[0] === "auto" ? "跟内容：角色发语音时自己标的语气优先；平静句不带参数、保本音" : "锁平静：所有句子都压成平静语气"); },
                   className: "active:opacity-70",
-                  style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 12px", borderRadius: 999, background: (v.emoMode || "auto") === pair[0] ? t.ink : "transparent", color: (v.emoMode || "auto") === pair[0] ? t.bg2 : t.fog, border: "1px solid " + ((v.emoMode || "auto") === pair[0] ? t.ink : t.line) } }, pair[1])),
-                h("button", { onClick: () => vtp.toggle(v.id + "_emoprev_" + (v.emoMode || "auto"), "你怎么才回我呀，我都等急了！算了，你来了就好。", v.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, vtp.play && String(vtp.play.k).indexOf(v.id + "_emoprev") === 0 ? (vtp.play.st === "gen" ? "合成中…" : "⏸ 停") : "▶ 试情绪句"))),
+                  style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "5px 12px", borderRadius: 999, background: (v.emoMode || "auto") === pair[0] ? t.ink : "transparent", color: (v.emoMode || "auto") === pair[0] ? t.bg2 : t.fog, border: "1px solid " + ((v.emoMode || "auto") === pair[0] ? t.ink : t.line) } }, pair[1])),
+                h("button", { onClick: () => vtp.toggle(v.id + "_emoprev_" + (v.emoMode || "auto"), "你怎么才回我呀，我都等急了！算了，你来了就好。", v.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 12px" } }, vtp.play && String(vtp.play.k).indexOf(v.id + "_emoprev") === 0 ? (vtp.play.st === "gen" ? "合成中…" : "⏸ 停") : "▶ 试情绪句"))),
             // 日语·汉字注音（v47.93）：日语角色专用。治「寝→中文qin」——合成前把汉字转成假名读音
             h("div", { className: "flex items-center justify-between", style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed " + t.line } },
               h("div", { style: { paddingRight: 10 } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "日语·汉字注音"),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 6 } }, "日语角色开：汉字按假名读，不串中文")),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "日语·汉字注音"),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, "日语角色开：汉字按假名读，不串中文")),
               h(Toggle, { on: !!v.jpKana, onChange: on => { saveVlib(vlib.map(x => x.id === v.id ? { ...x, jpKana: on } : x)); toast && toast(on ? "日语句里的汉字会先转假名再读（每条多一次很便宜的AI转换）" : "已关闭注音"); } })),
             assignFor === v.id ? h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 8 } },
-              (characters || []).length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色，先去人格档案馆建一个。") :
+              (characters || []).length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "还没有角色，先去人格档案馆建一个。") :
               (characters || []).map(ch => h("button", { key: ch.id, onClick: () => { onAssignVoice && onAssignVoice(ch.id, v.id); setAssignFor(null); }, className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 13px", borderRadius: 999, background: ch.voiceId === v.id ? t.tint : "transparent", color: ch.voiceId === v.id ? "#fff" : t.ink, border: "1px solid " + (ch.voiceId === v.id ? t.tint : t.line) } }, ch.remark || ch.name))) : null);
+                style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 13px", borderRadius: 999, background: ch.voiceId === v.id ? t.tint : "transparent", color: ch.voiceId === v.id ? "#fff" : t.ink, border: "1px solid " + (ch.voiceId === v.id ? t.tint : t.line) } }, ch.remark || ch.name))) : null);
         }))),
       testErr ? h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
-        h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
+        h("div", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
 }
 // ⚠️别挪到真声耳朵／电台嗓子那几格中间：公共版打包会把那一段整个拿掉。
 // 公共的语音识别接口（任意 OpenAI 兼容 /audio/transcriptions）。人人可填；上面那对书房耳朵是她自己的壳用的。
@@ -5586,27 +5586,27 @@ function SttApiConfig({ toast }) {
     setTesting(false);
   };
   const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
-    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, label),
     /*#__PURE__*/React.createElement("input", {
       value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
       className: "w-full outline-none px-3 py-2 rounded-xl",
-      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
+      style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
     }));
   return /*#__PURE__*/React.createElement("div", { "data-wk": "sttapi" },
-    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
       "通话开麦时把你说的话转成文字。平时用浏览器自带的识别；浏览器没有或识别不了时，用这里填的接口。OpenAI 兼容的语音转文字接口都能填，按次收费。留空＝只用浏览器自带的。"),
     inp("接口地址（填到 /v1）", "base", "https://api.openai.com/v1"),
     inp("API Key", "key", "sk-…"),
     inp("模型", "model", "whisper-1"),
-    /*#__PURE__*/React.createElement("label", { "data-wk": "sttprefer", className: "flex items-center gap-2 mb-3", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+    /*#__PURE__*/React.createElement("label", { "data-wk": "sttprefer", className: "flex items-center gap-2 mb-3", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
       /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: !!c.prefer, onChange: e => set({ prefer: e.target.checked }) }),
       "优先用这个（不先试浏览器自带的）"),
     /*#__PURE__*/React.createElement("button", {
       onClick: test, disabled: testing,
       className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
-      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" }
+      style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.tint, color: "#fff" }
     }, testing ? "测试中…" : "🔬 测一下"),
-    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
+    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
 // 模型调用记录（她 2026-10-09）：读 engine.js 的 CallLog——那是所有模型调用的唯一出口记下来的。
 //   今日请求＝今天所有调用；回合＝她按一下换来的那一枪（聊天／线下／通话，不含兜底重发）。
@@ -5616,8 +5616,8 @@ function FailRetryCard() {
   const [on, setOn] = useState(() => loadJSON("x_failRetry", true) !== false);
   return h("div", { "data-wk": "failretry", className: "flex items-center justify-between", style: { gap: 12, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid " + t.line } },
     h("div", { style: { minWidth: 0 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "失败了自动再试一次"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "失败了自动再试一次"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 2 } },
         on ? "模型回来的格式坏了、空着、没表态，自动再要一次——省得你再点，但这一次会多扣一次。"
           : "失败一次算一次，不多扣钱；想要就自己再点。网络没连上那种不扣钱的照旧会自动重发。")),
     h(Toggle, { on, onChange: v => { setOn(v); saveJSON("x_failRetry", v); } }));
@@ -5637,29 +5637,29 @@ function CallLogCard() {
   const today = rows.filter(r => r.ts >= d0.getTime());
   const p2 = n => String(n).padStart(2, "0");
   const when = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds()); };
-  const small = { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 };
+  const small = { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
   const clear = () => requestAppConfirm("清空调用记录？", "只清这一页的记录，聊天和设置都不动。", () => window.CallLog && window.CallLog.clear(), "清空", null, { danger: false });
   return h("div", { "data-wk": "calllog" },
     h("div", { className: "flex items-center justify-between" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "模型调用记录"),
-      rows.length ? h("button", { "data-wk": "block", onClick: clear, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "none", border: "none", minHeight: 32 } }, "清空") : null),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "模型调用记录"),
+      rows.length ? h("button", { "data-wk": "block", onClick: clear, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, background: "none", border: "none", minHeight: 32 } }, "清空") : null),
     h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "今日 " + today.length + " 次请求 · " + today.filter(r => r.turn).length + " 个回合"
       + (today.some(r => r.tok) ? " · 输入 " + today.reduce((n, r) => n + (r.tok ? r.tok.in : 0), 0).toLocaleString() + " / 输出 " + today.reduce((n, r) => n + (r.tok ? r.tok.out : 0), 0).toLocaleString() + " tokens" : "")),
     h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "只记在这台手机上，最近 " + ((window.CallLog && window.CallLog.MAX) || 300) + " 条；不上云，也不多花调用。"),
     !rows.length ? h("div", { style: Object.assign({}, small, { marginTop: 16 }) }, "还没有记录。聊几句再回来看。") : null,
     rows.slice(0, show).map((r, i) => h("div", { key: r.ts + "_" + i, "data-wk": "calllogrow", "data-ok": r.ok ? "1" : "0", style: { padding: "13px 0", borderBottom: "1px solid " + t.line } },
       h("div", { className: "flex items-center gap-2" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, when(r.ts)),
-        r.who ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.who) : null,
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, when(r.ts)),
+        r.who ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.who) : null,
         h("span", { style: { flex: 1 } }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: r.ok ? t.tint : r.cut ? t.fog : "#c25a4a", flexShrink: 0 } }, r.ok ? "成功" : r.cut ? "断开" : "失败")),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 4 } }, r.label),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: r.ok ? t.tint : r.cut ? t.fog : "#c25a4a", flexShrink: 0 } }, r.ok ? "成功" : r.cut ? "断开" : "失败")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginTop: 4 } }, r.label),
       h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, r.turn ? "一个回合" : "单次调用"),
       h("div", { style: Object.assign({}, small, { wordBreak: "break-all" }) }, [r.route, r.model].filter(Boolean).join(" · ") + " · " + (r.stream ? "流式" : "一次给完") + " · " + (r.ms / 1000).toFixed(1) + " s"),
       // token：线路回了才有；没回的（部分中转、失败的那次）这一行不出现，不编数
       r.tok ? h("div", { "data-wk": "calllogtok", style: small }, "输入 " + r.tok.in.toLocaleString() + " · 输出 " + r.tok.out.toLocaleString() + " tokens" + (r.tok.cr ? "（其中缓存命中 " + r.tok.cr.toLocaleString() + "）" : "")) : null,
       !r.ok && r.err ? h("div", { style: Object.assign({}, small, { color: "#c25a4a", wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: 2 }) }, r.err) : null)),
-    rows.length > show ? h("button", { "data-wk": "block", onClick: () => setShow(n => n + 40), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "none", border: "none", padding: "14px 0", minHeight: 44 } }, "再往前看 40 条") : null);
+    rows.length > show ? h("button", { "data-wk": "block", onClick: () => setShow(n => n + 40), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: "none", border: "none", padding: "14px 0", minHeight: 44 } }, "再往前看 40 条") : null);
 }
 // 缓存命中读数（手机看不了 console，就在设置里给个看得见的）：读 window.__usage(callAI anthropic 分支记的)
 function CacheStatCard() {
@@ -5682,25 +5682,25 @@ function CacheStatCard() {
   const pfxDrift = phList.length >= 4 && pfxChanges >= 3;
   return h("div", { style: { marginTop: 22, paddingTop: 16, borderTop: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "缓存命中 · anthropic(fable)线路"),
-      h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "🔄 刷新")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "缓存命中 · anthropic(fable)线路"),
+      h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "🔄 刷新")),
     usage.length === 0
-      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟走这条线路的角色【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: s.hit > 0 || requested > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟走这条线路的角色【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
+      : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: s.hit > 0 || requested > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
           bridgeUsage.length
             ? "订阅桥近 " + bridgeUsage.length + " 次｜缓存请求 " + requested + " 次｜历史断点 " + historyMarked + " 次"
             : "近 " + usage.length + " 次调用｜命中缓存 " + s.hit + " 次｜读缓存(一折价) " + s.cr + " tok｜写缓存 " + s.cw + " tok",
           bridgeUsage.length
-            ? h("div", { style: { marginTop: 4, color: providerReports > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } },
+            ? h("div", { style: { marginTop: 4, color: providerReports > 0 ? "#3c7a4a" : t.fog, fontSize: "calc(11.5px * var(--app-fs, 1))" } },
                 providerReports > 0
                   ? "✓ Max/Fable 订阅桥已回传 CLI 缓存账单"
                   : (requested > 0 ? "✓ 已发送 Anthropic 稳定前缀缓存标记" : "订阅桥使用 OpenAI 方言；缓存由 CLI 引擎管理，等待 usage 回执"),
-                h("div", { style: { marginTop: 3, color: t.fog, fontSize: 11 } },
+                h("div", { style: { marginTop: 3, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } },
                   providerReports > 0
                     ? "上游有回执：确认命中 " + s.hit + " 次｜读 " + s.cr + " tok｜写 " + s.cw + " tok"
                     : "上游未回传 cache usage；这里如实显示“已请求 + 前缀可复用”，不把 0 冒充未命中。"))
-            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对 TA 连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查这个角色是不是走 fable 线路")),
-          phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: 11 } },
+            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对 TA 连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查这个角色是不是走 fable 线路")),
+          phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } },
             "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
 // 头像池（她 2026-08-25 定的 B 档）：她从相册一次挑几十张（猫、风景、动漫截图…），
@@ -5734,8 +5734,8 @@ function AvatarPoolConfig({ toast }) {
     } finally { setBusy(false); }
   };
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "头像池 · 论坛路人"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "头像池 · 论坛路人"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 4 } },
       "论坛里的路人、常驻熟面孔、小号，都从这个池子里按各自的 ID 取一张（角色不从这里拿：没传头像的角色用程序画的那张）——"
       + "同一个人永远同一张，不会刷一次换张脸。池子空着的时候会自动画一张渐变色块顶上，"
       + "所以不塞图也不会退回 emoji。一次可以多选，不花任何 API 调用。"),
@@ -5743,21 +5743,21 @@ function AvatarPoolConfig({ toast }) {
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(),
         className: "active:opacity-70",
-        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 10, padding: "10px 18px", fontFamily: F_DISPLAY, fontSize: 14, opacity: busy ? 0.5 : 1 }
+        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 10, padding: "10px 18px", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", opacity: busy ? 0.5 : 1 }
       }, busy ? "读取中…" : "从相册添加"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } },
         pool.length ? ("池子里有 " + pool.length + " 张") : "还是空的 · 现在用程序化头像"),
       pool.length ? h("button", {
         onClick: () => { if (armed) { avatarPoolSave([]); setPool([]); setArmed(false); toast && toast("已清空，回到程序化头像"); } else setArmed(true); },
         className: "active:opacity-60",
-        style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: t.accent }
+        style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent }
       }, armed ? "确定清空？" : "清空") : null),
     h("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, className: "hidden", onChange: add }),
     pool.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
       pool.slice(0, 24).map(k => h("img", {
         key: k, src: typeof resolveImg === "function" ? resolveImg(k) : k, alt: "",
         className: "object-cover", style: { width: 38, height: 38, borderRadius: 999, border: "1px solid " + t.line }
-      })).concat(pool.length > 24 ? [h("span", { key: "more", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, alignSelf: "center" } }, "…还有 " + (pool.length - 24) + " 张")] : [])) : null);
+      })).concat(pool.length > 24 ? [h("span", { key: "more", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, alignSelf: "center" } }, "…还有 " + (pool.length - 24) + " 张")] : [])) : null);
 }
 function ImageApiConfig({ toast }) {
   const t = useTheme();
@@ -5865,62 +5865,62 @@ function ImageApiConfig({ toast }) {
     }
     finally { setTesting(false); }
   };
-  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
-  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, label), node);
   if (!editing) return h("div", null,
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "图像站点"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "已保存 " + store.profiles.length + " 条 · 点卡片单独编辑")),
-      h("button", { "data-wk": "block", onClick: () => addSite(false), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增站点")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, "图像站点"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "已保存 " + store.profiles.length + " 条 · 点卡片单独编辑")),
+      h("button", { "data-wk": "block", onClick: () => addSite(false), style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增站点")),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, store.profiles.map(p => {
       const main = p.id === store.activeId;
       return h("div", { "data-wk": "block", key: p.id, onClick: () => openSite(p.id), className: "active:opacity-75", style: { minHeight: 132, padding: "13px", borderRadius: 18, cursor: "pointer", background: t.bg2, border: (main ? "1.5px solid " + t.ink : "1px solid " + t.line), display: "flex", flexDirection: "column", boxShadow: "0 7px 18px rgba(60,50,40,.05)" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
         // 主用是一颗单选章，编辑是另一件事——这两件事不许再合成一个动作
         main
-          ? h("div", { "data-wk": "block", style: { marginTop: 7, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 10, color: t.bg2, background: t.ink, borderRadius: 999, padding: "3px 9px" } }, "现在用的是这一站")
-          : h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); }, className: "active:opacity-60", style: { marginTop: 7, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 10.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", background: "transparent" } }, "设为主用"),
+          ? h("div", { "data-wk": "block", style: { marginTop: 7, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 999, padding: "3px 9px" } }, "现在用的是这一站")
+          : h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); }, className: "active:opacity-60", style: { marginTop: 7, alignSelf: "flex-start", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", background: "transparent" } }, "设为主用"),
         h("div", { className: "flex", style: { gap: 9, marginTop: "auto", paddingTop: 9 } },
-          h("button", { onClick: e => { e.stopPropagation(); openSite(p.id); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink } }, "编辑"),
-          h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
-          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null));
+          h("button", { onClick: e => { e.stopPropagation(); openSite(p.id); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink } }, "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, "复制副本"),
+          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#b55b51" } }, "删除") : null));
     })));
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 12 } },
-      h("button", { onClick: () => { setEditing(false); setEditId(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "← 返回图像站点"),
+      h("button", { onClick: () => { setEditing(false); setEditId(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "← 返回图像站点"),
       h("span", { style: { flex: 1 } }),
       // 改这一站【不会】把它变成主用；要用它就在这儿明说一句
       c.id === store.activeId
-        ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "4px 10px" } }, "现在用的就是这一站")
-        : h("button", { onClick: () => switchSite(c.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", background: "transparent" } }, "设为主用")),
-    c.id === store.activeId ? null : h("div", { style: { marginBottom: 10, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
+        ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 999, padding: "4px 10px" } }, "现在用的就是这一站")
+        : h("button", { onClick: () => switchSite(c.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px", background: "transparent" } }, "设为主用")),
+    c.id === store.activeId ? null : h("div", { style: { marginBottom: 10, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
       "改这一站是随手存的，不会动到主用那一站。想换成它，点上面「设为主用」。"),
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像 API · 角色照片"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接一个生图站：gpt-image 这类出图接口、走聊天接口的 Gemini / Nano Banana / NAI 中转、Gemini 原生、MiniMax（image-01，地址填 https://api.minimax.io 或国内的 https://api.minimaxi.com）都能接，在下面「请求方式」里选。开了之后，给角色填了『外貌/参考照』的，聊天里会偶尔发照片（自拍／别人拍的／和你的合照）。想要合照，还要在「我的面具」里填你自己的外貌或传参考照。按张计费、比文字贵，别乱开；生成的图只存在本机、不进云同步。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "图像 API · 角色照片"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接一个生图站：gpt-image 这类出图接口、走聊天接口的 Gemini / Nano Banana / NAI 中转、Gemini 原生、MiniMax（image-01，地址填 https://api.minimax.io 或国内的 https://api.minimaxi.com）都能接，在下面「请求方式」里选。开了之后，给角色填了『外貌/参考照』的，聊天里会偶尔发照片（自拍／别人拍的／和你的合照）。想要合照，还要在「我的面具」里填你自己的外貌或传参考照。按张计费、比文字贵，别乱开；生成的图只存在本机、不进云同步。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启角色自拍（按张计费）" : "已关闭"); } })),
     false && h("div", { "data-wk": "block", style: { marginTop: 12, padding: "13px 12px", borderRadius: 18, background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 8 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像站点"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "图像站点"),
         h("div", { className: "flex", style: { gap: 6 } },
-          h("button", { onClick: () => addSite(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "＋新增"),
-          h("button", { onClick: () => addSite(true, c), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "复制当前"))),
+          h("button", { onClick: () => addSite(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "＋新增"),
+          h("button", { onClick: () => addSite(true, c), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "复制当前"))),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 9, marginBottom: 10 } }, store.profiles.map(p => {
         const selected = p.id === store.activeId;
         return h("div", { "data-wk": "block", key: p.id, onClick: () => switchSite(p.id), className: "active:opacity-75", style: { minHeight: 112, padding: "12px", borderRadius: 15, cursor: "pointer", background: t.bg, border: "1.5px solid " + (selected ? t.ink : t.line), display: "flex", flexDirection: "column" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选模型"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选模型"),
           h("div", { className: "flex", style: { gap: 10, marginTop: "auto", paddingTop: 8 } },
-            h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, selected ? "编辑中" : "编辑"),
-            h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
-            store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null));
+            h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, selected ? "编辑中" : "编辑"),
+            h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, "复制副本"),
+            store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#b55b51" } }, "删除") : null));
       })),
       h("div", { className: "flex items-center", style: { gap: 7, marginTop: 9 } },
-        h("input", { "data-wk": "input", value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "站点名称", style: Object.assign({}, inSt, { flex: 1, padding: "7px 10px", fontSize: 12.5 }) }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "当前卡片名称"))),
+        h("input", { "data-wk": "input", value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "站点名称", style: Object.assign({}, inSt, { flex: 1, padding: "7px 10px", fontSize: "calc(12.5px * var(--app-fs, 1))" }) }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "当前卡片名称"))),
     row("站点名称", h("input", { "data-wk": "input", value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "给这个图像站起个名字", style: inSt })),
     c.enabled ? h("div", { className: "pt-3" },
       row("接口地址 Base URL", h("input", { "data-wk": "input", value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "如 https://xxx.com（填到域名或 /v1 都行，后面的路径会自动补）", style: inSt })),
@@ -5928,9 +5928,9 @@ function ImageApiConfig({ toast }) {
       row("模型", h("div", null,
         h("div", { className: "flex gap-2" },
           h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-2", style: Object.assign({}, inSt, { flex: 1 }) }),
-          h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
-        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填那个站里写的模型名，一字不差；点「拉取模型」能看到站里有哪些。框里的 gpt-image-2 只是占位。"))),
+          h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
+        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填那个站里写的模型名，一字不差；点「拉取模型」能看到站里有哪些。框里的 gpt-image-2 只是占位。"))),
       h("div", { className: "flex gap-3" },
         h("div", { className: "flex-1" }, row("尺寸", h("select", { value: c.size || "1024x1536", onChange: e => set({ size: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
           h("option", { value: "1024x1536" }, "竖 1024×1536（自拍推荐）"),
@@ -5955,39 +5955,39 @@ function ImageApiConfig({ toast }) {
       // 这个站不锁脸（她 2026-10-05）：有的站不收带图的请求——打开就只发文字，一次请求
       h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
         h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "这个站不锁脸"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "有的站不收带图片的请求，带着参考照就报错。打开后这个站只发文字描述、一次请求，照样出图——只是长相不保证跟参考照一样。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "这个站不锁脸"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "有的站不收带图片的请求，带着参考照就报错。打开后这个站只发文字描述、一次请求，照样出图——只是长相不保证跟参考照一样。")),
         h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.noRef, onChange: () => set({ noRef: !c.noRef }) }))),
       h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "经典直通模式（排查问题用）"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "现在默认走的就是这一套，平时不用开；只在出图出问题、需要对照的时候用。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "经典直通模式（排查问题用）"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "现在默认走的就是这一套，平时不用开；只在出图出问题、需要对照的时候用。")),
         h(Toggle, { on: c.classicMode === true, onChange: v => { set({ classicMode: v }); toast && toast(v ? "已切经典直通（出图完全按出事前的老样子）" : "已回新管线"); } })),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去某个角色的档案里写『外貌』或传参考照，再在聊天里让 TA『拍张自拍』试试。有参考照时会带着照片去出图来锁脸：出图接口走 /images/edits，聊天接口和 Gemini 原生把照片放进消息里。接口成功只说明它收下了，像不像还要看测试图。站子不收图就打开上面的「这个站不锁脸」。每张图只发一次请求，失败不自动重试。"),
-      h("label", { className: "block mt-4", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 12px", border: "1px dashed " + t.line, borderRadius: 10, cursor: "pointer" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去某个角色的档案里写『外貌』或传参考照，再在聊天里让 TA『拍张自拍』试试。有参考照时会带着照片去出图来锁脸：出图接口走 /images/edits，聊天接口和 Gemini 原生把照片放进消息里。接口成功只说明它收下了，像不像还要看测试图。站子不收图就打开上面的「这个站不锁脸」。每张图只发一次请求，失败不自动重试。"),
+      h("label", { className: "block mt-4", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, padding: "10px 12px", border: "1px dashed " + t.line, borderRadius: 10, cursor: "pointer" } },
         testRef ? "✓ 已选测试参考脸（点这里更换）" : "可选：上传一张脸，测试高保真参考能力",
         h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { setTestRef(String(rd.result || "")); setTestRes(null); }; rd.readAsDataURL(f); } })),
       // 诊断按钮：真拍一张测试图
-      h("button", { "data-wk": "block", onClick: () => runTest(), disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（单次探针，最多约3分钟）" : (testRef ? "🔬 单次测试参考图" : "🔬 测试纯文字出图")),
+      h("button", { "data-wk": "block", onClick: () => runTest(), disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（单次探针，最多约3分钟）" : (testRef ? "🔬 单次测试参考图" : "🔬 测试纯文字出图")),
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "参考 " + testRes.refs + " 张已上传 · 字段 " + (testRes.field || testRes.mode) + " · " + (testRes.bytes ? Math.round(testRes.bytes / 1024) + " KB · " : "") + "input fidelity: " + (testRes.fidelity || "default") : "纯文字出图可用（这不代表参考图能力可用）")),
-            testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 这是单次参考能力探针，不会自动换字段或提示词重打。左＝参考，右＝生成；若接口说没收到图，请只切换上面的 image / image[] 后再试一次。若已收到图但脸差很多，才说明该线路或模型的参考保真较弱。") : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "参考 " + testRes.refs + " 张已上传 · 字段 " + (testRes.field || testRes.mode) + " · " + (testRes.bytes ? Math.round(testRes.bytes / 1024) + " KB · " : "") + "input fidelity: " + (testRes.fidelity || "default") : "纯文字出图可用（这不代表参考图能力可用）")),
+            testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 这是单次参考能力探针，不会自动换字段或提示词重打。左＝参考，右＝生成；若接口说没收到图，请只切换上面的 image / image[] 后再试一次。若已收到图但脸差很多，才说明该线路或模型的参考保真较弱。") : null,
             testRes.refs && testRef ? h("div", { className: "flex", style: { gap: 8 } },
-              h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "参考原图"), h("img", { src: testRef, style: { width: "100%", borderRadius: 12, display: "block" } })),
-              h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "线路生成"), h("img", { src: testRes.src, style: { width: "100%", borderRadius: 12, display: "block" } })))
+              h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, "参考原图"), h("img", { src: testRef, style: { width: "100%", borderRadius: 12, display: "block" } })),
+              h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, "线路生成"), h("img", { src: testRes.src, style: { width: "100%", borderRadius: 12, display: "block" } })))
             : h("img", { src: testRes.src, style: { width: "100%", maxWidth: 220, borderRadius: 12, display: "block" } }))
         : h("div", { "data-wk": "block", style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制、截图发我）："),
-            h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制、截图发我）："),
+            h("div", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err),
             testRes.missingRef ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed rgba(194,90,74,0.3)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这不是锁脸差：接口根本没接住参考图。已为当前站切到「" + (testRes.switchedField === "bracket" ? "image[]" : "image") + "」并保存；请只再测一次。"),
-              h("button", { "data-wk": "block", onClick: () => runTest(), disabled: testing, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 0" } }, testing ? "测试中…" : "换字段后再测一次"))
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这不是锁脸差：接口根本没接住参考图。已为当前站切到「" + (testRes.switchedField === "bracket" ? "image[]" : "image") + "」并保存；请只再测一次。"),
+              h("button", { "data-wk": "block", onClick: () => runTest(), disabled: testing, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 0" } }, testing ? "测试中…" : "换字段后再测一次"))
             : testRes.timedOut ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed rgba(194,90,74,0.3)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这次是线路三分钟仍未完成，不代表参考图字段错误。可以原字段重试；也可以只换一次 image / image[]，排除该站字段兼容问题。"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这次是线路三分钟仍未完成，不代表参考图字段错误。可以原字段重试；也可以只换一次 image / image[]，排除该站字段兼容问题。"),
               h("div", { className: "flex", style: { gap: 8 } },
-                h("button", { "data-wk": "block", onClick: () => runTest(), disabled: testing, className: "flex-1 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 6px" } }, testing ? "测试中…" : "原字段再试"),
-                h("button", { "data-wk": "block", onClick: () => runTest(c.refFieldMode === "bracket" ? "first" : "bracket"), disabled: testing, className: "flex-1 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: "#a05f35", background: "rgba(255,255,255,.45)", border: "1px solid rgba(194,90,74,.35)", borderRadius: 9, padding: "9px 6px" } }, testing ? "测试中…" : (c.refFieldMode === "bracket" ? "换 image 再试" : "换 image[] 再试")))) : null)) : null) : null);
+                h("button", { "data-wk": "block", onClick: () => runTest(), disabled: testing, className: "flex-1 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 6px" } }, testing ? "测试中…" : "原字段再试"),
+                h("button", { "data-wk": "block", onClick: () => runTest(c.refFieldMode === "bracket" ? "first" : "bracket"), disabled: testing, className: "flex-1 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#a05f35", background: "rgba(255,255,255,.45)", border: "1px solid rgba(194,90,74,.35)", borderRadius: 9, padding: "9px 6px" } }, testing ? "测试中…" : (c.refFieldMode === "bracket" ? "换 image 再试" : "换 image[] 再试")))) : null)) : null) : null);
 }
 // 独立 embedding API 配置：聊天模型和向量记忆分家。聊天那家（如 gemini 中转）没 embedding 渠道时，
 // 这里另填一家支持 OpenAI 兼容 /v1/embeddings 的 key，只管向量记忆，不影响聊天。
@@ -6033,13 +6033,13 @@ function EmbedApiConfig({ toast }) {
       setRebuild({ busy: false, msg: n > 0 ? ("✅ 建好了：这次新嵌 " + n + " 条，记忆库共 " + lib.length + " 条全部就绪。" + loreMsg + "之后新记忆/词条入库会自动补嵌，不用再点。") : ("✅ 索引已是最新：" + lib.length + " 条记忆全都有向量。" + loreMsg) });
     } catch (e) { setRebuild({ busy: false, msg: "❌ 建到一半断了：" + String((e && e.message) || e) + "\n已嵌好的不白费，再点一次会从缺的地方继续。" }); }
   };
-  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
-  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, label), node);
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "向量记忆 API · Embedding"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "和聊天模型【分开】填。你聊天那家（gemini 中转）没有 embedding 渠道——在这另填一个支持 OpenAI 兼容 /v1/embeddings 的 key，专门跑向量记忆。开着它，聊天时挑记忆会按【语义相似度】来——「上次吃的那顿」也能想起「火锅之约」，换了说法照样认得；关了或没网就自动回落关键词检索，聊天绝不受影响。")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "向量记忆 API · Embedding"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "和聊天模型【分开】填。你聊天那家（gemini 中转）没有 embedding 渠道——在这另填一个支持 OpenAI 兼容 /v1/embeddings 的 key，专门跑向量记忆。开着它，聊天时挑记忆会按【语义相似度】来——「上次吃的那顿」也能想起「火锅之约」，换了说法照样认得；关了或没网就自动回落关键词检索，聊天绝不受影响。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启独立向量 API" : "已关闭"); } })),
     c.enabled ? h("div", { className: "pt-3" },
       row("接口地址 Base URL", h("input", { "data-wk": "input", value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "如 https://xxx.com（会自动补 /v1/embeddings）", style: inSt })),
@@ -6047,16 +6047,16 @@ function EmbedApiConfig({ toast }) {
       row("模型", h("div", null,
         h("div", { className: "flex gap-2" },
           h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "text-embedding-3-small", style: Object.assign({}, inSt, { flex: 1 }) }),
-          h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
-        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填一个【embedding】模型名（名字通常含 embedding / embed / bge）。常见能用的：text-embedding-3-small（便宜够用）、text-embedding-3-large、bge-m3。"))),
-      h("button", { "data-wk": "block", onClick: runTest, disabled: test && test.busy, className: "w-full mt-2 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, test && test.busy ? "检测中…" : "🔬 测一下这个 embedding 接口"),
-      test && !test.busy ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 10, background: test.ok ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (test.ok ? "#8ab88a55" : "#c25a4a55"), color: test.ok ? "#4a7a4a" : "#b0503f" } },
+          h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
+        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填一个【embedding】模型名（名字通常含 embedding / embed / bge）。常见能用的：text-embedding-3-small（便宜够用）、text-embedding-3-large、bge-m3。"))),
+      h("button", { "data-wk": "block", onClick: runTest, disabled: test && test.busy, className: "w-full mt-2 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, test && test.busy ? "检测中…" : "🔬 测一下这个 embedding 接口"),
+      test && !test.busy ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 10, background: test.ok ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (test.ok ? "#8ab88a55" : "#c25a4a55"), color: test.ok ? "#4a7a4a" : "#b0503f" } },
         test.ok ? ("✅ 通了！模型「" + test.model + "」，向量维度 " + test.dim + "。向量记忆的接口这边就绪了。") : ("❌ 没测通：\n" + (test.msg || "未知"))) : null,
-      h("button", { "data-wk": "block", onClick: runRebuild, disabled: rebuild && rebuild.busy, className: "w-full mt-3 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } },
+      h("button", { "data-wk": "block", onClick: runRebuild, disabled: rebuild && rebuild.busy, className: "w-full mt-3 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } },
         rebuild && rebuild.busy ? ("🔨 建索引中… " + (rebuild.total ? rebuild.done + " / " + rebuild.total : "统计中")) : "🔨 立刻建全向量索引"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "给记忆库里还没向量的条目补嵌。平时不用管——新记忆入库、每次开机都会自动补；首次开通或换设备导入存档后想立刻生效就点它。向量只存在本机图库（IndexedDB），不进云存档，换设备会自动重建。"),
-      rebuild && !rebuild.busy && rebuild.msg ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 8, background: rebuild.msg.startsWith("✅") ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (rebuild.msg.startsWith("✅") ? "#8ab88a55" : "#c25a4a55"), color: rebuild.msg.startsWith("✅") ? "#4a7a4a" : "#b0503f" } }, rebuild.msg) : null) : null);
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "给记忆库里还没向量的条目补嵌。平时不用管——新记忆入库、每次开机都会自动补；首次开通或换设备导入存档后想立刻生效就点它。向量只存在本机图库（IndexedDB），不进云存档，换设备会自动重建。"),
+      rebuild && !rebuild.busy && rebuild.msg ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 8, background: rebuild.msg.startsWith("✅") ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (rebuild.msg.startsWith("✅") ? "#8ab88a55" : "#c25a4a55"), color: rebuild.msg.startsWith("✅") ? "#4a7a4a" : "#b0503f" } }, rebuild.msg) : null) : null);
 }
 
 // ── 设置这一整块：一张登记表（v62.48，审美审计还债③）────────────────
@@ -6088,8 +6088,8 @@ function ConfigTile({ icon, title, sub, onClick, wide, tint }) {
   } },
     h("div", null,
       h(ConfigMark, { char: icon || "·", tint: c, size: 28 }),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginTop: 10 } }, title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginTop: 4 } }, sub)));
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginTop: 10 } }, title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 4 } }, sub)));
 }
 function ConfigTileGrid({ children }) {
   return h("div", { "data-wk": "cfgrid", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, paddingTop: 12 } }, children);
@@ -6122,23 +6122,23 @@ function ApiMeterCard({ toast }) {
   return h("div", { style: { marginBottom: 22, borderRadius: 16, border: "1px solid " + t.line, background: t.bg2, padding: "14px 15px 12px" } },
     h("div", { className: "flex items-end justify-between", style: { marginBottom: 2 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, "今天往上游打了几枪"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".08em", color: t.fog } }, "今天往上游打了几枪"),
         h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 3 } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1, color: t.ink } }, today.n),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "次"))),
-      h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(30px * var(--app-fs, 1))", lineHeight: 1, color: t.ink } }, today.n),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "次"))),
+      h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
         h("div", null, "近七天 " + week + " 次"),
-        h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, padding: "4px 0 0" } }, open ? "收起" : "按天看"))),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 4, marginBottom: rows.length ? 10 : 0 } },
+        h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, padding: "4px 0 0" } }, open ? "收起" : "按天看"))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 4, marginBottom: rows.length ? 10 : 0 } },
       "数的是发出去的次数——失败和重试那几次也算，因为账单上也算。"),
     rows.map(([k, v]) => h("div", { key: k, style: { marginBottom: 7 } },
-      h("div", { className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } },
+      h("div", { className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } },
         h("span", null, k), h("span", { style: { color: t.fog } }, v)),
       h("div", { "aria-hidden": "true", style: { height: 4, borderRadius: 999, background: t.line, marginTop: 3, overflow: "hidden" } },
         h("div", { style: { width: Math.max(3, Math.round(v / max * 100)) + "%", height: "100%", background: t.tint } })))),
-    !rows.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "6px 0 2px" } }, "今天还没打过。") : null,
+    !rows.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "6px 0 2px" } }, "今天还没打过。") : null,
     open ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.line } },
-      days.map(d => h("div", { key: d.day, className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "3px 0" } },
+      days.map(d => h("div", { key: d.day, className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "3px 0" } },
         h("span", null, d.day), h("span", { style: { color: d.n > 200 ? t.accent : t.fog } }, d.n + " 次")))) : null);
 }
 
@@ -6158,19 +6158,19 @@ function AutoRefreshConfig(props) {
     features: { ...policy.features, [f.id]: { ...policy.features[f.id], global: true } }
   }, f.id, c.id);
   return h("div", null,
-    h("div", { style: { padding: "2px 2px 14px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } },
+    h("div", { style: { padding: "2px 2px 14px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog } },
       "总开关关掉只会暂停，不会抹掉下面每个人的选择；手动刷新、手动写日记等按钮仍可照常使用。"),
     h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginBottom: 14, padding: "15px 15px 13px", gap: 12, borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t) } },
       h("div", { style: { minWidth: 0 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "后台跑完提示我"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, marginTop: 3 } }, "下面这些自己跑的，每调用一次都弹一句：谁的什么、走的哪条线路、成没成")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, "后台跑完提示我"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 3 } }, "下面这些自己跑的，每调用一次都弹一句：谁的什么、走的哪条线路、成没成")),
       h(Toggle, { on: bgToast, onChange: on => { setBgToast(on); saveJSON("x_bgToast", on); } })),
     h(ApiMeterCard, { toast: props.toast }),
     groups.map(g => h("div", { key: g.id, style: { marginBottom: 22 } },
       h("div", { style: { padding: "0 2px 9px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog } }, g.eyebrow),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginTop: 4 } }, g.title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, g.note)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".08em", color: t.fog } }, g.eyebrow),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginTop: 4 } }, g.title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, g.note)),
       window.AutoRefreshPolicy.FEATURES.filter(f => f.group === g.id).map(f => {
         const cfg = policy.features[f.id];
         const isOpen = open === f.id;
@@ -6178,9 +6178,9 @@ function AutoRefreshConfig(props) {
         return h("div", { "data-wk": "block", key: f.id, style: { marginBottom: 9, borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), boxShadow: "none", overflow: "hidden" } },
           h("div", { className: "flex items-center justify-between", style: { padding: "15px 15px 13px", gap: 12 } },
             h("button", { onClick: () => setOpen(isOpen ? "" : f.id), className: "flex-1 text-left active:opacity-60", style: { minWidth: 0 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, f.title),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, marginTop: 3 } }, f.sub),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cfg.global ? t.accent : t.fog, marginTop: 7 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, f.title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 3 } }, f.sub),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: cfg.global ? t.accent : t.fog, marginTop: 7 } },
                 f.noChars ? (cfg.global ? "已开启 · 每个群／每一场在各自页面里还能单独关" : "已关闭")
                 : cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
             h(Toggle, { on: cfg.global, onChange: on => props.onSetGlobal(f.id, on) })),
@@ -6189,15 +6189,15 @@ function AutoRefreshConfig(props) {
             h("div", { className: "flex", style: { border: "1px solid " + t.line, borderRadius: 3, overflow: "hidden" } },
               f.rates.map(r => { const on = (cfg.rate || f.rateDefault || "mid") === r.id;
                 return h("button", { key: r.id, onClick: () => props.onSetRate(f.id, r.id), className: "flex-1 active:opacity-70",
-                  style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, r.zh); })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
+                  style: { minHeight: 34, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, r.zh); })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } },
               ((f.rates.find(r => r.id === (cfg.rate || f.rateDefault)) || {}).note) ? f.rates.find(r => r.id === (cfg.rate || f.rateDefault)).note :
               (cfg.rate || "mid") === "low" ? "想念攒得慢一些（四分之三的速度），刚找过你之后也多等一会儿才会再找" : (cfg.rate || "mid") === "high" ? "想念攒得快一倍，刚找过你之后再找的间隔也减半" : "原来那套节奏")) : null,
           isOpen && !f.noChars ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
-            !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
+            !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
               h("div", { className: "flex items-center", style: { gap: 10, minWidth: 0 } },
                 c.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage, alt: "", style: { width: 30, height: 30, borderRadius: 10, objectFit: "cover" } }) : h("div", { style: { width: 30, height: 30, borderRadius: 10, background: t.line } }),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)),
               h(Toggle, { on: charOn(f, c), onChange: on => props.onSetChar(f.id, c.id, on) })))) : null);
       })))
   );
@@ -6329,9 +6329,9 @@ function Config(props) {
         },
           h(ConfigMark, { char: row.char, tint: row.tint }),
           h("span", { className: "flex-1 min-w-0" },
-            h("span", { "data-wk": "cfrowtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
-            h("span", { "data-wk": "cfrowstate", style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
-        h("div", { "data-wk": "cfnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+            h("span", { "data-wk": "cfrowtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, row.title),
+            h("span", { "data-wk": "cfrowstate", style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
+        h("div", { "data-wk": "cfnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
           "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在TA自己的聊天里点右上角 ⋯。")),
       // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
       page === "look" && h(ConfigTileGrid, null,
@@ -6378,13 +6378,13 @@ function Config(props) {
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       // 各聊天窗自己写的 CSS：一格一行，点「清空」先问一句
       page === "chatCss" && section(h("div", { "data-wk": "chatcsslist" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
           "某个聊天窗的 CSS 写坏了、把按钮挡住进不去设置的时候，在这儿清掉那一格。清掉的只是那一个聊天窗（或群、线下）自己写的那份，皮肤、气泡、背景图和全 App 的主题都不动。想先留一份，进得去时在那个聊天窗的 CSS 格子底下点「导出 .css」。"),
         (props.chatCssRows || []).length ? (props.chatCssRows || []).map(r => h("div", { key: r.kind + r.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + CFG_LINE(t) } },
-          h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, r.name), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.len + " 字")),
+          h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, r.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, r.len + " 字")),
           h("button", { "data-wk": "chatcssclear", onClick: () => requestAppConfirm("清空「" + r.name + "」自己写的 CSS？", "这一格会回到默认样子，清掉找不回来（进得去时可以先在那儿导出一份）。", () => props.onClearChatCss && props.onClearChatCss(r.kind, r.id), "清空"),
-            className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid #a05a4a66", color: "#a05a4a", fontFamily: F_BODY, fontSize: 12.5 } }, "清空")))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "24px 0" } }, "哪个聊天窗都没写自己的 CSS"))),
+            className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid #a05a4a66", color: "#a05a4a", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "清空")))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "24px 0" } }, "哪个聊天窗都没写自己的 CSS"))),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
@@ -6428,7 +6428,7 @@ function McpConfig({ toast }) {
   };
   const persist = next => { setList(next); try { localStorage.setItem("x_mcp", JSON.stringify(next)); } catch (e) {} if (window.MCP) window.MCP.forget(); };
   const upd = (id, patch) => persist(list.map(x => x.id === id ? { ...x, ...patch } : x));
-  const inSt = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", width: "100%", outline: "none" };
+  const inSt = { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", width: "100%", outline: "none" };
   const probe = async srv => {
     if (!window.MCP) { toast && toast("MCP 组件没加载出来"); return; }
     setBusy(srv.id);
@@ -6440,24 +6440,24 @@ function McpConfig({ toast }) {
     finally { setBusy(""); }
   };
   return h("div", { style: { marginTop: 22 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "MCP 服务器"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.75, marginTop: 4 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, "MCP 服务器"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.75, marginTop: 4 } },
       "给角色接外部工具：联网搜索、抓网页之类。填公网地址就行；本机跑的要么让它放行跨域(CORS)，要么先用 cloudflared / ngrok 转成公网 HTTPS。地址要用 Streamable HTTP 那一档（通常以 /mcp 结尾），旧的 /sse 浏览器直连不了。"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a4442e", lineHeight: 1.7, marginTop: 6 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#a4442e", lineHeight: 1.7, marginTop: 6 } },
       "⚠ 这一档跟内置的「让 Ta 能上网」不一样：模型说要调工具、我们去调、再问模型一遍——所以真用上工具的那一轮至少花两次调用。"),
     // ── 转接 ──
     h("div", { "data-wk": "mcprelay", style: { marginTop: 14, padding: "13px 13px 12px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "转接（连不上时用）"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "转接（连不上时用）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 4 } },
         "大多数 MCP 不放行网页直连（报「跨域」「Load failed」），旧的 /sse 那种网页也接不住。在你自己的 Cloudflare 上搭一个免费的小转接，填在这里，下面每台 MCP 就都经它去连。不填就照旧直连。"),
       h("input", { "data-wk": "input", value: rl.url || "", onChange: e => saveRl({ ...rl, url: e.target.value.trim() }), placeholder: "https://名字.你的账号.workers.dev", style: { ...inSt, marginTop: 10 } }),
       h("input", { "data-wk": "input", value: rl.key || "", onChange: e => saveRl({ ...rl, key: e.target.value.trim() }), placeholder: "转接口令（选填，跟 Worker 里的 RELAY_KEY 一样）", style: { ...inSt, marginTop: 8 } }),
       h("div", { className: "flex items-center flex-wrap", style: { gap: 10, marginTop: 10 } },
         h("button", { onClick: testRelay, disabled: busy === "relay" || !rl.url, className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", opacity: (busy === "relay" || !rl.url) ? 0.5 : 1 } }, busy === "relay" ? "测着…" : "测一下转接"),
-        h("button", { onClick: copyRelayCode, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "复制转接代码"),
-        h("button", { onClick: () => setGuide(v => !v), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, guide ? "收起教程" : "怎么搭？")),
-      guide ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.85, marginTop: 10, whiteSpace: "pre-wrap" } },
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", opacity: (busy === "relay" || !rl.url) ? 0.5 : 1 } }, busy === "relay" ? "测着…" : "测一下转接"),
+        h("button", { onClick: copyRelayCode, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "复制转接代码"),
+        h("button", { onClick: () => setGuide(v => !v), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, guide ? "收起教程" : "怎么搭？")),
+      guide ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.85, marginTop: 10, whiteSpace: "pre-wrap" } },
         "① 打开 dash.cloudflare.com，用邮箱注册一个免费账号（不用绑卡）。\n"
         + "② 左边菜单「计算」（Compute）→「Workers 和 Pages」→「创建」→「创建 Worker」（Hello World 那个）→ 名字随便起 → 部署。\n"
         + "③ 部署好点「编辑代码」，把里面原来的代码全删掉，粘上这里「复制转接代码」复制的那一整段 → 右上角「部署」。\n"
@@ -6473,14 +6473,14 @@ function McpConfig({ toast }) {
       h("input", { "data-wk": "input", value: srv.token || "", onChange: e => upd(srv.id, { token: e.target.value.trim() }), placeholder: "密钥（选填，会加成 Authorization: Bearer）", style: { ...inSt, marginTop: 8 } }),
       h("div", { className: "flex items-center", style: { gap: 10, marginTop: 10 } },
         h("button", { onClick: () => probe(srv), disabled: busy === srv.id || !srv.url, className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", opacity: (busy === srv.id || !srv.url) ? 0.5 : 1 } }, busy === srv.id ? "测着…" : "测一下"),
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", opacity: (busy === srv.id || !srv.url) ? 0.5 : 1 } }, busy === srv.id ? "测着…" : "测一下"),
         h("button", { onClick: () => persist(list.filter(x => x.id !== srv.id)), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "删除")),
-      seen[srv.id] ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 8 } },
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "删除")),
+      seen[srv.id] ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 8 } },
         "它给的工具：" + (seen[srv.id].length ? seen[srv.id].join("、") : "一件都没有")) : null)),
     h("button", { onClick: () => persist([...list, { id: "m_" + Date.now(), name: "", url: "", token: "", on: true }]), className: "w-full active:opacity-70",
-      style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0" } }, "＋ 加一台 MCP 服务器"),
-    list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 10 } },
+      style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0" } }, "＋ 加一台 MCP 服务器"),
+    list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 10 } },
       "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给TA。默认谁都不发。") : null,
     list.length ? h(ExtMemBox, { list: list, toast: toast }) : null);
 }
@@ -6505,15 +6505,15 @@ function ExtMemBox({ list, toast }) {
   if (!EM) return null;
   const servers = (list || []).filter(s => s && s.url);
   const chip = (label, on, onClick, key) => h("button", { key: key || label, onClick, className: "active:opacity-70",
-    style: { minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, label);
-  const sub = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 6px" } }, txt);
+    style: { minHeight: 40, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
+  const sub = txt => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 6px" } }, txt);
   const toolRow = which => h("div", { className: "flex flex-wrap", style: { gap: 6 } },
     tools.map(tl => chip(tl.raw || tl.name, c[which] === tl.name, () => put({ [which]: c[which] === tl.name ? "" : tl.name }), which + tl.name)));
   return h("div", { "data-wk": "extmem", style: { marginTop: 16, padding: "13px 13px 12px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "外置记忆库"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "外置记忆库"),
       h(Toggle, { on: !!c.on, onChange: () => put({ on: !c.on }) })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginTop: 4 } },
       "挑一台接好的记忆服务（MCP）。打开后：每次 TA 回你之前，App 先拿你这句话去它那儿搜一下，搜到的跟本地记忆库一起带给 TA，不多花模型调用，只多等一两秒；记忆库里新记下的条目，也会往它那儿写一份。别的前端接同一台，记忆就是通的。不用开「让 Ta 能上网」。"),
     sub("用哪一台"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } }, servers.map(sv => chip(sv.name || sv.url, c.sid === sv.id, () => { if (c.sid === sv.id) return; put({ sid: sv.id, search: "", add: "" }); load(sv.id, true); }, sv.id))),
@@ -6523,7 +6523,7 @@ function ExtMemBox({ list, toast }) {
         sub("哪件是搜记忆（必选）"), toolRow("search"),
         sub("哪件是记一条（不选就只搜不写）"), toolRow("add"),
         h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "新记忆写回那边"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "新记忆写回那边"),
           h(Toggle, { on: c.writeBack !== false, onChange: () => put({ writeBack: c.writeBack === false }) }))) : null) : null);
 }
 
@@ -6531,7 +6531,7 @@ function ModelFloatImgRow({ t, toast }) {
   const [img, setImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
   const put = v => { setImg(v); saveJSON("x_modelFloatImg", v); try { window.dispatchEvent(new Event("lisa-modelfloatimg")); } catch (e) {} };
   return h("div", { "data-wk": "modelfloatimg", style: { display: "flex", gap: 12, marginTop: 6, alignItems: "center" } },
-    h("label", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, img ? "换一张图" : "换成自己的图",
+    h("label", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, img ? "换一张图" : "换成自己的图",
       h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
         const f = e.target.files && e.target.files[0]; if (!f) return;
         try {
@@ -6539,7 +6539,7 @@ function ModelFloatImgRow({ t, toast }) {
           put(typeof imgToVault === "function" ? await imgToVault(b64) : b64); toast && toast("浮窗换好了");
         } catch (err) { toast && toast("这张存不下：" + (err.message || err)); }
       } })),
-    img ? h("button", { onClick: () => put(""), style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "换回旋钮") : null);
+    img ? h("button", { onClick: () => put(""), style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回旋钮") : null);
 }
 function ApiConfig({
   profiles = [],
@@ -6643,8 +6643,8 @@ function ApiConfig({
     }
   };
   const routeBox = (title, sub, selectedId, setter, noneLabel, offLabel) => !setter ? null : h(ConfigPanel, null,
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, title),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 11 } }, sub),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, title),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 11 } }, sub),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       // ⚠️选中的那条要是【已经被删掉了】，这儿原来一档都不高亮——看起来就像「我选的是
       //   跟随主模型」，可存着的 id 还在，行为是另一回事（她 2026-09-15 撞的就是这个）。
@@ -6653,28 +6653,28 @@ function ApiConfig({
         const live = (offLabel && selectedId === "__off__") || (list || []).some(x => x && x.id === selectedId) ? selectedId : null;
         const on = (live || null) === (p.id || null);
         return h("button", { key: p.id || title, onClick: () => setter(p.id || null), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
       })));
   if (!editing) return h("div", null,
     // 生成中那颗「…」气泡上挂一个叉（群友 2026-09-30：「有时候发现生不出来，我想自己断掉」）。默认关。
     h(ConfigPanel, null,
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
         h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "生成中可以手动断掉"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "单聊、群聊、线下、群线下正在生成的「…」旁边多一个叉，点了就不等这一轮了。已经发出去的请求照样会计费。")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "生成中可以手动断掉"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "单聊、群聊、线下、群线下正在生成的「…」旁边多一个叉，点了就不等这一轮了。已经发出去的请求照样会计费。")),
         h("button", { onClick: () => { const n = !genStopOn; setGenStopOn(n); saveJSON("x_genStopOn", n); }, style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: genStopOn ? t.ink : t.line } },
           h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: genStopOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
     onSetModelFloat && h(ConfigPanel, null,
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
         h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "模型快速切换浮窗"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "线上、线下分别切换；角色专线不受影响。"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "模型快速切换浮窗"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "线上、线下分别切换；角色专线不受影响。"),
           // 开着却看不见那颗旋钮（她 2026-10-05 截图：「这玩意显示不出来悬浮球」）。
           //   病根：一条线路都没【存】的时候，下面会先摆一张空白的「未命名配置」——
           //   那张卡还没保存，旋钮认的是存好的线路，于是它看着有一条、其实一条都没有，
           //   旋钮就安安静静地不出现，开关却亮着。说一句，别让人对着开关干瞪眼。
           modelFloatOn && !(profiles || []).length
-            ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 4, lineHeight: 1.5 } },
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.accent, marginTop: 4, lineHeight: 1.5 } },
                 "现在还没有存好的线路，所以浮窗还不会出来——在下面填好一条、点保存就有了。")
             : null,
           // 浮窗换成自己的图（群友 2026-10-17）：图放在原来那颗圆里
@@ -6683,35 +6683,35 @@ function ApiConfig({
           h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
     h("div", { className: "flex items-center justify-between", style: { marginTop: 18, marginBottom: 10 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "API 方案"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点进去单独编辑")),
-      h("button", { onClick: addNew, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, "API 方案"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点进去单独编辑")),
+      h("button", { onClick: addNew, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
     // ⚠️密钥【不随任何备份走】，这件事以前一个字都没写（审计 P1）。
     //   key 全部剥进本机 IndexedDB 的凭证金库，用一把不可导出的设备密钥加密；
     //   导出文件和云存档里 x_api 只剩一个 credentialRef 门牌。
     //   于是重装/换设备之后：线路一条不少、每条都没 key → 所有调用失败 →
     //   她看到的症状是「模型坏了」，方向完全是错的。所以摆在这一页最显眼的地方。
     h("div", { "data-wk": "block", style: { margin: "0 0 12px", padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.sub } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub } },
         "⚠️ 密钥只存这台设备，不随备份走。导出文件和云同步里都只有线路名和地址，没有 key——重装 app、换设备、清了浏览器数据之后，这几条线路会原样回来但都是空的，要在这儿重新填一次。")),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, list.map(p =>
       h("div", { key: p.id, onClick: () => { setCurId(p.id); setModels([]); setDd(false); setEditing(true); }, className: "active:opacity-75", style: {
         minHeight: 124, padding: "13px 13px 10px", borderRadius: 18, cursor: "pointer",
         background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 7px 18px rgba(60,50,40,.05)", display: "flex", flexDirection: "column"
       } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
         ((servedAll || {})[p.id] || {}).verdict === "diff"
-          ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "⚠ 实际给的是 " + servedAll[p.id].got)
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#a4442e", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "⚠ 实际给的是 " + servedAll[p.id].got)
           : null,
         h("div", { className: "flex items-center", style: { gap: 9, marginTop: "auto", paddingTop: 10 } },
-          h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, "编辑"),
-          h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
-          list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
+          h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink } }, "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "复制副本"),
+          list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "删除") : null,
           // 主用是一颗单选章，不是「谁最后被保存过」——那两件事以前是同一个动作
           p.id === activeId
-            ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "2px 8px" } }, "主用中")
-            : h("button", { onClick: e => { e.stopPropagation(); onSave(tidy(list), p.id); toast && toast("这条现在是线上主 API 了"); }, className: "active:opacity-60", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, "设为主用"))))),
+            ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 999, padding: "2px 8px" } }, "主用中")
+            : h("button", { onClick: e => { e.stopPropagation(); onSave(tidy(list), p.id); toast && toast("这条现在是线上主 API 了"); }, className: "active:opacity-60", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, "设为主用"))))),
     routeBox("线下与创作模型", "单人/群线下、小游戏、日记、同人文与穿越互动统一从这里选，不再绑在某一张 API 编辑卡里。", offlineApiId, onSetOfflineApi, "跟随线上主模型"),
     // ⚠️「Ta 眼里」这一句不许省（她 2026-09-11 报「来来回回修了那么多次都当天好了以后又不行了」）：
     //   v64.43 起【建卡和复看】也走这条线，可这一栏的说明还停在「记忆、日程、钱包、便签」，
@@ -6727,19 +6727,19 @@ function ApiConfig({
     h(QuietHoursBox, { t: t, toast: toast }),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
-  h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
+  h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
   false && onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },
     h("div", null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "模型快速切换浮窗"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "开启后显示右侧 AI 圆点；线上、线下分别切换，角色专线不受影响。")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "模型快速切换浮窗"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "开启后显示右侧 AI 圆点；线上、线下分别切换，角色专线不受影响。")),
     h("button", { onClick: () => onSetModelFloat(!modelFloatOn), className: "active:opacity-70", style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
       h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } }))),
   false && h("div", { style: { marginTop: 12, marginBottom: 22 } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "API 方案"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点卡片编辑")),
-      h("button", { onClick: addNew, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, "API 方案"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点卡片编辑")),
+      h("button", { onClick: addNew, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, list.map(p => {
       const selected = p.id === curId;
       return h("div", { key: p.id, onClick: () => { setCurId(p.id); setModels([]); setDd(false); }, className: "active:opacity-75", style: {
@@ -6747,13 +6747,13 @@ function ApiConfig({
         background: t.bg2, border: "1.5px solid " + (selected ? t.ink : t.line),
         boxShadow: selected ? "0 7px 18px rgba(60,50,40,.08)" : "none", display: "flex", flexDirection: "column"
       } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.45, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.45, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
         h("div", { className: "flex items-center", style: { gap: 10, marginTop: "auto", paddingTop: 10 } },
-          h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setModels([]); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: selected ? t.ink : t.sub } }, selected ? "编辑中" : "编辑"),
-          h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
-          list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
-          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null));
+          h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setModels([]); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: selected ? t.ink : t.sub } }, selected ? "编辑中" : "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "复制副本"),
+          list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "删除") : null,
+          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.tint } }, "主") : null));
     }))),
   /*#__PURE__*/React.createElement(LineField, {
     zh: "配置名称",
@@ -6774,7 +6774,7 @@ function ApiConfig({
     }),
     placeholder: "https://api.openai.com 或中转地址",
     style: {
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
@@ -6788,7 +6788,7 @@ function ApiConfig({
     }),
     placeholder: cur.proxyRef ? "（走云端代理，密钥可留空）" : "sk-... / AIza...",
     style: {
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
@@ -6801,7 +6801,7 @@ function ApiConfig({
     }),
     placeholder: "如 DZZI / ANTHROPIC——密钥住云端保险柜，此处填引用名",
     style: {
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
@@ -6821,7 +6821,7 @@ function ApiConfig({
     },
     placeholder: "https://yanqiu-vps.tail542792.ts.net:8791/ ——留空＝还走 Kong",
     style: {
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
@@ -6838,7 +6838,7 @@ function ApiConfig({
     },
     placeholder: "服务端 LLM_PROXY_SECRET 那一串",
     style: {
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
@@ -6850,7 +6850,7 @@ function ApiConfig({
       className: "disabled:opacity-40",
       style: {
         fontFamily: F_BODY,
-        fontSize: 11,
+        fontSize: "calc(11px * var(--app-fs, 1))",
         color: t.ink,
         borderBottom: `1.5px solid ${t.ink}`,
         paddingBottom: 1
@@ -6863,7 +6863,7 @@ function ApiConfig({
     }),
     placeholder: "先拉取列表或手动输入模型名",
     style: {
-      fontSize: 16
+      fontSize: "calc(16px * var(--app-fs, 1))"
     }
   }), models.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "mt-3 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto"
@@ -6874,7 +6874,7 @@ function ApiConfig({
     }),
     style: {
       fontFamily: F_BODY,
-      fontSize: 11,
+      fontSize: "calc(11px * var(--app-fs, 1))",
       padding: "4px 9px",
       borderRadius: 999,
       border: `1px solid ${cur.model === m ? t.ink : t.line}`,
@@ -6882,15 +6882,15 @@ function ApiConfig({
     }
   }, m)))),
   served && served.got ? h("div", { "data-wk": "block", style: { margin: "-6px 0 18px", padding: "9px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + (served.verdict === "diff" ? "#a4442e" : t.line) } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, lineHeight: 1.5 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } },
       "它实际给的：" + served.got),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: served.verdict === "diff" ? "#a4442e" : t.fog, lineHeight: 1.6, marginTop: 3 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: served.verdict === "diff" ? "#a4442e" : t.fog, lineHeight: 1.6, marginTop: 3 } },
       (served.verdict === "same" ? "跟你填的一致。"
         : served.verdict === "alias" ? "跟你填的是同一个，只是带上了版本号。"
         : served.verdict === "diff" ? "⚠ 跟你填的「" + (served.req || cur.model || "") + "」对不上——这条线路可能把请求转给了别的模型。"
         : "这条线路没回传模型名，看不出来。")
       + " 上次调用 " + new Date(served.ts || 0).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.6, marginTop: 5 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 5 } },
       "这是回包里服务端写的那个名字。别去问模型「你是哪一版」——它训练时还没有它自己，那个回答是猜的。")) : null,
   /*#__PURE__*/React.createElement(LineField, {
     zh: "温度",
@@ -6899,7 +6899,7 @@ function ApiConfig({
       style: {
         fontFamily: F_DISPLAY,
         fontStyle: "italic",
-        fontSize: 18,
+        fontSize: "calc(18px * var(--app-fs, 1))",
         color: t.ink
       }
     }, (cur.temperature != null ? cur.temperature : 0.75).toFixed(1))
@@ -6926,7 +6926,7 @@ function ApiConfig({
     className: "flex-1 py-3",
     style: {
       fontFamily: F_BODY,
-      fontSize: 13,
+      fontSize: "calc(13px * var(--app-fs, 1))",
       letterSpacing: "0.06em",
       background: t.ink,
       color: t.bg2,
@@ -6936,33 +6936,33 @@ function ApiConfig({
     // 要拿这条当主用，是另外一句话——所以它是另外一颗按钮
     onClick: async () => { await onSave(tidy(list), curId); toast && toast("这条现在是线上主 API 了"); },
     className: "py-3 px-4",
-    style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.ink, borderRadius: 6 }
+    style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.ink, borderRadius: 6 }
   }, "设为主用"), list.length > 1 && /*#__PURE__*/React.createElement("button", {
     onClick: removeCur,
     className: "py-3 px-5",
     style: {
       fontFamily: F_BODY,
-      fontSize: 13,
+      fontSize: "calc(13px * var(--app-fs, 1))",
       color: t.fog,
       border: `1px solid ${t.line}`,
       borderRadius: 6
     }
   }, "删除此配置")), false && onSetOfflineApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "线下与创作 API"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下、群线下、小游戏、日记、同人文与穿越互动都走这里；线下 OOC、滚动总结和结束总结也跟随这条线路。角色若在人格档案馆里指定了专属线路，角色专属内容仍永远优先走自己的专线；不选＝跟随线上主模型。"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "线下与创作 API"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下、群线下、小游戏、日记、同人文与穿越互动都走这里；线下 OOC、滚动总结和结束总结也跟随这条线路。角色若在人格档案馆里指定了专属线路，角色专属内容仍永远优先走自己的专线；不选＝跟随线上主模型。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       [{ id: null, name: "跟随线上主模型" }].concat(list).map(p => {
         const on = (offlineApiId || null) === (p.id || null);
         return h("button", { key: p.id || "offline-none", onClick: () => onSetOfflineApi(p.id || null), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
+          style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
       }))), false && onSetBgApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "后台任务 API（省钱可选）"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "抽取记忆 / 日程 / 钱包 / 查手机 / 随身物 / 购物 / 外卖 / 陪伴戳一下说的那句 / 便签墙 / 心情日历 / 记账 / 番茄钟 这些后台活，走一个便宜的按量小模型（如 gemini-flash-nothinking），不动聊天/日记/同人这些创作类。不选＝跟主模型用同一个。"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "后台任务 API（省钱可选）"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "抽取记忆 / 日程 / 钱包 / 查手机 / 随身物 / 购物 / 外卖 / 陪伴戳一下说的那句 / 便签墙 / 心情日历 / 记账 / 番茄钟 这些后台活，走一个便宜的按量小模型（如 gemini-flash-nothinking），不动聊天/日记/同人这些创作类。不选＝跟主模型用同一个。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       [{ id: null, name: "跟随主模型" }].concat(list).map(p => {
         const on = (bgApiId || null) === (p.id || null);
         return h("button", { key: p.id || "none", onClick: () => onSetBgApi(p.id || null), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
+          style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
       }))));
 }
 function SenseConfig({
@@ -7003,13 +7003,13 @@ function SenseConfig({
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: 16,
+      fontSize: "calc(16px * var(--app-fs, 1))",
       color: t.ink
     }
   }, "时间感知"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
-      fontSize: 11.5,
+      fontSize: "calc(11.5px * var(--app-fs, 1))",
       color: t.fog,
       marginTop: 2
     }
@@ -7026,9 +7026,9 @@ function SenseConfig({
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
-    style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink }
+    style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink }
   }, "后台通知（试用）"), h("div", {
-    style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 }
+    style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 }
   }, "切到别处后，单聊回复按气泡通知；系统暂停或关闭网页后不保证送达。iPhone 请先添加到主屏幕并从图标打开；Android、电脑需浏览器支持并允许通知。通知可能显示聊天内容。")), h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 } }, h(Toggle, {
     on: notifOn,
     onChange: v => {
@@ -7042,13 +7042,13 @@ function SenseConfig({
       } else { window.Notify.disable(); setNotifOn(false); toast && toast("已关闭锁屏通知"); }
     }
   }), notifOn ? h("button", { onClick: () => { if (window.Notify && window.Notify.test(0)) toast && toast("几秒内会弹一条，可以先锁屏等着看"); },
-    style: { border: "none", background: "transparent", color: t.accent, fontFamily: F_BODY, fontSize: 12, minHeight: 40 } }, "测试通知") : null)), h("div", {
+    style: { border: "none", background: "transparent", color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 40 } }, "测试通知") : null)), h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
-    style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink }
+    style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink }
   }, "App 内消息提醒"), h("div", {
-    style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 }
+    style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 }
   }, "人在别的玩法里时，新消息在顶上出一条，过几秒自己翻上去；点一下直接进那条聊天。单聊、群聊、旁观群都算")), h(Toggle, {
     on: p.msgBanner !== false,
     onChange: v => save({ ...p, msgBanner: v })
@@ -7060,13 +7060,13 @@ function SenseConfig({
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: 16,
+      fontSize: "calc(16px * var(--app-fs, 1))",
       color: t.ink
     }
   }, "位置感知"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
-      fontSize: 11.5,
+      fontSize: "calc(11.5px * var(--app-fs, 1))",
       color: t.fog,
       marginTop: 2
     }
@@ -7083,14 +7083,14 @@ function SenseConfig({
   })),
   // ── 我在哪套世界：有架空世界时才出现 ──
   p.geoAware && wl.length > 0 && h("div", { style: { marginTop: 12 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "我在哪套世界"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "我在哪套世界"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } },
       [{ id: "real", name: "现实定位" }].concat(wl).map(w => {
         const on = w.id === "real" ? !inWorld : p.geoRealm === w.id;
         return h("button", { key: w.id, onClick: () => save({ ...p, geoRealm: w.id }), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink } }, w.name);
+          style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 6, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink } }, w.name);
       })),
-    inWorld && realm && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+    inWorld && realm && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, marginTop: 6 } },
       realm.node
         ? "角色会当你在「" + realm.world.name + "」的「" + realm.node + "」，天气、日记的地点也跟着这个世界走，不再提现实城市。想换地方，去地图里把自己钉到别处。"
         : "角色会当你在「" + realm.world.name + "」里，不再提现实城市。去地图 → 架空 → 这个世界，把自己钉到一个地点，角色就知道你具体在哪儿。")),
@@ -7099,7 +7099,7 @@ function SenseConfig({
     className: "mt-4 w-full py-2.5",
     style: {
       fontFamily: F_BODY,
-      fontSize: 12,
+      fontSize: "calc(12px * var(--app-fs, 1))",
       color: t.ink,
       border: `1px solid ${t.line}`,
       borderRadius: 6
@@ -7115,7 +7115,7 @@ function SenseConfig({
         value: placeDraft,
         onChange: e => setPlaceDraft(e.target.value),
         placeholder: "换个地方，比如 东京",
-        style: { flex: 1, minWidth: 0, minHeight: 40, outline: "none", padding: "9px 11px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line }
+        style: { flex: 1, minWidth: 0, minHeight: 40, outline: "none", padding: "9px 11px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line }
       }),
       h("button", {
         onClick: async () => {
@@ -7125,27 +7125,27 @@ function SenseConfig({
           finally { setPlaceBusy(false); }
         },
         className: "active:opacity-70 shrink-0",
-        style: { minHeight: 40, padding: "0 14px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "none", opacity: placeDraft.trim() ? 1 : .45 }
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.bg2, background: t.ink, border: "none", opacity: placeDraft.trim() ? 1 : .45 }
       }, placeBusy ? "查…" : "就说我在这儿")),
     // 同名的好几处：每一行写全（省、国家都带上），她点哪个就是哪个
     placeChoices && placeChoices.length ? h("div", { style: { marginTop: 8, border: "1px solid " + t.line, borderRadius: 8, background: t.bg2, overflow: "hidden" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "8px 11px 4px" } }, "找到好几个同名的地方，是哪一个？"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "8px 11px 4px" } }, "找到好几个同名的地方，是哪一个？"),
       placeChoices.map((c, i) => h("button", { key: i, onClick: async () => {
           if (placeBusy) return;
           setPlaceBusy(true);
           try { await onSetGeoPoint(c); setPlaceChoices(null); setPlaceDraft(""); } finally { setPlaceBusy(false); }
         }, className: "w-full text-left active:opacity-70",
-        style: { display: "block", minHeight: 44, padding: "9px 11px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.5 } }, c.full || c.name)),
+        style: { display: "block", minHeight: 44, padding: "9px 11px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, c.full || c.name)),
       h("button", { onClick: () => setPlaceChoices(null), className: "w-full active:opacity-70",
-        style: { minHeight: 40, borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "都不是，重新填")) : null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+        style: { minHeight: 40, borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "都不是，重新填")) : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, marginTop: 6 } },
       geo && geo.manual
         ? "现在是你手填的这个地方。角色口中的「你在哪」、天气、地图上你的位置都按它走；想回真的位置就点上面那颗。"
         : "填一个地名，角色就当你在那儿。地图和天气也跟着一起挪过去。")),
   geo && geo.error && /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
-      fontSize: 11.5,
+      fontSize: "calc(11.5px * var(--app-fs, 1))",
       color: t.accent,
       marginTop: 8
     }
@@ -7194,8 +7194,8 @@ function BubbleSkinConfig({ toast }) {
   };
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
     h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "2px 0" } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "聊天气泡"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: folded ? "none" : "rotate(90deg)", display: "inline-block" } }, "›")),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "聊天气泡"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, transition: "transform .2s", transform: folded ? "none" : "rotate(90deg)", display: "inline-block" } }, "›")),
     folded ? null : h(React.Fragment, null,
     // 一键换整套（v61.05）：跟单聊 ••• 里那一格是同一个组件，一处画两处用。
     // 换完把草稿也同步过去，试衣镜和下面那些字段立刻跟着变（否则看着像没生效）。
@@ -7208,12 +7208,12 @@ function BubbleSkinConfig({ toast }) {
     // 通话屏是内联样式，混在一起两边都说不清；单存一个开关，点一下当场生效。
     h(CallFollowSkinRow, null),
     h("div", { className: "flex gap-2", style: { marginTop: 8 } },
-      h("button", { "data-wk": "block", onClick: save, className: "flex-1 active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.bg2, background: t.ink, borderRadius: 10, padding: "11px 0" } }, "保存皮肤"),
-      h("button", { onClick: reset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "0 16px" } }, "恢复默认")),
+      h("button", { "data-wk": "block", onClick: save, className: "flex-1 active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 10, padding: "11px 0" } }, "保存皮肤"),
+      h("button", { onClick: reset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "0 16px" } }, "恢复默认")),
     // 单独收发这一套气泡：发出去的是只装了气泡的主题包，主题工作台那头照样收得下
     h("div", { className: "flex gap-2", style: { marginTop: 8 } },
-      h("button", { onClick: exportSkin, className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导出这套气泡"),
-      h("button", { onClick: () => skinFile.current && skinFile.current.click(), className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导入气泡")),
+      h("button", { onClick: exportSkin, className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导出这套气泡"),
+      h("button", { onClick: () => skinFile.current && skinFile.current.click(), className: "flex-1 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "导入气泡")),
     h("input", { ref: skinFile, type: "file", accept: ANY_FILE, className: "hidden", onChange: importSkin }),
     typeof window !== "undefined" && window.ThemePackPasteBox
       ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: applySkinText, open: "挑不开文件？把气泡的 JSON 贴进来" }))
@@ -7264,7 +7264,7 @@ function ThemeConfig({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       color: t.ink,
       marginBottom: 12
     }
@@ -7297,7 +7297,7 @@ function ThemeConfig({
     className: "w-full py-2.5",
     style: {
       fontFamily: F_BODY,
-      fontSize: 12.5,
+      fontSize: "calc(12.5px * var(--app-fs, 1))",
       color: t.bg2,
       background: t.ink,
       borderRadius: 6
@@ -7307,7 +7307,7 @@ function ThemeConfig({
     className: "w-full py-2.5 mt-2",
     style: {
       fontFamily: F_BODY,
-      fontSize: 12.5,
+      fontSize: "calc(12.5px * var(--app-fs, 1))",
       color: t.fog,
       border: `1px solid ${t.line}`,
       borderRadius: 6
@@ -7320,17 +7320,17 @@ function ThemeConfig({
       blurHint: "把背景虚掉，图标会立刻跳出来。0 就是照片原样。" })) : null,
   h("div", { "data-wk": "composerlift", style: { marginTop: 18 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "输入栏往上抬"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, lift + " px")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "输入栏往上抬"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, lift + " px")),
     h("input", { type: "range", min: 0, max: 80, step: 2, value: lift,
       onChange: e => moveLift(e.target.value), onMouseUp: saveLift, onTouchEnd: saveLift,
       style: { width: "100%", accentColor: t.ink } }),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 2 } },
       "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。"),
     h("div", { className: "flex items-center justify-between", style: { marginTop: 12, gap: 12 } },
       h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "自动适配底边"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "自动适配底边"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 2 } },
           "有些安卓手机在浏览器里打开时，底部被挡了一截却不告诉网页。开着的话遇到这种手机会自动多抬 12px，跟上面拉的数加在一起；不挡的手机不受影响。")),
       h(Toggle, { on: liftAuto, onChange: flipLiftAuto }))),
   /*#__PURE__*/React.createElement("input", {
@@ -7350,7 +7350,7 @@ function ThemeConfig({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: 15,
+      fontSize: "calc(15px * var(--app-fs, 1))",
       color: t.ink
     }
   }, l), /*#__PURE__*/React.createElement("div", {
@@ -7358,7 +7358,7 @@ function ThemeConfig({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: F_BODY,
-      fontSize: 11,
+      fontSize: "calc(11px * var(--app-fs, 1))",
       color: t.fog
     }
   }, th[k]), h(ColorDot, {
@@ -7372,7 +7372,7 @@ function ThemeConfig({
     className: "flex-1 py-3",
     style: {
       fontFamily: F_BODY,
-      fontSize: 13,
+      fontSize: "calc(13px * var(--app-fs, 1))",
       background: t.ink,
       color: t.bg2,
       borderRadius: 6
@@ -7382,7 +7382,7 @@ function ThemeConfig({
     className: "py-3 px-5",
     style: {
       fontFamily: F_BODY,
-      fontSize: 13,
+      fontSize: "calc(13px * var(--app-fs, 1))",
       color: t.fog,
       border: `1px solid ${t.line}`,
       borderRadius: 6
@@ -7407,7 +7407,7 @@ function CloudSync({ toast, onExport }) {
   }, []);
   const field = {
     fontFamily: F_BODY,
-    fontSize: 13,
+    fontSize: "calc(13px * var(--app-fs, 1))",
     color: t.ink,
     background: t.bg2,
     border: `1px solid ${t.line}`,
@@ -7417,23 +7417,23 @@ function CloudSync({ toast, onExport }) {
   };
   const btnDark = {
     fontFamily: F_BODY,
-    fontSize: 13,
+    fontSize: "calc(13px * var(--app-fs, 1))",
     background: t.ink,
     color: t.bg2,
     borderRadius: 6
   };
   const btnLine = {
     fontFamily: F_BODY,
-    fontSize: 13,
+    fontSize: "calc(13px * var(--app-fs, 1))",
     color: t.ink,
     border: `1px solid ${t.line}`,
     borderRadius: 6
   };
   const label = txt => h("div", {
-    style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 }
+    style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 }
   }, txt);
   const note = txt => h("div", {
-    style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog }
+    style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog }
   }, txt);
 
   if (!ready) {
@@ -7552,29 +7552,29 @@ function CloudSync({ toast, onExport }) {
   // 所以这里不是提示，是【闸】：没导出、也没亲口说「我已经有备份了」，那个红按钮按不动。
   // 两处共用一份——各写一份迟早只改一处。
   const exportGate = which => h("div", { "data-wk": "block", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.sub } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub } },
       "做这件事之前，先把现在这一份存到你自己的硬盘上。"),
     saved === which
-      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4a7f5c", marginTop: 6 } }, "✅ 好了，下面那个按钮可以按了")
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#4a7f5c", marginTop: 6 } }, "✅ 好了，下面那个按钮可以按了")
       : h("div", { className: "flex gap-2 mt-2" },
           h("button", { onClick: async () => {
               if (!onExport) { setSaved(which); return; }
               try { await onExport(); setSaved(which); } catch (e) { toast && toast("导出失败：" + ((e && e.message) || "再试一次")); }
-            }, className: "flex-1 py-2.5", style: { ...btnDark, fontSize: 12.5 } }, "导出全部数据到本机"),
+            }, className: "flex-1 py-2.5", style: { ...btnDark, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "导出全部数据到本机"),
           h("button", { onClick: () => setSaved(which), className: "py-2.5 px-3",
-            style: { ...btnLine, fontSize: 11.5, color: t.fog } }, "我已经有备份了")));
+            style: { ...btnLine, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "我已经有备份了")));
   const inner = user
     ? [
-        h("div", { key: "who", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 4 } },
+        h("div", { key: "who", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } },
           "已登录：" + (user.email || user.id)),
         h("div", { key: "pushstate", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10,
             background: bad ? "rgba(192,80,63,.09)" : "rgba(71,127,136,.08)",
             border: "1px solid " + (bad ? "rgba(192,80,63,.35)" : "rgba(71,127,136,.25)") } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: bad ? "#c0503f" : t.sub } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: bad ? "#c0503f" : t.sub } },
             (bad ? "⚠️ " : "") + (agoText || "备份状态未知")),
-          st && st.blocked ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#c0503f", marginTop: 4 } },
+          st && st.blocked ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#c0503f", marginTop: 4 } },
             "这一次没备份：" + st.why) : null,
-          bad ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginTop: 6 } },
+          bad ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 6 } },
             "先去「导入与导出 → 导出全部数据」存一份到本机，再决定要不要手动备份。") : null),
         note("数据改动会自动备份到云端，换设备/重装登录后自动拉回最新存档。上面那一行是它真的做到没有——别只看开关。"),
         h("button", { key: "push", onClick: doPush, disabled: !!busy, className: "mt-4 w-full py-3", style: btnDark },
@@ -7599,7 +7599,7 @@ function CloudSync({ toast, onExport }) {
           toast("正在从账本找回缺失消息，马上重载…");
           setTimeout(() => location.reload(), 600);
         }, disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine }, "从账本找回缺失消息（最近48小时）"),
-        h("div", { key: "outnote", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 18, lineHeight: 1.6 } },
+        h("div", { key: "outnote", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 18, lineHeight: 1.6 } },
           "退出登录会先把最新存档同步到云端，然后清空本机数据、回到初始状态。⚠️云端只有一行、没有历史：被盖掉就是被盖掉了。只有落在你自己硬盘上的那份 json 谁也动不了。"),
         !confirmOut
           ? h("button", { key: "out", onClick: () => { setConfirmOut(true); setSaved(""); }, disabled: !!busy, className: "mt-2 w-full py-3", style: { ...btnLine, color: "#c0503f" } },
@@ -7673,22 +7673,22 @@ function PushCard({ loggedIn }) {
   return h("div", { style: { marginTop: 20, paddingTop: 16, borderTop: "1px dashed " + t.line } },
     h("div", { className: "flex items-center justify-between" },
       h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "锁屏推送 · 锁屏也能叫醒你"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "订阅后，角色那边有消息可以直接推到锁屏——不用先打开 app。")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: st === "on" ? "#5a7d5a" : t.fog, flexShrink: 0 } }, st === "on" ? "● 已订阅" : st === "unsupported" ? "不支持" : "未订阅")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "锁屏推送 · 锁屏也能叫醒你"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "订阅后，角色那边有消息可以直接推到锁屏——不用先打开 app。")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: st === "on" ? "#5a7d5a" : t.fog, flexShrink: 0 } }, st === "on" ? "● 已订阅" : st === "unsupported" ? "不支持" : "未订阅")),
     st === "unsupported"
-      ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "这个浏览器环境不支持推送。iPhone 要先「添加到主屏幕」、再从主屏图标打开（iOS 16.4+）才有这能力。")
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "这个浏览器环境不支持推送。iPhone 要先「添加到主屏幕」、再从主屏图标打开（iOS 16.4+）才有这能力。")
       : h("div", { style: { marginTop: 10 } },
-          h("input", { "data-wk": "input", value: vapid, onChange: e => saveKey(e.target.value), placeholder: "VAPID 公钥（没有就点下面「生成一对」）", style: { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: "monospace", fontSize: 11, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-          h("button", { onClick: genKeys, className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "🔑 没有公钥？点这本地生成一对（不用装任何东西）"),
+          h("input", { "data-wk": "input", value: vapid, onChange: e => saveKey(e.target.value), placeholder: "VAPID 公钥（没有就点下面「生成一对」）", style: { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("button", { onClick: genKeys, className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "🔑 没有公钥？点这本地生成一对（不用装任何东西）"),
           priv ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, "私钥（复制进 push-sender 的 VAPID_PRIVATE，别泄露、别进 git）："),
-            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", lineHeight: 1.5 } }, priv)) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } }, "私钥（复制进 push-sender 的 VAPID_PRIVATE，别泄露、别进 git）："),
+            h("div", { style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", lineHeight: 1.5 } }, priv)) : null,
           h("div", { className: "flex gap-3", style: { marginTop: 8 } },
             st === "on"
-              ? h("button", { onClick: turnOff, disabled: busy, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, busy ? "…" : "关闭这台设备的推送")
-              : h("button", { onClick: turnOn, disabled: busy, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "订阅中…" : (loggedIn ? "开启锁屏推送" : "开启（要先登录云同步）"))),
-          msg ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: msg.startsWith("✅") ? "#5a7d5a" : "#c25a4a", marginTop: 8, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, msg) : null));
+              ? h("button", { onClick: turnOff, disabled: busy, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, busy ? "…" : "关闭这台设备的推送")
+              : h("button", { onClick: turnOn, disabled: busy, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, busy ? "订阅中…" : (loggedIn ? "开启锁屏推送" : "开启（要先登录云同步）"))),
+          msg ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: msg.startsWith("✅") ? "#5a7d5a" : "#c25a4a", marginTop: 8, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, msg) : null));
 }
 // 本地存储占用条：localStorage 约 5MB 上限（图片吃大头），快满时红色预警——防「悄悄写满丢数据」
 // 存储 key → 人话名称（谁占地方一眼看懂）；前缀匹配，最长优先
@@ -7802,11 +7802,11 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
       .catch(err => ({ error: String((err && err.message) || err) }));
     setDoneMap(d => ({ ...d, [e.id]: { name: name, added: (r && r.added) || 0, arch: (r && r.arch) || 0, back: (r && r.back) || 0, error: r && r.error } }));
   };
-  const line = (k, v) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, v);
+  const line = (k, v) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, v);
   const card = e => {
     const done = doneMap[e.id];
     const action = done && !done.busy
-      ? h("div", { "data-wk": "block", style: { marginTop: 11, padding: "9px 11px", borderRadius: 9, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6 } },
+      ? h("div", { "data-wk": "block", style: { marginTop: 11, padding: "9px 11px", borderRadius: 9, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } },
           done.error
             ? "「" + done.name + "」建回来了，但记忆没捞下来——检查一下网络，再点一次「扫一遍云端」重试。"
             : "✓ 「" + done.name + "」接回 " + done.added + " 条记忆" +
@@ -7816,34 +7816,34 @@ function LostCharacterRescue({ characters, onRescue, toast }) {
       : h("div", { style: { marginTop: 11, display: "flex", gap: 8 } },
           e.here ? null : h("input", {
             value: names[e.id] || "", onChange: ev => setNames(n => ({ ...n, [e.id]: ev.target.value })), placeholder: "TA 叫什么",
-            style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: "1px solid " + t.line }
+            style: { flex: 1, minWidth: 0, outline: "none", padding: "8px 11px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line }
           }),
           h("button", {
             onClick: () => rebuild(e), disabled: !!(done && done.busy), className: "active:opacity-70 shrink-0 disabled:opacity-50",
-            style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, flex: e.here ? 1 : "0 0 auto" }
+            style: { padding: "8px 14px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, flex: e.here ? 1 : "0 0 auto" }
           }, done && done.busy ? "接回中…" : (e.here ? "把 " + e.missing + " 条记忆接回来" : "建回来")));
     return h("div", { key: e.id, style: { border: "1px solid " + t.line, borderRadius: 12, padding: "13px 14px", background: t.bg2 } },
-      e.here ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, e.here.name,
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 8 } }, "人在，记忆没接上")) : null,
-      h("div", { style: { fontFamily: "monospace", fontSize: 11, color: t.sub, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: e.here ? 4 : 0 } }, e.id),
+      e.here ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, e.here.name,
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, marginLeft: 8 } }, "人在，记忆没接上")) : null,
+      h("div", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: e.here ? 4 : 0 } }, e.id),
       h("div", { style: { marginTop: 6, display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
         line("m", "云端 " + e.memCount + " 条记忆，本机缺 " + e.missing + " 条"),
         line("a", e.archived == null ? "归档聊天读不到" : e.archived + " 条归档聊天"),
         line("t", e.lastTs ? "最近一条 " + new Date(e.lastTs).toLocaleDateString() : "没有时间")),
       e.samples.length ? h("div", { style: { marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + t.line, display: "flex", flexDirection: "column", gap: 5 } },
-        e.samples.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, x.slice(0, 90)))) : null,
+        e.samples.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, userSelect: "text", WebkitUserSelect: "text" } }, x.slice(0, 90)))) : null,
       action);
   };
   return h("div", { style: { paddingTop: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog } },
       "角色档案被覆盖掉之后，TA 的记忆和归档聊天其实还留在云上，只是没人认领了。这里列两种人：本机压根没有的（用同一个 id 建回去），和人已经在、记忆却没接上的（直接把缺的那几条捞回来）。",
       h("br"), h("br"),
       "⚠️ 人设本身只存在被覆盖的那一份里，找不回来了。下面列出的记忆是重写人设最好的材料。"),
     h("button", { onClick: scan, disabled: busy, className: "w-full py-3 active:opacity-70 disabled:opacity-50",
-      style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, borderRadius: 7, color: t.bg2, background: t.ink } },
+      style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 7, color: t.bg2, background: t.ink } },
       busy ? "正在翻云端…" : "扫一遍云端"),
-    err ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", lineHeight: 1.6 } }, "扫描失败：" + err + "（先确认已登录云同步）") : null,
-    rows && !rows.length ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "都齐了：云端每个人的记忆本机都有。") : null,
+    err ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#c25a4a", lineHeight: 1.6 } }, "扫描失败：" + err + "（先确认已登录云同步）") : null,
+    rows && !rows.length ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "都齐了：云端每个人的记忆本机都有。") : null,
     rows && rows.length ? h("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } }, rows.map(card)) : null);
 }
 
@@ -7870,38 +7870,38 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
   const maxB = rows.length ? rows[0].bytes : 1;
   return h("div", { "data-wk": "block", style: { marginBottom: 20, padding: "14px 15px", background: t.bg2, border: "1px solid " + (near ? "#c25a4a" : t.line), borderRadius: 12 } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "本地存储占用"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: near ? "#c25a4a" : t.fog } }, mb(info.ls) + " / ~5 MB（" + pct + "%）")),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "本地存储占用"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: near ? "#c25a4a" : t.fog } }, mb(info.ls) + " / ~5 MB（" + pct + "%）")),
     h("div", { style: { height: 8, borderRadius: 999, background: t.line, overflow: "hidden" } },
       h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: near ? "#c25a4a" : (pct >= 60 ? "#b89150" : t.tint), transition: "width .3s" } })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } },
       near ? "⚠️ 快满了！点下面「看谁占地方」找出大头。图片(头像/壁纸/朋友圈/聊天图)已自动迁到 IndexedDB 图库、不占这 5MB；剩下占地方的多是文字（聊天记录/同人文/人设）。可删旧聊天、或导出备份后清理。满了新消息会存不进、可能丢。"
         : "这里只存文字（上限约 5MB）——图片已自动迁到浏览器图库、不占这里。占大头的是聊天记录和文本内容。快满时 app 会提前弹警告。"),
     // 聊天云归档：把旧聊天挪去云端、释放本地（登录云同步才有；先确认云端存好才裁本地=零丢失）
     onOffloadChats ? h("button", {
       onClick: async () => { if (offloading) return; setOffloading(true); try { await onOffloadChats(); } finally { setOffloading(false); refresh(); } },
       disabled: offloading, className: "w-full active:opacity-80 disabled:opacity-50",
-      style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.tint, borderRadius: 10, padding: "9px 0", marginTop: 12 }
+      style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 10, padding: "9px 0", marginTop: 12 }
     }, offloading ? "归档中…" : "☁️ 归档旧聊天到云端 · 释放本地空间") : null,
-    onOffloadChats ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "普通云同步只是备份，不会腾本机；这里会在占用≥80%时每天自动安全归档一次，也可立即手动运行。云端确认后才裁本机：平时每个会话留最近 1000 条，≥80%留 600 条，≥90%留 400 条；裁掉的仍可在聊天页「加载更早」。") : null,
+    onOffloadChats ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "普通云同步只是备份，不会腾本机；这里会在占用≥80%时每天自动安全归档一次，也可立即手动运行。云端确认后才裁本机：平时每个会话留最近 1000 条，≥80%留 600 条，≥90%留 400 条；裁掉的仍可在聊天页「加载更早」。") : null,
     // 一键清理可再生旧数据（旧日程点开自动重生、旧论坛帖）——绝不碰聊天/线下/记忆库/同人文
     onPruneOld ? h("button", {
       onClick: () => { onPruneOld(); setTimeout(refresh, 300); },
       className: "w-full active:opacity-80",
-      style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: "transparent", border: "1px solid " + t.line, borderRadius: 10, padding: "9px 0", marginTop: 8 }
+      style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "1px solid " + t.line, borderRadius: 10, padding: "9px 0", marginTop: 8 }
     }, "🧹 清理可再生旧数据（旧日程 + 旧论坛）") : null,
-    onPruneOld ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "只清超过 14 天的旧日程（点开自动重新生成）和最旧的论坛帖；你的聊天、线下记录、记忆库、同人文一个都不动。") : null,
+    onPruneOld ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "只清超过 14 天的旧日程（点开自动重新生成）和最旧的论坛帖；你的聊天、线下记录、记忆库、同人文一个都不动。") : null,
     // 明细：谁占地方一眼看穿
-    h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 10 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
+    h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint, marginTop: 10 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
     detail ? h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
       rows.slice(0, 12).map(r => h("div", { key: r.name },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 2 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, r.name),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: r.name.indexOf("（文字金库）") < 0 && r.bytes >= 512000 ? "#c25a4a" : t.fog } }, kb(r.bytes) + (r.name.indexOf("（文字金库）") >= 0 ? " · IDB" : " · " + Math.round(r.bytes / info.ls * 100) + "%"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink } }, r.name),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: r.name.indexOf("（文字金库）") < 0 && r.bytes >= 512000 ? "#c25a4a" : t.fog } }, kb(r.bytes) + (r.name.indexOf("（文字金库）") >= 0 ? " · IDB" : " · " + Math.round(r.bytes / info.ls * 100) + "%"))),
         h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
           h("div", { style: { width: Math.max(2, Math.round(r.bytes / maxB * 100)) + "%", height: "100%", borderRadius: 999, background: r.name.indexOf("（文字金库）") >= 0 ? t.tint : (r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint)) } })))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=localStorage 大头(≥0.5MB)；标有「文字金库」的项目住在 IDB，不挤占 5MB。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
-    info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=localStorage 大头(≥0.5MB)；标有「文字金库」的项目住在 IDB，不挤占 5MB。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
+    info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
 }
 // TA 们拍的照片（群里 2026-10-18：「线下生的图找不到」「线上照片也没有」）：
 //   他在单聊、群聊、线下生的图都存在 x_selfies，键是 img_<他的id>_<那条消息>（照片日记是 img_pdiary_<他的id>_…）。
@@ -7922,17 +7922,17 @@ function CharPhotoAlbum({ characters, toast }) {
   useEffect(() => () => { Object.values(urls).forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); }, []);
   const save = k => window.saveImgOriginal ? window.saveImgOriginal(k, (who && who.name) || "照片").then(ok => toast && toast(ok ? "已经存下来了" : "这张取不到原图")) : toast && toast("这台设备存不了图");
   return h("div", { "data-wk": "charphotos", style: { margin: "18px 0", border: "1px solid " + t.line, borderRadius: 12, padding: 14 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, who ? h("button", { onClick: () => { setWho(null); setShown(30); setAt(-1); }, style: { color: t.ink } }, "← " + who.name + " 拍的 · " + mine(who).length) : "TA 们拍的照片"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "他们在单聊、群聊、线下发的照片和照片日记都在这儿，按人分开，新的在前。点开能左右划、存到手机。图只在这台手机上，换手机前先导出全部数据。"),
-    keys == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "在数……")
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, who ? h("button", { onClick: () => { setWho(null); setShown(30); setAt(-1); }, style: { color: t.ink } }, "← " + who.name + " 拍的 · " + mine(who).length) : "TA 们拍的照片"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "他们在单聊、群聊、线下发的照片和照片日记都在这儿，按人分开，新的在前。点开能左右划、存到手机。图只在这台手机上，换手机前先导出全部数据。"),
+    keys == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "在数……")
     : !who ? (people.length ? h("div", { style: { marginTop: 10 } }, people.map(({ c, n }) => h("button", { key: c.id, "data-wk": "charphotowho", onClick: () => setWho(c), className: "w-full flex items-center justify-between active:opacity-70",
-        style: { minHeight: 44, borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, h("span", { className: "truncate" }, c.name), h("span", { style: { fontSize: 12, color: t.fog } }, n + " 张 ›"))))
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 10 } }, "还没有谁拍过照片。"))
+        style: { minHeight: 44, borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, h("span", { className: "truncate" }, c.name), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, n + " 张 ›"))))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "还没有谁拍过照片。"))
     : h(React.Fragment, null,
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, marginTop: 12 } },
         list.map((k, i) => h("button", { key: k, "data-wk": "charphoto", onClick: () => setAt(i), style: { aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } },
           urls[k] ? h("img", { src: urls[k], alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null))),
-      mine(who).length > shown ? h("button", { onClick: () => setShown(s => s + 30), className: "w-full active:opacity-60", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "再看 30 张") : null,
+      mine(who).length > shown ? h("button", { onClick: () => setShown(s => s + 30), className: "w-full active:opacity-60", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, "再看 30 张") : null,
       at >= 0 && typeof ImageViewer === "function" ? h(ImageViewer, { onClose: () => setAt(-1), at: at, items: list.map(k => ({ src: urls[k] || "", key: k })),
         actions: item => [{ label: "⬇ 保存到手机（原图）", wk: "charphotosave", onClick: () => save(item.key) }] }) : null));
 }
@@ -7967,17 +7967,17 @@ function LocalPhotoLibrary({ toast }) {
   };
   return h("div", { style: { margin: "18px 0", border: "1px solid " + t.line, borderRadius: 12, padding: 14 } },
     h("div", { className: "flex items-center justify-between" },
-      h("button", { onClick: () => setOpen(v => !v), style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "本机照片库 · " + rows.length + (open ? " ▴" : " ▾")),
-      h("button", { onClick: () => ref.current && ref.current.click(), style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "＋ 添加照片")),
+      h("button", { onClick: () => setOpen(v => !v), style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "本机照片库 · " + rows.length + (open ? " ▴" : " ▾")),
+      h("button", { onClick: () => ref.current && ref.current.click(), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "＋ 添加照片")),
     h("input", { ref, type: "file", accept: "image/*", className: "hidden", onChange: add }),
-    h("button", { "data-wk": "block", onClick: dig, disabled: digging, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginTop: 6 } }, digging ? "在翻以前的聊天……" : "把以前聊天里我发过的照片也找回来"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "聊天里发过的真实照片会自动归到这里。像素只在本机图库，不会自动上传云端；移出照片库也不会删掉聊天里的图。"),
+    h("button", { "data-wk": "block", onClick: dig, disabled: digging, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, marginTop: 6 } }, digging ? "在翻以前的聊天……" : "把以前聊天里我发过的照片也找回来"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "聊天里发过的真实照片会自动归到这里。像素只在本机图库，不会自动上传云端；移出照片库也不会删掉聊天里的图。"),
     open ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginTop: 12 } },
-      rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }), r.bridgeId ? h("span", { style: { position: "absolute", right: 4, bottom: 4, fontSize: 15, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))" } }, "📮") : null)) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
+      rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }), r.bridgeId ? h("span", { style: { position: "absolute", right: 4, bottom: 4, fontSize: "calc(15px * var(--app-fs, 1))", filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))" } }, "📮") : null)) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
     preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520 } },
         h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 10 } }),
-        h("textarea", { "data-wk": "textarea", value: shareCaption, onChange: e => setShareCaption(e.target.value), maxLength: 500, placeholder: "分享给言秋前，写一句这张照片是什么…", style: { width: "100%", minHeight: 66, marginTop: 10, borderRadius: 8, padding: 10, background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+        h("textarea", { "data-wk": "textarea", value: shareCaption, onChange: e => setShareCaption(e.target.value), maxLength: 500, placeholder: "分享给言秋前，写一句这张照片是什么…", style: { width: "100%", minHeight: 66, marginTop: 10, borderRadius: 8, padding: 10, background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
         h("button", { disabled: sharing || (!preview.bridgeId && !shareCaption.trim()), onClick: async () => {
           if (sharing) return; setSharing(true);
           try {
@@ -7995,8 +7995,8 @@ function LocalPhotoLibrary({ toast }) {
             }
             setPreview(null); await refresh();
           } catch (e) { toast && toast("照片桥失败：" + (e.message || e)); } finally { setSharing(false); }
-        }, className: "w-full", style: { color: "#fff", background: preview.bridgeId ? "rgba(190,90,75,.75)" : "rgba(92,142,128,.9)", borderRadius: 8, fontFamily: F_BODY, fontSize: 13, padding: 11, marginTop: 8, opacity: sharing ? .55 : 1 } }, sharing ? "处理中…" : (preview.bridgeId ? "撤回给言秋看的照片" : "📮 给言秋看")),
-        h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: 12, padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
+        }, className: "w-full", style: { color: "#fff", background: preview.bridgeId ? "rgba(190,90,75,.75)" : "rgba(92,142,128,.9)", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: 11, marginTop: 8, opacity: sharing ? .55 : 1 } }, sharing ? "处理中…" : (preview.bridgeId ? "撤回给言秋看的照片" : "📮 给言秋看")),
+        h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
 }
 // 主屏排查：直接读盘上的 x_homeLayout / x_homeFolders，告诉她某个 app 现在到底在哪儿。
 // 她 2026-08-30 报「整理出来就找不到了」，而导出整包在 iOS PWA 上又导不出来——
@@ -8080,31 +8080,31 @@ function DataConfig({
   ];
   const button = (label, onClick, primary) => h("button", {
     onClick: onClick, className: "w-full py-3 active:opacity-70",
-    style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, borderRadius: 7,
+    style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", borderRadius: 7,
       color: primary ? t.bg2 : t.ink, background: primary ? t.ink : "transparent",
       border: primary ? "none" : "1px solid " + t.line }
   }, label);
   const current = items.find(x => x.id === part);
   let content = null;
   if (part === "inner-life") content = h("div", { style: { paddingTop: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "在这里查看每个角色的余温影响，并一次给全部角色开启前台试点。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.fog } }, "在这里查看每个角色的余温影响，并一次给全部角色开启前台试点。"),
     button("打开 E 余温与潮汐仪表", () => setInnerLifeOpen(true), true));
   if (part === "storage") content = h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld });
   if (part === "photos") content = h(React.Fragment, null, h(LocalPhotoLibrary, { toast: toast }), h(CharPhotoAlbum, { characters: characters || [], toast: toast }));
   if (part === "cloud") content = h(CloudSync, { toast: toast, onExport: onExport });
   if (part === "rescue") content = h(LostCharacterRescue, { characters: characters || [], onRescue: onRescueChar, toast: toast });
   if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
     // 图片和视频另按包存（群里 2026-10-16「备份不下来了」）：文字那份存好后这儿才冒出来
     mediaParts && mediaParts.n
       ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.ink } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
             "文字那一份存好了。图片和视频分成了 " + mediaParts.n + " 包，按顺序一包一包点着存；恢复时每一包都用「导入备份恢复」导一次，先导哪份都行。"),
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
             Array.from({ length: mediaParts.n }, (_, k) => h("button", {
               key: k, onClick: () => onExportMedia(k + 1), className: "active:opacity-70",
-              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12,
+              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
                 border: "1px solid " + (mediaParts.done[k + 1] ? t.ink : t.line),
                 background: mediaParts.done[k + 1] ? t.ink : "transparent",
                 color: mediaParts.done[k + 1] ? t.bg2 : t.ink }
@@ -8114,9 +8114,9 @@ function DataConfig({
     //   以前唯一提到这件事的地方，是【导入失败之后】那个 alert——那时候已经晚了。
     //   固定摆在按钮旁边，按之前就看得见。
     h("div", { "data-wk": "block", style: { margin: "8px 0 4px", padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } },
         "先存一份文字（角色、聊天、记忆、手机、情侣空间这些正文），再按包存图库、自拍、照片说明和动态形象视频——图多也导得出来。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f", marginTop: 5 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.75, color: "#c0503f", marginTop: 5 } },
         "⚠️ 不含：API 密钥 · 一起读的书正文 · 语音音频 · 一起听的本地歌 · 网易云 Cookie。换设备之后这几样要重来一次。")),
     // ── 下载落不下来的那条退路（她 2026-09-22 转来的截图：QQ 内置浏览器把下载
     //    接管成自己那个「文件下载」页，文件进了它的沙盒，人再也找不着）──────
@@ -8126,11 +8126,11 @@ function DataConfig({
     //   （她 2026-09-22：「qq浏览器就是没有用浏览器打开的选项啊」）。
     //   说得出来的办法只有两个：复制文字走，或者把网址搬到别的浏览器里再导出。
     inAppBrowser ? h("div", { "data-wk": "block", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: "#c0503f" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.75, color: "#c0503f" } },
         "你现在这个浏览器（QQ／微信这类）会把下载接管成它自己的「文件下载」页，文件多半进了它的沙盒，你再也找不着。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 5 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub, marginTop: 5 } },
         "· 只要文字（角色、聊天、记忆这些）：用下面那颗「复制文字备份」，复制完发给自己。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.75, color: t.sub, marginTop: 2 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub, marginTop: 2 } },
         "· 要连图一起带走：把网址复制出来，用 Chrome／夸克／手机自带的浏览器打开，再导出文件。"),
       h("button", {
         onClick: async () => {
@@ -8139,35 +8139,35 @@ function DataConfig({
           toast && toast(ok ? "网址已复制——去别的浏览器粘贴打开，再导出文件" : "这个浏览器不让复制，手动从地址栏抄一下");
         },
         className: "w-full active:opacity-70",
-        style: { marginTop: 8, minHeight: 40, padding: "9px 0", borderRadius: 9, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 12 }
+        style: { marginTop: 8, minHeight: 40, padding: "9px 0", borderRadius: 9, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" }
       }, "复制本页网址")) : null,
     button("复制文字备份（下载不下来时用这个）", () => onCopyExport && onCopyExport(), false),
     // 整段粘贴不动的时候分段发（她 2026-09-22：「太大了可以复制但是粘贴不了」）。
     // 每段自己带段头，贴回来的顺序不重要，收齐了自动拼。
     copyParts && copyParts.parts && copyParts.parts.length > 1
       ? h("div", { "data-wk": "block", style: { marginTop: 8, padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.ink } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } },
             "这份备份切成了 " + copyParts.parts.length + " 段。按顺序点一段、发一段——" +
             "恢复的时候把每一段都贴回下面那个框里，贴齐了自己会合起来。"),
           copyParts.parts.length > 12
-            ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: "#c0503f", marginTop: 4 } },
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", marginTop: 4 } },
                 "⚠️这么多段，手动发一遍是真的累。能换 Chrome／夸克打开这个网址导出文件、或者开云同步的话，那条路轻松得多——这儿的段是没有别的办法时才用的。")
             : null,
           h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
             copyParts.parts.map((_, k) => h("button", {
               key: k, onClick: () => onCopyExport(k + 1), className: "active:opacity-70",
-              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: 12,
+              style: { minHeight: 40, padding: "0 13px", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))",
                 border: "1px solid " + (copyParts.done && copyParts.done[k + 1] ? t.ink : t.line),
                 background: copyParts.done && copyParts.done[k + 1] ? t.ink : "transparent",
                 color: copyParts.done && copyParts.done[k + 1] ? t.bg2 : t.ink }
             }, (copyParts.done && copyParts.done[k + 1] ? "✓ " : "") + "第 " + (k + 1) + " 段"))))
       : null,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "4px 2px 0" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, margin: "4px 2px 0" } },
       "复制完去微信／QQ 发给自己，或者存进备忘录。要恢复的时候用下面的「贴一份备份」。"),
     // ⚠️必须当面说清楚这一份没带图：图是 base64 塞进 JSON 的，一份几十 MB，
     //   往剪贴板里塞会把页面直接撑崩（她 2026-09-22：「复制直接崩了」）。
     //   带不带图是两回事，不许悄悄少图（never-say-delete-first 那条的地基）。
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: "#c0503f", margin: "3px 2px 0" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "#c0503f", margin: "3px 2px 0" } },
       "⚠️复制的这一份只有文字（角色、聊天、记忆、手机、情侣空间这些），不含图片和自拍——图太大，塞进剪贴板会把页面撑崩。图要带走只能用上面的导出文件。"),
     button("导入备份恢复", () => ref.current && ref.current.click(), false),
     // 贴一份：跟主题包那条路同一个组件（施工规则/one-public-mechanism）
@@ -8179,7 +8179,7 @@ function DataConfig({
         }),
         // 她 2026-09-23 转来那张截图：读者从【输入法的剪贴板列表】里一段段点——那里只存前面一截，
         //   贴进来的全是截断的；而且列表里混着两次导出的段。这两件事贴之前就该知道。
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, margin: "6px 2px 0" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.fog, margin: "6px 2px 0" } },
           "1）每段开头那一行段头原样带着，别删——它记着这是第几段。",
           h("br"), "2）别从输入法的剪贴板列表里点：那里只存前面一截。回聊天里长按复制一段，再回来长按这个框点「粘贴」。",
           h("br"), "3）几段得是同一次导出的：段头第三格那串字母要一样。"))
@@ -8190,20 +8190,20 @@ function DataConfig({
     } }));
   if (part === "danger") content = h("div", { style: { paddingTop: 8 } },
     !c ? button("清空所有数据", () => setC(true), false) : h("div", null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 12 } }, "确定清空全部数据？无法撤销。建议先导出。"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 12 } }, "确定清空全部数据？无法撤销。建议先导出。"),
       h("div", { className: "flex gap-3" },
-        h("button", { onClick: () => setC(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.line, color: t.ink, borderRadius: 6 } }, "取消"),
-        h("button", { "data-wk": "block", onClick: onClearAll, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, background: t.accent, color: "#fff", borderRadius: 6 } }, "确定"))));
+        h("button", { onClick: () => setC(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + t.line, color: t.ink, borderRadius: 6 } }, "取消"),
+        h("button", { "data-wk": "block", onClick: onClearAll, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.accent, color: "#fff", borderRadius: 6 } }, "确定"))));
   return h("div", { style: { paddingTop: 4 } },
     innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters: characters || [], onClose: () => setInnerLifeOpen(false) }) : null,
     !part ? h(ConfigTileGrid, null, items.map(item => h(ConfigTile, {
       key: item.id, title: item.title, sub: item.sub, icon: item.icon,
       danger: item.danger, onClick: () => setPart(item.id)
     }))) : h("div", null,
-      h("button", { onClick: () => { setPart(""); setC(false); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 14 } }, "← 返回数据管理"),
+      h("button", { onClick: () => { setPart(""); setC(false); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 14 } }, "← 返回数据管理"),
       h("div", { "data-wk": "block", style: { border: "1px solid " + (current && current.danger ? "rgba(190,90,75,.35)" : t.line), background: t.bg2, borderRadius: 16, padding: "18px 16px" } },
         h(Eyebrow, { style: { marginBottom: 5, color: current && current.danger ? t.accent : t.fog } }, current ? current.title : "数据管理"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 10 } }, current ? current.sub : ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } }, current ? current.sub : ""),
         content)));
 }
 // ============================================================
@@ -8284,28 +8284,28 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
     h(Eyebrow, { style: { marginBottom: 8 } }, stage === "pick" ? "挑 2~30 条碎片，整理成一件事" : "核对后交给执笔人"),
     stage === "pick" && h(React.Fragment, null,
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, (characters || []).map(c =>
-        h("button", { key: c.id, onClick: () => setSelChar(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid " + (selChar === c.id ? t.tint : t.line), color: selChar === c.id ? t.tint : t.sub, background: t.bg2 } }, "执笔·" + (c.remark || c.name)))),
-      h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜正文…", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, marginBottom: 8 } }),
+        h("button", { key: c.id, onClick: () => setSelChar(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, border: "1px solid " + (selChar === c.id ? t.tint : t.line), color: selChar === c.id ? t.tint : t.sub, background: t.bg2 } }, "执笔·" + (c.remark || c.name)))),
+      h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜正文…", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, marginBottom: 8 } }),
       h("div", { style: { maxHeight: "42vh", overflowY: "auto" } }, list.map(e => {
         const on = selIds.includes(e.id);
         return h("button", { key: e.id, onClick: () => toggle(e.id), className: "w-full text-left rounded-lg p-2.5 mb-1.5 active:opacity-70", style: { border: "1px solid " + (on ? t.tint : t.line), background: on ? "rgba(158,130,96,.07)" : t.bg2 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, (on ? "☑ " : "☐ ") + String(e.text).slice(0, 80) + (String(e.text).length > 80 ? "…" : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, (on ? "☑ " : "☐ ") + String(e.text).slice(0, 80) + (String(e.text).length > 80 ? "…" : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
             new Date(e.ts || 0).toLocaleDateString(), e.open ? " · ⏳未了结" : "", e.archived ? " · 🗂已归档" : "", e.pinned ? " · 📌" : ""));
       })),
-      h("button", { onClick: verify, disabled: busy || !selChar || selIds.length < 2 || selIds.length > 30, className: "w-full mt-2 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } },
+      h("button", { onClick: verify, disabled: busy || !selChar || selIds.length < 2 || selIds.length > 30, className: "w-full mt-2 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
         busy ? "正在跟云端对账…" : "核对这 " + selIds.length + " 条（需 2~30 条" + (selChar ? "" : "，先选执笔人") + "）")),
     stage === "verify" && h(React.Fragment, null,
-      problems.length ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } },
+      problems.length ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } },
         "🔴 有问题的条目，请返回处理：", h("br"), problems.join("；")) : null,
       h("div", { style: { maxHeight: "40vh", overflowY: "auto", marginBottom: 8 } }, (rows || []).map(r =>
         h("div", { key: r.id, className: "rounded-lg p-2.5 mb-1.5", style: { border: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, r.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, r.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
             new Date(r.ts || 0).toLocaleDateString(), " · rev " + r.revision, (r.tags || []).length ? " · " + r.tags.join("/") : "", r.open ? " · ⏳未了结" : "", r.archived ? " · 🗂已归档" : "")))),
       h("div", { className: "flex", style: { gap: 8 } },
-        h("button", { onClick: () => { setStage("pick"); setRows(null); setProblems([]); }, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "返回改选"),
-        h("button", { onClick: create, disabled: busy || !!problems.length, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "提交中…" : "创建请求，交给执笔人"))));
+        h("button", { onClick: () => { setStage("pick"); setRows(null); setProblems([]); }, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "返回改选"),
+        h("button", { onClick: create, disabled: busy || !!problems.length, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, busy ? "提交中…" : "创建请求，交给执笔人"))));
 }
 
 // ⑥事件层 · 第5步：候选过目台——预览草稿/编辑（存本地确认载荷）/退回/拒绝。
@@ -8420,38 +8420,38 @@ function CandidateReviewSheet({ candidateId, characters, onClose, onChanged, toa
   };
   return h(PageSheet, { onClose: onClose },
     h(Eyebrow, { style: { marginBottom: 6 } }, "候选过目 · " + (cand ? nameOf(cand.requested_char_id) + " 执笔" : "加载中…")),
-    lights == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "正在跟云端核对来源与草稿…") : h(React.Fragment, null,
-      lights.length ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } }, "🔴 " + lights.join("；")) : null,
-      cand && cand.feedback ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, background: t.bg, borderRadius: 9, padding: "6px 10px", marginBottom: 8 } }, "上次留言：" + cand.feedback) : null,
+    lights == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "正在跟云端核对来源与草稿…") : h(React.Fragment, null,
+      lights.length ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } }, "🔴 " + lights.join("；")) : null,
+      cand && cand.feedback ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, background: t.bg, borderRadius: 9, padding: "6px 10px", marginBottom: 8 } }, "上次留言：" + cand.feedback) : null,
       d && h("div", { style: { maxHeight: "46vh", overflowY: "auto", marginBottom: 8 } },
         editing
           ? h(React.Fragment, null,
-              h("input", { "data-wk": "input", value: eTitle, onChange: e => setETitle(e.target.value), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.ink, background: t.bg2, border: "1px solid " + t.line, marginBottom: 6 } }),
-              h("textarea", { "data-wk": "textarea", value: eSyn, onChange: e => setESyn(e.target.value), rows: 2, className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, background: t.bg2, border: "1px solid " + t.line, resize: "none", marginBottom: 6 } }),
-              h("textarea", { "data-wk": "textarea", value: eNarr, onChange: e => setENarr(e.target.value), rows: 12, className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.ink, background: t.bg2, border: "1px solid " + t.line, resize: "none" } }))
+              h("input", { "data-wk": "input", value: eTitle, onChange: e => setETitle(e.target.value), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.ink, background: t.bg2, border: "1px solid " + t.line, marginBottom: 6 } }),
+              h("textarea", { "data-wk": "textarea", value: eSyn, onChange: e => setESyn(e.target.value), rows: 2, className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, resize: "none", marginBottom: 6 } }),
+              h("textarea", { "data-wk": "textarea", value: eNarr, onChange: e => setENarr(e.target.value), rows: 12, className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.ink, background: t.bg2, border: "1px solid " + t.line, resize: "none" } }))
           : h(React.Fragment, null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: t.ink, marginBottom: 4 } }, eTitle, edited ? h("span", { style: { fontSize: 10, color: "#c98a3c", marginLeft: 6 } }, "你改过") : null),
-              eSyn ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, eSyn) : null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, eNarr),
-              (d.state_before || d.turning_point || d.state_after) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 10, lineHeight: 1.7, borderTop: "1px dashed " + t.line, paddingTop: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: t.ink, marginBottom: 4 } }, eTitle, edited ? h("span", { style: { fontSize: "calc(10px * var(--app-fs, 1))", color: "#c98a3c", marginLeft: 6 } }, "你改过") : null),
+              eSyn ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, eSyn) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, eNarr),
+              (d.state_before || d.turning_point || d.state_after) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 10, lineHeight: 1.7, borderTop: "1px dashed " + t.line, paddingTop: 8 } },
                 d.state_before ? "起：" + d.state_before : null, d.state_before ? h("br") : null,
                 d.turning_point ? "转：" + d.turning_point : null, d.turning_point ? h("br") : null,
                 d.state_after ? "落：" + d.state_after : null) : null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 10, borderTop: "1px dashed " + t.line, paddingTop: 8 } }, "来源碎片 " + srcRows.length + " 条："),
-              srcRows.map(r => h("div", { key: r.id, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4, lineHeight: 1.5 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10, borderTop: "1px dashed " + t.line, paddingTop: 8 } }, "来源碎片 " + srcRows.length + " 条："),
+              srcRows.map(r => h("div", { key: r.id, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.5 } },
                 "· " + String(r.text || "").slice(0, 46) + (String(r.text || "").length > 46 ? "…" : ""))))),
       h("div", { className: "flex", style: { gap: 8, marginBottom: 8 } },
         editing
           ? h(React.Fragment, null,
-              h("button", { onClick: saveEdits, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "保存修改稿"),
-              h("button", { onClick: () => setEditing(false), className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "先不改了"))
+              h("button", { onClick: saveEdits, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "保存修改稿"),
+              h("button", { onClick: () => setEditing(false), className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "先不改了"))
           : h(React.Fragment, null,
-              d ? h("button", { onClick: () => setEditing(true), className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "✏️ 修改") : null,
-              edited ? h("button", { onClick: revertEdits, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "还原原稿") : null)),
+              d ? h("button", { onClick: () => setEditing(true), className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "✏️ 修改") : null,
+              edited ? h("button", { onClick: revertEdits, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "还原原稿") : null)),
       cand && cand.status !== "rejected" && cand.status !== "accepted" ? h("div", { className: "flex", style: { gap: 8 } },
-        h("button", { onClick: doReturn, disabled: busy, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "↩︎ 退回重写"),
-        h("button", { onClick: doReject, disabled: busy, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px solid #9f5149", color: "#9f5149", fontFamily: F_BODY, fontSize: 12.5 } }, "✕ 拒绝"),
-        h("button", { onClick: doConfirm, disabled: !canConfirm || busy, title: canConfirm ? "" : editing ? "先保存或退出编辑" : lights && lights.length ? "红灯未清不能确认" : "确认通道（原子 RPC）尚未部署", className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, busy ? "入册中…" : "✓ 确认入册")) : null));
+        h("button", { onClick: doReturn, disabled: busy, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "↩︎ 退回重写"),
+        h("button", { onClick: doReject, disabled: busy, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px solid #9f5149", color: "#9f5149", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "✕ 拒绝"),
+        h("button", { onClick: doConfirm, disabled: !canConfirm || busy, title: canConfirm ? "" : editing ? "先保存或退出编辑" : lights && lights.length ? "红灯未清不能确认" : "确认通道（原子 RPC）尚未部署", className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy ? "入册中…" : "✓ 确认入册")) : null));
 }
 
 // ⑥事件层 · 第2步：事件书架（只读）。自包含读 window.MemoryEvents 的 IDB 镜像；
@@ -8519,35 +8519,35 @@ function EventShelfSection({ characters, entries }) {
     className: "w-full active:opacity-60 flex items-center justify-between",
     style: { borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line, color: t.ink, padding: "10px 4px", marginBottom: 2 }
   }, h("span", { className: "text-left" },
-      h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 13.5 } }, "事件册"),
-      h("span", { style: { display: "block", fontFamily: F_BODY, color: t.fog, fontSize: 9.5, letterSpacing: ".08em", marginTop: 2 } }, pendingCands.length ? pendingCands.length + " 份候选等你过目" : "把零散片段收拢成完整的一件事")),
-    h("span", { style: { fontFamily: F_BODY, color: t.fog, fontSize: 11 } }, events.length + " 件 " + (open ? "▾" : "›"))),
+      h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "事件册"),
+      h("span", { style: { display: "block", fontFamily: F_BODY, color: t.fog, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".08em", marginTop: 2 } }, pendingCands.length ? pendingCands.length + " 份候选等你过目" : "把零散片段收拢成完整的一件事")),
+    h("span", { style: { fontFamily: F_BODY, color: t.fog, fontSize: "calc(11px * var(--app-fs, 1))" } }, events.length + " 件 " + (open ? "▾" : "›"))),
   open && h("div", { style: { maxHeight: "38vh", overflowY: "auto", marginBottom: 8 } },
     cloudWhy
-      ? h("div", { className: "w-full rounded-lg py-2 px-3 mb-2", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, textAlign: "center" } },
+      ? h("div", { className: "w-full rounded-lg py-2 px-3 mb-2", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, textAlign: "center" } },
           cloudWhy === "nologin"
             ? "把碎片整理成事件要先登录云端——执笔和存稿都在云上。"
             : "这台设备没跟云端接上，暂时整理不了事件。（不是没登录：这一版的云端线路没通）")
-      : h("button", { onClick: () => setComposeOpen(true), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, "＋ 挑碎片整理成事件"),
+      : h("button", { onClick: () => setComposeOpen(true), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "＋ 挑碎片整理成事件"),
     (!cloudWhy && sugs.length) ? h("div", { style: { marginBottom: 8 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "2px 0 5px" } }, "🧩 帮你聚了 " + sugs.length + " 摞像一件事的碎片（点开预填，仍由你核对定夺）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "2px 0 5px" } }, "🧩 帮你聚了 " + sugs.length + " 摞像一件事的碎片（点开预填，仍由你核对定夺）"),
       sugs.map(s => h("button", {
         key: s.key, onClick: () => { setPreselect(s); setComposeOpen(true); },
         className: "w-full text-left rounded-lg py-2 px-3 mb-1.5 active:opacity-70",
-        style: { border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 11.5, color: t.sub }
+        style: { border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub }
       }, "🧩 " + (s.topTags.length ? s.topTags.join("/") : "未标签") + " · " + fmtD(s.startTs) + "–" + fmtD(s.endTs) + " · " + s.size + " 条" +
         (s.charId ? " · 关联" + nameOf(s.charId) : "") + (s.truncatedFrom ? "（原 " + s.truncatedFrom + " 条取最近 30）" : "")))) : null,
     pendingCands.map(c => h("button", {
       key: c.id, onClick: () => setReviewId(c.id),
       className: "w-full rounded-lg py-2 mb-1.5 active:opacity-70",
-      style: { border: "1px solid " + (c.status === "drafted" ? t.tint : t.line), color: c.status === "drafted" ? t.tint : t.sub, fontFamily: F_BODY, fontSize: 11.5 }
+      style: { border: "1px solid " + (c.status === "drafted" ? t.tint : t.line), color: c.status === "drafted" ? t.tint : t.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" }
     }, (c.status === "requested" ? "🕐 等执笔 · " : "✍️ 已起草，点开过目 · ") + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条碎片")),
     (() => { const rej = cands.filter(c => c.status === "rejected"); return rej.length ? h(React.Fragment, null,
-      h("button", { onClick: () => setShowRejected(!showRejected), className: "w-full py-1 mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, (showRejected ? "▾" : "▸") + " 废弃候选 " + rej.length + " 份（留档可查）"),
-      showRejected ? rej.map(c => h("button", { key: c.id, onClick: () => setReviewId(c.id), className: "w-full rounded-lg py-1.5 mb-1 active:opacity-70", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, "🗂 " + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条 · " + String(c.updated_at || "").slice(0, 10))) : null) : null; })(),
-    !events.length && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "14px 0", lineHeight: 1.7 } },
+      h("button", { onClick: () => setShowRejected(!showRejected), className: "w-full py-1 mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, (showRejected ? "▾" : "▸") + " 废弃候选 " + rej.length + " 份（留档可查）"),
+      showRejected ? rej.map(c => h("button", { key: c.id, onClick: () => setReviewId(c.id), className: "w-full rounded-lg py-1.5 mb-1 active:opacity-70", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, "🗂 " + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条 · " + String(c.updated_at || "").slice(0, 10))) : null) : null; })(),
+    !events.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "14px 0", lineHeight: 1.7 } },
       "还没有事件。", h("br"), "点上面那行，挑几条记忆碎片请TA写成第一件。"),
-    events.length > 3 ? h("input", { "data-wk": "input", value: evQ, onChange: e => setEvQ(e.target.value), placeholder: "搜事件：标题 / 梗概 / 主题…", className: "w-full outline-none px-3 py-2 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }) : null,
+    events.length > 3 ? h("input", { "data-wk": "input", value: evQ, onChange: e => setEvQ(e.target.value), placeholder: "搜事件：标题 / 梗概 / 主题…", className: "w-full outline-none px-3 py-2 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line } }) : null,
     events.filter(ev => { const q = evQ.trim().toLowerCase(); if (!q) return true; return (String(ev.title || "") + " " + String(ev.synopsis || "") + " " + (ev.themes || []).join(" ")).toLowerCase().indexOf(q) >= 0; }).map(ev => h("button", {
       key: ev.id,
       // ⚠️点了必须【先开窗】（她 2026-09-18 报：「我怎么点不了记忆库事件了」）。
@@ -8570,10 +8570,10 @@ function EventShelfSection({ characters, entries }) {
       style: { border: "1px solid " + t.line, background: t.bg2 }
     },
       h("div", { className: "flex items-center justify-between" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: t.ink } }, ev.title),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: ev.status === "ongoing" ? "#c98a3c" : t.fog } }, ev.status === "ongoing" ? "进行中" : "已完结")),
-      ev.synopsis ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, lineHeight: 1.6 } }, ev.synopsis) : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", fontWeight: 700, color: t.ink } }, ev.title),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: ev.status === "ongoing" ? "#c98a3c" : t.fog } }, ev.status === "ongoing" ? "进行中" : "已完结")),
+      ev.synopsis ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, ev.synopsis) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } },
         (ev.char_ids || []).map(nameOf).join("、"),
         " · ", fmtD(ev.started_ts), ev.ended_ts ? "–" + fmtD(ev.ended_ts) : "起",
         ev.edited_by_user ? " · 你改过" : "")))),
@@ -8581,12 +8581,12 @@ function EventShelfSection({ characters, entries }) {
   reviewId && h(CandidateReviewSheet, { candidateId: reviewId, characters: characters, toast: window.__toast, onChanged: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => setReviewId(null) }),
   detail && h(PageSheet, { onClose: () => setDetail(null) },
     h(Eyebrow, { style: { marginBottom: 6 } }, detail.event.title),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } },
       "执笔：" + nameOf(detail.event.author_char_id) + (detail.event.edited_by_user ? " · 你改过" : "")
       + (detail.loading ? " · 正在取正文…" : " · 关联碎片 " + (detail.links || []).filter(l => !l.deleted).length + " 条")),
-    detail.why ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 10, lineHeight: 1.7 } }, detail.why) : null,
+    detail.why ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 10, lineHeight: 1.7 } }, detail.why) : null,
     // 正文取不回来时退到梗概：镜像里一直有它，总好过一片空白
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: detail.event.narrative ? t.ink : t.sub, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: detail.event.narrative ? t.ink : t.sub, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } },
       detail.event.narrative || detail.event.synopsis || (detail.loading ? "" : "（这件事还没有正文）")),
     // 复制出去（她 2026-09-18 转小红书群里读者 ! YOLO 的许愿池：
     //   「记忆总结成事件以后，可不可以把那个事件给我一个复制按钮，然后我加到记忆库里面去。
@@ -8598,11 +8598,11 @@ function EventShelfSection({ characters, entries }) {
       detail.event.synopsis ? h("button", {
         onClick: async () => { const ok = await copyText(detail.event.title + "：" + detail.event.synopsis); window.__toast && window.__toast(ok ? "梗概已复制，去记忆库粘一条" : "复制不了，长按上面那段自己选"); },
         className: "flex-1 py-2.5 active:opacity-70",
-        style: { border: "1px solid " + t.line, borderRadius: 9, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "复制梗概") : null,
+        style: { border: "1px solid " + t.line, borderRadius: 9, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "复制梗概") : null,
       h("button", {
         onClick: async () => { const ok = await copyText(detail.event.title + "\n\n" + (detail.event.narrative || "")); window.__toast && window.__toast(ok ? "全文已复制" : "复制不了，长按上面那段自己选"); },
         className: "flex-1 py-2.5 active:opacity-70",
-        style: { border: "1px solid " + t.line, borderRadius: 9, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "复制全文"))));
+        style: { border: "1px solid " + t.line, borderRadius: 9, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "复制全文"))));
 }
 
 // P1-3 纠错过目台：只有 Lisa 明确确认才把旧条标 superseded；拒绝不碰两条记忆。
@@ -8622,9 +8622,9 @@ function MemoryCorrectionPreviewSheet({ candidate, onDecided, onClose }) {
   if (newRow && newRow.revision != null && Number(newRow.revision) !== Number(candidate.new_base_revision)) issues.push("新条 revision 已变化");
   const reason = ({ more_detailed: "新条更详细", contradiction: "新事实纠正旧说法", manual: "手动提出纠正" })[candidate.reason] || candidate.reason;
   const card = (label, row, baseRevision, color) => h("div", { style: { border: "1px solid " + t.line, borderRadius: 11, padding: 11, marginBottom: 8, background: t.bg2 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color, marginBottom: 5 } }, label + " · 提案时 rev " + baseRevision),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, row ? row.text : "（本机未读到这条）"),
-    row && (row.pinned || row.open) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b06a4f", marginTop: 5 } }, (row.pinned ? "📌 置顶 " : "") + (row.open ? "⏳ 未了结" : "")) : null);
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color, marginBottom: 5 } }, label + " · 提案时 rev " + baseRevision),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, row ? row.text : "（本机未读到这条）"),
+    row && (row.pinned || row.open) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#b06a4f", marginTop: 5 } }, (row.pinned ? "📌 置顶 " : "") + (row.open ? "⏳ 未了结" : "")) : null);
   const decide = async decision => {
     if (busy || issues.length || !pair) return;
     setBusy(true);
@@ -8638,15 +8638,15 @@ function MemoryCorrectionPreviewSheet({ candidate, onDecided, onClose }) {
   };
   return h(PageSheet, { onClose },
     h(Eyebrow, null, "纠错候选 · 由你定夺"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 10px" } }, reason),
-    !pair ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "14px 0" } }, "正在从权威表重读新旧两条…") : h(React.Fragment, null,
-      issues.length ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8 } }, "🔴 " + issues.join("；") + "。未来正式确认时必须重新生成候选。") : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "6px 0 10px" } }, reason),
+    !pair ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "14px 0" } }, "正在从权威表重读新旧两条…") : h(React.Fragment, null,
+      issues.length ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8 } }, "🔴 " + issues.join("；") + "。未来正式确认时必须重新生成候选。") : null,
       card("旧说法（确认后只留档，不删除）", oldRow, candidate.old_base_revision, "#9f5149"),
       card("新说法（确认后保持主动浮现）", newRow, candidate.new_base_revision, t.tint)),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 8 } }, "确认只会让旧说法退出正常召回，并留下新→旧的可追溯关系；任何一条都不会被删除。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, marginTop: 8 } }, "确认只会让旧说法退出正常召回，并留下新→旧的可追溯关系；任何一条都不会被删除。"),
     h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
-      h("button", { onClick: () => decide("rejected"), disabled: busy || !pair, className: "flex-1 py-2.5 disabled:opacity-40", style: { border: "1px solid " + t.line, borderRadius: 9, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "不是纠错"),
-      h("button", { "data-wk": "block", onClick: () => decide("accepted"), disabled: busy || !pair || issues.length > 0, className: "flex-1 py-2.5 disabled:opacity-40", style: { background: t.ink, borderRadius: 9, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, busy ? "正在留环…" : "确认：新条纠正旧条")));
+      h("button", { onClick: () => decide("rejected"), disabled: busy || !pair, className: "flex-1 py-2.5 disabled:opacity-40", style: { border: "1px solid " + t.line, borderRadius: 9, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "不是纠错"),
+      h("button", { "data-wk": "block", onClick: () => decide("accepted"), disabled: busy || !pair || issues.length > 0, className: "flex-1 py-2.5 disabled:opacity-40", style: { background: t.ink, borderRadius: 9, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, busy ? "正在留环…" : "确认：新条纠正旧条")));
 }
 
 function InnerLifeEDiagnosticSheet({ characters, onClose }) {
@@ -8737,20 +8737,20 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
     } catch (e) { setRows({ error: "A 影子诊断读取失败" }); }
   };
   useEffect(() => { load(); }, []);
-  const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
+  const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
   return h(PageSheet, { onClose },
     h(Eyebrow, null, "A · 立体情绪 · 常开中"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "十维【正在接进语气】（v62.37 起常开，急停在记忆库那一屏）：数字本身不发出去，发出去的是折成的那一句偏离。这里看：维度分布合不合理、mood 未匹配率、钳制次数。"),
-    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
-    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, rows.error) :
-    !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "还没有任何角色的情绪影子数据") :
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "十维【正在接进语气】（v62.37 起常开，急停在记忆库那一屏）：数字本身不发出去，发出去的是折成的那一句偏离。这里看：维度分布合不合理、mood 未匹配率、钳制次数。"),
+    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
+    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#9f5149", padding: "12px 0" } }, rows.error) :
+    !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "还没有任何角色的情绪影子数据") :
     rows.list.map(({ char, st, r }) => { const ready=window.InnerLifePromotionGate?window.InnerLifePromotionGate.evaluateA(r):null; return h("div", { key: char.id, style: { marginBottom: 14 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 4 } }, char.remark || char.name),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: t.ink, marginBottom: 4 } }, char.remark || char.name),
       // ⚠️只列【算数的那几条】（DongnianEmotionA.projectedAxes）：思念被撤掉了，
       //   动念那根进度条才是权威——两个都叫思念、数还不一样，看的人只会更糊涂。
       st && st.emotion && st.emotion.current ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 5 } },
-        Object.entries(st.emotion.current).filter(([k]) => ((window.DongnianEmotionA && window.DongnianEmotionA.projectedAxes) || Object.keys(st.emotion.current)).indexOf(k) >= 0).map(([k, v]) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line, color: Math.abs(v) > 0.45 ? t.tint : t.fog } }, (AXIS_ZH[k] || k) + " " + (Math.round(v * 100) / 100))))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "无状态（引擎还没为 TA 演算过）"),
+        Object.entries(st.emotion.current).filter(([k]) => ((window.DongnianEmotionA && window.DongnianEmotionA.projectedAxes) || Object.keys(st.emotion.current)).indexOf(k) >= 0).map(([k, v]) => h("span", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line, color: Math.abs(v) > 0.45 ? t.tint : t.fog } }, (AXIS_ZH[k] || k) + " " + (Math.round(v * 100) / 100))))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "无状态（引擎还没为 TA 演算过）"),
       line("投影采样 / mood未匹配 / 被钳制", (r.sampleCount || 0) + " / " + (r.unmatchedMoodCount || 0) + " / " + (r.clippedCount || 0)),
       // v64.67：整词没撞上、靠拆字接住的次数。这一栏是【那一层到底在不在干活】的唯一证据——
       // 光看未匹配率降了不算数：也可能只是这几天模型没写怪词。
@@ -8763,7 +8763,7 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
       //   门槛没过不代表它没在发，只代表这份读数还不够稳，所以只在没过的时候提一句。
       ready && !ready.ready ? h("div", { style:{marginTop:7,padding:"7px 9px",borderRadius:9,background:"rgba(186,139,70,.10)",fontFamily:F_BODY,fontSize:10.5,color:"#9a6d2e",lineHeight:1.55} }, "🟡 这份读数还不够稳："+ready.blockers.join("；")+"（它照常在发，只是别太当真）") : null,
       h("div",{style:{marginTop:6,fontFamily:F_BODY,fontSize:10.5,color:"#4a8b68",border:"1px solid rgba(74,139,104,.45)",borderRadius:9,padding:"6px",textAlign:"center"}},"常开 · 已接进语气")); }),
-    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
+    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "刷新诊断"));
 }
 
 // 五感系统 v1：全角色只读影子仪表。正文不进诊断库，数值也不进 prompt。
@@ -8791,36 +8791,36 @@ function SomaticDiagnosticSheet({ characters, onClose }) {
     } catch (e) { setRows({ error: "五感影子诊断读取失败" }); }
   };
   useEffect(() => { load(); }, []);
-  const line = (a, b) => h("div", { className: "flex justify-between", style: { gap: 12, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600, textAlign: "right" } }, b));
+  const line = (a, b) => h("div", { className: "flex justify-between", style: { gap: 12, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600, textAlign: "right" } }, b));
   const fmtSources = surfaces => Object.entries(surfaces || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => (SOURCE_ZH[k] || k) + "×" + n).join(" · ") || "尚无";
   return h(PageSheet, { onClose },
     h(Eyebrow, null, "五感系统 · 全角色纯影子诊断"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只看不注入：触觉、嗅觉、味觉、听觉只在独立影子库衰减演算，不会改变角色语气或决定。CC 与 App 共用同一套 somatic-core；App 只重放已获准回流的 CC 账本，不读取私人 CC transcript。"),
-    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
-    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, rows.error) :
-    !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0", lineHeight: 1.7 } }, "还没有五感样本。聊几轮后再来：线上只会形成低强度象征触觉，嗅觉/味觉必须来自共同在场，听觉必须来自真实语音。") :
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只看不注入：触觉、嗅觉、味觉、听觉只在独立影子库衰减演算，不会改变角色语气或决定。CC 与 App 共用同一套 somatic-core；App 只重放已获准回流的 CC 账本，不读取私人 CC transcript。"),
+    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
+    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#9f5149", padding: "12px 0" } }, rows.error) :
+    !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "12px 0", lineHeight: 1.7 } }, "还没有五感样本。聊几轮后再来：线上只会形成低强度象征触觉，嗅觉/味觉必须来自共同在场，听觉必须来自真实语音。") :
     h(React.Fragment, null,
     rows.summary ? h("div", { style: { border: "1px dashed " + t.line, borderRadius: 10, padding: "8px 10px", marginBottom: 12 } },
       line("全角色样本 / 身体事件", rows.summary.sampleCount + " / " + rows.summary.eventCount),
       line("CC 回流重放", rows.summary.ccReplaySamples + " 轮"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: rows.summary.enoughForHumanReview ? t.sub : "#b8860b", marginTop: 6, lineHeight: 1.6 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: rows.summary.enoughForHumanReview ? t.sub : "#b8860b", marginTop: 6, lineHeight: 1.6 } },
         rows.summary.enoughForHumanReview ? "样本已够进入人工复核；仍不会自动开阀。" :
         (rows.summary.warnings || []).map(x => ({ insufficient_samples: "样本还少，继续观察", no_detected_events: "长期零命中，请检查分类器", single_source_dominance: "来源太单一，结论可能偏科" }[x.code] || x.code)).join("；"))) : null,
     rows.list.map(({ char, report, status }) => {
       const channels = status && status.state && status.state.channels || {};
       return h("div", { key: char.id, style: { marginBottom: 15 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 5 } }, char.remark || char.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: t.ink, marginBottom: 5 } }, char.remark || char.name),
         h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 6 } }, Object.keys(CHANNEL_ZH).map(key => {
           const row = channels[key] || {}, value = Math.round((Number(row.value) || 0) * 100) / 100;
-          return h("span", { key, title: row.label || "尚无余感", style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 8px", borderRadius: 999, border: "1px solid " + t.line, color: value >= 0.15 ? t.tint : t.fog } }, CHANNEL_ZH[key] + " " + value);
+          return h("span", { key, title: row.label || "尚无余感", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "3px 8px", borderRadius: 999, border: "1px solid " + t.line, color: value >= 0.15 ? t.tint : t.fog } }, CHANNEL_ZH[key] + " " + value);
         })),
         Object.keys(CHANNEL_ZH).map(key => { const row = channels[key]; return row && (row.value || row.label) ? line(CHANNEL_ZH[key] + "余感", (row.label || "无标签") + " · " + (MODE_ZH[row.mode] || row.mode || "—") + " · " + (SOURCE_ZH[row.source] || row.source || "—")) : null; }),
         line("样本 / 身体事件", (report.sampleCount || 0) + " / " + Object.values(report.eventCounts || {}).reduce((a, b) => a + b, 0)),
         line("来源分布", fmtSources(report.surfaces)),
         report.surfaces && report.surfaces.cc_ledger ? line("CC→App 同引擎重放", report.surfaces.cc_ledger + " 轮（只含获准回流内容）") : null);
     })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 8 } }, "对账规则：CC 与 App 都给每轮身体事件生成同一稳定指纹；来源字段不参与指纹，正文不进入诊断。审计时可逐轮比对，指纹不一致只报警、不自动修状态。"),
-    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 8 } }, "对账规则：CC 与 App 都给每轮身体事件生成同一稳定指纹；来源字段不参与指纹，正文不进入诊断。审计时可逐轮比对，指纹不一致只报警、不自动修状态。"),
+    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "刷新诊断"));
 }
 
 // B 第3步：关系轴影子诊断台（只读；试点=阿屿/顾暮，小克硬拒在 pilotFor 里）
@@ -8842,24 +8842,24 @@ function InnerLifeBDiagnosticSheet({ characters, onClose }) {
     } catch (e) { setRows({ error: "B 影子诊断读取失败" }); }
   };
   useEffect(() => { load(); }, []);
-  const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
+  const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
   return h(PageSheet, { onClose },
     h(Eyebrow, null, "B · 关系轴 · 纯影子诊断"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只算不注入：轴的受伤/修复只在影子库里演算，不影响角色反应。评审看三件事：误伤（玩笑被当伤害）、闪烁（反复进出）、假修复（道歉就清零——不该发生）。"),
-    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
-    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, rows.error) :
-    !rows.pilots.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "没有找到试点角色（首批：阿屿、顾暮）") :
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只算不注入：轴的受伤/修复只在影子库里演算，不影响角色反应。评审看三件事：误伤（玩笑被当伤害）、闪烁（反复进出）、假修复（道歉就清零——不该发生）。"),
+    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
+    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#9f5149", padding: "12px 0" } }, rows.error) :
+    !rows.pilots.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "没有找到试点角色（首批：阿屿、顾暮）") :
     rows.pilots.map(({ char, r }) => h("div", { key: char.id, style: { marginBottom: 14 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 4 } }, (char.remark || char.name) + (r.error ? " · " + r.error : "")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: t.ink, marginBottom: 4 } }, (char.remark || char.name) + (r.error ? " · " + r.error : "")),
       r.state && r.state.axes ? Object.entries(r.state.axes).map(([axis, ax]) =>
         line(AXIS_ZH[axis] || axis, (ax.active ? "🔴受伤中" : "平静") + " · 压力 " + Math.round((ax.pressure || 0) * 100) / 100 + (ax.active ? (ax.repairLocked ? " · 🔒待真修复" : " · 🔓回落中") : ""))
-      ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有轴状态（一次检测都没跑过）"),
+      ) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "还没有轴状态（一次检测都没跑过）"),
       line("检测次数 / 失败", (r.calls || 0) + " / " + (r.failures || 0) + "（均耗 " + (r.avgLatencyMs || 0) + "ms）"),
       line("候选 raw→有效", (r.rawCandidates || 0) + " → " + (r.validCandidates || 0)),
       line("玩笑误伤被挡", String(r.playfulBlocked || 0)),
       line("假修复被挡", String(r.fakeRepairBlocked || 0)),
       line("进入 / 退出 / 真修复解锁", (r.entered || 0) + " / " + (r.exited || 0) + " / " + (r.repairUnlocked || 0)))),
-    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
+    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "刷新诊断"));
 }
 
 function MemoryDuplicatePreviewSheet({ groups, stats, onConfirm, onClose, mode }) {
@@ -8873,28 +8873,28 @@ function MemoryDuplicatePreviewSheet({ groups, stats, onConfirm, onClose, mode }
     h("div", { className: "w-full rounded-t-3xl px-5 pt-5 pb-8", style: { background: t.bg, maxHeight: "88vh", overflowY: "auto" }, onClick: e => e.stopPropagation() },
       h("div", { className: "flex items-start justify-between gap-3", style: { marginBottom: 10 } },
         h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, routineMode ? "日常流水清仓预览" : (eventMode ? "同一事件进展预览" : "重复记忆预览")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 3 } }, routineMode ? "只列七天前、低情绪、已了结的明显吃喝/作息/通勤流水。默认不选；确认后只软归档，正文仍可恢复。" : (eventMode ? "只找同角色七天内的“计划/准备 → 已完成/取消/实际结果”。默认不选；确认后结果继续召回，过程只软归档。" : "同角色跨时间完全相同，或 72 小时内高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。"))),
-        h("button", { onClick: onClose, style: { color: t.fog, fontSize: 20 } }, "×")),
-      eventMode && stats ? h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px", marginBottom: 10, fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.65 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, routineMode ? "日常流水清仓预览" : (eventMode ? "同一事件进展预览" : "重复记忆预览")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 3 } }, routineMode ? "只列七天前、低情绪、已了结的明显吃喝/作息/通勤流水。默认不选；确认后只软归档，正文仍可恢复。" : (eventMode ? "只找同角色七天内的“计划/准备 → 已完成/取消/实际结果”。默认不选；确认后结果继续召回，过程只软归档。" : "同角色跨时间完全相同，或 72 小时内高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。"))),
+        h("button", { onClick: onClose, style: { color: t.fog, fontSize: "calc(20px * var(--app-fs, 1))" } }, "×")),
+      eventMode && stats ? h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px", marginBottom: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65 } },
         "可检查 " + (stats.eligible || 0) + " 条 · 识别到计划 " + (stats.planned || 0) + " 条 · 结果 " + (stats.resolved || 0) + " 条",
         (stats.protectedOpen || 0) ? h("div", { style: { color: "#9a7750" } }, "另有 " + stats.protectedOpen + " 条仍是未了 open：安全闸不会替你把它们归档。") : null) : null,
-      routineMode && stats ? h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px", marginBottom: 10, fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.65 } },
+      routineMode && stats ? h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px", marginBottom: 10, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65 } },
         "找到 " + (stats.candidates || 0) + " 条保守候选 · " + (stats.recent || 0) + " 条因还太新未碰",
         h("div", { style: { color: "#9a7750" } }, "保护：open " + (stats.protectedOpen || 0) + " · 置顶 " + (stats.protectedPinned || 0) + " · 重要信号 " + (stats.durable || 0))) : null,
       (groups || []).length === 0 ? h("div", { style: { padding: "28px 8px", textAlign: "center", fontFamily: F_BODY, color: t.fog } }, routineMode ? "没有找到足够明确、足够旧的低信息日常流水。" : (eventMode ? "没有找到能安全配成“计划 → 结果”的候选；上面的数字会告诉你是没识别到，还是仍被 open 安全保护。" : "没有找到高置信重复组")) : h(React.Fragment, null,
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
-          h("button", { onClick: () => setSelected(new Set((groups || []).filter(g => g.confidence === "high").map(g => g.id))), className: "rounded-full px-3 py-1.5", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, "只选高置信"),
-          h("button", { onClick: () => setSelected(new Set()), className: "rounded-full px-3 py-1.5", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 } }, "全部取消")),
+          h("button", { onClick: () => setSelected(new Set((groups || []).filter(g => g.confidence === "high").map(g => g.id))), className: "rounded-full px-3 py-1.5", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "只选高置信"),
+          h("button", { onClick: () => setSelected(new Set()), className: "rounded-full px-3 py-1.5", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "全部取消")),
         (groups || []).map((g, i) => h("button", { "data-wk": "block", key: g.id, onClick: () => toggle(g.id), className: "w-full text-left rounded-2xl p-3 mb-2 active:opacity-75", style: { background: t.bg2, border: "1px solid " + (selected.has(g.id) ? t.tint : t.line) } },
           h("div", { className: "flex items-center justify-between", style: { marginBottom: 7 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: selected.has(g.id) ? t.tint : t.sub } }, (selected.has(g.id) ? "✓ " : "○ ") + "第 " + (i + 1) + " 组 · " + (g.archive || []).length + " 条待归档"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: g.confidence === "high" ? "#4f7b61" : t.fog } }, routineMode ? "日常流水 · 请复核" : (eventMode ? "进展候选 · 请复核" : (g.matchKind === "exact_all_time" ? "全文相同" : (g.confidence === "high" ? "高置信" : "请复核"))))),
-          !routineMode ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#4f7b61", marginBottom: 4 } }, eventMode ? "保留结果条继续召回" : "保留信息最多的一条") : null,
-          !routineMode ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, g.keep.text) : null,
-          h("div", { style: { borderTop: routineMode ? "none" : "1px dashed " + t.line, marginTop: routineMode ? 0 : 8, paddingTop: routineMode ? 0 : 7, fontFamily: F_BODY, fontSize: 11, color: "#a06455" } }, routineMode ? "确认后软归档" : (eventMode ? "事件过程 · 确认后软归档" : "软归档")),
-          (g.archive || []).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, "· " + x.text)))),
-        h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; requestAppConfirm((eventMode ? "收拢已勾选的 " : "软归档已勾选的 ") + picked.length + " 组？", "不会删除正文，可从已精炼归档区恢复。", () => { onConfirm(picked); onClose(); }, eventMode ? "收拢" : "归档"); }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: selected.has(g.id) ? t.tint : t.sub } }, (selected.has(g.id) ? "✓ " : "○ ") + "第 " + (i + 1) + " 组 · " + (g.archive || []).length + " 条待归档"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: g.confidence === "high" ? "#4f7b61" : t.fog } }, routineMode ? "日常流水 · 请复核" : (eventMode ? "进展候选 · 请复核" : (g.matchKind === "exact_all_time" ? "全文相同" : (g.confidence === "high" ? "高置信" : "请复核"))))),
+          !routineMode ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#4f7b61", marginBottom: 4 } }, eventMode ? "保留结果条继续召回" : "保留信息最多的一条") : null,
+          !routineMode ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink } }, g.keep.text) : null,
+          h("div", { style: { borderTop: routineMode ? "none" : "1px dashed " + t.line, marginTop: routineMode ? 0 : 8, paddingTop: routineMode ? 0 : 7, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#a06455" } }, routineMode ? "确认后软归档" : (eventMode ? "事件过程 · 确认后软归档" : "软归档")),
+          (g.archive || []).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5, color: t.sub, marginTop: 4 } }, "· " + x.text)))),
+        h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; requestAppConfirm((eventMode ? "收拢已勾选的 " : "软归档已勾选的 ") + picked.length + " 组？", "不会删除正文，可从已精炼归档区恢复。", () => { onConfirm(picked); onClose(); }, eventMode ? "收拢" : "归档"); }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
 }
 
 function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
@@ -8914,17 +8914,17 @@ function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
   };
   return h(PageSheet, { onClose },
     h(Eyebrow, null, "RepairGate · 结局冲突过目"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
-    rows === null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读取冲突…") :
-      !rows.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "没有待处理的结局冲突") :
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
+    rows === null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "16px 0" } }, "正在读取冲突…") :
+      !rows.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "18px 0", textAlign: "center" } }, "没有待处理的结局冲突") :
         rows.map(row => {
           const mem = byId.get(String(row.oldMemoryId));
           return h("div", { "data-wk": "block", key: row.oldMemoryId, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: 11, marginBottom: 9 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.65 } }, mem ? mem.text : "（这条记忆已不在本机镜像中）"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149", margin: "6px 0" } }, Object.entries(row.kinds || {}).map(([k, n]) => (labels[k] || k) + " ×" + n).join(" · ")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.65 } }, mem ? mem.text : "（这条记忆已不在本机镜像中）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9f5149", margin: "6px 0" } }, Object.entries(row.kinds || {}).map(([k, n]) => (labels[k] || k) + " ×" + n).join(" · ")),
             h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-              h("button", { disabled: !!busy || !mem, onClick: () => decide(row, "keep_open"), style: { border: "1px solid " + t.line, borderRadius: 999, padding: "5px 9px", fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "保持未了"),
-              ...["fulfilled", "resolved", "abandoned"].map(k => h("button", { key: k, disabled: !!busy || !mem, onClick: () => decide(row, k), style: { border: "1px solid " + t.tint, borderRadius: 999, padding: "5px 9px", fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, labels[k]))
+              h("button", { disabled: !!busy || !mem, onClick: () => decide(row, "keep_open"), style: { border: "1px solid " + t.line, borderRadius: 999, padding: "5px 9px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub } }, "保持未了"),
+              ...["fulfilled", "resolved", "abandoned"].map(k => h("button", { key: k, disabled: !!busy || !mem, onClick: () => decide(row, k), style: { border: "1px solid " + t.tint, borderRadius: 999, padding: "5px 9px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint } }, labels[k]))
             ));
         }));
 }
@@ -8941,10 +8941,10 @@ function VecHealth({ entries }) {
     return () => { dead = true; };
   }, [(entries || []).length]);
   if (!st) return null;
-  if (!st.on) return h("div", { className: "px-6", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, paddingBottom: 6 } },
+  if (!st.on) return h("div", { className: "px-6", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, paddingBottom: 6 } },
     "向量记忆没开 · 聊天挑记忆走关键词检索（能用，只是换个说法就认不出）。要开去 设置 · 向量记忆 API。");
   const bad = (st.missing || 0) + (st.stale || 0);
-  return h("div", { className: "px-6", style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.5, paddingBottom: 6, color: bad ? t.accent : t.fog } },
+  return h("div", { className: "px-6", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.5, paddingBottom: 6, color: bad ? t.accent : t.fog } },
     bad === 0
       ? "🟢 向量记忆正常 · " + st.total + " 条全都有向量（" + st.model + "）"
       : "🟡 向量记忆 " + st.ok + "/" + st.total + " 条就绪"
@@ -9077,7 +9077,7 @@ function MemoryLib({
     if (typeof e.a !== "number") return null;
     const v = e.v || 0, a = e.a;
     const col = v >= 2 ? "#c98a3c" : v <= -2 ? "#5f7c9a" : "#9a9082";
-    return h("span", { key: "emo", title: "愉悦度 " + v + " · 强度 " + a, style: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: 10, fontWeight: 700, color: "#fff", background: col, padding: "1px 7px", borderRadius: 999 } },
+    return h("span", { key: "emo", title: "愉悦度 " + v + " · 强度 " + a, style: { display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: col, padding: "1px 7px", borderRadius: 999 } },
       (v > 0 ? "＋" : v < 0 ? "－" : "") + Math.abs(v), h("span", { style: { opacity: 0.7 } }, "·"), "🔥" + a);
   };
   const unrated = (entries || []).filter(e => e && typeof e.a !== "number").length;
@@ -9085,7 +9085,7 @@ function MemoryLib({
   const SRC_BADGE = { manual: ["✍️ 手写", "#8a7a5c"], chat: ["💬 亲历", "#7d8a6e"], auto: ["💬 亲历", "#7d8a6e"], import: ["📥 导入", "#8a8a8a"], monthly: ["🗂 精炼", "#9a8298"], mcp: ["🖋 本体", "#9e8260"] };
   const srcBadge = e => {
     const b = SRC_BADGE[e.source];
-    return b ? h("span", { key: "src", title: "记忆来源", style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: b[1], padding: "1px 7px", borderRadius: 999, opacity: 0.9 } }, b[0]) : null;
+    return b ? h("span", { key: "src", title: "记忆来源", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#fff", background: b[1], padding: "1px 7px", borderRadius: 999, opacity: 0.9 } }, b[0]) : null;
   };
   // 精炼摘要可回溯（玄参#6）：refineBatch ↔ 原件 archivedBatch 同号，数一下有几条原件
   const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
@@ -9233,20 +9233,20 @@ function MemoryLib({
   false && manageOpen ? h(Sheet, { onClose: () => { setManageOpen(false); setDiagOpen(false); }, tall: true, scrollKey: diagOpen ? "diagnostics" : "manage" },
   h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 12 } },
     h("div", null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, "整理记忆库"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: ".06em", marginTop: 3 } }, "查一遍、清一遍")),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, cleanupSummary.active + " 条在册")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: t.ink } }, "整理记忆库"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".06em", marginTop: 3 } }, "查一遍、清一遍")),
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, cleanupSummary.active + " 条在册")),
   h(VecHealth, { entries: entries }),
   h("div", { "data-wk": "block", className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 8 } }, "日常工具"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "日常工具"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } },
-      onSaveCfg ? h("button", { onClick: () => { setManageOpen(false); setCfgOpen(true); }, className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "召回与上下文设置") : null,
-      onBulkImport ? h("button", { onClick: () => { setManageOpen(false); setImportOpen(true); }, className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "导入长文") : null,
-      focusChar && onExtract ? h("button", { onClick: onExtract, disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, busy ? "抽取中…" : "从当前对话提取") : null,
-      importable && onImportOld ? h("button", { onClick: () => onImportOld(focusChar.id), disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, "导入旧长期记忆") : null,
-      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null,
-      onRefine && refinableCount >= 8 ? h("button", { onClick: () => onRefine(filter), disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, emoBusy ? "精炼中…" : "旧版月度精炼 · " + refinableCount) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。月度精炼不会自动运行。")),
+      onSaveCfg ? h("button", { onClick: () => { setManageOpen(false); setCfgOpen(true); }, className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "召回与上下文设置") : null,
+      onBulkImport ? h("button", { onClick: () => { setManageOpen(false); setImportOpen(true); }, className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入长文") : null,
+      focusChar && onExtract ? h("button", { onClick: onExtract, disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "抽取中…" : "从当前对话提取") : null,
+      importable && onImportOld ? h("button", { onClick: () => onImportOld(focusChar.id), disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入旧长期记忆") : null,
+      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null,
+      onRefine && refinableCount >= 8 ? h("button", { onClick: () => onRefine(filter), disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, emoBusy ? "精炼中…" : "旧版月度精炼 · " + refinableCount) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。月度精炼不会自动运行。")),
   // ── 这一片重排（v64.26，她 2026-09-06：「这堆是不是没用了可以不要了」）──────
   // 原来十二颗一模一样的虚线药丸摞在一起，工具和仪表混在同一堆里。于是三样她真会用的
   // （清重复／收拢／清仓）和两样安全工具（结局冲突／核对云端）看着都像工程仪表，
@@ -9255,11 +9255,11 @@ function MemoryLib({
   //   · 只显示数字 → 收进「只是数字 · 工程仪表」那一折
   //   · 压根没接线 → 删掉（C 睡眠、迁移390条）
   h("div", { "data-wk": "block", className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 2 } }, "清一遍"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 9 } }, "三样都是先预览再动手，没有一颗会直接删记忆。"),
-    onScanDuplicates ? h("button", { onClick: () => { setManageOpen(false); setDuplicatePreview(onScanDuplicates()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "扫描重复记忆") : null,
-    onScanEventMerges ? h("button", { onClick: () => { setManageOpen(false); setEventMergePreview(onScanEventMerges()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "收拢同一事件进展") : null,
-    onScanRoutineMemories ? h("button", { onClick: () => { setManageOpen(false); setRoutinePreview(onScanRoutineMemories()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "日常流水清仓") : null,
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } }, "清一遍"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 9 } }, "三样都是先预览再动手，没有一颗会直接删记忆。"),
+    onScanDuplicates ? h("button", { onClick: () => { setManageOpen(false); setDuplicatePreview(onScanDuplicates()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "扫描重复记忆") : null,
+    onScanEventMerges ? h("button", { onClick: () => { setManageOpen(false); setEventMergePreview(onScanEventMerges()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "收拢同一事件进展") : null,
+    onScanRoutineMemories ? h("button", { onClick: () => { setManageOpen(false); setRoutinePreview(onScanRoutineMemories()); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "日常流水清仓") : null,
     // ⚠️结局冲突这一颗不是仪表：decideRepairConflict 会真的改一条记忆的「未了／闭环」，
     //   是这些冲突唯一的处理入口。所以留着，但改成【有冲突才出现】——
     //   没有的时候不占位置，有的时候一眼看得出有几条。
@@ -9268,81 +9268,81 @@ function MemoryLib({
     //   （.claude/rules/never-say-delete-first.md）。旧名字是迁移那阵子的说法，
     //   它现在答的是「本机和云上到底差多少」，就照这个叫。
     onAudit ? h("button", { onClick: onAudit, className: "w-full rounded-xl py-2.5 active:opacity-60",
-      style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
+      style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
       "核对本机与云端记忆 · 只读导出一份") : null),
   // ── 已经在跑的那两层：这两颗不是「诊断」，是【急停】────────────────────────
   // v62.37 起 A（立体情绪）和 E（余温）就是常开的，真的在往每轮回复里带东西。
   // 可按钮上写的还是「查看纯影子诊断」——名字停在它们还是影子的那会儿，
   // 于是看着像两个没用的仪表，其实是全 app 唯一能把它们关掉的地方。
   h("div", { "data-wk": "block", className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 2 } }, "正在影响每轮回复的两层"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 9 } }, "两层现在都开着。点进去能看它带过什么，也能一键急停。"),
-    h("button", { onClick: () => { setManageOpen(false); setAEmoOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "立体情绪 · 开着 · 点进去可急停"),
-    h("button", { onClick: () => { setManageOpen(false); setInnerLifeOpen(true); }, className: "w-full rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "余温与潮汐 · 开着 · 点进去可急停")),
-  h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
-    h("span", null, "只是数字 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } }, "正在影响每轮回复的两层"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 9 } }, "两层现在都开着。点进去能看它带过什么，也能一键急停。"),
+    h("button", { onClick: () => { setManageOpen(false); setAEmoOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "立体情绪 · 开着 · 点进去可急停"),
+    h("button", { onClick: () => { setManageOpen(false); setInnerLifeOpen(true); }, className: "w-full rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "余温与潮汐 · 开着 · 点进去可急停")),
+  h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
+    h("span", null, "只是数字 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, diagOpen ? "收起 ▾" : "展开 ▸")),
   diagOpen ? h(React.Fragment, null,
   h("div", { "data-wk": "block", className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 8 } }, "记忆清理总览"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "记忆清理总览"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "7px 12px" } },
-      [["总记忆", cleanupSummary.total], ["活跃可召回", cleanupSummary.active], ["未了开环", cleanupSummary.open], ["已被替代", cleanupSummary.superseded], ["重复软归档", cleanupSummary.duplicateArchived], ["事件过程归档", cleanupSummary.eventArchived], ["流水软归档", cleanupSummary.routineArchived], ["其他归档", cleanupSummary.otherArchived], ["生活流水（已降级）", cleanupSummary.routine]].map(([label, value]) => h("div", { key: label, className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, h("span", null, label), h("span", { style: { color: t.ink, fontWeight: 700 } }, String(value))))),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 8 } }, "数字只做盘点，不会自动删除或改写任何记忆。")),
+      [["总记忆", cleanupSummary.total], ["活跃可召回", cleanupSummary.active], ["未了开环", cleanupSummary.open], ["已被替代", cleanupSummary.superseded], ["重复软归档", cleanupSummary.duplicateArchived], ["事件过程归档", cleanupSummary.eventArchived], ["流水软归档", cleanupSummary.routineArchived], ["其他归档", cleanupSummary.otherArchived], ["生活流水（已降级）", cleanupSummary.routine]].map(([label, value]) => h("div", { key: label, className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, h("span", null, label), h("span", { style: { color: t.ink, fontWeight: 700 } }, String(value))))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 8 } }, "数字只做盘点，不会自动删除或改写任何记忆。")),
   window.ShadowReview ? h("button", {
     onClick: async () => { try { await window.ShadowReview.download(characters, typeof APP_VERSION !== "undefined" ? APP_VERSION : null); window.__toast && window.__toast("转正评审包已导出：只含影子数字与状态"); } catch (e) { window.__toast && window.__toast("评审包导出失败：" + (e.message || e)); } },
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
-    style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
+    style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" }
   }, "导出一份评审包 · 看这几层到底在不在跑") : null,
-  h("button", { onClick: () => { setManageOpen(false); setSomaticOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "五感系统 · 全角色影子诊断"),
+  h("button", { onClick: () => { setManageOpen(false); setSomaticOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "五感系统 · 全角色影子诊断"),
   // B 关系轴：v64.26 起试点名单空着——它是唯一每轮真发一次 callAI 的影子层，
   // 而产出只进这个面板。面板留着：已经攒下的数据还看得见，想再开也是改那一处。
-  h("button", { onClick: () => { setManageOpen(false); setBAxesOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.fog, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 } }, "关系轴 · 已停 · 查看攒下的影子数据"),
+  h("button", { onClick: () => { setManageOpen(false); setBAxesOpen(true); }, className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.fog, color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "关系轴 · 已停 · 查看攒下的影子数据"),
   onSyncStatus ? h("button", {
     onClick: onSyncStatus,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
-    style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 }
+    style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" }
   }, memoryTableMode ? "新记忆表是当前权威 · 查看同步状态" : "查看行级影子同步状态") : null,
   onChatLedgerStatus ? h("button", {
     onClick: onChatLedgerStatus,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
-    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
+    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" }
   }, "CC 回流影子 · 拉取并查看诊断（不注入）") : null,
   memoryTableMode && onPostCutoverAudit ? h("button", {
     onClick: onPostCutoverAudit,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
-    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
+    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" }
   }, "权威表纪律复核 · 逐 ID 只读导出") : null,
   !memoryTableMode && onEnableTableMemory ? h("button", {
     onClick: () => requestAppConfirm("验收并启用新记忆表？", "会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。", onEnableTableMemory, "验收并启用"),
     disabled: migrationBusy,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
-    style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
+    style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" }
   }, migrationBusy ? "正在逐 ID 验收…" : "逐 ID 验收并启用新记忆表") : null,
   memoryTableMode && onUseLegacyMemory ? h("button", {
     onClick: () => requestAppConfirm("改回本机旧镜像读取？", "不会删除新表或任何记忆；重新启用前不要在两边同时修改。", onUseLegacyMemory, "改回去"),
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
-    style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 }
+    style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" }
   }, "紧急回退：改读本机镜像") : null) : null,
   corrections.length ? h("div", { style: { border: "1px dashed " + t.tint, borderRadius: 11, padding: "8px 10px", marginBottom: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5 } }, "待你定夺的纠错候选 " + corrections.length + " 条"),
-    corrections.slice(0, 5).map(c => h("button", { key: c.id, onClick: () => { setManageOpen(false); setCorrectionOpen(c); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, padding: "5px 0", borderTop: "1px dashed " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 5 } }, "待你定夺的纠错候选 " + corrections.length + " 条"),
+    corrections.slice(0, 5).map(c => h("button", { key: c.id, onClick: () => { setManageOpen(false); setCorrectionOpen(c); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.ink, padding: "5px 0", borderTop: "1px dashed " + t.line } },
       ({ more_detailed: "更详细", contradiction: "事实纠正", manual: "手动纠正" })[c.reason] || c.reason, " · ", String(c.updated_at || "").slice(0,10)))) : null,
-  h("button", { onClick: () => { setCorrectionPicking(p => p ? null : { oldId: null }); setManageOpen(false); }, className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + (correctionPicking ? "#9f5149" : t.line), color: correctionPicking ? "#9f5149" : t.fog, fontFamily: F_BODY, fontSize: 11.5 } },
+  h("button", { onClick: () => { setCorrectionPicking(p => p ? null : { oldId: null }); setManageOpen(false); }, className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + (correctionPicking ? "#9f5149" : t.line), color: correctionPicking ? "#9f5149" : t.fog, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } },
     correctionPicking ? (correctionPicking.oldId ? "已选旧说法 · 现在点正确的新说法（取消）" : "现在点一条错误的旧说法（取消）") : "手动挑两条做事实纠正"),
-  h("button", { onClick: () => { setManageOpen(false); setDiagOpen(false); }, className: "w-full py-1.5 mb-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "收起整理工具")) : null,
+  h("button", { onClick: () => { setManageOpen(false); setDiagOpen(false); }, className: "w-full py-1.5 mb-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "收起整理工具")) : null,
   h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } },
     h("div", { "data-wk": "memindex", style: { margin: "14px 0 12px", padding: "13px 4px 12px", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line } },
       h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 10 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, focusChar ? (focusChar.remark || focusChar.name) + " 的记忆索引" : "记忆索引"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, letterSpacing: ".08em" } }, "自动归档 · 可手动校正")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, focusChar ? (focusChar.remark || focusChar.name) + " 的记忆索引" : "记忆索引"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, "自动归档 · 可手动校正")),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))" } },
         [["在册", activeTotal], ["常驻", pinnedTotal], ["未了", visibleOpenTotal], ["留档", historyTotal]].map(([label, value], i) => h("div", { key: label, "data-wk": "memstat", "data-part": label, style: { textAlign: "center", borderLeft: i ? "1px solid " + t.line : "none" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: label === "未了" && value ? "#a66550" : t.ink, lineHeight: 1 } }, String(value)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 5, letterSpacing: ".08em" } }, label))))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: label === "未了" && value ? "#a66550" : t.ink, lineHeight: 1 } }, String(value)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5, letterSpacing: ".08em" } }, label))))),
     h(EventShelfSection, { characters: characters, entries: entries }),
     h("div", { "data-wk": "memsearch", className: "flex items-center", style: { height: 40, background: t.bg2, border: "1px solid " + t.line, borderRadius: 13, padding: "0 12px", margin: "10px 0" } },
       h(ISearch, { size: 15, color: t.fog }),
       h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜一句话、标签或记得这件事的人",
-        className: "flex-1 min-w-0 outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "transparent", border: "none", padding: "0 0 0 9px" } })),
+        className: "flex-1 min-w-0 outline-none", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", padding: "0 0 0 9px" } })),
     // 状态那三档：不摆一排药丸（tabs-not-plain-pills）。
     // 先问这东西现实里是什么——记忆库是一盒卡片，这三档是【盒里分出来的三摞】，
     // 而「常驻」是钉住的那张、「未了」是折了角的那张。所以每一档就长成它自己：
@@ -9365,7 +9365,7 @@ function MemoryLib({
             clipPath: id === "open" ? "polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 0 100%)" : "none",
             opacity: on ? 1 : 0.62 } },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: on ? 14 : 12.5, lineHeight: 1.1, color: t.ink } }, label),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: on ? t.sub : t.fog, marginTop: 1 } }, n + " 张"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: on ? t.sub : t.fog, marginTop: 1 } }, n + " 张"),
             // 卡片上那条横线：索引卡本来就是印着线的
             h("span", { "aria-hidden": "true", style: { position: "absolute", left: 8, right: 8, bottom: 7, height: 1, background: t.line, opacity: on ? 1 : 0.6 } })),
           // 折角那一张：把翻起来的那个小三角画出来，不然只是右上角缺了一块、看不出是折的
@@ -9404,7 +9404,7 @@ function MemoryLib({
                       h(Avatar, { character: x, size: f, radius: 0 }))));
                 })()
               : h(Avatar, { character: c, size: sz, radius: 0 })),
-          on ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.ink, marginTop: 3, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          on ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.ink, marginTop: 3, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             id === "all" ? "所有人" : id === "__open__" ? "没绑角色" : (c.remark || c.name)) : null);
       })) : null,
     // 主线 / 各间房：卡盒里这个人那一格后面插着的【分隔卡】——
@@ -9417,38 +9417,38 @@ function MemoryLib({
             border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "1px solid " + (on ? t.bg2 : t.line),
             background: on ? t.bg2 : "transparent", opacity: on ? 1 : 0.6, textAlign: "left" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: on ? 13.5 : 12, color: t.ink, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, d.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: on ? t.sub : t.fog } }, d.n + " 条"));
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: on ? t.sub : t.fog } }, d.n + " 条"));
       })) : null,
     inRoom ? h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "2px 2px 9px", lineHeight: 1.55 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "2px 2px 9px", lineHeight: 1.55 } },
         roomScope === "__gone__" ? "这些房已经删了，记忆还留着——现在没有哪间房读得到它们。"
           : "只有在「" + ((roomDoors.find(d => d.id === roomScope) || {}).name || "这间房") + "」里TA才想得起这些；主聊天、别的房、群聊都看不见。"),
       !roomList.length ? h(Empty, { text: qlc ? "没找到这段记忆" : "这间房还没记下什么", sub: qlc ? "换个说法试试" : "房里聊着聊着会自己记下，也可以在房里点「收入记忆」" }) : null,
       roomList.map(e => {
         const d = shortDateOf(e);
         return h("div", { key: e.id, className: "w-full text-left flex", style: { gap: 10, marginBottom: 10 } },
-          h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
+          h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
           h("div", { "data-wk": "block", className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
             h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: t.line } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, sourceLabelOf(e)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 7 } }, sourceLabelOf(e)),
             h("button", { onClick: () => editRoomMem(e), "aria-label": "编辑记忆", className: "w-full text-left active:opacity-75",
-              style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
+              style: { display: "block", fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
             h("div", { className: "flex items-center justify-end", style: { gap: 4, marginTop: 6, paddingTop: 4, borderTop: "1px solid " + t.line } },
-              h("button", { onClick: () => editRoomMem(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "改"),
-              onAdd ? h("button", { onClick: () => moveRoomMemToMain(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "挪进主线") : null)));
+              h("button", { onClick: () => editRoomMem(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "改"),
+              onAdd ? h("button", { onClick: () => moveRoomMemToMain(e), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent } }, "挪进主线") : null)));
       })) : null,
     // 未了 + 选了一个人：给这些约定挑日子，到那天TA自己来（不是情侣也能用）
     !inRoom && statusFilter === "open" && personKey && pactsOf ? h("button", { onClick: () => setPactsFor(personKey), className: "w-full text-left active:opacity-75",
       style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, margin: "0 0 10px", padding: "10px 13px",
         background: t.bg2, border: "1px dashed " + t.line, borderRadius: 3 } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.5 } },
-        "给这些约定挑个日子", h("span", { style: { display: "block", fontSize: 10.5, color: t.fog } }, "到那天那个点，TA会自己来找你、打给你或视频")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, flexShrink: 0 } }, "我们说好的 ›")) : null,
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } },
+        "给这些约定挑个日子", h("span", { style: { display: "block", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "到那天那个点，TA会自己来找你、打给你或视频")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "我们说好的 ›")) : null,
     !inRoom && h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } },
         "这一摞 " + list.length + " 张"
         + (filter === "__open__" ? " · 这些每个角色都看得见，包括跟这件事没关系的那些" : "")),
-      correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
+      correctionPicking ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9f5149" } }, correctionPicking.oldId ? "点正确的新说法" : "点错误的旧说法") : null),
     !inRoom && list.length === 0 && h(Empty, {
       text: qlc ? "没找到这段记忆" : statusFilter === "open" ? "没有未了的事" : statusFilter === "pinned" ? "还没有常驻记忆" : "还没有记忆",
       sub: qlc ? "换个说法、角色名或标签试试" : "点右上角 + 手动记下，聊天也会自动沉淀"
@@ -9468,7 +9468,7 @@ function MemoryLib({
         style: { gap: 10, marginBottom: 10 }
       },
         h("div", { "data-wk": "memdate", className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, position: "relative" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
           // 情绪不再报数字（原来写「情绪 +4 · 强度 2」——那是把内部记分板端上桌）。
           // 它就画在时间轴上那颗点里：颜色是当时的心情，大小是这件事有多重。
           // 没评过情绪的是一颗空心小点，一眼看得出「这条还没评」。
@@ -9493,31 +9493,31 @@ function MemoryLib({
           h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: accent } }),
           h("span", { "aria-hidden": "true", style: { position: "absolute", left: 12, right: 12, top: 30, height: 1, background: t.line, opacity: .55 } }),
           h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 7 } },
-            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, audienceOf(e) + " · " + sourceLabelOf(e)),
-            states.length ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: e.open ? "#a66550" : e.pinned ? t.tint : t.fog } }, states.join(" · ")) : null),
-          h("div", { "data-wk": "memtext", style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, audienceOf(e) + " · " + sourceLabelOf(e)),
+            states.length ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: e.open ? "#a66550" : e.pinned ? t.tint : t.fog } }, states.join(" · ")) : null),
+          h("div", { "data-wk": "memtext", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
           (tags.length || trace) ? h("div", { className: "flex flex-wrap items-center", style: { gap: "3px 8px", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + t.line } },
-            tags.map((tag, i) => h("span", { key: "tag_" + i, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub } }, "#" + tag)),
-            (e.tags || []).length > 2 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "+" + ((e.tags || []).length - 2)) : null,
-            trace ? h("span", { title: "原件仍在归档里", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "由 " + trace + " 条旧忆收拢") : null) : null));
+            tags.map((tag, i) => h("span", { key: "tag_" + i, style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.sub } }, "#" + tag)),
+            (e.tags || []).length > 2 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "+" + ((e.tags || []).length - 2)) : null,
+            trace ? h("span", { title: "原件仍在归档里", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "由 " + trace + " 条旧忆收拢") : null) : null));
     }),
     // 还剩几张没画：这根哨子进视野就自己续一截。
     // ⚠️还要写一句话给她看——一声不吭地停在第 60 条，看着像「后面的记忆没了」。
-    !inRoom && memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", padding: "14px 0" } },
+    !inRoom && memMore ? h("div", { ref: memSentinel, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "14px 0" } },
       "还有 " + memMore + " 条，往下翻") : null,
     (superseded.length || archived.length) ? h("div", { style: { marginTop: 18, paddingTop: 13, borderTop: "1px solid " + t.line } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "历史索引"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, "不参与日常召回，但仍留得下出处和原文。"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "历史索引"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 5 } }, "不参与日常召回，但仍留得下出处和原文。"),
       superseded.length ? h(React.Fragment, null,
-        h("button", { onClick: () => setShowSuperseded(s => !s), className: "w-full flex items-center justify-between active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, padding: "10px 0", borderBottom: "1px solid " + t.line } },
+        h("button", { onClick: () => setShowSuperseded(s => !s), className: "w-full flex items-center justify-between active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h("span", null, "旧说法留档"), h("span", { style: { color: t.fog } }, superseded.length + " 条 " + (showSuperseded ? "▾" : "›"))),
-        showSuperseded ? h("div", null, superseded.slice(0, 100).map(e => h("div", { key: e.id, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, padding: "8px 2px", borderBottom: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, e.text))) : null) : null,
+        showSuperseded ? h("div", null, superseded.slice(0, 100).map(e => h("div", { key: e.id, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, padding: "8px 2px", borderBottom: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, e.text))) : null) : null,
       archived.length ? h(React.Fragment, null,
-        h("button", { onClick: () => setShowArchived(s => !s), className: "w-full flex items-center justify-between active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, padding: "10px 0", borderBottom: "1px solid " + t.line } },
+        h("button", { onClick: () => setShowArchived(s => !s), className: "w-full flex items-center justify-between active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h("span", null, "精炼与整理归档"), h("span", { style: { color: t.fog } }, archived.length + " 条 " + (showArchived ? "▾" : "›"))),
         showArchived ? h("div", null,
-          onRestoreArchived ? h("button", { onClick: () => onRestoreArchived(), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, padding: "10px 2px 7px" } }, "恢复全部归档原件") : null,
-          archived.slice(0, 100).map(e => h("div", { key: e.id, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.65, padding: "8px 2px", borderBottom: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, e.text))) : null) : null) : null),
+          onRestoreArchived ? h("button", { onClick: () => onRestoreArchived(), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent, padding: "10px 2px 7px" } }, "恢复全部归档原件") : null,
+          archived.slice(0, 100).map(e => h("div", { key: e.id, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, padding: "8px 2px", borderBottom: "1px dashed " + t.line, whiteSpace: "pre-wrap" } }, e.text))) : null) : null) : null),
   cfgOpen && onSaveCfg && h(MemCfgSheet, {
     onPurgeWithered: onPurgeWithered,
     witheredCount: witheredCount,
@@ -9549,19 +9549,19 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
   const set = patch => setC(p => Object.assign({}, p, patch));
   const toggle = (label, sub, val, onT) => h("div", { "data-wk": "memcfgrow", className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
     h("div", { style: { flex: 1, paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, label),
-      sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, label),
+      sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
     h("button", { "data-wk": "memcfgswitch", "data-on": val ? "1" : "0", onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 50, height: 29, borderRadius: 999, background: val ? t.ink : t.line, position: "relative", transition: "background .2s" } },
       h("span", { style: { position: "absolute", top: 3, left: val ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } })));
   const slider = (label, val, min, max, step, unit, onCh, note) => h("div", { "data-wk": "memcfgrow", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, label),
-      h("span", { "data-wk": "memcfgval", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent } }, val + (unit || ""))),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, label),
+      h("span", { "data-wk": "memcfgval", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.accent } }, val + (unit || ""))),
     h("input", { type: "range", min: min, max: max, step: step, value: val, onChange: e => onCh(Number(e.target.value)), className: "w-full" }),
-    note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, note) : null);
+    note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, note) : null);
   return h(PageSheet, { onClose: onClose, tall: true },
     h(Eyebrow, { style: { marginBottom: 2 } }, "召回设置"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "每轮往上下文塞几条 + 自动抽取的节拍 — token 封顶的旋钮"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "每轮往上下文塞几条 + 自动抽取的节拍 — token 封顶的旋钮"),
     toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）；默认关，开了每轮多花一次后台调用", !!c.autoExtract, () => set({ autoExtract: !c.autoExtract })),
     // 抽取间隔只跟着自动抽取走：挪到开关正下面，关着就收起来（她 2026-10-09）
     c.autoExtract ? slider("自动抽取间隔", c.extractInterval || 1, 1, 10, 1, " 轮", v => set({ extractInterval: v }), (c.extractInterval || 1) > 1 ? "每 " + c.extractInterval + " 轮抽一次，省抽取 API。" : "每轮都抽，记得最全、最费 API。日常设 2~3 轮够用。") : null,
@@ -9577,32 +9577,32 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     //   不是她需要天天拧的旋钮；旋钮多了每一根都变得不值钱。
     slider("线下回看几拍", c.offBeats != null ? c.offBeats : 40, 10, 120, 5, " 拍", v => set({ offBeats: v }), "线下那半最多往回带这么多拍（TA和你的一起数）。再往前由本场滚动摘要和记忆库兜底。"),
     slider("线下最近几拍给原文", c.offVerbatim != null ? c.offVerbatim : 3, 1, 10, 1, " 拍", v => set({ offVerbatim: v }), "只有最近这几拍原样带，更早的压成摘录（留台词那几句）。调大衔接更稳、更吃字数；线下再多也最多占走短期窗预算的三成，挤不到聊天头上。"),
-    h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"),
+    h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"),
     // 清理落灰记忆（v48.41 #4）：库越攒越大，一键删掉久无人问津的低情绪旧事——约定/心事/置顶都留着
     false && onPurgeWithered ? h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "清理落灰记忆"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "删掉 120 天没被想起、几乎没被召回过、也没什么情绪的静态旧事。你的未了约定/心事、置顶的、有情绪的都【不会】被清。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "删掉 120 天没被想起、几乎没被召回过、也没什么情绪的静态旧事。你的未了约定/心事、置顶的、有情绪的都【不会】被清。"),
       witheredCount > 0
         ? (confirmPurge
             ? h("div", { className: "flex gap-2" },
-                h("button", { onClick: () => setConfirmPurge(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "取消"),
-                h("button", { onClick: () => { onPurgeWithered(); setConfirmPurge(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认清理 " + witheredCount + " 条"))
-            : h("button", { onClick: () => setConfirmPurge(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🧹 清理落灰记忆（约 " + witheredCount + " 条）"))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null,
+                h("button", { onClick: () => setConfirmPurge(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "取消"),
+                h("button", { onClick: () => { onPurgeWithered(); setConfirmPurge(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认清理 " + witheredCount + " 条"))
+            : h("button", { onClick: () => setConfirmPurge(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🧹 清理落灰记忆（约 " + witheredCount + " 条）"))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null,
     false && h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "未了结开环"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } },
         "当前还有 " + openTotal + " 条开环。时间过去、想起变少或情绪缓和都不算解决；绝不按年龄批量降级。"),
       Number(routineOpenCount || 0) > 0 && onDowngradeRoutineOpen
         ? h("div", { style: { marginTop: 9 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginBottom: 8 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginBottom: 8 } },
             "机械筛到 " + routineOpenCount + " 条明显日常安排（普通约饭、洗澡、上班等）。只撤掉 ⏳，正文仍留在记忆库；生日/就医等有后果的约定、关系冲突或等待结果不会动。"),
           confirmRoutine
             ? h("div", { className: "flex gap-2" },
-              h("button", { onClick: () => setConfirmRoutine(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "先不动"),
-              h("button", { onClick: () => { onDowngradeRoutineOpen(); setConfirmRoutine(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认软降级 " + routineOpenCount + " 条"))
-            : h("button", { onClick: () => setConfirmRoutine(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "筛掉明显日常伪开环"))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", paddingTop: 8 } }, "没有识别到明显日常伪开环；其余请点「⏳未了结」查看。")));
+              h("button", { onClick: () => setConfirmRoutine(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "先不动"),
+              h("button", { onClick: () => { onDowngradeRoutineOpen(); setConfirmRoutine(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认软降级 " + routineOpenCount + " 条"))
+            : h("button", { onClick: () => setConfirmRoutine(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "筛掉明显日常伪开环"))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, textAlign: "center", paddingTop: 8 } }, "没有识别到明显日常伪开环；其余请点「⏳未了结」查看。")));
 }
 function MemEntrySheet({
   entry,
@@ -9644,7 +9644,7 @@ function MemEntrySheet({
   }, h("span", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: 22,
+      fontSize: "calc(22px * var(--app-fs, 1))",
       color: t.ink
     }
   }, entry ? "编辑记忆" : "新增记忆"), h("button", {
@@ -9687,7 +9687,7 @@ function MemEntrySheet({
       className: "px-3 py-1.5 rounded-full",
       style: {
         fontFamily: F_BODY,
-        fontSize: 13,
+        fontSize: "calc(13px * var(--app-fs, 1))",
         background: on ? t.ink : "transparent",
         color: on ? t.bg2 : t.sub,
         border: "1px solid " + (on ? t.ink : t.line)
@@ -9698,7 +9698,7 @@ function MemEntrySheet({
   }, h("div", {
     style: {
       fontFamily: F_DISPLAY,
-      fontSize: 14,
+      fontSize: "calc(14px * var(--app-fs, 1))",
       color: t.sub
     }
   }, "置顶（每次都注入对话）"), h("button", {
@@ -9730,21 +9730,21 @@ function MemEntrySheet({
   // 未了结（Ombre Brain·承诺可标记完成）：勾上会更常被想起，办完/翻篇点掉它就不再惦记
   h("div", { className: "flex items-center justify-between pt-6" },
     h("div", { style: { flex: 1, paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "还没了结（约定 / 心结）"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "标记后 TA 会更常惦记这件事；等兑现了 / 翻篇了，点掉它就不再念叨")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "还没了结（约定 / 心结）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "标记后 TA 会更常惦记这件事；等兑现了 / 翻篇了，点掉它就不再念叨")),
     h("button", { "data-wk": "memedswitch", "data-part": "open", "data-on": open ? "1" : "0", onClick: () => setOpen(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: open ? "#b06a4f" : t.line, position: "relative", transition: "background .2s" } },
       h("span", { style: { position: "absolute", top: 3, left: open ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
   // 情绪坐标（Ombre Brain·valence/arousal）：愉悦度 + 强度，影响被想起的权重
   (() => {
     const stepper = (label, val, lo, hi, onCh) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 0" } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, label),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, label),
       h("div", { className: "flex items-center", style: { gap: 12 } },
-        h("button", { onClick: () => onCh(Math.max(lo, val - 1)), className: "active:opacity-60", style: { width: 26, height: 26, borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15 } }, "−"),
-        h("span", { style: { minWidth: 24, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 15, color: t.accent } }, val),
-        h("button", { onClick: () => onCh(Math.min(hi, val + 1)), className: "active:opacity-60", style: { width: 26, height: 26, borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15 } }, "＋")));
+        h("button", { onClick: () => onCh(Math.max(lo, val - 1)), className: "active:opacity-60", style: { width: 26, height: 26, borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "−"),
+        h("span", { style: { minWidth: 24, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.accent } }, val),
+        h("button", { onClick: () => onCh(Math.min(hi, val + 1)), className: "active:opacity-60", style: { width: 26, height: 26, borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "＋")));
     return h("div", { "data-wk": "memedemo", className: "pt-4", style: { borderTop: "1px solid " + t.line, marginTop: 14 } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "情绪坐标"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4, lineHeight: 1.5 } }, "越激动、越强烈的事越难忘、越常被想起。自动抽取会自己判断，也可手调"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 4, lineHeight: 1.5 } }, "越激动、越强烈的事越难忘、越常被想起。自动抽取会自己判断，也可手调"),
       stepper("愉悦度（-5 难过 ～ +5 开心）", vv, -5, 5, setVv),
       stepper("强度（0 平淡 ～ 5 刻骨）", aa, 0, 5, setAa));
   })(),
@@ -9754,7 +9754,7 @@ function MemEntrySheet({
     className: "w-full text-center pt-6",
     style: {
       fontFamily: F_BODY,
-      fontSize: 13,
+      fontSize: "calc(13px * var(--app-fs, 1))",
       color: t.accent
     }
   }, "删除这条记忆"));
@@ -9864,57 +9864,57 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
       right: h("button", { onClick: onDelete, "aria-label": "删掉", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(ITrash, { size: 17, color: t.fog })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-16" },
       h("div", { className: "flex items-baseline", style: { gap: 9, marginTop: 10 } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: fsz(27), color: t.ink, lineHeight: 1.15 } }, dateStr),
-        h("span", { style: { fontFamily: F_BODY, fontSize: fsz(12.5), color: t.fog } }, "周" + wd),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(27px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.15 } }, dateStr),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "周" + wd),
         h("span", { style: { flex: 1 } }),
-        entry.timeStr ? h("span", { style: { fontFamily: F_BODY, fontSize: fsz(12), color: t.fog } }, entry.timeStr) : null),
-      margin ? h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11.5), color: t.fog, marginTop: 5 } }, margin) : null,
+        entry.timeStr ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, entry.timeStr) : null),
+      margin ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, margin) : null,
       h("div", { style: { height: 1, background: "rgba(" + iRGB + ",.14)", margin: "16px 0 20px" } }),
-      title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(22), lineHeight: 1.4, color: t.ink, marginBottom: sub ? 4 : 16 } }, title) : null,
-      sub ? h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11.5), color: t.fog, letterSpacing: ".16em", marginBottom: 16 } }, sub) : null,
-      (entry.paras || []).some(p => p.secret) ? h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog, marginBottom: 16 } }, "点一下墨块，那句话会化开") : null,
+      title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", lineHeight: 1.4, color: t.ink, marginBottom: sub ? 4 : 16 } }, title) : null,
+      sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".16em", marginBottom: 16 } }, sub) : null,
+      (entry.paras || []).some(p => p.secret) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 16 } }, "点一下墨块，那句话会化开") : null,
       (entry.paras || []).map((p, i) => {
-        if (p.pasted) return h("div", { "data-wk": "block", key: i, style: { position: "relative", margin: "8px 2px 24px", padding: "13px 14px", background: "rgba(" + iRGB + ",.045)", border: "1px solid rgba(" + iRGB + ",.10)", borderRadius: 3, transform: "rotate(-.6deg)", boxShadow: "0 2px 10px rgba(0,0,0,.06)", fontFamily: F_BODY, fontSize: fsz(13), lineHeight: 1.8, color: t.sub, whiteSpace: "pre-wrap", textAlign: "center" } },
+        if (p.pasted) return h("div", { "data-wk": "block", key: i, style: { position: "relative", margin: "8px 2px 24px", padding: "13px 14px", background: "rgba(" + iRGB + ",.045)", border: "1px solid rgba(" + iRGB + ",.10)", borderRadius: 3, transform: "rotate(-.6deg)", boxShadow: "0 2px 10px rgba(0,0,0,.06)", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, whiteSpace: "pre-wrap", textAlign: "center" } },
           h("span", { "aria-hidden": "true", style: { position: "absolute", top: -8, left: "42%", width: 46, height: 15, background: "rgba(" + iRGB + ",.07)", border: "1px solid rgba(" + iRGB + ",.06)", transform: "rotate(-3deg)" } }),
           p.text);
-        const body = { fontFamily: F_BODY, fontSize: fsz(16.5), lineHeight: 2.05, color: t.ink, marginBottom: 20 };
+        const body = { fontFamily: F_BODY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 2.05, color: t.ink, marginBottom: 20 };
         if (p.struck) return h("p", { key: i, style: Object.assign({}, body, { color: "rgba(" + iRGB + ",.5)" }) },
           h(InkStruck, { text: p.text, seed: (entry.id || "") + i, lineH: Math.round(16.5 * 2.05), rgb: iRGB }));
         if (p.secret) return h("p", { key: i, style: body },
           h(InkSecret, { text: p.text, seed: (entry.id || "") + i, rgb: iRGB, ink: t.ink }));
         return h("p", { key: i, style: body }, STW(isMe ? null : char && char.id, STX(p.text)));
       }),
-      entry.signature ? h("div", { style: { marginTop: 20, fontFamily: F_DISPLAY, fontSize: fsz(18), color: t.sub, textAlign: "right" } }, entry.signature) : null,
+      entry.signature ? h("div", { style: { marginTop: 20, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.sub, textAlign: "right" } }, entry.signature) : null,
       isMe ? h("div", { style: { marginTop: 34 } },
         h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 6 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(14), color: t.sub } }, "谁看过，写了两句"),
-          comments.length ? h("span", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog } }, comments.length + " 条") : null),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "谁看过，写了两句"),
+          comments.length ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, comments.length + " 条") : null),
         comments.map(c => h("div", { key: c.id, className: "flex gap-3", style: { padding: "12px 0 12px 12px", borderLeft: "2px solid rgba(" + iRGB + ",.13)", marginTop: 10 } },
           h(Avatar, { character: (chars || []).find(x => x.id === c.charId) || { name: c.name }, size: 28, radius: 9 }),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(13.5), color: t.ink, marginBottom: 2 } }, c.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: fsz(14), lineHeight: 1.75, color: t.sub } }, STW(c.charId, STX(c.text)))))),
-        h("button", { onClick: onComment, disabled: commenting, className: "w-full mt-5 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50", style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: fsz(13.5), color: t.sub } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } }, c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } }, STW(c.charId, STX(c.text)))))),
+        h("button", { onClick: onComment, disabled: commenting, className: "w-full mt-5 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50", style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } },
           commenting ? h(IPulse, { size: 15, color: t.sub }) : h(ISpark, { size: 15, color: t.sub }),
           commenting ? "他们在看你今天写的…" : (comments.length ? "再叫人来看看" : "叫他们来看看"))) : null,
       // 照片日记：只在她点了才拍（绝不自动），拍好就挂在这页最底下，三格能一格格放大
       !isMe && onPhotoDiary ? h("div", { "data-wk": "photodiary", style: { marginTop: 34 } },
         entry.photoStrip ? h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(14), color: t.sub, marginBottom: 8 } }, "这一天的照片"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "这一天的照片"),
           h("div", { style: { borderRadius: 8, overflow: "hidden", border: "1px solid rgba(" + iRGB + ",.14)" } }, h(AlbumPhoto, { photo: entry.photoStrip })),
           h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 }),
           // 添加到主屏幕的网页版里长按图片没有「存储图像」（群里 2026-10-16）——给一颗明着存的键，走公共那条 saveImgOriginal
           entry.photoStrip.imgKey ? h("button", { onClick: () => { if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图"); window.saveImgOriginal(entry.photoStrip.imgKey, "照片日记").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); }); },
-            className: "w-full mt-3 flex items-center justify-center gap-2 active:opacity-70", style: { border: "1px solid rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: fsz(13.5), color: t.ink, background: "transparent" } }, "保存这张照片") : null,
+            className: "w-full mt-3 flex items-center justify-center gap-2 active:opacity-70", style: { border: "1px solid rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: "transparent" } }, "保存这张照片") : null,
           onDelPhoto ? h("button", { "data-wk": "photodiarydel", onClick: () => requestAppConfirm("删掉这张照片？", "日记留着，只删这张图；删了想要得再拍一次（再花一次生图）。", () => onDelPhoto(entry), "删掉"), disabled: !!photoBusy, className: "w-full mt-2 active:opacity-70 disabled:opacity-50",
-            style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: fsz(12.5), color: "#c0503f", background: "transparent" } }, "删掉这张照片（日记留着）") : null) : null,
+            style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#c0503f", background: "transparent" } }, "删掉这张照片（日记留着）") : null) : null,
         h("button", { onClick: () => onPhotoDiary(entry), disabled: !!photoBusy, className: "w-full mt-4 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50",
-          style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: fsz(13.5), color: t.sub, background: "transparent" } },
+          style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, background: "transparent" } },
           photoBusy ? "在冲洗这一天…" : entry.photoStrip ? "重拍这一天（再生成一次图）" : "把这一天拍成照片日记（生成一次图）"),
         // 她自己定这三格拍什么（2026-10-17「改画面描述再画」）：写下的那段压过日记里挑的时刻
         h("button", { "data-wk": "photodiaryedit", onClick: () => typeof requestAppPrompt === "function" && requestAppPrompt("改画面描述再拍", "这就是发去拍照的那段（日记原文）。改成你想要的三格，或者删掉会被审核拦的句子，只照这段拍。", (entry.photoStrip && entry.photoStrip.wish) || (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900), txt => { if (String(txt || "").trim()) onPhotoDiary(entry, String(txt).trim()); }, "照这个拍", { multiline: true }),
           disabled: !!photoBusy, className: "w-full mt-2 active:opacity-70 disabled:opacity-50",
-          style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: fsz(12.5), color: t.sub, background: "transparent" } }, "改画面描述再拍")) : null));
+          style: { borderRadius: 12, padding: "9px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: "transparent" } }, "改画面描述再拍")) : null));
 }
 function fmtClockShort(d) {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
@@ -9953,7 +9953,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
       right: h("div", { className: "flex items-center", style: { gap: 12 } },
         h("button", { onClick: () => char.isMe ? onCompose() : onEditStyle(char.id), "aria-label": char.isMe ? "写一篇" : "改文风", className: "active:opacity-50" }, h(IPencil, { size: 17, color: t.ink })),
         // 我自己那本没有文风可改，顶上单给一颗进去换纸（TA们的在铅笔那页里）
-        char.isMe ? h("button", { "data-wk": "dipaperbtn", onClick: () => onEditStyle(char.id), "aria-label": "换纸", className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: fsz(12.5), color: t.ink } }, "纸") : null,
+        char.isMe ? h("button", { "data-wk": "dipaperbtn", onClick: () => onEditStyle(char.id), "aria-label": "换纸", className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "纸") : null,
         h("button", { onClick: onOpenList, "aria-label": "换一本", className: "active:opacity-50" }, h(IChevR, { size: 18, color: t.fog }))) }),
     h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-4", style: { position: "relative" } },
       h("button", { "data-wk": "dibook", onClick: () => onOpen(char.id), className: "active:opacity-90", style: { width: "100%", maxWidth: "clamp(280px, calc(100vh - 362px), 350px)" } },
@@ -9965,15 +9965,15 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
           h("div", { style: { position: "absolute", left: "13%", right: "9%", top: "18%", padding: "20px 18px 22px",
             background: "rgba(255,255,255,.62)", border: "1px solid rgba(" + iRGB + ",.18)", borderRadius: 2,
             transform: "rotate(-1.2deg)", boxShadow: "0 3px 12px rgba(0,0,0,.09)" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(34), lineHeight: 1.2, color: t.ink, wordBreak: "break-word" } }, char.remark || char.name),
-            char.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: fsz(13), color: t.fog, marginTop: 5 } }, char.name) : null,
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(34px * var(--app-fs, 1))", lineHeight: 1.2, color: t.ink, wordBreak: "break-word" } }, char.remark || char.name),
+            char.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } }, char.name) : null,
             h("div", { style: { height: 1, background: "rgba(" + iRGB + ",.14)", margin: "14px 0 11px" } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: fsz(13), color: t.sub } }, list.length ? "收了 " + list.length + " 篇" + (list.filter(e => e.unread).length ? " · " + list.filter(e => e.unread).length + " 篇没看" : "") : "还是空的"),
-            lastStr ? h("div", { style: { fontFamily: F_BODY, fontSize: fsz(12), color: t.fog, marginTop: 4 } }, "最后写于 " + lastStr) : null),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, list.length ? "收了 " + list.length + " 篇" + (list.filter(e => e.unread).length ? " · " + list.filter(e => e.unread).length + " 篇没看" : "") : "还是空的"),
+            lastStr ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }, "最后写于 " + lastStr) : null),
           char.avatarImage ? h("div", { style: { position: "absolute", right: "9%", bottom: "7%", width: 74, height: 74, borderRadius: 4, overflow: "hidden", transform: "rotate(3deg)", border: "3px solid rgba(255,255,255,.8)", boxShadow: "0 4px 12px rgba(0,0,0,.16)" } },
             h("img", { src: (typeof resolveImg === "function" ? resolveImg(char.avatarImage) : char.avatarImage), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
-          char.motto ? h("div", { style: { position: "absolute", left: "16%", right: "36%", bottom: "9%", fontFamily: "'Noto Serif SC',serif", fontSize: fsz(12.5), lineHeight: 1.8, color: t.fog } }, "「" + char.motto + "」") : null)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: fsz(13), color: t.fog, marginTop: 26, letterSpacing: ".1em" } }, "翻开"),
+          char.motto ? h("div", { style: { position: "absolute", left: "16%", right: "36%", bottom: "9%", fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "「" + char.motto + "」") : null)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, marginTop: 26, letterSpacing: ".1em" } }, "翻开"),
       characters.length > 1 ? h("div", { className: "flex items-center justify-center", style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) * .4 + 18px)", gap: 20 } },
         h("button", { onClick: () => go(-1), disabled: idx === 0, "aria-label": "上一本", className: "active:opacity-50", style: { opacity: idx === 0 ? .25 : .65, padding: 9 } }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex", style: { gap: 7 } }, characters.map((c, i2) => h("span", { key: c.id, style: { width: i2 === idx ? 16 : 6, height: 6, borderRadius: 999, background: t.ink, opacity: i2 === idx ? .7 : .22, transition: "width .2s" } }))),
@@ -9992,20 +9992,20 @@ function DiaryStylePage({ char, onSave, onClose }) {
   const [motto, setMotto] = useState(char.motto || "");
   const [style, setStyle] = useState(char.diaryStyle || "");
   const field = (label, hint, node) => h("div", { style: { marginBottom: 22 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(15), color: t.ink, marginBottom: hint ? 3 : 8 } }, label),
-    hint ? h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, hint) : null,
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: hint ? 3 : 8 } }, label),
+    hint ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, hint) : null,
     node);
-  const inputStyle = { width: "100%", outline: "none", background: t.bg2, border: `1px solid ${t.line}`, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: fsz(14), color: t.ink };
+  const inputStyle = { width: "100%", outline: "none", background: t.bg2, border: `1px solid ${t.line}`, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink };
   const paperField = field("这本用哪张纸", "封面、目录和每一篇都铺这张纸；点了就换好",
     h("div", { "data-wk": "dipaper", className: "flex flex-wrap", style: { gap: 10 } },
       DIARY_PAPERS.map(k => h("button", { key: k, "data-on": k === paperNow ? "1" : "0", onClick: () => { setDiaryPaper(char, char.isMe, k); setPaperNow(k); },
         className: "flex flex-col items-center active:opacity-70", style: { gap: 4 } },
         h("span", { style: Object.assign({}, pageSkin(k, t, { corner: false }), { display: "block", width: 44, height: 44, borderRadius: 8, border: (k === paperNow ? "2px solid " + t.ink : "1px solid " + t.line) }) }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: k === paperNow ? t.ink : t.fog } }, DIARY_PAPER_ZH[k])))));
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: k === paperNow ? t.ink : t.fog } }, DIARY_PAPER_ZH[k])))));
   return h("div", { "data-wk": "diarypage", "data-part": "diarystylepage", className: "h-full flex flex-col", style: pageSkin(paperNow, t, { corner: false }) },
     h(Head, { zh: char.isMe ? "我的日记本" : "日记档案", sub: char.remark || char.name, bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overscrollBehavior: "contain" } },
-      char.isMe ? null : h("div", { style: { fontFamily: F_BODY, fontSize: fsz(12), color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
+      char.isMe ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "8px 0 20px" } },
         "只影响 TA 的日记：签名会印在日记封面上、也会让写日记的 TA 知道；文风直接进写日记的笔。留空就从人设自己长。"),
       char.isMe ? h("div", { style: { height: 12 } }) : null,
       paperField,
@@ -10014,7 +10014,7 @@ function DiaryStylePage({ char, onSave, onClose }) {
         h("input", { "data-wk": "input", value: motto, onChange: e => setMotto(e.target.value), placeholder: "选填", style: inputStyle })),
       field("日记文风", "写 TA 写日记时是什么样：句子长短、脾气收不收、爱写什么、绝不写什么、会不会取标题落款。判据一句话：换个人还成立的描述，等于没写。",
         h("textarea", { "data-wk": "textarea", value: style, onChange: e => setStyle(e.target.value), rows: 6, placeholder: "选填", style: { ...inputStyle, resize: "none", lineHeight: 1.7 } })),
-      h("button", { onClick: () => { onSave(char.id, { motto: motto.trim(), diaryStyle: style.trim() }); onClose(); }, className: "w-full active:opacity-70", style: { marginTop: 4, background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_DISPLAY, fontSize: fsz(15) } }, "保存"))));
+      h("button", { onClick: () => { onSave(char.id, { motto: motto.trim(), diaryStyle: style.trim() }); onClose(); }, className: "w-full active:opacity-70", style: { marginTop: 4, background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "保存"))));
 }
 
 // 我自己写日记（全屏），时间/天气/城市自动抓本地
@@ -10041,26 +10041,26 @@ function MyDiaryCompose({ onBack, onSave }) {
   };
   useEffect(() => { aliveRef.current = true; grab(); return () => { aliveRef.current = false; }; }, []);
   const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
-  const inp = { background: "transparent", border: "none", outline: "none", textAlign: "right", fontFamily: "'Archivo',sans-serif", fontSize: fsz(15), color: t.ink, width: "60%" };
+  const inp = { background: "transparent", border: "none", outline: "none", textAlign: "right", fontFamily: "'Archivo',sans-serif", fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, width: "60%" };
   const metaRow = (label, node) => h("div", { className: "flex items-center justify-between py-2.5", style: { borderTop: `1px solid ${t.line}` } }, h(Eyebrow, null, label), node);
   // v64.00：写日记这一页原来是平色米白——一页纸上写字，纸却没有纹理。
   // lined（信纸横线）就是给这种页面预备的那一格。
   return h("div", { "data-wk": "diarypage", "data-part": "mydiarycompose", className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("lined", t, { base: t.bg2, corner: false, strength: .7 }) : { background: t.bg2 }) },
     h(Head, { zh: "写日记", bg: "transparent", noLine: true, onBack,
-      right: h("button", { onClick: () => onSave({ title, body, location: loc, weather, coords, timeStr: fmtClockShort(now) }), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: fsz(15), color: t.accent, padding: "8px 4px" } }, "保存") }),
+      right: h("button", { onClick: () => onSave({ title, body, location: loc, weather, coords, timeStr: fmtClockShort(now) }), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.accent, padding: "8px 4px" } }, "保存") }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-16" },
-      h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "标题（选填）", style: { background: "transparent", border: "none", outline: "none", width: "100%", fontFamily: F_DISPLAY, fontStyle: "italic", fontWeight: 500, fontSize: fsz(34), lineHeight: 1.1, color: t.ink, marginTop: 14 } }),
+      h("input", { "data-wk": "input", value: title, onChange: e => setTitle(e.target.value), placeholder: "标题（选填）", style: { background: "transparent", border: "none", outline: "none", width: "100%", fontFamily: F_DISPLAY, fontStyle: "italic", fontWeight: 500, fontSize: "calc(34px * var(--app-fs, 1))", lineHeight: 1.1, color: t.ink, marginTop: 14 } }),
       h("div", { className: "mt-6 px-4 pt-1 pb-2", style: { border: `1px solid ${t.line}`, borderRadius: 4, position: "relative" } },
-        h("span", { style: { position: "absolute", top: -8, left: 12, fontSize: fsz(16), color: t.fog, background: t.bg2, padding: "0 4px", lineHeight: 1 } }, "+"),
-        metaRow("时间", h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: fsz(15), color: t.ink } }, dateStr + "  /  " + fmtClockShort(now))),
+        h("span", { style: { position: "absolute", top: -8, left: 12, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: t.bg2, padding: "0 4px", lineHeight: 1 } }, "+"),
+        metaRow("时间", h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, dateStr + "  /  " + fmtClockShort(now))),
         metaRow("地点", h("input", { "data-wk": "input", value: loc, onChange: e => setLoc(e.target.value), placeholder: envState === "loading" ? "定位中…" : "手动填写", style: inp })),
         metaRow("天气", h("input", { "data-wk": "input", value: weather, onChange: e => setWeather(e.target.value), placeholder: envState === "loading" ? "抓取天气…" : "手动填写", style: inp }))),
       h("div", { className: "flex items-center justify-between mt-2.5" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
           envState === "loading" ? "· 正在请求定位与天气…" : envState === "denied" ? "· 没抓到定位/天气，可手填、留空，或重试。" : "· 已抓取本地位置与天气，可手动改。"),
-        h("button", { onClick: grab, disabled: envState === "loading", className: "flex items-center gap-1.5 active:opacity-60 disabled:opacity-40", style: { fontFamily: "'Archivo',sans-serif", fontSize: fsz(11), letterSpacing: "0.08em", color: t.sub } },
+        h("button", { onClick: grab, disabled: envState === "loading", className: "flex items-center gap-1.5 active:opacity-60 disabled:opacity-40", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: "0.08em", color: t.sub } },
           h(IRefresh, { size: 13, color: t.sub }), "重新定位")),
-      h("textarea", { "data-wk": "textarea", value: body, onChange: e => setBody(e.target.value), rows: 12, placeholder: "今天……（空行分段）", style: { width: "100%", marginTop: 24, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F_BODY, fontSize: fsz(16.5), lineHeight: 2.05, color: t.ink } })));
+      h("textarea", { "data-wk": "textarea", value: body, onChange: e => setBody(e.target.value), rows: 12, placeholder: "今天……（空行分段）", style: { width: "100%", marginTop: 24, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: F_BODY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 2.05, color: t.ink } })));
 }
 
 // 选哪些角色来评论（多选）
@@ -10069,18 +10069,18 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
   const [sel, setSel] = useState([]);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   return h(Sheet, { onClose, tall: true },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(20), color: t.ink, marginBottom: 4 } }, "让谁来评论"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: fsz(12), color: t.fog, marginBottom: 16 } }, "选中的角色会按此刻的心情、和你的关系与好感度各写一条。"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "让谁来评论"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 16 } }, "选中的角色会按此刻的心情、和你的关系与好感度各写一条。"),
     characters.map(c => {
       const on = sel.includes(c.id);
       return h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 py-3 active:opacity-70", style: { borderBottom: `1px solid ${t.line}` } },
         h(Avatar, { character: c, size: 42, radius: 12 }),
         h("div", { className: "flex-1 text-left" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(17), color: t.ink } }, c.name),
-          c.remark && h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog } }, c.remark)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, c.name),
+          c.remark && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, c.remark)),
         h("span", { className: "flex items-center justify-center", style: { width: 24, height: 24, borderRadius: 999, border: `1.5px solid ${on ? t.ink : t.line}`, background: on ? t.ink : "transparent" } }, on && h(ICheck, { size: 14, color: t.bg2 })));
     }),
-    h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: fsz(15) } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
+    h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))" } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
 function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
@@ -10257,20 +10257,20 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       onClick: ev => ev.stopPropagation(),
       style: { width: "100%", maxHeight: "68vh", overflowY: "auto", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "16px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" }
     },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(15), color: t.ink, marginBottom: 2 } }, "补哪一天"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11.5), color: t.fog, lineHeight: 1.7, marginBottom: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 2 } }, "补哪一天"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 12 } },
         missing.length ? "最近 30 天里还没写的日子。点一天就只补那一天——删掉过的也在这儿。" : "最近 30 天每天都写过了。"),
       missing.map(ts => h("button", {
         key: ts, disabled: gb,
         onClick: () => { setPickDay(false); onBackfill && onBackfill(curId, { days: [ts] }); },
         className: "active:opacity-60 disabled:opacity-40",
-        style: { width: "100%", textAlign: "left", padding: "11px 4px", borderBottom: "1px solid " + t.line, background: "none", border: "none", fontFamily: F_BODY, fontSize: fsz(13.5), color: t.ink }
+        style: { width: "100%", textAlign: "left", padding: "11px 4px", borderBottom: "1px solid " + t.line, background: "none", border: "none", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink }
       }, vDate(ts, curId).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }))),
       missing.length > 1 ? h("button", {
         disabled: gb,
         onClick: () => { setPickDay(false); onBackfill && onBackfill(curId); },
         className: "active:opacity-60 disabled:opacity-40",
-        style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: fsz(13), color: t.sub }
+        style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub }
       }, "全部补齐（" + missing.length + " 篇）") : null));
     // 目录也铺TA那张纸：翻TA的日记，从目录起就该是TA的本子
     return h("div", { className: "h-full flex flex-col", "data-wk": "dibg", "data-paper": diaryPaperOf(curAuthor, isMe), style: pageSkin(diaryPaperOf(curAuthor, isMe), t, { corner: false, strength: .7 }) }, daySheet,
@@ -10284,7 +10284,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
               h("button", {
                 onClick: () => { if (gb) return; setPickDay(true); },
                 disabled: gb, className: "active:opacity-50 disabled:opacity-40",
-                style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.sub, letterSpacing: .3 }
+                style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, letterSpacing: .3 }
               }, "补齐"),
               h("button", {
                 onClick: () => { if (gb) return; if (done) { toast && toast("昨天的日记已经写过了"); return; } onGen(curId, { manual: true }); },
@@ -10298,7 +10298,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         // 这一本里有没看的，顶上就摆一颗（她 2026-10-18：「一键已读在哪儿啊」——只放在目录页，翻开这一本根本看不见）
         (!isMe && onMarkRead && list.some(e => e.unread)) ? h("button", { "data-wk": "diallread", "data-part": "book",
             onClick: () => onMarkRead(curId, list.filter(e => e.unread).map(e => e.id)), className: "active:opacity-60",
-            style: { display: "block", marginLeft: "auto", marginTop: 10, fontFamily: F_BODY, fontSize: fsz(12), color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } },
+            style: { display: "block", marginLeft: "auto", marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } },
           list.filter(e => e.unread).length + " 篇没看 · 全部标为已读") : null,
         list.map((e, i) => {
           const d = new Date(!isMe && typeof vclockMap === "function" ? vclockMap(e.ts, curId) : e.ts);
@@ -10317,16 +10317,16 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
             style: { borderTop: i === 0 ? "none" : "1px solid rgba(" + iRGB + ",.12)" }
           },
             h("div", { "data-wk": "didate", style: { width: 52, flexShrink: 0, paddingTop: 2 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: fsz(24), lineHeight: 1.05, color: t.ink } }, d.getDate()),
-              h("div", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog, marginTop: 3 } }, (d.getMonth() + 1) + "月 · 周" + wd)),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(24px * var(--app-fs, 1))", lineHeight: 1.05, color: t.ink } }, d.getDate()),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, (d.getMonth() + 1) + "月 · 周" + wd)),
             h("div", { className: "flex-1 min-w-0" },
-              e.unread ? h("div", { "data-wk": "diunread", style: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: fsz(10.5), color: t.accent, marginBottom: 4 } },
+              e.unread ? h("div", { "data-wk": "diunread", style: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.accent, marginBottom: 4 } },
                 h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, display: "inline-block" } }), "没看") : null,
-              titleMain ? h("div", { "data-wk": "dititle", className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: fsz(18), lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
-              h("div", { "data-wk": "dibody", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: fsz(14), lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
+              titleMain ? h("div", { "data-wk": "dititle", className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
+              h("div", { "data-wk": "dibody", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
               (marks.length || (isMe && (e.comments || []).length)) ? h("div", { "data-wk": "dimarks", className: "flex items-center", style: { gap: 7, marginTop: 10 } },
                 marks,
-                (isMe && (e.comments || []).length) ? h("span", { style: { fontFamily: F_BODY, fontSize: fsz(11), color: t.fog, marginLeft: marks.length ? 4 : 0 } }, (e.comments || []).length + " 人看过") : null) : null));
+                (isMe && (e.comments || []).length) ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginLeft: marks.length ? 4 : 0 } }, (e.comments || []).length + " 人看过") : null) : null));
         })));
   }
 
@@ -10341,7 +10341,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-10 pt-1" },
       (onMarkRead && characters.some(c => entriesOf(c.id).some(e => e.unread)))
         ? h("button", { "data-wk": "diallread", onClick: () => characters.forEach(c => { const ids = entriesOf(c.id).filter(e => e.unread).map(e => e.id); if (ids.length) onMarkRead(c.id, ids); }),
-            className: "active:opacity-60", style: { display: "block", marginLeft: "auto", marginTop: 6, fontFamily: F_BODY, fontSize: fsz(12), color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } }, "全部标为已读") : null,
+            className: "active:opacity-60", style: { display: "block", marginLeft: "auto", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } }, "全部标为已读") : null,
       authors.map(c => {
         const list = entriesOf(c.id); const last = list[0]; const gb = busy[c.id]; const cur = c.id === curId;
         return h("div", {
@@ -10352,9 +10352,9 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
           h(Avatar, { character: c, size: 52, radius: 15 }),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-2" },
-              h("div", { "data-wk": "diname", style: { fontFamily: F_DISPLAY, fontSize: fsz(20), color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
-              cur && h("span", { style: { fontFamily: F_BODY, fontSize: fsz(8), letterSpacing: ".05em", padding: "2px 6px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, "当前")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: fsz(12), color: t.fog, marginTop: 2 } },
+              h("div", { "data-wk": "diname", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
+              cur && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".05em", padding: "2px 6px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, "当前")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
               gb ? "正在记录今天…" : list.length ? (list.filter(e => e.unread).length ? list.filter(e => e.unread).length + " 篇没看 · " : "") + "共 " + list.length + " 篇 · 最后 " + new Date(last.ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
           gb ? h(IPulse, { size: 18, color: t.fog }) : h(IChevR, { size: 16, color: t.fog }));
       })));
@@ -10480,7 +10480,7 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
     return h("div", { "data-wk": "walletpage", "data-view": "cards", className: "h-full flex flex-col", style: LEATHER(t) },
       h(Head, { zh: "亲属卡", sub: cardList.length ? cardList.length + " 张 · 刷他们的钱" : "角色给你的卡", bg: "transparent", onBack: () => setView("main") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10 pt-2" },
-        cardList.length === 0 ? h("div", { "data-wk": "walletempty", className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n想要就直接在聊天里问 TA 要，\n给不给、给多少看 TA 这个人。")
+        cardList.length === 0 ? h("div", { "data-wk": "walletempty", className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n想要就直接在聊天里问 TA 要，\n给不给、给多少看 TA 这个人。")
           // 一张张插在内衬上，不是一列按钮
           : cardList.map(cd => {
             const c = charById(cd.charId) || {};
@@ -10488,25 +10488,25 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
               cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
           }),
         // 她给出去的那几张（2026-10-07）：同一个卡包里的另一格，刷的是她的钱
-        onOpenMyKin ? h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "26px 4px 10px" } }, "我给出去的 · 刷的是我的钱") : null,
+        onOpenMyKin ? h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "26px 4px 10px" } }, "我给出去的 · 刷的是我的钱") : null,
         onOpenMyKin ? (myCards || []).map(cd => {
           const c = charById(cd.charId) || {};
           return h("button", { key: "my_" + cd.charId, "data-wk": "walletkin", "data-mine": "1", onClick: () => onOpenMyKin(cd.charId), className: "w-full text-left active:opacity-80", style: { opacity: cd.frozen ? .55 : 1 } },
             cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
         }) : null,
-        onOpenMyKin ? h("button", { "data-wk": "walletkinadd", onClick: () => onOpenMyKin(null), className: "w-full active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13, marginTop: 6 } }, "＋ 给 TA 开一张") : null));
+        onOpenMyKin ? h("button", { "data-wk": "walletkinadd", onClick: () => onOpenMyKin(null), className: "w-full active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginTop: 6 } }, "＋ 给 TA 开一张") : null));
   }
   // 余额不是一张卡，是夹层里的那叠钱
   const faceCard = noteStack([
-    h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, "我的余额"),
+    h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: "0.16em", color: NOTE_FOG } }, "我的余额"),
     // 余额一长（千分位＋两位小数，或换成日元韩元）就会把整张单据撑出屏幕（她 2026-10-09 截图「余额飞了」）：
     //   跟角色钱包同一招——缩字号、不许换行；两颗键挪到下面一行，不跟数字抢宽度。
     h("div", { key: "v", className: "mt-1", style: { minWidth: 0 } },
       h("div", { "data-wk": "walletbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(money(balance), 40, 9, 18), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, money(balance))),
     h("div", { key: "b", className: "flex items-center gap-2 mt-3" },
-      h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
-      onAddEntry ? h("button", { "data-wk": "walletentry", onClick: () => setEntry({ out: true, amt: "", note: "" }), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "记一笔") : null,
-      onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
+      h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
+      onAddEntry ? h("button", { "data-wk": "walletentry", onClick: () => setEntry({ out: true, amt: "", note: "" }), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "记一笔") : null,
+      onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
   const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["entry", "随手记的"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
@@ -10518,33 +10518,33 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   };
   const walletLedger = () => {
     const L = (log || []).filter(Boolean);
-    if (!L.length) return h("div", { "data-wk": "walletempty", className: "text-center mt-8", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有流水。转账、红包、购物都会记在这里。");
+    if (!L.length) return h("div", { "data-wk": "walletempty", className: "text-center mt-8", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "还没有流水。转账、红包、购物都会记在这里。");
     const now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const month = L.filter(e => e.ts >= m0 && e.kind !== "manual");
     const inM = month.filter(e => e.delta > 0).reduce((a, e) => a + e.delta, 0), outM = month.filter(e => e.delta < 0).reduce((a, e) => a - e.delta, 0);
     const sum = h("div", { "data-wk": "walletmonth", className: "flex", style: { gap: 10, marginBottom: 18 } },
       [["本月进账", inM, "#3f8a54"], ["本月花出去", outM, t.ink]].map(([lb, v, col]) => h("div", { key: lb, className: "flex-1", style: Object.assign({ padding: "11px 13px" }, slipSkin(t)) },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, lb),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: col, marginTop: 3 } }, money(Math.round(v * 100) / 100)))));
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, lb),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: col, marginTop: 3 } }, money(Math.round(v * 100) / 100)))));
     const slip = e => {
       const r = e.ref, open = openSlip === e.id, who = whoOf(r), canGo = !!(r && (r.charId || r.groupId) && onTrace);
       return h("div", { key: e.id, "data-wk": "walletslip", "data-in": e.delta > 0 ? "1" : "0", style: Object.assign({ marginBottom: 10, transform: "rotate(" + tiltById(e.id) + "deg)" }, receiptSkin(t)) },
         h("button", { onClick: () => setOpenSlip(open ? null : e.id), className: "w-full text-left flex items-center justify-between px-4 active:opacity-80", style: { paddingTop: 12, paddingBottom: 12 } },
           h("div", { className: "min-w-0 flex-1" },
-            h("div", { "data-wk": "walletslipname", className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, e.label),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(e.ts) + (r && r.where ? " · " + r.where : "") + (who ? " · " + who : ""))),
+            h("div", { "data-wk": "walletslipname", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, e.label),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, fmtStamp(e.ts) + (r && r.where ? " · " + r.where : "") + (who ? " · " + who : ""))),
           h("div", { className: "text-right shrink-0 ml-3" },
-            h("div", { "data-wk": "walletslipamt", "data-in": e.delta > 0 ? "1" : "0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: e.delta > 0 ? "#3f8a54" : t.ink } }, signed(e.delta)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, "余 " + money(e.after)))),
+            h("div", { "data-wk": "walletslipamt", "data-in": e.delta > 0 ? "1" : "0", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: e.delta > 0 ? "#3f8a54" : t.ink } }, signed(e.delta)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, "余 " + money(e.after)))),
         // 凭证：这一笔从哪儿来的，能点回去看（老流水没记出处，只有说明）
-        open ? h("div", { "data-wk": "walletproof", className: "px-4", style: { paddingBottom: 12, borderTop: "1px dashed " + t.line, paddingTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.8 } },
+        open ? h("div", { "data-wk": "walletproof", className: "px-4", style: { paddingBottom: 12, borderTop: "1px dashed " + t.line, paddingTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.8 } },
           h("div", null, "时间：" + new Date(e.ts).toLocaleString("zh-CN", { hour12: false })),
           h("div", null, "类别：" + ((KIND_GROUPS.find(g => g[0] === groupOf(e.kind)) || [])[1] || "其他")),
           r && r.where ? h("div", null, "出处：" + r.where + (who ? " · " + who : "")) : h("div", { style: { color: t.fog } }, "这一笔记账时还没开始存出处，只有上面那行说明。"),
           h("div", null, "这一笔：" + signed(e.delta) + " → 余额 " + money(e.after)),
-          canGo ? h("button", { "data-wk": "wallettrace", onClick: () => onTrace(r), className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "去聊天里看这一笔") : null,
+          canGo ? h("button", { "data-wk": "wallettrace", onClick: () => onTrace(r), className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "去聊天里看这一笔") : null,
           // 删掉这一笔小票（群里 2026-10-10：「我把 char 所有记录都删了，钱包还留着曾经的购买记录」）——只删记录，余额不动
-          onDelLog ? h("button", { "data-wk": "walletdel", onClick: () => requestAppConfirm("删掉这一笔记录？", "只删这一行小票，余额不变。", () => onDelLog([e.id])), className: "active:opacity-70", style: { marginTop: 8, marginLeft: canGo ? 8 : 0, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "删掉这一笔") : null) : null);
+          onDelLog ? h("button", { "data-wk": "walletdel", onClick: () => requestAppConfirm("删掉这一笔记录？", "只删这一行小票，余额不变。", () => onDelLog([e.id])), className: "active:opacity-70", style: { marginTop: 8, marginLeft: canGo ? 8 : 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "删掉这一笔") : null) : null);
     };
     const sections = KIND_GROUPS.map(([k, name]) => {
       const rows = L.filter(e => groupOf(e.kind) === k);
@@ -10552,69 +10552,69 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       const inS = rows.filter(e => e.delta > 0).reduce((a, e) => a + e.delta, 0), outS = rows.filter(e => e.delta < 0).reduce((a, e) => a - e.delta, 0);
       const shown = allOf[k] ? rows : rows.slice(0, 3);
       return h("div", { key: k, "data-wk": "walletkind", "data-kind": k, style: { marginBottom: 20 } },
-        h("div", { "data-wk": "walletsec", className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 10 } },
+        h("div", { "data-wk": "walletsec", className: "flex items-baseline justify-between", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } },
           h("span", { style: { color: t.sub } }, name + " · " + rows.length + " 笔"),
           h("span", null, (inS ? "进 " + money(Math.round(inS * 100) / 100) : "") + (inS && outS ? "  " : "") + (outS ? "出 " + money(Math.round(outS * 100) / 100) : ""))),
         shown.map(slip),
-        rows.length > 3 ? h("button", { onClick: () => setAllOf(p => ({ ...p, [k]: !p[k] })), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, padding: "6px 0", minHeight: 36 } }, allOf[k] ? "收起" : "还有 " + (rows.length - 3) + " 笔 · 展开") : null);
+        rows.length > 3 ? h("button", { onClick: () => setAllOf(p => ({ ...p, [k]: !p[k] })), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "6px 0", minHeight: 36 } }, allOf[k] ? "收起" : "还有 " + (rows.length - 3) + " 笔 · 展开") : null);
     });
-    return h(React.Fragment, null, sum, h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"), sections,
+    return h(React.Fragment, null, sum, h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "夹层里的小票"), sections,
       onDelLog ? h("button", { "data-wk": "walletclear", onClick: () => requestAppConfirm("清空全部流水？", "一共 " + L.length + " 笔小票全删掉，余额不变。删了找不回来。", () => onDelLog(L.map(e => e.id))),
-        className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0 4px", minHeight: 40 } }, "清空全部流水") : null);
+        className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "10px 0 4px", minHeight: 40 } }, "清空全部流水") : null);
   };
   return h("div", { "data-wk": "walletpage", "data-view": "main", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
-      right: h("button", { "data-wk": "walletcardsbtn", onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
+      right: h("button", { "data-wk": "walletcardsbtn", onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overflowX: "hidden" } },
       faceCard,
       // 手动改余额
       editing && h("div", { "data-wk": "walleteditor", className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 8px" } }, "把余额改成"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "6px 0 8px" } }, "把余额改成"),
         h("div", { className: "flex items-center gap-2" },
-          h("input", { "data-wk": "input", value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
-          h("button", { "data-wk": "block", onClick: saveEdit, className: "shrink-0 px-4 py-2 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
-          h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "shrink-0 px-3 py-2 active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
+          h("input", { "data-wk": "input", value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+          h("button", { "data-wk": "block", onClick: saveEdit, className: "shrink-0 px-4 py-2 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
+          h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "shrink-0 px-3 py-2 active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "取消"))),
       entry && h("div", { "data-wk": "walletentryform", className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },
         h("div", { className: "flex items-center gap-2", style: { margin: "2px 0 10px" } },
           [[true, "花出去"], [false, "收进来"]].map(([o, lb]) => h("button", { key: lb, "data-on": entry.out === o ? "1" : "0", onClick: () => setEntry(Object.assign({}, entry, { out: o })), className: "active:opacity-70",
-            style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (entry.out === o ? t.ink : t.line), background: entry.out === o ? t.ink : "transparent", color: entry.out === o ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, lb))),
-        h("input", { "data-wk": "input", value: entry.note, onChange: e => setEntry(Object.assign({}, entry, { note: e.target.value })), placeholder: "花在哪 / 哪来的，比如：给路边的流浪猫之家捐了点", autoFocus: true, className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+            style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (entry.out === o ? t.ink : t.line), background: entry.out === o ? t.ink : "transparent", color: entry.out === o ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, lb))),
+        h("input", { "data-wk": "input", value: entry.note, onChange: e => setEntry(Object.assign({}, entry, { note: e.target.value })), placeholder: "花在哪 / 哪来的，比如：给路边的流浪猫之家捐了点", autoFocus: true, className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
         h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
-          h("input", { "data-wk": "input", value: entry.amt, onChange: e => setEntry(Object.assign({}, entry, { amt: e.target.value })), placeholder: "多少", type: "number", inputMode: "decimal", className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
-          h("button", { "data-wk": "block", onClick: saveEntry, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "记下"),
-          h("button", { onClick: () => setEntry(null), className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
+          h("input", { "data-wk": "input", value: entry.amt, onChange: e => setEntry(Object.assign({}, entry, { amt: e.target.value })), placeholder: "多少", type: "number", inputMode: "decimal", className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+          h("button", { "data-wk": "block", onClick: saveEntry, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 8 } }, "记下"),
+          h("button", { onClick: () => setEntry(null), className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "取消"))),
       // 固定进出：工资、零花钱、房租、会员费……每条自己起名、定多少、多久一次；到日子本地自己记一笔，不花调用
       onSaveRecur ? h("div", { "data-wk": "walletrecur", className: "px-5", style: { marginBottom: 14 } },
         rcEdit ? (function () {
           const e = rcEdit, set = p => setRcEdit(Object.assign({}, e, p));
-          const chip = (on, label, fn, key) => h("button", { key, onClick: fn, className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, label);
-          const sel = (val, opts, fn) => h("select", { value: val, onChange: ev => fn(Number(ev.target.value)), style: { padding: "8px 6px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, opts.map(o => h("option", { key: o[0], value: o[0] }, o[1])));
+          const chip = (on, label, fn, key) => h("button", { key, onClick: fn, className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, label);
+          const sel = (val, opts, fn) => h("select", { value: val, onChange: ev => fn(Number(ev.target.value)), style: { padding: "8px 6px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, opts.map(o => h("option", { key: o[0], value: o[0] }, o[1])));
           const days = Array.from({ length: 28 }, (_, i) => [i + 1, (i + 1) + " 号"]);
           return h("div", { "data-wk": "walletrecuredit", style: Object.assign({ padding: "12px 14px" }, slipSkin(t)) },
             h("div", { className: "flex", style: { gap: 6 } }, chip(e.dir !== "out", "进账", () => set({ dir: "in" }), "in"), chip(e.dir === "out", "支出", () => set({ dir: "out" }), "out")),
             h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
-              h("input", { "data-wk": "walletrecurname", value: e.name, onChange: ev => set({ name: ev.target.value }), placeholder: e.dir === "out" ? "叫什么（房租、会员费…）" : "叫什么（工资、零花钱…）", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { minWidth: 0, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }),
-              h("input", { "data-wk": "walletrecuramt", value: e.amt, onChange: ev => set({ amt: ev.target.value }), type: "number", inputMode: "decimal", placeholder: "多少", className: "outline-none px-3 py-2 rounded-lg", style: { width: 96, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } })),
+              h("input", { "data-wk": "walletrecurname", value: e.name, onChange: ev => set({ name: ev.target.value }), placeholder: e.dir === "out" ? "叫什么（房租、会员费…）" : "叫什么（工资、零花钱…）", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { minWidth: 0, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", border: "1px solid " + t.line, background: t.bg2, color: t.ink } }),
+              h("input", { "data-wk": "walletrecuramt", value: e.amt, onChange: ev => set({ amt: ev.target.value }), type: "number", inputMode: "decimal", placeholder: "多少", className: "outline-none px-3 py-2 rounded-lg", style: { width: 96, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", border: "1px solid " + t.line, background: t.bg2, color: t.ink } })),
             h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 10 } },
               chip(e.freq === "month", "每月", () => set({ freq: "month", day: Math.max(1, e.day || 1) }), "m"), chip(e.freq === "week", "每周", () => set({ freq: "week", day: Math.min(6, e.day || 1) }), "w"), chip(e.freq === "year", "每年", () => set({ freq: "year", day: Math.max(1, e.day || 1) }), "y"),
               e.freq === "week" ? sel(e.day, ["周日", "周一", "周二", "周三", "周四", "周五", "周六"].map((x, i) => [i, x]), v => set({ day: v }))
                 : e.freq === "year" ? h(React.Fragment, null, sel(e.month || 1, Array.from({ length: 12 }, (_, i) => [i + 1, (i + 1) + " 月"]), v => set({ month: v })), sel(e.day || 1, days, v => set({ day: v })))
                 : sel(e.day || 1, days, v => set({ day: v }))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "从下一次开始，到日子自动记一笔；没打开 App 的那几次，下次打开补上。不往回补以前的。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "从下一次开始，到日子自动记一笔；没打开 App 的那几次，下次打开补上。不往回补以前的。"),
             h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
-              h("button", { "data-wk": "walletrecursave", onClick: () => { const v = M ? M.parse(e.amt, "__me__") : Number(e.amt); if (!(v > 0)) return; onSaveRecur({ id: e.id, name: e.name, amount: v, dir: e.dir, freq: e.freq, day: e.day, month: e.month }); setRcEdit(null); }, className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存"),
-              e.isOld ? h("button", { onClick: () => { onSaveRecur({ id: e.id, name: e.name, del: true }); setRcEdit(null); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "不要了") : null,
-              h("button", { onClick: () => setRcEdit(null), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "取消")));
+              h("button", { "data-wk": "walletrecursave", onClick: () => { const v = M ? M.parse(e.amt, "__me__") : Number(e.amt); if (!(v > 0)) return; onSaveRecur({ id: e.id, name: e.name, amount: v, dir: e.dir, freq: e.freq, day: e.day, month: e.month }); setRcEdit(null); }, className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "保存"),
+              e.isOld ? h("button", { onClick: () => { onSaveRecur({ id: e.id, name: e.name, del: true }); setRcEdit(null); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "不要了") : null,
+              h("button", { onClick: () => setRcEdit(null), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "取消")));
         })() : h("div", { style: Object.assign({ padding: "6px 0" }, slipSkin(t)) },
           ["in", "out"].map(dir => {
             const rows = (recur || []).filter(r => r && (r.dir === "out" ? "out" : "in") === dir);
             return h("div", { key: dir, style: { padding: "6px 14px" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0" } }, dir === "in" ? "固定进账" : "固定支出"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0" } }, dir === "in" ? "固定进账" : "固定支出"),
               rows.map(r => h("button", { key: r.id, "data-wk": "walletrecurrow", "data-dir": dir, onClick: () => setRcEdit({ id: r.id, isOld: true, name: r.name, amt: String(M ? M.conv(r.amount, "__me__") : r.amount), dir: r.dir, freq: r.freq, day: r.day, month: r.month || 1 }), className: "w-full text-left flex items-center active:opacity-70", style: { gap: 8, minHeight: 38 } },
-                h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, r.name),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, recurWhenZh(r)),
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: dir === "in" ? "#3f8a54" : t.ink, flexShrink: 0, minWidth: 70, textAlign: "right" } }, (dir === "in" ? "+" : "−") + money(r.amount)))),
-              h("button", { "data-wk": "walletrecuradd", "data-dir": dir, onClick: () => setRcEdit({ id: "rc_" + Date.now().toString(36), name: "", amt: "", dir, freq: "month", day: 1, month: 1 }), className: "active:opacity-70", style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, dir === "in" ? "＋ 加一条进账（工资、零花钱…）" : "＋ 加一条支出（房租、会员…）"));
+                h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, r.name),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, recurWhenZh(r)),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: dir === "in" ? "#3f8a54" : t.ink, flexShrink: 0, minWidth: 70, textAlign: "right" } }, (dir === "in" ? "+" : "−") + money(r.amount)))),
+              h("button", { "data-wk": "walletrecuradd", "data-dir": dir, onClick: () => setRcEdit({ id: "rc_" + Date.now().toString(36), name: "", amt: "", dir, freq: "month", day: 1, month: 1 }), className: "active:opacity-70", style: { minHeight: 34, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, dir === "in" ? "＋ 加一条进账（工资、零花钱…）" : "＋ 加一条支出（房租、会员…）"));
           }))) : null,
       // 收在夹层里的那叠小票——按类分开放（她 2026-10-09：跟角色钱包一样的格式；每一笔都能追溯到来源）
       h("div", { className: "px-5 pb-8" }, walletLedger())));
@@ -10650,26 +10650,26 @@ function CurrencyBook({ char, cur, onSave, onBack, mine }) {
     return pos === "post" ? txt + " " + sym : sym + txt;
   };
   const field = (label, node, hint) => h("div", { key: label, style: { marginBottom: 18 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 7 } }, label),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 7 } }, label),
     node,
-    hint ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, hint) : null);
+    hint ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, hint) : null);
   const input = (v, set, extra) => h("input", Object.assign({
     value: v, onChange: e => set(e.target.value), className: "w-full outline-none",
-    style: { padding: "11px 13px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 15, color: t.ink }
+    style: { padding: "11px 13px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink }
   }, extra || {}));
   return h("div", { "data-wk": "cwcurpage", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "用什么钱", sub: char.remark || char.name, bg: "transparent", onBack: onBack,
       right: h("button", { onClick: () => ok && onSave({ code: code, symbol: sym, rate: rNum, pos: pos, dec: dec }), disabled: !ok,
-        className: "active:opacity-50 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.tint } }, "保存") }),
+        className: "active:opacity-50 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.tint } }, "保存") }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.75, margin: "4px 0 16px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.75, margin: "4px 0 16px" } },
         (mine ? "你的钱包、余额和每一笔流水都按这个币种显示。" : characterText(char, "他的钱包、账本、转账卡都按这个币种显示，他自己说钱的时候也用它。"))
         + "存的数一直是人民币——汇率改回 1 就跟以前一模一样，一条记录都不会变。"),
       h("div", { className: "flex flex-wrap gap-2", style: { marginBottom: 20 } },
         CUR_PRESETS.map(pz => h("button", { key: pz.code, "data-wk": "cwcurpreset", "data-on": code === pz.code ? "1" : "0",
           onClick: () => { setSym(pz.symbol); setRate(String(pz.rate)); setPos(pz.pos); setDec(pz.dec); setCode(pz.code); },
           className: "active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999,
+          style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "7px 13px", borderRadius: 999,
             border: "1px solid " + (code === pz.code ? t.ink : t.line), color: code === pz.code ? t.ink : t.sub } },
           pz.zh + " " + pz.symbol))),
       field("符号", input(sym, v => setSym(String(v).slice(0, 4))), "想填什么都行——円、₩、$、G、枚、灵石。"),
@@ -10678,21 +10678,21 @@ function CurrencyBook({ char, cur, onSave, onBack, mine }) {
       field("符号放哪边", h("div", { className: "flex gap-2" },
         [["pre", "放前面 " + sym + "100"], ["post", "放后面 100 " + sym]].map(([k, lb]) =>
           h("button", { key: k, onClick: () => setPos(k), className: "flex-1 active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "10px 0", borderRadius: 10,
+            style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "10px 0", borderRadius: 10,
               border: "1px solid " + (pos === k ? t.ink : t.line), color: pos === k ? t.ink : t.sub } }, lb)))),
       field("要不要小数", h("div", { className: "flex gap-2" },
         [[0, "不要 · 1000"], [2, "两位 · 1000.00"]].map(([k, lb]) =>
           h("button", { key: k, onClick: () => setDec(k), className: "flex-1 active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "10px 0", borderRadius: 10,
+            style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "10px 0", borderRadius: 10,
               border: "1px solid " + (dec === k ? t.ink : t.line), color: dec === k ? t.ink : t.sub } }, lb))),
         "日元、韩元这种本来就没有分。"),
       h("div", { "data-wk": "block", style: { marginTop: 4, padding: "14px 16px", borderRadius: 12, background: t.bg, border: "1px solid " + t.line } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "这样的话——"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "这样的话——"),
         (mine ? [["余额 3000 元，显示成", preview(3000)], ["一杯 25 元的咖啡", preview(25)]] : [["你转他 50 元，卡上写", preview(50)], ["他钱包里的 3000 元，显示成", preview(3000)], ["一杯 25 元的咖啡", preview(25)]])
           .map(([l, v]) => h("div", { key: l, className: "flex items-baseline justify-between", style: { padding: "5px 0" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, l),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, ok ? v : "——")))),
-      !ok ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "汇率要是个大于 0 的数，符号不能空") : null));
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, l),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, ok ? v : "——")))),
+      !ok ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, marginTop: 10 } }, "汇率要是个大于 0 的数，符号不能空") : null));
 }
 function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh, onRedoDay, onSettleDebt, debtPeerOf, charCur, onSetCurrency }) {
   const t = useTheme();
@@ -10734,9 +10734,9 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
         pocketRow(t, open, h("div", { className: "flex items-center gap-4" },
           h(Avatar, { character: c, size: 46, radius: 8 }),
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { "data-wk": "cwrowname", style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, c.remark || c.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, open ? "这一格里有" : characterText(c, "这一格还空着 · 点开生成他的资产"))),
-          open ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, fmtMoney(rec.balance, c.id))
+            h("div", { "data-wk": "cwrowname", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, open ? "这一格里有" : characterText(c, "这一格还空着 · 点开生成他的资产"))),
+          open ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, fmtMoney(rec.balance, c.id))
             : h(IChevR, { size: 16, color: t.fog }))));
     })));
 
@@ -10774,8 +10774,8 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     setEditing(false); setAmt("");
   };
   const AV = ["#f2b134", "#3f6d8c", "#8a8f7a", "#c25a4a"];
-  const secTitle = s => h("div", { "data-wk": "cwsec", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 10, paddingBottom: 7, borderBottom: "1px solid " + t.line } }, s);
-  const note = s => s ? h("div", { "data-wk": "cwnote", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, fontStyle: "italic", lineHeight: 1.7, marginTop: 10 } }, s) : null;
+  const secTitle = s => h("div", { "data-wk": "cwsec", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 10, paddingBottom: 7, borderBottom: "1px solid " + t.line } }, s);
+  const note = s => s ? h("div", { "data-wk": "cwnote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, fontStyle: "italic", lineHeight: 1.7, marginTop: 10 } }, s) : null;
   // 每一块是从卷筒上撕下来的一张单据（顶边一排撕口），不是一张圆角卡
   const cardBox = kids => h("div", { "data-wk": "cwbox", className: "mx-5 mb-4", style: Object.assign({ borderRadius: 2, padding: "14px 16px 16px" }, slipSkin(t)) }, kids);
   // 本月收支（从流水分类算）
@@ -10798,15 +10798,15 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   const visibleDailyEntries = dailyDate ? dailyEntries.filter(e => schedDayKey(new Date(e.ts)) === dailyDate) : dailyEntries;
   const flowEntries = ledger.filter(e => ["transfer", "redpacket", "kinship", "gift"].indexOf(e.kind) >= 0);
   const sumRow = (label, value, color, sub) => h("div", { key: label, "data-wk": "cwsum", className: "flex items-center justify-between py-2.5", style: { borderTop: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label, sub ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 6 } }, sub) : null),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: color || t.ink } }, value));
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, label, sub ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginLeft: 6 } }, sub) : null),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: color || t.ink } }, value));
 
   const header = h(Head, {
     zh: char.remark || char.name, sub: "钱包", bg: "transparent",
     onBack: () => onSel(null),
     // 币种就放刷新旁边（她 2026-09-18：「就放钱包右上角刷新那里」）
     right: h("div", { className: "flex items-center gap-3" },
-      h("button", { "data-wk": "cwcurbtn", onClick: () => setCurOpen(true), className: "active:opacity-50", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, curNow.symbol || "¥"),
+      h("button", { "data-wk": "cwcurbtn", onClick: () => setCurOpen(true), className: "active:opacity-50", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, curNow.symbol || "¥"),
       h("button", { onClick: () => onRefresh(char), disabled: loading, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))
   });
 
@@ -10825,7 +10825,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-10" },
       // TA手上那叠钱
       noteStack([
-        h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, (char.remark || char.name) + " · 余额"),
+        h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: "0.16em", color: NOTE_FOG } }, (char.remark || char.name) + " · 余额"),
         h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
           (() => {
             // 换成日元/韩元之后位数一下多出好几位（她 2026-09-18：「这个塞不下一行咋办」）。
@@ -10833,35 +10833,35 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
             const txt = fmtMoney(rec ? rec.balance : 0, char.id);
             return h("div", { "data-wk": "cwbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(txt, 38, 9, 20), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap" } }, txt);
           })(),
-          h("button", { "data-wk": "cwedit", onClick: () => { setAmt(String((typeof Money !== "undefined" && Money) ? Money.conv(rec ? rec.balance : 0, char.id) : (rec ? rec.balance : 0))); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额")),
-        rec && rec.monthlyIncome ? h("div", { key: "m", style: { fontFamily: F_BODY, fontSize: 11, color: NOTE_FOG, marginTop: 8 } }, "月收入 " + fmtMoney(rec.monthlyIncome, char.id) + (rec.fixedMonthly ? " · 月固定支出 " + fmtMoney(rec.fixedMonthly, char.id) : "")) : null]),
+          h("button", { "data-wk": "cwedit", onClick: () => { setAmt(String((typeof Money !== "undefined" && Money) ? Money.conv(rec ? rec.balance : 0, char.id) : (rec ? rec.balance : 0))); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额")),
+        rec && rec.monthlyIncome ? h("div", { key: "m", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: NOTE_FOG, marginTop: 8 } }, "月收入 " + fmtMoney(rec.monthlyIncome, char.id) + (rec.fixedMonthly ? " · 月固定支出 " + fmtMoney(rec.fixedMonthly, char.id) : "")) : null]),
       // 手动改余额
       editing ? h("div", { "data-wk": "cweditor", className: "mx-5 mb-4", style: Object.assign({ borderRadius: 2, padding: "14px 16px 16px" }, slipSkin(t)) },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "把余额改成（" + (curNow.symbol || "¥") + "）"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "把余额改成（" + (curNow.symbol || "¥") + "）"),
         h("div", { className: "flex items-center gap-2" },
-          h("input", { "data-wk": "input", value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
-          h("button", { "data-wk": "block", onClick: saveEdit, className: "shrink-0 px-4 py-2 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
-          h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "shrink-0 px-3 py-2 active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))) : null,
+          h("input", { "data-wk": "input", value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+          h("button", { "data-wk": "block", onClick: saveEdit, className: "shrink-0 px-4 py-2 active:opacity-70", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
+          h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "shrink-0 px-3 py-2 active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "取消"))) : null,
       // 收入来源
       incomes.length ? cardBox([
         h("div", { key: "h", className: "flex items-center justify-between mb-1" }, secTitle("收入来源"),
-          monthlyIncome ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0 } }, "月合计 " + fmtMoney(monthlyIncome, char.id)) : null),
+          monthlyIncome ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0 } }, "月合计 " + fmtMoney(monthlyIncome, char.id)) : null),
         incomes.map((s, i) => h("div", { key: i, "data-wk": "cwincome", className: "flex items-center justify-between py-2", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
           // ⚠️名目那半边要能让步（min-w-0 + 省略号），金额那半边一个字都不许折：
           //   日元的位数比人民币多，原来两边都硬着，结果两边一起换行（她 2026-09-18 截图）。
           h("div", { className: "flex items-center min-w-0", style: { flex: 1, marginRight: 10 } },
             h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 7, flexShrink: 0, background: AV[i % AV.length], marginRight: 8 } }),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
-            s.category ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 8, flexShrink: 0, whiteSpace: "nowrap" } }, s.category) : null),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, flexShrink: 0, whiteSpace: "nowrap" } }, "+" + fmtMoney(s.amount, char.id)))),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+            s.category ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginLeft: 8, flexShrink: 0, whiteSpace: "nowrap" } }, s.category) : null),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, flexShrink: 0, whiteSpace: "nowrap" } }, "+" + fmtMoney(s.amount, char.id)))),
         note(notes.income)
       ]) : null,
       // 存款概览（当前余额 + 每月固定支出 + 本月收入/花费/剩余可用）
       cardBox([
         secTitle("存款概览"),
-        h("div", { key: "bal", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "当前余额"),
+        h("div", { key: "bal", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "当前余额"),
         h("div", { key: "balv", style: { fontFamily: F_DISPLAY, fontSize: fitFont(fmtMoney(rec ? rec.balance : 0, char.id), 28, 14, 17), color: t.ink, margin: "2px 0 6px", whiteSpace: "nowrap" } }, fmtMoney(rec ? rec.balance : 0, char.id)),
-        fixedMonthly ? h("div", { key: "fx", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "每月固定支出 " + fmtMoney(fixedMonthly, char.id) + "（房租、交通、订阅等）") : null,
+        fixedMonthly ? h("div", { key: "fx", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "每月固定支出 " + fmtMoney(fixedMonthly, char.id) + "（房租、交通、订阅等）") : null,
         sumRow("本月收入", "+" + fmtMoney(monthlyIncome, char.id), "#3f8a54"),
         sumRow("本月花费", "−" + fmtMoney(monthSpend, char.id), t.accent),
         sumRow("剩余可用", fmtMoney(monthRemain, char.id), t.ink),
@@ -10870,7 +10870,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       // 理财
       (rec && rec.investAssets) || notes.invest ? cardBox([
         secTitle("理财"),
-        h("div", { key: "iv", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "持有资产"),
+        h("div", { key: "iv", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "持有资产"),
         h("div", { key: "ivv", style: { fontFamily: F_DISPLAY, fontSize: fitFont(fmtMoney((rec && rec.investAssets) || 0, char.id), 24, 15, 15), color: t.ink, marginTop: 2, whiteSpace: "nowrap" } }, fmtMoney((rec && rec.investAssets) || 0, char.id)),
         note(notes.invest)
       ]) : null,
@@ -10879,16 +10879,16 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       // 随身可动用的那笔就是上面的余额；这里列的是【另外存着的】，两边不重复计。
       acctRows.length ? cardBox([
         h("div", { key: "ah", className: "flex items-center justify-between mb-1" }, secTitle("钱放在哪儿"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "总共 " + fmtMoney(assetTotal, char.id))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "总共 " + fmtMoney(assetTotal, char.id))),
         h("div", { key: "ab", className: "space-y-2" }, acctRows.map((a, i) => h("div", {
           key: i, "data-wk": "cwacct", style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, wordBreak: "break-word" } }, a.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word" } }, a.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
             [a.kind, a.tail ? "尾号 " + a.tail : "", a.primary ? "随身 · 流水走这儿" : ""].filter(Boolean).join(" · ")),
-          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, a.note) : null),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flexShrink: 0, paddingTop: 1, whiteSpace: "nowrap" } }, fmtMoney(a.hold, char.id)))))
+          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, a.note) : null),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, flexShrink: 0, paddingTop: 1, whiteSpace: "nowrap" } }, fmtMoney(a.hold, char.id)))))
       ]) : null,
       // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
       // v58.38 起这一栏【真的会动余额】：点「收回」/「还清」就记一笔流水。
@@ -10896,7 +10896,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       // 一笔钱不会凭空多出来（她 2026-08-30 问的那两件事）。
       debts.length ? cardBox([
         h("div", { key: "dh", className: "flex items-center justify-between mb-1" }, secTitle("欠账"),
-          debtOpen.net !== 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: debtOpen.net > 0 ? "#3f8a54" : "#b6473c", border: "1px solid currentColor", borderRadius: 2, padding: "3px 10px" } },
+          debtOpen.net !== 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: debtOpen.net > 0 ? "#3f8a54" : "#b6473c", border: "1px solid currentColor", borderRadius: 2, padding: "3px 10px" } },
             (debtOpen.net > 0 ? "净收 +" : "净欠 −") + fmtMoney(Math.abs(debtOpen.net), char.id)) : null),
         h("div", { key: "db", className: "space-y-2" }, debts.map((d, i) => {
           const mine = d.dir === "owe";
@@ -10908,21 +10908,21 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("div", { style: { display: "flex", gap: 10, alignItems: "flex-start" } },
             h("span", {
               style: {
-                fontFamily: F_BODY, fontSize: 10.5, padding: "2px 7px", borderRadius: 2, flexShrink: 0, marginTop: 2,
+                fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", padding: "2px 7px", borderRadius: 2, flexShrink: 0, marginTop: 2,
                 background: done ? "rgba(0,0,0,.05)" : mine ? "rgba(196,85,63,.11)" : "rgba(63,138,84,.11)",
                 color: done ? t.fog : mine ? "#b6473c" : "#3f8a54"
               }
             }, done ? "已了" : mine ? characterText(char, "他欠") : characterText(char, "欠他")),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, textDecoration: done ? "line-through" : "none", wordBreak: "break-word" } }, d.who),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, textDecoration: done ? "line-through" : "none", wordBreak: "break-word" } }, d.who),
                 // 对上她人格档案馆里另一个角色：结清时两边一起动
-                peer ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: peer.ready ? t.tint : t.fog, border: "1px solid " + (peer.ready ? t.tint : t.line), borderRadius: 2, padding: "1px 6px", whiteSpace: "nowrap" } },
+                peer ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: peer.ready ? t.tint : t.fog, border: "1px solid " + (peer.ready ? t.tint : t.line), borderRadius: 2, padding: "1px 6px", whiteSpace: "nowrap" } },
                   peer.ready ? "和 " + peer.name + " 两边对账" : peer.name + " 还没开通钱包") : null),
-              d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
+              d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
                 done ? "已结清 · " + schedDateParts(schedDayKey(new Date(d.settledTs))).md : (d.since || ""))),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: done ? t.fog : mine ? "#b6473c" : "#3f8a54", flexShrink: 0, paddingTop: 1 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: done ? t.fog : mine ? "#b6473c" : "#3f8a54", flexShrink: 0, paddingTop: 1 } },
               (mine ? "−" : "+") + fmtMoney(d.amount, char.id))),
           !done && onSettleDebt ? h("button", {
             onClick: () => {
@@ -10933,7 +10933,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
               requestAppConfirm(q, body, () => onSettleDebt(char.id, d.id), mine ? "还清" : "收回");
             },
             "data-wk": "cwdebtbtn", className: "active:opacity-60",
-            style: { marginTop: 8, marginLeft: 44, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 2, padding: "5px 13px", background: "transparent" }
+            style: { marginTop: 8, marginLeft: 44, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 2, padding: "5px 13px", background: "transparent" }
           }, mine ? "还清这笔" : "收回这笔") : null)
         }))
       ]) : null,
@@ -10945,19 +10945,19 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           className: "w-full flex items-center text-left active:opacity-60",
           style: { marginBottom: forHerOpen ? 10 : 0 }
         },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "为你花的"),
-          h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, forHer.length + " 笔"),
-          h("span", { style: { marginLeft: "auto", fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, fmtMoney(forHerTotal, char.id)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, "为你花的"),
+          h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, forHer.length + " 笔"),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, fmtMoney(forHerTotal, char.id)),
           h("span", { style: { marginLeft: 8, transform: forHerOpen ? "rotate(180deg)" : "none", transition: "transform .18s ease" } }, h(IChevD, { size: 16, color: t.fog }))),
-        forHerOpen ? h("div", { key: "fn", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginBottom: 8 } },
+        forHerOpen ? h("div", { key: "fn", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 8 } },
           characterText(char, "只算你真的收到过的：转账、他寄来的东西、红包、亲属卡。他行程里推演出来的日常花销不算在这儿。")) : null,
         forHerOpen ? h("div", { key: "fb", className: "space-y-1" }, forHer.slice(0, 30).map((e, i) => h("div", {
           key: e.id || i, "data-wk": "cwitem", style: { display: "flex", gap: 10, alignItems: "baseline", padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },
-        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, wordBreak: "break-word" } }, e.label),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta), char.id))))) : null,
-        forHerOpen && forHer.length > 30 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 30) + " 笔") : null
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, wordBreak: "break-word" } }, e.label),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta), char.id))))) : null,
+        forHerOpen && forHer.length > 30 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 30) + " 笔") : null
       ]) : null,
       // 日常消费（按日程每天扣的那笔）
       cardBox([
@@ -10966,42 +10966,42 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           className: "w-full flex items-center text-left active:opacity-60",
           style: { marginBottom: dailyOpen ? 12 : 0 }
         },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "日常消费"),
-          h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, dailyEntries.length + " 条"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, "日常消费"),
+          h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, dailyEntries.length + " 条"),
           h("span", { style: { marginLeft: "auto", transform: dailyOpen ? "rotate(180deg)" : "none", transition: "transform .18s ease" } }, h(IChevD, { size: 16, color: t.fog }))),
         dailyOpen ? h("div", { key: "daily-body" },
           h("div", { className: "flex items-center gap-2", style: { marginBottom: 10 } },
             h("input", {
               type: "date", value: dailyDate, onChange: e => setDailyDate(e.target.value),
               "aria-label": "按日期筛选日常消费",
-              style: { flex: 1, minWidth: 0, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 9px", fontFamily: F_BODY, fontSize: 12 }
+              style: { flex: 1, minWidth: 0, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 9px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" }
             }),
-            dailyDate ? h("button", { onClick: () => setDailyDate(""), className: "active:opacity-60", style: { color: t.tint, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, "全部日期") : null),
+            dailyDate ? h("button", { onClick: () => setDailyDate(""), className: "active:opacity-60", style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, "全部日期") : null),
           // 只重生这一天（她 2026-10-06）：挑了日子才有；今天还没过完的不给生成
           dailyDate && onRedoDay ? (() => {
             const ok = dailyDate <= schedDayKey(new Date(Date.now() - 86400000));
             return h("div", { className: "flex items-center gap-2", style: { marginBottom: 10 } },
               h("button", { onClick: () => onRedoDay(char, dailyDate), disabled: loading || !ok || !hasApi,
                 className: "active:opacity-60 disabled:opacity-40",
-                style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", whiteSpace: "nowrap" } },
+                style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", whiteSpace: "nowrap" } },
                 visibleDailyEntries.some(e => e.kind === "daily") ? "重新生成这一天" : "生成这一天"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } },
                 !ok ? "这一天还没过完，过完才能生成" : "只换这一天推演出来的花销，手机上真下过的单子不动；调用一次模型"));
           })() : null,
           dailyEntries.length === 0
-            ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "每天晚上按当日行程结算，暂时还没有记录")
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "10px 0" } }, "每天晚上按当日行程结算，暂时还没有记录")
             : visibleDailyEntries.length === 0
-              ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "12px 0" } }, "这一天没有日常消费记录")
+              ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "12px 0" } }, "这一天没有日常消费记录")
               : visibleDailyEntries.map((e, i) => h("div", { key: e.id, "data-wk": "cwline", "data-kind": "daily", className: "py-2.5", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
                 h("div", { className: "flex items-baseline justify-between gap-3" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: e.delta > 0 ? "#3f8a54" : t.accent, whiteSpace: "nowrap" } }, (e.delta > 0 ? "+" : "−") + fmtMoney(Math.abs(e.delta), char.id))),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: e.delta > 0 ? "#3f8a54" : t.accent, whiteSpace: "nowrap" } }, (e.delta > 0 ? "+" : "−") + fmtMoney(Math.abs(e.delta), char.id))),
                 h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
                   // 手机上真下过的单挂个小牌子：这一条是【她能在查手机里翻到的那一单】，
                   // 不是模型推演出来的。两种混在一列里，得一眼分得出。
-                  e.kind === "order" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "1px 5px", flexShrink: 0 } },
+                  e.kind === "order" ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "1px 5px", flexShrink: 0 } },
                     /外卖$/.test(e.label || "") ? "外卖" : "网购") : null,
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: e.delta > 0 ? "#3f8a54" : t.ink, lineHeight: 1.5 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: e.delta > 0 ? "#3f8a54" : t.ink, lineHeight: 1.5 } },
                     (e.label || "").replace(/^日常消费 · /, "").replace(/ · (外卖|网购)$/, "")))))
         ) : null,
         dailyOpen ? note(notes.spending) : null
@@ -11010,12 +11010,12 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       cardBox([
         secTitle("送礼与转账"),
         flowEntries.length === 0
-          ? h("div", { key: "e", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "还没有礼物和转账记录")
+          ? h("div", { key: "e", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "10px 0" } }, "还没有礼物和转账记录")
           : flowEntries.map((e, i) => h("div", { key: e.id, "data-wk": "cwline", "data-kind": "flow", className: "flex items-center justify-between py-3", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
             h("div", { className: "min-w-0 flex-1" },
-              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, e.label),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(e.ts) + " · 余 " + fmtMoney(e.after, char.id))),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: e.delta > 0 ? "#3f8a54" : t.accent, marginLeft: 12, whiteSpace: "nowrap" } }, (e.delta > 0 ? "+" : "−") + fmtMoney(Math.abs(e.delta), char.id))))
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, e.label),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, fmtStamp(e.ts) + " · 余 " + fmtMoney(e.after, char.id))),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: e.delta > 0 ? "#3f8a54" : t.accent, marginLeft: 12, whiteSpace: "nowrap" } }, (e.delta > 0 ? "+" : "−") + fmtMoney(Math.abs(e.delta), char.id))))
       ])));
 }
 
@@ -11103,7 +11103,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
   };
   // 印在离型纸上的那行说明：一句中文 + 一道横线拉到头，右边挂这一栏自己的操作
   const note = (zh, right, top) => h("div", { "data-wk": "emonote", className: "flex items-center gap-3", style: { marginTop: top === undefined ? 22 : top, marginBottom: 10 } },
-    h("span", { "data-wk": "emonotetext", className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: ".04em", color: t.fog } }, zh),
+    h("span", { "data-wk": "emonotetext", className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: ".04em", color: t.fog } }, zh),
     h("span", { className: "flex-1", style: { height: 1, background: t.line } }),
     right || null);
 
@@ -11113,17 +11113,17 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
       // 让 TA 出一套自己的表情包（她 2026-10-13）：挑人 → 一次生图九张，存进「TA 的表情」那一组
       onMakeSet ? h("div", { "data-wk": "emomakeset", style: { marginTop: 14 } },
         h("button", { onClick: () => setSetPick(v => !v), disabled: !!setBusy, className: "w-full active:opacity-70 disabled:opacity-50",
-          style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+          style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
           setBusy ? "在画了…（先挑表情，再画一张九宫格）" : "让 TA 画一套自己的表情包"),
         setPick && !setBusy ? h("button", { "data-wk": "emosetcaption", "data-on": setCaption ? "1" : "0", onClick: () => setSetCaption(v => !v), className: "active:opacity-70",
-          style: { marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
-          h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + t.ink, background: setCaption ? t.ink : "transparent", color: t.bg2, fontSize: 12, lineHeight: "15px", textAlign: "center" } }, setCaption ? "✓" : ""),
+          style: { marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
+          h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + t.ink, background: setCaption ? t.ink : "transparent", color: t.bg2, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: "15px", textAlign: "center" } }, setCaption ? "✓" : ""),
           "每张底下印上它的名字（看图就知道是什么意思）") : null,
         setPick && !setBusy ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
           (characters || []).filter(c => c && c.refPhoto).map(c => h("button", { key: c.id, onClick: () => { setSetPick(false); onMakeSet(c.id, { caption: setCaption }); }, className: "active:opacity-70",
-            style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, c.remark || c.name)),
-          !(characters || []).some(c => c && c.refPhoto) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "要先在人格档案馆给 TA 传一张参考照") : null) : null) : null,
-      note("手里这几版", h("button", { "data-wk": "emoaddpack", onClick: () => onAddPack(), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: STICKER_INK, border: "1px solid rgba(0,0,0,.10)", borderRadius: 8, padding: "6px 12px", background: STICKER_PAPER, boxShadow: "0 2px 5px rgba(0,0,0,.10)" } }, "新开一版"), 6),
+            style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, c.remark || c.name)),
+          !(characters || []).some(c => c && c.refPhoto) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "要先在人格档案馆给 TA 传一张参考照") : null) : null) : null,
+      note("手里这几版", h("button", { "data-wk": "emoaddpack", onClick: () => onAddPack(), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: STICKER_INK, border: "1px solid rgba(0,0,0,.10)", borderRadius: 8, padding: "6px 12px", background: STICKER_PAPER, boxShadow: "0 2px 5px rgba(0,0,0,.10)" } }, "新开一版"), 6),
       // ── 一排「那一版贴纸的角」：选中那版翘起来、带 die-cut 白边；没选的缩下去、淡着 ──
       list.length > 0 && h("div", { "data-wk": "emopacks", className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6, marginBottom: 4 } },
         list.map(p => {
@@ -11143,48 +11143,48 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
               background: STICKER_PAPER, border: (on ? 3 : 1) + "px solid " + (on ? "#fff" : t.line),
               boxShadow: on ? "0 7px 15px rgba(0,0,0,.20)" : "none", opacity: on ? 1 : 0.5 } },
               first ? h("img", { src: stickerSrc(first.url), referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })
-                : h("div", { className: "w-full h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a79c86" } }, "空版")),
-            h("div", { "data-wk": "emopackname", className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.fog, marginTop: 5, textAlign: "center" } }, p.name));
+                : h("div", { className: "w-full h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a79c86" } }, "空版")),
+            h("div", { "data-wk": "emopackname", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: on ? t.ink : t.fog, marginTop: 5, textAlign: "center" } }, p.name));
         })),
-      !pack ? h("div", { "data-wk": "emoempty", "data-part": "packs", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情字典。\n点上面「新开一版」开一版空白的。")
+      !pack ? h("div", { "data-wk": "emoempty", "data-part": "packs", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } }, "还没有表情字典。\n点上面「新开一版」开一版空白的。")
         : h("div", null,
           // 这一版叫什么：写在版纸边上，虚线表示可以改
           onCaptionPack && (pack.emotes || []).some(e => !e.captioned) ? h("button", { "data-wk": "emocaptionpack", onClick: () => onCaptionPack(pack.id), className: "active:opacity-70",
-            style: { marginTop: 14, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "给这一组每张底下印上名字") : null,
-          h("input", { "data-wk": "emopacktitle", value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "w-full outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, borderBottom: "1px dashed " + t.line, paddingBottom: 3, marginTop: 16, marginBottom: 4 } }),
+            style: { marginTop: 14, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "给这一组每张底下印上名字") : null,
+          h("input", { "data-wk": "emopacktitle", value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "w-full outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px dashed " + t.line, paddingBottom: 3, marginTop: 16, marginBottom: 4 } }),
           // 两条开关：印在纸上的说明行，不是两张圆角卡
           h("div", { "data-wk": "emoswitchrow", "data-part": "global", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
             h("div", { className: "min-w-0" },
-              h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "谁都能用"),
-              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开了所有角色都能用，不看下面贴的名字")),
+              h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "谁都能用"),
+              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开了所有角色都能用，不看下面贴的名字")),
             h("button", { "data-wk": "emoswitch", "data-part": "global", "data-on": pack.global ? "1" : "0", onClick: () => onUpdatePack(pack.id, { global: !pack.global }), "aria-label": "谁都能用", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.global ? t.ink : t.line, position: "relative", transition: "background .2s" } },
               h("span", { style: { position: "absolute", top: 3, left: pack.global ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
           h("div", { "data-wk": "emoswitchrow", "data-part": "mine", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },
             h("div", { className: "min-w-0" },
-              h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我自己也能发"),
-              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开着我在哪个聊天都能发；上面和下面只管角色")),
+              h("div", { "data-wk": "emoswitchname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "我自己也能发"),
+              h("div", { "data-wk": "emoswitchsub", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开着我在哪个聊天都能发；上面和下面只管角色")),
             h("button", { "data-wk": "emoswitch", "data-part": "mine", "data-on": pack.mine !== false ? "1" : "0", onClick: () => onUpdatePack(pack.id, { mine: pack.mine === false }), "aria-label": "我自己也能发", className: "active:opacity-70 shrink-0", style: { width: 52, height: 30, borderRadius: 999, background: pack.mine !== false ? t.ink : t.line, position: "relative", transition: "background .2s" } },
               h("span", { style: { position: "absolute", top: 3, left: pack.mine !== false ? 25 : 3, width: 24, height: 24, borderRadius: 999, background: t.bg, transition: "left .2s" } }))),
           // ── 这版只给谁用：一张张姓名贴，贴上去的才作数 ──
           note("这版只给谁用"),
-          h("div", { "data-wk": "emochars", className: "flex gap-2 flex-wrap", style: { marginBottom: 6 } }, chars.length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色") : chars.map(c => {
+          h("div", { "data-wk": "emochars", className: "flex gap-2 flex-wrap", style: { marginBottom: 6 } }, chars.length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "还没有角色") : chars.map(c => {
             const bound = (pack.charIds || []).includes(c.id);
-            return h("button", { "data-wk": "emochar", "data-on": bound ? "1" : "0", key: c.id, onClick: () => onToggleChar(pack.id, c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 15px", borderRadius: 4,
+            return h("button", { "data-wk": "emochar", "data-on": bound ? "1" : "0", key: c.id, onClick: () => onToggleChar(pack.id, c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", padding: "9px 15px", borderRadius: 4,
               background: bound ? STICKER_PAPER : "transparent", color: bound ? STICKER_INK : t.fog,
               border: bound ? "1px solid rgba(0,0,0,.10)" : "1px dashed " + t.line,
               boxShadow: bound ? "0 3px 7px rgba(0,0,0,.13)" : "none",
               transform: bound ? "rotate(-.8deg)" : "none" } }, c.name);
           })),
-          pack.global && h("div", { "data-wk": "emoglobalhint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "这一版开着「谁都能用」，上面贴的名字暂时不作数。"),
+          pack.global && h("div", { "data-wk": "emoglobalhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "这一版开着「谁都能用」，上面贴的名字暂时不作数。"),
           // ── 这一版上贴着的 ──
           note("这一版上贴着的" + ((pack.emotes || []).length ? " · " + pack.emotes.length + " 张" : ""),
             // 挑中正好一张 → 可以设成这一版在发表情那一格底下的封面（她 2026-09-30：「能自由选择表情包头像」）
             // ⚠️note 右边只收一格（第三个参数是上边距）——两颗按钮包进一个 span，不然「挑几张」被挤掉（v74.383 就这么丢过）
             h("span", { "data-wk": "emotools", className: "flex items-center shrink-0" },
-            selMode && selEmotes.length === 1 && h("button", { "data-wk": "emotoolbtn", "data-part": "cover", onClick: () => { onUpdatePack(pack.id, { cover: selEmotes[0] }); setSelMode(false); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "5px 12px", marginRight: 6 } }, "设成封面"),
-            (pack.emotes || []).length > 0 && h("button", { "data-wk": "emotoolbtn", "data-part": "select", "data-on": selMode ? "1" : "0", onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: selMode ? t.accent : t.ink, border: "1px solid " + (selMode ? t.accent : t.line), borderRadius: 8, padding: "5px 12px" } }, selMode ? "不挑了" : "挑几张"))),
+            selMode && selEmotes.length === 1 && h("button", { "data-wk": "emotoolbtn", "data-part": "cover", onClick: () => { onUpdatePack(pack.id, { cover: selEmotes[0] }); setSelMode(false); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "5px 12px", marginRight: 6 } }, "设成封面"),
+            (pack.emotes || []).length > 0 && h("button", { "data-wk": "emotoolbtn", "data-part": "select", "data-on": selMode ? "1" : "0", onClick: () => { setSelMode(m => !m); setSelEmotes([]); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: selMode ? t.accent : t.ink, border: "1px solid " + (selMode ? t.accent : t.line), borderRadius: 8, padding: "5px 12px" } }, selMode ? "不挑了" : "挑几张"))),
           (pack.emotes || []).length === 0
-            ? h("div", { "data-wk": "emoempty", "data-part": "emotes", className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
+            ? h("div", { "data-wk": "emoempty", "data-part": "emotes", className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
             : h("div", { "data-wk": "emogrid", className: "grid grid-cols-3 gap-3" }, pack.emotes.map(em => {
               const on = selEmotes.includes(em.id);
               return h("button", { "data-wk": "emotile", "data-on": on ? "1" : "0", key: em.id, onClick: () => { if (!selMode) { if (onRenameEmote) requestAppPrompt("改关键词", "角色靠它挑图，写「什么时候用」最好。", em.keyword || "", v => { const k = String(v || "").trim(); if (k) onRenameEmote(pack.id, em.id, k); }, "改好了"); return; } setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
@@ -11195,36 +11195,36 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
                   transform: on ? "none" : "rotate(" + tiltById(em.id) + "deg)", transition: "transform .16s" } },
                   h("div", { style: { width: "100%", aspectRatio: "1", position: "relative" } },
                     h("img", { src: stickerSrc(em.url), referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } }),
-                    (packCoverOf(pack) || {}).id === em.id && h("span", { "data-wk": "emotilecover", style: { position: "absolute", left: 5, bottom: 5, fontFamily: F_BODY, fontSize: 10, color: "#fff", background: "rgba(0,0,0,.52)", borderRadius: 6, padding: "1px 6px" } }, "封面"),
-                    on && h("span", { "data-wk": "emotilecheck", style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
-                  h("div", { "data-wk": "emotilename", className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
+                    (packCoverOf(pack) || {}).id === em.id && h("span", { "data-wk": "emotilecover", style: { position: "absolute", left: 5, bottom: 5, fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.52)", borderRadius: 6, padding: "1px 6px" } }, "封面"),
+                    on && h("span", { "data-wk": "emotilecheck", style: { position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(12px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, "✓")),
+                  h("div", { "data-wk": "emotilename", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STICKER_INK, padding: "5px 7px" } }, em.keyword)));
             })),
-          selMode && selEmotes.length > 0 && h("button", { "data-wk": "emodelsel", onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
+          selMode && selEmotes.length > 0 && h("button", { "data-wk": "emodelsel", onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
           // ── 往这版上贴新的 ──
           note("往这版上贴新的"),
-          h("div", { "data-wk": "emohelp", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "14px 16px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
+          h("div", { "data-wk": "emohelp", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "14px 16px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9, marginBottom: 14, whiteSpace: "pre-wrap" } }, "格式：每个表情「关键词 + 链接」，同行用冒号/空格分隔，或关键词一行、链接下一行。关键词写「什么时候用」最好。\n\n喜欢喜欢: https://i.postimg.cc/xxx/IMG.jpg\n为什么?: https://i.postimg.cc/yyy/IMG.jpg"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: ANY_FILE, onChange: readFile, label: "从文件里读表情包清单" },
-              h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
-            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
+              h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
+            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt；打不开就把清单直接贴在下面那个框里")),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: "image/*", multiple: true, onChange: pickImages, disabled: picking, label: "从相册选表情" },
-              h("span", { "data-wk": "emofilebtn", "data-part": "images", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),
-            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "自己画的直接选，可多选；选完给每张写个关键词，存在这台手机上")),
+              h("span", { "data-wk": "emofilebtn", "data-part": "images", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),
+            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "自己画的直接选，可多选；选完给每张写个关键词，存在这台手机上")),
           staged.length > 0 && h("div", { "data-wk": "emostaged", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: 12, marginBottom: 14 } },
-            h("div", { "data-wk": "emostagedhint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.7 } }, "给每张写一句「什么时候用」，角色靠它挑图"),
+            h("div", { "data-wk": "emostagedhint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.7 } }, "给每张写一句「什么时候用」，角色靠它挑图"),
             h("div", { className: "grid grid-cols-3 gap-3" }, staged.map((x, i) => h("div", { "data-wk": "emostagedtile", key: x.url + i, style: { position: "relative" } },
               h("img", { src: stickerSrc(x.url), style: { width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10, display: "block", background: STICKER_PAPER } }),
-              h("button", { "data-wk": "emostageddrop", onClick: () => setStaged(s => s.filter((_, j) => j !== i)), "aria-label": "不要这张", className: "active:opacity-60", style: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 999, background: "rgba(0,0,0,.5)", color: "#fff", fontSize: 13, lineHeight: "22px" } }, "×"),
-              h("input", { "data-wk": "emostagedinput", value: x.keyword, onChange: e => { const v = e.target.value; setStaged(s => s.map((y, j) => j === i ? { ...y, keyword: v } : y)); }, placeholder: "关键词", className: "w-full outline-none", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + (String(x.keyword || "").trim() ? t.line : t.accent), borderRadius: 8, padding: "6px 8px", boxSizing: "border-box" } })))),
+              h("button", { "data-wk": "emostageddrop", onClick: () => setStaged(s => s.filter((_, j) => j !== i)), "aria-label": "不要这张", className: "active:opacity-60", style: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 999, background: "rgba(0,0,0,.5)", color: "#fff", fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: "22px" } }, "×"),
+              h("input", { "data-wk": "emostagedinput", value: x.keyword, onChange: e => { const v = e.target.value; setStaged(s => s.map((y, j) => j === i ? { ...y, keyword: v } : y)); }, placeholder: "关键词", className: "w-full outline-none", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + (String(x.keyword || "").trim() ? t.line : t.accent), borderRadius: 8, padding: "6px 8px", boxSizing: "border-box" } })))),
             h("div", { className: "flex gap-3", style: { marginTop: 12 } },
-              h("button", { "data-wk": "emostagedbtn", "data-part": "clear", onClick: () => setStaged([]), className: "flex-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "算了"),
-              h("button", { "data-wk": "emostagedbtn", "data-part": "save", disabled: !stagedReady, onClick: () => { if (onAddImages(pack.id, staged.map(x => ({ keyword: String(x.keyword).trim(), url: x.url })))) setStaged([]); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, opacity: stagedReady ? 1 : 0.4, borderRadius: 12, padding: "11px 0" } }, stagedReady ? "贴上这 " + staged.length + " 张" : "还有没写关键词的"))),
+              h("button", { "data-wk": "emostagedbtn", "data-part": "clear", onClick: () => setStaged([]), className: "flex-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "算了"),
+              h("button", { "data-wk": "emostagedbtn", "data-part": "save", disabled: !stagedReady, onClick: () => { if (onAddImages(pack.id, staged.map(x => ({ keyword: String(x.keyword).trim(), url: x.url })))) setStaged([]); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, opacity: stagedReady ? 1 : 0.4, borderRadius: 12, padding: "11px 0" } }, stagedReady ? "贴上这 " + staged.length + " 张" : "还有没写关键词的"))),
           // ⚠️这里原来写死 background:"#fff" 配 color:t.ink——深色主题下就是白底浅字，
           //   打的字自己看不见（v59.62 那一课）。底跟着主题走。
-          h("textarea", { "data-wk": "emoimporttext", value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
-          h("button", { "data-wk": "emoimportbtn", onClick: () => { if (importEmotesOk(importText)) { onImport(pack.id, importText); setImportText(""); } }, className: "w-full active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0", marginBottom: 22 } }, "贴上去"),
-          h("button", { "data-wk": "emodelpack", onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
+          h("textarea", { "data-wk": "emoimporttext", value: importText, onChange: e => setImportText(e.target.value), placeholder: "确保上面选中了要贴的那一版，在这里粘贴…", rows: 5, className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px", resize: "none", marginBottom: 16 } }),
+          h("button", { "data-wk": "emoimportbtn", onClick: () => { if (importEmotesOk(importText)) { onImport(pack.id, importText); setImportText(""); } }, className: "w-full active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 16, padding: "16px 0", marginBottom: 22 } }, "贴上去"),
+          h("button", { "data-wk": "emodelpack", onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
 }
 function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || "")); }
 
@@ -11268,8 +11268,8 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
             transform: "rotate(" + tiltById(f.id) + "deg)", boxShadow: "0 6px 16px rgba(60,44,22,.16)" } },
             SCRAP_CORNERS.map(([v, hz]) => scrapCorner(v, hz)),
             h("div", { "data-wk": "favcardhead", className: "flex items-center justify-between", style: { marginBottom: 7 } },
-              h("span", { "data-wk": "favcardmeta", style: { fontFamily: F_BODY, fontSize: 11, color: SCRAP_FOG } }, (f.role === "user" ? "我" : (c.remark || c.name)) + " · " + fmtStamp(f.ts)),
-              h("button", { "data-wk": "favdelbtn", onClick: () => onDelete(f.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a8503f" } }, "揭下来")),
+              h("span", { "data-wk": "favcardmeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: SCRAP_FOG } }, (f.role === "user" ? "我" : (c.remark || c.name)) + " · " + fmtStamp(f.ts)),
+              h("button", { "data-wk": "favdelbtn", onClick: () => onDelete(f.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#a8503f" } }, "揭下来")),
             f.kind === "emote" && f.url
               ? h("img", { "data-wk": "favsticker", src: stickerSrc(f.url), referrerPolicy: "no-referrer", loading: "lazy", style: { maxWidth: 110, maxHeight: 110, borderRadius: 4, display: "block" }, onError: e => { e.target.style.display = "none"; } })
               : f.kind === "selfie"
@@ -11277,12 +11277,12 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
               : f.kind === "voice"
               ? h("div", null,
                   h("div", { "data-wk": "favvoicehead", className: "flex items-center gap-2", style: { marginBottom: 5 } },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SCRAP_FOG } }, "语音" + (f.dur ? " · " + f.dur + "″" : "")),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: SCRAP_FOG } }, "语音" + (f.dur ? " · " + f.dur + "″" : "")),
                     (ftp && typeof TtsDot === "function" && f.role !== "user") ? h(TtsDot, { k: f.id, text: f.content, spk: c, tp: ftp }) : null),
-                  h("div", { "data-wk": "favtext", "data-part": "voice", style: { fontFamily: F_BODY, fontSize: 14, color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || ""))
+                  h("div", { "data-wk": "favtext", "data-part": "voice", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || ""))
               : f.kind === "photo"
-              ? h("div", { "data-wk": "favtext", "data-part": "photo", style: { fontFamily: F_BODY, fontSize: 14, color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, "照片 · " + (f.content || "（没写说明）"))
-              : h("div", { "data-wk": "favtext", "data-part": "text", style: { fontFamily: F_BODY, fontSize: 14.5, color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || "（无文本内容）")))));
+              ? h("div", { "data-wk": "favtext", "data-part": "photo", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, "照片 · " + (f.content || "（没写说明）"))
+              : h("div", { "data-wk": "favtext", "data-part": "text", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || "（无文本内容）")))));
   }
   const chars = (characters || []).filter(c => byChar[c.id] && byChar[c.id].length);
   return h("div", { "data-wk": "favpage", className: "h-full flex flex-col", style: KRAFT(t) },
@@ -11299,8 +11299,8 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
               style: { position: "relative", background: SCRAP_PAPER, borderRadius: 3, padding: "14px 16px", boxShadow: "0 5px 14px rgba(60,44,22,.16)", borderTop: "1px solid rgba(255,255,255,.7)", borderBottom: "1px solid " + SCRAP_EDGE } },
               h(Avatar, { character: c, size: 46, radius: 3 }),
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { "data-wk": "favstackname", style: { fontFamily: F_DISPLAY, fontSize: 18, color: SCRAP_INK } }, c.remark || c.name),
-                h("div", { "data-wk": "favstackcount", style: { fontFamily: F_BODY, fontSize: 12, color: SCRAP_FOG, marginTop: 2 } }, "剪下来 " + n + " 张")),
+                h("div", { "data-wk": "favstackname", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: SCRAP_INK } }, c.remark || c.name),
+                h("div", { "data-wk": "favstackcount", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: SCRAP_FOG, marginTop: 2 } }, "剪下来 " + n + " 张")),
               h(IChevR, { size: 16, color: SCRAP_FOG })));
         })));
 }
@@ -11557,7 +11557,7 @@ function CarryAll(props) {
         key: x.key,
         onClick: () => { taken.current = true; goSec(x.key); },
         className: "shrink-0 active:opacity-60 flex items-center",
-        style: { fontFamily: F_BODY, fontSize: 11.5, padding: "6px 5px", minHeight: 40, gap: 5,
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "6px 5px", minHeight: 40, gap: 5,
           borderRadius: 3, color: carryTint(x.key, .95), background: carryTint(x.key, .13),
           boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(60,48,30,.16)" }
       },
@@ -11574,7 +11574,7 @@ function CarryAll(props) {
       secs.map(x => h("div", { "data-wk": "carryallsec", "data-part": x.key, key: x.key, ref: el => { secRefs.current[x.key] = el; } },
         // 分节标题：这一栏的色相 + 一条渐隐的线，四栏靠它分开而不是靠换底色
         h("div", { "data-wk": "carryallsechead", className: "flex items-center", style: { gap: 8, margin: "16px 0 9px" } },
-          h("span", { "data-wk": "carryallsecname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: carryTint(x.key, .95) } }, x.zh),
+          h("span", { "data-wk": "carryallsecname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: carryTint(x.key, .95) } }, x.zh),
           h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint(x.key, .3) + ",rgba(0,0,0,0))" } })),
         h(CarrySection, {
           embedded: true, char, sectionKey: x.key, data: data[x.key], gifts,
@@ -11623,11 +11623,11 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
   const isPinned = it => pinSet.has(carryItemKey(it));
   // 钉住＝这件东西不许被下一次刷新换掉。随身物没有「号码/账号 id」那种客观硬字段，
   // 唯一说得清「这件绝不许换」的人是她（施工规则/phone-data-layers.md 的 🔒 层）。
-  const pinDot = it => isPinned(it) ? h("span", { "data-wk": "carrypin", title: "留着的，刷新不会换掉", style: { fontSize: 11, color: t.accent, marginLeft: 6 } }, "\u25c6") : null;
+  const pinDot = it => isPinned(it) ? h("span", { "data-wk": "carrypin", title: "留着的，刷新不会换掉", style: { fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent, marginLeft: 6 } }, "\u25c6") : null;
   let content;
   if (isGifts) {
     content = (gifts || []).length === 0
-      ? h("div", { "data-wk": "carryempty", "data-part": "gifts", className: "text-center", style: { paddingTop: 60, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.fog } }, "还没收到你送的礼物。\n在购物 App 结算时选「送礼」，\n送达后会永久留在这里。")
+      ? h("div", { "data-wk": "carryempty", "data-part": "gifts", className: "text-center", style: { paddingTop: 60, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, color: t.fog } }, "还没收到你送的礼物。\n在购物 App 结算时选「送礼」，\n送达后会永久留在这里。")
       : (() => {
           // 礼物做成一只只礼盒，按【哪个月送的】归组——原先是一条条纯文字，
           // 送得多了就看不出送礼的节奏（她 2026-08-29）。
@@ -11649,9 +11649,9 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
             }
           }, groups.map(grp => h("div", { "data-wk": "carrygiftgroup", key: grp.key, style: { marginBottom: 12 } },
             h("div", { "data-wk": "carrygiftgrouphead", className: "flex items-center", style: { gap: 7, marginBottom: 7, paddingLeft: 2 } },
-              h("span", { "data-wk": "carrygiftgroupname", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, grp.label),
+              h("span", { "data-wk": "carrygiftgroupname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, grp.label),
               h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint("gifts", .22) + ",rgba(0,0,0,0))" } }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, grp.items.length + " 件")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, grp.items.length + " 件")),
             grp.items.map(([g, gi]) => {
               const c = (typeof shopTone === "function" ? shopTone(g, gi) : null);
               return h("button", { "data-wk": "carrygift",
@@ -11669,8 +11669,8 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
                   h("span", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 5, marginTop: -2.5, background: "rgba(255,255,255,.55)" } }),
                   h("span", { style: { position: "absolute", left: "50%", top: "50%", width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, borderRadius: 999, background: "rgba(255,255,255,.85)" } })),
                 h("div", { className: "flex-1 min-w-0" },
-                  h("div", { "data-wk": "carrygiftname", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, g.name),
-                  h("div", { "data-wk": "carrygifttime", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+                  h("div", { "data-wk": "carrygiftname", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, g.name),
+                  h("div", { "data-wk": "carrygifttime", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
                     vDate(g.receivedTs, char.id).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })
                       + (g.thought ? characterText(char, " · 他说了点什么") : ""))),
                 h(IChevR, { size: 14, color: t.line }));
@@ -11695,8 +11695,8 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         style: { width: 98, paddingRight: 10, WebkitTapHighlightColor: "transparent" }
       },
         clothFigure({ tone: c, long, w: 88, pinned: isPinned(it), t }),
-        h("div", { "data-wk": "carryhangername", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" } }, outfitLabel(it, g.occasion)),
-        h("div", { "data-wk": "carryhangernote", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2, lineHeight: 1.5, minHeight: 28, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, STX(it.note || "")));
+        h("div", { "data-wk": "carryhangername", style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" } }, outfitLabel(it, g.occasion)),
+        h("div", { "data-wk": "carryhangernote", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5, minHeight: 28, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, STX(it.note || "")));
     };
     // 一格隔间：柜子里的一层。她 2026-08-29 说「页面颜色的米白略单调，没有适配的风格」——
     // 病根是整页只有一个底色，衣服像贴在纸上而不是挂在柜子里。
@@ -11729,14 +11729,14 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
       className: "w-full active:opacity-70 disabled:opacity-40",
       style: {
         marginTop: total ? 2 : 20, minHeight: 44, borderRadius: 12,
-        fontFamily: F_BODY, fontSize: 12.5, color: carryTint("outfit", .95),
+        fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: carryTint("outfit", .95),
         background: carryTint("outfit", .10),
         boxShadow: "inset 0 1px 0 rgba(255,255,255,.5), 0 1px 2px rgba(60,48,30,.14)"
       }
     }, closetBusy ? "正在添…" : closetKw.trim() ? "照这几个词添几身 ＋" : (total ? "再添几身 ＋" : "添几身进来 ＋")) : null;
     // 给 TA 添衣服的两种办法，跟「我的衣柜」一个样（她 2026-10-14 转群友「能给 char 生成特定衣服，和 user 差不多」）：
     //   填几个词再添——照词配，配出来的都留着；或者自己写一身直接挂上去（不经过模型，挂上也留着）。
-    const inSt = { width: "100%", boxSizing: "border-box", fontFamily: F_BODY, fontSize: 13, padding: "9px 12px", borderRadius: 10, border: "1px solid " + carryTint("outfit", .25), background: t.bg2, color: t.ink, outline: "none", marginBottom: 7 };
+    const inSt = { width: "100%", boxSizing: "border-box", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 12px", borderRadius: 10, border: "1px solid " + carryTint("outfit", .25), background: t.bg2, color: t.ink, outline: "none", marginBottom: 7 };
     const addBox = h("div", { "data-wk": "carryclosetadd", style: { marginTop: total ? 4 : 18 } },
       onGenClosetMore ? h("input", { "data-wk": "carryclosetkw", value: closetKw, onChange: e => setClosetKw(e.target.value.slice(0, 80)), placeholder: "想要什么样的？给几个词（可空）：比如 黑色风衣、约会、毛衣", style: inSt }) : null,
       moreBtn,
@@ -11746,25 +11746,25 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
             h("input", { "data-wk": "input", value: hang.name, onChange: e => setHang({ ...hang, name: e.target.value.slice(0, 40) }), placeholder: "这身叫什么", style: inSt }),
             h("textarea", { "data-wk": "textarea", value: hang.note, onChange: e => setHang({ ...hang, note: e.target.value.slice(0, 140) }), rows: 2, placeholder: "是什么衣服——版型、颜色、料子、鞋（可空）", style: { ...inSt, resize: "none" } }),
             h("div", { className: "flex gap-2", style: { marginBottom: 7 } },
-              h("button", { onClick: () => { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"),
+              h("button", { onClick: () => { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "取消"),
               h("button", { "data-wk": "carryclosethangsave", disabled: !hang.name.trim(), onClick: () => { if (onClosetHang(char.id, hang.occ, hang.name, hang.note)) { setHangOpen(false); setHang({ occ: "", name: "", note: "" }); } },
-                className: "flex-1 active:opacity-70 disabled:opacity-40", style: { minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: t.ink } }, "挂进去")))
-        : h("button", { "data-wk": "carryclosethangopen", onClick: () => setHangOpen(true), className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: carryTint("outfit", .95), background: "transparent", border: "1px dashed " + carryTint("outfit", .35), borderRadius: 12 } }, "自己挂一身 ＋")) : null);
+                className: "flex-1 active:opacity-70 disabled:opacity-40", style: { minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink } }, "挂进去")))
+        : h("button", { "data-wk": "carryclosethangopen", onClick: () => setHangOpen(true), className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: carryTint("outfit", .95), background: "transparent", border: "1px dashed " + carryTint("outfit", .35), borderRadius: 12 } }, "自己挂一身 ＋")) : null);
     content = !total
-      ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的", addBox)
+      ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "衣柜是空的", addBox)
       : h("div", { "data-wk": "carrycloset", style: { animation: "fadeUp .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
-            h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
+            h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
               (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"
                 + (onTogglePin ? (() => { const n = groups.reduce((a, g) => a + g.sets.filter(isPinned).length, 0); return n ? " · \u25c6 留着 " + n : ""; })() : "")),
             h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg,rgba(74,58,40,.16),rgba(74,58,40,0))" } })),
           // 钉子藏在点开那一页里，她不点开就不知道有（群友 2026-10-13：「能不能钉起来就不会被 roll 掉」）
-          onTogglePin ? h("div", { "data-wk": "carrypinhint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: -6, marginBottom: 14 } },
+          onTogglePin ? h("div", { "data-wk": "carrypinhint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: -6, marginBottom: 14 } },
             "喜欢的那身点开 →「留着」（标 \u25c6），刷新时就不会被换掉；没留的一次最多换两身。想让 TA 穿哪身，点开点「让他换上这一身」。") : null,
           groups.map((g, gi) => h("div", { "data-wk": "carryoccasion", key: gi, style: { marginBottom: 20 } },
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
-              h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
-              h("span", { "data-wk": "carryoccasioncount", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, g.sets.length + " 套")) : null,
+              h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
+              h("span", { "data-wk": "carryoccasioncount", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, g.sets.length + " 套")) : null,
             bay(g.sets.map((it, si) => hanger(it, g, gi, si))))),
           addBox);
   } else if (sec.stuff) {
@@ -11794,16 +11794,16 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         h("div", { "data-wk": "block", style: { position: "absolute", left: 0, top: 7, bottom: 7, width: 5, borderRadius: "0 3px 3px 0", background: "linear-gradient(180deg," + c.light + "," + c.base + " 55%," + c.dark2 + ")", boxShadow: "1px 0 2px rgba(0,0,0,.10)" } }),
         h("div", { className: "flex items-start", style: { gap: 7 } },
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { "data-wk": "carrycardname", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, lineHeight: 1.38, wordBreak: "break-word" } }, it.name),
-            it.note ? h("div", { "data-wk": "carrycardnote", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, STX(it.note)) : null),
-          on ? h("span", { title: "留着的，刷新不会换掉", style: { fontSize: 10, lineHeight: 1.6, color: c.ink, flexShrink: 0 } }, "◆") : null));
+            h("div", { "data-wk": "carrycardname", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.38, wordBreak: "break-word" } }, it.name),
+            it.note ? h("div", { "data-wk": "carrycardnote", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, STX(it.note)) : null),
+          on ? h("span", { title: "留着的，刷新不会换掉", style: { fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1.6, color: c.ink, flexShrink: 0 } }, "◆") : null));
     };
     content = !items.length
-      ? h("div", { "data-wk": "carryempty", "data-part": "stuff", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "空空如也")
+      ? h("div", { "data-wk": "carryempty", "data-part": "stuff", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "空空如也")
       : h("div", { "data-wk": "carrystuff", style: { animation: "fadeUp .3s ease both" } },
           sec.zip ? zipper(t, carryTint(sectionKey, .42)) : null,
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 12 } },
-            h("span", { "data-wk": "carrysectionnote", style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, whiteSpace: "nowrap" } },
+            h("span", { "data-wk": "carrysectionnote", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.16em", color: t.fog, whiteSpace: "nowrap" } },
               items.length + " ITEMS"),
             h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint(sectionKey, .18) + ",rgba(0,0,0,0))" } })),
           // 内衬：东西倒在这块布上
@@ -11823,11 +11823,11 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
   } else {
     const items = (data && data.items) || [];
     content = items.length === 0
-      ? h("div", { "data-wk": "carryempty", "data-part": "list", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "空空如也")
+      ? h("div", { "data-wk": "carryempty", "data-part": "list", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "空空如也")
       : h("div", { style: { animation: "fadeUp .3s ease both" } }, items.map((it, i) => h("button", { "data-wk": "carryrow", "data-on": isPinned(it) ? "1" : "0", key: i, onClick: () => setSheet(it), className: "w-full text-left flex items-start justify-between gap-3 py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
           h("div", { className: "min-w-0 flex-1" },
-            h("div", { "data-wk": "carryrowname", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, it.name, pinDot(it)),
-            it.note && h("div", { "data-wk": "carryrownote", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, STX(it.note))),
+            h("div", { "data-wk": "carryrowname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, it.name, pinDot(it)),
+            it.note && h("div", { "data-wk": "carryrownote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6 } }, STX(it.note))),
           h(IChevR, { size: 15, color: t.line, style: { marginTop: 3 } }))));
   }
   // ⚠️这一栏的底色要铺在【最外层】：铺在滚动容器上的话，顶栏在它外面——
@@ -11846,14 +11846,14 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         isCloth && onWear ? h("button", { "data-wk": "carrysheetbtn", "data-part": "wear",
           onClick: () => { onWear(char.id, sheet.name, sheet.note); setSheet(null); },
           className: "w-full active:opacity-70",
-          style: { minHeight: 42, marginBottom: 8, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (tone ? clothRgba(tone.ink, 0.55) : t.ink), color: tone ? tone.ink : t.ink }
+          style: { minHeight: 42, marginBottom: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + (tone ? clothRgba(tone.ink, 0.55) : t.ink), color: tone ? tone.ink : t.ink }
         }, characterText(char, "让他换上这一身")) : null,
         h("div", { className: "flex", style: { gap: 8 } },
           onTogglePin ? h("button", { "data-wk": "carrysheetbtn", "data-part": "pin", "data-on": isPinned(sheet) ? "1" : "0",
             onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
             className: "flex-1 py-2.5 active:opacity-70",
             style: {
-              fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999,
+              fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999,
               border: "1px solid " + (isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.55) : t.accent) : t.line),
               background: isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.07) : "transparent") : "transparent",
               color: isPinned(sheet) ? (tone ? tone.ink : t.accent) : t.ink
@@ -11863,7 +11863,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
           onPeek ? h("button", { "data-wk": "carrysheetbtn", "data-part": "peek",
             onClick: () => { onPeek(char.id, sectionKey, sheet); setSheet(null); },
             className: "flex-1 py-2.5 active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
+            style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
           }, characterText(char, "摆到他面前")) : null),
         // 删掉这一件（她 2026-09-18：「角色随身物这些能不能也都可以单个删除」）。
         // ⚠️单独一行、不跟上面那两颗挤在一排：那两颗是【留下它】的动作，这颗是反的。
@@ -11873,27 +11873,27 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
             + "删掉之后 " + (char.remark || char.name) + " 身上就没有这件东西了，聊天里也不会再提到它。",
             () => { onDeleteItem(char.id, sectionKey, sheet.name); setSheet(null); }, "删掉"),
           className: "w-full py-2.5 active:opacity-70",
-          style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid #c25a4a55", color: "#c25a4a" }
+          style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid #c25a4a55", color: "#c25a4a" }
         }, "删掉这一件") : null,
-        h("div", { "data-wk": "carrysheethint", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
+        h("div", { "data-wk": "carrysheethint", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
           (onTogglePin ? "留着的东西刷新时不会被换掉，没留的一次最多换两件。" : "")
           + (onPeek ? characterText(char, "「摆到他面前」会在聊天里发一条——他会知道你翻过。") : ""))) : null;
       const think = h("div", { "data-wk": "carrythink", style: { marginTop: tone ? 18 : 0 } },
-        h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: tone ? tone.ink : t.accent, marginBottom: 7 } }, char.name + " 的想法"),
+        h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.16em", color: tone ? tone.ink : t.accent, marginBottom: 7 } }, char.name + " 的想法"),
         h("div", { "data-wk": "carrythinktext",
           style: {
-            fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap",
+            fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap",
             paddingLeft: 13, borderLeft: "2px solid " + (tone ? clothRgba(tone.ink, 0.45) : t.line)
           }
         }, sheet.thought || "（TA 没多说什么）"));
       if (!tone) return h(Sheet, { onClose: () => setSheet(null), tall: true },
         h(Eyebrow, { style: { marginBottom: 8 } }, sheet.name),
-        sheet.note && h("div", { "data-wk": "carrysheetnote", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, STX(sheet.note)),
+        sheet.note && h("div", { "data-wk": "carrysheetnote", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, STX(sheet.note)),
         think, pinRow);
       // ⚠️别对中文用 toUpperCase()——它是空操作，会把同一个词原样印两遍（v57.89 踩过）。
       const label = (en, zh) => zh ? h("div", null,
-        h("div", { "data-wk": "carrysheetlabel", "data-part": "en", style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginBottom: 4 } }, en),
-        h("div", { "data-wk": "carrysheetlabel", "data-part": "zh", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 7 } }, zh)) : null;
+        h("div", { "data-wk": "carrysheetlabel", "data-part": "en", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: "0.18em", color: t.fog, marginBottom: 4 } }, en),
+        h("div", { "data-wk": "carrysheetlabel", "data-part": "zh", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginBottom: 7 } }, zh)) : null;
       const head = isCloth
         // 衣柜：从柜子里取出来给你看的那一件，后面还有一截杆
         ? h("div", { className: "shrink-0", style: { position: "relative", paddingTop: 8 } },
@@ -11903,7 +11903,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         : h("div", { className: "shrink-0", style: { position: "relative", width: 72, height: 72, borderRadius: 999,
             background: "radial-gradient(120% 120% at 32% 24%," + tone.light + " 0%," + tone.base + " 52%," + tone.dark2 + " 100%)",
             boxShadow: "0 3px 9px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -3px 8px rgba(0,0,0,.14)" } },
-            isPinned(sheet) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: tone.onDark ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.42)" } }, "◆") : null);
+            isPinned(sheet) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(13px * var(--app-fs, 1))", color: tone.onDark ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.42)" } }, "◆") : null);
       // fixed 不是 absolute：五栏合成一页之后，这块要盖住整屏，
       // 不该去看祖先链上谁碰巧是 positioned、谁又开了 overflow
       return h("div", { "data-wk": "carrycasemask",
@@ -11946,45 +11946,45 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
                 h("div", { className: "flex-1 min-w-0", style: { paddingTop: isCloth ? 10 : 2 } },
                   // 眉标不留英文（施工规则/no-english-titles.md，她 2026-09-03 立）
                   isCloth ? label("什么场合穿", sheet._occ) : label("什么料子", tone.word),
-                  h("div", { "data-wk": "carrysheettitle", style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, isCloth ? outfitLabel(sheet, sheet._occ) : sheet.name),
-                  sheet.note ? h("div", { "data-wk": "carrysheetnote", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6, lineHeight: 1.7 } }, STX(sheet.note)) : null)),
+                  h("div", { "data-wk": "carrysheettitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, isCloth ? outfitLabel(sheet, sheet._occ) : sheet.name),
+                  sheet.note ? h("div", { "data-wk": "carrysheetnote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 6, lineHeight: 1.7 } }, STX(sheet.note)) : null)),
               think, pinRow))));
     })();
   const giftNode = openGift && h(PageSheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
-      h("div", { "data-wk": "carrygiftmeta", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
-      h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
+      h("div", { "data-wk": "carrygiftmeta", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
+      h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
       giftBusy === openGift.id && !openGift.thought
         ? h(Spinner, { label: "让 " + char.name + " 说说…" })
         : openGift.thought
-          ? h("div", { "data-wk": "carrythinktext", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, openGift.thought)
-          : h("button", { "data-wk": "carrygiftbtn", "data-part": "think", onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法"),
+          ? h("div", { "data-wk": "carrythinktext", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, openGift.thought)
+          : h("button", { "data-wk": "carrygiftbtn", "data-part": "think", onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法"),
       // 挂进衣柜：她买的那件原名原样进 TA 的柜子，不经过模型（她 2026-09-18
       //「他们有的人的审美堪忧，看了着急」）。看着像衣服就直接把场合摆出来，
       // 看着不像也留一条路——判定只管默不默认露出来，不管能不能挂（closetGiftLike 上面那段）。
       onClosetGift ? h("div", { "data-wk": "carrygiftcloset", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
         (closetGiftLike(openGift.name, openGift.cat) || giftOccOpen)
           ? h(React.Fragment, null,
-              h("div", { "data-wk": "carrygifthint", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 8 } }, "挂进 " + char.name + " 的衣柜，放在哪个场合"),
+              h("div", { "data-wk": "carrygifthint", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "挂进 " + char.name + " 的衣柜，放在哪个场合"),
               h("div", { className: "flex flex-wrap", style: { gap: 7 } },
                 closetOccs.map(occ => h("button", { "data-wk": "carrygiftocc",
                   key: occ,
                   onClick: () => { if (onClosetGift(char.id, openGift.name, occ) !== false) setOpenGiftId(null); },
                   className: "active:opacity-60",
-                  style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 13px" }
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 13px" }
                 }, occ))),
-              h("div", { "data-wk": "carrygifthint", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "挂上去就钉住了，以后重新翻衣柜也不会被换掉"))
+              h("div", { "data-wk": "carrygifthint", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "挂上去就钉住了，以后重新翻衣柜也不会被换掉"))
           : h("button", { "data-wk": "carrygiftbtn", "data-part": "closet",
               onClick: () => setGiftOccOpen(true),
               className: "w-full py-2.5 active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
+              style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.sub }
             }, "这是件衣服？挂进衣柜 ›")) : null,
       // 礼物是你送的，TA本来就知道你知道——所以这一条走 open 档，不带「被撞破」那层
       onPeek ? h("div", { "data-wk": "carrygiftpeek", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
         h("button", { "data-wk": "carrygiftbtn", "data-part": "peek",
           onClick: () => { onPeek(char.id, sectionKey, { name: openGift.name, note: "你送的" }); setOpenGiftId(null); },
           className: "w-full py-2.5 active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
+          style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
         }, "在聊天里提起它")) : null);
   // 嵌入模式（五栏合成一页时用）：外壳、皮肤、标题栏都由那一页统一画，
   // 这里只交出内容本身 + 自己那两个弹层。
@@ -12033,8 +12033,8 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
       // 她自己的东西住在购物「我的」里，太难找；这里开个口，进的就是那一页
       // 她 2026-10-11：「随身物能不能把我的衣柜也放进来」——跟「我的物品」并排，点进去就是聊天「我」页那个衣柜（同一页、同一份）
       right: (onOpenMine || onOpenMyCloset) ? h("div", { className: "flex items-center", style: { gap: 12 } },
-        onOpenMyCloset ? h("button", { "data-wk": "carrymycloset", onClick: onOpenMyCloset, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0" } }, "我的衣柜") : null,
-        onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0 10px 4px" } }, "我的物品") : null) : null }),
+        onOpenMyCloset ? h("button", { "data-wk": "carrymycloset", onClick: onOpenMyCloset, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, minHeight: 40, padding: "10px 0" } }, "我的衣柜") : null,
+        onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, minHeight: 40, padding: "10px 0 10px 4px" } }, "我的物品") : null) : null }),
     h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-4" },
       h("div", { "data-wk": "carryboxframe",
         className: "flex-1 min-h-0 relative",
@@ -12060,14 +12060,14 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
           }
         },
           characters.length === 0
-            ? h("div", { "data-wk": "carryempty", "data-part": "chars", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "还没有角色")
+            ? h("div", { "data-wk": "carryempty", "data-part": "chars", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "还没有角色")
             : h("div", { className: "grid grid-cols-3 gap-x-3 gap-y-5" }, characters.map(c => h("button", { "data-wk": "carryboxchar",
                 key: c.id,
                 onClick: () => { onSel(c.id); setOpen(null); setInBox(false); },
                 className: "flex flex-col items-center gap-1.5 active:opacity-70"
               },
                 h(Avatar, { character: c, size: 62, radius: 17 }),
-                h("span", { "data-wk": "carryboxcharname", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 84 } }, c.remark || c.name))))),
+                h("span", { "data-wk": "carryboxcharname", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 84 } }, c.remark || c.name))))),
         // 两扇门：点一下向两边开。开了就不再挡路（pointerEvents 关掉）
         [["l", "left"], ["r", "right"]].map(([k, side]) => h("button", { "data-wk": "carrydoor", "data-part": side, "data-on": boxOpen ? "1" : "0",
           key: k,
@@ -12089,7 +12089,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
           h("span", { style: { position: "absolute", [side === "left" ? "right" : "left"]: 9, top: "50%", marginTop: -18, width: 8, height: 36, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.9),rgba(56,42,28,.5))", boxShadow: "0 2px 5px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.28)" } }),
           // 门上的镶板线
           h("span", { style: { position: "absolute", inset: 16, borderRadius: 8, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 1px rgba(56,42,28,.20)" } })))),
-      h("div", { "data-wk": "carryboxhint", className: "shrink-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, paddingTop: 12 } },
+      h("div", { "data-wk": "carryboxhint", className: "shrink-0 text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } },
         boxOpen ? "点头像，翻翻 Ta 的随身物" : "点一下拉开柜门")));
   const data = carry[char.id] || {};
   const gifts = (carryGifts && carryGifts[char.id]) || [];
@@ -12153,9 +12153,9 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
         },
           h(Avatar, { character: char, size: 26, radius: 8 }),
           h("div", { className: "flex-1 min-w-0 text-left" },
-            h("div", { "data-wk": "carrywhoname", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, lineHeight: 1.2 } }, char.name),
+            h("div", { "data-wk": "carrywhoname", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.2 } }, char.name),
             null),
-          h("span", { "data-wk": "carrywhoswitch", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "换个人"),
+          h("span", { "data-wk": "carrywhoswitch", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "换个人"),
           h(IChevR, { size: 13, color: t.fog })),
         // 抽屉：平分剩下的高度，撑满柜身
         h("div", { "data-wk": "carrydrawers", className: "flex flex-col", style: { gap: 7 } },
@@ -12178,25 +12178,25 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
               // 抽屉拉手
               h("div", { "data-wk": "block", style: { position: "absolute", right: 11, top: "50%", marginTop: -9, width: 9, height: 18, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.72),rgba(56,42,28,.38))", boxShadow: "0 1px 2px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.3)" } }),
               h("div", { className: "flex items-baseline", style: { gap: 7 } },
-                h("span", { "data-wk": "carrydrawername", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, sec.zh),
+                h("span", { "data-wk": "carrydrawername", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, letterSpacing: "0.02em" } }, sec.zh),
                 h("span", { className: "flex-1" }),
-                cnt ? h("span", { "data-wk": "carrydrawercount", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, cnt) : null,
+                cnt ? h("span", { "data-wk": "carrydrawercount", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub } }, cnt) : null,
                 isNew ? h("span", { "data-wk": "carrydrawernew", style: { width: 7, height: 7, borderRadius: 7, background: sec.gifts ? t.accent : "#7fb85f", boxShadow: "0 0 0 1.5px rgba(255,255,255,.7)" } }) : null),
               // 这一栏里真实那几件东西的颜色
               h("div", { "data-wk": "carrydrawerswatches", className: "flex items-center", style: { gap: 4.5, marginTop: 8 } },
                 busy
-                  ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "正在翻…")
+                  ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "正在翻…")
                   : sw.length
                     ? sw.map((c, i) => c
                         ? h("span", { key: i, style: { width: 21, height: 21, borderRadius: 6, background: "linear-gradient(155deg," + c.light + "," + c.base + " 55%," + c.dark + ")", boxShadow: "inset 0 0 0 1px rgba(0,0,0,.11), 0 1px 2px rgba(0,0,0,.10)" } })
                         : h(IHeart, { key: i, size: 16, color: t.accent }))
                     : h(React.Fragment, null,
                         [0, 1, 2].map(i => h("span", { key: i, style: { width: 21, height: 21, borderRadius: 6, border: "1px dashed rgba(74,58,40,.24)" } })),
-                        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 4 } },
+                        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginLeft: 4 } },
                           sec.gifts ? "还没收到你送的东西" : "点开就去翻"))),
               // 光有颜色还是不知道装着什么：把里头前几件的名字念一遍
               namesOf(sec) ? h("div", { "data-wk": "carrydrawernames",
-                style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 7, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+                style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 7, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
               }, namesOf(sec)) : null);
           })),
         // 柜脚：两只小脚，柜子才落地
@@ -12210,7 +12210,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
       h(Eyebrow, { style: { marginBottom: 12 } }, "切换角色"),
       h("div", { className: "space-y-1 max-h-72 overflow-y-auto" }, characters.map(c => h("button", { "data-wk": "carrypickrow", key: c.id, onClick: () => { onSel(c.id); setPick(false); setOpen(null); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
         h(Avatar, { character: c, size: 34, radius: 7 }),
-        h("span", { "data-wk": "carrypickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name))))));
+        h("span", { "data-wk": "carrypickname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.name))))));
 }
 // 我的衣柜（v59.27）。她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
 // 用关键词生成几套，再加上可以自己填」。
@@ -12232,7 +12232,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
   const submit = () => { if (onAdd(occ, name, note)) { setOcc(""); setName(""); setNote(""); setOpenAdd(false); } };
   return h("div", { "data-wk": "closetpage", className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
     h(Head, { zh: "我的衣柜", bg: "transparent", noLine: true, onBack,
-      right: h("button", { "data-wk": "closetaddtoggle", "data-on": openAdd ? "1" : "0", onClick: () => setOpenAdd(v => !v), className: "active:opacity-60 flex items-center justify-center", "aria-label": "自己挂一身", style: { width: 36, height: 38, fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, lineHeight: 1 } }, openAdd ? "×" : "+") }),
+      right: h("button", { "data-wk": "closetaddtoggle", "data-on": openAdd ? "1" : "0", onClick: () => setOpenAdd(v => !v), className: "active:opacity-60 flex items-center justify-center", "aria-label": "自己挂一身", style: { width: 36, height: 38, fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.ink, lineHeight: 1 } }, openAdd ? "×" : "+") }),
     // 一根挂衣杆：光有木纹只是块木头，杆才说明这是柜子里头
     h("div", { "data-wk": "closetrail", "aria-hidden": "true", className: "shrink-0", style: { height: 13, margin: "0 14px 2px", position: "relative" } },
       h("span", { style: { position: "absolute", left: 0, right: 0, top: 3, height: 5, borderRadius: 999,
@@ -12243,13 +12243,13 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
       // 分面具（她 2026-10-19）：有副面具才出这一排；挑哪张就看哪张面具自己那一柜
       (masks && masks.length > 1) ? h("div", { "data-wk": "closetmasks", className: "flex", style: { gap: 6, overflowX: "auto", padding: "2px 0 10px" } },
         masks.map(m => h("button", { key: m.key || "__main", "data-on": (maskKey || "") === m.key ? "1" : "0", onClick: () => onMask && onMask(m.key), className: "shrink-0 active:opacity-70",
-          style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + ((maskKey || "") === m.key ? t.ink : t.line), background: (maskKey || "") === m.key ? t.ink : t.bg2, color: (maskKey || "") === m.key ? t.bg : t.sub, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, m.name))) : null,
-      h("div", { "data-wk": "closetintro", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
+          style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + ((maskKey || "") === m.key ? t.ink : t.line), background: (maskKey || "") === m.key ? t.ink : t.bg2, color: (maskKey || "") === m.key ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, m.name))) : null,
+      h("div", { "data-wk": "closetintro", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
         "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。点「固定穿」，以后出图每张都穿那一身；再点一次取消。这里的衣服不会被刷掉，不用另外留。"),
       // 现在钉着哪一身（不在柜子里的老写法也照样显示，好让她取消）
       pinned ? h("div", { "data-wk": "closetpinned", className: "flex items-start", style: { gap: 10, borderRadius: 13, border: "1px solid " + t.ink, background: t.bg2, padding: "10px 12px", marginBottom: 11 } },
-        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, wordBreak: "break-word" } }, "现在固定穿：" + pinned),
-        onPin ? h("button", { onClick: () => onPin(""), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "取消") : null) : null,
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, wordBreak: "break-word" } }, "现在固定穿：" + pinned),
+        onPin ? h("button", { onClick: () => onPin(""), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "取消") : null) : null,
       // 关键词生成
       h("div", { "data-wk": "closetgen", style: { borderRadius: 16, border: "1px solid " + t.line, background: t.bg2, padding: "14px 14px 13px" } },
         h("div", { className: "flex items-end gap-2" },
@@ -12257,47 +12257,47 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
             value: kw, onChange: e => setKw(e.target.value),
             placeholder: "给几个词，或者留空让它自己配",
             className: "flex-1 min-w-0 outline-none",
-            style: { height: 42, borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13.5 }
+            style: { height: 42, borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" }
           }),
           h("button", { "data-wk": "closetgenbtn", "data-on": busy ? "1" : "0", onClick: () => onGen(kw), disabled: !!busy, className: "active:opacity-70 shrink-0",
-            style: { height: 42, padding: "0 16px", borderRadius: 11, background: busy ? t.line : t.ink, color: busy ? t.fog : t.bg, fontFamily: F_DISPLAY, fontSize: 14 } },
+            style: { height: 42, padding: "0 16px", borderRadius: 11, background: busy ? t.line : t.ink, color: busy ? t.fog : t.bg, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } },
             busy ? "配着…" : "配四身")),
-        h("div", { "data-wk": "closetgenhint", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 9, lineHeight: 1.7 } },
+        h("div", { "data-wk": "closetgenhint", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 9, lineHeight: 1.7 } },
           "一次四身，挂进不同场合。已经有的那几身会发过去避重，不会配出一模一样的。")),
       // 自己挂
       openAdd ? h("div", { "data-wk": "closetadd", style: { borderRadius: 16, border: "1px dashed " + t.line, padding: "14px", marginTop: 11 } },
         h("input", { "data-wk": "closetaddinput", "data-part": "occasion", value: occ, onChange: e => setOcc(e.target.value), placeholder: "什么场合（留空算「平常」）", className: "w-full outline-none",
-          style: { height: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 11px", fontFamily: F_BODY, fontSize: 13 } }),
+          style: { height: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 11px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
         h("input", { "data-wk": "closetaddinput", "data-part": "name", value: name, onChange: e => setName(e.target.value), placeholder: "这身叫什么", className: "w-full outline-none",
-          style: { height: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 11px", fontFamily: F_BODY, fontSize: 13, marginTop: 8 } }),
+          style: { height: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 11px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", marginTop: 8 } }),
         h("textarea", { "data-wk": "closetaddinput", "data-part": "note", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "是什么衣服——版型、颜色、料子、脚上穿什么", className: "w-full outline-none resize-none",
-          style: { borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "10px 11px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, marginTop: 8 } }),
+          style: { borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "10px 11px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, marginTop: 8 } }),
         h("button", { "data-wk": "closetaddbtn", onClick: submit, className: "w-full active:opacity-70",
-          style: { marginTop: 10, height: 40, borderRadius: 11, background: t.ink, color: t.bg, fontFamily: F_DISPLAY, fontSize: 14 } }, "挂进去")) : null,
+          style: { marginTop: 10, height: 40, borderRadius: 11, background: t.ink, color: t.bg, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "挂进去")) : null,
       // 柜子
       groups.length
         ? h("div", { "data-wk": "closetlist", style: { marginTop: 18 } },
-            h("div", { "data-wk": "closetcount", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".05em", color: t.fog, marginBottom: 10 } }, "柜子里 · " + n + " 身"),
+            h("div", { "data-wk": "closetcount", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: ".05em", color: t.fog, marginBottom: 10 } }, "柜子里 · " + n + " 身"),
             groups.map((g, gi) => h("div", { "data-wk": "closetgroup", key: gi, style: { marginTop: gi ? 18 : 0 } },
               h("div", { "data-wk": "closetgrouphead", className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
                 h("span", { "data-wk": "closetgroupbar", style: { width: 3, height: 14, borderRadius: 3, background: t.accent || t.ink } }),
-                h("div", { "data-wk": "closetgroupname", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.occasion || "平常")),
+                h("div", { "data-wk": "closetgroupname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, g.occasion || "平常")),
               (g.sets || []).map((x, i) => h("div", { "data-wk": "closetset", key: i, style: { borderRadius: 13, border: "1px solid " + t.line, background: t.bg2, padding: "12px 13px", marginTop: i ? 8 : 0 } },
                 h("div", { className: "flex items-start", style: { gap: 10 } },
-                  h("div", { "data-wk": "closetsetname", className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, x.name),
+                  h("div", { "data-wk": "closetsetname", className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, x.name),
                   onPin ? h("button", { "data-wk": "closetsetpin", "data-on": pinned === pinText(x) ? "1" : "0", onClick: () => onPin(pinned === pinText(x) ? "" : pinText(x)), className: "active:opacity-60 shrink-0",
                     "aria-label": pinned === pinText(x) ? "不再固定穿这身" : "以后出图固定穿这身",
-                    style: { fontFamily: F_BODY, fontSize: 11, color: pinned === pinText(x) ? t.bg : t.ink, background: pinned === pinText(x) ? t.ink : "transparent",
+                    style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: pinned === pinText(x) ? t.bg : t.ink, background: pinned === pinText(x) ? t.ink : "transparent",
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
-                    style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉")),
-                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null,
+                    style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "拿掉")),
+                x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null,
                 // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
                 (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "也挂在"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "也挂在"),
                   masks.filter(m => m.key !== (maskKey || "")).map(m => { const on = hasIn(m.key, g.occasion, x.name);
                     return h("button", { key: m.key || "__main", "data-on": on ? "1" : "0", onClick: () => onToggleMask(m.key, g.occasion, x), className: "active:opacity-60",
-                      style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, (on ? "✓ " : "") + m.name); })) : null)))))
-        : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9 } },
+                      style: { padding: "1px 8px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.fog, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (on ? "✓ " : "") + m.name); })) : null)))))
+        : h("div", { "data-wk": "closetempty", style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "34px 16px", marginTop: 18, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } },
             "柜子还是空的。给几个词让它配四身，或者右上角自己挂一件。")));
 }

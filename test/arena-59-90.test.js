@@ -64,7 +64,7 @@ test("赛后感言：名字对不上也要按顺序兜底，别整栏空着", ()
 test("不许再用原生 confirm / prompt——PWA 会把它们永久吞掉", () => {
   assert.equal(live.indexOf("window.confirm"), -1, "收台那颗键会在 PWA 里变成死键");
   assert.equal(live.indexOf("window.prompt"), -1, "自定义立场那颗键会在 PWA 里变成死键");
-  assert.match(dbt, /const endDebate = \(\) => [\s\S]{0,120}requestAppConfirm\("收台，判胜负？"/, "收台要走 app 自己的确认框（她自己当裁判时先出判词框）");
+  assert.match(dbt, /const endDebate = \(\) => [\s\S]{0,240}requestAppConfirm\("收台，判胜负？"/, "收台要走 app 自己的确认框（她自己当裁判时先出判词框）");
   // 自定义立场改成就地输入
   assert.match(dbt, /const \[sideDraft, setSideDraft\] = useState\(null\)/);
   assert.match(dbt, /onClick: \(\) => setSideDraft\(""\)/, "「自己写一个」点了不出输入框");
@@ -100,7 +100,7 @@ test("台子：台面那条线横过所有人，立场牌挂在台前的台裙�
   // ⚠️冻的是「所有人共用同一个高度」，不是某个数字：v59.97 起它随收/放两档变
   // v73.19 挂了台下票数就整体往下让一行（她 2026-09-23 的投票）——仍是所有人共用的那一个数
   assert.match(dbt, /const HEAD_H = \(stageOpen \? \d+ : \d+\) \+ \(anyVotes \? \d+ : 0\);/, "台面那条线没有一个固定的高度，几个人就会各站各的高度");
-  assert.match(src, /top: HEAD_H, bottom: 0[\s\S]{0,180}borderTop: "3px solid " \+ t\.ink/, "没有台面那条线／台裙");
+  assert.match(src, /top: HEAD_H, bottom: 0[\s\S]{0,360}borderTop: "3px solid " \+ t\.ink/, "没有台面那条线／台裙");
   assert.match(src, /boxShadow: "0 5px 9px -6px rgba\(38,34,28,\.85\)"/, "台面底下没有影子，就只是一条分割线");
   assert.match(src, /width: 1, height: stageOpen \? 7 : 4, background: p\.color/, "立场牌没有挂绳，它是浮着的不是挂着的");
   // ⚠️v59.97 起立场牌【不锁行数】了——锁行数正是「看不全」那个病（见下面 v59.97 那两条）。
@@ -168,12 +168,12 @@ test("场边那一声长在台边上，不是又一列气泡；分歧只是一�
   const side = dbt.slice(i, dbt.indexOf("const focusBlock = function", i));
   assert.match(side, /borderLeft: "2px solid " \+ t\.line/, "台子那条边没了，它就成了又一列气泡");
   assert.match(side, /"台边 · "/);
-  assert.match(side, /fontSize: 12/, "比台上还大就喧宾夺主了");
+  assert.match(side, /fontSize: "calc\(12px \* var\(--app-fs, 1\)\)"/, "比台上还大就喧宾夺主了");
   // 分歧从「一张带字距标签的卡」降成一行小字
   const fb = dbt.slice(dbt.indexOf("const focusBlock = function"), dbt.indexOf("// 旧存档不删数据"));
   assert.ok(fb.indexOf("未 决 争 点") < 0, "又做成一张比台上还抢眼的卡了");
   assert.match(fb, /"还没吵拢的是——"/);
-  assert.match(fb, /fontSize: 11\.5/);
+  assert.match(fb, /fontSize: "calc\(11\.5px \* var\(--app-fs, 1\)\)"/);
   // v73.xx 两块中间夹进了台下的票和裁判那一句（她 2026-09-23），两块照旧都画
   assert.match(dbt, /sideBlock\(r\.side, ri2\),\n(?:\s*\w+Block\([^\n]*\),\n)*\s*focusBlock\(r\.focus, ri2\)/, "两块都要真的画出来");
 });
@@ -191,13 +191,13 @@ test("判定：吊在台子上方那块记分牌", () => {
   const src = dbt.slice(i, i + 1600);
   assert.match(src, /left: "26%", top: -18, width: 1, height: 18/, "少了吊绳，牌子就不是吊着的");
   assert.match(src, /right: "26%", top: -18, width: 1, height: 18/);
-  assert.match(src, /background: "#1e1d1b"[\s\S]{0,200}boxShadow: "0 12px 26px rgba\(0,0,0,\.3\)"/, "记分牌不是牌子");
+  assert.match(src, /background: "#1e1d1b"[\s\S]{0,400}boxShadow: "0 12px 26px rgba\(0,0,0,\.3\)"/, "记分牌不是牌子");
   assert.match(src, /color: "#f0c67a"/, "胜者名字没有单独立起来");
   assert.ok(src.indexOf("⚖ 裁判判定") < 0 && src.indexOf("胜者：") < 0, "还是原来那张通用卡片");
 });
 
 test("落地页：一场是一张场次单，判完的盖一枚歪着的章", () => {
-  assert.match(dbt, /transform: "rotate\(-9deg\)"[\s\S]{0,260}"胜"/, "判完那场没有印章，只是又一个圆角徽章");
+  assert.match(dbt, /transform: "rotate\(-9deg\)"[\s\S]{0,520}"胜"/, "判完那场没有印章，只是又一个圆角徽章");
   // v62.65 审美审计：左 4px 色条 + 圆角 13 是【通用列表项】，只有那枚章不通用。
   // 这个 app 自己的语言是台面线——所以模式色那一笔从「左边一条」换成
   // 「顶上一道 3px 的台面线」，线下压一片台裙，跟台上和摆台子那两页同一个做法。
@@ -233,7 +233,7 @@ test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为
   // ⚠️不许再有散落的小数字：改一处漏一处正是这个 app 反复犯的那一个
   [["擂台", dbt, /const TOK = \{ stance: 8000 \};/],
    ["一起学", stu, /const TOK = \{ turn: 12000, plan: 20000, quiz: 12000, small: 8000 \};/],
-   ["论坛", app, /const FTOK = \{[\s\S]{0,420}floors: 65000,/]].forEach(function (row) {
+   ["论坛", app, /const FTOK = \{[\s\S]{0,840}floors: 65000,/]].forEach(function (row) {
     assert.match(row[1], row[2], row[0] + "：额度没有收在一个地方");
     assert.match(row[1], /思考预算是从 maxTokens 里扣的/, row[0] + "：没写清为什么，下一个人又会把它调回去省钱");
   });
@@ -301,7 +301,7 @@ test("裁判多答两栏：他们其实在吵的是什么、最狠的那一句",
   // 记分牌上要显示，而且那一句要看得出是【谁说过的话】不是裁判的话
   assert.match(dbt, /"他们其实在吵的是"/);
   assert.match(dbt, /"最狠的那一句"/);
-  assert.match(dbt, /borderLeft: "2px solid #f0c67a"[\s\S]{0,140}s\.verdict\.best\.quote/, "那一句没跟裁判自己的话分开");
+  assert.match(dbt, /borderLeft: "2px solid #f0c67a"[\s\S]{0,280}s\.verdict\.best\.quote/, "那一句没跟裁判自己的话分开");
 });
 
 // v73.318 起分享走「聊天记录」那张现成的转发卡（她 2026-09-23：「擂台分享也做成卡吧不然太长了」）；
@@ -309,8 +309,8 @@ test("裁判多答两栏：他们其实在吵的是什么、最狠的那一句",
 test("分享：单聊和群聊都能发；走聊天记录卡，正文是整场全文", () => {
   // app 侧：两条路 + 一份共用的正文
   assert.match(app, /const arenaShareText = \(session\) =>/);
-  assert.match(app, /const shareArenaToChat = \(session, toChar\) =>[\s\S]{0,220}pChat\(toChar\.id/);
-  assert.match(app, /const shareArenaToGroup = \(session, group\) =>[\s\S]{0,240}pGChat\(group\.id/);
+  assert.match(app, /const shareArenaToChat = \(session, toChar\) =>[\s\S]{0,440}pChat\(toChar\.id/);
+  assert.match(app, /const shareArenaToGroup = \(session, group\) =>[\s\S]{0,480}pGChat\(group\.id/);
   // ⚠️群里那条必须带 senderName，否则群里认不出是谁发的
   assert.match(app, /pGChat\(group\.id, p => \[\.\.\.p, arenaShareMsg\(session, \{ senderName: profile\.name \|\| "我" \}\)\]\)/);
   // 正文里要带上判词那三栏，转过去才是完整的一场
@@ -318,13 +318,13 @@ test("分享：单聊和群聊都能发；走聊天记录卡，正文是整场�
   assert.match(app, /v\.best && v\.best\.quote \? "\\n【最狠的那一句】"/);
   assert.match(app, /"\\n\\n（还没收台）"/, "没收台就分享的话，得说清这是半场");
   // 接线：groups 和两个回调都传下去了
-  assert.match(app, /groups: groups,[\s\S]{0,200}onShareToChat: shareArenaToChat,\n\s*onShareToGroup: shareArenaToGroup,/);
-  assert.match(dbt, /groups: props\.groups,[\s\S]{0,120}onShareToChat: props\.onShareToChat, onShareToGroup: props\.onShareToGroup,/);
+  assert.match(app, /groups: groups,[\s\S]{0,400}onShareToChat: shareArenaToChat,\n\s*onShareToGroup: shareArenaToGroup,/);
+  assert.match(dbt, /groups: props\.groups,[\s\S]{0,240}onShareToChat: props\.onShareToChat, onShareToGroup: props\.onShareToGroup,/);
   // 面板：居中框，不是半窗（no-half-sheet.md）
   assert.match(dbt, /const sharePanel = shareOpen && typeof CenterCard === "function" \? h\(CenterCard/);
   assert.ok(dbt.indexOf("items-end") < 0, "分享面板又掀成半窗了");
   assert.match(dbt, /"把这一场发给谁"/);
-  assert.match(dbt, /\(props\.groups \|\| \[\]\)\.length \? h\("div"[\s\S]{0,180}"群 聊"/, "群聊那一档没列出来");
+  assert.match(dbt, /\(props\.groups \|\| \[\]\)\.length \? h\("div"[\s\S]{0,360}"群 聊"/, "群聊那一档没列出来");
   // 一句话都还没说的时候不该有分享键
   // v59.97 起这一判走 spoke()——「牌子要不要收上去」和「有没有东西可分享」问的是同一件事
   assert.match(dbt, /const hasSomething = spoke\(s\);/);
@@ -457,7 +457,7 @@ test("旁观局：她不上台，一按就让他们吵，没有「先等你开�
   // 开关 + 拦法
   assert.match(dbt, /const \[watchOnly, setWatchOnly\] = useState\(false\)/);
   assert.match(dbt, /"我不上台，纯看他们吵"/);
-  assert.match(dbt, /if \(watchOnly && picked\.length < 2\)[\s\S]{0,120}"你不上台的话，台上得有两个人才吵得起来"/,
+  assert.match(dbt, /if \(watchOnly && picked\.length < 2\)[\s\S]{0,240}"你不上台的话，台上得有两个人才吵得起来"/,
     "开了旁观还只拉一个人，就没得吵了");
   // 存进存档：台上没有「我」这一位，也就不用选边
   assert.match(dbt, /spectate: watch,\n(?:\s*\w+: [^\n]*\n)*\s*parts: watch \? parts : \[me\]\.concat\(parts\), order: order,\n\s*myOptions: watch \? \[\] : assigned\.myOptions, mySet: watch,/);
@@ -465,7 +465,7 @@ test("旁观局：她不上台，一按就让他们吵，没有「先等你开�
   assert.match(dbt, /const watch = !!s\.spectate;/);
   assert.match(dbt, /const myTurnNow = !watch && s\.mySet && !roundMyDone\(cr\);/, "旁观局还在等她先开口");
   assert.match(dbt, /const needGen = \(watch \|\| roundMyDone\(cr\)\) && !roundGen\(cr\);/);
-  assert.match(dbt, /\(watch && needGen\) \? h\("div"[\s\S]{0,700}roundNo === 1 \? "开吵 →" : "让他们接着吵 →"/, "旁观局底下那颗键不对");
+  assert.match(dbt, /\(watch && needGen\) \? h\("div"[\s\S]{0,1400}roundNo === 1 \? "开吵 →" : "让他们接着吵 →"/, "旁观局底下那颗键不对");
   // 提示词：她只旁观，别对着她说话
   assert.match(dbt, /o\.watch\s*\? "\\n\\n【旁观局】"/, "旁观局还在跟他们说「她刚说了什么」");
   assert.match(dbt, /别对着她说话、别问她怎么看，也别等她表态/);

@@ -157,11 +157,11 @@
     return h("div", { "data-wk": "shuashare", role: "button", onClick: () => window.__openShuaVideo(v), className: "active:opacity-80", style: { cursor: "pointer", width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
       // ⚠️比例和最高高度一起写时，高度被卡住、宽度就跟着缩，卡片右边空出一条（她 2026-10-07 截图）。宽度铺满，高度定死
       h("div", { style: { position: "relative", width: "100%", height: v.skin === "b" ? 138 : 260, background: src ? "center/cover no-repeat url(\"" + src + "\")" : "linear-gradient(160deg,#3b2a4a,#111)", padding: 10 } },
-        !src ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,.9)", display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
+        !src ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: "rgba(255,255,255,.9)", display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "18px 10px 8px", background: "linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7))" } },
-          h("div", { "data-wk": "shuashareauthor", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
-          (v.title || v.caption) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.88)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption) : null)),
-      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞 · 点开看"));
+          h("div", { "data-wk": "shuashareauthor", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
+          (v.title || v.caption) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.88)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption) : null)),
+      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞 · 点开看"));
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaKit = { regularsBlock, tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, crowdSystem, mineSystem, mkVideo, vidSkin };

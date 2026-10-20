@@ -183,11 +183,11 @@
         boxShadow: on ? "0 0 0 2px " + pp.accent + "44" : "0 1px 3px rgba(0,0,0,0.10)"
       }, "data-wk": "ficpaperswatch", "data-on": on ? "1" : "0"
     },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: pp.ink, lineHeight: 1.2 } }, pp.label),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.fog, marginTop: 2 } }, pp.hint),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: pp.ink, lineHeight: 1.2 } }, pp.label),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: pp.fog, marginTop: 2 } }, pp.hint),
       h("div", { style: { height: 1, background: pp.line, margin: "7px 0 5px" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.sub, lineHeight: 1.35 } }, "灯芯爆了一下。"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: pp.accent, marginTop: 3 } }, "A × B"));
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: pp.sub, lineHeight: 1.35 } }, "灯芯爆了一下。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: pp.accent, marginTop: 3 } }, "A × B"));
   }
   // 这一篇用哪张纸（她 2026-08-30：「每一篇可以单独设置」）。
   // 篇上写了就用篇的；没写就退回设置里那张【默认书页】——

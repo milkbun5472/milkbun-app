@@ -10,4 +10,4 @@ console.log("ok");
 { const r2 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "read.js"), "utf8");
   require("node:assert").match(r2, /FC\.facesWith\(readCustom\(\)\)/);
   require("node:assert").match(r2, /setOpen \? h\("div",/);
-  require("node:assert").match(r2, /partner \? h\("div", \{ style: \{ display: "flex", alignItems: "center", gap: 5 \} \},\n          h\("span", \{ style: \{ fontFamily: F_BODY, fontSize: 11, color: t\.fog, whiteSpace: "nowrap" \} \}, "每次批"\)/); }
+  require("node:assert").match(r2, /partner \? h\("div", \{ style: \{ display: "flex", alignItems: "center", gap: 5 \} \},\n          h\("span", \{ style: \{ fontFamily: F_BODY, fontSize: "calc\(11px \* var\(--app-fs, 1\)\)", color: t\.fog, whiteSpace: "nowrap" \} \}, "每次批"\)/); }

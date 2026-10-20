@@ -29,7 +29,7 @@ test("FilePick 把 input 铺满触点，不是藏起来", () => {
   assert.ok(!/visibility: *"hidden"/.test(seg));
   assert.match(seg, /zIndex: 2/, "没压在最上面就会被触点本身挡住");
   // iOS 上字号小于 16 会把整页放大
-  assert.match(seg, /fontSize: 16/);
+  assert.match(seg, /fontSize: "calc\(16px \* var\(--app-fs, 1\)\)"/);
 });
 
 test("AvatarPicker 不再靠代码替你点", () => {

@@ -62,7 +62,7 @@ test("扉页底下那一块画的是签名，老存档不拿路数去顶", () =>
   assert.ok(quote.indexOf("a.style") < 0, "没有签名时拿路数顶上去——顶上去就又是第三人称");
   // 路数没被删掉，只是挪去跟「碰不得」「你动她的文」排一列
   assert.match(page, /\}, "她的文"\),/);
-  assert.match(page, /h\("span", \{ style: \{ fontFamily: F_BODY, fontSize: 11\.5, lineHeight: 1\.7, color: t\.sub \} \}, a\.style\)/);
+  assert.match(page, /h\("span", \{ style: \{ fontFamily: F_BODY, fontSize: "calc\(11\.5px \* var\(--app-fs, 1\)\)", lineHeight: 1\.7, color: t\.sub \} \}, a\.style\)/);
 });
 
 // ── ② 热度 ────────────────────────────────────────────────

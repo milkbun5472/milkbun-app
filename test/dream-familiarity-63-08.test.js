@@ -39,7 +39,7 @@ test("破绽写进提示词：生的一字不加；熟的一处轻微；很熟�
 test("档位在进梦时定下、写进存档：递关键词的和推门进真梦的都定", () => {
   assert.equal((dream.match(/familiarity: familiarityTier\(props\.familiarityOf \? props\.familiarityOf\(c\.id\) : null\)/g) || []).length, 2);
   // 选项底下那行话告诉她破绽有没有；挣扎那一幕不适用
-  assert.match(dream, /cur\.struggle \? null : h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 10\.5, color: t\.fog, textAlign: "center", paddingTop: 2 \} \}, FAMILIAR_LINE\[/);
+  assert.match(dream, /cur\.struggle \? null : h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: "calc\(10\.5px \* var\(--app-fs, 1\)\)", color: t\.fog, textAlign: "center", paddingTop: 2 \} \}, FAMILIAR_LINE\[/);
 });
 
 test("App 那头只读三样：好感、印象卡长度、Ta 能召回的记忆条数（走 retrieveMemories，不自己抄可见性规则）", () => {

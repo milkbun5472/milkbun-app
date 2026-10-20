@@ -443,9 +443,9 @@
       h("div", { style: { position: "absolute", left: 12, right: 76, top: "calc(env(safe-area-inset-top, 0px) + 10px)", display: "flex", alignItems: "center", gap: 8,
           padding: "7px 12px", borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
         props.avatarChar && typeof Avatar === "function" ? h(Avatar, { character: props.avatarChar, size: 22, radius: 11 }) : null,
-        h("span", { style: { fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (props.charName || "TA") + " " + caption)),
+        h("span", { style: { fontSize: "calc(12.5px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (props.charName || "TA") + " " + caption)),
       h("button", { "data-peek-skip": "1", onClick: finish, style: { position: "absolute", right: 12, top: "calc(env(safe-area-inset-top, 0px) + 8px)", minHeight: 36, padding: "0 14px",
-          borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", fontSize: 12.5 } }, "跳过"),
+          borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "跳过"),
       // 触控圆点
       props.script ? h("div", { style: { position: "absolute", left: dot.x - 17, top: dot.y - 17, width: 34, height: 34, borderRadius: 999,
           background: dot.down ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.45)", border: "2px solid rgba(0,0,0,.35)",
@@ -454,12 +454,12 @@
       // 改备注的假框：照「设置备注」那种样子，居中一张卡
       renameBox ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.28)", pointerEvents: "none" } },
         h("div", { "data-wk": "block", style: { width: 280, borderRadius: 16, background: bg2, color: ink, padding: "16px 16px 12px", boxShadow: "0 12px 32px rgba(0,0,0,.28)" } },
-          h("div", { style: { fontSize: 15, fontWeight: 600, textAlign: "center", marginBottom: 12 } }, renameBox.title || "设置备注"),
-          h("div", { style: { minHeight: 40, borderRadius: 10, border: "1px solid rgba(0,0,0,.18)", padding: "9px 12px", fontSize: 15 } }, renameBox.typed, renameBox.noCaret ? null : h("span", { style: { opacity: .6 } }, "｜")),
-          h("div", { style: { marginTop: 12, textAlign: "right", fontSize: 14, opacity: .8 } }, renameBox.ok || "完成"))) : null,
+          h("div", { style: { fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 600, textAlign: "center", marginBottom: 12 } }, renameBox.title || "设置备注"),
+          h("div", { style: { minHeight: 40, borderRadius: 10, border: "1px solid rgba(0,0,0,.18)", padding: "9px 12px", fontSize: "calc(15px * var(--app-fs, 1))" } }, renameBox.typed, renameBox.noCaret ? null : h("span", { style: { opacity: .6 } }, "｜")),
+          h("div", { style: { marginTop: 12, textAlign: "right", fontSize: "calc(14px * var(--app-fs, 1))", opacity: .8 } }, renameBox.ok || "完成"))) : null,
       // 心声：浮在屏幕下半，第一人称一句
       thought ? h("div", { style: { position: "absolute", left: 20, right: 20, bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)", display: "flex", justifyContent: "center", pointerEvents: "none" } },
-        h("div", { style: { maxWidth: 320, padding: "10px 14px", borderRadius: 14, background: bg2, color: ink, fontSize: 14, lineHeight: 1.6,
+        h("div", { style: { maxWidth: 320, padding: "10px 14px", borderRadius: 14, background: bg2, color: ink, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6,
             boxShadow: "0 8px 24px rgba(0,0,0,.22)", fontStyle: "italic", animation: "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" } }, "（" + thought + "）")) : null);
   }
 
@@ -473,11 +473,11 @@
     return h("div", { "data-wk": "peekdaily", className: "flex flex-col", style: { position: "fixed", inset: 0, zIndex: 9980, background: t.bg || "#f4f1ec" } },
       head,
       h("div", { className: "flex-1", style: { overflowY: "auto", padding: "14px 14px 40px" } },
-        p.rel ? h("div", { style: { textAlign: "center", fontFamily: FB, fontSize: 11, color: t.fog, margin: "0 0 12px" } }, S(p.rel)) : null,
+        p.rel ? h("div", { style: { textAlign: "center", fontFamily: FB, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "0 0 12px" } }, S(p.rel)) : null,
         ls.map((l, i) => {
           const me = !!(l && l.me);
           return h("div", { key: i, className: "flex " + (me ? "justify-end" : "justify-start"), style: { margin: "0 0 8px" } },
-            h("div", { "data-wk": "peekdailybubble", "data-me": me ? "1" : "0", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: FB, fontSize: 14, lineHeight: 1.6,
+            h("div", { "data-wk": "peekdailybubble", "data-me": me ? "1" : "0", style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: FB, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6,
               background: me ? (t.ink || "#333") : (t.bg2 || "#fff"), color: me ? (t.bg2 || "#fff") : (t.ink || "#333"), border: me ? "none" : "1px solid " + (t.line || "#ddd") } },
               S(l && l.text)));
         })));

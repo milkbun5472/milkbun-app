@@ -111,9 +111,9 @@ test("界面上那条带子：只放了一本就不摆「换书」", () => {
   assert.match(C, /roomFics,\s*\n\s*roomFicId,\s*\n\s*onPickRoomFic,/, "三个 prop 没接上");
   const i = C.indexOf("const more = roomFics.length > 1;");
   assert.ok(i > 0, "那条带子没了");
-  const blk = C.slice(i - 400, i + 1600);
+  const blk = C.slice(i - 400, i + 2600);
   assert.match(blk, /"在写"/, "得看得见现在在写哪一本");
-  assert.match(blk, /more \? h\("span"[\s\S]{0,200}?"换书 ›"\) : null/, "只有一本时不该摆换书");
+  assert.match(blk, /more \? h\("span"[\s\S]{0,400}?"换书 ›"\) : null/, "只有一本时不该摆换书");
   assert.match(blk, /onClick: more \? function \(\)/, "只有一本还能点开＝点开一张只有一行的单子");
   assert.match(blk, /if \(!on && onPickRoomFic\) onPickRoomFic\(f\.id, f\.title\)/, "点了不换书");
   assert.match(blk, /display: "block", minHeight: 34/, "指头点得到——贴着自己这一行断言，全文里这个数还有别处在用");

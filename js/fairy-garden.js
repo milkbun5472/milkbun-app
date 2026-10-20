@@ -677,58 +677,58 @@
       h(DyeControl, { key: who + "eye", label: "眼睛", value: game() && game().getDyes ? game().getDyes(who).eye : null,
         onChange: eye => pushLook({ eye }), palette: ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"] }),
       h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
           Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
             const on = (game() && game().getOutfit ? game().getOutfit(who).id : (look[who] || {}).outfit) === id;
             return h("button", { key: id, "aria-pressed": on, onClick: () => pushLook({ outfit: id }),
-              style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, outfit.label);
+              style: { minHeight: 54, padding: "10px 8px", borderRadius: 12, border: "1px solid " + (on ? G.deep : G.line), background: on ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, outfit.label);
           })),
         // 按当前衣服列出真实可选区域；复位也走共用外貌写入，保留其他衣服。
         (() => { const selected = game() && game().getOutfit ? game().getOutfit(who) : null;
           const outfit = selected && styles?.outfits?.[selected.id];
           const slots = Object.entries(outfit?.colorLabels || {cloth:"衣服主色",trim:"衬衫与领边",bottom:"裤袜颜色",accent:"领带与点缀",boots:"鞋子颜色"})
             .filter(([slot]) => outfit && slot in outfit.colors);
-          return slots.length ? [h("p", { key: "hint", style: { fontSize: 11, color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"), h("button", { key: "reset-colors", type: "button", onClick: () => pushLook({ outfitColors: { ...outfit.colors } }),
-            style: { minHeight: 44, padding: "8px 14px", marginBottom: 8, border: "1px solid " + G.line, borderRadius: 10, background: "#f7f5e9", color: G.deep, fontFamily: F_BODY, fontSize: 12 } }, "恢复本套默认配色")].concat(slots.map(([slot, label]) => {
+          return slots.length ? [h("p", { key: "hint", style: { fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, margin: "12px 0" } }, "每套单独记住配色，选颜色或输入六位色号，小人会立即换上。"), h("button", { key: "reset-colors", type: "button", onClick: () => pushLook({ outfitColors: { ...outfit.colors } }),
+            style: { minHeight: 44, padding: "8px 14px", marginBottom: 8, border: "1px solid " + G.line, borderRadius: 10, background: "#f7f5e9", color: G.deep, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "恢复本套默认配色")].concat(slots.map(([slot, label]) => {
             const hex = selected.colors[slot] || "#8d5f66";
             return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
           })) : null; })()),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "发型"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } }, "发型"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
         Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
           const on = (game() && game().getHair ? game().getHair(who) : (look[who] || {}).hair || "") === key;
           return h("button", { key: key, onClick: () => pushLook({ hair: key }), className: "active:opacity-70",
             style: { padding: "11px 6px", borderRadius: 13, border: "1px solid " + (on ? G.deep : G.line),
               background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)",
-              fontFamily: F_BODY, fontSize: 12, lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
+              fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
         })),
-      !styles && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.soft } }, "发型名单还没读进来…"),
+      !styles && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.soft } }, "发型名单还没读进来…"),
       // 表情：换的是脸上那张贴图（doll.json 的 faces）；以后桌宠按心情自动换也走同一个 face 字段
       styles && styles.faces ? h("div", { style: { marginTop: 18 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } }, "表情"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } }, "表情"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 } },
           Object.entries(styles.faces).map(([key, label]) => {
             const on = ((look[who] || {}).face || "default") === key;
             return h("button", { key, "aria-pressed": on, onClick: () => pushLook({ face: key }), className: "active:opacity-70",
-              style: { minHeight: 36, borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: 11.5, color: on ? G.ink : G.soft } }, label);
+              style: { minHeight: 36, borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? G.ink : G.soft } }, label);
           }))) : null,
       // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
       ((styles && styles.dims) || []).length ? h("div", { style: { marginTop: 22 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "体型"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "按这只小旅人的比例微调；拖动就能看见变化，每一项都可以单独还原。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "体型"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "按这只小旅人的比例微调；拖动就能看见变化，每一项都可以单独还原。"),
         styles.dims.map(d => {
           const cur = Number(((look[who] || {}).dims || {})[d.key]);
           const value = isFinite(cur) ? cur : 1;
           return h("div", { "data-wk": "block", key: d.key, style: { marginBottom: 10, padding: "12px 13px", background: "rgba(244,229,211,.52)", border: "1px solid rgba(151,112,82,.16)", borderRadius: 14 } },
-            h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 3 } },
+            h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 3 } },
               h("span", null, d.label + " · " + Math.round(value * 100) + "%"),
               h("button", { onClick: () => pushLook({ dims: { [d.key]: 1 } }), className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 10.5, color: Math.abs(value - 1) < .005 ? "transparent" : G.deep, background: "transparent" } }, "回到中间")),
+                style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: Math.abs(value - 1) < .005 ? "transparent" : G.deep, background: "transparent" } }, "回到中间")),
             h("input", { type: "range", "aria-label": d.label, min: d.min, max: d.max, step: .01, value: value,
               onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
               style: { width: "100%", minHeight: 28, accentColor: "#a5785c" } }),
-            h("div", { className: "flex items-center justify-between", style: { fontSize: 10, color: G.soft } },
+            h("div", { className: "flex items-center justify-between", style: { fontSize: "calc(10px * var(--app-fs, 1))", color: G.soft } },
               h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
         })) : null,
       h(DyeControl, { key: who + "hair", label: "发色", value: game() && game().getDyes ? game().getDyes(who).hairColor : null,
@@ -739,7 +739,7 @@
         return h(React.Fragment, null,
           modes.length ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, margin: "4px 0 14px" } },
             modes.map(([id, label]) => h("button", { key: id, "aria-pressed": mode === id, onClick: () => pushLook({ hairMode: id }), className: "active:opacity-70",
-              style: { minHeight: 40, borderRadius: 12, border: "1px solid " + (mode === id ? G.deep : G.line), background: mode === id ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: 12 } }, label))) : null,
+              style: { minHeight: 40, borderRadius: 12, border: "1px solid " + (mode === id ? G.deep : G.line), background: mode === id ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, label))) : null,
           mode !== "solid" ? h(DyeControl, { key: who + "hair2", label: mode === "gradient" ? "发尾颜色" : mode === "split" ? "另一半颜色" : "挑染颜色",
             value: d ? d.hairColor2 : null, onChange: hairColor2 => pushLook({ hairColor2 }), palette: HAIR_COLORS.concat(["#e6b5ce", "#9fb8d8", "#f0e0b8"]) }) : null); })());
   }
@@ -747,7 +747,7 @@
     const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";
     const tone = { line: "#cbd4bd", ink: "#344936", bg2: "#f8f7ee", field: "#f8f7ee", ink2: "#344936" };
     return h("div", { style: { marginBottom: 14 } },
-      h("div", { style: { fontSize: 12, color: "#344936", marginBottom: 4 } }, label),
+      h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#344936", marginBottom: 4 } }, label),
       h(ColorDot, { value: hex, onChange: onChange, label: label, size: 44, palette: palette,
         hexField: true, hexOnly: true, tone: tone }));
   }
@@ -1268,7 +1268,7 @@
   const G = { ink: "#344936", soft: "#6e8060", line: "#d1dac2", paper: "#fffef5", deep: "#55704f" };
   // ⚠️写成函数，不是模块级常量：好几条测试把这个文件【按段】抠出来在 vm 里跑，
   //   在模块加载那一刻就去取 F_BODY 的话，那几段一跑就是「F_BODY is not defined」。
-  const pickButtonStyle = () => ({ border: "1px solid #c8d5ba", borderRadius: 14, padding: "14px 16px", background: "#f6f7ea", color: "#426043", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, textAlign: "left" });
+  const pickButtonStyle = () => ({ border: "1px solid #c8d5ba", borderRadius: 14, padding: "14px 16px", background: "#f6f7ea", color: "#426043", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, textAlign: "left" });
   // 「挑一位同行者」那一页的正文：新开一段和在庭院里另开一间，用的是同一份。
   // ⚠️只此一份：这一页上「住在村里的排前面」「没有角色时提示去档案馆」这些分寸，
   //   照着再抄一份就会各改各的（施工规则/one-public-mechanism.md）。
@@ -1286,7 +1286,7 @@
     //   不会再变成两个人（那一层在 world.mjs 里，界面怎么点都绕不过去）。
     const rows = (characters || []).slice().sort((a, b) => seated.indexOf(String(b.id)) - seated.indexOf(String(a.id)));
     return h("div", { "data-wk": "fgpick", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
-      h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } },
+      h("p", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.9, marginBottom: 20, color: G.soft } },
         // ⚠️一个角色都没有的时候「挑一位」没有对象，而下面那句「也可以先去…」
         //   还暗示着本来有别的选择——那条选择（示例同行者）已经撤掉了。空的时候换一句话说。
         rows.length ? note : "这个世界是和你手机里的角色一起过的。先去人格档案馆创建一位，再回来开一段。"),
@@ -1294,7 +1294,7 @@
         rows.map(c => h("button", { "data-wk": "fgpickrow", key: c.id, style: pickButtonStyle(), onClick: () => onPick(c.id) },
           (c.remark || c.name) + (seated.includes(String(c.id)) ? " · 住在村里" : "")))),
 
-      error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error));
+      error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, error));
   }
   function GardenSession(props) {
     // 存档挂哪儿：庭院房给自己那把钥匙，首页试玩仍是公共那一档
@@ -1792,7 +1792,7 @@
     //   React #310 直接白屏（test/hooks-order.test.js 钉着这条）。
     if (stalled.current) return h("div", { "data-wk": "fgstalled", className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: "等一下再进来", bg: "transparent", ink: "#344936", onBack: props.onBack }),
-      h("div", { style: { padding: "22px 20px", fontFamily: F_BODY, fontSize: 13, lineHeight: 2 } }, stalled.current));
+      h("div", { style: { padding: "22px 20px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 2 } }, stalled.current));
     async function send(retry) {
       if (busyRef.current || !game()) return;
       const c = partner(); if (!c) { setError("先选一位角色入住庭院。"); return; }
@@ -1867,7 +1867,7 @@
             h("button", { "data-wk": "fgpill", "data-part": "chat", "data-on": chat ? "1" : "0", style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(chat ? false : "bar"), disabled: !loaded }, chat ? "收起" : "说话")) })),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
-        !loaded && h("div", { "data-wk": "fgloading", style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
+        !loaded && h("div", { "data-wk": "fgloading", style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: "calc(12px * var(--app-fs, 1))", pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
         openFrameT&&h(FrameSheet,{thing:openFrameT,busy:frameBusy,onClose:()=>setFrame(null),
@@ -1909,68 +1909,68 @@
           bookTab === "bond" ? h("div", { "data-wk": "fgbookpage", "data-part": "bond", style: { padding: "16px 54px 40px 16px" } },
             // ── 相处册（她 2026-09-18：「做1和2」）。刻度按【一起做过几种事】走，不是分数。
             // ⚠️名单、档位、礼物的类别与态度都问 world.mjs 那一处要（getBond），这儿只画。
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "你们一起做过的事都记在这儿。做过的事越多样，处得越熟；处熟了，他能陪你去的地方就更多。"),
             bond ? h("div", null,
               h("div", { "data-wk": "fgbondcard", style: { borderRadius: 14, border: "1px solid " + G.deep, background: "rgba(255,255,255,.6)", padding: "12px 14px", marginBottom: 18 } },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: G.ink } }, bond.label),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: G.ink } }, bond.label),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                   bond.next ? "再一起做 " + bond.next.need + " 种没做过的事，就是「" + bond.next.label + "」。" : "能一起做的事，都一起做过了。"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 6, lineHeight: 1.7 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#93a188", marginTop: 6, lineHeight: 1.7 } },
                   "现在他愿意陪你去：" + bond.canGo.map(x => x.label).join("、"))),
               // 他带路的开关（她 2026-09-18：「开了的话就让角色带着过一遍」）
               bond.guide ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderRadius: 12, border: "1px solid " + G.line, background: "rgba(255,255,255,.55)", padding: "9px 12px", marginBottom: 14 } },
                 h("div", null,
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, "他带路"),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginTop: 2, lineHeight: 1.6 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.ink } }, "他带路"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginTop: 2, lineHeight: 1.6 } },
                     bond.guide.on ? (bond.guide.step ? "现在带你：" + bond.guide.step.label : "这一圈带完了，换季那天他还会带你看一处") : "关着。开了他会先走到该去的地方等你。")),
                 h("button", { "data-wk": "fgguide", "data-on": bond.guide.on ? "1" : "0", className: "active:opacity-70", onClick: () => { const g = game(); if (!g || !g.setGuide) return; g.setGuide(!bond.guide.on); pullGarden(); },
                   style: { ...pill(true), borderColor: bond.guide.on ? G.deep : G.line, color: bond.guide.on ? "#f7faf2" : G.soft, background: bond.guide.on ? G.deep : "rgba(255,255,255,.55)" } },
                   bond.guide.on ? "开着" : "关着")) : null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "一起做过的"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } }, "一起做过的"),
               h("div", { style: { display: "grid", gap: 8, marginBottom: 20 } },
                 bond.kinds.map(k => h("div", { "data-wk": "fgitem", "data-part": "kind", key: k.kind, style: { borderRadius: 12, border: "1px solid " + (k.count ? G.line : "rgba(209,218,194,.5)"), background: k.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: k.count ? 1 : .55 } },
                   h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, k.label),
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, k.count ? (k.count > 1 ? k.count + " 次 · " : "") + "第 " + k.day + " 天" : "还没有")),
-                  k.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 4, lineHeight: 1.6 } }, k.text) : null))),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink } }, k.label),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } }, k.count ? (k.count > 1 ? k.count + " 次 · " : "") + "第 " + k.day + " 天" : "还没有")),
+                  k.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 4, lineHeight: 1.6 } }, k.text) : null))),
               // ── 礼物簿：七类各自摸清了没有。⚠️他喜欢什么是他自己定的，这儿只显示她已经试出来的那几类
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "礼物簿"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "礼物簿"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "在庭院里走到他身边点「递一样东西」。一天只递一样。每一样东西他都各有各的态度——递过才知道；第一次接过那一样时他说的话会留在这儿。"),
-              ((bond.gifts.fromHim || []).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+              ((bond.gifts.fromHim || []).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "他递给你的：" + bond.gifts.fromHim.map(r => r.name + "（第 " + r.day + " 天）").join("、")) : null,
               h("div", { style: { display: "grid", gap: 8 } },
                 bond.gifts.families.map(f => h("div", { "data-wk": "fgitem", "data-part": "gift", key: f.id, style: { borderRadius: 12, border: "1px solid " + (f.count ? G.line : "rgba(209,218,194,.5)"), background: f.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: f.count ? 1 : .6 } },
                   h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, f.label),
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: f.stance === "love" || f.stance === "like" ? G.deep : "#93a188" } },
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink } }, f.label),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: f.stance === "love" || f.stance === "like" ? G.deep : "#93a188" } },
                       f.stance ? bond.gifts.stances[f.stance] + (f.count > 1 ? " · 递过 " + f.count + " 次" : "") : f.count ? "他没说" : "？")),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 3, lineHeight: 1.6 } }, f.what),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#93a188", marginTop: 3, lineHeight: 1.6 } }, f.what),
                   // ⚠️同一类里【一样一样】各自一行（她 2026-09-18：「每一档都单独吧」）：
                   //   一样是花，月光花和星铃花未必一个待遇；他说的话也各是各的。
                   (f.items || []).length ? h("div", { style: { display: "grid", gap: 6, marginTop: 7 } },
                     f.items.map(it => h("div", { "data-wk": "fgitemrow", key: it.key, style: { borderTop: "1px solid rgba(209,218,194,.55)", paddingTop: 6 } },
                       h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.name),
-                        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it.stance === "love" || it.stance === "like" ? G.deep : "#93a188" } },
+                        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.ink } }, it.name),
+                        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: it.stance === "love" || it.stance === "like" ? G.deep : "#93a188" } },
                           (it.stance ? bond.gifts.stances[it.stance] : "他没说") + (it.count > 1 ? " · 递过 " + it.count + " 次" : ""))),
-                      it.said && it.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 3, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, it.said.join("\n")) : null))) : null))),
+                      it.said && it.said.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 3, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, it.said.join("\n")) : null))) : null))),
               // ── 食谱册（她 2026-09-18：「夜市卖的跟吃的有关」）：十二样尝没尝过、会不会做。⚠️全从 world.foodBook 来，这儿只画
               bond.food ? h("div", { style: { marginTop: 20 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "食谱册 · 尝过 " + bond.food.tasted + " / " + bond.food.total),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "食谱册 · 尝过 " + bond.food.tasted + " / " + bond.food.total),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                   (bond.food.open ? "夜市开着，去灯串集市。" : bond.food.tonight ? "今晚有夜市，天黑后开。" : "夜市一季一次、两晚，下次是第 " + bond.food.next + " 天。") + "会做的在自己家灶台上做；吃的也能递给他，是礼物簿里单独一类。"),
-                bond.food.pantry.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+                bond.food.pantry.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                   "篮子里：" + bond.food.pantry.map(p => p.label + (p.from === "him" ? "（他买的）" : p.from === "home" ? "（自己做的）" : "")).join("、")) : null,
-                bond.food.buffs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.deep, marginBottom: 10, lineHeight: 1.7 } }, bond.food.buffs.join("；")) : null,
+                bond.food.buffs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.deep, marginBottom: 10, lineHeight: 1.7 } }, bond.food.buffs.join("；")) : null,
                 h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
                   bond.food.items.map(it => h("div", { "data-wk": "fgitem", "data-part": "food", key: it.id, style: { borderRadius: 12, border: "1px solid " + (it.tasted ? G.line : "rgba(209,218,194,.5)"), background: it.tasted ? "rgba(255,255,255,.6)" : "transparent", padding: "8px 10px", opacity: it.tasted ? 1 : .6 } },
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.tasted ? it.label : "？"),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188", marginTop: 3, lineHeight: 1.6 } },
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.ink } }, it.tasted ? it.label : "？"),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188", marginTop: 3, lineHeight: 1.6 } },
                       (it.tasted ? it.note : it.season != null ? "只在一季的夜市有" : it.cook ? "夜市上有，也能自己做" : "夜市上有") + (it.cook ? (it.known ? " · 会做" : " · 还不会做") : "") + (it.tasted && it.buff ? " · " + it.buff : ""))))))
               : null)
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft } }, "还没读到这一册。"))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft } }, "还没读到这一册。"))
           : bookTab === "crew" ? (invite ? h("div", { "data-wk": "fgbookpage", "data-part": "invite", style: { padding: "16px 54px 40px 16px" } },
             // ── 请 TA 搬进来之前先把话说清（她 2026-09-18：「邀请邻居进来是不是也能直接设置」）──
             // ⚠️开关那几条【不在这儿另写一份】：名字和措辞都问 ChatRooms.GROUPS.cognition，
@@ -1982,25 +1982,25 @@
               const who = (props.characters || []).find(c => String(c.id) === String(invite.charId));
               const flip = k => setInvite(v => ({ ...v, door: { ...v.door, [k]: !v.door[k] } }));
               return h(React.Fragment, null,
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: G.ink } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: G.ink } },
                   invite.fresh ? "请 " + (who ? (who.remark || who.name) : "TA") + " 搬进村里" : "改" + invite.name + "的设定"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, margin: "6px 0 14px" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, margin: "6px 0 14px" } },
                   "住进来之后 TA 在村里过自己的日子，你走在村里会碰见。这几条现在就能定，之后也随时能改。"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "村里叫 TA 什么"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 6 } }, "村里叫 TA 什么"),
                 h("input", { "data-wk": "fginput", "data-part": "invitename", value: invite.name, maxLength: 16,
                   onChange: e => setInvite(v => ({ ...v, name: e.target.value })),
                   style: { width: "100%", padding: "10px 11px", borderRadius: 11, border: "1px solid " + G.line,
-                    background: "rgba(255,255,255,.7)", color: G.ink, fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginTop: 6, lineHeight: 1.7 } },
+                    background: "rgba(255,255,255,.7)", color: G.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginTop: 6, lineHeight: 1.7 } },
                   "样子搬进来之后在「样貌」那一页换，和同行者走同一套。"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, margin: "18px 0 4px" } }, "TA 进这个村子时带着什么"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, lineHeight: 1.7, marginBottom: 6 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, margin: "18px 0 4px" } }, "TA 进这个村子时带着什么"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.7, marginBottom: 6 } },
                   "默认什么都不带。TA 是你手机里的角色，带哪些进来由你一条条拨开。"),
                 rows.map(([k, label, note]) => h("div", { "data-wk": "fgdoorrow", key: k, className: "flex items-center justify-between",
                   style: { padding: "11px 0", borderBottom: "1px solid " + G.line, gap: 12 } },
                   h("div", null,
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, label),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft, marginTop: 2, lineHeight: 1.45 } }, note)),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink } }, label),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.soft, marginTop: 2, lineHeight: 1.45 } }, note)),
                   h("button", { "data-wk": "fgdoor", "data-on": invite.door[k] ? "1" : "0", onClick: () => flip(k), className: "active:opacity-70", "aria-pressed": !!invite.door[k],
                     style: { flexShrink: 0, width: 46, height: 27, borderRadius: 999, border: "1px solid " + G.line,
                       background: invite.door[k] ? G.deep : "rgba(255,255,255,.6)", padding: 2, display: "flex",
@@ -2016,46 +2016,46 @@
                       setInvite(null); pullGarden();
                       props.toast(invite.fresh ? invite.name + "搬进来了。" : "改好了。"); },
                     style: { flex: 1, padding: "11px 0", borderRadius: 12, border: 0, background: G.deep,
-                      color: "#f6f7ea", fontFamily: F_BODY, fontSize: 13 } },
+                      color: "#f6f7ea", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
                     invite.fresh ? "请 TA 搬进来" : "保存"),
                   h("button", { "data-wk": "fgbtn", "data-part": "cancel", onClick: () => setInvite(null),
                     style: { padding: "11px 15px", borderRadius: 12, border: "1px solid " + G.line,
-                      background: "transparent", color: G.soft, fontFamily: F_BODY, fontSize: 12.5 } }, "算了")));
+                      background: "transparent", color: G.soft, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "算了")));
             })())
           : h("div", { "data-wk": "fgbookpage", "data-part": "crew", style: { padding: "16px 54px 40px 16px" } },
             // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
             // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "村里有三间邻居屋。请谁住进来，谁就在村里过自己的日子——早上出门、去集市、傍晚回自己门前，你走在村里会碰见。走近了能挥手、能递东西，处得近了公告栏上的委托才落他们的名字。"),
             ((crew && crew.pairs) || []).length ? h("div", { style: { borderRadius: 12, border: "1px solid " + G.line, background: "rgba(255,255,255,.45)", padding: "9px 12px", marginBottom: 14 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.ink, marginBottom: 4 } }, "他们之间"),
-              crew.pairs.map((p, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.7 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "他们之间"),
+              crew.pairs.map((p, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.7 } },
                 p.a + " 和 " + p.b + " 在村里碰过 " + p.n + " 次" + (p.day ? "，最近是第 " + p.day + " 天" : "")))) : null,
             ((crew && crew.rows) || []).length ? h("div", { style: { display: "grid", gap: 10, marginBottom: 18 } },
               crew.rows.map(n => h("div", { "data-wk": "fgitem", "data-part": "crew", key: n.charId, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, n.name),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, n.houseLabel)),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5 } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: G.ink } }, n.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } }, n.houseLabel)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5 } },
                   n.here ? "这会儿在" + (n.where || n.map) : "这会儿在" + n.map),
                 // 碰见：走在村里照过几次面。⚠️这个数只数【她自己碰见的】，
                 //   邻居之间碰得再多也不是她的交情（world.mjs 的 metCount 就是这么算的）。
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 4 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#93a188", marginTop: 4 } },
                   n.met ? "碰见过 " + n.met + " 次 · " + n.closeness : "还没在路上碰见过"),
                 h("div", { className: "flex items-center", style: { gap: 14, marginTop: 8 } },
                   h("button", { "data-wk": "fgbtn", "data-part": "editcrew", onClick: () => setInvite({ charId: n.charId, name: n.name, door: { ...(n.door || {}) }, fresh: false }),
                     className: "active:opacity-60",
-                    style: { fontFamily: F_BODY, fontSize: 10.5, color: G.deep, background: "transparent", padding: 0 } },
+                    style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.deep, background: "transparent", padding: 0 } },
                     "设定 ›"),
                   h("button", { "data-wk": "fgbtn", "data-part": "moveout", onClick: () => { const g = game(); if (!g || !g.moveOut) return;
                       const err = g.moveOut(n.charId);
                       if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。房间和聊天都留着。"); },
                     className: "active:opacity-60",
-                    style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent", padding: 0 } },
+                    style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a08d86", background: "transparent", padding: 0 } },
                     "请 TA 搬走")))))
-              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
                   "三间屋都空着。"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } },
               (crew && crew.free) ? "请谁搬进来" : "三间都住满了"),
             (crew && crew.free) ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
               (props.characters || []).filter(c => String(c.id) !== String(entry.partnerId)
@@ -2067,23 +2067,23 @@
               : null))
           :           bookTab === "bottle" ? h("div", { "data-wk": "fgbookpage", "data-part": "bottle", style: { padding: "16px 54px 40px 16px" } },
             // 回信与原信沿用同一本漂流瓶记录。
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "写一句话封进瓶子里放下水，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，可能捞到同行者的回信，也可能只有原信。到月湖栈桥捞，一天一只；读新回信会使用创作线路。"),
             h("textarea", { "data-wk": "fginput", "data-part": "bottle", value: bottleText, onChange: e => setBottleText(e.target.value), rows: 2, maxLength: 120,
               placeholder: "想放进瓶子里的那一句话……",
               style: { width: "100%", border: "1px solid " + G.line, background: G.paper, borderRadius: 14, padding: "10px 12px",
-                fontFamily: F_BODY, fontSize: 14, color: G.ink, outline: "none", resize: "none" } }),
+                fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: G.ink, outline: "none", resize: "none" } }),
             h("button", { "data-wk": "fgbtn", "data-part": "bottle", className: "w-full active:opacity-70",
               onClick: () => { const g = game(); if (!g || !g.seal) return;
                 const err = g.seal(bottleText);
                 if (err) { props.toast(err); return; }
                 setBottleText(""); pullGarden(); props.toast("放下水了，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，去水边看看。"); },
-              style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5 } },
+              style: { marginTop: 9, border: 0, borderRadius: 999, padding: "11px 0", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } },
               "放下水"),
             ((bottles && bottles.waiting) || []).length ? h("div", { style: { marginTop: 20 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } },
                 bottles.ready ? "有 " + bottles.ready + " 只已到月湖，去栈桥捞捞看" : "还在水里的"),
-              bottles.waiting.map(b => h("div", { "data-wk": "fgitem", "data-part": "bottlewait", key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+              bottles.waiting.map(b => h("div", { "data-wk": "fgitem", "data-part": "bottlewait", key: b.id, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
                 b.text + (b.backIn ? " · 还有 " + b.backIn + " 个游戏日" : " · 已到月湖，待捞")))) : null,
             h("section", { "data-wk": "fgbottlebook", ref:bottleArchive,"aria-label":"漂流信册",style:{marginTop:22}},
               h("div", {style:{fontFamily:F_BODY,fontSize:12,color:G.ink,marginBottom:8}}, "捞上来过的 · 共 " + (bottles?.total||0) + " 封"),
@@ -2106,63 +2106,63 @@
           :           bookTab === "museum" ? h("div", { "data-wk": "fgbookpage", "data-part": "museum", style: { padding: "16px 54px 40px 16px" } },
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
             //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "留在收藏馆里的东西会一直摆着——背包会被挤掉，这一份不会。走进村南那间小馆才能留。"),
             // ⚠️馆里那几件排在前面：笔记有三十行，其中二十多行是「？」，
             //   摆在上面就把她真正捐进去的那几件压到屏幕外头去了。
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } },
               "馆里摆着的 " + ((museum && museum.rows) || []).length + " 件"),
             ((museum && museum.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               museum.rows.map(t => h("div", { "data-wk": "fgitem", "data-part": "museum", key: t.id, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, "第 " + t.gaveDay + " 天捐的")),
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: G.ink } }, t.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } }, "第 " + t.gaveDay + " 天捐的")),
                 travelFramePreview(t),
-                t.image && h("button", { "data-wk": "fgframebtn", type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
-                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
-              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+                t.image && h("button", { "data-wk": "fgframebtn", type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 40, marginBottom: 6 } }, "在背面写字"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
+                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.9 } },
                   "还空着。做好一样东西，走进收藏馆把它留在那儿。"),
             // 炼金笔记：做成过的写出名字，没做成过的只留一行材料——那是线索，不是清单
             h("div", { style: { marginTop: 24, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink } }, "炼金笔记"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink } }, "炼金笔记"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.soft } },
                 "做成过 " + ((museum && museum.made) || []).length + " / " + ((museum && museum.total) || 0) + " 种")),
             h("div", { style: { display: "grid", gap: 6, marginTop: 8 } },
               ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) > -1).map(r =>
                 h("div", { key: r.key, style: { display: "flex", alignItems: "baseline", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(209,218,194,.55)" } },
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink, flex: 1 } }, r.name),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, r.how)))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 12, lineHeight: 1.9 } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, flex: 1 } }, r.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } }, r.how)))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#93a188", marginTop: 12, lineHeight: 1.9 } },
               "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
                 .map(r => r.how).join("、")))
           :           bookTab === "things" ? h("div", { "data-wk": "fgbookpage", "data-part": "things", style: { padding: "16px 54px 40px 16px" } },
             // ── 修好的地方（她 2026-09-17：「做④吧宝宝」）。
             // ⚠️「还差什么」问的是 world.mjs 那一处（workShort），这儿不另算一遍。
             ((things && things.works) || []).length ? h("div", { style: { marginBottom: 22 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 4 } }, "修好的地方"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "修好的地方"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "弄好一处，村里就多一处能用的地方——下雨他会去那儿躲，午后他会去那儿坐。材料带齐了，走到那儿就能动手。"),
               h("div", { style: { display: "grid", gap: 9 } },
                 things.works.map(w => h("div", { "data-wk": "fgitem", "data-part": "work", key: w.id, style: { borderRadius: 14, border: "1px solid " + (w.done ? G.deep : G.line), background: "rgba(255,255,255,.55)", padding: "10px 13px" } },
                   h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: G.ink } }, w.label),
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: w.done ? G.deep : "#93a188" } },
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: G.ink } }, w.label),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: w.done ? G.deep : "#93a188" } },
                       w.done ? "弄好了" : (w.where || "公告栏"))),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                     w.done ? w.hint : w.cost ? (w.short.length ? "还差" + w.short.join("、") : "材料齐了，走过去就能动手") + " · 要" + w.cost : w.hint))))) : null,
             // ── 屋里：锅炼出来的东西。⚠️这一整条链一枪都不打，全是代码算的
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。屋里屋外每一件放得住东西的家具都摆得下：走过去点它就行。"),
             ((things && things.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               things.rows.map(t => h("div", { "data-wk": "fgitem", "data-part": "thing", key: t.id, style: { borderRadius: 14, border: "1px solid " + (t.spot ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
-                  h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: G.ink } }, t.name),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } },
                     (things.ways[t.way] ? things.ways[t.way].label : "") + " · 第 " + t.day + " 天")),
                 travelFramePreview(t),
-                t.image && h("button", { "data-wk": "fgframebtn", type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
+                t.image && h("button", { "data-wk": "fgframebtn", type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: "calc(12px * var(--app-fs, 1))", minHeight: 40, marginBottom: 6 } }, "在背面写字"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                   t.ready ? t.note : "还封着，第 " + t.openDay + " 天才能打开。"),
                 !t.ready ? h("button", { "data-wk": "fgbtn", "data-part": "ready", className: "active:opacity-70",
                   onClick: () => { const g = game(); if (!g || !g.hasten) return;
@@ -2172,7 +2172,7 @@
                   style: { ...pill(true), marginTop: 8, borderColor: G.line, color: ((things && things.potions) > 0) ? G.deep : "#b3bfa6",
                     background: "rgba(255,255,255,.55)" } },
                   ((things && things.potions) > 0) ? "倒一滴月露 · 今天就开" : "倒一滴月露（没有月露了）") : null,
-                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null,
+                t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null,
                 t.ready ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
                   // ⚠️位置从三个变成了五十二个：一件东西底下铺五十二颗药丸没法用。
                   //   这儿只留【老三样 ＋ 它现在在的那一处 ＋ 她这会儿站着的那一件】，
@@ -2186,57 +2186,57 @@
                       style: { ...pill(true), borderColor: t.spot === k ? G.deep : G.line, color: t.spot === k ? G.ink : G.soft,
                         background: t.spot === k ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)" } },
                       t.spot === k ? "已摆在" + label : "摆到" + label))) : null)))
-              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.9 } },
                   "还没有。下井刨一片碎片回来，走到炼药锅那儿做点东西。"))
           : bookTab === "shards" ? h("div", { "data-wk": "fgbookpage", "data-part": "shards", style: { padding: "16px 54px 40px 16px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "井潮带来的奇物，里面留着不同的片段。越深的只是越完整、越奇怪，不是越沉重。"),
             ((shardBox && shardBox.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               shardBox.rows.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(sh =>
                 h("div", { "data-wk": "fgitem", "data-part": "shard", "data-on": sh.pinned ? "1" : "0", key: sh.id, style: { borderRadius: 14, border: "1px solid " + (sh.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } },
                     "〔" + ((shardBox.curios && shardBox.curios[sh.curio] && shardBox.curios[sh.curio].name) || (shardBox.kinds && shardBox.kinds[sh.kind]) || "碎片") + "〕第 " + sh.depth + " 层 · 第 " + sh.day + " 天" + (sh.whole ? " · 完整的一片" : "")),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, sh.text),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, sh.text),
                   h("button", { "data-wk": "fgpin", onClick: () => { const g = game(); if (g && g.pinShard) { g.pinShard(sh.id); pullGarden(); } }, className: "active:opacity-60",
-                    style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: sh.pinned ? G.deep : "#93a188", background: "transparent" } },
+                    style: { marginTop: 7, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: sh.pinned ? G.deep : "#93a188", background: "transparent" } },
                     sh.pinned ? "已钉住" : "钉住"))))
-              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.9 } },
                   "还没有。从屋边那口井下去，石头里有东西。"),
-            shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, color: G.soft } }, "正在读这一层的石头…") : null,
+            shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft } }, "正在读这一层的石头…") : null,
             // ⚠️封出去的那几片【还读得到】——施法不烧掉碎片，这是它的另一半
             ((shardBox && shardBox.casts) || []).length ? h("div", { style: { marginTop: 22 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "封出去的"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } }, "封出去的"),
               h("div", { style: { display: "grid", gap: 10 } },
                 shardBox.casts.map((c, i) => h("div", { "data-wk": "fgitem", "data-part": "cast", key: c.place + ":" + i, style: { borderRadius: 14, border: "1px dashed " + G.line, background: "rgba(255,255,255,.45)", padding: "11px 13px" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } },
                     "〔" + c.spell + "〕封在" + c.place + " · 第 " + c.day + " 天"),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.soft, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, c.text))))) : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.soft, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, c.text))))) : null,
             ((shardBox && shardBox.spells) || []).length ? h("div", { style: { marginTop: 20 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "会念的咒"),
-              shardBox.spells.map(sp => h("div", { key: sp.id, style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, padding: "5px 0" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 6 } }, "会念的咒"),
+              shardBox.spells.map(sp => h("div", { key: sp.id, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, padding: "5px 0" } },
                 sp.name + " · 要" + sp.need + " —— " + sp.note))) : null)
           : h("div", { "data-wk": "fgbookpage", "data-part": "notes", style: { padding: "16px 54px 40px 16px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "走到花圃那儿种一句下去，过三天开花。开好了再走过去收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
             // 地里的
             ((garden && garden.seeds) || []).length ? h("div", { style: { marginTop: 20 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "地里的"),
-              garden.seeds.map(sd => h("div", { "data-wk": "fgitem", "data-part": "seed", key: sd.id, style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, lineHeight: 1.7, padding: "7px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } }, "地里的"),
+              garden.seeds.map(sd => h("div", { "data-wk": "fgitem", "data-part": "seed", key: sd.id, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.7, padding: "7px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
                 "〔" + (sd.label || garden.kinds[sd.kind] || "今天") + "〕" + (sd.ask || "（只种了一个念头）") + " · " + (sd.bloomIn > 0 ? "还有 " + sd.bloomIn + " 天开" : "开好了，去花圃收")))) : null,
             // 花册
             h("div", { style: { marginTop: 22, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink } }, "花册"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink } }, "花册"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.soft } },
                 ((garden && garden.notes) || []).length ? "共 " + garden.notes.length + " 张" : "还没有")),
             h("div", { style: { marginTop: 8, display: "grid", gap: 10 } },
               ((garden && garden.notes) || []).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(nt =>
                 h("div", { "data-wk": "fgitem", "data-part": "note", "data-on": nt.pinned ? "1" : "0", key: nt.id, style: { borderRadius: 14, border: "1px solid " + (nt.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#93a188" } },
                     "第 " + nt.day + " 天 ·〔" + ((garden.kinds && garden.kinds[nt.kind]) || "今天") + "〕"),
-                  nt.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 4, lineHeight: 1.6 } }, "你问：" + nt.ask) : null,
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, nt.reply),
+                  nt.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 4, lineHeight: 1.6 } }, "你问：" + nt.ask) : null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, nt.reply),
                   h("button", { "data-wk": "fgpin", onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
-                    style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
+                    style: { marginTop: 7, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
                     nt.pinned ? "已钉住" : "钉住")))))),
         dress && h("div", { "data-wk": "fgdress", style: { position: "absolute", inset: 0, background: "transparent", pointerEvents: "none" } },
           // ⚠️这条 30% 高的窗要【真的透明】：底下就是游戏，游戏往这儿渲要换的那个小人。
@@ -2249,10 +2249,10 @@
             [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"],
               ...(((crew && crew.rows) || []).map(n => [String(n.charId), n.name]))].map(([k, label]) =>
               h("button", { "data-wk": "fgdresstab", "data-on": who === k ? "1" : "0", key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
-                style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: who === k ? G.ink : "#93a188",
+                style: { padding: "12px 0", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: who === k ? G.ink : "#93a188",
                   borderBottom: "2px solid " + (who === k ? G.deep : "transparent"), background: "transparent" } }, label))),
           h("div", { style: { padding: "16px 54px 40px 16px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               who === "companion" && char
                 ? "换的是 " + (char.remark || char.name) + " 在这个庭院里的样子，只在这一个存档里算数。"
                 : who === "me" ? "换的是你自己在这个庭院里的样子。"
@@ -2263,26 +2263,26 @@
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
           // ⚠️那个小箭头就是【要不要看记录】：平时只留一条输入，点开才长高
           h("div", { style: { padding: "6px 10px 6px 16px", display: "flex", alignItems: "center", gap: 8 } },
-            h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
+            h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.soft } },
               char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
             chat === "tall" ? h("button", { "data-wk": "fgpill", "data-part": "newroom", onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间") : null,
             h("button", { "data-wk": "fgchattoggle", "aria-label": chat === "tall" ? "收起聊天记录" : "看看聊天记录", onClick: () => openChat(chat === "tall" ? "bar" : "tall"),
-              style: { border: 0, background: "transparent", color: G.soft, fontSize: 15, minWidth: 40, minHeight: 34, lineHeight: 1 } },
+              style: { border: 0, background: "transparent", color: G.soft, fontSize: "calc(15px * var(--app-fs, 1))", minWidth: 40, minHeight: 34, lineHeight: 1 } },
               chat === "tall" ? "⌄" : "⌃")),
-          chat === "tall" ? h("div", { "data-wk": "fgmsgs", ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
+          chat === "tall" ? h("div", { "data-wk": "fgmsgs", ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
             h(LegacyWorldDialogs,{record,archive:entry,cid:entry.partnerId}),
             rows.map(m => h("div", { "data-wk": "fgmsg", "data-me": m.role === "user" ? "1" : "0", key: m.id, style: { margin: "0 0 13px" } },
-              h("div", { "data-wk": "fgmsgname", style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
+              h("div", { "data-wk": "fgmsgname", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
               h("div", { "data-wk": "fgbubble", "data-me": m.role === "user" ? "1" : "0", style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),
             !rows.length && h("p", { "data-wk": "fgempty", style: { margin: "6px 0 12px", color: "#93a188" } }, "想聊什么，或者想一起去哪里？"),
             busy && h("p", { role: "status", style: { margin: "0 0 12px", color: "#93a188" } }, "正在回应…"),
             error && h("p", { role: "alert", style: { margin: "0 0 10px", color: "#a34836" } }, error),
-            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))) : null,
+            detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: "calc(10px * var(--app-fs, 1))", marginTop: 6 } }, detail))) : null,
           chat === "tall" && !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { "data-wk": "fgretry", style: { padding: "0 16px 8px" } },
             h("button", { style: pill(true), onClick: () => send(true) }, "重试上次未完成的回复")),
           h("form", { "data-wk": "fgcompose", onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
-            h("input", { "data-wk": "fginput", "data-part": "chat", "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
-            h("button", { "data-wk": "fgsend", type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5, opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
+            h("input", { "data-wk": "fginput", "data-part": "chat", "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: G.ink, outline: "none" } }),
+            h("button", { "data-wk": "fgsend", type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
   }
   const DAY_WORLD = { id: "day", name: "TA的一天", note: "跟着TA看看今天" };
   const INDEX_KEY = "x_fairyGardenSaves";
@@ -2442,7 +2442,7 @@
     // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
     const stall = vaultStalled(INDEX_KEY);
     if (stall) return shell("等一下再进来", props.onBack,
-      h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
+      h("p", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
     if (!world) {
       // 路上的站：先是已经能进的那几个世界，末尾留一个空圈——路还没走完。
       const stops = WORLDS.concat([DAY_WORLD, null]);
@@ -2451,10 +2451,10 @@
         const label = h("div", { style: { flex: 1, minWidth: 0, textAlign: left ? "left" : "right" } },
           h("div", { "data-wk": "fgworldname", style: { fontFamily: F_DISPLAY, fontSize: w ? 16.5 : 13.5, color: w ? G.ink : G.soft } },
             w ? w.name : "还没有下一个"),
-          w ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.65 } }, w.note) : null,
+          w ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5, lineHeight: 1.65 } }, w.note) : null,
           w ? h("span", { style: { display: "inline-block", marginTop: 10, padding: "3.5px 10px", borderRadius: 999,
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
-            fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
+            fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
           h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?worldDay():worldHouse()) : worldSoon()), label);
         return w
@@ -2468,7 +2468,7 @@
         path.push(stop(w, i));
       });
       return shell("挑一个世界", props.onBack, h(React.Fragment, null,
-        h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
+        h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
           "庭院、列车与绒绒小镇共用旅程。也可以去「TA的一天」，看看TA此刻的日程。"),
         h("div", null, path)));
     }
@@ -2504,7 +2504,7 @@
       partnerPickBody({ characters: props.characters, live: [], onPick: pickForNew,
         note: "挑一位同行者，再设置房间名称、设定和记忆权限。庭院与列车共用这一档旅程，原来的房间与存档保留。" }));
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
-      h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 16px" } },
+      h("p", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.9, color: G.soft, margin: "6px 0 16px" } },
         world.id === "train" ? "选一个已有庭院存档，和这一档的同行者上车；也可以先选同行者、设置新房间，再开始一段旅程。" : "选一档接着过，或者从头开一段新的。"),
       h("div", { "data-wk": "fgsaves", style: { display: "grid", gap: 11 } },
         rows.map((row, i) => {
@@ -2514,14 +2514,14 @@
             // ⚠️以前开的示例档没有同行者：直接进去接着玩，别摆一张【它逃不掉的】选人页
             //   ——那一页现在只剩「挑一位」，一挑就跑去开新房间，这一档就被撂下了。
             card(() => { setOpenSolo(!meta.partnerId); setOpenId(saveKeyOf(row)); }, h(React.Fragment, null,
-              h("div", { "data-wk": "fgsavename", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
-              h("div", { "data-wk": "fgsavesub", style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
+              h("div", { "data-wk": "fgsavename", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
+              h("div", { "data-wk": "fgsavesub", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
             h("button", { "data-wk": "fgsavedel", onClick: () => drop(row), className: "active:opacity-60",
-              style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
+              style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#a08d86", background: "transparent" } }, "删掉"));
         }),
         h("button", { "data-wk": "fgnewbtn", onClick: () => setPicking(true), className: "w-full active:opacity-70",
-          style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
+          style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.deep } },
           world.id === "train" ? "＋ 选同行者，开新房间" : "＋ 新开一段"))));
   };
 })(window);

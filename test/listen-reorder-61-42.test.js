@@ -39,7 +39,7 @@ test("「我喜欢的音乐」只剩一份", () => {
   assert.doesNotMatch(CLOUD, /"我喜欢的音乐"/, "「发现」里还摆着它——那是她已经有的东西");
   // ⚠️别去数字符串出现几次：一处是【滤掉它】的那行代码，一处是没连账号时
   //   本地收藏才顶用这个名——那两者永远不会同时出现在屏幕上。要数就数【画出来的卡】。
-  const cards = (MINE.match(/fontSize: 16, color: t\.ink \} \}, ("我喜欢的音乐"|\(!gdMusic && apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐")/g) || []).length;
+  const cards = (MINE.match(/fontSize: "calc\(16px \* var\(--app-fs, 1\)\)", color: t\.ink \} \}, ("我喜欢的音乐"|\(!gdMusic && apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐")/g) || []).length;
   assert.equal(cards, 2, "画出来的卡应该正好两张：网易云那张 + 本地那张（后者只在没连账号时才叫这个名）");
   assert.match(MINE, /\(!gdMusic && apiBase && cookie\) \? "本地收藏" : "我喜欢的音乐"/,
     "连了账号时本地那张必须改叫「本地收藏」，否则屏幕上两张同名卡");

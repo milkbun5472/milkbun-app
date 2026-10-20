@@ -27,7 +27,7 @@ test("她自己的头像不再每一行重复一遍", () => {
 test("「恋爱中」那句去掉了，天数变成主角", () => {
   assert.ok(!/"与 " \+ e\.char\.name \+ " 恋爱中 · "/.test(us), "整页都是恋爱中，每行再写一遍是废字");
   // v75.818 起非恋人空间的天数换成那层关系自己的颜色，恋人照旧 #d16a86；守的是「天数是主角」：26 号字、一行
-  assert.match(us, /fontSize: 26, lineHeight: 1, color: [^\n]*"#d16a86" \} \}, String\(n\)\)/, "天数是主角");
+  assert.match(us, /fontSize: "calc\(26px \* var\(--app-fs, 1\)\)", lineHeight: 1, color: [^\n]*"#d16a86" \} \}, String\(n\)\)/, "天数是主角");
   assert.match(us, /"天 · 从 " \+ dayFmt\(e\.st\.since\) \+ " 起"/);
 });
 

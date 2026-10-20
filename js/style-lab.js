@@ -125,14 +125,14 @@
 
     const assembled = cur ? SP.textFor(cur, null, { uName: (props.profile && props.profile.name) || "你" }) : "";
     const S = {
-      h2: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 3 },
-      hint: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 },
+      h2: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 3 },
+      hint: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 },
       card: { background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: 11 },
-      tapGhost: color => ({ minHeight: 40, padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: color, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1 }),
-      tapIcon: color => ({ minWidth: 40, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: color, fontSize: 15, padding: 0 }),
-      input: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" },
+      tapGhost: color => ({ minHeight: 40, padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: color, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1 }),
+      tapIcon: color => ({ minWidth: 40, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: color, fontSize: "calc(15px * var(--app-fs, 1))", padding: 0 }),
+      input: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, outline: "none" },
       // 台边的家伙什：方角、小、不抢版的位置（跟「一块版」长得不一样才分得开）
-      tool: { minHeight: 40, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12 }
+      tool: { minHeight: 40, padding: "9px 12px", borderRadius: 6, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" }
     };
 
     // 一块版长什么样，只画在这一处：搭预设那一排和测试台「印哪几块」共用。
@@ -149,8 +149,8 @@
       } },
       h("span", { style: { width: 5, flexShrink: 0, borderRadius: "3px 0 0 3px", background: o.on ? (o.edge || t.accent) : t.line } }),
       h("span", { style: { padding: "6px 12px 6px 10px", textAlign: "left" } },
-        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 13.5, color: o.on ? t.ink : t.sub } }, o.name),
-        o.sub ? h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 10, color: t.fog, marginTop: 1 } }, o.sub) : null));
+        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: o.on ? t.ink : t.sub } }, o.name),
+        o.sub ? h("span", { style: { display: "block", fontFamily: "monospace", fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, o.sub) : null));
 
     // ---- 搭预设 ----
     const buildTab = h("div", { "data-wk": "slbuild", style: { padding: "14px 14px 28px" } },
@@ -179,7 +179,7 @@
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center",
                 minHeight: 88, borderRadius: "3px 5px 5px 3px", border: "1px dashed " + t.line,
                 background: "rgba(127,127,127,.04)", marginBottom: 14 } },
-              h("span", { style: Object.assign({}, S.hint, { fontSize: 12.5 }) }, "台上还没有版")),
+              h("span", { style: Object.assign({}, S.hint, { fontSize: "calc(12.5px * var(--app-fs, 1))" }) }, "台上还没有版")),
             h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } },
               [["1", "先从上面挑一样起手：「＋新建」从字条搭一块，「⇧导入文件」把你写好的整篇塞进来，「搬旧文风」把线下那边已有的搬过来（原来那条不动）。"],
                ["2", "在字盘里挑几根字条，它们会按顺序卡进槽里——越往下模型看得越重。"],
@@ -187,7 +187,7 @@
                 .map(function (row) {
                   return h("div", { "data-wk": "slrow", key: row[0], style: { display: "flex", gap: 9, alignItems: "flex-start" } },
                     h("span", { style: { width: 18, height: 18, flexShrink: 0, borderRadius: 2, background: t.ink, color: t.bg2,
-                      fontFamily: "monospace", fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center" } }, row[0]),
+                      fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, row[0]),
                     h("span", { style: Object.assign({}, S.hint, { flex: 1, lineHeight: 1.75 }) }, row[1]));
                 })))
         : h("div", null,
@@ -213,11 +213,11 @@
                         borderTop: i ? "1px solid " + t.line : "none" } },
                         // 轨：一根从头连到尾的墨条，号码印在它上面
                         h("span", { style: { width: 26, flexShrink: 0, background: t.ink, color: t.bg2,
-                          fontFamily: "monospace", fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center" } }, String(i + 1)),
+                          fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, String(i + 1)),
                         h("div", { style: { flex: 1, minWidth: 0, padding: "9px 4px 9px 11px", display: "flex", alignItems: "center", gap: 6 } },
                           h("div", { style: { flex: 1, minWidth: 0 } },
-                            h("div", { "data-wk": "slslotname", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
-                            m && m.builtinIn ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginTop: 1 }) }, "小剧场本来就有这条，在那边会自动跳过") : null),
+                            h("div", { "data-wk": "slslotname", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
+                            m && m.builtinIn ? h("div", { style: Object.assign({}, S.hint, { fontSize: "calc(10.5px * var(--app-fs, 1))", marginTop: 1 }) }, "小剧场本来就有这条，在那边会自动跳过") : null),
                           h("button", { "data-wk": "slmove", "data-part": "up", onClick: () => moveMod(id, -1), "aria-label": "往前挪一格", style: S.tapIcon(t.fog) }, "↑"),
                           h("button", { "data-wk": "slmove", "data-part": "down", onClick: () => moveMod(id, 1), "aria-label": "往后挪一格", style: S.tapIcon(t.fog) }, "↓"),
                           h("button", { "data-wk": "slremove", onClick: () => toggleMod(id), "aria-label": "从槽里取出来", style: S.tapIcon(t.accent) }, "×")));
@@ -226,8 +226,8 @@
                 (cur.mods || []).length > 1
                   ? h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 6px",
                       borderTop: "1px solid " + t.line, background: "rgba(127,127,127,.05)" } },
-                      h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.fog } }, "↓"),
-                      h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5 }) }, "越往下，模型看得越重"))
+                      h("span", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "↓"),
+                      h("span", { style: Object.assign({}, S.hint, { fontSize: "calc(10.5px * var(--app-fs, 1))" }) }, "越往下，模型看得越重"))
                   : null)),
 
             // ── 模块库＝字盘（v65.10）──────────────────────────────────
@@ -243,21 +243,21 @@
               modEdit ? h("div", { "data-wk": "slmodedit", style: { border: "1px solid " + t.ink, borderRadius: 6, background: t.bg2, padding: 10, marginBottom: 10 } },
                 h("div", { style: Object.assign({}, S.hint, { marginBottom: 6, color: t.ink }) }, modEdit.id === "__new" ? "自己写一个模块" : "改这一条"),
                 h("input", { "data-wk": "input", value: modEdit.name, onChange: e => setModEdit(x => Object.assign({}, x, { name: e.target.value })), placeholder: "名字",
-                  style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none", marginBottom: 6 } }),
+                  style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, outline: "none", marginBottom: 6 } }),
                 h("input", { "data-wk": "input", value: modEdit.hint, onChange: e => setModEdit(x => Object.assign({}, x, { hint: e.target.value })), placeholder: "一句话说它管什么（可空）",
-                  style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none", marginBottom: 6 } }),
+                  style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, outline: "none", marginBottom: 6 } }),
                 h("textarea", { "data-wk": "textarea", value: modEdit.text, onChange: e => setModEdit(x => Object.assign({}, x, { text: e.target.value })), rows: 7, placeholder: "写给模型看的那段要求…",
-                  style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, outline: "none", resize: "vertical" } }),
+                  style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, outline: "none", resize: "vertical" } }),
                 h("div", { style: { display: "flex", gap: 8, marginTop: 8, alignItems: "center" } },
                   h("button", { "data-wk": "slmodsave", onClick: () => {
                       try { if (modEdit.id === "__new") SP.addUserModule(modEdit); else SP.saveModuleEdit(modEdit.id, modEdit); setModEdit(null); setPresets(SP.list().slice()); }
                       catch (e) { props.toast && props.toast(e.message || "没存上"); } },
-                    style: { minHeight: 40, padding: "0 16px", borderRadius: 4, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, border: "none" } }, "存好"),
-                  h("button", { "data-wk": "block", onClick: () => setModEdit(null), style: { minHeight: 40, padding: "0 12px", background: "none", border: "none", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
+                    style: { minHeight: 40, padding: "0 16px", borderRadius: 4, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "none" } }, "存好"),
+                  h("button", { "data-wk": "block", onClick: () => setModEdit(null), style: { minHeight: 40, padding: "0 12px", background: "none", border: "none", color: t.fog, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "算了"),
                   SP.MODULES[modEdit.id] && SP.moduleById(modEdit.id).edited ? h("button", { "data-wk": "slmodreset", onClick: () => { SP.resetModule(modEdit.id); setModEdit(null); setPresets(SP.list().slice()); },
-                    style: { marginLeft: "auto", minHeight: 40, padding: "0 10px", background: "none", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "恢复原样") : null))
+                    style: { marginLeft: "auto", minHeight: 40, padding: "0 10px", background: "none", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "恢复原样") : null))
               : h("button", { "data-wk": "slmodnew", onClick: () => setModEdit({ id: "__new", name: "", hint: "", text: "" }),
-                  style: { width: "100%", minHeight: 44, marginBottom: 8, borderRadius: 6, border: "1px dashed " + t.line, background: "transparent", color: t.tint, fontFamily: F_BODY, fontSize: 13 } }, "＋ 自己写一个模块"),
+                  style: { width: "100%", minHeight: 44, marginBottom: 8, borderRadius: 6, border: "1px dashed " + t.line, background: "transparent", color: t.tint, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "＋ 自己写一个模块"),
               SP.allCats().map(c => {
                 const open = !!openCat[c.id];
                 const picked = c.mods.filter(m => (cur.mods || []).indexOf(m.id) >= 0).length;
@@ -273,9 +273,9 @@
                     h("span", { style: { width: 11, alignSelf: "stretch", flexShrink: 0,
                       background: open ? t.accent : "transparent", borderRight: "1px solid " + t.line,
                       borderRadius: open ? "5px 0 0 0" : "5px 0 0 5px" } }),
-                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, c.zh),
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, c.zh),
                     h("span", { style: Object.assign({}, S.hint, { flex: 1, minWidth: 0 }) }, c.hint),
-                    h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: picked ? t.ink : t.fog,
+                    h("span", { style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: picked ? t.ink : t.fog,
                       border: "1px solid " + (picked ? t.ink : t.line), borderRadius: 3, padding: "1px 4px" } },
                       picked + "/" + c.mods.length)),
                   open
@@ -296,17 +296,17 @@
                               h("span", { style: { width: 15, height: 15, marginTop: 1, flexShrink: 0, borderRadius: 2,
                                 background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
                               h("span", { style: { flex: 1, minWidth: 0 } },
-                                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
+                                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, m.name),
                                 h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint))),
                             SP.canEditModule(m.id) ? h("button", { "data-wk": "slmodedit", "data-part": "open", onClick: () => {
                                 const full = SP.moduleById(m.id) || m;
                                 setModEdit({ id: m.id, name: full.name || "", hint: full.hint || "", text: typeof full.text === "string" ? full.text : "" }); },
-                              style: Object.assign({}, S.tapIcon(m.edited ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 3, border: "1px solid " + t.line }) },
+                              style: Object.assign({}, S.tapIcon(m.edited ? t.accent : t.fog), { fontSize: "calc(11.5px * var(--app-fs, 1))", borderRadius: 3, border: "1px solid " + t.line }) },
                               m.edited ? "改过" : "改") : null,
                             m.user ? h("button", { "data-wk": "slmoddel", onClick: () => {
                                 if (armed !== m.id) { setArmed(m.id); return; }
                                 SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },
-                              style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 3, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
+                              style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: "calc(11.5px * var(--app-fs, 1))", borderRadius: 3, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
                               armed === m.id ? "真删" : "删") : null);
                         }))
                     : null);
@@ -322,7 +322,7 @@
                 h("textarea", { "data-wk": "slfreeinput", value: cur.free || "", onChange: e => patchCur({ free: e.target.value }), rows: 6,
                   placeholder: "粘贴一整篇文风说明…",
                   style: { width: "100%", border: "none", outline: "none", background: "transparent", resize: "vertical",
-                    padding: "10px 11px 10px 30px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink } })),
+                    padding: "10px 11px 10px 30px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink } })),
               /^\s*[{\[]/.test(cur.free || "")
                 ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
                     h("span", { style: Object.assign({}, S.hint, { color: t.tint, flex: 1 }) }, "这一坨看着是模块包，不该整段躺在这儿"),
@@ -331,7 +331,7 @@
                           const kind = takeText(String(cur.free), cur.name);
                           if (kind === "bundle") commit(SP.list().filter(p => p.id !== cur.id));
                         } catch (err) { alert("拆不开：" + (err && err.message || "内容读不出来")); }
-                      }, style: { padding: "6px 12px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "拆成模块"))
+                      }, style: { padding: "6px 12px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "拆成模块"))
                 : null,
               // 稿子排在字条前面还是后面：这是【位置】问题，所以画成位置本身，不是两颗药丸。
               // 一张纸＋三根字条，谁在左谁在前——不用读字也看得懂哪个是哪个。
@@ -347,7 +347,7 @@
                       background: on ? t.bg2 : "transparent", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 } },
                     h("span", { style: { display: "flex", alignItems: "center", gap: 4, opacity: on ? 1 : .45 } },
                       val === "before" ? [paper, slugs] : [slugs, paper]),
-                    h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.ink : t.fog } }, label));
+                    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, label));
                 };
                 return h("div", { style: { display: "flex", gap: 7, marginTop: 9, alignItems: "center" } },
                   h("span", { style: Object.assign({}, S.hint, { marginRight: 1 }) }, "这张稿排在"),
@@ -358,13 +358,13 @@
             h("div", { "data-wk": "slpreview", style: { marginBottom: 16 } },
               h("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } },
                 h("div", { style: S.h2 }, "组装出来长这样"),
-                h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog } }, cnt(assembled) + " 字"),
+                h("span", { style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, cnt(assembled) + " 字"),
                 h("button", { "data-wk": "slfullbtn", "data-on": showFull ? "1" : "0", onClick: () => setShowFull(v => !v), style: Object.assign({}, S.tapGhost(t.tint), { marginLeft: "auto", border: "none" }) }, showFull ? "收起" : "看全文")),
               // 样张：一张印出来的纸。收起时下缘【褪下去】而不是被硬切一刀——
               // 硬切看着像内容没加载完，褪下去才读得出「后面还有」。
               h("div", { "data-wk": "block", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
                   padding: "11px 12px", maxHeight: showFull ? "none" : 150, overflow: "hidden" } },
-                h("div", { "data-wk": "slpreviewtext", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } },
+                h("div", { "data-wk": "slpreviewtext", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } },
                   assembled || "（空的——挑几根字条，或者贴一段进去）"),
                 !showFull && assembled
                   ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 34,
@@ -441,7 +441,7 @@
                 transform: on ? "translateY(1px)" : "none",
                 boxShadow: on ? "inset 0 2px 6px -5px rgba(0,0,0,.6)" : "none" } },
               h(Avatar, { character: c, size: 26, radius: 3 }),
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: on ? t.ink : t.sub } }, c.name));
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.ink : t.sub } }, c.name));
           }))),
 
       h("div", { style: { marginBottom: 13 } },
@@ -461,10 +461,10 @@
                   display: "flex", alignItems: "center", gap: 9 } },
                 // 折号：翻到的那一折，号码那一格上墨
                 h("span", { style: { width: 26, alignSelf: "stretch", flexShrink: 0, display: "flex",
-                    alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 10.5,
+                    alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))",
                     background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog,
                     borderRight: "1px solid " + t.line } }, String(i + 1)),
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: on ? t.ink : t.fog } }, sc.name)),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, sc.name)),
               on
                 ? h("div", { style: Object.assign({}, S.hint, { lineHeight: 1.75, padding: "2px 12px 11px 35px", whiteSpace: "pre-wrap" }) },
                     sc.setting + "\n你：" + sc.user)
@@ -487,7 +487,7 @@
       h("div", { style: { marginBottom: 16 } },
         h("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } },
           h("div", { style: S.h2 }, "最低字数"),
-          h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.tint } }, tMin ? String(tMin) : "不限")),
+          h("span", { style: { fontFamily: "monospace", fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint } }, tMin ? String(tMin) : "不限")),
         // 走共用的 Slider：一处写好，全 app 一个样，也白得那个 data-wk="slider" 挂点
         // （施工规则/one-public-mechanism.md）。原来这儿自己写了一个裸 input[type=range]。
         h(Slider, { value: tMin, min: 0, max: 3000, step: 100, onChange: v => setTMin(Number(v)) })),
@@ -499,7 +499,7 @@
         const r = SP.routeInfo(props.active);
         if (r.canStream) return null;
         return h("div", { style: Object.assign({}, S.card, { marginBottom: 14, borderColor: t.accent }) },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginBottom: 4 } }, "这条线路发不出流式 · 有 60 秒天花板"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, marginBottom: 4 } }, "这条线路发不出流式 · 有 60 秒天花板"),
           h("div", { style: Object.assign({}, S.hint, { lineHeight: 1.75 }) },
             r.why + "。\n非流式请求只要生成超过 60 秒就会被读超时掐断（nginx 和 iOS 的默认值都是 60 秒），"
             + "跟 max_tokens、上下文多长都没关系。1500 字本来就要一两分钟，所以多半会失败。\n"
@@ -508,7 +508,7 @@
       })(),
       h("button", { "data-wk": "slrun", onClick: doRun, disabled: !!busy,
         style: { width: "100%", minHeight: 48, padding: "13px", borderRadius: 3, border: "none",
-          background: busy ? t.line : t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14,
+          background: busy ? t.line : t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))",
           letterSpacing: ".04em", marginBottom: 18,
           boxShadow: busy ? "none" : "0 4px 10px -8px rgba(0,0,0,.8)" } },
         busy ? "在写 " + busy + "…" : "印一张"),
@@ -527,11 +527,11 @@
                 return h("div", { "data-wk": "slresult", key: r.id, style: { background: t.bg2, border: "1px solid " + (bad ? t.accent : t.line),
                     borderRadius: 3, overflow: "hidden", boxShadow: "0 3px 9px -8px rgba(0,0,0,.7)" } },
                   h("div", { style: { padding: "11px 12px 10px" } },
-                    (r.notes || []).length ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginBottom: 6, color: t.tint }) }, (r.notes || []).join("　·　")) : null,
+                    (r.notes || []).length ? h("div", { style: Object.assign({}, S.hint, { fontSize: "calc(10.5px * var(--app-fs, 1))", marginBottom: 6, color: t.tint }) }, (r.notes || []).join("　·　")) : null,
                     bad
                       ? h("div", { style: Object.assign({}, S.hint, { color: t.accent }) }, r.err)
                       : h("div", { style: { position: "relative", maxHeight: openRun[r.id] ? "none" : 132, overflow: "hidden" } },
-                          h("div", { "data-wk": "slresulttext", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap" } }, r.text),
+                          h("div", { "data-wk": "slresulttext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap" } }, r.text),
                           !openRun[r.id]
                             ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 30,
                                 background: "linear-gradient(180deg, rgba(255,255,255,0) 0%, " + t.bg2 + " 92%)" } })
@@ -540,12 +540,12 @@
                   h("div", { "data-wk": "slresultfoot", style: { display: "flex", alignItems: "center", gap: 8, padding: "0 6px 0 12px",
                       borderTop: "1px solid " + (bad ? t.accent : t.line),
                       background: bad ? "rgba(194,90,74,.10)" : "rgba(127,127,127,.05)" } },
-                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: bad ? t.accent : t.ink } }, r.presetName),
-                    h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5, flex: 1, minWidth: 0 }) }, r.charName + " · " + r.sceneName),
-                    h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: bad || thin ? t.accent : t.fog } },
+                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: bad ? t.accent : t.ink } }, r.presetName),
+                    h("span", { style: Object.assign({}, S.hint, { fontSize: "calc(10.5px * var(--app-fs, 1))", flex: 1, minWidth: 0 }) }, r.charName + " · " + r.sceneName),
+                    h("span", { style: { fontFamily: "monospace", fontSize: "calc(10.5px * var(--app-fs, 1))", color: bad || thin ? t.accent : t.fog } },
                       bad ? "印坏了" : r.chars + " 字" + (r.want ? " / " + r.want : "")),
                     bad ? null : h("button", { "data-wk": "slexpand", onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })),
-                      style: Object.assign({}, S.tapIcon(t.tint), { fontSize: 11.5, minWidth: 52 }) }, openRun[r.id] ? "收起" : "全文")));
+                      style: Object.assign({}, S.tapIcon(t.tint), { fontSize: "calc(11.5px * var(--app-fs, 1))", minWidth: 52 }) }, openRun[r.id] ? "收起" : "全文")));
               })))
         : null);
 
@@ -577,7 +577,7 @@
               marginTop: on ? 0 : 4,
               marginLeft: i ? -6 : 0,
               zIndex: on ? 2 : 1, position: "relative",
-              fontFamily: F_DISPLAY, fontSize: 13.5,
+              fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))",
               color: on ? t.ink : t.fog,
               background: on ? t.bg2 : "rgba(127,127,127,.08)",
               border: "1px solid " + t.line, borderBottom: on ? "1px solid " + t.bg2 : "1px solid " + t.line,
