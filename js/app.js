@@ -16693,11 +16693,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     else { toast("已拒绝"); setTimeout(() => blockedReaction(charId, chatKey), 400); }
   };
   // TA 拉黑我期间，我点某条消息的感叹号→发解除申请（该消息作为诉说），TA 依人设决定
-  const sendMyUnblockReq = async (charId, pleaText, chatKey = charId) => {
+  const sendMyUnblockReq = async (charId, pleaText, chatKey = charId, retryCid) => {
     const char = characters.find(c => c.id === charId); if (!char) return;
     if (!active) { toast("请先配置 API"); return; }
     if (laneBusy("c:" + chatKey)) return;
-    const cid = "ubm_" + Date.now();
+    const cid = retryCid || ("ubm_" + Date.now());
     const bk = blocksRef.current[chatKey] || {};
     const tries = Number(bk.tries || 0) + 1;
     // 之前求过几次、都说了什么：一模一样地再求一遍不该管用，换个说法、说到点子上才该管用
@@ -16705,7 +16705,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .filter(m => m && m.kind === "unblock_req" && m.from === "me" && m.plea)
       .slice(-3).map((m, k) => (k + 1) + ". 「" + String(m.plea).slice(0, 60) + "」" + (m.status === "declined" ? "（你拒了）" : ""));
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
-    pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    // 重试：原来那张卡翻回「等待回应」，不另起一张；失败的那次不算求过（pastPleas 只看有回音的）
+    if (retryCid) pChat(chatKey, p => p.map(m => m.cid === retryCid ? { ...m, status: "pending", retryTs: Date.now() } : m));
+    else pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    const failCard = () => pChat(chatKey, p => p.map(m => m.cid === cid && m.status === "pending" ? { ...m, status: "failed" } : m));
     // 地板（v74.732，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
     //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
     //   拒到第 UNBLOCK_FLOOR_TRIES 次，这一次由代码定下【解】；怎么解（嘴硬、别扭、带条件）还是他自己说。
@@ -16730,7 +16733,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC;
       const r0 = await askYesNo(apiFor(char.id), head + judge, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65000 });
       // 读不出来就把申请留在 pending，别记这一次 tries，也别当成TA拒绝了
-      if (!r0.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
+      if (!r0.ok) { failCard(); toast("没读懂 TA 的回应，点卡上的「再试一次」"); return; }
       const r = floor ? { ...r0, accept: true } : r0;
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
@@ -16738,7 +16741,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       else { setBlockFor(chatKey, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
       queueUnblockSpeech(chatKey, says, 300, charId);
       applyBlockTurnState(charId, chatKey, r.d);
-    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
+    } catch (e) { failCard(); toast("失败：" + e.message + "（点卡上的「再试一次」）"); } finally { endLane("c:" + chatKey); }
   };
   // 删一个配角（关系页、通讯录配角册子都走这一份）：从角色表和所有群里拿掉；
   //   wipeChat＝连跟TA的私聊（线上＋线下）和TA的记忆一起清（她 2026-10-07 群友：「npc 聊天过后怎么删除」）
@@ -30255,7 +30258,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
-    onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id)),
+    onSendUnblockReq: (plea, retryCid) => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id), retryCid),
     onUnblock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
     onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
     profile: profile,
