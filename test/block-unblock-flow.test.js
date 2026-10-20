@@ -95,5 +95,6 @@ test("她拉黑他时自己也能说：打的字先落进聊天，他读到再�
   const fn = app.slice(a, b);
   assert.match(fn, /【她拉黑你之后，自己给你发来了】/);
   assert.match(fn, /\+ progress \+ herLine \+/);
-  assert.match(app, /blocked: !!b\.theyBlocked,/, "她拉黑他时她发的话是送得到的");
+  // 挂不挂只在 pChat 一处认，认的是 theyBlocked（他拉黑她），她拉黑他时她的话照样送得到
+  assert.match(app, /if \(n\.length > pl\.length && \(blocksRef\.current\[id\] \|\| \{\}\)\.theyBlocked\) \{/, "她拉黑他时她发的话是送得到的");
 });
