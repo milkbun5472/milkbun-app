@@ -18,6 +18,7 @@ const BUBBLE_SKIN = {
   shadow: "0 1px 2px rgba(0,0,0,0.05)", //气泡投影
   myAlpha: 100,       //我的气泡底色不透明度 %（只淡底、不淡字）
   charAlpha: 100,     //TA 的气泡底色不透明度 %
+  narrAlpha: 62,      //居中旁白／动描那块白垫子的不透明度 %（底下有图或皮肤底色时才铺）
   chatBg: ""          //聊天页全局背景（纯色/渐变；每个聊天单独设过图的优先）；留空=主题默认
 };
 // v3（第六课）：皮肤从写死常量升级成可换装——localStorage x_bubbleSkin 覆盖上面的默认值。
@@ -651,6 +652,11 @@ function bubblePresetSkin(key) {
 // 气泡皮肤只有这一处读、这一处写（one-public-mechanism）。
 // ⚠️以前「换一套预设」和「设置页保存」各写了一份 Object.assign + setItem + 重刷 CSS；
 //   2026-09-20 主题包也要带上气泡，那就是第三份了——先合成一处再接。
+// 旁白／动描白垫子的底色（群友 2026-10-20：「动描可以像气泡一样调透明度就好了」）
+function narrPadBg() {
+  const a = Number(typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.narrAlpha);
+  return "rgba(255,255,255," + (isFinite(a) && a >= 0 && a <= 100 ? a / 100 : 0.62) + ")";
+}
 function bubbleSkinSnapshot() { return Object.assign({}, BUBBLE_SKIN); }
 function writeBubbleSkin(next) {
   // 盖在出厂值上，不是盖在当前值上：否则上一套残留的描边/贴纸会跟着新皮肤留下来
@@ -701,6 +707,7 @@ function BubbleSkinFields({ s, set }) {
     // 透明度只淡底色、字不淡（她 2026-09-30）：底下铺了图的时候，气泡半透明才看得见图
     numRow("我的气泡不透明度 %", "myAlpha", 0, 100, 100),
     numRow("TA 的气泡不透明度 %", "charAlpha", 0, 100, 100),
+    numRow("旁白／动描垫子不透明度 %", "narrAlpha", 0, 100, 62),
     numRow("圆角", "radius", 0, 30),
     colorRow("我的文字色", "myText", "#16330a"),
     row("我的描边", "myBorder", "2px solid #f56a91"),
@@ -960,7 +967,7 @@ function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, t
       fontStyle: "italic",
       lineHeight: 1.7,
       color: selected ? t.ink : (onBg ? "#5a5550" : t.fog)
-    }, onBg ? { display: "inline-block", background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
+    }, onBg ? { display: "inline-block", background: narrPadBg(), backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
   }, text), (onDelete && m.who !== "char") ? h("button", {
     onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", onDelete, "删除"),
     className: "active:opacity-50 shrink-0",
@@ -10795,7 +10802,7 @@ function ChatThread({
     const _wkBg = (typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.chatBg) || "";
     const plate = (pad) => (dsp.chatBg || _wkBg) ? {
       display: "inline-block",
-      background: "rgba(255,255,255,0.62)",
+      background: narrPadBg(),
       backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
       borderRadius: 10, padding: pad || "3px 10px"
     } : {};
