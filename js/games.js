@@ -86,6 +86,13 @@
     [c.persona, c.personality, c.tagline, c.background].forEach(function (x) { const v = String(x || "").trim(); if (v && !seen.has(v) && !out.some(function (o) { return o.indexOf(v) >= 0; })) { seen.add(v); out.push(v); } });
     return out.join("\n");
   }
+  // 这一座是谁（她 2026-10-22「故事接龙大家说的话都一样」）：UNO、骗子骰、故事接龙、德扑、抽鬼牌、21 点
+  //   原来只写一句「保持你本人的声纹和性格」，却从没告诉模型「你」是谁、人设是什么——全桌只能一个腔调。
+  function seatIdentity(p) {
+    if (!p || p.isUser) return "";
+    const sheet = String(p.persona || (p.char && gameSheet(p.char)) || "").trim();
+    return "\n你是「" + (p.name || "TA") + "」" + (p.isNpc ? "（来凑数的牌友）" : "") + "。" + (sheet ? "\n【你的人设】\n" + sheet.slice(0, 1800) : "") + "\n";
+  }
   function voiceBrief(p) {
     const s = String((p && (p.persona || (p.char && p.char.persona))) || "").replace(/\s+/g, " ").trim();
     return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
@@ -6253,7 +6260,7 @@
       }
       const drawn = state.drawnUid;
       const legal = drawn ? current.hand.filter(function (c) { return c.uid === drawn && UnoCore.playable(c, state, current.hand); }).map(function (c) { return c.code; }) : UnoCore.legalCodes(state);
-      const sys = gameVoiceRules() + "\n" + "你正在亲自玩 UNO，不是评论牌局。保持你本人的声纹和性格，但首先遵守牌规。" +
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩 UNO，不是评论牌局。保持你本人的声纹和性格，但首先遵守牌规。" +
         "\n你的私人手牌：" + current.hand.map(function (c) { return c.code + "=" + UnoCore.describe(c); }).join("，") +
         "\n可出的 code：" + (legal.join("、") || "无") + (state.pendingDraw && state.rules && state.rules.stackD2 ? "。本局是 +2 叠加规则；你可以出任意颜色 +2 把累计罚牌转给下一家，也可以选择 draw 接受全部罚牌。" : "") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
         "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。W4 官方该在没有当前颜色时才打——你也可以冒险诈打，但被下家质疑抓到要替 TA 罚 4，按你的性格权衡。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
@@ -6288,7 +6295,7 @@
       setChatBusy(true); setError(""); const seq = ++chatSeq.current;
       const context = state.log.slice(-14).map(function (x) { return x.text; }).join("\n");
       Promise.all(seats.map(function (p) {
-        const sys = gameVoiceRules() + "\n" + "UNO 牌局现在暂停聊天。保持你本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。";
+        const sys = gameVoiceRules() + seatIdentity(p) + "UNO 牌局现在暂停聊天。保持你本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。";
         return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8350 } })
           .then(function (r) { return { p: p, say: String(unoJson(r.value).say || "").trim(), delegated: r.delegated }; })
           .catch(function (e) { return { p: p, say: "", error: e.message }; });
@@ -6497,7 +6504,7 @@
         setTimeout(function () { try { apply(fallback()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700);
         return;
       }
-      const sys = gameVoiceRules() + "\n" + "你正在亲自玩「骗子骰」（吹牛骰子），不是在评论。保持你本人的声纹和性格，但先守规则。" +
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩「骗子骰」（吹牛骰子），不是在评论。保持你本人的声纹和性格，但先守规则。" +
         "\n规则：每人五颗骰子只自己看得见。轮流叫「桌上所有人的骰子里一共至少有 N 个 F 点」，1 点万能、算作任何点数，所以只能叫 2~6 点。后叫的必须比上家大：个数更多，或个数一样、点数更大。觉得上家在吹就「开」：亮出全部骰子数，够数＝开的人输一条命，不够＝叫的人输一条命。"
         + (soft ? "\n这一局你想让着对面的她一点：别叫得太凶，有点疑心就开。" : "")
         + "\n只输出 JSON，不解释：叫 {\"kind\":\"bid\",\"n\":4,\"f\":5,\"say\":\"可空的一句桌上话\"}；开 {\"kind\":\"open\",\"say\":\"可空\"}。桌上话可以诈唬、心虚、挑衅、装可怜，不必每手都说，别透露自己骰子的真实点数（想骗就骗）。";
@@ -6626,10 +6633,13 @@
       const turnId = state.id + "#" + state.lines.length + "#" + current.key;
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
       const last = storyIsLast(state), word = state.word;
-      const sys = gameVoiceRules() + "\n" + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
         + "\n这一句必须自然地用上「" + word + "」这个词。只写一到两句、60 字以内，紧接上文，别重复上文，别替别人写后面。" + (last ? "\n这是全篇最后一句，由你来收尾：把故事落下来，留一点余味。" : "")
-        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：写完顺口对大家说的一句\"}";
-      const ctx = "故事到目前为止：\n" + storyText(state) + "\n\n现在轮到你接。要用上的词：" + word;
+        + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
+        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
+      const ctx = "故事到目前为止：\n" + storyText(state)
+        + (state.lines.length ? "\n\n（每句是谁接的：" + state.lines.slice(-8).map(function (l) { return l.name + "「" + String(l.text).slice(0, 18) + (String(l.text).length > 18 ? "…" : "") + "」"; }).join("；") + "）" : "")
+        + "\n\n现在轮到你接。要用上的词：" + word;
       routeSeatCall(current, api, sys, [{ role: "user", content: ctx }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
         .then(function (r) {
           const a = unoJson(r.value), line = String(a.line || "").trim();
@@ -6671,7 +6681,9 @@
               return h("span", { "data-wk": "gamestoryline", "data-part": l.key === "user" ? "me" : "ta", key: i, title: l.name },
                 l.text.split(l.word).map(function (seg, j, arr) {
                   return j < arr.length - 1 ? [seg, h("b", { key: "w" + j, style: { color: LID.story.hot, fontWeight: 700, background: "linear-gradient(180deg, transparent 60%, rgba(93,111,163,.18) 60%)" } }, l.word)] : seg;
-                }));
+                }),
+                // 每人那一段末尾挂个小号，跟底下「1 · 某某」对得上（她 2026-10-22「每一段后面没有结尾，分不出哪里结束」）
+                h("sup", { "data-wk": "gamestorymark", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: LID.story.hot, opacity: .75, margin: "0 3px 0 1px", fontWeight: 600 } }, String(i + 1)));
             })),
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, state.lines.map(function (l, i) {
             return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
@@ -7051,7 +7063,7 @@
         setState(n);
       };
       if (current.isNpc || cardLocal(cfg)) { setTimeout(function () { try { apply(fallback()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700); return; }
-      const sys = gameVoiceRules() + "\n" + "你正在亲自打德州扑克，不是在评论。保持你本人的声纹和性格，但先守规则。"
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自打德州扑克，不是在评论。保持你本人的声纹和性格，但先守规则。"
         + "\n每人两张底牌只自己看得见，桌上五张公共牌，最后用七张里最好的五张比大小。你可以弃牌、过牌（没人下注时）、跟注、加注、全押——怎么打照你这个人：谨慎的会算，冲动的爱全押，嘴硬的会诈。"
         + (soft ? "\n这一局你想让着对面的她一点：别太凶，牌不好就早点弃。" : "")
         + "\n只输出 JSON，不解释：{\"kind\":\"fold|check|call|raise|allin\",\"to\":加注加到多少（只有 raise 填）,\"say\":\"可空的一句桌上话\"}。桌上话可以诈唬、试探、挑衅、装可怜，不必每手都说，别把自己的底牌说出来（想骗就骗）。";
@@ -7225,7 +7237,7 @@
       if (current.isNpc || cardLocal(cfg, "oldmaid")) { setTimeout(function () { try { apply(rndPick()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700); return; }
       const mine = current.hand.map(cardName).join(" ");
       const lastLine = state.last ? (state.players.find(function (p) { return p.key === state.last.by; }) || {}).name + " 上一手抽了 " + (state.players.find(function (p) { return p.key === state.last.from; }) || {}).name + " 的第 " + (state.last.pos + 1) + " 张" + (state.last.paired ? "，凑了对" : "") : "";
-      const sys = gameVoiceRules() + "\n" + "你正在亲自玩「抽鬼牌」，不是在评论。保持你本人的声纹和性格。"
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩「抽鬼牌」，不是在评论。保持你本人的声纹和性格。"
         + "\n规则：每个点数两张，凑成对就扔掉；牌里有一张鬼牌。轮流从下家手里扣着的牌里抽一张，最后手里剩鬼牌的人输。你看不见别人的牌，只能挑位置——可以盯着对方的手和表情猜，也可以随便抽。"
         + "\n只输出 JSON：{\"pick\":从左数第几张（1 到 " + n0 + "）,\"say\":\"可空的一句：试探、得意、慌张、逗对方都行\"}。别说出自己手里有没有鬼牌（想骗就骗）。";
       const ctx = "你手里：" + (mine || "（空）") + (current.hand.some(function (c) { return c.joker; }) ? "——鬼牌在你手里，别让人看出来" : "")
@@ -7372,7 +7384,7 @@
       const idx = state.turn;
       const apply = function (a, delegated) { const n = JSON.parse(JSON.stringify(state)); try { bjAct(n, a); } catch (e) { const fb = bjNpcMove(state, idx, soft); fb.say = a && a.say; bjAct(n, fb); } if (delegated && n.log.length) n.log[n.log.length - 1].text += "（代）"; setState(n); };
       if (current.isNpc || cardLocal(cfg)) { setTimeout(function () { try { apply(bjNpcMove(state, idx, soft)); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 650); return; }
-      const sys = gameVoiceRules() + "\n" + "你正在亲自玩 21 点（跟庄家比，不是跟别人比），不是在评论。保持你本人的声纹和性格。"
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩 21 点（跟庄家比，不是跟别人比），不是在评论。保持你本人的声纹和性格。"
         + "\n规则：点数越接近 21 越好，超过 21 就爆；A 算 1 或 11，JQK 算 10。庄家要到 17 点为止。你可以要牌、停牌，或者只在头两张时加倍（押注翻倍、只再拿一张）。冒不冒险照你这个人来。"
         + "\n只输出 JSON：{\"kind\":\"hit|stand|double\",\"say\":\"可空的一句：紧张、嘴硬、得意、跟旁边的人搭话都行\"}。";
       const ctx = "第 " + state.hand + " / " + BJ_HANDS + " 手。你手里：" + current.cards.map(cardName).join(" ") + "，" + bjValue(current.cards) + " 点；你还剩 " + current.chips + "，这手押了 " + current.bet

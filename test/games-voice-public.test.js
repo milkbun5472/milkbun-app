@@ -4,7 +4,7 @@ test("游戏里会说话的提示都走 gameVoiceRules，不再各拼一份", ()
   assert.ok(!/AC \+ (SKILL_RULE \+ )?VOICE_RULE \+/.test(g.replace(/return AC \+ VOICE_RULE \+ SKILL_RULE/, "")), "还有手拼 AC + VOICE_RULE 的地方");
   assert.ok(!/AC \+ TD_IC/.test(g), "真心话那几处没接上");
   ["你正在亲自玩 UNO", "你正在亲自玩「骗子骰」", "你正在和大家玩「故事接龙」", "你正在亲自打德州扑克", "你正在亲自玩「抽鬼牌」", "你正在亲自玩 21 点"].forEach(k =>
-    assert.match(g, new RegExp('gameVoiceRules\\(\\) \\+ "\\\\n" \\+ "' + k.replace(/[()]/g, "\\$&")), k));
+    assert.match(g, new RegExp(k.replace(/[()]/g, "\\$&")), k));
 });
 test("角色卡入局时统一填成整张（gameSheet）", () => {
   assert.match(g, /function gameSheet\(c\)/);
@@ -14,4 +14,12 @@ test("你画我猜有存档：打到哪儿存到哪儿，架上能继续，打�
   assert.match(g, /saveGameSnap\("draw", \{ config: cfg/);
   assert.match(g, /if \(phase === "end"\) \{ clearGameSave\("draw"\); return; \}/);
   assert.match(g, /const sv = \(props\.savedState && props\.savedState\.draw\) \|\| null;/);
+});
+
+test("会自己出牌说话的那几桌都告诉模型「你是谁」＋人设；故事接龙每段末尾挂小号，say 不报幕", () => {
+  assert.match(g, /function seatIdentity\(p\)/);
+  ["你正在亲自玩 UNO", "UNO 牌局现在暂停聊天", "你正在亲自玩「骗子骰」", "你正在和大家玩「故事接龙」", "你正在亲自打德州扑克", "你正在亲自玩「抽鬼牌」", "你正在亲自玩 21 点"].forEach(k =>
+    assert.match(g, new RegExp('gameVoiceRules\\(\\) \\+ seatIdentity\\((current|p)\\) \\+ "' + k.replace(/[()]/g, "\\$&")), k));
+  assert.match(g, /"data-wk": "gamestorymark"/);
+  assert.match(g, /轮到谁接大家都知道，不用你来报幕/);
 });
