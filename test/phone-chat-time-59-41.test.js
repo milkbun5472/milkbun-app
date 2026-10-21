@@ -67,5 +67,5 @@ test("显示这一端也按时间排，不用等下次刷新", () => {
   assert.match(seg, /known\.sort\(\(a, b\) => b\._ts - a\._ts\)/, "没按新→旧");
   assert.match(seg, /return known\.concat\(unknown\)/, "认不出的没沉底");
   // 真实互通那几条不参与排序：那是她跟他此刻正在说的话，永远在最前
-  assert.match(seg, /const chats = \[\.\.\.actual, \.\.\.byWhen\(generated\)\]/, "真实那几条被拿去跟推演的比时间了");
+  assert.match(seg, /const chats = \[\.\.\.actual, \.\.\.byWhen\(generated\)\.filter\(/, "真实那几条被拿去跟推演的比时间了");
 });
