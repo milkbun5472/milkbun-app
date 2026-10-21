@@ -33,7 +33,7 @@ test("认不出来的动作丢掉、不猜；心声整段封顶", () => {
 // ⚠️桩照着【写存档的那段】写：微信会话在 phone.js 里读的是 name/type/last/messages[{from,text}]/_ts
 // （施工规则/stub-from-the-writer.md）
 test("落盘：真发出去的那一条接进去，_ts 跟着重算", () => {
-  assert.match(phone, /const chats = \[\.\.\.actual, \.\.\.byWhen\(generated\)\];/, "会话列表的读法变了，这份桩要跟着改");
+  assert.match(phone, /const chats = \[\.\.\.actual, \.\.\.byWhen\(generated\)\.filter\(/, "会话列表的读法变了，这份桩要跟着改");
   assert.match(phone, /known\.sort\(\(a, b\) => b\._ts - a\._ts\)/, "排序不再按 _ts 了？");
   const d = { me: { wechatName: "屿白" }, chats: [{ name: "老张", last: "晚上来不来", _ts: 1, messages: [{ from: "老张", text: "晚上来不来" }] }] };
   const r = W.applyWrite("wechat", d, "老张", "晚点说", 999);
