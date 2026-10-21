@@ -868,6 +868,12 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   if (appKey === "wechat" && Array.isArray(newData && newData.updates)) {
     const r = phoneApplyChatUpdates(oldData, newData.updates, nowTs);
     const keep = { ...oldData, chats: r.chats };
+    // 关系网里新来的人（后来才绑的配角、后来才连上关系的角色）：只在提示里点了名时模型才会写 newChats，私聊、最多 3 个、已有的不重开
+    const _nm = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·,，.。!！?？:：;；]/g, "");
+    const _have = new Set(keep.chats.map(c => _nm(c && c.name)));
+    const _add = (Array.isArray(newData.newChats) ? newData.newChats : []).filter(c => c && c.name && !_have.has(_nm(c.name)) && Array.isArray(c.messages) && c.messages.length).slice(0, 3)
+      .map(c => { const time = String(c.time || "").trim(); const ts = phoneWhenTs(time, nowTs); return { type: "private", name: String(c.name).trim(), last: String(c.last || "").trim() || String((c.messages[c.messages.length - 1] || {}).text || ""), time: time, messages: c.messages.slice(-40).map(m => ({ ...m, _at: nowTs })), ...(ts != null ? { _ts: ts } : {}), _upd: nowTs }; });
+    if (_add.length) keep.chats = _add.concat(keep.chats);
     // 朋友圈和公众号仍是【发生过的事】，照旧并进来
     const merged = phoneGrowMerge("_wechatRest", { moments: (oldData || {}).moments, me: (oldData || {}).me },
       { moments: newData.moments, me: newData.me }, nowTs);
@@ -1602,6 +1608,14 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // 微信：会话已经够多了就只更新说的话（她 2026-09-01：「后续封顶了不应该生成新的」）
   const _wxChats = (key === "wechat" && known && Array.isArray(known.chats)) ? known.chats : [];
   const wxUpdOnly = key === "wechat" && _wxChats.length >= PHONE_WECHAT_ENOUGH;
+  // 会话已经认全了，可关系网里有人还不在里面（群友 2026-10-21：后来才给他绑的配角，查手机怎么刷都没有）：
+  //   「不许新增」只管凭空编的人，关系网里真有的这几位要开出来
+  const _wxNorm = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·,，.。!！?？:：;；]/g, "");
+  const _wxHave = _wxChats.map(c => _wxNorm(c && c.name));
+  const wxMissing = wxUpdOnly ? (rel || []).filter(n => n && !_wxHave.some(h => h && (h.indexOf(_wxNorm(n)) >= 0))).slice(0, 3) : [];
+  const wxMissingLine = wxMissing.length
+    ? "\n【例外·关系网里的人】" + wxMissing.map(n => "「" + n + "」").join("") + " 是TA现实里认识的人，微信里却还没有跟他们的会话。这一轮给他们每人开一个私聊，写进 newChats：type 填 private，name 照抄这个名字，messages 4-8 条有来有回（照你们是什么关系来说），再给 last、time。除了这几位，别的照旧不许新开。\n"
+    : "";
   const wxChatList = wxUpdOnly
     ? characterText(char, "\n【他微信里现有的会话（name 必须从这里面照抄）】\n") + _wxChats.map(function (c) {
         return "· " + (c.name || "") + (c.type === "group" ? "（群）" : "") + (c.last ? "：" + String(c.last).slice(0, 24) : "");
@@ -1629,10 +1643,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
           + "me 这一栏【基本不要动】：朋友圈签名 signature 和封面 cover 不是每天换的东西。"
           + characterText(char, "只有他这几天的心境真的翻篇了（结束了什么、开始了什么、想通了什么），才在 me 里写新的那一两栏；")
           + "**不写就是照旧**，绝大多数轮次都该一栏都不写。\n"
-          + wxChatList + relHint)
+          + wxChatList + relHint + wxMissingLine)
         : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
       schemaHint: wxUpdOnly
-        ? "{\"updates\":[{\"name\":\"从名单里原样照抄的会话名\",\"messages\":[{\"from\":\"说话人\",\"text\":\"新说的话\"}],\"last\":\"最后一条\",\"time\":\"14:20\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"signature\":\"心境真变了才写，否则整个 me 都别给\",\"cover\":\"同上\"}}"
+        ? (wxMissing.length ? "{\"newChats\":[{\"type\":\"private\",\"name\":\"关系网里那个人的名字\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}]," : "{") + "\"updates\":[{\"name\":\"从名单里原样照抄的会话名\",\"messages\":[{\"from\":\"说话人\",\"text\":\"新说的话\"}],\"last\":\"最后一条\",\"time\":\"14:20\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"signature\":\"心境真变了才写，否则整个 me 都别给\",\"cover\":\"同上\"}}"
         : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"用户本人的名字\",\"remark\":\"TA给用户的微信备注\",\"intro\":\"TA对用户具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"cover\":\"朋友圈封面的一句画面描述\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
