@@ -6,3 +6,7 @@ assert.match(fn, /inp\.accept = ANY_FILE;/);
 assert.match(fn, /这不像文字文件/);
 console.log("ok");
 assert.match(fn, /document\.body\.appendChild\(inp\)/);
+
+// 她 2026-10-21：「给秋秋发文件有时候很久都不显示」——iCloud 文件下载期间别把 input 拆了；取消才当场拆，否则留一分钟
+assert.match(fn, /inp\.addEventListener\("cancel", drop\);/);
+assert.match(fn, /if \(!\(inp\.files && inp\.files\.length\)\) drop\(\); \}, 60000\)/);
