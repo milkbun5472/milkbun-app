@@ -34,3 +34,10 @@ test("接线：日程的哪天哪分只问 ScheduleClock 一处", () => {
 test("清旧日程按他那只钟上的今天往前数 14 天，拨到过去的那串不被当成旧的", () => {
   assert.ok(/const cut = ch && typeof schedLocalDayKey === "function" \? schedShiftDayKey\(schedLocalDayKey\(ch\), -14\) : cutoff;/.test(app));
 });
+
+test("「此刻照哪天的日程」只问 schedPlanOf：钟上那天没排就找前后一天", () => {
+  assert.ok(/function schedPlanOf\(char, plans, at\)/.test(scr));
+  assert.ok(/plans\[k\] \|\| plans\[schedShiftDayKey\(k, -1\)\] \|\| plans\[schedShiftDayKey\(k, 1\)\]/.test(scr));
+  assert.ok(!/plans\[schedLocalDayKey\(char\)\] \|\| \(schedFollowOn/.test(app), "还有自己另算一遍的");
+  assert.ok((app.match(/schedPlanOf\(char, plans/g) || []).length >= 6);
+});

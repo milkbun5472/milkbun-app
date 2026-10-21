@@ -350,6 +350,14 @@ function schedFollowOn(id) { return !!(window.ScheduleClock && window.ScheduleCl
 function schedNowDate(char) { return char && schedFollowOn(char.id) && typeof vclockMap === "function" ? new Date(vclockMap(Date.now(), char.id)) : new Date(); }
 function schedLocalDayKey(char, at) { return window.ScheduleClock.planDay(char, at || Date.now(), -new Date().getTimezoneOffset()); }
 function schedShiftDayKey(key, days) { return window.ScheduleClock.shiftDayKey(key, days); }
+// 他「这一刻」该照哪一天的日程（她 2026-10-21：「排好了的，换个面具那一天就没了，特别是只差了几个小时」）：
+//   先找他那只钟上的这一天；没排过就找前后一天里排好的那份接着用——换了一只差几个小时的钟，日子跨了一格，
+//   不该就当他今天什么都没安排。再没有才退回现实那天（v49.71 前的旧日键）。只要读「此刻在干嘛」都走这一处。
+function schedPlanOf(char, plans, at) {
+  if (!char || !plans) return null;
+  const t = at || Date.now(), k = schedLocalDayKey(char, t);
+  return plans[k] || plans[schedShiftDayKey(k, -1)] || plans[schedShiftDayKey(k, 1)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date(t))]) || null;
+}
 function schedParseKey(k) { return window.ScheduleClock.parseDayKey(k); }
 const SCHED_DOW_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 // id（可选）：给了谁，就按 TA 那只虚拟时间的钟叫这一天（她 2026-10-11：「日程按现实框架排，但也用角色的时间系统」）。

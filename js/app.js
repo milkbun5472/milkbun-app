@@ -5045,7 +5045,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const schedNowSegFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
-    const s0 = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
+    const s0 = schedPlanOf(char, plans);
     if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const disp = schedDisplaySeqs(char, s0.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
@@ -5058,7 +5058,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 角色此刻的行程（给聊天/心情联动用）
   const schedNowFor = char => {
     const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]); // 右侧仅兼容 v49.71 前旧日键，生成新当地日程后自然退出
+    const s = schedPlanOf(char, plans); // 右侧仅兼容 v49.71 前旧日键，生成新当地日程后自然退出
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return "";
     // 换算到我这边时间轴以正确判「此刻」，但给角色的文案仍用 TA 当地时刻（角色按自己时区想事情）
     const disp = schedDisplaySeqs(char, s.seqs);
@@ -5114,7 +5114,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const charAwakeState = char => {
     try {
       const plans = schedulesRef.current[char.id] || {};
-      const p = plans[schedLocalDayKey(char)];
+      const p = plans[schedLocalDayKey(char)];   // 醒没醒自己会看昨天那份，不走 schedPlanOf 的前后一天
       const seqs = p && Array.isArray(p.seqs) && typeof schedFillEnds === "function" ? schedFillEnds(p.seqs) : null;
       const nowMin = charLocalMin(char);
       if (seqs && seqs.length) {
@@ -5327,7 +5327,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const schedNowBriefFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
+    const s = schedPlanOf(char, plans);
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
     const disp = schedDisplaySeqs(char, s.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
@@ -6305,7 +6305,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const schedBriefFor = char => {
     try {
       const plans = schedulesRef.current[char.id] || {};
-      const sc = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
+      const sc = schedPlanOf(char, plans);
       if (!sc || !Array.isArray(sc.seqs) || !sc.seqs.length) return "";
       const disp = schedDisplaySeqs(char, sc.seqs);
       const idx = schedCurrentSeqIdx(disp, true, char);
@@ -6336,7 +6336,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char) return null;
     const plans = (schedulesRef.current || {})[char.id] || {};
     const atD = at instanceof Date ? at : new Date();
-    const s0 = plans[schedLocalDayKey(char, atD.getTime())] || plans[schedDayKey(atD)];
+    const s0 = schedPlanOf(char, plans, atD.getTime());
     if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const filled = typeof schedFillEnds === "function" ? schedFillEnds(s0.seqs) : s0.seqs;
     const disp = schedDisplaySeqs(char, filled);
@@ -20625,7 +20625,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 比「TA是个什么人」更能决定这个世界该长出哪些地方。
   const worldDayOf = char => {
     const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || (schedFollowOn(char.id) ? null : plans[schedDayKey(new Date())]);
+    const s = schedPlanOf(char, plans);
     const seqs = (s && Array.isArray(s.seqs)) ? s.seqs : [];
     return seqs.slice(0, 8).map(x => [x.time, x.title, x.location].filter(Boolean).join(" · ")).filter(Boolean).join("\n  ");
   };
