@@ -1618,6 +1618,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   const wxFreshMust = key === "wechat" && !wxUpdOnly && (rel || []).length
     ? "\n【必须有】" + (rel || []).slice(0, 5).map(n => "「" + n + "」").join("") + " 是TA现实里认识的人：这一轮的会话里必须各有一个跟他们的私聊（算在那 5 个里），contacts 里也要有他们，名字照抄、不许改写。聊什么照你们是什么关系来。\n"
     : "";
+  // 朋友圈底下的赞和评论（群友 2026-10-21：一个根本不认识发帖人的配角给他点了赞）：真微信里共同好友才看得见
+  const wxMomentRule = key === "wechat"
+    ? "\n【朋友圈的赞和评论】作者从TA的联系人里挑；likes 和 comments 里的人必须是【TA 和这条的作者都认识的】——真微信里不是共同好友的赞根本看不到。两个人认不认识照关系网和你们的设定来，拿不准就别写进去，宁可少几个赞。\n"
+    : "";
   const wxMissingLine = wxMissing.length
     ? "\n【例外·关系网里的人】" + wxMissing.map(n => "「" + n + "」").join("") + " 是TA现实里认识的人，微信里却还没有跟他们的会话。这一轮给他们每人开一个私聊，写进 newChats：type 填 private，name 照抄这个名字，messages 4-8 条有来有回（照你们是什么关系来说），再给 last、time。除了这几位，别的照旧不许新开。\n"
     : "";
@@ -1648,8 +1652,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
           + "me 这一栏【基本不要动】：朋友圈签名 signature 和封面 cover 不是每天换的东西。"
           + characterText(char, "只有他这几天的心境真的翻篇了（结束了什么、开始了什么、想通了什么），才在 me 里写新的那一两栏；")
           + "**不写就是照旧**，绝大多数轮次都该一栏都不写。\n"
-          + wxChatList + relHint + wxMissingLine)
-        : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + wxFreshMust) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
+          + wxChatList + relHint + wxMissingLine + wxMomentRule)
+        : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + wxFreshMust + wxMomentRule) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
       schemaHint: wxUpdOnly
         ? (wxMissing.length ? "{\"newChats\":[{\"type\":\"private\",\"name\":\"关系网里那个人的名字\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}]," : "{") + "\"updates\":[{\"name\":\"从名单里原样照抄的会话名\",\"messages\":[{\"from\":\"说话人\",\"text\":\"新说的话\"}],\"last\":\"最后一条\",\"time\":\"14:20\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"signature\":\"心境真变了才写，否则整个 me 都别给\",\"cover\":\"同上\"}}"
         : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"用户本人的名字\",\"remark\":\"TA给用户的微信备注\",\"intro\":\"TA对用户具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"cover\":\"朋友圈封面的一句画面描述\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
