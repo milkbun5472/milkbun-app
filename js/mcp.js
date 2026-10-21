@@ -180,13 +180,21 @@
       await handshake(srv);
       const res = await send(srv, "tools/call", { name: name, arguments: args || {} });
       note(srv);
+      // 工具回的图（截屏、读屏那类 MCP）也收下来，交给模型去看（她 2026-10-22「想接看真实手机屏幕的 MCP」）。
+      //   最多两张、每张不超过约 3MB，再多就只留一句说明，免得一次请求被撑爆。
+      const images = [];
+      let dropped = 0;
       const text = (((res && res.content) || []).map(b => {
         if (!b) return "";
         if (b.type === "text") return String(b.text || "");
         if (b.type === "resource" && b.resource) return String(b.resource.text || b.resource.uri || "");
+        if (b.type === "image" && b.data) {
+          if (images.length < 2 && String(b.data).length < 4000000) { images.push({ mime: b.mimeType || "image/png", data: String(b.data) }); return "（附图一张）"; }
+          dropped++; return "";
+        }
         return "";
-      }).filter(Boolean).join("\n")).trim();
-      return { text: text || "（这次没返回内容）", isError: !!(res && res.isError) };
+      }).filter(Boolean).join("\n")).trim() + (dropped ? "\n（还有 " + dropped + " 张图太大或太多，没带上）" : "");
+      return { text: text.trim() || "（这次没返回内容）", isError: !!(res && res.isError), images };
     } catch (e) {
       return { text: "（工具没调通：" + String((e && e.message) || e) + "）", isError: true, _err: note(srv, e) };
     }

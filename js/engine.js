@@ -1084,11 +1084,19 @@ async function callAIOnce(p, system, messages, opts) {
         for (const u of uses) {
           const out = await _runTool(u.name, u.input || {});
           if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: u.name, ok: !(out && out.isError) });
-          results.push({ type: "tool_result", tool_use_id: u.id, content: String((out && out.text) || ""), ...((out && out.isError) ? { is_error: true } : {}) });
+          const imgs = (out && out.images) || [];
+          results.push({ type: "tool_result", tool_use_id: u.id, content: imgs.length
+            ? [{ type: "text", text: String((out && out.text) || "") }].concat(imgs.map(im => ({ type: "image", source: { type: "base64", media_type: im.mime, data: im.data } })))
+            : String((out && out.text) || ""), ...((out && out.isError) ? { is_error: true } : {}) });
         }
         wireMessages.push({ role: "assistant", content: d.content });
         wireMessages.push({ role: "user", content: results });
-        const nxt = await postAnthropic(wantTemp());
+        let nxt = await postAnthropic(wantTemp());
+        // 模型不收图就把图拿掉、只留文字再问一遍
+        if (nxt && nxt.error && results.some(r => Array.isArray(r.content))) {
+          results.forEach(r => { if (Array.isArray(r.content)) r.content = r.content.filter(x => x.type === "text").map(x => x.text).join("\n") + "\n（工具回了图，这条线路看不了图）"; });
+          nxt = await postAnthropic(wantTemp());
+        }
         _calls++;
         if (!nxt || nxt.error) break;
         d = nxt;
@@ -1209,10 +1217,15 @@ async function callAIOnce(p, system, messages, opts) {
           const out = await _runTool(c.functionCall.name, c.functionCall.args || {});
           if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: c.functionCall.name, ok: !(out && out.isError) });
           resp.push({ functionResponse: { name: c.functionCall.name, response: { content: String((out && out.text) || ""), ...((out && out.isError) ? { error: true } : {}) } } });
+          ((out && out.images) || []).forEach(im => resp.push({ inlineData: { mimeType: im.mime, data: im.data } }));
         }
         gContents.push({ role: "model", parts: ps });
         gContents.push({ role: "user", parts: resp });
-        const nxt = await postGemini();
+        let nxt = await postGemini();
+        if (nxt && nxt.error && resp.some(x => x.inlineData)) {
+          gContents[gContents.length - 1] = { role: "user", parts: resp.filter(x => !x.inlineData) };
+          nxt = await postGemini();
+        }
         _calls++;
         if (!nxt || nxt.error) break;
         d = nxt;
@@ -1318,6 +1331,7 @@ async function callAIOnce(p, system, messages, opts) {
   // 工具回合（openai 方言）：结构跟 anthropic 那边一样，只是字段名换一套——
   // tool_calls 回来、跑完、以 role:"tool" 接回去再问一遍。每转一圈多一次调用，封顶。
   let _calls2 = 1;
+  const _toolImgs = [];
   if (_mcpTools && _mcpTools.length && _runTool) {
     for (let _r = 0; _r < _maxRounds; _r++) {
       const msg = (d.choices && d.choices[0] && d.choices[0].message) || {};
@@ -1332,8 +1346,14 @@ async function callAIOnce(p, system, messages, opts) {
         const out = await _runTool(fn.name, args);
         if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: fn.name, ok: !(out && out.isError) });
         wireMessages.push({ role: "tool", tool_call_id: tc.id, content: String((out && out.text) || "") });
+        ((out && out.images) || []).forEach(im => _toolImgs.push(im));
       }
-      const nxt = await postOpenAI(!_skipT2);
+      // tool 那一格多数线路只收字：图另起一条 user 跟在后面
+      const _imgMsg = _toolImgs.length ? { role: "user", content: [{ type: "text", text: "（上面工具返回的图）" }].concat(_toolImgs.map(im => ({ type: "image_url", image_url: { url: "data:" + im.mime + ";base64," + im.data } }))) } : null;
+      _toolImgs.length = 0;
+      if (_imgMsg) wireMessages.push(_imgMsg);
+      let nxt = await postOpenAI(!_skipT2);
+      if (_imgMsg && nxt && nxt.error) { wireMessages.splice(wireMessages.indexOf(_imgMsg), 1); nxt = await postOpenAI(!_skipT2); }
       _calls2++;
       if (!nxt || nxt.error) break;
       d = nxt;
