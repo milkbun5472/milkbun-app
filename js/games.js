@@ -5836,7 +5836,10 @@
     const persona = function (who) {
       who = who || char;
       const recent = (cfg.injectChat && props.recentChatFor && who) ? String(props.recentChatFor(who.id) || "").slice(-400) : "";
-      return "你是「" + (who ? who.name : "TA") + "」。\n【你的人设】\n" + String((who && who.persona) || "（没写）").slice(0, 1500) + (recent ? "\n【你们最近在聊的】\n" + recent : "");
+      // 人设整张读（她 2026-10-22「你画我猜说话不像角色」）：原来只读 persona 一格，写在性格／一句话介绍／背景里的都没进来
+      const sheet = who ? [who.persona, who.personality, who.tagline, who.background].filter(Boolean).join("\n") : "";
+      return "你是「" + (who ? who.name : "TA") + "」。\n【你的人设】\n" + String(sheet || "（没写）").slice(0, 2400) + (recent ? "\n【你们最近在聊的】\n" + recent : "")
+        + "\n画画、猜词都是手上的事；嘴上那句（say）才是你这个人在说话——用你人设里的口气、跟对面这个人的关系说，别说成游戏解说。";
     };
     // 给猜的人「看」画：不发图，把已经画出来的几笔念给 TA（不用识图模型；读坐标会像真人一样猜歪）
     const describeSegs = function (list, n) {
@@ -5896,7 +5899,7 @@
       const other = duo ? (who === char ? char2 : char) : null;
       setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona(who)
+        const sys = gameVoiceRules() + "\n" + persona(who)
           + "\n\n" + (other ? "你在跟 " + other.name + " 玩你画我猜（" + uName + " 在边上看）" : "你在跟 " + uName + " 玩你画我猜") + "，这一张你画，题目是「" + w + "」（" + (other ? other.name : uName) + " 不知道）。"
           + "画在 100×100 的画布上（左上角 0,0），一段一段画，现在画第 " + (have.length + 1) + " 段（最多 " + STEP_MAX + " 段）。"
           + (have.length ? "\n【你已经画了的】\n" + describeSegs(have, have.length) : "\n画布还是空的。")
@@ -5928,7 +5931,7 @@
       const other = duo ? (who === char ? char2 : char) : null;
       setSegs([]); setShown(0); setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona(who)
+        const sys = gameVoiceRules() + "\n" + persona(who)
           + "\n\n" + (other ? "你在跟 " + other.name + " 玩你画我猜（" + uName + " 在边上看）" : "你在跟 " + uName + " 玩你画我猜") + "，这一张轮到你画，题目是「" + w + "」（" + (other ? other.name : uName) + " 不知道）。"
           + "画在 100×100 的画布上（左上角 0,0）。把这幅画分成几段画，分几段你自己定（2 到 5 段）：一段是几笔、画完停一下让 TA 猜。"
           + (easy ? "这局你让着 TA，画得好认一点。" : "照你人设里的画画水平来：本来就不会画的，线条歪、比例怪、该圆的画成方的都正常；会画的也可以哪一笔随手、哪一段画得潦草，或者存心画丑一点逗对方——看你这个人、看你此刻的心思。但得是真想让人猜到的画，不是乱涂。")
@@ -5983,7 +5986,7 @@
       setBusy(true);
       let hit = false;
       try {
-        const sys = AC + VOICE_RULE + persona(guesser)
+        const sys = gameVoiceRules() + "\n" + persona(guesser)
           + "\n\n你在跟 " + drawer.name + " 玩你画我猜，" + uName + " 在边上看。这一张 " + drawer.name + " 画、你猜，你不知道答案。"
           + "画布 100×100，左上角是 0,0。到现在画出来的是：\n" + describeSegs(segs, shown)
           + said() + (herLine ? "\n" + uName + " 刚在边上说：「" + herLine.slice(0, 120) + "」。" : "")
@@ -6018,7 +6021,7 @@
       if (drawHit(v, word)) { finishTurn(true, "me"); }
       setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona()
+        const sys = gameVoiceRules() + "\n" + persona()
           + "\n\n你在跟 " + uName + " 玩你画我猜，你在画「" + word + "」，已经画了 " + shown + "/" + segs.length + " 段。"
           + (drawHit(v, word) ? uName + " 刚猜中了。" : "答案别说出来，也别说得太明显。")
           + said() + "\n\n" + uName + " 刚说：「" + v.slice(0, 120) + "」。接一句。\n只输出 JSON：{\"say\":\"一句\"}";
@@ -6049,7 +6052,7 @@
       if (v) push({ me: true, name: uName, text: v });
       setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona()
+        const sys = gameVoiceRules() + "\n" + persona()
           + "\n\n你在跟 " + uName + " 玩你画我猜，这一张是 " + uName + " 画、你猜。图是 TA 现在画到的样子（可能还没画完）。"
           + (easy ? "这局你让着 TA，猜不中就夸夸画。" : "")
           + (tries ? "你已经猜过 " + tries + " 次了，都不对，换个方向。" : "")
