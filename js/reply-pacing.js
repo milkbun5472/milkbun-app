@@ -26,7 +26,27 @@
   function lengthRules(directives) {
     return (directives || []).map(d => String((typeof d === "string" ? d : d && d.text) || "").trim()).filter(t => t && LENGTH_RULE.test(t));
   }
+  // 她还没回、TA 又开口（主动找她、自己续说、忙完回来）：把TA上一回那几句摆出来说清是【说过的】
+  //   （她 2026-10-21 截图：隔了 48 分钟又来两条，「下午在手机上挺能撩啊／等会儿吃饱了看你当面怎么编」
+  //   变成「…挺能跳／等会儿收拾完看你当面怎么装」——上一回的话换了两个字又发一遍）。
+  //   跟拉黑那一路同一个出口：不是不许提，是这一轮得比上一回多出点什么。
+  function unansweredTail(history) {
+    const h = Array.isArray(history) ? history : [];
+    const out = [];
+    for (let i = h.length - 1; i >= 0; i--) {
+      const m = h[i]; if (!m) continue;
+      if (m.role === "user") break;
+      if (m.role === "assistant" && typeof m.content === "string" && m.content.trim()) out.unshift(m.content.replace(/\s+/g, " ").slice(0, 80));
+    }
+    if (!out.length) return "";
+    return "\n【她还没回你上一回这几句】\n" + out.slice(-6).map(t => "· " + t).join("\n")
+      + "\n这些是你已经说过的：同一个意思换几个字再发一遍，对她那头没有任何变化。这一轮说的得是那之后才会有的话——你这会儿手上在干嘛、想到了别的、或者同一件事上又往前走了一步。";
+  }
   function pacing(history, options) {
+    const tail = options && (options.proactive || options.continueMode) ? unansweredTail(history) : "";
+    return pacingCore(history, options) + tail;
+  }
+  function pacingCore(history, options) {
     const rules = lengthRules(options && options.directives);
     if (rules.length) return "【这一轮的聊天节奏】发几条、每条多长，照你答应过她的长期准则来：" + rules.map(t => "「" + t + "」").join("") + "。每一条都是真想说的话，一个意思说一遍就往下走。";
     // 主动开口 / 自己续说不是在回她的话,原来那一档 1～2 条照留:没有她那句话可以称分量
