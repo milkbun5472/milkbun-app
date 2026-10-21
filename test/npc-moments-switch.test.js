@@ -8,3 +8,8 @@ test("配角发朋友圈：配角页有开关，开了的配角进发帖池，�
   assert.match(comp, /\(npcs \|\| \[\]\)\.find\(x => x && x\.id === m\.characterId\)/);
   assert.match(app, /Math\.max\(3, Math\.min\(8, _momPool \+ 1\)\)/);
 });
+
+test("他身边开了发朋友圈的配角：发的那几条进他手机朋友圈，推演不再替这个配角编", () => {
+  assert.match(app, /o\.npc && o\.npcMoments && String\(o\.ownerId \|\| ""\) === String\(char\.id\)\) ids\.add/);
+  assert.match(app, /\.filter\(o => o && \(!o\.npc \|\| o\.npcMoments\)\)\.flatMap/);
+});
