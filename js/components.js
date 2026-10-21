@@ -824,11 +824,16 @@ function pickTextFile(onMsg, opts) {
   inp.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0";
   try { document.body.appendChild(inp); } catch (e) {}
   const drop = () => { try { inp.remove(); } catch (e) {} };
-  window.addEventListener("focus", () => setTimeout(() => { if (!(inp.files && inp.files.length)) drop(); }, 1500), { once: true });
+  // ⚠️别在选择器一关就拆（原来 1.5 秒就拆，她 2026-10-21：「给秋秋发文件有时候很久都不显示」）：
+  //   iCloud 里的文件要先下到手机上，选完到 change 回来能隔十几秒；那之前把 input 拆了，iPhone 就不回 change 了。
+  //   点了取消有 cancel 就当场拆；没有 cancel 的老浏览器，留一分钟再拆——一个看不见的 input 多待一会儿不碍事。
+  inp.addEventListener("cancel", drop);
+  window.addEventListener("focus", () => setTimeout(() => { if (!(inp.files && inp.files.length)) drop(); }, 60000), { once: true });
   inp.onchange = async () => {
     const f = inp.files && inp.files[0];
     drop();
     if (!f) return;
+    if (f.size > 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
     const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
     const isDocx = /\.docx$/i.test(f.name);
     if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
@@ -837,7 +842,7 @@ function pickTextFile(onMsg, opts) {
       const buf = await f.arrayBuffer();
       let txt;
       if (isPdf || isDocx) {
-        typeof toast === "function" && toast("正在读「" + f.name + "」…");
+        if (f.size <= 512 * 1024) typeof toast === "function" && toast("正在读「" + f.name + "」…");
         txt = isPdf ? await pdfToText(buf) : await docxToText(buf);
         if (isPdf && !txt.replace(/\s+/g, "").length) { typeof toast === "function" && toast("这份 PDF 是扫描件（整页是图），抽不出字——截图用「照片」发给 TA 看吧", 6000); return; }
       } else {
