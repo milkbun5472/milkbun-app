@@ -18482,6 +18482,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       comments: (m.comments || []).filter(c => c && (known.has(c.author) || c.author === meName || c.author === "我")).map(c => ({ from: c.author === "我" ? meName : c.author, text: c.text }))
     }));
     out.realAuthors = realNames;
+    out.relNames = relatedNames(char);   // 通讯录兜底用：关系网上的人都是TA认识的
     return out;
   };
   if (typeof window !== "undefined") window.__phoneRealMomentAuthors = char => (phoneMomentsActual(char).realAuthors || []);

@@ -1383,7 +1383,11 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     known.sort((a, b) => b._ts - a._ts);
     return known.concat(unknown);
   };
-  const chats = [...actual, ...byWhen(generated)];
+  // 同名的会话只摆一个（群友 2026-10-21 截图：NXX调查组、26课题组各摆了三个）：真聊天那个优先，推演里同名的不再摆；
+  //   推演自己重复的，留最新那个。认名字去掉空格和括号
+  const _chn = v => String(v == null ? "" : v).replace(/[\s（）()「」【】·]/g, "");
+  const _seenChat = new Set(actual.map(c => _chn(c && c.name)));
+  const chats = [...actual, ...byWhen(generated).filter(c => { const k = _chn(c && c.name); if (!k || _seenChat.has(k)) return false; _seenChat.add(k); return true; })];
   // ⚠️thread 存的是【点开那一刻的那个对象】，是一张快照。真聊天那几条是活的
   //   （actual 每次渲染都从最新的消息重算），可快照不会跟着长——于是她在聊天里
   //   刚说的话、TA刚回的那条，在TA手机上要退出去再点进来才看得见
@@ -1536,7 +1540,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const _listed = new Set(arr(d.contacts).flatMap(c => [_cn(c && c.name), _cn(c && c.remark)]).concat([_cn(meName)]));
   const _fromChats = chats.filter(c => c && c.type !== "group" && c.name && !_listed.has(_cn(c.name)) && !_listed.has(_cn(c.remark)))
     .map(c => { _listed.add(_cn(c.name)); return { name: c.name, remark: c.remark || "", intro: "" }; });
-  const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts), ..._fromChats];
+  // 关系网上连着的人（角色、配角）本来就是TA认识的人：模型没写进 contacts、也还没开私聊的，照样列进通讯录
+  const _fromRel = arr(d.relContacts).filter(n => n && !_listed.has(_cn(n))).map(n => { _listed.add(_cn(n)); return { name: n, remark: "", intro: "" }; });
+  const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts), ..._fromChats, ..._fromRel];
   const contactRow = (c, i) => h("button", { key: i, "data-wk": "pitem", "data-kind": "contact", onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#1c1c1c" } }, c.remark || c.name), h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, PTX(c.intro))));
   const searchBox = h("div", { "data-wk": "block", className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
@@ -4847,7 +4853,7 @@ function PhoneApp({
   const [sheet, setSheet] = useState(null);
   const zh = PHONE_LABEL[appKey];
   const rawData = charData[appKey];
-  const data = appKey === "wechat" && rawData ? { ...rawData, actualChats: actualWechat || [], actualMoments: actualMoments || [] } : rawData;
+  const data = appKey === "wechat" && rawData ? { ...rawData, actualChats: actualWechat || [], actualMoments: actualMoments || [], relContacts: (actualMoments && actualMoments.relNames) || [] } : rawData;
   const loading = busyKey === appKey;
   const isLive = PHONE_LIVE_KEYS.indexOf(appKey) >= 0;
   const [forumTab, setForumTab] = useState("main");
