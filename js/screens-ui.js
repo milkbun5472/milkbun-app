@@ -7241,7 +7241,9 @@ function ThemeConfig({
     if (!file) return;
     try {
       const dataUrl = await resizeImageFile(file, screenImageDim(), 0.9);
-      onSaveWallpaper(dataUrl);
+      // 先看一眼再换（群友 2026-10-21）：点「就用这张」才真的换上
+      const inputEl = e.target;
+      openWallPreview({ src: dataUrl, kind: "home", fx: fx, onUse: () => onSaveWallpaper(dataUrl), onRepick: () => inputEl && inputEl.click() });
     } catch (err) {
       onSaveWallpaper && onSaveWallpaper(wallpaper); // 触发 toast 之外无操作
     }

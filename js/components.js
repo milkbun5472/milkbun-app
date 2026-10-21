@@ -15673,6 +15673,64 @@ function chatBgStyle(img, fx, fallback) {
   if (chatBgFxOn(fx)) return { position: "relative", isolation: "isolate", background: fallback };
   return { backgroundImage: "url(\"" + img + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 }
+// ── 换图之前先看一眼（群友 2026-10-21：「换壁纸的时候可不可以出一个预览」；她：「都做吧」）──────
+//   主屏壁纸、聊天背景、线下场景图、查手机锁屏/主页共用这一页：选好图先铺满整屏、叠一层这一处真会出现的东西的轮廓，
+//   点「就用这张」才换上，点「取消」就当没换。kind：home / chat / offline / phonelock / phonehome。
+//   fx：主屏和聊天背景有「面纱 / 虚化」，照着显示，看到的就是换上去以后的样子。
+function WallPreview({ src, kind, fx, onUse, onCancel, onRepick }) {
+  // 独立挂在 body 上（openWallPreview），拿不到主题上下文：颜色就写在这儿
+  const t = { ink: "#2b2722", bg2: "#fbf9f5", line: "rgba(43,39,34,.18)" };
+  if (!src) return null;
+  const b = Math.max(0, Math.min(20, Number(fx && fx.blur) || 0)), v = Math.max(0, Math.min(60, Number(fx && fx.veil) || 0)) / 100;
+  const glass = { background: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.7)", boxShadow: "0 4px 14px rgba(0,0,0,.08)" };
+  const now = new Date(), hhmm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+  const icons = n => h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 18, padding: "0 26px" } },
+    Array.from({ length: n }).map((_, i) => h("div", { key: i, style: Object.assign({ aspectRatio: "1", borderRadius: 16 }, glass) })));
+  const bubble = (me, w) => h("div", { style: { display: "flex", justifyContent: me ? "flex-end" : "flex-start", padding: "0 14px", marginBottom: 12 } },
+    h("div", { style: Object.assign({ width: w, height: 38, borderRadius: 18 }, me ? { background: "rgba(149,236,105,.85)" } : glass) }));
+  const mock = kind === "chat"
+    ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column" } },
+        h("div", { style: Object.assign({ height: "calc(env(safe-area-inset-top, 0px) + 54px)" }, glass, { borderRadius: 0 }) }),
+        h("div", { style: { flex: 1, paddingTop: 22 } }, bubble(false, "58%"), bubble(true, "42%"), bubble(false, "70%"), bubble(false, "36%"), bubble(true, "52%")),
+        h("div", { style: Object.assign({ height: "calc(64px + env(safe-area-inset-bottom, 0px) * 0.4)" }, glass, { borderRadius: 0 }) }))
+    : kind === "offline"
+    ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 18px", gap: 14 } },
+        [0, 1].map(i => h("div", { key: i, style: Object.assign({ height: i ? 90 : 130, borderRadius: 14 }, glass) })))
+    : kind === "phonelock"
+    ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "calc(env(safe-area-inset-top, 0px) + 70px)", color: "#fff", textShadow: "0 2px 10px rgba(0,0,0,.35)" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 64, lineHeight: 1 } }, hhmm),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, marginTop: 8 } }, (now.getMonth() + 1) + "月" + now.getDate() + "日"))
+    : h("div", { style: { position: "absolute", inset: 0, paddingTop: "calc(env(safe-area-inset-top, 0px) + 40px)" } },
+        kind === "home" ? h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 52, color: t.ink, marginBottom: 20 } }, hhmm) : null,
+        kind === "home" ? h("div", { style: Object.assign({ margin: "0 14px 22px", height: 108, borderRadius: 22 }, glass) }) : null,
+        icons(kind === "home" ? 8 : 16),
+        h("div", { style: Object.assign({ position: "absolute", left: 14, right: 14, bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", height: 78, borderRadius: 26 }, glass) }));
+  const btn = (label, onClick, solid) => h("button", { onClick, className: "flex-1 active:opacity-80", style: { minHeight: 48, borderRadius: 14, fontFamily: F_BODY, fontSize: 15,
+    background: solid ? t.ink : "rgba(255,255,255,.88)", color: solid ? t.bg2 : t.ink, border: solid ? "none" : "1px solid " + t.line } }, label);
+  return h("div", { "data-wk": "wallpreview", "data-part": kind || "home", style: { position: "fixed", inset: 0, zIndex: 9990, background: "#000", overflow: "hidden" } },
+    h("div", { style: { position: "absolute", inset: -(b * 2 + 2), background: "center/cover no-repeat url(\"" + src + "\")", filter: b ? "blur(" + b + "px)" : "none" } }),
+    v ? h("div", { style: { position: "absolute", inset: 0, background: "rgba(255,252,247," + v + ")" } }) : null,
+    h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, pointerEvents: "none" } }, mock),
+    h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, padding: "0 14px", paddingTop: safeTop(10), display: "flex", justifyContent: "space-between", alignItems: "center", pointerEvents: "none" } },
+      h("button", { onClick: onCancel, className: "active:opacity-70", style: { pointerEvents: "auto", minHeight: 36, padding: "0 14px", borderRadius: 999, background: "rgba(0,0,0,.45)", color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "取消"),
+      h("div", { style: { padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,.45)", color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, "预览 · 还没换上")),
+    h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 16px", paddingBottom: "calc(14px + env(safe-area-inset-bottom, 0px))", display: "flex", gap: 10, background: "linear-gradient(transparent, rgba(0,0,0,.35))" } },
+      onRepick ? btn("换一张", onRepick, false) : null,
+      btn("就用这张", onUse, true)));
+}
+// 换图的地方只要调这一个：选好图 → openWallPreview({ src, kind, fx, onUse, onRepick })。
+//   挂在 body 上单独一层（不用往每一页里塞节点，也不会被哪一层的 transform 框住）。
+function openWallPreview(o) {
+  if (typeof document === "undefined" || !o || !o.src) { if (o && o.onUse) o.onUse(); return; }
+  const host = document.createElement("div"); document.body.appendChild(host);
+  const root = ReactDOM.createRoot(host);
+  const close = () => { try { root.unmount(); } catch (e) {} try { host.remove(); } catch (e) {} };
+  root.render(h(WallPreview, { src: o.src, kind: o.kind, fx: o.fx,
+    onUse: () => { close(); o.onUse && o.onUse(); },
+    onCancel: () => { close(); o.onCancel && o.onCancel(); },
+    onRepick: o.onRepick ? () => { close(); o.onRepick(); } : null }));
+}
+if (typeof window !== "undefined") window.openWallPreview = openWallPreview;
 function CoupleInviteCard({
   m,
   character,
@@ -17034,7 +17092,7 @@ function OfflineMode({
         sBg ? h("div", { "data-wk": "block", style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, sBg ? "更换" : "选择"),
         sBg ? h("button", { onClick: () => setSBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => setSBg(d)); e.target.value = ""; } })))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "offline", onUse: () => setSBg(d), onRepick: () => el.click() })); e.target.value = ""; } })))),
       offShow("scene", "taste", "本场口味",
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
       offShow("write", "len", "他每一轮写多长",
@@ -18065,7 +18123,7 @@ function GroupOfflineMode({
       sBg ? h("div", { "data-wk": "block", style: { width: 52, height: 52, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
       h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, sBg ? "更换" : "选择"),
       sBg ? h("button", { onClick: () => { setSBg(""); onSaveSettings && onSaveSettings({ bg: "" }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "清除") : null,
-      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } }))),
+      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "offline", onUse: () => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }, onRepick: () => el.click() })); e.target.value = ""; } }))),
       gShow("scene", "autoshot", "他们会不会自己拍照",
     h("button", { "data-wk": "offautoshot", "data-on": sNoShot ? "0" : "1", onClick: () => setSNoShot(v => !v), className: "w-full pt-5 flex items-center justify-between active:opacity-70", style: { gap: 12, textAlign: "left" } },
       h("div", null,
@@ -19642,7 +19700,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         chatBg ? h("div", { "data-wk": "block", style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + resolveImg(chatBg) + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => setChatBg(d)); e.target.value = ""; } }))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "chat", fx: chatBgFx, onUse: () => setChatBg(d), onRepick: () => el.click() })); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
@@ -21389,7 +21447,7 @@ function ChatSettings({
         chatBg ? h("div", { "data-wk": "block", style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(\"" + resolveImg(chatBg) + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => setChatBg(d)); e.target.value = ""; } }))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0], el = e.target; if (f) resizeImageFile(f, screenImageDim(), 0.88).then(d => openWallPreview({ src: d, kind: "chat", fx: chatBgFx, onUse: () => setChatBg(d), onRepick: () => el.click() })); e.target.value = ""; } }))),
     chatBg ? h(WallFxRows, { t, fx: chatBgFx, onMove: setChatBgFx, veilHint: "图上压一层暖白，越往右图越淡、字越清楚。", blurHint: "把背景糊掉，气泡更显眼。0 就是原图。" }) : null,
     // 通话背景跟聊天背景放同一节（「装扮」一类最多四节，见 test/chat-settings-recut）
     h("div", { className: "flex items-center justify-between pt-5" },

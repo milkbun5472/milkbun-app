@@ -1180,14 +1180,14 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
         : h(PGlyph, { k: kind === "lockWallpaper" ? "settings" : "album", size: 24, color: tone.glyph }),
       h("input", {
         type: "file", accept: "image/*", style: { display: "none" },
-        onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v }))
+        onChange: e => { const el = e.target; phonePickLookImage(e.target.files && e.target.files[0], v => openWallPreview({ src: phoneImage(v) || v, kind: kind === "lockWallpaper" ? "phonelock" : "phonehome", onUse: () => onPatch({ [kind]: v }), onRepick: () => el.click() })); }
       })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, title),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 4 } }, sub),
         h("div", { className: "flex items-center", style: { gap: 12, marginTop: 10 } },
           h("label", { className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: tone.glyph, cursor: "pointer" } }, ref ? "更换" : "选一张图",
-            h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => phonePickLookImage(e.target.files && e.target.files[0], v => onPatch({ [kind]: v })) })),
+            h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const el = e.target; phonePickLookImage(e.target.files && e.target.files[0], v => openWallPreview({ src: phoneImage(v) || v, kind: kind === "lockWallpaper" ? "phonelock" : "phonehome", onUse: () => onPatch({ [kind]: v }), onRepick: () => el.click() })); } })),
           ref && h("button", { onClick: () => onPatch({ [kind]: "" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "恢复默认")))));
   };
   const iconPreset = look.iconPreset || "own";   // 设置页高亮的那一档也要跟默认一致，不然看着像选了「主界面彩釉」
