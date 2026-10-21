@@ -18463,6 +18463,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "用户可以只占一两条，甚至某一栏里根本没有TA。";
   };
   const phoneKeyLabel = key => PHONE_LABEL[key] || (key === "video_day" ? "白天视频" : key === "video_night" ? "深夜视频" : key);
+  // TA手机朋友圈里也摆上【真发过的】那几条（她 2026-10-21：「有关系的角色发朋友圈也同步过去，不占生成名额，跟群聊、旁观私聊一样」）：
+  //   作者是TA自己、或者跟TA关系网上连着的人；赞和评论只留TA也认识的（真微信只看得见共同好友），零调用。
+  const phoneMomentsActual = char => {
+    if (!char) return [];
+    const ids = new Set([String(char.id)]);
+    (characters || []).forEach(o => { if (o && o.id !== char.id && (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id])) ids.add(String(o.id)); });
+    const nameOf = id => { const o = (characters || []).find(x => x && String(x.id) === String(id)); return o ? (o.remark || o.name) : ""; };
+    const known = new Set([...ids].map(nameOf).filter(Boolean));
+    const meName = userName(profileFor(char.id));
+    return (momentsRef.current || []).filter(m => m && m.characterId && ids.has(String(m.characterId)) && String(m.content || "").trim()).slice(0, 12).map(m => ({
+      author: nameOf(m.characterId), content: String(m.content || ""), _ts: Number(m.ts) || null, time: "", _real: true,
+      likes: [...(m.likers || []).filter(n => known.has(n)), ...(m.liked ? [meName] : [])],
+      comments: (m.comments || []).filter(c => c && (known.has(c.author) || c.author === meName || c.author === "我")).map(c => ({ from: c.author === "我" ? meName : c.author, text: c.text }))
+    }));
+  };
   const phoneWechatActual = char => {
     if (!char) return [];
     const meName = userName(profileFor(char.id));
@@ -31151,6 +31166,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 手机里的「我」是 TA 认的那张面具（群里属数 2026-10-06：「查手机时看见的微信聊天里也是主面具的欸」）
     profile: selPhone ? profileFor(selPhone) : profile,
     actualWechatFor: phoneWechatActual,
+    actualMomentsFor: phoneMomentsActual,
     // ⚠️音乐那一屏和桌面那块组件原来都写死 songs[0]（她 2026-09-10：「音乐是死的
     //   永远只能显示歌单第一首」）。正在放哪一首是播放器说了算，递进去。
     nowSongId: player.songId,
