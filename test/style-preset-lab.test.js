@@ -305,20 +305,17 @@ test("是 json 但不是模块包，要报错，不许再倒进手写框", () =>
 // 两个原因叠在一起：热区只有十几像素高；删除走 confirm()，装成 PWA 之后
 // 弹不出来时代码把它当成「取消」，表现同样是「按了没反应」。
 
-test("预设台里不许再用 confirm 做删除确认", () => {
-  const calls = lab.split("\n").filter(l => !/^\s*\/\//.test(l) && l.indexOf("confirm(") >= 0);
+test("预设台里不许再用浏览器的 confirm 做删除确认", () => {
+  const calls = lab.split("\n").filter(l => !/^\s*\/\//.test(l) && /(^|[^A-Za-z])confirm\(/.test(l));
   assert.deepEqual(calls, [], "PWA 里弹不出来就等于静默取消");
-  assert.ok(lab.indexOf("PWA 之后不一定弹得出来") > 0, "病因写在代码里");
 });
 
-test("删除改成点两下：先问一句，再点才真删，还能反悔", () => {
-  assert.ok(lab.indexOf('const [armed, setArmed] = useState("")') > 0);
-  // v65.13：这几颗归了台脚的家伙什（方角小工具，不是药丸），删的东西也改叫「一块版」
-  assert.ok(lab.indexOf('armed === cur.id ? "真删？再点一下" : "删掉这块版"') > 0);
-  assert.ok(lab.indexOf('h("button", { onClick: () => setArmed(""), style: Object.assign({}, S.tool, { color: t.fog }) }, "算了")') > 0);
+// 2026-10-20 她拍板：「再点一下」统一换成公共的确认弹窗（requestAppConfirm）
+test("删一块版走公共的确认弹窗，删的时候照最新那份列表筛", () => {
   const fn = lab.slice(lab.indexOf("const delPreset"), lab.indexOf("const toggleMod"));
-  assert.ok(fn.indexOf("if (armed !== cur.id) { setArmed(cur.id); return; }") > 0, "第一下只上膛");
-  assert.ok(fn.indexOf('setArmed(""); commit(next)') > 0, "删完要卸膛，否则下一条一点就没");
+  assert.ok(fn.indexOf('requestAppConfirm("删掉这块版？"') > 0);
+  assert.ok(fn.indexOf("setPresets(list => { const next = list.filter(p => p.id !== id)") > 0, "照最新那份列表筛，不拿旧的 cur");
+  assert.ok(lab.indexOf("真删？再点一下") < 0, "上膛那一套已经退了");
 });
 
 test("小字按钮都给够热区，别再是一条 15px 高的字", () => {

@@ -2054,7 +2054,6 @@
     const [writing, setWriting] = useState(false); // 展开"写行动"输入
     const [reveal, setReveal] = useState(99);       // 最后一段叙事已显示的段落数（初次进来全显）
     const [sel, setSel] = useState(null);           // 书脊上点开的那一页
-    const [endAsk, setEndAsk] = useState(false);    // 收尾要点两下（这一步不可逆）
     const [cut, setCut] = useState(null);           // 点住的那一句：{i, sentence, rest}
     // 这篇文的原稿。⚠️只在这儿算一次，不进存档：还没读到的部分一个字都不存。
     const paras = window.Fanfic.rpParas(props.fic);
@@ -2225,7 +2224,7 @@
     // 收尾：写最后一段 + 作者的判词，然后把这一版当成一篇文放回书架
     async function finish() {
       if (busy) return;
-      setEndAsk(false); setBusy(true);
+      setBusy(true);
       try {
         const r = await window.Fanfic.genRPEnding(props.active, s, props.fic, props.tab, cpc, props.userName, storyLore("收束"), perFic);
         let done = null;
@@ -2289,8 +2288,8 @@
         sub: [window.Fanfic.rpKnowLabel(s.know), "原稿还剩 " + window.Fanfic.rpLeftPct(s, paras) + "%"].filter(Boolean).join(" · "),
         onBack: props.onBack,
         right: (props.fic && !s.done && trans.length >= 4)
-          ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "active:opacity-60",
-              style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: endAsk ? t.accent : t.fog, lineHeight: 1.15, padding: "2px 0" }, "data-wk": "ficrpthreadbtn", "data-part": "1" }, endAsk ? "确定？" : "收尾")
+          ? h("button", { onClick: function () { requestAppConfirm("现在收尾定稿？", "写完收束和作者的判词，这一版放回书架；这一步不可逆。", function () { finish(); }, "收尾", null, { danger: false }); }, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.15, padding: "2px 0" }, "data-wk": "ficrpthreadbtn", "data-part": "1" }, "收尾")
           : null
       }),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
@@ -2298,7 +2297,6 @@
       // （审美审计 2026-09-04 点名；mobile-ui-layout §3.5：底纹铺在最外那层外壳上，
       //   中间这些层一律透明）。
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8" },
-        endAsk ? h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, paddingTop: 10 } }, "再点一下右上角就定稿：写完收束和作者的判词，这一版放回书架") : null,
         h("div", { style: { height: 8 } }),
         // 原稿剩余：偏离度不再是一个抽象数字，是【这篇文还剩几成是她写的】
         paras.length ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 8px" } },

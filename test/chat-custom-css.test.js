@@ -170,6 +170,7 @@ test("整套美化打包：图一起带走、导进来换成新门牌、别人�
     imgVaultFetchBlob: async r => vault[r] || null,
     imgToVault: async d => "iv_new",
     saveTextFile: async (n, txt) => { saved = { n, txt }; },
+    parseJSONLoose: s => { try { return JSON.parse(s); } catch (e) { return null; } },   // 浏览器里是 engine.js 那份公共的
     FileReader: class { readAsDataURL(b) { this.result = "data:image/png;base64,eA=="; setTimeout(() => this.onload(), 0); } },
     window: { ThemeStudio: { unsafeReason: css => /@import/.test(css) ? "不允许 @import" : "" } }
   };

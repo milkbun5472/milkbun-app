@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.173";
+const APP_VERSION = "v76.176";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8480,6 +8480,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   最早那批浓缩进【记忆库】(addMemEntry) + 累进 session.summary 当前情提要，并推进 lastSummarizedCount（喂模型时
   //   只喂前情提要+近窗明细，见 genOfflineFrom）。结束时的整场总结照旧，两者各司其职。
   const OFF_SUM_THRESH = 50, OFF_SUM_BUFFER = 15;
+  // 这一场该拿哪一段去浓缩（单人线下、群线下共用，2026-10-20 收：原来两边各写一份）：
+  //   攒够 OFF_SUM_THRESH 段才动；最后 OFF_SUM_BUFFER 段留着不浓缩（还在演）；出戏的不算；不到 4 段不值得调一次
+  const offlineSumBlock = sess => {
+    const all = (sess && sess.msgs) || [];
+    const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
+    if (all.length - lastSum < OFF_SUM_THRESH) return null;
+    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && !isOocMsg(m));
+    return block.length < 4 ? null : block;
+  };
   // 这一场的前情提要（滚动总结攒的那一份）留多长。它进的是【线下进行中】的 prompt，
   // 归档那一枪已经改成分段跑、整场都看得到，不再靠它兜底。
   // ⚠️原来是写死的 .slice(-4000)，而且是【静默】切：切掉的是最早那几段，谁都不知道。
@@ -8523,10 +8532,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
     if (!sess) return;
     const all = sess.msgs || [];
-    const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
-    if (all.length - lastSum < OFF_SUM_THRESH) return;
-    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && !isOocMsg(m));
-    if (block.length < 4) return;
+    const block = offlineSumBlock(sess);
+    if (!block) return;
     offSumBusyRef.current[charId] = true;
     try {
       const r = await window.AutoGate.tagged("线下自动总结", () => summarizeOffline(sumRoute(offlineApiFor(charId)), ctxFor(char), { ...sess, msgs: block }, offlineRecordedOf(sess.id)), "线下自动总结·" + (char.remark || char.name));
@@ -9679,10 +9686,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs);
     if (!sess) return;
     const all = sess.msgs || [];
-    const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
-    if (all.length - lastSum < OFF_SUM_THRESH) return;
-    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && !isOocMsg(m));
-    if (block.length < 4) return;
+    const block = offlineSumBlock(sess);
+    if (!block) return;
     gOffSumBusyRef.current[groupId] = true;
     try {
       const r = await summarizeOfflineGroup(sumRoute(offlineActive), ctxForGroupOffline(group), { ...sess, msgs: block }, offlineRecordedOf(sess.id));

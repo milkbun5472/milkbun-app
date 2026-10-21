@@ -797,7 +797,7 @@
     };
     const del = v => {
       const go = () => { save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.filter(x => x.id !== v.id) })); setPage(p => p && p.id === v.id ? (p.back || null) : p); toast("扔掉了"); };
-      if (props.confirm) props.confirm("扔掉这条视频？", "扔了就找不回来了" + (v.img ? "，画出来的那张图也一起不要了" : "") + "。", go); else go();
+      requestAppConfirm("扔掉这条视频？", "扔了就找不回来了" + (v.img ? "，画出来的那张图也一起不要了" : "") + "。", go, "扔掉");
     };
     // 投币：一天两枚，一条最多投两枚（B站就是这么算的）
     const coinKey = todayKey();
@@ -1088,7 +1088,7 @@
       const newFolder = () => { const name = S(fName).trim(); if (!name) return; setFName(null); const id = uid("fd"); save(Object.assign({}, dbRef.current, { folders: arr(dbRef.current.folders).concat([{ id, name }]) })); setFolder(id); };
       const delFolder = f => { const go = () => { save(Object.assign({}, dbRef.current, { folders: arr(dbRef.current.folders).filter(x => x.id !== f.id), videos: dbRef.current.videos.map(v => v.folder === f.id ? Object.assign({}, v, { folder: "" }) : v) })); setFolder("all"); };
         const ask = "不要文件夹「" + f.name + "」了？";
-        if (props.confirm) props.confirm(ask, "里面的视频还在收藏里，只是不再分到这一格。", go); else go(); };
+        requestAppConfirm(ask, "里面的视频还在收藏里，只是不再分到这一格。", go, "删掉"); };
       const cur = folders.find(f => f.id === folder);
       return h("div", { "data-wk": "shuafavpage", className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
         h(Head, { zh: "收藏", bg: "transparent", ink: P.ink, right: cur ? h("button", { onClick: () => delFolder(cur), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: P.dim, minHeight: 40 } }, "删这个文件夹") : null }),

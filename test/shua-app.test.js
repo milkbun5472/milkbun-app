@@ -106,7 +106,7 @@ test("两套皮只说事实不给内容；扔掉要先问；收藏的不会被�
     assert.ok(facts.indexOf(w) < 0, "事实那两句里出现了内容示范：" + w);
   });
   assert.match(S, /const capVideos = vs => \{ let left = CAP; return arr\(vs\)\.filter\(v => v\.faved \|\| v\.by === "me" \|\| \(left-- > 0\)\); \};/);
-  assert.match(S, /props\.confirm\("扔掉这条视频？"/);
+  assert.match(S, /requestAppConfirm\("扔掉这条视频？"/, "扔掉要先问：走公共的确认弹窗");
   assert.match(S, /page\.kind === "favs"/);
 });
 
