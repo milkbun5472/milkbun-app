@@ -22254,7 +22254,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _moreCount = "这一轮写 " + Math.max(3, Math.min(8, _momPool + 1)) + " 条上下（名单上的人可以说不止一句，一来一回地接）";
       const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.concat(_threadPeople).join("、")
         + (author
-          ? "。**只许是这几个人，不许新编出名单外的人（没有路人、没有陌生网友、也别现起一个同事同学）。**"
+          ? "；也可以是「" + author.name + "」人设里写到过的人（同学、闺蜜、同事、家里人这类：人设里有名字就用那个名字，只写了「有个闺蜜」就给她起个像样的名字，跟上面出现过的同一个人前后一致；这种人在 JSON 里多填一格 \"who\"，写人设里提到他的那个身份词，比如「闺蜜」）。**人设里没提过的人一个都不许冒出来，没有路人、没有陌生网友。**"
           : "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**")
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
         + _moreCount + "，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思；既要有对这条朋友圈的新评论，也要有接着上面某条往下聊的。" + REAL_DISAGREE;
@@ -22266,7 +22266,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22278,7 +22278,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
       // 不编人（她 2026-10-22）：说话的人得是名单上的、或者评论区里已经说过话的；对不上名字的那条丢掉
       const _okNames = new Set(roster.concat(_threadPeople).map(n => momentWho(n)).filter(Boolean));
-      reps = reps.filter(r => _okNames.has(momentWho(r.author)) || !!byName(r.author));
+      // 人设里写到过的人也算（她 2026-10-22「可以编人设里提到的比如同学闺蜜，但是不要蹦出来完全陌生人」）：名字得真出现在发帖人的人设里
+      const _personaText = author ? String([author.persona, author.desc, author.background, author.bio].filter(Boolean).join("\n")) : "";
+      reps = reps.filter(r => { const n = momentWho(r.author); const w = String(r.who || "").trim();
+        return _okNames.has(n) || !!byName(r.author) || (n && n.length >= 2 && _personaText.includes(n)) || (w.length >= 2 && _personaText.includes(w)); });
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。

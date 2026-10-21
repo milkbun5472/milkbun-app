@@ -55,10 +55,9 @@ test('③ 只有共友：提示里把「不许出现名单外的人」写明', (
   assert.ok(/没有路人|没有陌生网友/.test(ask), '必须点明没有路人 NPC');
   // 2026-10-20：名单＝roster ＋ 评论区里已说过话的人；角色的帖子还可以来他自己生活里的熟人，但照旧不许陌生网友
   assert.ok(ask.includes('roster.concat(_threadPeople).join'), '名单＝算好的 roster 加评论区里已有的人');
-  // 2026-10-22 她：「多来点新评论和接话，但是不要编人出来」——角色帖子也不再现起熟人
-  assert.ok(!ask.includes('自己生活里真会有的熟人'), '不许再让模型现编熟人');
-  assert.ok(ask.includes('不许新编出名单外的人'), '角色帖子也点明不许新编人');
-  assert.match(src, /reps = reps\.filter\(r => _okNames\.has\(momentWho\(r\.author\)\) \|\| !!byName\(r\.author\)\);/, '对不上名单的那条丢掉');
+  // 2026-10-22 她：人设里提到的同学闺蜜可以来，人设里没有的完全陌生人不行
+  assert.ok(ask.includes('人设里写到过的人') && ask.includes('人设里没提过的人一个都不许冒出来'), '人设里的熟人可以，陌生人不行');
+  assert.match(src, /_personaText\.includes\(n\)\) \|\| \(w\.length >= 2 && _personaText\.includes\(w\)\)/, '名字或身份词得真在人设里');
 });
 
 test('④ 进行中锁：重复点不叠发', () => {
