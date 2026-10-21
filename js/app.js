@@ -12777,7 +12777,7 @@ mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；�
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
 【实时动作字段·普通角色每轮必填】
-action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
+action: string，每轮回复完成后${ACT_MEANING}。${typeof ACT_VOICE === "string" && !(sameRoomFor(charId) && !offlineTogetherNow(charId)) ? ACT_VOICE : ""}这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: ${AFFINITY_DELTA_SPEC}
@@ -15067,7 +15067,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️**定义取的是 ACT_MEANING 那一份**（engine.js）——跟单聊一模一样的那句话。
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
-      const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
+      const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。" + (typeof ACT_VOICE === "string" && !gSameRoomFor(groupId) ? ACT_VOICE + "几个人同一轮各写一行时，各是各的处境，不顺着旁边那人的写。" : "");
       // 心声那一格跟单聊同一句 THOUGHT_MEANING（她 2026-10-05：「群线上开了共处一室……心声还是这样，单聊有时候又是好的」）。
       //   单聊 10-04 已经收成那一句，群这边还留着旧的一长串：「本轮有情绪波动的」「别写成这女人那家伙」「别重复、别原地打转、别套话」——
       //   禁令把路堵成一个形状，「有情绪波动」又把它推成每轮汇报心里落没落地。只留它是什么，和「我」是谁（那条是事实，不是文风）。

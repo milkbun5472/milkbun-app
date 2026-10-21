@@ -28,7 +28,7 @@ const ACT_MEANING = (function () {
 test("「action 指什么」只许有一个说法", () => {
   assert.equal((E.match(/const ACT_MEANING = /g) || []).length, 1, "只许定义一处");
   assert.equal((A.match(/ACT_MEANING/g) || []).length, 2, "单聊一处、群聊一处，各取一次");
-  assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}。这一格是它唯一的去处/, "单聊那一行要从这儿取");
+  assert.match(A, /action: string，每轮回复完成后\$\{ACT_MEANING\}。(\$\{[^}]*ACT_VOICE[^}]*\})?这一格是它唯一的去处/, "单聊那一行要从这儿取");
   assert.match(A, /const G_ACTION_SPEC = ACT_MEANING \+ /, "群聊那一格也要从这儿取");
 });
 
@@ -77,7 +77,7 @@ test("群回复那一处要把动描开关传下去", () => {
 test("群聊那一格拼出来，说的跟单聊是同一件事", () => {
   const i = app.indexOf("const G_ACTION_SPEC = ACT_MEANING + ");
   const line = app.slice(i, app.indexOf("\n", i));
-  const tail = line.match(/ACT_MEANING \+ "([^"]+)";/);
+  const tail = line.match(/ACT_MEANING \+ "([^"]+)"/);
   assert.ok(tail, "抠不出群聊那一格的尾巴：" + line);
   const spec = ACT_MEANING + tail[1];
   assert.match(spec, /所处的活动状态/, "群聊这一格也得是「活动状态」，不是「这句话时的动作」");
