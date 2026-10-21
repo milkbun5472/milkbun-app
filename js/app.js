@@ -12869,6 +12869,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           || (/换上|换成|设成|设为|用这张|当背景|设一下/.test(String(lastU && lastU.content || "")) && all.slice(-8).some(m => m && m.role === "user" && m.imageRef));
         if (lastU && _askSwap) {
           const far = all.slice(-40);
+          // 她最近连着发了几张（群里 2026-10-22：先发壁纸、再发一张带着这壁纸的截图，他换上的是截图）——
+          //   最近这几张都摆给他，让他自己挑是哪一张；只有一张时跟原来一样
+          const herPics = far.filter(m => m.role === "user" && m.imageRef).slice(-4);
+          if (herPics.length > 1) {
+            const alts = herPics.map(m => ({ ref: m.imageRef, desc: String(m.desc || m.content || "").slice(0, 80), ts: m.ts, from: "her" }));
+            return Object.assign({}, alts[alts.length - 1], { alts });
+          }
           for (let k = far.length - 1; k >= 0; k--) {
             const m = far[k];
             if (m.role === "user" && m.imageRef) return { ref: m.imageRef, desc: String(m.desc || m.content || "她发来的那张").slice(0, 120), from: "her" };
@@ -12878,7 +12885,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return null;
       })();
       const _lockNow = (() => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; return lk.lockWallpaper ? String(lk.lockDesc || "一张图") : ""; } catch (e) { return ""; } })();
-      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。"
+      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.alts
+          ? "她最近发来了 " + _lockSrc.alts.length + " 张图，按发的先后：" + _lockSrc.alts.map((a, i) => "第" + (i + 1) + "张" + (a.ts ? "（" + fmtStampAI(a.ts) + "）" : "") + (a.desc ? "「" + a.desc + "」" : "")).join("、") + "。看清她要你换的是哪一张（截图里带着壁纸的，要换的通常是那张壁纸本身），填 \"lockscreen\": 第几张的数字"
+          + "（想换的话；不想就别填）。"
+          : (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。")
         + "⚠️只在话里说「换好了」、JSON 里没填，手机上什么都不会变——说了换就一定要填。" + (_lockNow ? "你现在的锁屏是：" + _lockNow + "。" : "") : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
@@ -13935,7 +13945,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
       // TA 自己存一刻（她 2026-10-03 点的第 4 条）：进 x_shikePins，相册里多一张「TA 存的」。侧房和配角不存
-      if (parsed.lockscreen === true && _lockSrc) setCharLockscreen(charId, _lockSrc, chatKey, turnId);
+      if (_lockSrc && (parsed.lockscreen === true || Number(parsed.lockscreen) > 0)) {
+        const _pick = _lockSrc.alts && Number(parsed.lockscreen) > 0 ? _lockSrc.alts[Math.min(_lockSrc.alts.length, Number(parsed.lockscreen)) - 1] : _lockSrc;
+        setCharLockscreen(charId, _pick, chatKey, turnId);
+      }
       if (parsed.keepMoment && typeof parsed.keepMoment === "object" && !sideRoom && !char.npc && String(parsed.keepMoment.title || "").trim()) {
         try {
           const all = loadJSON("x_shikePins", {}) || {};
