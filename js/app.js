@@ -17985,7 +17985,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   免得哪天谁看见这支还在、顺手把线接回去。
       //   论坛的新内容只有两条路：她自己在论坛里按（刷新 / 请TA们发帖 / 让TA发一条），
       //   或者角色低频主动发帖那一条（autoForumForChar，设置里「论坛」那个开关管得住）。
-      if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
+      // 开了「自己发朋友圈」的配角也进这一池（她 2026-10-22）
+      if (kind === "moments") { const ps = liveChars.concat((characters || []).filter(c => c && c.npc && c.npcMoments)).filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
       else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("whisper", pk, () => genWhisper(pk)); } }
     } catch (e) {/* 静默 */}
   };
@@ -22205,7 +22206,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
-      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 2)])].map(c => c.remark || c.name);
+      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 4)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
       const canSee = liveChars.filter(c => momSeen(mom, c.id));
@@ -22213,7 +22214,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 2));
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -22248,12 +22249,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 评论区里已经说过话的人（发帖时他自己写的同学、同事这些）也在名单里；角色发的那条，还可以来他生活里真有的熟人
       //   （群友 2026-10-20：「刷新也不出随机 npc 了我没法接话」——原来名单只有角色和配角，这些人一刷就再也回不来）
       const _threadPeople = [...new Set((mom.comments || []).map(c => c && momentWho(c.author)).filter(n => n && n !== meName0 && !roster.includes(n)))];
+      // 一轮几条跟着名单长（她 2026-10-22「现在最多俩有点浪费，多来点新评论和接话」）：名单里的人多，一轮就多来几句
+      const _momPool = roster.length + _threadPeople.length;
+      const _moreCount = "这一轮写 " + Math.max(3, Math.min(8, _momPool + 1)) + " 条上下（名单上的人可以说不止一句，一来一回地接）";
       const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.concat(_threadPeople).join("、")
         + (author
-          ? "；也可以是「" + author.name + "」自己生活里真会有的熟人（同学、同事、朋友、家里人这类，照他的人设和处境来，起个像样的名字，跟上面出现过的同一个人名字前后一致）。**不许是陌生网友、路人。**"
+          ? "。**只许是这几个人，不许新编出名单外的人（没有路人、没有陌生网友、也别现起一个同事同学）。**"
           : "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**")
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
-        + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。" + REAL_DISAGREE;
+        + _moreCount + "，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思；既要有对这条朋友圈的新评论，也要有接着上面某条往下聊的。" + REAL_DISAGREE;
       // 评论区里谁是谁（群友 2026-10-11：两个角色在评论区互相叫老婆——她给他们起的备注是「唯一的小狗姐姐」「最爱你的小狗阿泽」，
       //   评论区按备注显示，模型看到的也是备注，读起来像她的爱称，于是都当成了她）。把显示名对回真人，再点明只有谁是她。
       const whoLines = (() => {
@@ -22272,6 +22276,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       else if (d.reply) reps = [typeof d.reply === "string" ? { author: fbAuthor, text: d.reply } : d.reply];
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
+      // 不编人（她 2026-10-22）：说话的人得是名单上的、或者评论区里已经说过话的；对不上名字的那条丢掉
+      const _okNames = new Set(roster.concat(_threadPeople).map(n => momentWho(n)).filter(Boolean));
+      reps = reps.filter(r => _okNames.has(momentWho(r.author)) || !!byName(r.author));
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
@@ -30870,6 +30877,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pC(p => p.map(c => { if (c.id !== id || !c.npc) return c; const n = { ...c, promotedFrom: c.ownerId || "" }; delete n.npc; delete n.ownerId; return n; }));
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
+    onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，

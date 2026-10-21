@@ -8423,6 +8423,7 @@ function Messages({
   onDeleteNpc,
   onPromoteNpc,
   onSetNpcMem,
+  onSetNpcMoments,
   groups,
   chats,
   groupChats,
@@ -8716,6 +8717,7 @@ function Messages({
         h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
       h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
     characters: characters,
+    npcs: npcAll,
     moments: moments,
     profile: profile,
     friendGroups: friendGroups,
@@ -8873,7 +8875,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -9201,7 +9203,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onClose }) {
   const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
@@ -9280,6 +9282,13 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
             return h("button", { key: v, onClick: () => onSetMem(cur.id, v), className: "flex-1 active:opacity-70",
               style: { padding: "7px 0", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
           }))) : null,
+      // 配角发朋友圈（她 2026-10-22「npc 发朋友圈搞个开关选择他们能不能发」）：默认不发，开了就跟角色一样偶尔自己发一条
+      onSetMoments ? h("div", { "data-wk": "npcmoments", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { className: "flex items-center", style: { gap: 10 } },
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "自己发朋友圈"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 3 } }, "开了就跟角色一样，偶尔自己发一条，你和认识TA的人能看见、能评论。每条算一次后台调用。")),
+          h(Toggle, { on: !!cur.npcMoments, onChange: () => onSetMoments(cur.id, !cur.npcMoments), wk: "npcmomentson" }))) : null,
       onChat ? h("button", { onClick: () => onChat(cur.id), className: "w-full active:opacity-70",
         style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", border: "none" } }, "发消息") : null,
       // 转正（她 2026-10-15）：同一个 TA，只是从配角变成正式角色；先问一句再动
@@ -9443,6 +9452,7 @@ function momentDisplayName(characters, who) {
   return hit ? (hit.remark || hit.name) : raw;
 }
 function MomentsFeed({
+  npcs,
   characters: rawCharacters,
   moments,
   profile,
@@ -9544,7 +9554,8 @@ function MomentsFeed({
     sub: "点右上「发朋友圈」或「角色发」"
   }), moments.map(m => {
     const isMine = m.mine;
-    const c = isMine ? null : characters.find(x => x.id === m.characterId);
+    // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
+    const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
     if (!isMine && !c) return null;
     // 用别的面具发的那条，署那张面具的名字和头像
     const momMask = isMine && m.mask && typeof window !== "undefined" && window.__momentMasks ? window.__momentMasks().find(x => x.id === m.mask) : null;
