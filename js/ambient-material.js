@@ -33,6 +33,8 @@
     const limit = opts.limit === 0 ? 0 : Math.max(1, Number(opts.limit) || 20);
     return limit ? out.slice(-limit) : out;
   };
-  const format = rows => (rows || []).map(x => "【" + x.source + "】" + x.speaker + "：" + x.text).join("\n");
+  // stamp：可选，把 ts 写成给模型看的时间（如「昨天 21:40」）。不带时间时，昨晚聊的跟刚聊的看起来一样新，
+  //   他隔天发朋友圈还在说昨晚那件事（她 2026-10-22）
+  const format = (rows, stamp) => (rows || []).map(x => (typeof stamp === "function" && x.ts ? "[" + stamp(x.ts) + "] " : "") + "【" + x.source + "】" + x.speaker + "：" + x.text).join("\n");
   return { collect, format };
 });

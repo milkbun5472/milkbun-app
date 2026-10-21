@@ -34,3 +34,10 @@ test("日记范围严格包含起点、排除终点，四路都不多截少截",
   }, { fromTs: 100, untilTs: 200, limit: 0 });
   assert.deepEqual(rows.map(x => x.text), ["零点", "当天私聊", "当天线下", "当天群聊", "当天群线下"]);
 });
+
+test("素材带上时间：隔夜的事不再看起来像刚聊的", () => {
+  const A = require("../js/ambient-material.js");
+  const out = A.format([{ ts: 5, source: "私聊", speaker: "她", text: "三文鱼" }], ts => "昨天 21:40");
+  require("node:assert").equal(out, "[昨天 21:40] 【私聊】她：三文鱼");
+  require("node:assert").equal(A.format([{ ts: 5, source: "私聊", speaker: "她", text: "x" }]), "【私聊】她：x");
+});
