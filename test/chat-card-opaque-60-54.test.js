@@ -90,3 +90,17 @@ test("群聊也有背景图，旁白同样要垫", () => {
   // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
   assert.match(g, /if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
 });
+
+// 她 2026-10-20：「动描透明度在哪儿调啊」「没有啊」——攻略写的是「设置 → 主题 → 气泡皮肤」，这两个名字都不对，
+//   而且没说单聊那条路要先点开「细调这一套」。路径写错＝她照着找一遍还是找不到。
+test("攻略里那条拖透明度的路，跟界面上的名字对得上", () => {
+  const rd = f => fs.readFileSync(path.join(root, f), "utf8");
+  const man = rd("js/assistant-manual.js"), scr = rd("js/screens-ui.js");
+  assert.ok(!/设置 → 主题 → 气泡皮肤/.test(man), "攻略还写着那个不存在的入口");
+  assert.match(man, /设置 → 样 → 聊天气泡/, "没给出全局那条路");
+  assert.match(man, /点开「细调这一套」/, "没说单聊那条路要先展开细调");
+  // 界面上这两处名字真的是这么叫的
+  assert.match(scr, /title: "聊天气泡"/);
+  assert.match(comp, /"细调这一套"/);
+  assert.match(comp, /numRow\("旁白／动描垫子不透明度 %", "narrAlpha"/);
+});
