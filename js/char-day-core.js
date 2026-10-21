@@ -30,7 +30,9 @@
   function dayState(char, plans, at = Date.now(), options = {}) {
     const clock = root.ScheduleClock, frame = clock.characterFrame(char, at, options);
     const pinned=[options.clockSource,options.memorySource].find(v=>v?.virtualAt===frame.displayAt&&/^\d{4}-\d{2}-\d{2}$/.test(v.sourceDay));
-    if(frame.followVirtual&&frame.paused&&pinned)frame.sourceDay=pinned.sourceDay;
+    // 钉住的那一天只给「日程按现实日子存」的钟用。开了「日程照这只钟的日子排」，日程就存在钟上那天，
+    //   旧钉子（多半是打开开关之前钉的现实日子）不许再盖——群里 2026-10-21：日历上排好了，「今天的日程」却说没有。
+    if(frame.followVirtual&&frame.paused&&pinned&&!frame.schedFollow)frame.sourceDay=pinned.sourceDay;
     const plan = (plans || {})[frame.sourceDay], rows = typeof schedFillEnds === "function" ? schedFillEnds(plan?.seqs || []) : plan?.seqs || [];
     const slot = clock.currentSlot(char, plans, frame.at, frame.offset, {
       planDay:frame.sourceDay,
