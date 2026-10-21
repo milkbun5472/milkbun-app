@@ -15004,7 +15004,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   单聊 10-04 已经收成那一句，群这边还留着旧的一长串：「本轮有情绪波动的」「别写成这女人那家伙」「别重复、别原地打转、别套话」——
       //   禁令把路堵成一个形状，「有情绪波动」又把它推成每轮汇报心里落没落地。只留它是什么，和「我」是谁（那条是事实，不是文风）。
       //   「先想后说」那句是 v73.06 她定的闭群规矩，两支共用：心声是开口之前那一下，不是说完的批注。
-      const _gThoughtIs = "\"thought\"：" + THOUGHT_MEANING + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人。"
+      const _gThoughtIs = "\"thought\"：" + THOUGHT_MEANING + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人。" + (typeof THOUGHT_EACH_OWN === "string" ? THOUGHT_EACH_OWN : "")
         + "**先把这一句想清楚，再写 TA 说出口的那句**——话从这句心声里长出来，不从「这种人设一般怎么说话」里长出来。";
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给本轮开口的成员各加一条 " + _gThoughtIs + "另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
         // 闭群：只要心声那一栏，不要心情／好感／穿着——那些是写回主线的，闭群只进不出
@@ -20226,7 +20226,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 那为什么不能每轮都写状态卡呢」）。字段名跟线上那份协议一模一样，
           // 写入也走同一个出口（setStateFor / pushStateHist / setMoodFor）——
           // 「如果没有这个功能就不要自己再开一个，挂到公共的里面跟着线上走」。
-          + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought 你心里那一句（第一人称，你自己的话）；"
+          + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought＝" + (typeof THOUGHT_MEANING === "string" ? THOUGHT_MEANING : "你心里那一句（第一人称，你自己的话）") + "；"
           + "place 人在哪一句短的；action 此刻正在做什么（每轮都更新，别照抄上一轮）；wearing 此刻穿着（跟场合时间对得上；没换就照旧）；condition 身体状态（只在确实不同于平常时才填，否则 null）。"
           + (callTfOk ? "\n【通话里也能转账】跟平时聊天是同一个钱包、同一张转账单：你真想在电话里给 " + uName + " 转钱（不是嘴上说说），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。" + (callTfPending ? "上面通话里 " + uName + " 刚给你转了一笔还没收：这一轮决定收不收，transferAccept 填 true（收下）或 false（退回）；还没想好就 null。" : "transferAccept 填 null。") : "")
           + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
@@ -20373,7 +20373,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
