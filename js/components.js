@@ -3035,8 +3035,10 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   //   照 施工规则/no-half-sheet.md 改成【整页】：这一层的内容
   //   （24 小时横条 + 7 天列表）根本不需要同时看见底下那一层，本来就该是整页。
   //   portal 到 body 才躲得开主屏那些 transform 容器（gaze.js 踩过同一个坑）。
-  const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(
-    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, t)) },
+  // 详情页是从主屏小组件里传送出来的，会带着「铺在壁纸上」的上下文，字全翻成白的（群里 2026-10-22）：这一层明说不在壁纸上
+  const tb = t.homeBaseTheme || t;   // 详情页用原来的主题，不用格子里那套白字
+  const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(h(HomeDetailLayer, null,
+    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, tb)) },
     h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", bg: "transparent", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
     h(WeatherTagRail, { places: levels.top, value: levels.topValue, onPick: chooseTop }),
@@ -3044,32 +3046,32 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 8 } },
       h("div", null,
         // 地名和「天气」两个字都已经在顶栏里了，正文别再写一遍
-        w ? h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 2 } },
-          h(GWx, { kind: wmoKind(w.code), size: 15, color: t.sub }),
+        w ? h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: tb.sub, marginTop: 2 } },
+          h(GWx, { kind: wmoKind(w.code), size: 15, color: tb.sub }),
           h("span", null, wmoZh(w.code) + " · 现在 " + w.t + "° · 今日 " + w.lo + "~" + w.hi + "°"
             + (madeUp ? " · " + WorldWeather.windOf(place.terrain) : ""))) : null),
-      h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "好友地图 ›")),
+      h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: tb.tint } }, "好友地图 ›")),
     fx ? h("div", null,
       // 逐小时横滑条
-      h("div", { style: { display: "flex", gap: 4, overflowX: "auto", padding: "12px 0 10px", borderBottom: "1px solid " + t.line } },
+      h("div", { style: { display: "flex", gap: 4, overflowX: "auto", padding: "12px 0 10px", borderBottom: "1px solid " + tb.line } },
         fx.hourly.map(function (x, i) {
           return h("div", { key: i, className: "shrink-0", style: { textAlign: "center", width: 46 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, i === 0 ? "现在" : x.h + "时"),
-            h("div", { className: "flex items-center justify-center", style: { margin: "3px 0" } }, h(GWx, { kind: wmoKind(x.code), size: 17, color: t.ink })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, x.t + "°"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: tb.fog } }, i === 0 ? "现在" : x.h + "时"),
+            h("div", { className: "flex items-center justify-center", style: { margin: "3px 0" } }, h(GWx, { kind: wmoKind(x.code), size: 17, color: tb.ink })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: tb.ink } }, x.t + "°"),
             (x.p != null && x.p >= 20) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: "#4a7fa5" } }, x.p + "%") : h("div", { style: { height: 12 } }));
         })),
       // 7 天列表
       h("div", { style: { paddingTop: 4 } }, fx.daily.map(function (x, i) {
-        return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: i < fx.daily.length - 1 ? "1px solid " + t.line : "none" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, width: 44 } }, i === 0 ? "今天" : wk[x.d.getDay()]),
-          h("span", { className: "flex items-center" }, h(GWx, { kind: wmoKind(x.code), size: 18, color: t.ink })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1 } }, wmoZh(x.code)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
-      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
+        return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: i < fx.daily.length - 1 ? "1px solid " + tb.line : "none" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: tb.ink, width: 44 } }, i === 0 ? "今天" : wk[x.d.getDay()]),
+          h("span", { className: "flex items-center" }, h(GWx, { kind: wmoKind(x.code), size: 18, color: tb.ink })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: tb.sub, flex: 1 } }, wmoZh(x.code)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: tb.fog } }, x.lo + "°"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: tb.ink } }, x.hi + "°"));
+      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: tb.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
     h(WxShareBox, { userGeo, characters, worlds }),
-    h(WorldWxFollowBox, { userGeo, characters, worlds }))), document.body) : null;
+    h(WorldWxFollowBox, { userGeo, characters, worlds })))), document.body) : null;
   return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
@@ -3311,7 +3313,7 @@ function WheelNeedle({ size, trim }) {
 }
 // 全屏大转盘（portal 挂 body）：氛围感主场——大盘+大结果+角色起哄完整气泡
 function WheelFull({ data, items, onSave, onReact, onClose }) {
-  const t = useTheme();
+  const t0 = useTheme(), t = t0.homeBaseTheme || t0;   // 小组件换了底图时格子里是白字，全屏和编辑框用原来的主题
   const [angle, setAngle] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
@@ -3349,7 +3351,7 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
   };
   // ⚠根节点必须 stopPropagation：portal 的点击沿 React 树冒泡回小组件的 onClick=setOpen(true)，
   // 否则点 ✕ 关掉的瞬间又被重新打开（表现=「点不了叉」）
-  return ReactDOM.createPortal(h("div", { "data-wk": "wheelfull", onClick: e => e.stopPropagation(), className: "fixed inset-0 z-[85] flex flex-col items-center", style: { background: "linear-gradient(170deg,#2a2532 0%,#1c1a22 55%,#241f1c 100%)" } },
+  return ReactDOM.createPortal(h(HomeDetailLayer, null, h("div", { "data-wk": "wheelfull", onClick: e => e.stopPropagation(), className: "fixed inset-0 z-[85] flex flex-col items-center", style: { background: "linear-gradient(170deg,#2a2532 0%,#1c1a22 55%,#241f1c 100%)" } },
     // 顶栏：避开刘海/灵动岛（safe-area）+ 大热区（她报「点不到」）
     h("div", { className: "w-full flex items-center justify-between shrink-0", style: { padding: "calc(env(safe-area-inset-top, 0px) + 22px) 10px 4px" } },
       h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "rgba(255,255,255,0.85)", fontSize: 24, lineHeight: 1, padding: "12px 16px", whiteSpace: "nowrap" } }, "✕"),
@@ -3400,7 +3402,7 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "选项比颜色多时颜色轮着用。主屏上的小转盘跟着一起换。")),
         h("div", { className: "flex gap-2", style: { marginTop: 12 } },
           h("button", { "data-wk": "block", onClick: saveEdit, className: "flex-1 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "11px 0", borderRadius: 12 } }, "保存"),
-          h("button", { "data-wk": "block", onClick: () => setEdit(false), className: "flex-1 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "取消")))) : null), document.body);
+          h("button", { "data-wk": "block", onClick: () => setEdit(false), className: "flex-1 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "取消")))) : null)), document.body);
 }
 function WheelWidget({ editMode, onReact }) {
   const t = useTheme();
@@ -5242,17 +5244,23 @@ function decorGroundStyle(item) {
   var col = typeof g === "string" ? g : g.color;
   return col ? { background: col, backgroundImage: "none" } : null;
 }
+// 小组件点开的详情页（传送到 body 上那一层）：小组件自己的底色／底图会把字换成白的，
+//   那一套只该管格子里，进了详情页要换回原来的主题；也明说不在壁纸上（群里 2026-10-22：换了天气底图，点开天气页字全变白）
+function HomeDetailLayer({ children }) {
+  const t = useTheme();
+  return h(ThemeContext.Provider, { value: t.homeBaseTheme || t }, h(OnWallpaperCtx.Provider, { value: false }, children));
+}
 function homeWidgetGroundTheme(t, ground) {
   var color = typeof ground === "string" ? ground : ground && ground.color;
   if (ground && ground.imageRef) {
     var imageStyle = decorGroundStyle({ ground: ground });
     if (!imageStyle) return t;
     return Object.assign({}, t, { homeWidgetGroundStyle: Object.assign({ backgroundColor: "#292722" }, imageStyle),
-      ink: "#fffaf1", sub: "#e0dbd2", fog: "#d0cbc3" });
+      ink: "#fffaf1", sub: "#e0dbd2", fog: "#d0cbc3", homeBaseTheme: t.homeBaseTheme || t });
   }
   if (!/^#[0-9a-f]{6}$/i.test(String(color || ""))) return t;
   var dark = decorGroundDark({ ground: color });
-  return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color,
+  return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color, homeBaseTheme: t.homeBaseTheme || t,
     ink: dark ? "#fffaf1" : "#24231f", sub: dark ? "#e0dbd2" : "#55534e", fog: dark ? "#c5c0b8" : "#716e67" });
 }
 // 叠在一起时谁在上面（她 2026-09-13：「那这个怎么决定叠一块的哪个在上面呢」「直接手动吧」）。
