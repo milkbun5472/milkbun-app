@@ -18492,7 +18492,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!char) return [];
     const ids = new Set([String(char.id)]);
     (characters || []).forEach(o => { if (o && o.id !== char.id && (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id])) ids.add(String(o.id)); });
-    const nameOf = id => { const o = (characters || []).find(x => x && String(x.id) === String(id)); return o ? (o.remark || o.name) : ""; };
+    // 用本名：备注是她给这个人起的，别人手机里不该出现（群友 2026-10-21：他手机里情敌的名字是她起的备注）
+    const nameOf = id => { const o = (characters || []).find(x => x && String(x.id) === String(id)); return o ? o.name : ""; };
     const known = new Set([...ids].map(nameOf).filter(Boolean));
     const meName = userName(profileFor(char.id));
     // 真角色（不是配角）的朋友圈只认真发的：推演那一路不许替他们编（她 2026-10-21：「跟他的聊天一样」）。配角不在她那边发朋友圈，照旧推演
