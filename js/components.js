@@ -17710,6 +17710,12 @@ function offSplit(text) {
   if (at < s.length) out.push({ k: "prose", s: s.slice(at) });
   return out.filter(x => x.s !== "");
 }
+// 一句台词里中外文混着说（她 2026-10-20：「外语跟中文混一段就没有翻译键」）：按句切开，每一句各自判语种，
+//   外语那句才挂「译」，中文那句原样。切在句末标点后面（标点留在原句上），切不开就整句一个
+function offSaySentences(str) {
+  const parts = String(str || "").match(/[^。！？!?…\n]+[。！？!?…]*[」』"”’）)]*\s*|\n+/g);
+  return parts && parts.length > 1 ? parts : [String(str || "")];
+}
 function offBody(t, text, accent, whoId) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
@@ -17722,7 +17728,7 @@ function offBody(t, text, accent, whoId) {
       color: sayInk, fontWeight: 600,
       background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
       borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
-    } }, typeof TransText === "function" ? h(TransText, { text: x.s, ink: sayInk, inline: true, size: 13 }) : x.s)));
+    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: sayInk, inline: true, size: 13 })) : x.s)));
   return whoId && typeof TransWho === "function" ? h(TransWho, { id: whoId }, out) : out;
   // ↑ 引号里那句话是外语时挂「译」（群友 2026-10-20：「线下外语不翻译」）：整段正文是中文叙述、只有台词是外语，
   //   按整段探语种永远探成中文，所以按一句句台词挂。中文台词原样返回、零开销；翻译走免费那条，跟线上气泡同一套。
