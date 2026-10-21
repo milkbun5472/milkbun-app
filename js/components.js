@@ -3231,6 +3231,21 @@ function wheelColorsFor(data, t) {
   }
   return (WHEEL_PALETTES[key] && WHEEL_PALETTES[key].colors) || WHEEL_COLORS;
 }
+// 配件色（她 2026-10-22「外层那块也会突兀」）：轴、指针、分隔线、外圈跟着配色换，秋色那套就是原来的铜和深棕。
+//   每样都套一个 --wheel-* 变量，页面 CSS 能单独改。
+const WHEEL_TRIMS = {
+  autumn: { line: "rgba(58,44,30,.5)", rim: "rgba(58,40,22,.34)", hub: ["#f0dcb4", "#c69b58", "#8a6733"], edge: "rgba(58,40,22,.55)" },
+  cream: { line: "rgba(150,128,104,.38)", rim: "rgba(150,128,104,.3)", hub: ["#fffaf0", "#ecd9ae", "#c9ad78"], edge: "rgba(150,124,88,.5)" },
+  mono: { line: "rgba(20,20,20,.85)", rim: "rgba(20,20,20,.7)", hub: ["#ffffff", "#c9c9c9", "#7d7d7d"], edge: "rgba(20,20,20,.7)" },
+  neutral: { line: "rgba(70,70,70,.4)", rim: "rgba(70,70,70,.32)", hub: ["#f4f4f4", "#bdbdbd", "#858585"], edge: "rgba(60,60,60,.5)" }
+};
+function wheelTrimFor(data, t) {
+  const key = (data && data.palette) || "autumn";
+  if (key === "theme" && t) return { key: "theme", line: "color-mix(in srgb, " + t.ink + " 45%, transparent)", rim: "color-mix(in srgb, " + t.ink + " 35%, transparent)",
+    hub: ["color-mix(in srgb, " + t.accent + " 25%, #fff)", t.accent, "color-mix(in srgb, " + t.accent + " 60%, " + t.ink + ")"], edge: "color-mix(in srgb, " + t.ink + " 55%, transparent)" };
+  const k = key === "custom" ? "neutral" : (WHEEL_TRIMS[key] ? key : "autumn");
+  return Object.assign({ key: k }, WHEEL_TRIMS[k]);
+}
 // 深色扇面上字翻白（只认得出 #rrggbb；调淡出来的那几种都是浅底）
 function wheelInkOn(c) {
   const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(c || ""));
@@ -3251,7 +3266,8 @@ const WHEEL_MAX = 24;
 function wheelLabelTurn(i, n) { const a = (i + 0.5) * 360 / n - 90; return a > 90 && a < 270 ? a - 180 : a; }
 function wheelLabelPos(i, n, r) { const a = ((i + 0.5) * 360 / n - 90) * Math.PI / 180; return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) }; }
 // 转盘 SVG（小组件和全屏共用）：size=像素宽高，labels=要不要画选项字
-function WheelDisc({ items, angle, spinning, size, labels, dur, colors, hooks }) {
+function WheelDisc({ items, angle, spinning, size, labels, dur, colors, hooks, trim }) {
+  const tr = trim || Object.assign({ key: "autumn" }, WHEEL_TRIMS.autumn), hubId = "wkWheelHub-" + tr.key;
   const n = items.length;
   const pal = Array.isArray(colors) && colors.length >= 2 ? colors : WHEEL_COLORS;
   // 第几块用哪个色：最后一块跟第一块挨着，别撞同一个色
@@ -3261,12 +3277,12 @@ function WheelDisc({ items, angle, spinning, size, labels, dur, colors, hooks })
   // 留下来的是让它【不是一张饼图】的那几样：扇区之间的墨线、压边那道内影、正中那颗铜轴。
   return h("svg", { viewBox: "0 0 100 100", width: size, height: size, style: { transform: "rotate(" + angle + "deg)", transition: spinning ? "transform " + (dur || 3.2) + "s cubic-bezier(0.12,0.6,0.08,1)" : "none", display: "block" } },
     h("defs", null,
-      h("radialGradient", { id: "wkWheelHub", cx: ".36", cy: ".32", r: ".8" },
-        h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" }))),
+      h("radialGradient", { id: hubId, cx: ".36", cy: ".32", r: ".8" },
+        h("stop", { style: { stopColor: "var(--wheel-hub1, " + tr.hub[0] + ")" } }), h("stop", { offset: ".45", style: { stopColor: "var(--wheel-hub2, " + tr.hub[1] + ")" } }), h("stop", { offset: "1", style: { stopColor: "var(--wheel-hub3, " + tr.hub[2] + ")" } }))),
     n >= 2 ? items.map((it, i) => h("g", { key: i },
       // 色写在 style 里、外面套 --wheel-cN：美化 CSS 设 --wheel-c1…c8 就能整套换色，不用挑选择器
-      h("path", hooks ? { "data-wk": "wheelslice", "data-i": String(i), d: wheelSlicePath(i, n), style: { fill: "var(--wheel-c" + (i % 8 + 1) + ", " + colorAt(i) + ")" }, stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }
-        : { d: wheelSlicePath(i, n), style: { fill: "var(--wheel-c" + (i % 8 + 1) + ", " + colorAt(i) + ")" }, stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
+      h("path", hooks ? { "data-wk": "wheelslice", "data-i": String(i), d: wheelSlicePath(i, n), style: { fill: "var(--wheel-c" + (i % 8 + 1) + ", " + colorAt(i) + ")", stroke: "var(--wheel-line, " + tr.line + ")" }, strokeWidth: .7 }
+        : { d: wheelSlicePath(i, n), style: { fill: "var(--wheel-c" + (i % 8 + 1) + ", " + colorAt(i) + ")", stroke: "var(--wheel-line, " + tr.line + ")" }, strokeWidth: .7 }),
       // 选项多了（她 2026-09-28：「转盘能不能多加点选择，现在上限有点少」）：扇面变窄，横着写会叠在一起，
       //   超过 8 个就把字顺着扇面转过来（从中心往外读），字号跟着扇面宽度收
       labels ? (n > 8
@@ -3275,22 +3291,23 @@ function WheelDisc({ items, angle, spinning, size, labels, dur, colors, hooks })
             style: { fontSize: Math.max(3.4, Math.min(6.2, 120 / n)), fontFamily: "'Noto Sans SC',sans-serif", fill: wheelInkOn(colorAt(i)) } }, it.slice(0, 6))
         : h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: wheelInkOn(colorAt(i)) } }, it.slice(0, 5))) : null))
       : h("circle", { cx: 50, cy: 50, r: 48, fill: "#e5ddd0" }),
-    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
-    h("circle", hooks ? { "data-wk": "wheelhub", cx: 50, cy: 50, r: 7, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 } : { cx: 50, cy: 50, r: 7, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
+    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", style: { stroke: "var(--wheel-rim, " + tr.rim + ")" }, strokeWidth: 1.6 }),
+    h("circle", hooks ? { "data-wk": "wheelhub", cx: 50, cy: 50, r: 7, fill: "url(#" + hubId + ")", style: { stroke: "var(--wheel-edge, " + tr.edge + ")" }, strokeWidth: .8 } : { cx: 50, cy: 50, r: 7, fill: "url(#" + hubId + ")", style: { stroke: "var(--wheel-edge, " + tr.edge + ")" }, strokeWidth: .8 }),
     h("circle", { cx: 48.2, cy: 48, r: 1.7, fill: "rgba(255,248,232,.7)" }));
 }
 // 转盘顶上那根【簧片指针】：一片带弯的铜簧，尖头压在盘边上。
 // 不跟着盘转，所以画在 WheelDisc 外面。size 是盘的直径。
-function WheelNeedle({ size }) {
+function WheelNeedle({ size, trim }) {
+  const tr = trim || Object.assign({ key: "autumn" }, WHEEL_TRIMS.autumn), nId = "wkNeedle-" + tr.key;
   // size 可以是像素数，也可以是 "100%"（盘跟着格子撑大时用后者）
   const w = typeof size === "number" ? Math.max(16, size * 0.2) : size;
   // ⚠️SVG 的 height 不认 "auto"（控制台会报 Expected length）——百分比那一路直接给 100%
   const hh = typeof size === "number" ? Math.max(16, size * 0.2) * 1.05 : "100%";
   return h("svg", { width: w, height: hh, viewBox: "0 0 20 21", style: { display: "block", filter: "drop-shadow(0 2px 3px rgba(48,34,20,.35))" } },
-    h("defs", null, h("linearGradient", { id: "wkNeedle", x1: "0", y1: "0", x2: "1", y2: "1" },
-      h("stop", { stopColor: "#f3e0b8" }), h("stop", { offset: ".5", stopColor: "#c79a55" }), h("stop", { offset: "1", stopColor: "#8a6329" }))),
+    h("defs", null, h("linearGradient", { id: nId, x1: "0", y1: "0", x2: "1", y2: "1" },
+      h("stop", { style: { stopColor: "var(--wheel-needle1, " + tr.hub[0] + ")" } }), h("stop", { offset: ".5", style: { stopColor: "var(--wheel-needle2, " + tr.hub[1] + ")" } }), h("stop", { offset: "1", style: { stopColor: "var(--wheel-needle3, " + tr.hub[2] + ")" } }))),
     h("path", { d: "M4 1.5h12c1.1 0 1.6 1.3.9 2.1L11.4 10c-.5.6-.6 1.4-.2 2l1.2 2.2c.6 1-.1 2.3-1.3 2.3H10L10 20 8.6 16.5H8.7c-1.2 0-1.9-1.3-1.3-2.3L8.6 12c.4-.6.3-1.4-.2-2L3.1 3.6C2.4 2.8 2.9 1.5 4 1.5Z",
-      fill: "url(#wkNeedle)", stroke: "rgba(58,40,22,.6)", strokeWidth: .8, strokeLinejoin: "round" }));
+      fill: "url(#" + nId + ")", style: { stroke: "var(--wheel-edge, " + tr.edge + ")" }, strokeWidth: .8, strokeLinejoin: "round" }));
 }
 // 全屏大转盘（portal 挂 body）：氛围感主场——大盘+大结果+角色起哄完整气泡
 function WheelFull({ data, items, onSave, onReact, onClose }) {
@@ -3342,8 +3359,8 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 3, letterSpacing: "0.15em" } }, "转一下 · 让它替你定"),
       // 大转盘
       h("div", { "data-wk": "wheeldisc", onClick: spin, style: { position: "relative", width: 300, height: 300, marginTop: 26, cursor: "pointer", filter: "drop-shadow(0 14px 34px rgba(0,0,0,0.45))" } },
-        h(WheelDisc, { items: items, angle: angle, spinning: spinning, size: 300, labels: true, dur: 4.1, colors: wheelColorsFor(edit ? Object.assign({}, data, { palette: ePal, colors: eColors }) : data, t), hooks: true }),
-        h("div", { "data-wk": "wheelneedle", style: { position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 300 })),
+        h(WheelDisc, { items: items, angle: angle, spinning: spinning, size: 300, labels: true, dur: 4.1, colors: wheelColorsFor(edit ? Object.assign({}, data, { palette: ePal, colors: eColors }) : data, t), trim: wheelTrimFor(edit ? { palette: ePal } : data, t), hooks: true }),
+        h("div", { "data-wk": "wheelneedle", style: { position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 300, trim: wheelTrimFor(edit ? { palette: ePal } : data, t) })),
         !spinning && !result ? h("div", { "data-wk": "block", style: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", background: "rgba(0,0,0,0.55)", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 999, pointerEvents: "none", whiteSpace: "nowrap" } }, "点一下 开转") : null),
       // 结果
       h("div", { "data-wk": "wheelresult", style: { minHeight: 46, marginTop: 22, textAlign: "center" } },
@@ -3400,8 +3417,8 @@ function WheelWidget({ editMode, onReact }) {
     style: { cursor: "pointer", position: "relative", overflow: "visible", padding: "2px 0" } },
     data.title ? h("div", { "data-wk": "wtitle", className: "shrink-0", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, marginBottom: 2, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) }, data.title) : null,
     h("div", { "data-wk": "wicon", "data-part": "wheel", className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", filter: "drop-shadow(0 6px 16px rgba(30,26,22,.28))" } },
-      h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true, colors: wheelColorsFor(data, t) }),
-      h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%" }))),
+      h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true, colors: wheelColorsFor(data, t), trim: wheelTrimFor(data, t) }),
+      h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%", trim: wheelTrimFor(data, t) }))),
     h("div", { "data-wk": "wsub", className: "shrink-0", style: Object.assign({ fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) },
       data.last && data.last.item ? "上次 → " + data.last.item : "点开 交给命运"),
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
