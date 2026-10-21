@@ -41,8 +41,12 @@
         if (app === "chat" && hints.self && (S(s.who).trim() === hints.self)) { skip = true; return; }
         if (allowApps.indexOf(app) < 0) { skip = true; return; }          // 她藏起来的那几样，录像里也碰不到
         if (gate && FOLLOW.indexOf(app) >= 0 && gate.indexOf(app) < 0) { skip = true; return; }
+        // 打开某人的聊天，那人得真在她的聊天列表里（群里 2026-10-21：他在朋友圈评论里看到一个名字，
+        //   就去「翻和那人的聊天」，列表里根本没这个人，圆点停在空屏上不动）。认得出就换成列表上的写法，认不出这一段不演
+        let who = S(s.who).trim().slice(0, 24);
+        if (app === "chat" && who && hints.who) { const nm = nameIn(who); if (!nm) { skip = true; return; } who = nm; }
         skip = false; at = app;
-        opens++; out.push({ do: "open", app, who: S(s.who).trim().slice(0, 24) });
+        opens++; out.push({ do: "open", app, who });
         // open 自己带着一串心声（schema 里要求的）：边翻边想，一屏一句
         (Array.isArray(s.thoughts) ? s.thoughts : []).slice(0, 4).forEach(t => { const text = S(t).trim().slice(0, 60);
           if (text) out.push({ do: "scroll", dir: app === "chat" ? "up" : "down", n: 1, auto: true }, { do: "think", text }); });
