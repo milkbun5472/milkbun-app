@@ -6680,7 +6680,9 @@ function Home({
       arr.forEach(function (k) { wsum += wOf(k); });
       // v47.73 空格铺满整页（24 格）：平时隐形、编辑态整页虚线——右下角任何位置都能当落点，
       // 不再是「旁边有东西才有洞」（之前保底 2 格导致想放页面远端放不了）
-      var target = rowCapAt(pi) * 4;
+      // 整理时补到【真能放的行数】（看得见的 + 滑一下够得着的那两行），跟下面挪动的满不满用同一个数（她 2026-10-21：
+      //   把下面的挪上来以后底下只剩一行空格，四格宽两行高的音乐放不回去）；平时照旧只补看得见的那几行
+      var target = ((typeof editMode !== "undefined" && editMode) ? packRows : rowCapAt(pi)) * 4;
       var n = 0;
       var have = {};
       arr.forEach(function (k) { have[k] = 1; });
@@ -7083,11 +7085,12 @@ function Home({
       var L = buildLayout(prev).map(function (a) { return a.slice(); });
       var f = findSlot(L, fromKey), t2 = findSlot(L, toKey);
       if (!f || !t2) return prev;
-      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf, Math.max(3, rowCapRef.current || 6));
+      var packCap = Math.max(4, rowCapRef.current || 6) + HOME_SCROLL_EXTRA_ROWS;   // 跟 buildLayout 的 packRows 同一个数
+      var moved = homeRepackMove(L[f.p], L[t2.p], fromKey, toKey, spanOf, packCap);
       if (moved) {
         // 溢出防线：重排后超过 6 行说明这一页真装不下，整个不动、明说，绝不静默挤人去别页
         // 同上：行数按量出来的来（第一页少一行）
-        var capTo = Math.max(3, rowCapRef.current || 6);
+        var capTo = packCap;
         var capFr = capTo;
         // ⚠️「这一页满了」不许拦【没把页面变高】的挪动：原来只跟额度比，
         // 于是一页本来就有 6 行时，同一行里换个位置也会被判成满（她 2026-09-03

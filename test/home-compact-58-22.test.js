@@ -126,5 +126,6 @@ test("格与格之间的缝收到 8，两侧留白收到 px-5；两条容量闸�
   // ⚠️补位空格照旧按【看得见的行数】补——两个一起放宽的话空页会凭空长出两排看不见的空格。
   assert.match(comp, /var ROWCAP = packRows, CAP = ROWCAP \* 4;/, "格子数没跟着行数走");
   assert.match(comp, /var packRows = capRows \+ HOME_SCROLL_EXTRA_ROWS;/);
-  assert.match(comp, /var target = rowCapAt\(pi\) \* 4;/, "补位也跟着放宽了");
+  // 她 2026-10-21：整理时补到真能放的行数，不然底下只剩一行、两行高的组件放不回去
+  assert.match(comp, /var target = \(\(typeof editMode !== "undefined" && editMode\) \? packRows : rowCapAt\(pi\)\) \* 4;/, "平时补位也跟着放宽了；或者整理时没补到真能放的行数");
 });

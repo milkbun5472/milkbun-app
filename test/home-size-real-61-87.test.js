@@ -123,7 +123,9 @@ test("一页放几行是先定行数再整除，保证正好铺满", () => {
 
 // 她 2026-09-03：「下面那行放不了，右边那个空也不行，都说满了」
 test("没把页面变高的挪动，不许被判成「这一页满了」", () => {
-  const seg = comp.slice(comp.indexOf("var capTo = Math.max(3, rowCapRef.current"), comp.indexOf("__toast(\"这一页满了"));
+  const seg = comp.slice(comp.indexOf("var capTo = packCap;"), comp.indexOf("__toast(\"这一页满了"));
   assert.match(seg, /var wasTo = homePlaceDenseXY\(L\[t2\.p\], spanOf\)\.rows;/, "没有拿【挪之前的行数】当底线");
   assert.match(seg, /capTo = Math\.max\(capTo, wasTo\); capFr = Math\.max\(capFr, wasFr\);/);
+  // 挪动的满不满跟 buildLayout 的 packRows 同一个数（她 2026-10-21）
+  assert.match(comp, /var packCap = Math\.max\(4, rowCapRef\.current \|\| 6\) \+ HOME_SCROLL_EXTRA_ROWS;/);
 });

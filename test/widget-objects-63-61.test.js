@@ -282,7 +282,8 @@ test("能滑之后一页可以多放两行，但补位空格照旧按看得见�
   assert.match(comp, /var packRows = capRows \+ HOME_SCROLL_EXTRA_ROWS;/);
   assert.match(comp, /var ROWCAP = packRows, CAP = ROWCAP \* 4;/, "容量闸没放宽，一页照旧卡在看得见的那几行");
   // ⚠️补位空格必须还按看得见的行数：两个一起放宽的话，空页会凭空长出两排看不见的空格
-  assert.match(comp, /var target = rowCapAt\(pi\) \* 4;/, "补位也跟着放宽了，空页会白白变高");
+  // 她 2026-10-21：整理时补到真能放的行数，不然底下只剩一行、两行高的组件放不回去
+  assert.match(comp, /var target = \(\(typeof editMode !== "undefined" && editMode\) \? packRows : rowCapAt\(pi\)\) \* 4;/, "平时补位也跟着放宽了；或者整理时没补到真能放的行数");
 });
 
 // v63.59（她 2026-09-05 发了实机图：那一摞拍立得在她机器上从来没出现过，我这儿次次都在）
