@@ -73,5 +73,5 @@ test("一段一段想：每段一次调用，看得到已画的和她说过的�
   const g = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "games.js"), "utf8");
   const seg = g.slice(g.indexOf("// 你画我猜（她 2026-10-11）"), g.indexOf("// 你画我猜（她 2026-10-11）") + 30000);
   require("node:assert").ok(!/AC \+ VOICE_RULE \+ persona\(/.test(seg), "你画我猜要走 gameVoiceRules（跟别的游戏同一份说话规矩）");
-  require("node:assert").match(seg, /\[who\.persona, who\.personality, who\.tagline, who\.background\]/, "人设整张读");
+  require("node:assert").match(g, /persona: gameSheet\(c\) \+ \(lore \?/, "人设整张读（入局时统一填）");
 }
