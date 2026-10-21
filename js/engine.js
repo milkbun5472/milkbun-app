@@ -4975,7 +4975,8 @@ async function mediaBackfill(onProgress) {
     try { ok = await C.mediaPut(bucket, k, blob); } catch (e) { ok = false; }
     if (ok) { sent++; streak = 0; } else { failed++; streak++; }
     tell();
-    if (streak >= 3) return { sent, total: todo.length, failed, stopped: "net" };
+    // 连着三张都不成：多半不是这几张的事。桶没建出来要单独说，不然她只会看见「断了」反复点
+    if (streak >= 3) return { sent, total: todo.length, failed, stopped: C.mediaErr === "nobucket" ? "nobucket" : "net" };
   }
   return { sent, total: todo.length, failed, stopped: "" };
 }

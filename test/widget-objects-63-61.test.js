@@ -68,8 +68,11 @@ test("转盘是一个圆，不是一张饼图——而且大小跟着格子走",
   assert.doesNotMatch(disc, /nails\.push/, "框上那圈铜钉又回来了");
   assert.match(comp, /const R = 48;/, "扇区没铺满，盘中间会空一圈");
   // 撤掉框之后，让它仍然不是饼图的是这几样
-  assert.match(disc, /stroke: "rgba\(58,44,30,\.5\)"/, "扇区之间又变回白线了");
-  assert.match(disc, /url\(#wkWheelHub\)/, "正中那颗铜轴没了");
+  // 2026-10-21 起这几样的颜色搬进 WHEEL_TRIMS（可换配色），id 也带上配色名：钉「有这几样」和默认那套的值，不钉写死的串
+  assert.match(disc, /stroke: "var\(--wheel-line, " \+ tr\.line \+ "\)"/, "扇区之间又变回白线了");
+  assert.match(comp, /autumn: \{ line: "rgba\(58,44,30,\.5\)"/, "默认那套的墨线颜色变了");
+  assert.match(disc, /url\(#" \+ hubId \+ "\)/, "正中那颗铜轴没了");
+  assert.match(disc, /hubId = "wkWheelHub-" \+ tr\.key/, "铜轴那个渐变的名字没跟着配色走");
   assert.doesNotMatch(comp, /const WHEEL_COLORS = \["#f2cfd2"/, "又退回那八个糖果色了");
   // 盘不许写死像素：写死的话格子调大它还是那么小
   const wid = cut("function WheelWidget(", "// 电子木鱼小组件");
@@ -83,9 +86,11 @@ test("转盘是一个圆，不是一张饼图——而且大小跟着格子走",
 
 test("指针是一根簧片，不是一个填色三角", () => {
   const nd = cut("function WheelNeedle(", "// 全屏大转盘");
-  assert.match(nd, /url\(#wkNeedle\)/);
+  assert.match(nd, /url\(#" \+ nId \+ "\)/);
+  assert.match(nd, /nId = "wkNeedle-" \+ tr\.key/, "簧片那个渐变的名字没跟着配色走");
   // 小组件和全屏共用同一根：只写一处，别哪天只改了其中一个
-  const uses = comp.match(/h\(WheelNeedle, \{ size: [^}]+\}\)/g) || [];
+  // 只数「有几处在用」，不钉参数表（2026-10-21 参数里多了 trim: wheelTrimFor({…})，嵌套的花括号会把旧正则卡死）
+  const uses = comp.match(/h\(WheelNeedle,/g) || [];
   assert.equal(uses.length, 2, "簧片指针该有两处在用（小组件 + 全屏），实际 " + uses.length);
   assert.match(nd, /typeof size === "number" \? Math\.max\(16, size \* 0\.2\) : size/, "簧片不认 \"100%\"，跟着盘一起放大就做不到");
   assert.doesNotMatch(comp, /borderTop: "18px solid #e8b04d"/, "全屏那个填色三角还在");

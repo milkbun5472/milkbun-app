@@ -7594,6 +7594,7 @@ function CloudSync({ toast, onExport }) {
           !mediaFill ? "把本机所有图片补传到云上"
           : !mediaFill.end ? "补传中… " + mediaFill.done + " / " + (mediaFill.total || "…")
           : mediaFill.stopped === "login" ? "要先登录才能传"
+          : mediaFill.stopped === "nobucket" ? "云上还没建放图片的地方（media 桶）：照上面「怎么弄」里建表那一步再跑一次就有了"
           : mediaFill.stopped === "net" ? "传到一半断了（已传 " + mediaFill.sent + " 张），再点一次接着传"
           : mediaFill.total ? "补好了：传了 " + mediaFill.sent + " 张" + (mediaFill.failed ? "，" + mediaFill.failed + " 张本机已经找不到" : "")
           : "云上已经都有了，不用补"),

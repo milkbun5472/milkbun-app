@@ -355,6 +355,14 @@
     // ⚠️三个口一律【不抛】：桶还没开出来、没登录、断网，都只是返回 false/null，
     //    调用方照旧走本机那条路——上云是多一层保险，不许变成多一个故障点。
     MEDIA_BUCKET: "media",
+    // 最近一次图片上传／列目录为什么没成（给界面说人话用，不影响上面那条「一律不抛」）。
+    //   "nobucket"＝她的 Supabase 里还没建这个桶：公共版那份建表内容 2026-10-21 之前只建了 saves 一张表，
+    //   照着弄完的人一张图都传不上去，界面却说成「断了」，于是反复点（她 2026-10-21 问「会不会撑爆」时查出来的）。
+    mediaErr: "",
+    _mediaNote(error) {
+      this.mediaErr = !error ? "" : (/bucket not found|not_found/i.test(String((error && (error.message || error.error)) || "")) ? "nobucket" : String((error && error.message) || "err"));
+      return !error;
+    },
     async mediaPath(bucket, key) {
       if (!client || !key) return "";
       const user = await this.getUser();
@@ -368,7 +376,7 @@
         if (!path) return false;
         const { error } = await client.storage.from(this.MEDIA_BUCKET)
           .upload(path, blob, { upsert: true, contentType: blob.type || "image/png" });
-        return !error;
+        return this._mediaNote(error);
       } catch (e) { return false; }
     },
     async mediaGet(bucket, key) {
@@ -388,7 +396,7 @@
         const dir = user.id + "/" + String(bucket || "misc"), names = new Set();
         for (let off = 0; off < 200000; off += 1000) {
           const { data, error } = await client.storage.from(this.MEDIA_BUCKET).list(dir, { limit: 1000, offset: off });
-          if (error) return null;
+          if (error) { this._mediaNote(error); return null; }
           (data || []).forEach(x => { if (x && x.name) names.add(x.name); });
           if (!data || data.length < 1000) break;
         }
