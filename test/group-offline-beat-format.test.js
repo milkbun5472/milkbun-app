@@ -8,7 +8,8 @@ const source = fs.readFileSync(require.resolve("../js/engine.js"), "utf8");
 const start = source.indexOf("function memberLabel(members, c) {");
 const end = source.indexOf("// ctx: { members", start);
 const box = {};
-vm.runInNewContext(source.slice(start, end) + ";this.api={offlineGroupSpeaker,offlineGroupBeatList,salvageOfflineGroupProse,memberLabel,pickMember};", box);
+const pub = n => { const i = source.indexOf("function " + n + "("); return source.slice(i, source.indexOf("\nfunction ", i + 10)); };
+vm.runInNewContext(pub("decodeLooseJsonText") + "\n" + pub("salvageByKeys") + "\n" + source.slice(start, end) + ";this.api={offlineGroupSpeaker,offlineGroupBeatList,salvageOfflineGroupProse,memberLabel,pickMember};", box);
 const { offlineGroupSpeaker, offlineGroupBeatList, salvageOfflineGroupProse } = box.api;
 const members = [{ id: "a", name: "顾朝" }, { id: "b", name: "顾暮" }];
 
@@ -32,4 +33,13 @@ test("坏格式按角色标题拆卡，不再整篇吞成旁白", () => {
   const rows = salvageOfflineGroupProse("顾朝：他拉开门。\n\n顾暮：\"等等我。\"", members);
   assert.equal(rows.length, 2);
   assert.deepEqual(Array.from(rows, x => x.name), ["顾朝", "顾暮"]);
+});
+
+// 她 2026-10-21：「说中文啊喂 线下格式怎么掉了」——beats 那份 JSON 坏了，整串 JSON 进了气泡
+test("JSON 坏掉也按 beat 一段段抠出来，不把键名当正文", () => {
+  const raw = '{"beats":[{"name":"顾朝","scene":"他说"这是家。"","mood":{"label":"舒缓"},"affinityDelta":1,"schedNow":{"title":"x"}},{"name":"旁白","scene":"灯亮了。"}]}';
+  const out = salvageOfflineGroupProse(raw, members);
+  assert.equal(out.map(b => b.name).join("|"), "顾朝|旁白");
+  assert.equal(out[0].scene, '他说"这是家。"');
+  assert.ok(!out.some(b => /affinityDelta|schedNow/.test(b.scene)));
 });

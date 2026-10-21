@@ -8750,7 +8750,7 @@ async function generateOffline(p, ctx, session) {
   }
   const sp = splitCot(raw, usedCot);
   // 解析失败兜底：绝不把整坨 ```json 灌进气泡——先剥栅栏，再尽量抠出 scene 字段值，实在不行才用剥净的文本
-  let parsed = extractJSON(sp.clean);
+  let parsed = parseJSONLoose(sp.clean);
   if (!parsed || typeof parsed !== "object") {
     const bare = String(sp.clean || "").replace(/```(?:json)?/gi, "").trim();
     const mScene = bare.match(/"scene"\s*:\s*"((?:[^"\\]|\\.)*)"/);
@@ -9149,9 +9149,19 @@ function offlineGroupBeatList(parsed) {
   if (parsed && parsed.output && Array.isArray(parsed.output.beats)) return parsed.output.beats;
   return null;
 }
+// beats 那份 JSON 坏掉时，按 {"name": 一段段切开，每段照已知键名抠（同 salvageByKeys 一份），别把整串 JSON 当正文发出去
+const OFFLINE_GROUP_BEAT_KEYS = ["name", "scene", "thought", "action", "mood", "affinityDelta", "impression", "schedNow", "photo", "wearing"];
+function salvageOfflineGroupBeats(raw) {
+  const text = String(raw || "");
+  if (!/"scene"\s*:/.test(text)) return [];
+  return text.split(/(?=\{\s*"name"\s*:)/).map(part => salvageByKeys(part, OFFLINE_GROUP_BEAT_KEYS))
+    .filter(b => b && b.name && b.scene).map(b => ({ name: b.name, scene: b.scene, ...(b.thought ? { thought: b.thought } : {}) }));
+}
 function salvageOfflineGroupProse(raw, members) {
   const clean = String(raw || "").replace(/```(?:json)?/gi, "").trim();
   if (!clean) return [];
+  const fromJson = salvageOfflineGroupBeats(clean);
+  if (fromJson.length) return fromJson;
   let chunks = clean.split(/\n\s*\n|\n(?=(?:【[^】]+】|[^\n：:]{1,16}[：:]))/).map(s => s.trim()).filter(Boolean);
   if (chunks.length === 1) chunks = clean.split(/(?<=[。！？!?])\s*(?=(?:【[^】]+】|[^\s，。！？]{1,8}[：:]))/).map(s => s.trim()).filter(Boolean);
   return chunks.slice(0, 8).map(scene => {
@@ -9390,7 +9400,7 @@ async function generateOfflineGroup(p, ctx, session) {
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
-  let parsed = extractJSON(sp.clean);
+  let parsed = parseJSONLoose(sp.clean);
   if (novel) {
     const nScene = String((parsed && (parsed.scene || parsed.text || parsed.content)) || (parsed ? "" : (sp.clean || raw || "").replace(/```(?:json)?/gi, ""))).trim();
     const seen = new Set();
@@ -9418,7 +9428,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const repairSystem = "你是格式修复器。把输入原文原字重排成合法 JSON，不续写、不润色、不删内容。只输出 {\"beats\":[{\"name\":\"角色名或旁白\",\"scene\":\"对应原文段落\"}]}。角色名只能逐字选自：" + members.map(c => memberLabel(members, c)).join("、") + "；纯环境才用旁白。按原文中行动/说话的归属拆成 2~5 张卡，禁止整篇塞进一张旁白卡。";
     try {
       const repairedRaw = await callAI(p, repairSystem, [{ role: "user", content: String(sp.clean || raw || "").slice(0, 12000) }], { maxTokens: Math.min(session.maxTokens || 2200, 2200), timeout: 180000 });
-      parsed = extractJSON(repairedRaw);
+      parsed = parseJSONLoose(repairedRaw);
       beats = offlineGroupBeatList(parsed);
     } catch (e) {}
   }
