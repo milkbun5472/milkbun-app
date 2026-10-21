@@ -9,8 +9,8 @@ test("「回复 某某：」摘出来，只拿正文去认语种", () => {
   const i = comp.indexOf("function MomentCommentText("), j = comp.indexOf("\nfunction TransText(", i);
   assert.ok(i > 0 && j > i);
   const seg = comp.slice(i, j);
-  const re = /^(回复\s*[^：:\n]{1,24}[：:]\s*)([\s\S]*)$/;
-  assert.ok(seg.includes("raw.match(/^(回复"), "前缀没摘");
+  const re = /^(\s*回复[^\n]{0,40}?[：:]\s*)([\s\S]*)$/;
+  assert.ok(seg.includes("raw.match(/^(\\s*回复"), "前缀没摘");
   const m = "回复 Lisa：I miss you already".match(re);
   assert.equal(m[2], "I miss you already");
   assert.equal((comp.match(/h\(MomentCommentText, \{ cm: cm \}\)/g) || []).length, 2, "列表和详情都要用");
