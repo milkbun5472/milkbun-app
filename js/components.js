@@ -13385,7 +13385,8 @@ function HtmlCard({ html }) {
 //   把「回复 某某：」摘出来照原样摆着，只拿后面的正文去认语种、去翻。列表和详情两处共用这一份。
 function MomentCommentText({ cm }) {
   const raw = String((cm && cm.text) || "");
-  const m = raw.match(/^(回复\s*[^：:\n]{1,24}[：:]\s*)([\s\S]*)$/);
+  // 名字里带括号、空格、符号也认（她 2026-10-21 截图：「回复 我：Who was…」没挂译键）：回复开头、40 字以内第一个冒号为界
+  const m = raw.match(/^(\s*回复[^\n]{0,40}?[：:]\s*)([\s\S]*)$/);
   if (!m || !m[2].trim()) return h(TransText, { text: raw, zhReady: cm && cm.zh });
   return h(Fragment, null, m[1], h(TransText, { text: m[2], zhReady: cm.zh }));
 }
