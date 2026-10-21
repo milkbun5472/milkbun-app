@@ -17164,8 +17164,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const today = schedLocalDayKey(c);
       const plan = (schedulesRef.current[charId] || {})[today];
       if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.length) return;
-      const charNow = new Date(Date.now() + schedTzShiftMin(c) * 60000);
-      const seqs = schedSpliceNow(plan.seqs, charNow.getHours() * 60 + charNow.getMinutes(), change);
+      const seqs = schedSpliceNow(plan.seqs, charLocalMin(c), change);   // 「此刻几点」跟日程别处一样问 ScheduleClock（跟钟排时是钟上的几点）
       if (seqs) saveSchedDay(charId, today, { ...plan, seqs: seqs, selfRevCheck: true, liveRevisedAt: Date.now() });
     } catch (e) {}
   };
