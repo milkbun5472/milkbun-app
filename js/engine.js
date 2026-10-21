@@ -4946,6 +4946,39 @@ async function mediaDrain(limit) {
   finally { mediaDraining = false; }
   return sent;
 }
+// 把本机所有图补传到云上（她 2026-10-22：平板同步手机，图一张没过来）。
+//   上传队列只管【新写进来的】图，而且封顶 800 张会挤掉旧的——更早的那些从没送上去过。
+//   这里把本机两个图库（照片 / 图库）的名字全列出来，跟云上已有的比，缺的一张张直接送；不经过 localStorage 那条队列。
+//   onProgress({ done, total, failed })；连着失败 3 张就停（多半是没登录或断网），返回 { sent, total, failed, stopped }
+async function idbAllKeys(open) {
+  try { const db = await open(); return await new Promise((res, rej) => { const rq = db.transaction("img", "readonly").objectStore("img").getAllKeys(); rq.onsuccess = () => res((rq.result || []).map(String)); rq.onerror = () => rej(rq.error); }); }
+  catch (e) { return []; }
+}
+async function mediaBackfill(onProgress) {
+  const C = window.Cloud;
+  if (!(C && typeof C.mediaPut === "function")) return { sent: 0, total: 0, failed: 0, stopped: "nocloud" };
+  const user = typeof C.getUser === "function" ? await C.getUser() : null;
+  if (!user) return { sent: 0, total: 0, failed: 0, stopped: "login" };
+  const todo = [];
+  for (const [bucket, open] of [["selfies", idbImgOpen], ["vault", idbVaultOpen]]) {
+    const keys = await idbAllKeys(open);
+    const have = typeof C.mediaList === "function" ? await C.mediaList(bucket) : null;
+    keys.forEach(k => { if (!have || !have.has(k)) todo.push([bucket, k]); });
+  }
+  let sent = 0, failed = 0, streak = 0;
+  const tell = () => { try { onProgress && onProgress({ done: sent + failed, total: todo.length, failed }); } catch (e) {} };
+  tell();
+  for (const [bucket, k] of todo) {
+    const blob = await mediaLocalRead(bucket, k);
+    if (!blob || !blob.size) { failed++; tell(); continue; }
+    let ok = false;
+    try { ok = await C.mediaPut(bucket, k, blob); } catch (e) { ok = false; }
+    if (ok) { sent++; streak = 0; } else { failed++; streak++; }
+    tell();
+    if (streak >= 3) return { sent, total: todo.length, failed, stopped: "net" };
+  }
+  return { sent, total: todo.length, failed, stopped: "" };
+}
 // 回前台/联网时补送。跟云同步那条链同一个形状（后台不跑代码，靠这一拍补）。
 try {
   window.addEventListener("online", () => { mediaDrain(12); });

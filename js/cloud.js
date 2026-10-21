@@ -380,6 +380,21 @@
         return data;
       } catch (e) { return null; }
     },
+    // 云上这一格已经有哪些图（补传时拿来比，已经在的不再传一遍）。拿不到就返回 null，调用方当「不知道」处理
+    async mediaList(bucket) {
+      try {
+        const user = await this.getUser();
+        if (!client || !user) return null;
+        const dir = user.id + "/" + String(bucket || "misc"), names = new Set();
+        for (let off = 0; off < 200000; off += 1000) {
+          const { data, error } = await client.storage.from(this.MEDIA_BUCKET).list(dir, { limit: 1000, offset: off });
+          if (error) return null;
+          (data || []).forEach(x => { if (x && x.name) names.add(x.name); });
+          if (!data || data.length < 1000) break;
+        }
+        return names;
+      } catch (e) { return null; }
+    },
     async mediaDel(bucket, key) {
       try {
         const path = await this.mediaPath(bucket, key);
