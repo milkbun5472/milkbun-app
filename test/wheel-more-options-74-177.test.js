@@ -6,5 +6,6 @@ assert.match(src, /\.filter\(Boolean\)\.slice\(0, WHEEL_MAX\)/);
 assert.ok(!/\.filter\(Boolean\)\.slice\(0, 8\)/.test(src), "老的 8 个上限不许留着");
 const turn = new Function(src.slice(src.indexOf("function wheelLabelTurn("), src.indexOf("\n", src.indexOf("function wheelLabelTurn("))) + "\nreturn wheelLabelTurn;")();
 for (let n = 9; n <= 24; n++) for (let i = 0; i < n; i++) { const a = turn(i, n); assert.ok(a >= -90 && a <= 90, "字不许倒着：" + n + "/" + i + " → " + a); }
-assert.match(src, /\(i === n - 1 && n > 1 && \(n - 1\) % WHEEL_COLORS\.length === 0\) \? 3/);
+// 最后一块跟第一块挨着别撞色：配色能换以后按这一盘自己的色数算（pal）
+assert.match(src, /\(i === n - 1 && n > 1 && \(n - 1\) % pal\.length === 0\) \?/);
 console.log("wheel ok");

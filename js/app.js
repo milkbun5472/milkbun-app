@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.212";
+const APP_VERSION = "v76.226";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12279,12 +12279,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   拿最后那张给他换上，她那边不动。放到 10 句；而且她提过情头的这一阵，单张那条不许替它换。
       const _pairAsked = !opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 10);
       const _pairPick = _pairAsked ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
+      // 她要他帮【她自己】换头像（她 2026-10-22「能不能让他帮我换·我的头像，不是情头的时候」）：
+      //   只在她开口、往回找得到她发的一张真照片时给；情头那一档优先
+      const _myAvatarAsked = !_pairPick && !opts.proactive && askedRecently(history, MY_AVATAR_ASK_RE, 4);
+      const _myAvatarPick = _myAvatarAsked
+        ? (freshUserPhoto(charId) || freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK)) : null;
+      // 她没开口、只是刚发来一张（她 2026-10-22「为啥不能我发图不说，他觉得适合我就直接换上，跟自己头像一样」）：
+      //   跟他换自己头像同一个分寸——默认不换，只有他真觉得这张就该是她的头像才换
+      const _myAvatarAuto = (!_myAvatarPick && !_pairPick && !_pairAsked && !opts.proactive) ? freshUserPhoto(charId) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
       // 情头那两张在历史里直接标上「第 1 张／第 2 张」（她 2026-10-02：TA说「鲨鱼归我」，结果自己换成了猫——
       //   原来只说「先发的是第 1 张」，可TA看到的历史里那两张图没有编号，只能猜，猜反了）
       const _pairNo = m => { if (!_pairPick) return ""; const same = (a, b) => a && b && (a === b || (a.id && a.id === b.id) || (a.ts && a.ts === b.ts && a.imageRef === b.imageRef));
         return same(m, _pairPick[0]) ? "【情头·第 1 张】" : same(m, _pairPick[1]) ? "【情头·第 2 张】" : ""; };
-      const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar));
+      // 她要换的是她自己的头像时，「换成你的头像」那一问整个不给，免得两格打架
+      const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar)) && !_myAvatarPick;
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
         : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
@@ -12695,6 +12704,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "你想在她这张上接着画一笔，就填 drawBack：一段 SVG，viewBox=\"0 0 100 100\"，会被拉伸盖满整张照片，坐标按照片的百分比算；"
           + "只用 path/line/circle/ellipse/polyline/text，像拿笔在她那张上补几笔（回她画的那处、加个箭头、写两个字都行），画多画少看你这个人。不想画就 null。");
       }
+      if (_myAvatarAuto) {
+        openCaps.push("myAvatar");
+        capState.push("myAvatar：" + uName + " 刚发来的那张，要不要顺手换成她在你们这个聊天里的头像？**默认不填。**"
+          + "只有你看着觉得「这张就该是她的头像」才填 \"myAvatar\":true（她的资料和面具不动）；你自己会不会替人做这种事，也算在内。"
+          + "它跟 photoSeen.avatar 是两回事：那一格是换你自己的。");
+      }
+      if (_myAvatarPick) {
+        openCaps.push("myAvatar");
+        capState.push("myAvatar：" + uName + " 想让你帮她换她自己的头像（不是你的）。上面历史里她最近发的那张真实照片就是要换的那张。"
+          + "要换就填 \"myAvatar\":true——只换她在你们这个聊天里的头像，她的资料和面具都不动；她说的是你的头像，就别填这一格。"
+          + "\n· 不想帮她换就省略，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
+      }
       if (_pairPick) {
         openCaps.push("pairAvatar");
         capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
@@ -12874,6 +12895,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           || (/换上|换成|设成|设为|用这张|当背景|设一下/.test(String(lastU && lastU.content || "")) && all.slice(-8).some(m => m && m.role === "user" && m.imageRef));
         if (lastU && _askSwap) {
           const far = all.slice(-40);
+          // 她最近连着发了几张（群里 2026-10-22：先发壁纸、再发一张带着这壁纸的截图，他换上的是截图）——
+          //   最近这几张都摆给他，让他自己挑是哪一张；只有一张时跟原来一样
+          const herPics = far.filter(m => m.role === "user" && m.imageRef).slice(-4);
+          if (herPics.length > 1) {
+            const alts = herPics.map(m => ({ ref: m.imageRef, desc: String(m.desc || m.content || "").slice(0, 80), ts: m.ts, from: "her" }));
+            return Object.assign({}, alts[alts.length - 1], { alts });
+          }
           for (let k = far.length - 1; k >= 0; k--) {
             const m = far[k];
             if (m.role === "user" && m.imageRef) return { ref: m.imageRef, desc: String(m.desc || m.content || "她发来的那张").slice(0, 120), from: "her" };
@@ -12883,7 +12911,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return null;
       })();
       const _lockNow = (() => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; return lk.lockWallpaper ? String(lk.lockDesc || "一张图") : ""; } catch (e) { return ""; } })();
-      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。"
+      const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.alts
+          ? "她最近发来了 " + _lockSrc.alts.length + " 张图，按发的先后：" + _lockSrc.alts.map((a, i) => "第" + (i + 1) + "张" + (a.ts ? "（" + fmtStampAI(a.ts) + "）" : "") + (a.desc ? "「" + a.desc + "」" : "")).join("、") + "。看清她要你换的是哪一张（截图里带着壁纸的，要换的通常是那张壁纸本身），填 \"lockscreen\": 第几张的数字"
+          + "（想换的话；不想就别填）。"
+          : (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。")
         + "⚠️只在话里说「换好了」、JSON 里没填，手机上什么都不会变——说了换就一定要填。" + (_lockNow ? "你现在的锁屏是：" + _lockNow + "。" : "") : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
@@ -13713,6 +13744,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️传 _avatarMsg 不是 _seenMsg：她开口要换头像那一档，要换的是【前面那张】，
       //   _seenMsg 这时候是 null——还传它的话整个落地会被 `if (!msg)` 挡掉，
       //   于是又变回「他说换了、实际没换」。note 那半边本来就只在 _seenMsg 时才有。
+      // 帮她换她的头像：落了就别让单张那格把这张又挂到他自己名字旁边；嘴上说换好了、字段没填，照他说的补上
+      // 自己起意那一档只认字段，不照嘴上的话补（嘴上说的多半是换他自己的）
+      const _myDone = !!((_myAvatarPick && (parsed.myAvatar === true || (parsed.myAvatar == null && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word) && !(parsed.photoSeen && parsed.photoSeen.avatar === true)))
+        && applyMyAvatar(charId, _myAvatarPick)) || (_myAvatarAuto && parsed.myAvatar === true && applyMyAvatar(charId, _myAvatarAuto)));
+      if (_myDone && _myAvatarPick && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       // 情头先落：落了就别再让单张那一格把他那张又换回去（photoSeen 里的 note 照记）
       const _pairDone = !!(_pairPick && parsed.pairAvatar && typeof parsed.pairAvatar === "object"
         && applyPairAvatar(charId, _pairPick, parsed.pairAvatar.yours));
@@ -13940,7 +13976,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
       // TA 自己存一刻（她 2026-10-03 点的第 4 条）：进 x_shikePins，相册里多一张「TA 存的」。侧房和配角不存
-      if (parsed.lockscreen === true && _lockSrc) setCharLockscreen(charId, _lockSrc, chatKey, turnId);
+      if (_lockSrc && (parsed.lockscreen === true || Number(parsed.lockscreen) > 0)) {
+        const _pick = _lockSrc.alts && Number(parsed.lockscreen) > 0 ? _lockSrc.alts[Math.min(_lockSrc.alts.length, Number(parsed.lockscreen)) - 1] : _lockSrc;
+        setCharLockscreen(charId, _pick, chatKey, turnId);
+      }
       if (parsed.keepMoment && typeof parsed.keepMoment === "object" && !sideRoom && !char.npc && String(parsed.keepMoment.title || "").trim()) {
         try {
           const all = loadJSON("x_shikePins", {}) || {};
@@ -17951,7 +17990,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   免得哪天谁看见这支还在、顺手把线接回去。
       //   论坛的新内容只有两条路：她自己在论坛里按（刷新 / 请TA们发帖 / 让TA发一条），
       //   或者角色低频主动发帖那一条（autoForumForChar，设置里「论坛」那个开关管得住）。
-      if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
+      // 开了「自己发朋友圈」的配角也进这一池（她 2026-10-22）
+      if (kind === "moments") { const ps = liveChars.concat((characters || []).filter(c => c && c.npc && c.npcMoments)).filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
       else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("whisper", pk, () => genWhisper(pk)); } }
     } catch (e) {/* 静默 */}
   };
@@ -18500,12 +18540,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!char) return [];
     const ids = new Set([String(char.id)]);
     (characters || []).forEach(o => { if (o && o.id !== char.id && (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id])) ids.add(String(o.id)); });
+    // 他身边开了「自己发朋友圈」的配角，发的那几条也摆进他手机（她 2026-10-22）
+    (characters || []).forEach(o => { if (o && o.npc && o.npcMoments && String(o.ownerId || "") === String(char.id)) ids.add(String(o.id)); });
     // 用本名：备注是她给这个人起的，别人手机里不该出现（群友 2026-10-21：他手机里情敌的名字是她起的备注）
     const nameOf = id => { const o = (characters || []).find(x => x && String(x.id) === String(id)); return o ? o.name : ""; };
     const known = new Set([...ids].map(nameOf).filter(Boolean));
     const meName = userName(profileFor(char.id));
     // 真角色（不是配角）的朋友圈只认真发的：推演那一路不许替他们编（她 2026-10-21：「跟他的聊天一样」）。配角不在她那边发朋友圈，照旧推演
-    const realNames = [...ids].map(id => (characters || []).find(x => x && String(x.id) === id)).filter(o => o && !o.npc).flatMap(o => [o.name, o.remark].filter(Boolean));
+    const realNames = [...ids].map(id => (characters || []).find(x => x && String(x.id) === id)).filter(o => o && (!o.npc || o.npcMoments)).flatMap(o => [o.name, o.remark].filter(Boolean));
     const out = (momentsRef.current || []).filter(m => m && m.characterId && ids.has(String(m.characterId)) && String(m.content || "").trim()).slice(0, 12).map(m => ({
       author: nameOf(m.characterId), content: String(m.content || ""), _ts: Number(m.ts) || null, time: "", _real: true,
       likes: [...(m.likers || []).filter(n => known.has(n)), ...(m.liked ? [meName] : [])],
@@ -22171,7 +22213,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
-      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 2)])].map(c => c.remark || c.name);
+      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 4)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
       const canSee = liveChars.filter(c => momSeen(mom, c.id));
@@ -22179,7 +22221,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 2));
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -22214,12 +22256,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 评论区里已经说过话的人（发帖时他自己写的同学、同事这些）也在名单里；角色发的那条，还可以来他生活里真有的熟人
       //   （群友 2026-10-20：「刷新也不出随机 npc 了我没法接话」——原来名单只有角色和配角，这些人一刷就再也回不来）
       const _threadPeople = [...new Set((mom.comments || []).map(c => c && momentWho(c.author)).filter(n => n && n !== meName0 && !roster.includes(n)))];
+      // 一轮几条跟着名单长（她 2026-10-22「现在最多俩有点浪费，多来点新评论和接话」）：名单里的人多，一轮就多来几句
+      const _momPool = roster.length + _threadPeople.length;
+      const _moreCount = "这一轮写 " + Math.max(3, Math.min(8, _momPool + 1)) + " 条上下（名单上的人可以说不止一句，一来一回地接）";
       const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.concat(_threadPeople).join("、")
         + (author
-          ? "；也可以是「" + author.name + "」自己生活里真会有的熟人（同学、同事、朋友、家里人这类，照他的人设和处境来，起个像样的名字，跟上面出现过的同一个人名字前后一致）。**不许是陌生网友、路人。**"
+          ? "；也可以是「" + author.name + "」人设里写到过的人（同学、闺蜜、同事、家里人这类：人设里有名字就用那个名字，只写了「有个闺蜜」就给她起个像样的名字，跟上面出现过的同一个人前后一致；这种人在 JSON 里多填一格 \"who\"，写人设里提到他的那个身份词，比如「闺蜜」）。**人设里没提过的人一个都不许冒出来，没有路人、没有陌生网友。**"
           : "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**")
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
-        + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。" + REAL_DISAGREE;
+        + _moreCount + "，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思；既要有对这条朋友圈的新评论，也要有接着上面某条往下聊的。" + REAL_DISAGREE;
       // 评论区里谁是谁（群友 2026-10-11：两个角色在评论区互相叫老婆——她给他们起的备注是「唯一的小狗姐姐」「最爱你的小狗阿泽」，
       //   评论区按备注显示，模型看到的也是备注，读起来像她的爱称，于是都当成了她）。把显示名对回真人，再点明只有谁是她。
       const whoLines = (() => {
@@ -22228,7 +22273,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22238,6 +22283,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       else if (d.reply) reps = [typeof d.reply === "string" ? { author: fbAuthor, text: d.reply } : d.reply];
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
+      // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
@@ -25815,6 +25861,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast((ch.remark || ch.name) + " 把你俩的头像换成了这一对");
     return true;
   };
+  // 他帮她换她在这个聊天里的头像（myChatAvatar，跟情头给她那张同一格）；档案和她的资料都不动
+  const applyMyAvatar = (charId, msg) => {
+    const ch = characters.find(c => c.id === charId);
+    if (!ch || !msg || !msg.imageRef) return false;
+    pC(p => p.map(x => x.id === charId ? { ...x, myChatAvatar: msg.imageRef } : x));
+    toast((ch.remark || ch.name) + " 帮你把头像换成了这张");
+    return true;
+  };
   // 线下那一场里的（v58.100 补上：这一处 v58.98 时登记成「欠的」）
   const freshOfflinePhoto = charId => {
     const sess = (offlinesRef.current[charId] || []).find(x => x && !x.endTs);
@@ -25829,6 +25883,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她要换头像的说法：不只「头像」两个字
   const AVATAR_ASK_RE = /头像|\bpp\b|avatar/i;
   // 一对、两个人一起换——跟单张那句分开认：「换个头像」不等于「把我的也换了」
+  // 换的是【她自己的】头像：「帮我换个头像」「把我的头像换成这张」「给我设成头像」
+  const MY_AVATAR_ASK_RE = /(帮我|给我|替我|我的|把我).{0,8}(换|设|当|改|用).{0,8}头像|(换|设|改).{0,4}我的头像|我的头像/;
   const PAIR_AVATAR_ASK_RE = /情头|一对头像|情侣头像|一起换|我俩.{0,6}头像|我们.{0,6}头像|也帮我换|帮我也换|给我也换/;
   // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
   // ⚠️她 2026-10-02：「为啥有时候又不行」——TA说的是「换成蓝鲨鱼了」「头像改好了」「用上了」这种，原来那张单子一个都认不出，
@@ -30826,6 +30882,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pC(p => p.map(c => { if (c.id !== id || !c.npc) return c; const n = { ...c, promotedFrom: c.ownerId || "" }; delete n.npc; delete n.ownerId; return n; }));
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
+    onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，

@@ -3035,8 +3035,10 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   //   照 施工规则/no-half-sheet.md 改成【整页】：这一层的内容
   //   （24 小时横条 + 7 天列表）根本不需要同时看见底下那一层，本来就该是整页。
   //   portal 到 body 才躲得开主屏那些 transform 容器（gaze.js 踩过同一个坑）。
-  const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(
-    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, t)) },
+  // 详情页是从主屏小组件里传送出来的，会带着「铺在壁纸上」的上下文，字全翻成白的（群里 2026-10-22）：这一层明说不在壁纸上
+  const tb = t.homeBaseTheme || t;   // 详情页用原来的主题，不用格子里那套白字
+  const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(h(HomeDetailLayer, null,
+    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, tb)) },
     h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", bg: "transparent", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
     h(WeatherTagRail, { places: levels.top, value: levels.topValue, onPick: chooseTop }),
@@ -3044,32 +3046,32 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 2, paddingTop: 8 } },
       h("div", null,
         // 地名和「天气」两个字都已经在顶栏里了，正文别再写一遍
-        w ? h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 2 } },
-          h(GWx, { kind: wmoKind(w.code), size: 15, color: t.sub }),
+        w ? h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: tb.sub, marginTop: 2 } },
+          h(GWx, { kind: wmoKind(w.code), size: 15, color: tb.sub }),
           h("span", null, wmoZh(w.code) + " · 现在 " + w.t + "° · 今日 " + w.lo + "~" + w.hi + "°"
             + (madeUp ? " · " + WorldWeather.windOf(place.terrain) : ""))) : null),
-      h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "好友地图 ›")),
+      h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: tb.tint } }, "好友地图 ›")),
     fx ? h("div", null,
       // 逐小时横滑条
-      h("div", { style: { display: "flex", gap: 4, overflowX: "auto", padding: "12px 0 10px", borderBottom: "1px solid " + t.line } },
+      h("div", { style: { display: "flex", gap: 4, overflowX: "auto", padding: "12px 0 10px", borderBottom: "1px solid " + tb.line } },
         fx.hourly.map(function (x, i) {
           return h("div", { key: i, className: "shrink-0", style: { textAlign: "center", width: 46 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, i === 0 ? "现在" : x.h + "时"),
-            h("div", { className: "flex items-center justify-center", style: { margin: "3px 0" } }, h(GWx, { kind: wmoKind(x.code), size: 17, color: t.ink })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, x.t + "°"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: tb.fog } }, i === 0 ? "现在" : x.h + "时"),
+            h("div", { className: "flex items-center justify-center", style: { margin: "3px 0" } }, h(GWx, { kind: wmoKind(x.code), size: 17, color: tb.ink })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: tb.ink } }, x.t + "°"),
             (x.p != null && x.p >= 20) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: "#4a7fa5" } }, x.p + "%") : h("div", { style: { height: 12 } }));
         })),
       // 7 天列表
       h("div", { style: { paddingTop: 4 } }, fx.daily.map(function (x, i) {
-        return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: i < fx.daily.length - 1 ? "1px solid " + t.line : "none" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, width: 44 } }, i === 0 ? "今天" : wk[x.d.getDay()]),
-          h("span", { className: "flex items-center" }, h(GWx, { kind: wmoKind(x.code), size: 18, color: t.ink })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1 } }, wmoZh(x.code)),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
-      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
+        return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: i < fx.daily.length - 1 ? "1px solid " + tb.line : "none" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: tb.ink, width: 44 } }, i === 0 ? "今天" : wk[x.d.getDay()]),
+          h("span", { className: "flex items-center" }, h(GWx, { kind: wmoKind(x.code), size: 18, color: tb.ink })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: tb.sub, flex: 1 } }, wmoZh(x.code)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: tb.fog } }, x.lo + "°"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: tb.ink } }, x.hi + "°"));
+      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: tb.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
     h(WxShareBox, { userGeo, characters, worlds }),
-    h(WorldWxFollowBox, { userGeo, characters, worlds }))), document.body) : null;
+    h(WorldWxFollowBox, { userGeo, characters, worlds })))), document.body) : null;
   return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
@@ -3212,6 +3214,47 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
 // 扇区的色：从马卡龙八色换成这个 app 自己的秋色（v63.08）。
 // 原来那八个是任何抽奖小程序都在用的糖果色——换个 app 照样成立，就是写坏了。
 const WHEEL_COLORS = ["#d9a86c", "#a8b898", "#c98d7e", "#9fb0c4", "#d6c07a", "#b09ab5", "#c2a17e", "#8fae9e"];
+// 扇面配色（她 2026-10-22「转盘颜色能自定义吗」）：编辑转盘里挑一套，存在 x_wheel 自己身上（palette / colors）。
+//   主屏小转盘和全屏用同一张盘面，所以两边一起变；这里只换颜色，不动主屏的结构。
+const WHEEL_COLOR_MAX = 8;   // 自己挑最多 8 个色，选项比色多就轮着用
+const WHEEL_PALETTES = {
+  autumn: { zh: "秋色", colors: WHEEL_COLORS },
+  cream: { zh: "奶油", colors: ["#f1d3bd", "#f4e6c4", "#d9e6d0", "#d3e0ee", "#efd0d8", "#e2d6ee", "#f0dfc0", "#cfe8e0"] },
+  mono: { zh: "黑白", colors: ["#2b2926", "#efebe4"] },
+  theme: { zh: "跟主题色", colors: null }
+};
+// 这一盘到底用哪几个色：theme 照当前主题的强调色／点缀色调淡；custom 用她一块块挑的
+function wheelColorsFor(data, t) {
+  const d = data || {}, key = d.palette || "autumn";
+  if (key === "custom" && Array.isArray(d.colors) && d.colors.filter(Boolean).length >= 2) return d.colors.filter(c => !!c).slice(0, WHEEL_COLOR_MAX);
+  if (key === "theme" && t) {
+    const mix = (c, p) => "color-mix(in srgb, " + c + " " + p + "%, " + (t.bg2 || "#fff") + ")";
+    return [mix(t.accent, 55), mix(t.tint, 45), mix(t.accent, 30), mix(t.tint, 25), mix(t.fog || t.sub, 40), mix(t.accent, 42)];
+  }
+  return (WHEEL_PALETTES[key] && WHEEL_PALETTES[key].colors) || WHEEL_COLORS;
+}
+// 配件色（她 2026-10-22「外层那块也会突兀」）：轴、指针、分隔线、外圈跟着配色换，秋色那套就是原来的铜和深棕。
+//   每样都套一个 --wheel-* 变量，页面 CSS 能单独改。
+const WHEEL_TRIMS = {
+  autumn: { line: "rgba(58,44,30,.5)", rim: "rgba(58,40,22,.34)", hub: ["#f0dcb4", "#c69b58", "#8a6733"], edge: "rgba(58,40,22,.55)" },
+  cream: { line: "rgba(150,128,104,.38)", rim: "rgba(150,128,104,.3)", hub: ["#fffaf0", "#ecd9ae", "#c9ad78"], edge: "rgba(150,124,88,.5)" },
+  mono: { line: "rgba(20,20,20,.85)", rim: "rgba(20,20,20,.7)", hub: ["#ffffff", "#c9c9c9", "#7d7d7d"], edge: "rgba(20,20,20,.7)" },
+  neutral: { line: "rgba(70,70,70,.4)", rim: "rgba(70,70,70,.32)", hub: ["#f4f4f4", "#bdbdbd", "#858585"], edge: "rgba(60,60,60,.5)" }
+};
+function wheelTrimFor(data, t) {
+  const key = (data && data.palette) || "autumn";
+  if (key === "theme" && t) return { key: "theme", line: "color-mix(in srgb, " + t.ink + " 45%, transparent)", rim: "color-mix(in srgb, " + t.ink + " 35%, transparent)",
+    hub: ["color-mix(in srgb, " + t.accent + " 25%, #fff)", t.accent, "color-mix(in srgb, " + t.accent + " 60%, " + t.ink + ")"], edge: "color-mix(in srgb, " + t.ink + " 55%, transparent)" };
+  const k = key === "custom" ? "neutral" : (WHEEL_TRIMS[key] ? key : "autumn");
+  return Object.assign({ key: k }, WHEEL_TRIMS[k]);
+}
+// 深色扇面上字翻白（只认得出 #rrggbb；调淡出来的那几种都是浅底）
+function wheelInkOn(c) {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(c || ""));
+  if (!m) return "rgba(46,36,26,0.92)";
+  const l = (0.299 * parseInt(m[1], 16) + 0.587 * parseInt(m[2], 16) + 0.114 * parseInt(m[3], 16)) / 255;
+  return l < 0.5 ? "rgba(250,246,238,0.95)" : "rgba(46,36,26,0.92)";
+}
 function wheelSlicePath(i, n) {
   const a0 = (i * 360 / n - 90) * Math.PI / 180, a1 = ((i + 1) * 360 / n - 90) * Math.PI / 180;
   // v63.18 木框撤掉之后盘面铺满：R 回到 48。
@@ -3225,45 +3268,52 @@ const WHEEL_MAX = 24;
 function wheelLabelTurn(i, n) { const a = (i + 0.5) * 360 / n - 90; return a > 90 && a < 270 ? a - 180 : a; }
 function wheelLabelPos(i, n, r) { const a = ((i + 0.5) * 360 / n - 90) * Math.PI / 180; return { x: 50 + r * Math.cos(a), y: 50 + r * Math.sin(a) }; }
 // 转盘 SVG（小组件和全屏共用）：size=像素宽高，labels=要不要画选项字
-function WheelDisc({ items, angle, spinning, size, labels, dur }) {
+function WheelDisc({ items, angle, spinning, size, labels, dur, colors, hooks, trim }) {
+  const tr = trim || Object.assign({ key: "autumn" }, WHEEL_TRIMS.autumn), hubId = "wkWheelHub-" + tr.key;
   const n = items.length;
+  const pal = Array.isArray(colors) && colors.length >= 2 ? colors : WHEEL_COLORS;
+  // 第几块用哪个色：最后一块跟第一块挨着，别撞同一个色
+  const colorAt = i => pal[(i === n - 1 && n > 1 && (n - 1) % pal.length === 0) ? (pal.length > 2 ? Math.min(3, pal.length - 1) : 1) : i % pal.length];
   // 她 2026-09-05 第二轮：「转盘直接改成圆的变大，不要外面的框了」。
   // 所以 v63.08 那圈木框和铜钉整个撤掉（不是留在原地调透明度）——盘面自己铺满整格。
   // 留下来的是让它【不是一张饼图】的那几样：扇区之间的墨线、压边那道内影、正中那颗铜轴。
   return h("svg", { viewBox: "0 0 100 100", width: size, height: size, style: { transform: "rotate(" + angle + "deg)", transition: spinning ? "transform " + (dur || 3.2) + "s cubic-bezier(0.12,0.6,0.08,1)" : "none", display: "block" } },
     h("defs", null,
-      h("radialGradient", { id: "wkWheelHub", cx: ".36", cy: ".32", r: ".8" },
-        h("stop", { stopColor: "#f0dcb4" }), h("stop", { offset: ".45", stopColor: "#c69b58" }), h("stop", { offset: "1", stopColor: "#8a6733" }))),
+      h("radialGradient", { id: hubId, cx: ".36", cy: ".32", r: ".8" },
+        h("stop", { style: { stopColor: "var(--wheel-hub1, " + tr.hub[0] + ")" } }), h("stop", { offset: ".45", style: { stopColor: "var(--wheel-hub2, " + tr.hub[1] + ")" } }), h("stop", { offset: "1", style: { stopColor: "var(--wheel-hub3, " + tr.hub[2] + ")" } }))),
     n >= 2 ? items.map((it, i) => h("g", { key: i },
-      h("path", { d: wheelSlicePath(i, n), fill: WHEEL_COLORS[(i === n - 1 && n > 1 && (n - 1) % WHEEL_COLORS.length === 0) ? 3 : i % WHEEL_COLORS.length] /* 最后一块跟第一块挨着，别撞同一个色 */, stroke: "rgba(58,44,30,.5)", strokeWidth: .7 }),
+      // 色写在 style 里、外面套 --wheel-cN：美化 CSS 设 --wheel-c1…c8 就能整套换色，不用挑选择器
+      h("path", hooks ? { "data-wk": "wheelslice", "data-i": String(i), d: wheelSlicePath(i, n), style: { fill: "var(--wheel-c" + (i % 8 + 1) + ", " + colorAt(i) + ")", stroke: "var(--wheel-line, " + tr.line + ")" }, strokeWidth: .7 }
+        : { d: wheelSlicePath(i, n), style: { fill: "var(--wheel-c" + (i % 8 + 1) + ", " + colorAt(i) + ")", stroke: "var(--wheel-line, " + tr.line + ")" }, strokeWidth: .7 }),
       // 选项多了（她 2026-09-28：「转盘能不能多加点选择，现在上限有点少」）：扇面变窄，横着写会叠在一起，
       //   超过 8 个就把字顺着扇面转过来（从中心往外读），字号跟着扇面宽度收
       labels ? (n > 8
         ? h("text", { x: wheelLabelPos(i, n, 30).x, y: wheelLabelPos(i, n, 30).y, textAnchor: "middle", dominantBaseline: "middle",
             transform: "rotate(" + wheelLabelTurn(i, n) + " " + wheelLabelPos(i, n, 30).x + " " + wheelLabelPos(i, n, 30).y + ")",
-            style: { fontSize: Math.max(3.4, Math.min(6.2, 120 / n)), fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 6))
-        : h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: "rgba(46,36,26,0.92)" } }, it.slice(0, 5))) : null))
+            style: { fontSize: Math.max(3.4, Math.min(6.2, 120 / n)), fontFamily: "'Noto Sans SC',sans-serif", fill: wheelInkOn(colorAt(i)) } }, it.slice(0, 6))
+        : h("text", { x: wheelLabelPos(i, n, 31).x, y: wheelLabelPos(i, n, 31).y, textAnchor: "middle", dominantBaseline: "middle", style: { fontSize: n > 5 ? 7 : 8.6, fontFamily: "'Noto Sans SC',sans-serif", fill: wheelInkOn(colorAt(i)) } }, it.slice(0, 5))) : null))
       : h("circle", { cx: 50, cy: 50, r: 48, fill: "#e5ddd0" }),
-    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", stroke: "rgba(58,40,22,.34)", strokeWidth: 1.6 }),
-    h("circle", { cx: 50, cy: 50, r: 7, fill: "url(#wkWheelHub)", stroke: "rgba(58,40,22,.55)", strokeWidth: .8 }),
+    h("circle", { cx: 50, cy: 50, r: 48, fill: "none", style: { stroke: "var(--wheel-rim, " + tr.rim + ")" }, strokeWidth: 1.6 }),
+    h("circle", hooks ? { "data-wk": "wheelhub", cx: 50, cy: 50, r: 7, fill: "url(#" + hubId + ")", style: { stroke: "var(--wheel-edge, " + tr.edge + ")" }, strokeWidth: .8 } : { cx: 50, cy: 50, r: 7, fill: "url(#" + hubId + ")", style: { stroke: "var(--wheel-edge, " + tr.edge + ")" }, strokeWidth: .8 }),
     h("circle", { cx: 48.2, cy: 48, r: 1.7, fill: "rgba(255,248,232,.7)" }));
 }
 // 转盘顶上那根【簧片指针】：一片带弯的铜簧，尖头压在盘边上。
 // 不跟着盘转，所以画在 WheelDisc 外面。size 是盘的直径。
-function WheelNeedle({ size }) {
+function WheelNeedle({ size, trim }) {
+  const tr = trim || Object.assign({ key: "autumn" }, WHEEL_TRIMS.autumn), nId = "wkNeedle-" + tr.key;
   // size 可以是像素数，也可以是 "100%"（盘跟着格子撑大时用后者）
   const w = typeof size === "number" ? Math.max(16, size * 0.2) : size;
   // ⚠️SVG 的 height 不认 "auto"（控制台会报 Expected length）——百分比那一路直接给 100%
   const hh = typeof size === "number" ? Math.max(16, size * 0.2) * 1.05 : "100%";
   return h("svg", { width: w, height: hh, viewBox: "0 0 20 21", style: { display: "block", filter: "drop-shadow(0 2px 3px rgba(48,34,20,.35))" } },
-    h("defs", null, h("linearGradient", { id: "wkNeedle", x1: "0", y1: "0", x2: "1", y2: "1" },
-      h("stop", { stopColor: "#f3e0b8" }), h("stop", { offset: ".5", stopColor: "#c79a55" }), h("stop", { offset: "1", stopColor: "#8a6329" }))),
+    h("defs", null, h("linearGradient", { id: nId, x1: "0", y1: "0", x2: "1", y2: "1" },
+      h("stop", { style: { stopColor: "var(--wheel-needle1, " + tr.hub[0] + ")" } }), h("stop", { offset: ".5", style: { stopColor: "var(--wheel-needle2, " + tr.hub[1] + ")" } }), h("stop", { offset: "1", style: { stopColor: "var(--wheel-needle3, " + tr.hub[2] + ")" } }))),
     h("path", { d: "M4 1.5h12c1.1 0 1.6 1.3.9 2.1L11.4 10c-.5.6-.6 1.4-.2 2l1.2 2.2c.6 1-.1 2.3-1.3 2.3H10L10 20 8.6 16.5H8.7c-1.2 0-1.9-1.3-1.3-2.3L8.6 12c.4-.6.3-1.4-.2-2L3.1 3.6C2.4 2.8 2.9 1.5 4 1.5Z",
-      fill: "url(#wkNeedle)", stroke: "rgba(58,40,22,.6)", strokeWidth: .8, strokeLinejoin: "round" }));
+      fill: "url(#" + nId + ")", style: { stroke: "var(--wheel-edge, " + tr.edge + ")" }, strokeWidth: .8, strokeLinejoin: "round" }));
 }
 // 全屏大转盘（portal 挂 body）：氛围感主场——大盘+大结果+角色起哄完整气泡
 function WheelFull({ data, items, onSave, onReact, onClose }) {
-  const t = useTheme();
+  const t0 = useTheme(), t = t0.homeBaseTheme || t0;   // 小组件换了底图时格子里是白字，全屏和编辑框用原来的主题
   const [angle, setAngle] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
@@ -3272,6 +3322,8 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
   const [edit, setEdit] = useState(false);
   const [eTitle, setETitle] = useState("");
   const [eItems, setEItems] = useState("");
+  const [ePal, setEPal] = useState("autumn");
+  const [eColors, setEColors] = useState([]);
   const lastReact = useRef(0);
   const spin = () => {
     if (spinning || items.length < 2) return;
@@ -3290,30 +3342,30 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
       }
     }, 4200);
   };
-  const openEdit = () => { setETitle(data.title || ""); setEItems(items.join("\n")); setEdit(true); };
+  const openEdit = () => { setETitle(data.title || ""); setEItems(items.join("\n")); setEPal(data.palette || "autumn"); setEColors(Array.isArray(data.colors) && data.colors.length ? data.colors.slice(0, 8) : WHEEL_COLORS.slice()); setEdit(true); };
   const saveEdit = () => {
     const its = eItems.split(/\n+/).map(s => s.trim()).filter(Boolean).slice(0, WHEEL_MAX);
     if (its.length < 2) return;
-    onSave({ title: eTitle.trim(), items: its });
+    onSave({ title: eTitle.trim(), items: its, palette: ePal, colors: ePal === "custom" ? eColors.slice(0, 8) : (data.colors || undefined) });
     setResult(null); setQuip(null); setEdit(false);
   };
   // ⚠根节点必须 stopPropagation：portal 的点击沿 React 树冒泡回小组件的 onClick=setOpen(true)，
   // 否则点 ✕ 关掉的瞬间又被重新打开（表现=「点不了叉」）
-  return ReactDOM.createPortal(h("div", { onClick: e => e.stopPropagation(), className: "fixed inset-0 z-[85] flex flex-col items-center", style: { background: "linear-gradient(170deg,#2a2532 0%,#1c1a22 55%,#241f1c 100%)" } },
+  return ReactDOM.createPortal(h(HomeDetailLayer, null, h("div", { "data-wk": "wheelfull", onClick: e => e.stopPropagation(), className: "fixed inset-0 z-[85] flex flex-col items-center", style: { background: "linear-gradient(170deg,#2a2532 0%,#1c1a22 55%,#241f1c 100%)" } },
     // 顶栏：避开刘海/灵动岛（safe-area）+ 大热区（她报「点不到」）
     h("div", { className: "w-full flex items-center justify-between shrink-0", style: { padding: "calc(env(safe-area-inset-top, 0px) + 22px) 10px 4px" } },
       h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "rgba(255,255,255,0.85)", fontSize: 24, lineHeight: 1, padding: "12px 16px", whiteSpace: "nowrap" } }, "✕"),
       h("button", { onClick: openEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: "rgba(255,255,255,0.8)", padding: "12px 16px", whiteSpace: "nowrap" } }, "✎ 编辑")),
     h("div", { className: "flex-1 min-h-0 w-full overflow-y-auto flex flex-col items-center", style: { padding: "0 24px 30px" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff", marginTop: 6 } }, data.title || "命运转盘"),
+      h("div", { "data-wk": "wheeltitle", style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff", marginTop: 6 } }, data.title || "命运转盘"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 3, letterSpacing: "0.15em" } }, "转一下 · 让它替你定"),
       // 大转盘
-      h("div", { onClick: spin, style: { position: "relative", width: 300, height: 300, marginTop: 26, cursor: "pointer", filter: "drop-shadow(0 14px 34px rgba(0,0,0,0.45))" } },
-        h(WheelDisc, { items: items, angle: angle, spinning: spinning, size: 300, labels: true, dur: 4.1 }),
-        h("div", { style: { position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 300 })),
+      h("div", { "data-wk": "wheeldisc", onClick: spin, style: { position: "relative", width: 300, height: 300, marginTop: 26, cursor: "pointer", filter: "drop-shadow(0 14px 34px rgba(0,0,0,0.45))" } },
+        h(WheelDisc, { items: items, angle: angle, spinning: spinning, size: 300, labels: true, dur: 4.1, colors: wheelColorsFor(edit ? Object.assign({}, data, { palette: ePal, colors: eColors }) : data, t), trim: wheelTrimFor(edit ? { palette: ePal } : data, t), hooks: true }),
+        h("div", { "data-wk": "wheelneedle", style: { position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" } }, h(WheelNeedle, { size: 300, trim: wheelTrimFor(edit ? { palette: ePal } : data, t) })),
         !spinning && !result ? h("div", { "data-wk": "block", style: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", background: "rgba(0,0,0,0.55)", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 999, pointerEvents: "none", whiteSpace: "nowrap" } }, "点一下 开转") : null),
       // 结果
-      h("div", { style: { minHeight: 46, marginTop: 22, textAlign: "center" } },
+      h("div", { "data-wk": "wheelresult", style: { minHeight: 46, marginTop: 22, textAlign: "center" } },
         spinning ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "rgba(255,255,255,0.6)" } }, "命运旋转中…")
         : result ? h("div", { style: { animation: "fadeUp .35s ease both" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.5)" } }, "命运说——"),
@@ -3332,9 +3384,25 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 10 } }, "编辑转盘"),
         h("input", { "data-wk": "input", value: eTitle, onChange: e => setETitle(e.target.value), placeholder: "转盘主题（可空，如：今天吃什么）", style: { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, background: t.bg, color: t.ink, border: "1px solid " + t.line, marginBottom: 10 } }),
         h("textarea", { "data-wk": "textarea", value: eItems, onChange: e => setEItems(e.target.value), rows: 6, placeholder: "一行一个选项（2~" + WHEEL_MAX + " 个）", style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+        h("div", { "data-wk": "wheelpalette", style: { marginTop: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 6 } }, "扇面颜色"),
+          h("div", { className: "flex flex-wrap gap-2" },
+            Object.keys(WHEEL_PALETTES).concat("custom").map(k => {
+              const on = ePal === k, sw = k === "custom" ? eColors : wheelColorsFor({ palette: k }, t);
+              return h("button", { key: k, "data-wk": "wheelpal", "data-on": String(on), onClick: () => setEPal(k), className: "active:opacity-70 flex items-center gap-1.5",
+                style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.bg : "transparent", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } },
+                h("span", { className: "flex" }, (sw || []).slice(0, 4).map((c, i) => h("span", { key: i, style: { width: 10, height: 10, borderRadius: 999, background: c, marginLeft: i ? -3 : 0, border: "1px solid rgba(0,0,0,.15)" } }))),
+                k === "custom" ? "自己挑" : WHEEL_PALETTES[k].zh);
+            })),
+          ePal === "custom" ? h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 8 } },
+            eColors.map((c, i) => h(ColorDot, { key: i, value: c, label: "第 " + (i + 1) + " 块", size: 34, hexOnly: true,
+              onChange: v => setEColors(a => a.map((x, j) => j === i ? v : x)) })),
+            eColors.length < WHEEL_COLOR_MAX ? h("button", { onClick: () => setEColors(a => a.concat("#cccccc")), className: "active:opacity-60", style: { width: 34, height: 34, borderRadius: 8, border: "1px dashed " + t.line, color: t.sub } }, "＋") : null,
+            eColors.length > 2 ? h("button", { onClick: () => setEColors(a => a.slice(0, -1)), className: "active:opacity-60", style: { width: 34, height: 34, borderRadius: 8, border: "1px dashed " + t.line, color: t.sub } }, "－") : null) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "选项比颜色多时颜色轮着用。主屏上的小转盘跟着一起换。")),
         h("div", { className: "flex gap-2", style: { marginTop: 12 } },
           h("button", { "data-wk": "block", onClick: saveEdit, className: "flex-1 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "11px 0", borderRadius: 12 } }, "保存"),
-          h("button", { "data-wk": "block", onClick: () => setEdit(false), className: "flex-1 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "取消")))) : null), document.body);
+          h("button", { "data-wk": "block", onClick: () => setEdit(false), className: "flex-1 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "取消")))) : null)), document.body);
 }
 function WheelWidget({ editMode, onReact }) {
   const t = useTheme();
@@ -3351,8 +3419,8 @@ function WheelWidget({ editMode, onReact }) {
     style: { cursor: "pointer", position: "relative", overflow: "visible", padding: "2px 0" } },
     data.title ? h("div", { "data-wk": "wtitle", className: "shrink-0", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, marginBottom: 2, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) }, data.title) : null,
     h("div", { "data-wk": "wicon", "data-part": "wheel", className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", filter: "drop-shadow(0 6px 16px rgba(30,26,22,.28))" } },
-      h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true }),
-      h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%" }))),
+      h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true, colors: wheelColorsFor(data, t), trim: wheelTrimFor(data, t) }),
+      h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%", trim: wheelTrimFor(data, t) }))),
     h("div", { "data-wk": "wsub", className: "shrink-0", style: Object.assign({ fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) },
       data.last && data.last.item ? "上次 → " + data.last.item : "点开 交给命运"),
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
@@ -5176,17 +5244,23 @@ function decorGroundStyle(item) {
   var col = typeof g === "string" ? g : g.color;
   return col ? { background: col, backgroundImage: "none" } : null;
 }
+// 小组件点开的详情页（传送到 body 上那一层）：小组件自己的底色／底图会把字换成白的，
+//   那一套只该管格子里，进了详情页要换回原来的主题；也明说不在壁纸上（群里 2026-10-22：换了天气底图，点开天气页字全变白）
+function HomeDetailLayer({ children }) {
+  const t = useTheme();
+  return h(ThemeContext.Provider, { value: t.homeBaseTheme || t }, h(OnWallpaperCtx.Provider, { value: false }, children));
+}
 function homeWidgetGroundTheme(t, ground) {
   var color = typeof ground === "string" ? ground : ground && ground.color;
   if (ground && ground.imageRef) {
     var imageStyle = decorGroundStyle({ ground: ground });
     if (!imageStyle) return t;
     return Object.assign({}, t, { homeWidgetGroundStyle: Object.assign({ backgroundColor: "#292722" }, imageStyle),
-      ink: "#fffaf1", sub: "#e0dbd2", fog: "#d0cbc3" });
+      ink: "#fffaf1", sub: "#e0dbd2", fog: "#d0cbc3", homeBaseTheme: t.homeBaseTheme || t });
   }
   if (!/^#[0-9a-f]{6}$/i.test(String(color || ""))) return t;
   var dark = decorGroundDark({ ground: color });
-  return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color,
+  return Object.assign({}, t, { homeWidgetGround: color, bg: color, bg2: color, homeBaseTheme: t.homeBaseTheme || t,
     ink: dark ? "#fffaf1" : "#24231f", sub: dark ? "#e0dbd2" : "#55534e", fog: dark ? "#c5c0b8" : "#716e67" });
 }
 // 叠在一起时谁在上面（她 2026-09-13：「那这个怎么决定叠一块的哪个在上面呢」「直接手动吧」）。
@@ -8357,6 +8431,7 @@ function Messages({
   onDeleteNpc,
   onPromoteNpc,
   onSetNpcMem,
+  onSetNpcMoments,
   groups,
   chats,
   groupChats,
@@ -8650,6 +8725,7 @@ function Messages({
         h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
       h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
     characters: characters,
+    npcs: npcAll,
     moments: moments,
     profile: profile,
     friendGroups: friendGroups,
@@ -8807,7 +8883,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -9135,7 +9211,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onClose }) {
   const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
@@ -9214,6 +9290,13 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
             return h("button", { key: v, onClick: () => onSetMem(cur.id, v), className: "flex-1 active:opacity-70",
               style: { padding: "7px 0", borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
           }))) : null,
+      // 配角发朋友圈（她 2026-10-22「npc 发朋友圈搞个开关选择他们能不能发」）：默认不发，开了就跟角色一样偶尔自己发一条
+      onSetMoments ? h("div", { "data-wk": "npcmoments", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { className: "flex items-center", style: { gap: 10 } },
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "自己发朋友圈"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 3 } }, "开了就跟角色一样，偶尔自己发一条，你和认识TA的人能看见、能评论。每条算一次后台调用。")),
+          h(Toggle, { on: !!cur.npcMoments, onChange: () => onSetMoments(cur.id, !cur.npcMoments), wk: "npcmomentson" }))) : null,
       onChat ? h("button", { onClick: () => onChat(cur.id), className: "w-full active:opacity-70",
         style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", border: "none" } }, "发消息") : null,
       // 转正（她 2026-10-15）：同一个 TA，只是从配角变成正式角色；先问一句再动
@@ -9377,6 +9460,7 @@ function momentDisplayName(characters, who) {
   return hit ? (hit.remark || hit.name) : raw;
 }
 function MomentsFeed({
+  npcs,
   characters: rawCharacters,
   moments,
   profile,
@@ -9478,7 +9562,8 @@ function MomentsFeed({
     sub: "点右上「发朋友圈」或「角色发」"
   }), moments.map(m => {
     const isMine = m.mine;
-    const c = isMine ? null : characters.find(x => x.id === m.characterId);
+    // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
+    const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
     if (!isMine && !c) return null;
     // 用别的面具发的那条，署那张面具的名字和头像
     const momMask = isMine && m.mask && typeof window !== "undefined" && window.__momentMasks ? window.__momentMasks().find(x => x.id === m.mask) : null;

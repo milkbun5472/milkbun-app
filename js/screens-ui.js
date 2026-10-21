@@ -7400,6 +7400,7 @@ function CloudSync({ toast, onExport }) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState("");
   const [confirmPull, setConfirmPull] = useState(false);
+  const [mediaFill, setMediaFill] = useState(null);
   const [confirmOut, setConfirmOut] = useState(false);
   const [saved, setSaved] = useState("");   // 这一轮已经导出过 / 她自己说有备份了：""|"pull"|"out"
   useEffect(() => {
@@ -7582,6 +7583,22 @@ function CloudSync({ toast, onExport }) {
         note("数据改动会自动备份到云端，换设备/重装登录后自动拉回最新存档。上面那一行是它真的做到没有——别只看开关。"),
         h("button", { key: "push", onClick: doPush, disabled: !!busy, className: "mt-4 w-full py-3", style: btnDark },
           busy === "push" ? "备份中…" : "立即备份到云端"),
+        // 图片补传（她 2026-10-22：平板同步手机图一张没过来）：自动备份只带文字，图是后来写进来的才慢慢往上送
+        h("button", { key: "mediafill", "data-wk": "mediafill", disabled: !!busy || !!mediaFill && !mediaFill.end, className: "mt-3 w-full py-3", style: btnLine,
+          onClick: async () => {
+            if (typeof mediaBackfill !== "function") return;
+            setMediaFill({ done: 0, total: 0, failed: 0 });
+            const r = await mediaBackfill(p => setMediaFill({ ...p }));
+            setMediaFill({ done: r.sent + r.failed, total: r.total, failed: r.failed, end: true, stopped: r.stopped, sent: r.sent });
+          } },
+          !mediaFill ? "把本机所有图片补传到云上"
+          : !mediaFill.end ? "补传中… " + mediaFill.done + " / " + (mediaFill.total || "…")
+          : mediaFill.stopped === "login" ? "要先登录才能传"
+          : mediaFill.stopped === "nobucket" ? "云上还没建放图片的地方（media 桶）：照上面「怎么弄」里建表那一步再跑一次就有了"
+          : mediaFill.stopped === "net" ? "传到一半断了（已传 " + mediaFill.sent + " 张），再点一次接着传"
+          : mediaFill.total ? "补好了：传了 " + mediaFill.sent + " 张" + (mediaFill.failed ? "，" + mediaFill.failed + " 张本机已经找不到" : "")
+          : "云上已经都有了，不用补"),
+        note("自动备份只带文字；图片是另外一张张往云上送的，早些的图可能没送上去过。换设备前点一下，云上已有的不会重复传；图多的话要一阵子，传的时候别关 app。"),
         !confirmPull
           ? h("button", { key: "pull", onClick: () => { setConfirmPull(true); setSaved(""); }, disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine },
               "从云端恢复")

@@ -3,6 +3,6 @@ const assert = require("node:assert");
 const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
 assert.match(app, /const npcCrowd = \(hosts, max\) =>/);
 assert.match(app, /const canSee = \[\.\.\.canSeeMain, \.\.\.npcCrowd\(canSeeMain, 3\)\];/);
-assert.match(app, /\.\.\.npcCrowd\(\[author, \.\.\.others\.slice\(0, 4\)\], 2\)/);
-assert.match(app, /\.slice\(0, 5\)\.concat\(npcCrowd\(canSee, 2\)\)/);
+assert.match(app, /\.\.\.npcCrowd\(\[author, \.\.\.others\.slice\(0, 4\)\], 4\)/);
+assert.match(app, /\.slice\(0, 5\)\.concat\(npcCrowd\(canSee, 4\)\)/);
 console.log("ok");

@@ -1084,11 +1084,19 @@ async function callAIOnce(p, system, messages, opts) {
         for (const u of uses) {
           const out = await _runTool(u.name, u.input || {});
           if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: u.name, ok: !(out && out.isError) });
-          results.push({ type: "tool_result", tool_use_id: u.id, content: String((out && out.text) || ""), ...((out && out.isError) ? { is_error: true } : {}) });
+          const imgs = (out && out.images) || [];
+          results.push({ type: "tool_result", tool_use_id: u.id, content: imgs.length
+            ? [{ type: "text", text: String((out && out.text) || "") }].concat(imgs.map(im => ({ type: "image", source: { type: "base64", media_type: im.mime, data: im.data } })))
+            : String((out && out.text) || ""), ...((out && out.isError) ? { is_error: true } : {}) });
         }
         wireMessages.push({ role: "assistant", content: d.content });
         wireMessages.push({ role: "user", content: results });
-        const nxt = await postAnthropic(wantTemp());
+        let nxt = await postAnthropic(wantTemp());
+        // 模型不收图就把图拿掉、只留文字再问一遍
+        if (nxt && nxt.error && results.some(r => Array.isArray(r.content))) {
+          results.forEach(r => { if (Array.isArray(r.content)) r.content = r.content.filter(x => x.type === "text").map(x => x.text).join("\n") + "\n（工具回了图，这条线路看不了图）"; });
+          nxt = await postAnthropic(wantTemp());
+        }
         _calls++;
         if (!nxt || nxt.error) break;
         d = nxt;
@@ -1209,10 +1217,15 @@ async function callAIOnce(p, system, messages, opts) {
           const out = await _runTool(c.functionCall.name, c.functionCall.args || {});
           if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: c.functionCall.name, ok: !(out && out.isError) });
           resp.push({ functionResponse: { name: c.functionCall.name, response: { content: String((out && out.text) || ""), ...((out && out.isError) ? { error: true } : {}) } } });
+          ((out && out.images) || []).forEach(im => resp.push({ inlineData: { mimeType: im.mime, data: im.data } }));
         }
         gContents.push({ role: "model", parts: ps });
         gContents.push({ role: "user", parts: resp });
-        const nxt = await postGemini();
+        let nxt = await postGemini();
+        if (nxt && nxt.error && resp.some(x => x.inlineData)) {
+          gContents[gContents.length - 1] = { role: "user", parts: resp.filter(x => !x.inlineData) };
+          nxt = await postGemini();
+        }
         _calls++;
         if (!nxt || nxt.error) break;
         d = nxt;
@@ -1318,6 +1331,7 @@ async function callAIOnce(p, system, messages, opts) {
   // 工具回合（openai 方言）：结构跟 anthropic 那边一样，只是字段名换一套——
   // tool_calls 回来、跑完、以 role:"tool" 接回去再问一遍。每转一圈多一次调用，封顶。
   let _calls2 = 1;
+  const _toolImgs = [];
   if (_mcpTools && _mcpTools.length && _runTool) {
     for (let _r = 0; _r < _maxRounds; _r++) {
       const msg = (d.choices && d.choices[0] && d.choices[0].message) || {};
@@ -1332,8 +1346,14 @@ async function callAIOnce(p, system, messages, opts) {
         const out = await _runTool(fn.name, args);
         if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: fn.name, ok: !(out && out.isError) });
         wireMessages.push({ role: "tool", tool_call_id: tc.id, content: String((out && out.text) || "") });
+        ((out && out.images) || []).forEach(im => _toolImgs.push(im));
       }
-      const nxt = await postOpenAI(!_skipT2);
+      // tool 那一格多数线路只收字：图另起一条 user 跟在后面
+      const _imgMsg = _toolImgs.length ? { role: "user", content: [{ type: "text", text: "（上面工具返回的图）" }].concat(_toolImgs.map(im => ({ type: "image_url", image_url: { url: "data:" + im.mime + ";base64," + im.data } }))) } : null;
+      _toolImgs.length = 0;
+      if (_imgMsg) wireMessages.push(_imgMsg);
+      let nxt = await postOpenAI(!_skipT2);
+      if (_imgMsg && nxt && nxt.error) { wireMessages.splice(wireMessages.indexOf(_imgMsg), 1); nxt = await postOpenAI(!_skipT2); }
       _calls2++;
       if (!nxt || nxt.error) break;
       d = nxt;
@@ -2811,7 +2831,7 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 【这一轮发几条，看你要说的是几件事】一件事一条；说完一件还想接着说，就再来一条。
 反过来也一样：没什么要说的时候一条就够，甚至可以只回两个字。**别把两件事压进一条，也别为了显得热闹把同一句话硬切开。**
 ⚠️别停在一个顺手的条数上——条数是【你这一轮要说的东西】决定的，不是一个默认值。
-【这一轮说到哪儿停】说到她能接、你也真想听她接的那一处就停，后面的留给下一轮——她回了你再往下说。一件事你自己从起头说到收尾、连她该怎么回都替她想好了，就是把她那一份也说完了。话多的人照样连着发，只是停在她能插话的地方。
+【这一轮说到哪儿停】这一条管的是【别替她把话说完】：一件事你自己从起头说到收尾、连她该怎么回都替她想好了，就是把她那一份也说完了——那件事停在她能接的地方，后面的等她回了再往下说。它不管你这一轮发几条：话多的人照样连着发，黏人的、兴头上的、分享欲上来的，一口气连发好多条、絮絮叨叨一句接一句，本来就是这个人；话少的人寥寥几句也是这个人。发几条照你这个人和你此刻的劲头来。
 
 标点按【手机打字】来，不按【写文章】来：日常消息句尾不打句号，一句说完直接断开，或者干脆拆开发。问号、感叹号、省略号、波浪号照常用——它们传的是语气，不是格式；不带情绪的陈述句，尾巴上就别补那个「。」。
 
@@ -4925,6 +4945,40 @@ async function mediaDrain(limit) {
   } catch (e) {/* 上传这一层永远不许连累读写 */ }
   finally { mediaDraining = false; }
   return sent;
+}
+// 把本机所有图补传到云上（她 2026-10-22：平板同步手机，图一张没过来）。
+//   上传队列只管【新写进来的】图，而且封顶 800 张会挤掉旧的——更早的那些从没送上去过。
+//   这里把本机两个图库（照片 / 图库）的名字全列出来，跟云上已有的比，缺的一张张直接送；不经过 localStorage 那条队列。
+//   onProgress({ done, total, failed })；连着失败 3 张就停（多半是没登录或断网），返回 { sent, total, failed, stopped }
+async function idbAllKeys(open) {
+  try { const db = await open(); return await new Promise((res, rej) => { const rq = db.transaction("img", "readonly").objectStore("img").getAllKeys(); rq.onsuccess = () => res((rq.result || []).map(String)); rq.onerror = () => rej(rq.error); }); }
+  catch (e) { return []; }
+}
+async function mediaBackfill(onProgress) {
+  const C = window.Cloud;
+  if (!(C && typeof C.mediaPut === "function")) return { sent: 0, total: 0, failed: 0, stopped: "nocloud" };
+  const user = typeof C.getUser === "function" ? await C.getUser() : null;
+  if (!user) return { sent: 0, total: 0, failed: 0, stopped: "login" };
+  const todo = [];
+  for (const [bucket, open] of [["selfies", idbImgOpen], ["vault", idbVaultOpen]]) {
+    const keys = await idbAllKeys(open);
+    const have = typeof C.mediaList === "function" ? await C.mediaList(bucket) : null;
+    keys.forEach(k => { if (!have || !have.has(k)) todo.push([bucket, k]); });
+  }
+  let sent = 0, failed = 0, streak = 0;
+  const tell = () => { try { onProgress && onProgress({ done: sent + failed, total: todo.length, failed }); } catch (e) {} };
+  tell();
+  for (const [bucket, k] of todo) {
+    const blob = await mediaLocalRead(bucket, k);
+    if (!blob || !blob.size) { failed++; tell(); continue; }
+    let ok = false;
+    try { ok = await C.mediaPut(bucket, k, blob); } catch (e) { ok = false; }
+    if (ok) { sent++; streak = 0; } else { failed++; streak++; }
+    tell();
+    // 连着三张都不成：多半不是这几张的事。桶没建出来要单独说，不然她只会看见「断了」反复点
+    if (streak >= 3) return { sent, total: todo.length, failed, stopped: C.mediaErr === "nobucket" ? "nobucket" : "net" };
+  }
+  return { sent, total: todo.length, failed, stopped: "" };
 }
 // 回前台/联网时补送。跟云同步那条链同一个形状（后台不跑代码，靠这一拍补）。
 try {

@@ -15,7 +15,7 @@ assert.match(scr, /const developing = !!\(photo && photo\.polaroid && Number\(ph
 assert.match(scr, /"data-wk": "studiopolaroid"/);
 // 锁屏：只在她刚发图／他刚发照片那一轮提
 assert.match(app, /const _lockHint = _lockSrc \?/);
-assert.match(app, /parsed\.lockscreen === true && _lockSrc/);
+assert.match(app, /_lockSrc && \(parsed\.lockscreen === true \|\| Number\(parsed\.lockscreen\) > 0\)/);
 assert.match(comp, /m\.kind === "locknote"/);
 console.log("ok");
 assert.match(app, /是你自己画的那套 Q 版/);
