@@ -2722,6 +2722,9 @@ function App() {
     if (mode === "off") return false;
     return prefs.timeAware !== false;
   };
+  // 给模型看的历史行要不要盖时刻、按谁的钟盖：只问这一处（她 2026-10-21：单个角色的时间感知／虚拟钟有漏的）。
+  //   关着＝""（连日子都不给）；开着＝按【这个人自己那只钟】盖，不读当下 vclockUse 的那个人——后台别的活儿可能刚换过。
+  const aiStampFor = (id, ts) => ts && timeAwareFor(id) && typeof fmtStampAI === "function" ? fmtStampAI(ts, id) : "";
   const roomTimeAwareFor = (room, charId) => room && !room.main
     ? !!(room.cognition && room.cognition.schedule)
     : timeAwareFor(charId);
@@ -7074,7 +7077,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && !isOocMsg(m) && m.role !== "system" && contextAllowsMessage(m) && String(m.content || "").trim());
       if (!msgs.length) return "";
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
-      const lines = msgs.slice(-14).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 60) + ((m.role === "user" || m.role === "narration") && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n");
+      const lines = msgs.slice(-14).map(m => (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 60) + ((m.role === "user" || m.role === "narration") && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n");
       return "『群「" + g.name + "」" + (others.length ? "（群里还有 " + others.join("、") + "）" : "") + " 最近聊的（带时间，和你俩私聊按真实先后顺序理解）』\n" + lines;
     }).filter(Boolean).slice(0, 2).join("\n\n"),
     // 群线下回显（v50.66）：这个角色参加过的群线下(大家面对面)最近片段，带时间戳，让单聊接得上"刚一起线下相处过"。
@@ -7089,7 +7092,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
       // 字符预算封顶（走 crossBudget 拉条）：从近往回收
       const budget = memCfgRef.current.crossBudget || 800; const picked = []; let used = 0;
-      for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = "[" + fmtStampAI(m.ts) + "] " + (m.role === "narration" ? "【场景】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
+      for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【场景】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
       return "『群「" + g.name + "」多人线下" + (others.length ? "（在场还有 " + others.join("、") + "）" : "") + "』\n" + picked.reverse().join("\n");
     }).filter(Boolean).slice(0, 2).join("\n\n"),
     // 单人线上 + 正在进行的单人线下，是同一条按真实时间排序的临时上下文。
@@ -7286,7 +7289,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (isOff) usedOff += cost;
         // thinOnline：线上那几十条的【原文】已经作为 messages 发过一遍了，这儿不再抄第二遍。
         // 但位置要留住——所以先记下这一条是线上还是线下，渲染时再决定写什么。
-        lines.push(thinOnline ? { off: isOff, text: isOff ? "[" + fmtStampAI(m.ts) + "] " + line : "" } : line);
+        lines.push(thinOnline ? { off: isOff, text: isOff ? (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + line : "" } : line);
       }
       lines.reverse();
       let rendered = lines;
@@ -9453,7 +9456,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const picked = []; let used = 0;
     for (let i = beats.length - 1; i >= 0; i--) {
       const b = beats[i];
-      const line = "[" + (typeof fmtStampAI === "function" ? fmtStampAI(b.ts) : "") + "·" + b.surface + "] " + b.who + "：" + b.text.replace(/\s+/g, " ").slice(0, 80);
+      const line = "[" + (aiStampFor(charId, b.ts) ? aiStampFor(charId, b.ts) + "·" : "") + b.surface + "] " + b.who + "：" + b.text.replace(/\s+/g, " ").slice(0, 80);
       if (used + line.length > budget && picked.length) break;
       used += line.length + 1; picked.push(line);
     }
@@ -12081,13 +12084,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 心声每轮必写，但只写真正在脑内闪过的那一下；小、碎、跑题都可以，不能写成分析或回合总结。
       // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过（gapMs 已按角色上次开口算好）
       const gapHint = roomClockOn && gapMs > 2 * 3600000
-        ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。按实际时间理解上下文，接下来聊什么由当前消息和你自己的意愿决定，不必交代这段时间的行程。计划与已发生的事要分清：未确认的共同活动保持未确认，不能补写成已经发生，也不能仅因聊天空白认定对方爽约或推断其动机。你对这段间隔的感受与表达仍由你的人设和关系决定。"
+        ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + aiStampFor(charId, Date.now()) + "）。按实际时间理解上下文，接下来聊什么由当前消息和你自己的意愿决定，不必交代这段时间的行程。计划与已发生的事要分清：未确认的共同活动保持未确认，不能补写成已经发生，也不能仅因聊天空白认定对方爽约或推断其动机。你对这段间隔的感受与表达仍由你的人设和关系决定。"
         : "";
       let lastPrivateUserTs = 0;
       for (let i = history.length - 1; i >= 0; i--) { if (history[i] && history[i].role === "user") { lastPrivateUserTs = Number(history[i].ts) || 0; break; } }
       const sharedUserTs = latestUserSharedInteractionTs(charId);
       let crossChannelHint = _roomMaySeeOtherScenes && sharedUserTs > lastPrivateUserTs
-        ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过（最近一次约在 " + new Date(sharedUserTs).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
+        ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过" + (aiStampFor(charId, sharedUserTs) ? "（最近一次约在 " + aiStampFor(charId, sharedUserTs) + "）" : "") + "。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
         : "";
       // 你刚在别处说过（v56.79）：单聊以前只知道「她在群里跟我互动过」这个时间戳，
       // 不知道【我自己在群里说了什么】——于是同一个人两边各说一套。四处一样喂：群里那半也接了。
@@ -19910,7 +19913,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 别一处带时间戳一处不带——她那句「在家等TA」正是靠时间戳才接得上。
   const memberPrivLines = (c, n) => (Number(n) > 0
     ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-Number(n))
-        .map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? userName(profile) : c.name) + ": " + m.content
+        .map(m => (aiStampFor(c.id, m.ts) ? "[" + aiStampFor(c.id, m.ts) + "] " : "") + (m.role === "user" ? userName(profile) : c.name) + ": " + m.content
           + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n")
     : "");
   // 群文字与多人通话共用私有背景；实时窗口的开关同时约束线上与线下近况。

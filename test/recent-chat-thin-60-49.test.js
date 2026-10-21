@@ -48,7 +48,8 @@ test("没开 thinOnline 时原样不动（推演/朋友圈/论坛/日记都走�
 });
 
 test("线下那几行带着时刻——他要靠这个知道那场戏发生在哪儿", () => {
-  assert.match(app, /text: isOff \? "\[" \+ fmtStampAI\(m\.ts\) \+ "\] " \+ line : ""/);
+  // 时间感知开着才盖，按他自己那只钟（aiStampFor，她 2026-10-21）
+  assert.match(app, /text: isOff \? \(aiStampFor\(char\.id, m\.ts\) \? "\[" \+ aiStampFor\(char\.id, m\.ts\) \+ "\] " : ""\) \+ line : ""/);
 });
 
 test("只在【历史会另发一遍】那条路上瘦身，别的调用方照旧拿全文", () => {

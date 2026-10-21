@@ -10839,8 +10839,9 @@ function vclockLabel(ts, id, withTime) {
   const day = vclockYear(d.getFullYear(), c) + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()];
   return withTime === false ? day : day + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
-function fmtStampAI(ts) {
-  const d = new Date(vclockMap(ts)), now = vclockNow();
+// id：按谁的钟盖（不给＝当前 vclockUse 的那个人）
+function fmtStampAI(ts, id) {
+  const d = new Date(vclockMap(ts, id)), now = vclockNow(id);
   if (d.toDateString() === now.toDateString()) return "今天" + fmtClock(d);
   const yd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);
