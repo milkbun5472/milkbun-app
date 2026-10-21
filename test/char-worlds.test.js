@@ -69,3 +69,10 @@ test("论坛按世界分：帖子记 world、视图只显示当前世界、世�
   assert.match(a, /forumWorldCtx\(board, genW\)/);
   assert.match(a, /appendForumPosts\(recs\.map\(r => \(\{ \.\.\.r, world: genW \}\)\), board\);/);
 });
+
+{
+  const app2 = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  // 世界只起了名字没写世界观：名字照样进论坛的设定（群里 2026-10-22「加了个武侠，还是现代人回复」）
+  require("node:assert").match(app2, /if \(!lore && !name\) return "";/);
+  require("node:assert").match(app2, /照这个名字本来的样子想/);
+}
