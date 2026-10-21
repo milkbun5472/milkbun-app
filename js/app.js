@@ -3436,7 +3436,12 @@ function App() {
       const dk = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
       const cutoff = dk(new Date(Date.now() - 14 * 86400000)); // 只留最近14天日程（"YYYY-MM-DD" 字符串可直接比大小）
       const sch = loadJSON("x_schedules", {});
-      Object.keys(sch).forEach(cid => { const days = sch[cid] || {}; Object.keys(days).forEach(day => { if (day < cutoff) delete days[day]; }); });
+      // 跟着虚拟钟排的人，「最近14天」按【他那只钟上的今天】往前数——拿现实的今天算，拨到过去的那一串日程会被当成旧的清掉
+      Object.keys(sch).forEach(cid => {
+        const ch = characters.find(c => c.id === cid);
+        const cut = ch && typeof schedLocalDayKey === "function" ? schedShiftDayKey(schedLocalDayKey(ch), -14) : cutoff;
+        const days = sch[cid] || {}; Object.keys(days).forEach(day => { if (day < cut) delete days[day]; });
+      });
       saveJSON("x_schedules", sch); setSchedules(sch);
       let fp = loadJSON("x_forumPosts", []);
       if (Array.isArray(fp) && fp.length > 60) {

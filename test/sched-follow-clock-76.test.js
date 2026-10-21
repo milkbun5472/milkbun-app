@@ -30,3 +30,7 @@ test("接线：日程的哪天哪分只问 ScheduleClock 一处", () => {
   assert.ok(!/plans\[schedLocalDayKey\(char\)\] \|\| plans\[schedDayKey\(new Date\(\)\)\]/.test(app));
   assert.ok(/schedFollow: !!x/.test(comp) && /const today = _viewChar && typeof schedNowDate === "function" \? schedNowDate\(_viewChar\) : new Date\(\);/.test(comp));
 });
+
+test("清旧日程按他那只钟上的今天往前数 14 天，拨到过去的那串不被当成旧的", () => {
+  assert.ok(/const cut = ch && typeof schedLocalDayKey === "function" \? schedShiftDayKey\(schedLocalDayKey\(ch\), -14\) : cutoff;/.test(app));
+});
