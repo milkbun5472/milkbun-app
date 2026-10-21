@@ -9,3 +9,9 @@ test("她叫他帮她换她自己的头像：开 myAvatar，换 myChatAvatar；�
   assert.match(app, /&& !_myAvatarPick;/);
   assert.ok(app.indexOf("const _myDone") < app.indexOf("const _pairDone"));
 });
+
+test("她没开口、刚发一张：他也能自己决定给她换上（默认不换，只认字段）", () => {
+  assert.match(app, /const _myAvatarAuto = \(!_myAvatarPick && !_pairPick && !_pairAsked && !opts\.proactive\) \? freshUserPhoto\(charId\) : null;/);
+  assert.match(app, /_myAvatarAuto && parsed\.myAvatar === true && applyMyAvatar\(charId, _myAvatarAuto\)/);
+  assert.match(app, /\*\*默认不填。\*\*/);
+});

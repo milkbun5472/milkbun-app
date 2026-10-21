@@ -12276,8 +12276,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _pairPick = _pairAsked ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
       // 她要他帮【她自己】换头像（她 2026-10-22「能不能让他帮我换·我的头像，不是情头的时候」）：
       //   只在她开口、往回找得到她发的一张真照片时给；情头那一档优先
-      const _myAvatarPick = (!_pairPick && !opts.proactive && askedRecently(history, MY_AVATAR_ASK_RE, 4))
+      const _myAvatarAsked = !_pairPick && !opts.proactive && askedRecently(history, MY_AVATAR_ASK_RE, 4);
+      const _myAvatarPick = _myAvatarAsked
         ? (freshUserPhoto(charId) || freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK)) : null;
+      // 她没开口、只是刚发来一张（她 2026-10-22「为啥不能我发图不说，他觉得适合我就直接换上，跟自己头像一样」）：
+      //   跟他换自己头像同一个分寸——默认不换，只有他真觉得这张就该是她的头像才换
+      const _myAvatarAuto = (!_myAvatarPick && !_pairPick && !_pairAsked && !opts.proactive) ? freshUserPhoto(charId) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
       // 情头那两张在历史里直接标上「第 1 张／第 2 张」（她 2026-10-02：TA说「鲨鱼归我」，结果自己换成了猫——
       //   原来只说「先发的是第 1 张」，可TA看到的历史里那两张图没有编号，只能猜，猜反了）
@@ -12694,6 +12698,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("drawBack：" + uName + " 刚在你发的那张照片上画了画、贴了东西发回来（看图就知道她画在哪、画了什么）。"
           + "你想在她这张上接着画一笔，就填 drawBack：一段 SVG，viewBox=\"0 0 100 100\"，会被拉伸盖满整张照片，坐标按照片的百分比算；"
           + "只用 path/line/circle/ellipse/polyline/text，像拿笔在她那张上补几笔（回她画的那处、加个箭头、写两个字都行），画多画少看你这个人。不想画就 null。");
+      }
+      if (_myAvatarAuto) {
+        openCaps.push("myAvatar");
+        capState.push("myAvatar：" + uName + " 刚发来的那张，要不要顺手换成她在你们这个聊天里的头像？**默认不填。**"
+          + "只有你看着觉得「这张就该是她的头像」才填 \"myAvatar\":true（她的资料和面具不动）；你自己会不会替人做这种事，也算在内。"
+          + "它跟 photoSeen.avatar 是两回事：那一格是换你自己的。");
       }
       if (_myAvatarPick) {
         openCaps.push("myAvatar");
@@ -13730,9 +13740,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   _seenMsg 这时候是 null——还传它的话整个落地会被 `if (!msg)` 挡掉，
       //   于是又变回「他说换了、实际没换」。note 那半边本来就只在 _seenMsg 时才有。
       // 帮她换她的头像：落了就别让单张那格把这张又挂到他自己名字旁边；嘴上说换好了、字段没填，照他说的补上
-      const _myDone = !!(_myAvatarPick && (parsed.myAvatar === true || (parsed.myAvatar == null && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word) && !(parsed.photoSeen && parsed.photoSeen.avatar === true)))
-        && applyMyAvatar(charId, _myAvatarPick));
-      if (_myDone && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
+      // 自己起意那一档只认字段，不照嘴上的话补（嘴上说的多半是换他自己的）
+      const _myDone = !!((_myAvatarPick && (parsed.myAvatar === true || (parsed.myAvatar == null && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word) && !(parsed.photoSeen && parsed.photoSeen.avatar === true)))
+        && applyMyAvatar(charId, _myAvatarPick)) || (_myAvatarAuto && parsed.myAvatar === true && applyMyAvatar(charId, _myAvatarAuto)));
+      if (_myDone && _myAvatarPick && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       // 情头先落：落了就别再让单张那一格把他那张又换回去（photoSeen 里的 note 照记）
       const _pairDone = !!(_pairPick && parsed.pairAvatar && typeof parsed.pairAvatar === "object"
         && applyPairAvatar(charId, _pairPick, parsed.pairAvatar.yours));
