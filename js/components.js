@@ -4658,7 +4658,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           // 异地时写 TA 当地时刻，跟块上写的是同一个数（原来这儿写你这边的，两处对不上）
           (dayEv.b.charFrom ? dayEv.b.charFrom + "–" + (dayEv.b.charTo || "") + "（TA 当地）" : calHM(dayEv.b.from) + "–" + (dayEv.b.to >= 1440 ? "24:00" : calHM(dayEv.b.to))) + (dayEv.b.location ? " · " + dayEv.b.location : "") + (dayEv.b.ai ? " · AI 排的" : "")),
         dayEv.b.dev && h("div", { "data-wk": "calevdev", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#c25a4a11", border: "1px solid #c25a4a44", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
-          "原本要：" + (dayEv.b.dev.plan || "—") + "\n后来：" + (dayEv.b.dev.actual || "—") + "\n因为：" + (dayEv.b.dev.reason || "—")),
+          "原本要：" + (dayEv.b.raw && Array.isArray(dayEv.b.raw.covered) && dayEv.b.raw.covered.length
+            ? dayEv.b.raw.covered.map(c => "\n  " + c.time + "–" + c.end + "  " + (c.title || "") + (c.location ? " · " + c.location : "")).join("")   // 一段一行带时间（她 2026-10-21：想看原来每个时间段要干啥）
+            : (dayEv.b.dev.plan || "—")) + "\n后来：" + (dayEv.b.dev.actual || "—") + "\n因为：" + (dayEv.b.dev.reason || "—")),
         (() => {
           const plan = isCharView ? ((schedules || {})[view] || {})[dayEv.dk] : null;
           const ms = plan && Array.isArray(plan.murmurs) ? plan.murmurs : [];

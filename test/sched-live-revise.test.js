@@ -43,3 +43,7 @@ test("日程页把 covered 淡着垫在改的那一块下面", () => {
   assert.ok(comp.includes('const ghostNode = g => h("div", { "data-wk": "calghost"'));
   assert.ok(comp.includes("blocksOn(dk).map(b => (b.ghosts && b.ghosts.length ? b.ghosts.map(ghostNode) : []).concat([blockNode(b, dk)]))"));
 });
+test("点开改过的那一块，原本要的一段一行带时间", () => {
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.ok(comp.includes('dayEv.b.raw.covered.map(c => "\\n  " + c.time + "–" + c.end + "  " + (c.title || "")'));
+});
