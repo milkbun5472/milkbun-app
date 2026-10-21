@@ -11029,7 +11029,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   const t = useTheme();
@@ -11122,6 +11122,8 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
           // 这一版叫什么：写在版纸边上，虚线表示可以改
           onCaptionPack && (pack.emotes || []).some(e => !e.captioned) ? h("button", { "data-wk": "emocaptionpack", onClick: () => onCaptionPack(pack.id), className: "active:opacity-70",
             style: { marginTop: 14, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "给这一组每张底下印上名字") : null,
+          onUncaptionPack && (pack.emotes || []).some(e => e.captioned && e.origUrl) ? h("button", { "data-wk": "emouncaptionpack", onClick: () => onUncaptionPack(pack.id), className: "active:opacity-70",
+            style: { marginTop: 14, marginLeft: 8, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "撤掉印上的名字") : null,
           h("input", { "data-wk": "emopacktitle", value: pack.name, onChange: e => onUpdatePack(pack.id, { name: e.target.value }), className: "w-full outline-none bg-transparent", style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px dashed " + t.line, paddingBottom: 3, marginTop: 16, marginBottom: 4 } }),
           // 两条开关：印在纸上的说明行，不是两张圆角卡
           h("div", { "data-wk": "emoswitchrow", "data-part": "global", className: "flex items-center justify-between gap-3", style: { padding: "14px 0", borderBottom: "1px dashed " + t.line } },

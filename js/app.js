@@ -29327,11 +29327,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const W = Math.min(512, im.naturalWidth), H = Math.round(W * im.naturalHeight / im.naturalWidth);
         const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
         const g2 = cv.getContext("2d"); g2.drawImage(im, 0, 0, W, H); paintEmoteCaption(g2, e.keyword, W, H);
-        out.push({ ...e, url: await imgToVault(cv.toDataURL("image/png")), captioned: true }); n++;
+        // 留着原图（群友 2026-10-21：「不小心点到了，这个字可以取消吗」），撤字就换回去
+        out.push({ ...e, url: await imgToVault(cv.toDataURL("image/png")), captioned: true, origUrl: e.url }); n++;
       } catch (err) { out.push(e); }
     }
     commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: out } : x));
     toast(n ? "印好了 " + n + " 张" : "这一组没有能印的（已经印过、没名字或是动图）", 5000);
+  };
+  // 撤掉印上去的字：印之前留了原图的就换回去；更早印的没留原图，撤不了
+  const uncaptionEmotePack = packId => {
+    const pk = (emotePacksRef.current || []).find(x => x.id === packId);
+    if (!pk) return;
+    let n = 0;
+    const out = (pk.emotes || []).map(e => { if (e && e.captioned && e.origUrl) { n++; const { origUrl, captioned, ...rest } = e; return { ...rest, url: origUrl }; } return e; });
+    commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: out } : x));
+    toast(n ? "撤掉了 " + n + " 张的字" : "这一组印的字撤不回来（印的时候还没留原图）", 5000);
   };
   const makeEmoteSet = async (charId, setOpt) => {
     const char = characters.find(c => c.id === charId);
@@ -31316,7 +31326,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggleChar: toggleEmotePackChar,
     onImport: importEmotes,
     onAddImages: addEmoteImages,
-    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy, onCaptionPack: captionEmotePack,
+    onMakeSet: makeEmoteSet, setBusy: emoteSetBusy, onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
     onRenameEmote: renameEmote,
     onDeleteEmotes: deleteEmotes
   });else if (screen === "favorites") body = h(Favorites, {
