@@ -35,10 +35,12 @@ test('时间间隔提示保留时间门控，不虚构共同经历或强制报�
   const start = app.indexOf('const gapHint =');
   const end = app.indexOf(': "";', start) + 5;
   const declaration = app.slice(start, end);
-  const render = new Function('roomClockOn', 'gapMs', 'gapHrs', declaration + '; return gapHint;');
-  assert.equal(render(false, 10800001, 3), '');
-  assert.equal(render(true, 1000, 0), '');
-  const hint = render(true, 10800001, 3);
+  // v76.209 起句子里那个时刻统一走 aiStampFor(id, ts)（js/app.js：关着给 ""，开着按这个人自己那只钟盖）
+  const render = new Function('roomClockOn', 'gapMs', 'gapHrs', 'charId', 'aiStampFor', declaration + '; return gapHint;');
+  const stamp = (id, ts) => (id && ts ? '〔今天14:32〕' : '');
+  assert.equal(render(false, 10800001, 3, 'c1', stamp), '');
+  assert.equal(render(true, 1000, 0, 'c1', stamp), '');
+  const hint = render(true, 10800001, 3, 'c1', stamp);
   assert.match(hint, /3 小时/);
   assert.match(hint, /未确认的共同活动保持未确认/);
   assert.match(hint, /不必交代这段时间的行程/);

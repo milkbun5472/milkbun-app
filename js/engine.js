@@ -8754,13 +8754,19 @@ async function generateOffline(p, ctx, session) {
   if (!parsed || typeof parsed !== "object") {
     const bare = String(sp.clean || "").replace(/```(?:json)?/gi, "").trim();
     const mScene = bare.match(/"scene"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    parsed = mScene ? { scene: mScene[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\t/g, " ") } : { scene: bare };
+    const unq = v => v.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\t/g, " ");
+    // 终稿写到一半被截断时 JSON 不完整：首稿那一格通常是完整的，先把它抠出来
+    const mDraft = bare.match(/"draftScene"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    parsed = mScene ? { scene: unq(mScene[1]) } : mDraft ? { draftScene: unq(mDraft[1]) } : { scene: bare };
+    if (mScene && mDraft) parsed.draftScene = unq(mDraft[1]);
   }
   const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
-  const draftScene = String(singlePassRevisionRequested ? parsed.draftScene : (parsed.scene || sp.clean || "")).trim();
+  // 自修那一档只差一半时别整轮报错（群里 2026-10-22「总显示模型没有响应终稿，换了两个站子都不行」）：
+  //   人设卡带风险词时每轮都自动走「首稿→终稿」，模型常写完首稿就停（输出被截、或只写一个 scene）。
+  //   缺终稿就用首稿，缺首稿就用终稿——两样都没有才算没写出来。
+  const draftScene = String(singlePassRevisionRequested ? (parsed.draftScene || parsed.scene || "") : (parsed.scene || sp.clean || "")).trim();
   if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
-  const singlePassFinalScene = singlePassRevisionRequested ? String(parsed.scene || "").trim() : "";
-  if (singlePassRevisionRequested && !singlePassFinalScene) throw new Error("模型没有完成单次响应内的终稿自修，请重试");
+  const singlePassFinalScene = singlePassRevisionRequested ? String(parsed.scene || parsed.draftScene || "").trim() : "";
   // 预检只能看见 user/history。角色可能在本轮首稿里自行跨越，因此草稿形成后必须再检一次；
   // 否则最需要编辑的第一条会以 false→false 直接漏进 history。
   const draftExplicit = !isDigital && offlineRegisterExplicitText(draftScene);
