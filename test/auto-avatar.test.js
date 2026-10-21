@@ -61,5 +61,5 @@ test("头像池导入不花 API，也不把原图塞爆图库", () => {
   assert.match(cfg, /resizeImageFile\(f, 256, 0\.86\)/, "头像最大显示 76px，存 256 见方足够");
   assert.match(cfg, /imgToVault/, "进图库只留 iv_ 键");
   assert.doesNotMatch(cfg, /generateSelfieImage|callAI/, "B 档不许花一分钱");
-  assert.match(cfg, /确定清空？/, "两步确认，她按不动 confirm 弹窗");
+  assert.match(cfg, /确定清空？|requestAppConfirm\("清空头像池？"/, "要再确认一下，且不用系统 confirm（她按不动）");
 });

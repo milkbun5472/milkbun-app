@@ -80,7 +80,12 @@ test("只管线上打字，不许波及线下叙事和写字类产出", () => {
   //   （群里 2026-10-04：「他像个背词机」）。拉黑说的也是手机上发出去的话，
   //   属于这条规则该管的范围，不是漏进线下。
   const inject = app.split("\n").filter(l => l.includes("ONLINE_CHAT_RULE_V2") && !/^\s*\/\//.test(l));
-  assert.equal(inject.length, 3, "注入点数量变了，确认没被塞进线下或日记：\n" + inject.join("\n"));
+  // v76.x 起线上通道都走 onlineRegisterLayer()（情侣空间、代付、亲属卡也是手机上发的话），
+  //   所以条数＝群聊那一处 + 每个真调用点；数不对说明有一处没经过这个公共层。
+  const layerCalls = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8")
+    .split("\n").filter(l => !/^\s*\/\//.test(l) && l.includes("onlineRegisterLayer()")).length;
+  assert.ok(inject.every(l => !/线下|日记|情书|diary|offline/i.test(l)), "有一处注入落进了线下或写字类：\n" + inject.join("\n"));
+  assert.equal(inject.length, 1 + layerCalls, "注入点数量变了，确认没被塞进线下或日记：\n" + inject.join("\n"));
   assert.ok(inject.some(l => l.includes("blockBundleFor")), "第三处该是拉黑那一枪");
   assert.ok(!grabConst("NARRATIVE_ANTI_CLICHE_LEGACY_V1").includes("句尾不打句号"),
     "线下是叙事散文，标点该好好打");

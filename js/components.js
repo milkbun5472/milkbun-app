@@ -2901,14 +2901,14 @@ function WxShareBox({ userGeo, characters, worlds }) {
   const save = function (patch) { const n = Object.assign({}, cfg, patch); setCfg(n); try { localStorage.setItem("x_wxShare", JSON.stringify(n)); } catch (e) {} };
   const who = Array.isArray(cfg.who) ? cfg.who : [];
   const cs = (characters || []).filter(function (c) { return c && !c.npc; });
-  const sw = function (on, fn, hook) { return h(Toggle, { on, onChange: () => fn(), wk: hook && hook["data-wk"] }); };
+  const sw = function (on, fn, hook) { return h(Toggle, Object.assign({ on, onChange: () => fn() }, hook)); };
   const row = function (title, sub, on, fn, wk) { return h("div", { className: "flex items-center", style: { gap: 12, padding: "11px 0" } },
     h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
     sw(on, fn, wk)); };
   return h("div", { "data-wk": "wxshare", style: { marginTop: 22, paddingTop: 6, borderTop: "1px solid " + t.line } },
-    row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。想知道天气时问他，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { "data-wk": "wxshareon" }),
+    row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。想知道天气时问他，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { wk: "wxshareon" }),
     cfg.on ? h("div", null,
-      row("会主动提醒", "下雨、降温、特别热这种天，名单里有人会来叮嘱你一句，附一张卡片。一天最多一次", !!cfg.nudge, function () { save({ nudge: !cfg.nudge }); }, { "data-wk": "wxsharenudge" }),
+      row("会主动提醒", "下雨、降温、特别热这种天，名单里有人会来叮嘱你一句，附一张卡片。一天最多一次", !!cfg.nudge, function () { save({ nudge: !cfg.nudge }); }, { wk: "wxsharenudge" }),
       // 天气卡按哪边发（她 2026-10-17）：你把自己放进架空世界时，卡上发那个世界的天气、不带现实地名
       h("div", { style: { padding: "6px 0 10px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "天气卡按哪边发"),

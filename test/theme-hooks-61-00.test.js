@@ -43,7 +43,7 @@ test("挂点只是一个写死的名字，夹带不了任何东西", () => {
   // ⚠️挂点写在对象最后一项时后面跟的是 }（v65.05 的时钟那一处），别把它一起捞进来
   const all = [...comp.matchAll(/"data-wk":\s*([^,\n}]+)/g)].map(m => m[1].trim());
   assert.ok(all.length >= 30, "挂点只剩 " + all.length + " 个，是不是被删了");
-  const PASS = ["wk || undefined"];               // ②：转交，值由调用点保证
+  const PASS = ["wk || undefined", 'wk || "toggle"'];  // 后者兜底也是字面量               // ②：转交，值由调用点保证
   // ①：三元（可以一串接一串）的每个【取值位】都必须是字面量或 undefined。
   //    a ? x : b ? y : z 拆开是 [a, x, b, y, z]：单数位和最后那一位是取值位，
   //    双数位是条件——条件里写什么都不会进 DOM，不管。

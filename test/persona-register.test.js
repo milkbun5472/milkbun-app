@@ -32,9 +32,10 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   //   不是「谁提过它」。剥掉整行注释再数。
   const live = x => x.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
   assert.equal((live(engine).match(/PERSONA_REGISTER_ANCHOR/g) || []).length +
-               (live(app).match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 7,
+               (live(app).match(/PERSONA_REGISTER_ANCHOR/g) || []).length,
+    5 + (live(require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8")).match(/onlineRegisterLayer\(\)/g) || []).length,
     "1 处定义 + onlineRegisterLayer 一处 + groupBans（三处群共用）+ 单人线下 + 叙事底座"
-    + "，加上展开后的两个线上调用点（单聊线上 + 拉黑）＝7");
+    + "，加上每个线上 onlineRegisterLayer() 调用点");
 });
 
 // v72.55 她逐条圈掉了这条锚里的展开说明（「3 4 7 8 10-17都可以删了」）：
