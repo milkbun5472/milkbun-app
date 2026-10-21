@@ -1564,7 +1564,8 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
     body = h("div", { style: { background: "#fff" } },
       h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: char, size: 60, radius: 7 }))),
-      arr(d.moments).map(momentCard));
+      // 真发过的那几条（TA自己和关系网上的人）排在前面，推演出来的接在后面；同一句话不摆两遍
+      arr(d.actualMoments).concat(arr(d.moments).filter(m => !arr(d.actualMoments).some(r => r.content === m.content))).map(momentCard));
   }
   else body = h("div", { "data-wk": "block", style: { background: "#f5f5f5", minHeight: "100%", paddingTop: 14 } }, h("div", { className: "flex items-center gap-4", style: { background: "#fff", padding: "22px 18px" } }, h(Avatar, { character: char, size: 67, radius: 8 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: "#1b1b1b" } }, d.me && d.me.wechatName || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#888", marginTop: 6 } }, "微信号：" + (d.me && d.me.wechatId || "wx_" + String(char.id || "user").slice(0, 8))), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#777", marginTop: 5 } }, d.me && d.me.signature || "还没有写个性签名"))), h("button", { onClick: () => setPublicPage(true), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { marginTop: 10, background: "#fff", padding: "16px 18px" } }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: "#07c160", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))" } }, "文"), h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: "#222" } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999", marginTop: 3 } }, "最近读过 " + accounts.length + " 篇文章")), h("span", { style: { color: "#aaa", fontSize: "calc(22px * var(--app-fs, 1))" } }, "›")));
   // ── 联系人详情（v62.60 重做）────────────────────────────────────────
@@ -4824,6 +4825,7 @@ function PhoneApp({
   onBack,
   profile,
   actualWechat,
+  actualMoments,
   live,
   drive
 }) {
@@ -4832,7 +4834,7 @@ function PhoneApp({
   const [sheet, setSheet] = useState(null);
   const zh = PHONE_LABEL[appKey];
   const rawData = charData[appKey];
-  const data = appKey === "wechat" && rawData ? { ...rawData, actualChats: actualWechat || [] } : rawData;
+  const data = appKey === "wechat" && rawData ? { ...rawData, actualChats: actualWechat || [], actualMoments: actualMoments || [] } : rawData;
   const loading = busyKey === appKey;
   const isLive = PHONE_LIVE_KEYS.indexOf(appKey) >= 0;
   const [forumTab, setForumTab] = useState("main");
@@ -4948,6 +4950,7 @@ function PhoneCarry({
   onGenAll,
   profile,
   actualWechatFor,
+  actualMomentsFor,
   onSendAs,
   onTransferAs,
   onTfReplyAs,
@@ -5807,6 +5810,7 @@ function PhoneCarry({
     onGen: onGenApp,
     profile,
     actualWechat: actualWechatFor ? actualWechatFor(char) : [],
+    actualMoments: actualMomentsFor ? actualMomentsFor(char) : [],
     live: {
       ...liveCtx,
       nowSongId,
