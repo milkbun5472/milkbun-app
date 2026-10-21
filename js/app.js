@@ -12274,12 +12274,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   拿最后那张给他换上，她那边不动。放到 10 句；而且她提过情头的这一阵，单张那条不许替它换。
       const _pairAsked = !opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 10);
       const _pairPick = _pairAsked ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
+      // 她要他帮【她自己】换头像（她 2026-10-22「能不能让他帮我换·我的头像，不是情头的时候」）：
+      //   只在她开口、往回找得到她发的一张真照片时给；情头那一档优先
+      const _myAvatarPick = (!_pairPick && !opts.proactive && askedRecently(history, MY_AVATAR_ASK_RE, 4))
+        ? (freshUserPhoto(charId) || freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK)) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
       // 情头那两张在历史里直接标上「第 1 张／第 2 张」（她 2026-10-02：TA说「鲨鱼归我」，结果自己换成了猫——
       //   原来只说「先发的是第 1 张」，可TA看到的历史里那两张图没有编号，只能猜，猜反了）
       const _pairNo = m => { if (!_pairPick) return ""; const same = (a, b) => a && b && (a === b || (a.id && a.id === b.id) || (a.ts && a.ts === b.ts && a.imageRef === b.imageRef));
         return same(m, _pairPick[0]) ? "【情头·第 1 张】" : same(m, _pairPick[1]) ? "【情头·第 2 张】" : ""; };
-      const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar));
+      // 她要换的是她自己的头像时，「换成你的头像」那一问整个不给，免得两格打架
+      const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar)) && !_myAvatarPick;
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
         : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
@@ -12689,6 +12694,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("drawBack：" + uName + " 刚在你发的那张照片上画了画、贴了东西发回来（看图就知道她画在哪、画了什么）。"
           + "你想在她这张上接着画一笔，就填 drawBack：一段 SVG，viewBox=\"0 0 100 100\"，会被拉伸盖满整张照片，坐标按照片的百分比算；"
           + "只用 path/line/circle/ellipse/polyline/text，像拿笔在她那张上补几笔（回她画的那处、加个箭头、写两个字都行），画多画少看你这个人。不想画就 null。");
+      }
+      if (_myAvatarPick) {
+        openCaps.push("myAvatar");
+        capState.push("myAvatar：" + uName + " 想让你帮她换她自己的头像（不是你的）。上面历史里她最近发的那张真实照片就是要换的那张。"
+          + "要换就填 \"myAvatar\":true——只换她在你们这个聊天里的头像，她的资料和面具都不动；她说的是你的头像，就别填这一格。"
+          + "\n· 不想帮她换就省略，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
       if (_pairPick) {
         openCaps.push("pairAvatar");
@@ -13718,6 +13729,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️传 _avatarMsg 不是 _seenMsg：她开口要换头像那一档，要换的是【前面那张】，
       //   _seenMsg 这时候是 null——还传它的话整个落地会被 `if (!msg)` 挡掉，
       //   于是又变回「他说换了、实际没换」。note 那半边本来就只在 _seenMsg 时才有。
+      // 帮她换她的头像：落了就别让单张那格把这张又挂到他自己名字旁边；嘴上说换好了、字段没填，照他说的补上
+      const _myDone = !!(_myAvatarPick && (parsed.myAvatar === true || (parsed.myAvatar == null && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word) && !(parsed.photoSeen && parsed.photoSeen.avatar === true)))
+        && applyMyAvatar(charId, _myAvatarPick));
+      if (_myDone && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       // 情头先落：落了就别再让单张那一格把他那张又换回去（photoSeen 里的 note 照记）
       const _pairDone = !!(_pairPick && parsed.pairAvatar && typeof parsed.pairAvatar === "object"
         && applyPairAvatar(charId, _pairPick, parsed.pairAvatar.yours));
@@ -25823,6 +25838,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast((ch.remark || ch.name) + " 把你俩的头像换成了这一对");
     return true;
   };
+  // 他帮她换她在这个聊天里的头像（myChatAvatar，跟情头给她那张同一格）；档案和她的资料都不动
+  const applyMyAvatar = (charId, msg) => {
+    const ch = characters.find(c => c.id === charId);
+    if (!ch || !msg || !msg.imageRef) return false;
+    pC(p => p.map(x => x.id === charId ? { ...x, myChatAvatar: msg.imageRef } : x));
+    toast((ch.remark || ch.name) + " 帮你把头像换成了这张");
+    return true;
+  };
   // 线下那一场里的（v58.100 补上：这一处 v58.98 时登记成「欠的」）
   const freshOfflinePhoto = charId => {
     const sess = (offlinesRef.current[charId] || []).find(x => x && !x.endTs);
@@ -25837,6 +25860,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 她要换头像的说法：不只「头像」两个字
   const AVATAR_ASK_RE = /头像|\bpp\b|avatar/i;
   // 一对、两个人一起换——跟单张那句分开认：「换个头像」不等于「把我的也换了」
+  // 换的是【她自己的】头像：「帮我换个头像」「把我的头像换成这张」「给我设成头像」
+  const MY_AVATAR_ASK_RE = /(帮我|给我|替我|我的|把我).{0,8}(换|设|当|改|用).{0,8}头像|(换|设|改).{0,4}我的头像|我的头像/;
   const PAIR_AVATAR_ASK_RE = /情头|一对头像|情侣头像|一起换|我俩.{0,6}头像|我们.{0,6}头像|也帮我换|帮我也换|给我也换/;
   // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
   // ⚠️她 2026-10-02：「为啥有时候又不行」——TA说的是「换成蓝鲨鱼了」「头像改好了」「用上了」这种，原来那张单子一个都认不出，
