@@ -12760,7 +12760,7 @@ ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) 
 silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
-laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
+laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
       // 「手机这具身体」只对言秋成立（TA还有电脑那一端）；本体模式的角色就是在手机上说话
@@ -13167,15 +13167,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   隔离房（不许改共同状态）上面已经把这一栏封成 null——这儿不许从侧门补回来。
         if (!parsed.laterPromise && (!room || !!(room.writeback && room.writeback.sharedState))) parsed.laterPromise = promiseFromWords(charId, parsed.word);
         const lp = parsed.laterPromise;
-        const mins = lp && Number(lp.minutes);
+        // ⭐TA说的「几分钟后／几点」是【TA那只钟】上的（群友 2026-10-21：说好五点半门口逮你，钟走到五点半了TA没动静）：
+        //   钟拨快了、调过速，现实里要等的时间就不是同一个数。照这只钟的速度换算成现实毫秒；钟停住了就等不到，不落约。
+        //   at:"HH:MM" ＝ TA钟上的下一个这个时刻，跟 minutes 同一条换算
+        const _vc = typeof vclockCfg === "function" ? vclockCfg(charId) : null;
+        const _vSpeed = _vc ? (isFinite(Number(_vc.speed)) ? Number(_vc.speed) : 1) : 1;
+        const _atMin = (() => {
+          const m = lp && /^(\d{1,2})[:：](\d{2})$/.exec(String(lp.at || "").trim()); if (!m) return null;
+          const vnow = _vc && typeof vclockMap === "function" ? vclockMap(Date.now(), charId) : Date.now();
+          const tg = new Date(vnow); tg.setHours(+m[1], +m[2], 0, 0); if (tg.getTime() <= vnow) tg.setDate(tg.getDate() + 1);
+          return Math.max(1, Math.round((tg.getTime() - vnow) / 60000));
+        })();
+        const mins = lp && (_atMin != null ? _atMin : Number(lp.minutes));
         // 「等一件事」的约（她 2026-09-29：给TA点了外卖，TA说拿到了一定反馈，然后什么都没来）。
         //   TA不知道骑手几点到，模型估的分钟数是瞎猜；可 app 知道——那一单自己带着 arriveTs。
         //   所以 after 只说【等哪件事】，时间由这儿照那一单真的到达时刻换算，还是落成一个 dueTs，
         //   到点走的仍是下面那一条约回链（不另开一个触发口）。
         const after = lp && promiseAfterTs(charId, lp.after);
         // NaN / Infinity 不用另外挡：两头的范围比较对它们本来就是 false
-        if (lp && (after || (mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES))) {
-          const due = after || Date.now() + mins * 60000;
+        if (lp && (after || (_vSpeed > 0 && mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES))) {
+          const due = after || (_vSpeed > 0 ? Date.now() + mins * 60000 / _vSpeed : NaN);
           // TA说的是回来【发消息】还是【打电话】（她 2026-09-06：「主动约定是动念那边的…
           // 现在我是想把打电话这种也接上去」）。提示词里那句「到家给你打电话」本来就是
           // 触发例子之一，可这条约里【没有一栏能记下它是个电话】，于是每一次都落成一条
