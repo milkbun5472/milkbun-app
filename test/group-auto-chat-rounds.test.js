@@ -77,6 +77,7 @@ function drive(opts) {
     // v62.12：动念按【场】分，巡检读的是【这个群】那一份（键 = 角色@群）。
     // 键的算法不在这儿抄一份——从真代码里抠出来用，否则改了格式这个桩照样绿。
     dongnianKey: dongnianKey,
+    isOocMsg: m => !!(m && (m.kind === "ooc" || m.ooc)),
     // 设置 → 自动生成的总闸：用真的策略模块、默认存档（群里自己聊默认开）
     autoRefreshOn: (f, c) => require("../js/auto-refresh-policy.js").enabled(null, f, c),
     window: { __dongnian: dongnian ? { [dongnianKey("c1", G)]: { triggers: urge ? [{ action: "contact" }] : [] }, [dongnianKey("c2", G)]: { triggers: [] } } : {},
