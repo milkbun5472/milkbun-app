@@ -4401,6 +4401,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           let cen = calMinOf(sq.end); if (cen == null || cen <= cst) cen = Math.min(1440, cst + 60);
           put(base + cst, base + cen, { key: "s" + dd + "_" + i, title: sq.title || "", location: sq.location || "",
             glyph: CAL_SEQ_GLYPH[sq.type] || IPin, color: CAL_SEQ_TINT[sq.type] || "#e6e2da", ai: true, dev: sq.deviation || null, raw: sq,
+            // 当场改的那一块底下原来排的（schedSpliceNow 的 covered）：淡着垫在它下面（她 2026-10-21）
+            ghosts: (Array.isArray(sq.covered) ? sq.covered : []).map((o, j) => { const a = calMinOf(o.time), z = calMinOf(o.end); if (a == null) return null;
+              const st = Math.max(0, base + a), en = Math.min(1440, base + (z != null && z > a ? z : a + 60)); return en > st ? { key: "g" + dd + "_" + i + "_" + j, from: st, to: en, title: o.title || "", glyph: CAL_SEQ_GLYPH[o.type] || IPin, color: CAL_SEQ_TINT[o.type] || "#e6e2da" } : null; }).filter(Boolean),
             // 块上仍写 TA 当地时刻——TA嘴里说的是这个
             charFrom: tzShift ? sq.time : "", charTo: tzShift ? (sq.end || "") : "" });
         });
@@ -4496,11 +4499,16 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     scrollRef.current.scrollTop = Math.max(0, yOf(Math.max(range.lo, at)));
   }, [mode, daySel]);
 
+  // 原本排的、被当场改的那一块盖住的：淡色虚线，垫在下面，点不到（点上去开的是改的那一块，详情里也写着「原本要」）
+  const ghostNode = g => h("div", { "data-wk": "calghost", key: g.key, "aria-hidden": "true", className: "absolute",
+    style: { left: 2, right: 2, top: yOf(g.from), height: Math.max(22, (g.to - g.from) * CAL_PX_PER_MIN - 3), pointerEvents: "none", opacity: 0.45,
+      border: "1px dashed " + g.color, background: g.color + "33", borderRadius: 7, padding: "3px 6px", overflow: "hidden" } },
+    h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "原本 · " + g.title));
   const blockNode = (b, dk) => {
     const top = yOf(b.from), hgt = Math.max(26, (b.to - b.from) * CAL_PX_PER_MIN - 3);
     return h("button", { "data-wk": "calblock", "data-done": b.done ? "1" : "0", key: b.key, onClick: () => { if (b.memo && typeof window.memoOpenReminder === "function") window.memoOpenReminder(b.memo.id); else setDayEv({ b, dk: b.srcDk || dk }); },
       className: "absolute active:opacity-70 text-left",
-      style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
+      style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ghosts && b.ghosts.length ? "40" : b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
       h("div", { "data-wk": "calblocktitle", className: "flex items-center", style: { gap: 5, fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } },
         b.glyph ? h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(b.glyph, { size: 14, color: t.ink })) : null,
@@ -4527,7 +4535,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const gridH = (range.hi - range.lo) * CAL_PX_PER_MIN;
   const dayColumn = dk => h("div", { "data-wk": "calcolumn", key: dk, style: { flex: 1, minWidth: 0, position: "relative", height: gridH, borderLeft: "1px solid " + t.line } },
     Array.from({ length: hourRows }, (_, i) => h("div", { key: i, style: { position: "absolute", left: 0, right: 0, top: i * 60 * CAL_PX_PER_MIN, height: 1, background: t.line, opacity: 0.55 } })),
-    blocksOn(dk).map(b => blockNode(b, dk)),
+    blocksOn(dk).map(b => (b.ghosts && b.ghosts.length ? b.ghosts.map(ghostNode) : []).concat([blockNode(b, dk)])),
     dk === todayKey && nowMin >= range.lo && nowMin <= range.hi
       ? h("div", { "data-wk": "calnowline", style: { position: "absolute", left: 0, right: 0, top: yOf(nowMin), height: 2, background: "#c25a4a", zIndex: 5 } }) : null);
   const dayView = () => h("div", { "data-wk": "calweek", className: "flex-1 flex flex-col min-h-0" },

@@ -394,15 +394,27 @@ function schedSpliceNow(seqs, nowMin, change) {
   let u = min(change.until);
   if (u == null || u <= n) { const cur = full.find(s => min(s.time) != null && min(s.time) <= n && (min(s.end) == null || min(s.end) > n)); u = cur && min(cur.end) > n ? min(cur.end) : n + 60; }
   u = Math.min(1440, u);
-  const out = [], hit = [];
+  // 被盖住的原安排不删（她 2026-10-21：「原来有东西的改了之后怎么都没了」）：原样挂在改的那一块的 covered 上，日程页淡着画在底下；
+  //   之后他又改了（中途走了、换去别处），改过的那一块后半截被切掉时，底下原来的安排照时间接回来。
+  //   切的要是一块【本身就是改过的】，算原安排时认它底下那几段，不认它自己（不然原来的就一层层丢了）。
+  const clip = (s, a, b) => { const st = Math.max(min(s.time), a), en = Math.min(min(s.end) ?? (min(s.time) + 60), b); if (!(en > st)) return null; const { covered: _c, ...rest } = s; return { ...rest, time: hm(st), end: hm(en) }; };
+  const origOf = s => s.deviation && Array.isArray(s.covered) ? s.covered : [s];
+  const out = [], hit = [], covered = [];
   for (const s of full) {
     const st = min(s.time), en = min(s.end);
     if (st == null || st >= u || (en != null && en <= n)) { out.push(s); continue; }
-    hit.push(s.title || "");
-    if (st < n) out.push({ ...s, end: hm(n) });
-    if (en != null && en > u) out.push({ ...s, time: hm(u) });
+    origOf(s).forEach(o => { const c = o && clip(o, n, u); if (c) { covered.push(c); hit.push(o.title || ""); } });
+    if (st < n) {
+      const kept = Array.isArray(s.covered) ? s.covered.map(o => clip(o, st, n)).filter(Boolean) : null;
+      out.push({ ...s, end: hm(n), ...(kept ? { covered: kept } : {}), ...(kept && s.deviation ? { deviation: { ...s.deviation, plan: kept.map(o => o.title).filter(Boolean).join("、") || "原本没排事" } } : {}) });
+    }
+    if (en != null && en > u) {
+      if (s.deviation && Array.isArray(s.covered)) s.covered.forEach(o => { const c = clip(o, u, en); if (c) out.push(c); });
+      else out.push({ ...s, time: hm(u) });
+    }
   }
   out.push({ time: hm(n), end: hm(u), title: title, location: String(change.location || "").slice(0, 200), place: "", type: "other",
+    ...(covered.length ? { covered: covered } : {}),
     deviation: { plan: hit.filter(Boolean).join("、") || "原本没排事", reason: String(change.reason || "跟你在一起，临时改了").slice(0, 600), actual: title } });
   out.sort((a, b) => (min(a.time) ?? 9999) - (min(b.time) ?? 9999));
   return out.map((s, i) => ({ ...s, seq: i + 1 }));

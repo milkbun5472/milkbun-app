@@ -26,3 +26,20 @@ test("线下开场那一拍挂上对日程那一句", () => {
   assert.ok(app.includes("oCtx.schedNow += OFFLINE_OPEN_SCHED_CHECK"));
   assert.ok(engine.includes("const OFFLINE_OPEN_SCHED_CHECK"));
 });
+// 她 2026-10-21：「日程这里原来有东西的改了之后怎么都没了」——被盖的不删，挂在 covered；他又改了，后半截原安排接回来
+test("被盖住的原安排留在 covered 上，再改时后半截接回来", () => {
+  const f = load();
+  const base = [{ time: "15:00", end: "17:30", title: "图书馆" }, { time: "18:00", end: "19:30", title: "晚饭" }, { time: "20:00", end: "22:00", title: "画画" }];
+  const a = f(base, 14 * 60 + 44, { title: "陪她", until: "23:59" });
+  const dev = a.find(x => x.title === "陪她");
+  assert.deepStrictEqual(dev.covered.map(c => c.time + "-" + c.end + " " + c.title), ["15:00-17:30 图书馆", "18:00-19:30 晚饭", "20:00-22:00 画画"]);
+  const b = f(a, 17 * 60, { title: "回宿舍", until: "18:30" });
+  assert.deepStrictEqual(b.map(x => x.time + "-" + x.end + " " + x.title), ["14:44-17:00 陪她", "17:00-18:30 回宿舍", "18:30-19:30 晚饭", "20:00-22:00 画画"]);
+  assert.strictEqual(b[1].deviation.plan, "图书馆、晚饭", "原本要的是原安排，不是上一次改的");
+  assert.strictEqual(b[0].deviation.plan, "图书馆");
+});
+test("日程页把 covered 淡着垫在改的那一块下面", () => {
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.ok(comp.includes('const ghostNode = g => h("div", { "data-wk": "calghost"'));
+  assert.ok(comp.includes("blocksOn(dk).map(b => (b.ghosts && b.ghosts.length ? b.ghosts.map(ghostNode) : []).concat([blockNode(b, dk)]))"));
+});
