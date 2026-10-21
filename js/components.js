@@ -651,10 +651,15 @@ function bubblePresetSkin(key) {
 // ⚠️以前「换一套预设」和「设置页保存」各写了一份 Object.assign + setItem + 重刷 CSS；
 //   2026-09-20 主题包也要带上气泡，那就是第三份了——先合成一处再接。
 // 旁白／动描白垫子的底色（群友 2026-10-20：「动描可以像气泡一样调透明度就好了」）
-function narrPadBg() {
-  const a = Number(typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.narrAlpha);
-  return "rgba(255,255,255," + (isFinite(a) && a >= 0 && a <= 100 ? a / 100 : 0.62) + ")";
+//   照「此刻生效的那一套」取（全局打底、这个人单挑过的气泡盖上去）——原来只认全局，她在 TA 的聊天长相里调了不生效（2026-10-21）
+function narrPadAlpha() {
+  const S = typeof bubbleSkinNow === "function" ? bubbleSkinNow() : (typeof BUBBLE_SKIN !== "undefined" ? BUBBLE_SKIN : {});
+  const a = Number(S && S.narrAlpha);
+  return S && S.narrAlpha != null && isFinite(a) && a >= 0 && a <= 100 ? a / 100 : 0.62;
 }
+function narrPadBg() { return "rgba(255,255,255," + narrPadAlpha() + ")"; }
+// 垫子那层磨砂：调到 0 就整块不要（不然还剩一块糊的玻璃）
+function narrPadBlur() { return narrPadAlpha() > 0 ? "blur(7px)" : "none"; }
 function bubbleSkinSnapshot() { return Object.assign({}, BUBBLE_SKIN); }
 function writeBubbleSkin(next) {
   // 盖在出厂值上，不是盖在当前值上：否则上一套残留的描边/贴纸会跟着新皮肤留下来
@@ -965,7 +970,7 @@ function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, t
       fontStyle: "italic",
       lineHeight: 1.7,
       color: selected ? t.ink : (onBg ? "#5a5550" : t.fog)
-    }, onBg ? { display: "inline-block", background: narrPadBg(), backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
+    }, onBg ? { display: "inline-block", background: narrPadBg(), backdropFilter: narrPadBlur(), WebkitBackdropFilter: narrPadBlur(), borderRadius: 10, padding: "5px 12px" } : {})
   }, text), (onDelete && m.who !== "char") ? h("button", {
     onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", onDelete, "删除"),
     className: "active:opacity-50 shrink-0",
@@ -10841,7 +10846,7 @@ function ChatThread({
     const plate = (pad) => (dsp.chatBg || _wkBg) ? {
       display: "inline-block",
       background: narrPadBg(),
-      backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)",
+      backdropFilter: narrPadBlur(), WebkitBackdropFilter: narrPadBlur(),
       borderRadius: 10, padding: pad || "3px 10px"
     } : {};
     // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
