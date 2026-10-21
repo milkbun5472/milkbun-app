@@ -57,7 +57,8 @@ test('③ 只有共友：提示里把「不许出现名单外的人」写明', (
   assert.ok(ask.includes('roster.concat(_threadPeople).join'), '名单＝算好的 roster 加评论区里已有的人');
   // 2026-10-22 她：人设里提到的同学闺蜜可以来，人设里没有的完全陌生人不行
   assert.ok(ask.includes('人设里写到过的人') && ask.includes('人设里没提过的人一个都不许冒出来'), '人设里的熟人可以，陌生人不行');
-  assert.match(src, /_personaText\.includes\(n\)\) \|\| \(w\.length >= 2 && _personaText\.includes\(w\)\)/, '名字或身份词得真在人设里');
+  // 代码不丢评论（她 2026-10-22：怕名字格式认不出来，丢了就没了）
+  assert.ok(!src.includes('_okNames'), '不许再按名单丢评论');
 });
 
 test('④ 进行中锁：重复点不叠发', () => {

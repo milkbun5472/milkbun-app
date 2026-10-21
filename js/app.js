@@ -22276,12 +22276,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       else if (d.reply) reps = [typeof d.reply === "string" ? { author: fbAuthor, text: d.reply } : d.reply];
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
-      // 不编人（她 2026-10-22）：说话的人得是名单上的、或者评论区里已经说过话的；对不上名字的那条丢掉
-      const _okNames = new Set(roster.concat(_threadPeople).map(n => momentWho(n)).filter(Boolean));
-      // 人设里写到过的人也算（她 2026-10-22「可以编人设里提到的比如同学闺蜜，但是不要蹦出来完全陌生人」）：名字得真出现在发帖人的人设里
-      const _personaText = author ? String([author.persona, author.desc, author.background, author.bio].filter(Boolean).join("\n")) : "";
-      reps = reps.filter(r => { const n = momentWho(r.author); const w = String(r.who || "").trim();
-        return _okNames.has(n) || !!byName(r.author) || (n && n.length >= 2 && _personaText.includes(n)) || (w.length >= 2 && _personaText.includes(w)); });
+      // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
