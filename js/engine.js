@@ -7271,6 +7271,28 @@ async function generateRelation(p, a, b, opts) {
 }
 if (typeof window !== "undefined") window.generateRelation = generateRelation;
 
+// 她自己身边的人也能起一份草稿（群友许愿、她 2026-10-21「做吧」）。原来这一类一律手写——
+//   她 2026-09-20 说过「给我自己的 npc 就让我自己写就行了」，现在改成：给一份草稿，填进框里由她改完再存，不直接建人。
+//   只写这个人和「我」之间的事；跟哪个角色什么关系、感情线，一个字不碰（那是她的事）。
+async function generateMyNpc(p, me, ask, rel, takenNames) {
+  const meName = (me && me.name) || "用户";
+  const persona = String((me && me.persona) || "").replace(/\s+/g, " ").slice(0, 3000);
+  const taken = (takenNames || []).filter(Boolean);
+  const sys = "你在为一个角色扮演 App 补一位【用户身边的人】。这个人只会出现在群聊里。\n\n"
+    + "【用户】" + meName + "\n" + (persona ? "【用户的人设】\n" + persona + "\n" : "")
+    + "\n【要生成谁】用户填的是：「" + String(ask || "").trim() + "」" + (String(rel || "").trim() ? "，跟用户的关系：「" + String(rel).trim() + "」" : "") + "。\n"
+    + "· 用户的人设里已经提到过这个人，就照人设里的信息补完整，不改写写死的事；没提到过，就为这个位置造一个具体的人，时代、世界、称谓跟着用户的人设走。\n"
+    + (taken.length ? "· 已经有这几位了，名字和身份别重复：" + taken.join("、") + "。\n" : "")
+    + "· brief 写 300~500 字，第二人称写给这个人本人看（「你是…」）：做什么的、性格、说话什么调子、和" + meName + "怎么认识、平时怎么相处。给TA一两个只属于TA的习惯或在意的事，别写成履历。\n"
+    + "· ⚠️只写TA和" + meName + "之间的事。" + meName + "跟别的什么人是什么关系、有没有感情线，一个字都别写；也别给这个人安排和谁的感情线。\n"
+    + "\n【输出】只输出 JSON，不要代码块：{\"name\":\"名字（用户给了名字就用用户给的）\",\"brief\":\"300~500字的第二人称简介\"}";
+  const raw = await callAI(p, sys, [{ role: "user", content: "写这个人。" }], { maxTokens: 8000, timeout: 90000 });
+  const d = parseJSONLoose(raw);
+  if (!d || !d.name || !d.brief) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
+  return { name: String(d.name).trim().slice(0, 24), brief: String(d.brief).trim().slice(0, 4000) };
+}
+if (typeof window !== "undefined") window.generateMyNpc = generateMyNpc;
+
 // ⚠️这一枪只管【角色身边的人】。她自己身边的人（闺蜜、同事）由她手写，不走这儿——
 //   她 2026-09-20：「给我自己的 npc 就让我自己写就行了，不用生成」。
 async function generateNpc(p, hostChar, ask, takenNames) {

@@ -10386,7 +10386,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
   };
-  // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc（她自己写，零调用）。
+  // 她自己身边的人：起一份草稿填回框里（不直接建人，她改完点「加进来」才存）
+  const draftMyNpc = async (ask, rel) => {
+    if (!String(ask || "").trim() && !String(rel || "").trim()) { toast("先写个名字或你俩什么关系"); return null; }
+    const p = bgActiveRef.current || active;
+    if (!p) { toast("先去 设置·API 配一条线路"); return null; }
+    try { return await generateMyNpc(p, profile, String(ask || "").trim() || String(rel || "").trim(), rel, npcsOf("me").map(c => c.name)); }
+    catch (e) { toast("没写出来：" + ((e && e.message) || e)); return null; }
+  };
+  // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc 手写，或者 draftMyNpc 起草稿。
   const createNpc = async (hostId, ask) => {
     const host = characters.find(c => c.id === hostId);
     if (!host) return;
@@ -31144,6 +31152,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
     onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
     onAddMyNpc: addMyNpc,
+    onDraftMyNpc: draftMyNpc,
     onDeleteNpc: id => deleteNpc(id, false)
   });else if (screen === "anon") body = h(AnonHub, {
     characters: liveChars,

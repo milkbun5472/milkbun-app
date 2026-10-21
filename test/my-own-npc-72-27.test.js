@@ -57,12 +57,14 @@ test("喂给模型的那一行认得「这是她自己的人」", () => {
 test("界面按主人分两支：她自己那支是手写表单", () => {
   const i = screens.indexOf('(c.meChar === "me" || c.npcHand) ? h(Fragment, null,');
   assert.ok(i > 0, "没有按主人分支");
-  const seg = screens.slice(i, i + 2600);
+  const seg = screens.slice(i, i + 4200);
   ["TA 叫什么", "你俩什么关系", "TA 是个什么人"].forEach(x =>
     assert.ok(seg.includes('"' + x + '"'), "手写表单少了一栏：" + x));
   // 2026-10-03 起角色身边的人也能走这张手写表单，多传一个主人
   assert.ok(/onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar\)/.test(seg), "加进来那颗没接上");
-  assert.ok(!/npcBusy/.test(seg), "她这一支还挂着生成中的忙态——它根本不调模型");
+  assert.ok(!/npcBusy/.test(seg), "她这一支还挂着角色那支的忙态");
+  // 2026-10-21 起她这一支多一颗「照我的人设写一份」：只起草稿填回框里，存还是点「加进来」
+  assert.ok(/onDraftMyNpc\(c\.npcName, c\.npcRel\)/.test(seg), "草稿那颗没接上");
   // 生成那一支原样留着
   assert.ok(/"陆闻 \/ TA的属下 \/ 她师姐"/.test(screens), "角色那一支的例子没了");
   // 她点名要去掉的那个名字
