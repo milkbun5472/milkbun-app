@@ -1619,8 +1619,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     ? "\n【必须有】" + (rel || []).slice(0, 5).map(n => "「" + n + "」").join("") + " 是TA现实里认识的人：这一轮的会话里必须各有一个跟他们的私聊（算在那 5 个里），contacts 里也要有他们，名字照抄、不许改写。聊什么照你们是什么关系来。\n"
     : "";
   // 朋友圈底下的赞和评论（群友 2026-10-21：一个根本不认识发帖人的配角给他点了赞）：真微信里共同好友才看得见
+  // 真角色（TA自己、关系网上不是配角的那几位）的朋友圈只认她那边真发过的，App 会原样摆进来——推演这一路不替他们写（她 2026-10-21）
+  const _wxRealA = key === "wechat" && typeof window !== "undefined" && typeof window.__phoneRealMomentAuthors === "function" ? (window.__phoneRealMomentAuthors(char) || []) : [];
   const wxMomentRule = key === "wechat"
-    ? "\n【朋友圈的赞和评论】作者从TA的联系人里挑；likes 和 comments 里的人必须是【TA 和这条的作者都认识的】——真微信里不是共同好友的赞根本看不到。两个人认不认识照关系网和你们的设定来，拿不准就别写进去，宁可少几个赞。\n"
+    ? (_wxRealA.length ? "\n【朋友圈的作者】" + [...new Set(_wxRealA)].map(n => "「" + n + "」").join("") + " 自己发的朋友圈会照实摆进来，moments 里**不许**写他们发的；只写别的联系人发的。\n" : "") + "\n【朋友圈的赞和评论】作者从TA的联系人里挑；likes 和 comments 里的人必须是【TA 和这条的作者都认识的】——真微信里不是共同好友的赞根本看不到。两个人认不认识照关系网和你们的设定来，拿不准就别写进去，宁可少几个赞。\n"
     : "";
   const wxMissingLine = wxMissing.length
     ? "\n【例外·关系网里的人】" + wxMissing.map(n => "「" + n + "」").join("") + " 是TA现实里认识的人，微信里却还没有跟他们的会话。这一轮给他们每人开一个私聊，写进 newChats：type 填 private，name 照抄这个名字，messages 4-8 条有来有回（照你们是什么关系来说），再给 last、time。除了这几位，别的照旧不许新开。\n"

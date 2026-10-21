@@ -18472,12 +18472,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const nameOf = id => { const o = (characters || []).find(x => x && String(x.id) === String(id)); return o ? (o.remark || o.name) : ""; };
     const known = new Set([...ids].map(nameOf).filter(Boolean));
     const meName = userName(profileFor(char.id));
-    return (momentsRef.current || []).filter(m => m && m.characterId && ids.has(String(m.characterId)) && String(m.content || "").trim()).slice(0, 12).map(m => ({
+    // 真角色（不是配角）的朋友圈只认真发的：推演那一路不许替他们编（她 2026-10-21：「跟他的聊天一样」）。配角不在她那边发朋友圈，照旧推演
+    const realNames = [...ids].map(id => (characters || []).find(x => x && String(x.id) === id)).filter(o => o && !o.npc).flatMap(o => [o.name, o.remark].filter(Boolean));
+    const out = (momentsRef.current || []).filter(m => m && m.characterId && ids.has(String(m.characterId)) && String(m.content || "").trim()).slice(0, 12).map(m => ({
       author: nameOf(m.characterId), content: String(m.content || ""), _ts: Number(m.ts) || null, time: "", _real: true,
       likes: [...(m.likers || []).filter(n => known.has(n)), ...(m.liked ? [meName] : [])],
       comments: (m.comments || []).filter(c => c && (known.has(c.author) || c.author === meName || c.author === "我")).map(c => ({ from: c.author === "我" ? meName : c.author, text: c.text }))
     }));
+    out.realAuthors = realNames;
+    return out;
   };
+  if (typeof window !== "undefined") window.__phoneRealMomentAuthors = char => (phoneMomentsActual(char).realAuthors || []);
   const phoneWechatActual = char => {
     if (!char) return [];
     const meName = userName(profileFor(char.id));

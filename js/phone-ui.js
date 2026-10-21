@@ -1568,7 +1568,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       //   同一句话不摆两遍；拿不到时间的（老数据）沉到最后，彼此保持原来的先后
       (() => {
         const tsOf = m => m && m._ts != null ? Number(m._ts) : (typeof phoneWhenTs === "function" ? (phoneWhenTs(m && m.time, Date.now()) || 0) : 0);
-        const all = arr(d.actualMoments).concat(arr(d.moments).filter(m => !arr(d.actualMoments).some(r => r.content === m.content)));
+        // 真角色的朋友圈只认真发的：推演里冒名写的那几条（老数据、或模型没听话）不摆
+        const realA = new Set(arr(d.actualMoments && d.actualMoments.realAuthors));
+        const all = arr(d.actualMoments).concat(arr(d.moments).filter(m => !realA.has(String(m.author || "").trim()) && !arr(d.actualMoments).some(r => r.content === m.content)));
         return all.map((m, i) => ({ m, i, t: tsOf(m) })).sort((a, b) => (b.t - a.t) || (a.i - b.i)).map(x => x.m);
       })().map(momentCard));
   }
