@@ -13175,7 +13175,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _atMin = (() => {
           const m = lp && /^(\d{1,2})[:：](\d{2})$/.exec(String(lp.at || "").trim()); if (!m) return null;
           const vnow = _vc && typeof vclockMap === "function" ? vclockMap(Date.now(), charId) : Date.now();
-          const tg = new Date(vnow); tg.setHours(+m[1], +m[2], 0, 0); if (tg.getTime() <= vnow) tg.setDate(tg.getDate() + 1);
+          const tg = new Date(vnow); tg.setHours(+m[1], +m[2], 0, 0);
+          // 说的时刻刚过去不久（17:31 说「五点半找你」）：当成马上到，不是明天五点半
+          if (tg.getTime() <= vnow) { if (vnow - tg.getTime() <= 3 * 3600e3) return PROMISE_MIN_MINUTES; tg.setDate(tg.getDate() + 1); }
           return Math.max(1, Math.round((tg.getTime() - vnow) / 60000));
         })();
         const mins = lp && (_atMin != null ? _atMin : Number(lp.minutes));
