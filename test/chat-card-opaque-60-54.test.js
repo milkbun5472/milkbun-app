@@ -63,7 +63,8 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
   const nl = comp.slice(comp.indexOf("function NarrLine("), comp.indexOf("function SysNote("));
   // 2026-10-20 起垫子底色能调透明度（群友：「动描可以像气泡一样调透明度就好了」）：走 narrPadBg()，默认还是 0.62
   assert.match(nl, /onBg \? \{ display: "inline-block", background: narrPadBg\(\)/, "公共旁白行没垫");
-  assert.match(comp.slice(comp.indexOf("function narrPadBg()")), /\? a \/ 100 : 0\.62\)/, "垫子默认不是 0.62 了");
+  // v76.205 把取值搬进 narrPadAlpha（认单个角色的气泡设置、调到 0 连磨砂也去掉），默认还是 0.62
+  assert.match(comp.slice(comp.indexOf("function narrPadAlpha()")), /\? a \/ 100 : 0\.62;/, "垫子默认不是 0.62 了");
   // v63.49：系统行和 OOC 收进 SysNote，它【自带一张纸】（近实心的 bg2），
   // 所以不再走 plate；但那张纸本身必须挡得住壁纸，不能是裸字。
   const note = comp.slice(comp.indexOf("function SysNote("), comp.indexOf("// 气泡角落贴纸"));
