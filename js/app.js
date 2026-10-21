@@ -15038,6 +15038,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 掷一下谁这一轮可以私下说一嘴（她 2026-10-05：「在群里聊天有几率回私聊说一嘴……基本没有触发过」）。
         //   上面那三条门槛全靠模型自己判，它几乎永远判「不用」。掷的是【给谁开这扇门】，不是替他决定说什么——
         //   没想说的照样可以不填（施工规则/bans-make-it-dumber.md：掷轴，别掷答案）。
+        // 他上一回从群里私下发给她、她还没回的那几句（她 2026-10-21：隔 48 分钟又私聊来同样两句，换了两个字）
+        + (gDmPick && window.ReplyPacing && window.ReplyPacing.unansweredTail ? (x => x ? "\n（这是「" + gDmPick.name + "」私聊里的）" + x : "")(window.ReplyPacing.unansweredTail(chatsRef.current[gDmPick.id] || [])) : "")
         + (gDmPick ? "\n【这一轮】「" + gDmPick.name + "」要是对群里正在聊的事、刚才谁说的一句、或你俩之间的事，有一句不想当众说、只想单独跟「" + gUName + "」说的，这一轮就用 dm 私下发给 TA；上面三条门槛这一轮对你不算数。真没有就不填。"
           + (gDmPairs.length ? "\n不一定是说给「" + gUName + "」：你跟 " + gDmPairs.map(x => "「" + x.other.name + "」").join("、") + " 也有只有你俩的私聊。想私下跟那个人说的，就照样写 dm，再加 \"dmTo\":\"那个人的名字\"——那几句会发到你俩的私聊里，" + gUName + " 和群里其他人都看不到（" + gUName + " 只能在旁边翻到）。" : "") : "") : "";
       const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选·多数轮次不填）私下发给用户的短气泡\",\"可以有第二条\"]" : "";

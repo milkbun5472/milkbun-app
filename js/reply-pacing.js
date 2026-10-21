@@ -65,5 +65,5 @@
   function guidance(history, options) {
     return pacing(history, options) + "\n" + reading();
   }
-  return { trailingUserBurst, lengthRules, pacing, reading, guidance };
+  return { trailingUserBurst, lengthRules, pacing, reading, guidance, unansweredTail };
 });
