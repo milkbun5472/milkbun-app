@@ -8,7 +8,7 @@ const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"),
 // 她 2026-08-26：「有时候他们会说等我 xxx 再找你，能不能设定让他们真的主动发，
 // 不用等 dongnian 满。如果我那段时间没上 app 等下一次补上。」
 test("协议里有约回字段，而且明说没说过就别填", () => {
-  assert.match(app, /laterPromise:\{"minutes":数字,"about":"回来要说\/要做的事","how":"chat\|voice\|video","after":"takeout\|gift（等一件事时才填）"\}/);
+  assert.match(app, /laterPromise:\{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说\/要做的事","how":"chat\|voice\|video","after":"takeout\|gift（等一件事时才填）"\}/);
   assert.match(app, /只有你这一轮【真的说了】/);
   // v74.3xx 改平：两头一样重（答应了不填＝到点什么都不来），不再只压「别填」那一边
   assert.match(app, /\*\*嘴上答应了就填\*\*/);
@@ -19,7 +19,7 @@ test("协议里有约回字段，而且明说没说过就别填", () => {
 test("落盘时校验时长，同一个人只留最新那一个", () => {
   const i = app.indexOf("const lp = parsed.laterPromise;");
   assert.ok(i > 0);
-  const seg = app.slice(i, i + 1800);
+  const seg = app.slice(i, i + 4000);
   // ⚠️下限原来写死 5 分钟。她 2026-09-12 试的正是【两分钟】，于是这条约压根没被记下来，
   //   后面整条链一个字都没跑到。tick 是 45 秒一轮，1 分钟完全送得到。
   assert.match(seg, /mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES/, "别让它约到下辈子，但也别把短的整条扔掉");

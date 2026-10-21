@@ -47,7 +47,7 @@ test("礼物：在途礼物表里这个人的那一件；已经到了就照现�
 
 test("落账那一处：有 after 时不必有分钟；还是只落成一个 dueTs，走原来那条约回链", () => {
   assert.match(app, /const after = lp && promiseAfterTs\(charId, lp\.after\);/);
-  assert.match(app, /if \(lp && \(after \|\| \(mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES\)\)\) \{\n\s*const due = after \|\| Date\.now\(\) \+ mins \* 60000;/);
+  assert.match(app, /if \(lp && \(after \|\| \(_vSpeed > 0 && mins >= PROMISE_MIN_MINUTES && mins <= PROMISE_MAX_MINUTES\)\)\) \{\n\s*const due = after \|\| \(_vSpeed > 0 \? Date\.now\(\) \+ mins \* 60000 \/ _vSpeed : NaN\);/);
   assert.match(app, /"after":"takeout\|gift（等一件事时才填）"/);
 });
 
