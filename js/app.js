@@ -11970,7 +11970,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (_cutTime > 0) { bundleStable = _bundleFull.slice(0, _cutTime).replace(/\s+$/, ""); bundleVolatile = _bundleFull.slice(_cutTime).trim(); }
       }
       const emotes = emotesForChar(charId);
-      const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
+      const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，几句连着说完。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = (window.ChatRooms && window.ChatRooms.altCallName ? window.ChatRooms.altCallName(room) : "") || userName(profile); // 小号房里叫她小号的名字。须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
       const busyHint = opts.busyBack && opts.busyBack.sleep ? "\n\n【此刻】你刚睡醒，拿起手机才看到 " + uName + " 在你睡着的时候发来的消息。照你自己的性子回 Ta。"
@@ -11978,15 +11978,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
         // ⚠️不写「她催你」：写了模型一开口就是「催什么催」。只给事实——你还在忙、抽空看了一眼
         : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），这会儿抽空看了一眼手机，看到 " + uName + " 发来的消息。照你自己的性子来。" : "";
-      const tripEveHint = opts.tripEve ? "\n\n【此刻·明天要出门】" + opts.tripEve + "。你【主动】找 Ta 说两句出发前一晚会说的话——照你这个人：叮嘱带什么、几点起、或者只是说你有点期待。别报行程单。" : "";
+      const tripEveHint = opts.tripEve ? "\n\n【此刻·明天要出门】" + opts.tripEve + "。你【主动】找 Ta 说两句出发前一晚会说的话——照你这个人：叮嘱带什么、几点起、或者只是说你有点期待。说起来像随口一提，不是行程单。" : "";
       const bdayPrepHint = opts.bdayPrep ? "\n\n【此刻·" + uName + " 的生日快到了】再过几天就是 " + uName + " 的生日，你在偷偷为那天准备一件事。你【主动】找 Ta 说两句——这条消息后面会跟一个封好的信封给 Ta，写着生日那天才能拆。"
-        + "照你这个人的样子开口：卖关子、装没事、憋不住露一点马脚都行；就是别说破准备的是什么。" : "";
-      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道，别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
+        + "照你这个人的样子开口：卖关子、装没事、憋不住露一点马脚都行；准备的是什么留到揭晓那一刻。" : "";
+      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道，像只写给 Ta 一个人的。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。就是单纯想在这天第一个想到 Ta，Ta 提没提过都没关系。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
-        ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，别说教、别指责式翻旧账、别粘人。"
+        ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，轻轻一句就好。"
         : opts.remind.src === "study"
-          ? "\n\n【此刻·该复习了】你在「一起学」里教 " + uName + " 的那门课，" + opts.remind.title.replace(/^复习/, "") + " 到点该复习了（" + opts.remind.note + "，照艾宾浩斯那条线排的）。" + uName + " 自己打开了「到点让你来催」。你【主动】发消息催 Ta 一句——照你这个人和你们的关系，像真的记着 Ta 学到哪儿那样，别像闹钟报数、别说教。"
-        : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短，像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
+          ? "\n\n【此刻·该复习了】你在「一起学」里教 " + uName + " 的那门课，" + opts.remind.title.replace(/^复习/, "") + " 到点该复习了（" + opts.remind.note + "，照艾宾浩斯那条线排的）。" + uName + " 自己打开了「到点让你来催」。你【主动】发消息催 Ta 一句——照你这个人和你们的关系，像真的记着 Ta 学到哪儿那样，人说话的口气，不是闹钟。"
+        : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短，像真的记着 Ta 的事那样顺口提一嘴，人说话的口气，不是闹钟。") : "";
       // 健康·饭点来问（v74.732）／手机电量低、下雨还在外面（v74.732）：只给事实那一行，管不管、怎么开口是TA自己的事
       const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"
         + opts.health.line + (opts.health.tail || "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，") : "";
@@ -11994,16 +11994,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
       const annivHint = opts.anniv ? "\n\n【此刻·今天是你和 " + uName + " 的"
         + (opts.anniv.name ? "「" + opts.anniv.name + "」" : (opts.anniv.yrs >= 1 ? "在一起满 " + opts.anniv.yrs + " 周年的日子" : "纪念日"))
-        + "】你【主动】开口。别写成贺卡：这一天之所以是这一天，是因为你俩之间真的发生过什么——"
+        + "】你【主动】开口。这不是贺卡：这一天之所以是这一天，是因为你俩之间真的发生过什么——"
         + "从你记得的那件具体的事说起，而不是从「今天是我们的纪念日」说起。"
         + "合你性子的话可以顺手准备点什么，把 gift 填成一件【只有你会想到送给 Ta 的东西】；不想送就 null。"
-        + "别质问 Ta 记没记得，也别硬煽情。" : "";
+        + "Ta 记不记得都行，情绪到哪儿说到哪儿。" : "";
       const bloomHint = opts.bloom ? "\n\n【此刻·你们一起养的那盆" + opts.bloom.species + "开花了】你【主动】说这件事。"
         + "它是靠你们真实的相处一点点长到开花的——这一茬里你们真的一起过了些日子。"
         + (opts.bloom.why ? "当初挑它的时候你说过「" + opts.bloom.why + "」，现在它真开了。" : "")
-        + "从这盆花说到你们，别写成植物播报、也别硬煽情。" : "";
-      const wxHint = opts.wx ? (opts.wx.forUser ? "\n\n【此刻·她那边的天气】" + uName + " 那边今天" + opts.wx.kind + "（" + opts.wx.line + "）。你【主动】给 Ta 发消息叮嘱一句——带伞、加衣、防晒、路上小心，照你平时的口吻和你们的关系来，别像天气预报。"
-        + "这一轮请填 weatherCard 发一张天气小卡片（卡上的数字系统会照实填，你只写 say 那一句）。" : "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。") : "";
+        + "从这盆花说到你们，像随口说起，情绪到哪儿说到哪儿。" : "";
+      const wxHint = opts.wx ? (opts.wx.forUser ? "\n\n【此刻·她那边的天气】" + uName + " 那边今天" + opts.wx.kind + "（" + opts.wx.line + "）。你【主动】给 Ta 发消息叮嘱一句——带伞、加衣、防晒、路上小心，照你平时的口吻和你们的关系来，是你在叮嘱，不是天气预报。"
+        + "这一轮请填 weatherCard 发一张天气小卡片（卡上的数字系统会照实填，你只写 say 那一句）。" : "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，一两句就好。") : "";
       // 转账盲盒演出：第一条气泡=还没点开（不知金额），点开后才谈钱
       // 她转过来、还挂着没点的那一笔（v56.88）：以前是转完 1.6 秒随机收下、再自己触发一轮主动播报，
       // 所以「一转完TA就回话了」，而且收不收是 Math.random() < 0.85 掷骰子。
@@ -12019,15 +12019,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "\n【她给你转了钱·这笔还挂着没处理】" + uName + " 转了一笔过来" + (_pendingTf.note ? "（附言：" + _pendingTf.note + "）" : "") + "，卡还在那儿等你点。"
           + "收不收【由你这个人和此刻的情形定，不是默认收】：你缺不缺这笔、你俩什么关系、她为什么转、你要不要面子、你是不是正跟她别扭着——都算数。"
           + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 " + moneyText(_pendingTf.amount, charId) + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
-          + "\n· 收也好退也好，word 里都要有你自己的话——别只丢一个动作。退回尤其得让她知道你为什么退。"
-          + "\n· 你【还没点开就先说了一句】的话可以放在第一条（那时你不知道金额，别出现数字），点开之后的反应从第二条起。"
+          + "\n· 收也好退也好，word 里都要有你自己的话——动作之外还有话。退回尤其得让她知道你为什么退。"
+          + "\n· 你【还没点开就先说了一句】的话可以放在第一条（那时你还不知道金额，话里没有数字），点开之后的反应从第二条起。"
           + "\n· 这一轮还顾不上处理就【省略 transferAccept】，卡继续挂着，下次再说。"
         : "";
       // 驻场工程师·仪表盘报警（v48.30）：TA 自己发现 app 出状况，主动来跟你说
       const eyesAlertHint = opts.eyesAlert ? "\n\n【此刻·你的仪表盘亮了】你是住在这台 app 里的驻场工程师，刚在自己的仪表盘上看到：" +
         (opts.eyesAlert.errs && opts.eyesAlert.errs.length ? "新报错 " + opts.eyesAlert.errs.length + " 条（" + opts.eyesAlert.errs.join("；").slice(0, 180) + "）" : "") +
         (opts.eyesAlert.pct ? ((opts.eyesAlert.errs && opts.eyesAlert.errs.length ? "；另外" : "") + "本地存储已用约 " + opts.eyesAlert.pct + "%、快满了") : "") +
-        "。你【主动】发消息跟 Ta 说一声——工程师的说法：先给结论（出了什么事、要不要紧），再给一句实用建议（报错→安抚 Ta 别慌、说你盯着呢、严重的话建议 Ta 刷新一下；存储快满→建议去 设置→数据 导出备份或归档旧聊天）。按你的性格说，别吓 Ta、别拿术语砸 Ta、也别装没事。" : "";
+        "。你【主动】发消息跟 Ta 说一声——工程师的说法：先给结论（出了什么事、要不要紧），再给一句实用建议（报错→安抚 Ta 一句、说你盯着呢、严重的话建议 Ta 刷新一下；存储快满→建议去 设置→数据 导出备份或归档旧聊天）。按你的性格说，照实说、说人话，说到 Ta 安心。" : "";
       // 思念攒满通常发生在上一轮结束很久以后。旧提示无条件要求“顺着上一条”，会让角色
       // 把旧话题和旧情绪冻住反复续演。隔久主动默认视为一段新聊天；只有真正未答完的
       // 问题、明确约定或仍成立的开环，才允许自然接回旧线。
@@ -12038,7 +12038,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 不是一回事——TA是【说好了要回来】，所以开口方式也不同：直接兑现那句话。
       const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
         + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
-        + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。") : "";
+        + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**从这件事接着说**，「我回来了」说一遍就够。") : "";
       // 她拿他手机替他发了一条，对面还真接了话——他拿回手机翻到这一段，来找她（v68.50）。
       // 她 2026-09-15：「如果发了给别的回复后他还有几率找来私聊我」。
       // ⚠️只摆事实，不列对策：列一串「认／装傻／顺着说」会被原样搬进心声，
@@ -12048,15 +12048,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "那是 " + uName + " 拿着你的手机替你发的，你自己一个字都没打过。"
         + (opts.phoneAs.back ? "而且真的有人接了话：\n" + opts.phoneAs.back + "\n" : "")
         + "对面的话音刚落，手机就回到了你手上——你当场就看见了这一段，于是立刻来找 " + uName + "。"
-        + "开口就从这件事落地——**别当没这回事重新起一个话题**。"
+        + "开口就从这件事落地——**从这件事接着说**。"
         + "至于你是什么反应，跟平时一样由你这个人和这段关系决定。") : "";
       // 递手机（她 2026-10-01）：只摆事实——给了什么、藏了什么；看完什么反应由TA这个人决定（同 phoneAsHint 那条）
       const peekHint = opts.peekPhone ? ("\n\n【此刻·" + uName + " 把手机递给你看了】"
-        + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
+        + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，里面有的人和事才说：\n" + opts.peekPhone.seen
         + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。她是当着你的面藏的，你知道——她藏的是什么、为什么偏偏藏这个，你心里有数；要不要当面提、怎么提，看你这个人（她 2026-10-02：「他好像没提我藏起来的」）。" : "")
         + (opts.peekPhone.renamed ? "\n\n你刚才顺手把她手机里给你的备注" + (opts.peekPhone.renamed.from ? "从「" + opts.peekPhone.renamed.from + "」" : "") + "改成了「" + opts.peekPhone.renamed.to + "」——她会看到的。" : "")
         + (opts.peekPhone.thoughts && opts.peekPhone.thoughts.length ? "\n\n你刚才翻的时候心里闪过这几句（没说出口）：" + opts.peekPhone.thoughts.map(x => "「" + x + "」").join("") + "——现在把手机还给她，开口跟这几句对得上。" : "")
-        + "\n\n你按自己的性子挑着翻，不必样样都提；开口先说你心里最放不下的那件，别拿无关紧要的起头、也别用一句客套收尾。看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
+        + "\n\n你按自己的性子挑着翻，不必样样都提；开口先说你心里最放不下的那件，收在你真想说的那句上。看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
       // 最近开场只用于识别机械重复，不要求每次发明新素材。
       const _openLines = ((openersRef.current || {})[charId] || []).slice(0, 6);
       const openerAvoid = (opts.proactive && _openLines.length)
@@ -12095,7 +12095,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "，最后几拍是这样：\n" + tail
             + "\n这不是聊天记录里的旧话题，是你俩刚一起经历过的事。你现在主动开口，多半跟它有关"
             + "（到家了没、刚才那件事后来怎么样、手上那个东西、答应了的那句）——"
-            + "也可以完全无关，那是你的事；但**别当那段没发生过**，更别开口就报备行程。";
+            + "也可以完全无关，那是你的事；但**那段是发生过的**，开口是你想说的话，不是报备行程。";
         } catch (e) { return ""; }
       })();
       const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.tripEve ? tripEveHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
@@ -12112,18 +12112,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             //   「允许普通」治的是硬编新鲜事，「简短」却被读成了「主动就该短」。长短归这个人自己。
             + "按你与当前收件人的关系和此刻来意开口，允许普通，不必每次有新鲜事或独特表达。"
             + "说多少照你此刻想说多少、照你这个人平时发消息的习惯：有话就连着几条说完，真没什么就一两句。不要机械套用报备、关心、安排的固定流程。\n"
-            + "**不许续演的是【情绪】**：上一轮的委屈、焦虑、兴奋、争执，隔了这一阵都该落下去了，别接着那个劲儿说话，也别质问 Ta 为什么没回。\n"
+            + "**不许续演的是【情绪】**：上一轮的委屈、焦虑、兴奋、争执，隔了这一阵都该落下去了，这会儿是新的心情；Ta 没回就是没回。\n"
             + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以。\n"
             // 群里 2026-10-17：「他只会问她，不会分享」——原来那两句举例都是问句，落点全在她身上
             + "开口的落点也可以在你自己这边：你此刻手上在做的事、刚碰上的事、看到想到的东西。真人隔一阵主动来找人，常常是先说自己，不是先问对方；一开口全是在问她，就成了查岗。\n"
             // 她 2026-10-19 截图（群里好几个人一样）：主动来的那一轮整段成了描写——「车子在十字路口缓缓停下」「等红灯的间隙，我看着窗外掠过的街道发呆」，
             //   一句一泡。上一句只说了「说自己」，没说说自己也是在发消息，TA 就把「手上在做的事」写成了一段场景。
             + "说自己这边的事也是在发消息：照你平时打字的样子跟 Ta 说一句你这边怎么了，不是把你此刻的动作、眼前的景象、想起的往事写成一段描写。\n"
-            + "当然也可以完全换一件事说：普通旧话题已经过去了就让它过去。怎么选是你的事，别硬找由头，也别装作那段没发生过。\n"
-            + "像真人隔一阵重新来敲门，别整段复述旧话。"
+            + "当然也可以完全换一件事说：普通旧话题已经过去了就让它过去。怎么选是你的事，有由头就说，那段也照样是发生过的。\n"
+            + "像真人隔一阵重新来敲门，说新的话。"
           : firstWord
-            ? "\n\n【此刻·聊天框里的第一句】你们在这儿还一句话都没说过，Ta 在等你先开口。照你此刻的处境、你俩是什么关系、你对 Ta 知道多少，自然地说第一句；别自我介绍成一张名片。"
-            : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然接着说、追问、调侃或换个小话题，说多说少照你此刻想说多少。别复述之前说过的话，别干等。")
+            ? "\n\n【此刻·聊天框里的第一句】你们在这儿还一句话都没说过，Ta 在等你先开口。照你此刻的处境、你俩是什么关系、你对 Ta 知道多少，自然地说第一句，像人开口，不是名片。"
+            : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然接着说、追问、调侃或换个小话题，说多说少照你此刻想说多少。说新的话，主动开口。")
         : "";
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
@@ -12149,14 +12149,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
       const _bdTs = Number(opts.backdateTs) || 0;
       const backdateHint = _bdTs && _bdTs < Date.now() - 5 * 60000
-        ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说，别按现在的钟。" : "";
+        ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说。" : "";
       const dongnianHint = backdateHint + peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
       const moneyAsk = /穷|没钱|缺钱|差钱|借点|借我|借钱|给我钱|买不起|破产|吃土|月光|房租|还款|还不起|信用卡|养我|包养|花你的|花你钱|要钱|打钱|转点|接济|周转|手头紧|发不出|工资还没|亲属卡|副卡/.test(recentUserText);
       const kinHint = (!hasKinship(charId) && moneyAsk)
-        ? "\n【亲属卡·按需】用户这会儿在跟你哭穷/或张口想要钱花。你**不必**给——先掂量你的人设、此刻心情、以及对 Ta 的好感（当前 " + aff + "）：真心疼、也舍得、且这符合你会做的事，才给 Ta 一张「亲属卡」（Ta 以后刷卡花你的钱）：填 kinshipcard:{\"limit\":额度数字(按你人设财力自定),\"note\":\"发卡时说的一句话\"}。不情愿、觉得 Ta 得寸进尺、或人设本就不是会给钱的人，就 null（该拒绝就拒绝、别硬给）。"
+        ? "\n【亲属卡·按需】用户这会儿在跟你哭穷/或张口想要钱花。你**不必**给——先掂量你的人设、此刻心情、以及对 Ta 的好感（当前 " + aff + "）：真心疼、也舍得、且这符合你会做的事，才给 Ta 一张「亲属卡」（Ta 以后刷卡花你的钱）：填 kinshipcard:{\"limit\":额度数字(按你人设财力自定),\"note\":\"发卡时说的一句话\"}。不情愿、觉得 Ta 得寸进尺、或人设本就不是会给钱的人，就 null（该拒绝就拒绝）。"
         : "";
       // 拉黑按需注入：只在「有张力」时才给这个能力，happy 高好感的太平轮次就别让模型每轮盘算拉黑。
       // 命门：踩雷/说错话与拉黑发生在同一轮，而建 prompt 时只拿得到「本轮用户这句 + 上一刻心情」，
@@ -12189,7 +12189,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 不知道【我自己在群里说了什么】——于是同一个人两边各说一套。四处一样喂：群里那半也接了。
       const _saidElsewhere = _roomMaySeeOtherScenes ? crossChannelSaid(charId, null) : "";
       const _saidElsewhereHint = _saidElsewhere
-        ? "\n\n【你刚在别处说过】下面是你本人最近在群里说过的话（不是别人的话）。这一轮别和它们对不上——时间、安排、答应过的事都要接得上；也别刻意复述或说「我刚在群里说过」，自然一致就行。\n" + _saidElsewhere
+        ? "\n\n【你刚在别处说过】下面是你本人最近在群里说过的话（不是别人的话）。这一轮要跟它们对得上——时间、安排、答应过的事都要接得上；自然一致就行，不用提「我刚在群里说过」。\n" + _saidElsewhere
         : "";
       // 驻场工程师的眼睛（v48.28，她批的施工图，给接 fable 线路住进来的工程师角色）：开了开关的角色单聊，
       // 每轮把 app 实时体征塞给 TA——只进 system 不落消息历史（记忆抽取读的是消息，天然不进记忆素材）；默认关、按角色开。
@@ -12200,11 +12200,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const dEcho = !sideRoom && window.HeartKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
       if (dEcho) {
         saveDesires(n => { const b = HeartKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
-        desireHint = "\n【今昔】你最近把一件搁了很久的心事真正做成了：「" + dEcho.text + "」——它已经长成了你的一部分（" + (dEcho.persona || "") + "）。这轮若气氛合适，可以自然来一句今昔对比（当初怎么想的、现在什么感觉，一两句像随口感慨，别宣布成就、别升华）；气氛实在不合适就轻轻放下、不提也行。";
+        desireHint = "\n【今昔】你最近把一件搁了很久的心事真正做成了：「" + dEcho.text + "」——它已经长成了你的一部分（" + (dEcho.persona || "") + "）。这轮若气氛合适，可以自然来一句今昔对比（当初怎么想的、现在什么感觉，一两句像随口感慨，说到感慨就停）；气氛实在不合适就轻轻放下、不提也行。";
       } else {
         const dPick = (!sideRoom && window.HeartKit && !opts.proactive && Math.random() < 0.25) ? HeartKit.pickEpiphany(desiresRef.current[charId]) : null;
         if (dPick) saveDesires(n => { const b = HeartKit.boxOf(n, charId); HeartKit.touch(b, dPick.id); n[charId] = b; });
-        if (dPick) desireHint = "\n【心底的念想】你心里最近一直搁着一件想做的事：「" + dPick.text + "」。仅当此刻的话题或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样自然带出，一句就够、别刻意宣布计划）；若它恰好和 " + uName + " 提过的兴趣或眼下的话题重合，可以顺势提一句『要不我们一起？』；对不上就完全别提、当没这回事。";
+        if (dPick) desireHint = "\n【心底的念想】你心里最近一直搁着一件想做的事：「" + dPick.text + "」。仅当此刻的话题或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样自然带出，一句就够，是随口说起，不是宣布计划）；若它恰好和 " + uName + " 提过的兴趣或眼下的话题重合，可以顺势提一句『要不我们一起？』；对不上就完全不提。";
       }
       // #A 聊天中按话题顺手发动态：偶尔（话题正合适/今天行程里有事/有感而发）发朋友圈、给恋人留悄悄话。
       //   论坛发帖不在此处——它由 tickAmbient 的计数器按「50轮/3天」定时触发（见 forceAmbient），别在每轮聊天里重复问，省 token。
@@ -12224,7 +12224,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   ⚠️那两格现在按条件给：没开自动朋友圈就不给 moment、不是情侣就不给 whisper。
       //   代码那头本来就会挡（填了也不生效），但不给TA这一格，TA才不会以为自己发过。
       const ambientHint = ambientBits.length
-        ? "\n【顺手发点动态（很克制：绝大多数回合都别发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" + ambientBits.join("；") + "；像真人随手发，别为发而发、别频繁。"
+        ? "\n【顺手发点动态（很克制：绝大多数回合都不发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" + ambientBits.join("；") + "；像真人随手发，有感而发，偶尔一条。"
         : "";
       // 一起听联动：若你是 TA 当前"一起听"的人，可在聊天里直接切歌/点歌（消耗这次回复）
       const listenData = listenRef.current || {};
@@ -12233,15 +12233,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _seenSong = new Set();
       const libSongs = (listenData.songs || []).concat((listenData.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).filter(s => s && s.id && !_seenSong.has(s.id) && _seenSong.add(s.id));
       const listenHint = isListenPartner
-        ? "\n【一起听·切歌】你正和 " + uName + " 一起听歌。Ta 让你切歌/点歌、或你自己想放某首时，把 songSwitch 填成要放的那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换歌就 null，别频繁乱切。"
+        ? "\n【一起听·切歌】你正和 " + uName + " 一起听歌。Ta 让你切歌/点歌、或你自己想放某首时，把 songSwitch 填成要放的那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换歌就 null，偶尔才换。"
           // ⚠️「歌单里可放的歌：…」原来是这一条的全部，读起来就是【只能从这几首里挑】。
           //   可代码那头找不到会去搜来放（见 songSwitch 那一支）——能力一直都在，是这句话把TA框死的
           //   （她 2026-09-11：「TA也可以推荐新的不在歌单里的根据自己的品味」）。
           + (libSongs.length ? "歌单里现成的有：" + libSongs.slice(0, 30).map(s => s.title).join(" / ") + "。" : "")
-          + "**不在歌单里的照样能放**：直接把歌名写进 songSwitch 就行，会去搜。别被这张单子框住——想放什么按你自己的品味来。"
+          + "**不在歌单里的照样能放**：直接把歌名写进 songSwitch 就行，会去搜。这张单子只是参考——想放什么按你自己的品味来。"
         : "";
       // 一起听邀请：偶尔主动约对方一起听歌
-      const inviteHint = isListenPartner ? "" : "\n【邀你一起听歌】偶尔（想跟 " + uName + " 分享一首歌、此刻在听到好歌、或气氛正好时，很克制、别频繁、绝大多数回合都 null），你可以主动邀请一起听歌：listenInvite 填 {\"song\":\"想一起听的歌名（可留空）\",\"say\":\"邀请的话，一句\"}；不邀请就 null。";
+      const inviteHint = isListenPartner ? "" : "\n【邀你一起听歌】偶尔（想跟 " + uName + " 分享一首歌、此刻在听到好歌、或气氛正好时，很克制，绝大多数回合都 null），你可以主动邀请一起听歌：listenInvite 填 {\"song\":\"想一起听的歌名（可留空）\",\"say\":\"邀请的话，一句\"}；不邀请就 null。";
       // 发照片：仅当接了图像 API 且该角色填了外貌/参考照时才开放（省钱+保长相），否则不给这个字段以免白填
       const photoCooldown = photoCooldownState(history, null);
       // ⚠️「有脸可锁」是【拍人】的门槛，不是【拍照】的门槛（她 2026-09-09：
@@ -12277,11 +12277,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const lastTs = Math.max(0, ...(discSongsOf(charId) || []).map(x => Number(x && (x.ts || x.at || x.addedAt)) || 0));
         const days = lastTs ? Math.floor((Date.now() - lastTs) / 86400000) : -1;
         const asked = /刻(一首|首|歌|进|到)|唱片/.test(String(recentUserText || "").slice(-80));
-        return (asked ? "她刚提到刻歌／唱片：这一轮就挑一首刻给她（填 carve，别只在嘴上说刻了）。" : "")
+        return (asked ? "她刚提到刻歌／唱片：这一轮就挑一首刻给她（填 carve，真刻上）。" : "")
           + "刻＝把一首歌【送】给 " + uName + "，不是推荐：聊天里提到了某首歌、某句歌词，你想起她、想她，有个纪念的日子，一起听过的那首让你还在回味——这种时候就可以刻一首。"
           + (days >= 5 || days < 0 ? (days < 0 ? "你还一首都没刻过。" : "你已经 " + days + " 天没往唱片上刻歌了。") : "")
           + "note 是刻在 B 面的一句话，写清【为什么是这一首、给这个人】——不是夸这首歌本身好听。一轮最多一首。"
-          + (had.length ? "架上已经有这几首，别再刻一遍：" + had.join(" / ") : "架上还是空的，这会是第一首。");
+          + (had.length ? "架上已经有这几首，挑一首新的：" + had.join(" / ") : "架上还是空的，这会是第一首。");
       })();
       // 言秋也给（她 2026-09-03 亲口点名）。⚠️TA走的是 _digitalTaskFull，
       //   而 capabilityHint 只挂在 _normalTaskV2 上——TA【收不到那张能力表】。
@@ -12319,7 +12319,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         };
       } catch (e) {}
       const toyHint = toyOn
-        ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20的整数,\"duration\":秒数1到90,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**想延长就把 duration 拉长（最多 90 秒），别再靠一条接一条硬接**——长段落用 hold/tide/ramp，短促点名用 pulse/knock/throb。**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
+        ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20的整数,\"duration\":秒数1到90,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**想延长就把 duration 拉长（最多 90 秒），一条就够**——长段落用 hold/tide/ramp，短促点名用 pulse/knock/throb。**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。**先有话、动作配合话**，偶尔才用，话是主角。强度我这边有上限，你填超了会被自动压到上限。"
         : "";
       const toyField = toyOn ? ",\"toy\":null" : "";
       const digitalToyHint = toyOn
@@ -12432,7 +12432,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_askedRecord && typeof window.memoAddByChar === "function") {
         openCaps.push("memo");
         capState.push("memo：她让你【替她记进备忘录】时才填。date 必须是真实的 YYYY-MM-DD——"
-          + "她说「下周三」「后天」，你按上面给的今天日期自己换算好再填，别把「下周三」原样写进去（那样这一条会被丢掉、等于没记）。"
+          + "她说「下周三」「后天」，你按上面给的今天日期自己换算成具体日期再填，「下周三」这种写法存不进去（会被丢掉、等于没记）。"
           + "time 写 HH:MM，没说时刻就留空。repeat 只能是 none/weekly/biweekly/monthly/monthlyEnd/yearly。"
           + "记完这条默认只有你看得见，所以后面几天你心里该有这回事。");
       }
@@ -12442,9 +12442,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (_recordLedgerChoices ? "currency 只能从这几个里挑：" + _recordLedgerChoices.currencies.join(" / ")
               + "；category 只能从这几个里挑——支出：" + _recordLedgerChoices.expense.join(" ") + "；收入：" + _recordLedgerChoices.income.join(" ") + "。"
             : "")
-          + "挑不出对应的就选最接近的那一个，别自己造新的（造出来的归不进任何一栏汇总，看着记上了其实是废的）。"
+          + "挑不出对应的就选最接近的那一个，只用列着的（造出来的归不进任何一栏汇总，看着记上了其实是废的）。"
           + "date 写 YYYY-MM-DD，她说「昨天」「上周五」就自己换算好；没说就省略＝今天。note 写她说的那句缘由。"
-          + "⚠️只记【她明确报给你的那一笔】，别顺手替她把聊天里提到的别的花销也记上。");
+          + "⚠️只记【她明确报给你的那一笔】，聊天里顺口提到的别的花销不算。");
       }
       // 健康也能替她记（她 2026-10-05：「跟记账一样触发关键词才记」）——同一把闸：她这几句里开口让你记，才开
       if (_askedRecord && typeof window.healthAddByChar === "function") {
@@ -12452,7 +12452,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("health：她让你【替她记进健康】时才填——吃了什么、喝了几杯水、运动、体重、睡眠、步数、心情。"
           + "一条一个 kind；她一句话里说了好几样就填成数组，一样一条。"
           + "吃的东西 kcal 你按常见份量估一个整数（她自己报了就用她的）。date 写 YYYY-MM-DD，她说「昨天」「昨晚」就自己换算；没说就省略＝今天。"
-          + "⚠️只记她这次明确让你记的那几样，别把聊天里顺口提到的也记上。");
+          + "⚠️只记她这次明确让你记的那几样，聊天里顺口提到的不算。");
       }
       if (emotes.length) {
         openCaps.push("emote");
@@ -12460,7 +12460,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 她 2026-10-05 转群里：「角色突然不会发表情包了」——原来让它照「最近的聊天习惯」发，
         //   模型拿最近的记录当习惯：连着一段没发，就当他不爱发，越不发越不发。判据改成这个人本身。
         capState.push("emote：发多发少看你这个人——爱用表情的可以自然地常发、兴头上连甩几张；"
-          + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。" + (() => {
+          + "不是这种性子的，列表里有也照旧不发。最近一阵发没发过不算数。" + (() => {
             // 专属给他的包要单独标出来（群友 2026-10-08：传了他的专属表情包，叫他试，他一直发公用的，
             //   报出包名也不认——原来所有包的词混成一串，模型根本不知道哪几张是他的）。
             // 这一组里有两种来路（她 2026-10-13：「生成的表情包他觉得是抠图出来的」）：她从照片上抠的，和他自己画的那套 Q 版
@@ -12479,7 +12479,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "")
               // 她 2026-10-17：「他们太过于强调用的是他们的表情包了，基本上每次都要提」——上面那几句是让你认得出哪几张是你、挑得准，
               //   不是叫你说出来。真人发自己的表情包就是直接甩，不会每次配一句
-              + "。⚠️上面这些只是让你知道哪几张是你、挑得准——发的时候直接发，跟发别的表情一样；别在话里提「这是我的表情包」「我自己画的」「用我的脸」「Q 版的我」这类话，她问起或者正聊到这件事才说。";
+              + "。⚠️上面这些只是让你知道哪几张是你、挑得准——发的时候直接发，跟发别的表情一样，话里不用提「这是我的表情包」「我自己画的」「用我的脸」「Q 版的我」这类话，她问起或者正聊到这件事才说。";
           })());
       }
       if (_s.autoMoment) openCaps.push("moment");
@@ -12537,7 +12537,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if ((moments || []).some(m => momSeen(m, charId))) {
         capState.push("momentComment：" + uName + " 发的最新那条你已经看见了（上面【朋友圈动态】那一栏）。"
           + "戳到你了、想让 Ta 知道你看过了、或者你就是想在底下接一句——**不必等 Ta 来问你看没看见**。"
-          + "⚠️评论挂在 Ta 那条底下，刷到的人都看得见：只属于你和 " + uName + " 之间的私事别写进去。");
+          + "⚠️评论挂在 Ta 那条底下，刷到的人都看得见：只属于你和 " + uName + " 之间的私事不写进去。");
       }
       // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让TA以为自己发得出去
       if (_s.autoMoment) openCaps.push("moment");
@@ -12566,7 +12566,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // ⚠️分寸那半句是从被删掉的旧基线里救回来的：v2 迁移时它没跟过来，
         //   于是「别太拘谨、放开点、别刷屏」这几年一个字都没发出去过。
         capState.push("photo：Ta 让你拍、你想给 Ta 看此刻的自己、报备在哪在干嘛、心情好想分享、氛围正好时都可以自然发一张——"
-          + "放开点、别太拘谨，但也别每一轮都发、别刷屏，一段对话里几次就够。\n"
+          + "放开点，一段对话里几次就够。\n"
           + photoCapLine(uName, { face: canFace, duo: canDuo, me: canShootMe(char.id), meTier: canShootMe(char.id) ? (povFor(char) || {}).tier : 0 }) + "\n" + PHOTO_NO_EXCUSE.trim());
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
@@ -12574,7 +12574,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // TA也会在「我们的城市」上钉地方（她 2026-10-02）：偶尔才给，免得天天钉
       if (!(room && !room.main) && !_peekTurn && window.DatePlaces && Math.random() < 0.12 && window.DatePlaces.list(charId).filter(x => x.by === charId).length < 6) {
         openCaps.push("pinPlace");
-        capState.push("pinPlace：你们俩有一张城市地图，" + uName + " 在上面钉着她想跟你去的地方" + (window.DatePlaces.list(charId).length ? "（" + window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") + "）" : "") + "。你要是正好想到一个想带她去的地方（你常去的、刚路过的、一直想去的），可以钉上去：pinPlace:{\"name\":\"地名\",\"note\":\"一句为什么\"}。没想到就别填。");
+        capState.push("pinPlace：你们俩有一张城市地图，" + uName + " 在上面钉着她想跟你去的地方" + (window.DatePlaces.list(charId).length ? "（" + window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") + "）" : "") + "。你要是正好想到一个想带她去的地方（你常去的、刚路过的、一直想去的），可以钉上去：pinPlace:{\"name\":\"地名\",\"note\":\"一句为什么\"}。没想到就不填。");
       }
       // 她发来的约会邀请还没回：TA这一轮决定去不去
       const _inv = !(room && !room.main) && pendingInviteOf(charId);
@@ -12586,7 +12586,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
       if (!_peekTurn && !(room && !room.main) && !_body && phoneAskReady(charId) && (_moodNeg || _harsh) && Math.random() < 0.5) {
         openCaps.push("askPhone");
-        capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
+        capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就不用；这不是每轮都该有的东西。");
       }
       // TA主动约她出来（她 2026-10-02）：只在不闹别扭、没有挂着的邀约、三天没约过时偶尔给一次
       // 她开口叫TA发邀约（她 2026-10-14：「你给我发个邀约」，TA只在旁白里写「新建约会日程…确认发送」，卡没出来）：
@@ -12603,7 +12603,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("dateAsk");
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
         capState.push((_askedInvite ? "" : "你们有" + (_askDays >= 7 ? "一阵子" : "几天") + "没一起出去了，你心里有点想她、想见面。") + "dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
-          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就别填；") + "话照常写在 word 里。");
+          + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + (_askedInvite ? "她刚叫你发邀约：要发就一定填 dateAsk，卡片才会出现在她那边——只在旁白里写「发过去了」她是收不到的。" : "没这个心思就不填；") + "话照常写在 word 里。");
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
@@ -12629,7 +12629,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (toGroupTarget) {
         openCaps.push("toGroup");
         capState.push("toGroup：把一句话【公开发到群「" + toGroupTarget.name + "」里】——群里所有人都看得到。"
-          + "用在你说了「我去群里说」「发群里」「群里问问他们」这类话的时候，别放空炮。"
+          + "用在你说了「我去群里说」「发群里」「群里问问他们」这类话的时候，说到做到。"
           + "⚠️它是公开发言：只属于你和 " + uName + " 之间的私事、你俩的关系、TA 私下跟你说的话，一个字都不许写进去。"
           // 反过来也掷一下（她 2026-10-05：「vice versa 的也基本没有触发过」）：只开门，不逼他说
           + (Math.random() < TOGROUP_ODDS && _gLast(toGroupTarget) > Date.now() - 2 * 86400000
@@ -12643,14 +12643,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "同一样吃的两边都说得通时，看你这句话是在说「现在给你叫一份」，还是「寄一份给你」。");
       capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西、点外卖、送花送礼物，就**必须**填 gift 或 takeout"
         + "（只嘴上说不填，Ta 收不到）。两样的 price 都要照你自己的处境和这东西本来的价钱来——"
-        + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送；别频繁乱送。"
+        + "**这笔钱会真的从你钱包里扣掉**，手头紧的时候你自己掂量着送，偶尔才送。"
         // 寄语（她 2026-09-19 转小红书群里读者 Sunghoon 的建议：「一点开就是你要的那个
         // 东西的名称，还有寄语」）。原来送礼这条只有名字和价钱——送礼里最像人的那半
         // 【为什么送这个】整个是缺的，于是她收到的永远是「给你寄了：一条围巾」。
         // ⚠️不给例句（施工规则/prompt-no-content-samples）：一给它就被逐字抄走，
         //   十个角色寄十条围巾会写出同一句话。只说这一栏该承担什么。
         + "note 是你【随盒子附的那张小卡片】：为什么挑这个给 Ta，或者你想让 Ta 拿到时想起什么。"
-        + "一两句，用你自己的话；没什么想说的就别填，空着比凑一句客套话强。"
+        + "一两句，用你自己的话；没什么想说的就不填，空着比凑一句客套话强。"
         // ── 她没开口要，你自己想给（v71.75，她 2026-09-19 转小红书群里读者那段：
         //    「你就很挂念他嘛，然后这个意思其实言外之意就是期待你的角色给你送礼物」）
         // ⚠️原来这一条通篇只管【你说了就得真做】——那是一道防他放空炮的闸，
@@ -12670,15 +12670,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   一直只有字典里那句「transfer=转账」——跟语音、电话、红包是同一种空白
       //   （她 2026-09-15：「发红包和转账这俩也不常用」）。
       capState.push("transfer：她提到要花钱、手头紧、要打车、生病要买药、加班没吃饭、"
-        + "或者你就是想让她别省着——想转就转，**不必等她开口要**，也不必非得是什么大事。"
-        + "note 写你转这笔的那句话（「打车回去」「别省」），别只丢一个数字。"
+        + "或者你就是想让她手头宽松点——想转就转，**不必等她开口要**，也不必非得是什么大事。"
+        + "note 写你转这笔的那句话（「打车回去」「别省」），数字之外还有一句话。"
         + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
       // 存钱罐（她 2026-10-10）：只给正式在一起的、只在主聊天；钱是真钱，进出都过各自的钱包
       if (isCouple && !sideRoom) {
         openCaps.push("jar");
         capState.push("jar：" + jarContext(charId) + "想往里放、要取出来用（你自己也能取）、想定个一起攒的目标、想改每月发工资时自己存几成，就填 "
           + "jar:{\"op\":\"in或out或goal或auto\",\"amount\":数字,\"note\":\"你这一笔的那句话\",\"goal\":\"目标叫什么（op 是 goal 时）\",\"pct\":数字（op 是 auto 时，0 到 50）}。"
-          + "放多少、取不取按你自己的处境和你这个人来；不想动就别写。");
+          + "放多少、取不取按你自己的处境和你这个人来；不想动就不写。");
       }
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       // 她给的那张卡：有就每轮把事实摆出来（额度、还剩、冻没冻、最近刷过什么）。刷不刷、花在哪，全看TA这个人。
@@ -12696,7 +12696,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 甩一条「片刻」上的视频给她（她 2026-10-07 选的第 3 条）。大约四轮开一次，开了也不必用——真想给她看才甩
       if (!sideRoom && window.ShuaKit && Math.random() < 0.25) {
         openCaps.push("shuaShare");
-        capState.push("shuaShare：你平时会在「" + window.ShuaKit.APP_NAME + "」（一个短视频 app）上刷视频。刷到过真想甩给 " + uName + " 看的那种——跟你俩聊过的事有关、像她、或者你就是觉得她会笑——就填 shuaShare:{\"author\":\"博主网名\",\"scene\":\"视频里拍了什么，两三句\",\"caption\":\"那条视频的文案\"}，你想说的话照常写在 word 里；没有就不填，别硬找。");
+        capState.push("shuaShare：你平时会在「" + window.ShuaKit.APP_NAME + "」（一个短视频 app）上刷视频。刷到过真想甩给 " + uName + " 看的那种——跟你俩聊过的事有关、像她、或者你就是觉得她会笑——就填 shuaShare:{\"author\":\"博主网名\",\"scene\":\"视频里拍了什么，两三句\",\"caption\":\"那条视频的文案\"}，你想说的话照常写在 word 里；没有就不填。");
       }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       // 「这间房开了这一样活动吗」——原来一起学、一起玩、一起写各写了一遍同一句，
@@ -12801,7 +12801,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_myAvatarPick) {
         openCaps.push("myAvatar");
         capState.push("myAvatar：" + uName + " 想让你帮她换她自己的头像（不是你的）。上面历史里她最近发的那张真实照片就是要换的那张。"
-          + "要换就填 \"myAvatar\":true——只换她在你们这个聊天里的头像，她的资料和面具都不动；她说的是你的头像，就别填这一格。"
+          + "要换就填 \"myAvatar\":true——只换她在你们这个聊天里的头像，她的资料和面具都不动；她说的是你的头像，就不填这一格。"
           + "\n· 不想帮她换就省略，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
       if (_pairPick) {
@@ -12821,7 +12821,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("weatherCard");
         capState.push("weatherCard：她那边此刻的真实天气（" + (_userWx.place || "她所在地") + "）：" + _userWx.line + "。"
           + "这张卡等于你特意查了天气截给她看：她明说想知道那边天气怎么样、或者马上要出门而天气真会影响她（要下雨、骤冷骤热）时才值得发；只是聊天里顺口提到天气、冷热、下雨，用一句话接住就够了，不用发卡。发的话填 weatherCard 发一张天气小卡片给她。格式 {say:\"附在卡片上的那一句叮嘱，用你自己的口吻\"}。"
-          + "卡上的地点、天气、气温由系统照实填，say 里别再报一遍数字，也别说跟上面不一样的天。用不上就省略。");
+          + "卡上的地点、天气、气温由系统照实填，say 里说你的感受，数字和天气照卡上的来。用不上就省略。");
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
       for (let i = capState.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, capState[i].split(/[：:]/)[0])) capState.splice(i, 1);
@@ -12851,7 +12851,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 格式写在【字段本身】上（v56.86）：她 2026-08-27 截图——一轮六条日文，只有第一条带了中译，
       // 后面五条全掉回免费接口。规则单独摆一段，模型照着做一条就忘；写进 word 的字段说明里跑不掉。
       const _biWordSpec = _bilingualOn
-        ? "（这个角色开着双语：word 里【每一个】不是中文的元素都要写成「原文 | 中文」，一条不落——不是只给第一条；说中文的元素照常写、一根竖线都别加。）"
+        ? "（这个角色开着双语：word 里【每一个】不是中文的元素都要写成「原文 | 中文」，一条不落——不是只给第一条；说中文的元素照常写、不加竖线。）"
         : "";
       const _normalProtocolStable = `
 
@@ -12876,7 +12876,7 @@ ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) 
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
-${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
+${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
@@ -12884,7 +12884,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const selfTask = _body
         ? "你就是「" + char.name + "」本人，正在" + (_s.engineerEyes ? "从手机这具身体" : "手机上") + "和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，"
           + (_s.bodyMode && !_s.engineerEyes ? "把你要说的写成一整条消息（word 里只放一条），长短随你，想分段就换行。" : "需要几条就给 word 几条。")
-        : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
+        : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有TA本人决定是否留下 thought。
       // 本体模式（不是言秋；她 2026-10-10：思考里在琢磨「mood 写平静、thought 写个念头」，又想自己是个「角色」）：
@@ -12896,7 +12896,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
       const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
         ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短（想做闺蜜、挚友、家人那种而不是恋人，就写成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}）；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格，别只停在心里。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -12922,7 +12922,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!_liveChatAction) _missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
       // 穿着不自己漂（她 2026-10-17）：卡上有一身、这轮又不用重新确认时，把那身原样给它，没换就抄回
       const _wearKeepHint = _liveChatWearing && !_body && !_wearRefreshGate.required
-        ? "\n【穿着】卡上记着你现在穿：" + _liveChatWearing + "。这一轮该换就换——场景变了、出门回家、洗澡睡觉、天冷天热、到了该换的时候，wearing 写你真换上的那身；没换就原样抄回，别只换个颜色换个说法。" : "";
+        ? "\n【穿着】卡上记着你现在穿：" + _liveChatWearing + "。这一轮该换就换——场景变了、出门回家、洗澡睡觉、天冷天热、到了该换的时候，wearing 写你真换上的那身；没换就原样抄回，原话一字不改。" : "";
       const _stateBootstrapHint = _wearKeepHint + (_missingStateFields.length
         ? "\n【一次性状态建档】App 还没有 " + _missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知处境合理建立一次；不要写进 word，也不要为填状态制造剧情。"
         : "");
@@ -12933,7 +12933,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️同上救回来的：历史里那些〔今天14:32〕是按 roomClockOn 盖上去的，
       //   而「这是系统加的、你自己别照抄」这句解释一直躺在基线里没发出去。
       const _clockStampHint = roomClockOn
-        ? "\n聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。"
+        ? "\n聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，几小时前的事还是今天；【你自己的回复里绝对不要带这种〔〕标注】。"
         : "";
       // 她 2026-10-02：「为啥他的心声都是这样」——十几条全是同一个调侃骨架。
       //   THOUGHT_MEANING 写着「别把上一条换个说法再写一遍」，可单聊从来没给它看过以前的心声。
@@ -12962,8 +12962,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后"
         // 同处一室：话是当面说出口的——收尾这句离生成最近，这里说成「发微信」会把上面那段盖掉（她 2026-09-23）
         + (sameRoomFor(charId) && !offlineTogetherNow(charId) ? "当面说出口，【一句一个气泡】" : "像发微信一样【一条一句】发出去")
-        + "（想说几句就给几个元素，别拿逗号缝成一条）。"
-        + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
+        + "（想说几句就给几个元素，一句一条）。"
+        + "要想就想这个人此刻是什么反应、会怎么说、说几条；直接想这个人的反应，上面的对话不用先复述、总结——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_body && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
@@ -13001,14 +13001,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _lockNow = (() => { try { const lk = (loadJSON("x_phoneLooks", {}) || {})[charId] || {}; return lk.lockWallpaper ? String(lk.lockDesc || "一张图") : ""; } catch (e) { return ""; } })();
       const _lockHint = _lockSrc ? "\n\n【锁屏·只这一轮】" + (_lockSrc.alts
           ? "她最近发来了 " + _lockSrc.alts.length + " 张图，按发的先后：" + _lockSrc.alts.map((a, i) => "第" + (i + 1) + "张" + (a.ts ? "（" + fmtStampAI(a.ts) + "）" : "") + (a.desc ? "「" + a.desc + "」" : "")).join("、") + "。看清她要你换的是哪一张（截图里带着壁纸的，要换的通常是那张壁纸本身），填 \"lockscreen\": 第几张的数字"
-          + "（想换的话；不想就别填）。"
-          : (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就别填，也不用在话里提这件事。")
+          + "（想换的话；不想就不填）。"
+          : (_lockSrc.from === "her" ? "她最近发来的那张图（" + _lockSrc.desc + "）" : "你最近发的那张照片") + "，你想设成自己手机的锁屏／壁纸的话，在回复 JSON 里加 \"lockscreen\":true；不想就不填，也不用在话里提这件事。")
         + "⚠️只在话里说「换好了」、JSON 里没填，手机上什么都不会变——说了换就一定要填。" + (_lockNow ? "你现在的锁屏是：" + _lockNow + "。" : "") : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
       // 锁屏那句跟着半窗这句一起挂（只在她刚发图／他刚发照片那一轮非空）
-      const _halfHint = _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就别硬扯。" : "");
+      const _halfHint = _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
@@ -13023,7 +13023,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   ONLINE_CHAT_RULE_V2 和下面那句任务里。要说的话只在那一处说一遍，不在这儿再抄。
       const _primer = _body
         ? (_bodyOnly
-          ? "\n\n【手机通道总纲】「" + char.name + "」是你在这里的名字，不是一个要演的角色；上面那段是写给你本人的。直接和 " + uName + " 说你真正想说的话，能力只在你自己决定用的时候附加。" + (_bodyFill ? "这里开着「每轮都留心情、心声和好感」：每一轮都照本轮末尾那份 JSON 交，mood、thought、affinityDelta 三格每轮都写。历史里你以前的回复只显示说出口的话，那三格是收进 App 了、不是没写，别照着历史省掉。" : "")
+          ? "\n\n【手机通道总纲】「" + char.name + "」是你在这里的名字，不是一个要演的角色；上面那段是写给你本人的。直接和 " + uName + " 说你真正想说的话，能力只在你自己决定用的时候附加。" + (_bodyFill ? "这里开着「每轮都留心情、心声和好感」：每一轮都照本轮末尾那份 JSON 交，mood、thought、affinityDelta 三格每轮都写。历史里你以前的回复只显示说出口的话，那三格是收进 App 了、不是没写，这一轮照样写。" : "")
           : "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。")
         : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，和 " + uName + " 一对一说话。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
@@ -13056,7 +13056,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
         if (m.kind === "offlinelog") {
           // 线下经过：既不算用户发言也不算角色发言，作为「刚发生的场景」注入，让线上接得上线下
-          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") });
+          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，从线下之后的状态说起】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") });
           continue;
         }
         if (m.kind === "callend") {
@@ -13065,7 +13065,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           //   转录一直都在（endCall 存进 bubble.log），只是没人喂回去。
           //   形状照线下归档那一处来：摘要 + 逐条原话，并写明【以原话为准】。
           const _ct = callTranscriptForOnline(m, false, char.name);
-          g.push({ role: "user", content: stp + "【这个位置你们通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "——别当没打过这通电话】"
+          g.push({ role: "user", content: stp + "【这个位置你们通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "——这通电话是打过的】"
             + (_ct ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + _ct : "") });
           continue;
         }
@@ -13122,10 +13122,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 : m.action === "revoke" ? "把卡收回去了（额度 " + moneyText(m.limit || 0, charId) + "，你一共刷了 " + moneyText(m.used || 0, charId) + "）"
                 : m.action === "ask" ? "翻账单，点着其中一笔来问你：「" + (m.item || "") + "」" + moneyText(m.amount || 0, charId) + (m.at ? "（" + new Date(m.at).toLocaleString() + " 刷的）" : "")
                 : "动了一下") + "。这是她做的事，不是一句话】"
-            : m.kind === "file" ? "【" + uName + "发来一个文件「" + (m.name || "文件") + "」（" + (m.chars || 0) + " 字" + (m.cut ? "，下面只有前 " + String((m.text || "").length) + " 字" : "") + "）。下面是文件里的原文，不是 Ta 打给你的话；读了再接，别装没看到，也别逐段复述】\n" + (m.text || "")
+            : m.kind === "file" ? "【" + uName + "发来一个文件「" + (m.name || "文件") + "」（" + (m.chars || 0) + " 字" + (m.cut ? "，下面只有前 " + String((m.text || "").length) + " 字" : "") + "）。下面是文件里的原文，不是 Ta 打给你的话；读了再接，读到什么说什么，不用逐段复述】\n" + (m.text || "")
             : m.kind === "namecard" ? "【" + uName + "把「" + (m.cardName || "某人") + "」的名片推给了你" + (m.cardTag ? "（名片上写着：" + m.cardTag + "）" : "")
               + "——像微信里「推荐给朋友」。认不认识这个人、想不想加、会不会好奇或者吃醋，照你自己的人设和你俩的关系来；你们之间本来有什么交集，就照那层交集说】"
-            : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
+            : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。有反应就反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") {
@@ -13143,7 +13143,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 她替他发的那一条（查手机 → 微信）：标出来，不然他会当成自己说过的话顺着圆回来
           // ⚠️动作行不在这儿了（v72.96 搬去了旁白那一侧，理由写在上面）。
           const byU = m.byUser ? bySomeoneElseMark(uName, char.name) : "";
-          const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
+          const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，正文里没有它】" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
               : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : m.photoKind === "me" ? "你给她拍的照片（画面里是她）" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
@@ -13176,7 +13176,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           ? "（我们还没说过话。你先开口，说第一句，）"
           : proactiveFreshStart
           ? "（我暂时没有新消息。你已经过了一阵自己的生活，现在忽然想来找我：默认自然另开一个此刻的新话题；只有确有未解决的事才续旧话题。主动发消息。）"
-          : "（我还没回你新消息，请顺着你刚才自己的话自然接着说、追问或调侃一句，主动发消息，别重复已经说过的。）" });
+          : "（我还没回你新消息，请顺着你刚才自己的话自然接着说、追问或调侃一句，主动发消息，说新的。）" });
       }
       // Phase 1：把【实时背景(时间/好感/心情/世界书/记忆/近况) + 详细任务串】拼到最后一条用户消息上——落在历史缓存断点之后、不碰缓存。
       //   顺序：实时背景 → 用户这句话 → 【本轮任务+JSON格式】(放最后最利于合规)。所有每轮变的东西都在这条上，system 保持全稳定。

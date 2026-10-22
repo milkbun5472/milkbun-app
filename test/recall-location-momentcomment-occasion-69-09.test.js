@@ -58,7 +58,7 @@ test("评论朋友圈：没有她发的动态就不给这一格", () => {
 test("评论朋友圈带公开围栏：那条底下别人也刷得到", () => {
   const seg = segOf('capState.push("momentComment：', '// 顺手发朋友圈');
   assert.match(seg, /刷到的人都看得见/);
-  assert.match(seg, /只属于你和 " \+ uName \+ " 之间的私事别写进去/);
+  assert.match(seg, /只属于你和 " \+ uName \+ " 之间的私事不写进去/);
 });
 
 test("四处一样喂：差异写着理由，不是忘了", () => {

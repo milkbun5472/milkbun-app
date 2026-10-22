@@ -56,7 +56,7 @@ test("提示词里给判据不给内容示范", () => {
   // 模型会把那句当模板，每次刻的理由都长一个样。
   const w = noComment(app.slice(app.indexOf("const _carveWord = "), app.indexOf("const digitalCarveHint = ")));
   assert.match(w, /不是夸这首歌本身好听/, "没说清 note 要写什么维度");
-  assert.match(w, /别再刻一遍/, "没把架上已经有的发回去，他会刻重复的");
+  assert.match(w, /挑一首新的/, "没把架上已经有的发回去，他会刻重复的");
   assert.doesNotMatch(w, /比如|例如|如「/, "塞了内容示范进去");
 });
 

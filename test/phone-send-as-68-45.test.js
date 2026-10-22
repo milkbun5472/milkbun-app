@@ -215,7 +215,7 @@ test("那一段提示词只摆事实，不列对策", () => {
   const hint = (app.match(/const phoneAsHint = opts\.phoneAs \?[\s\S]*?: "";/) || [""])[0];
   assert.ok(hint, "找不到 phoneAsHint");
   assert.match(hint, /那是 " \+ uName \+ " 拿着你的手机替你发的/);
-  assert.match(hint, /别当没这回事重新起一个话题/);
+  assert.match(hint, /从这件事接着说/);
   assert.match(hint, /跟平时一样由你这个人和这段关系决定/);
   ["装作没事", "将错就错", "当场戳穿", "顺着往下说", "质问"].forEach(w =>
     assert.ok(hint.indexOf(w) < 0, "提示里不许出现对策词（会被搬进心声撞守卫）：" + w));

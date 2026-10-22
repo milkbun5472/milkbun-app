@@ -27,7 +27,7 @@ test("② 歌单外的歌也能推：两处都说清了", () => {
   // 切歌那一条
   const sw = app.slice(app.indexOf("const listenHint = isListenPartner"), app.indexOf("// 一起听邀请"));
   assert.match(sw, /\*\*不在歌单里的照样能放\*\*：直接把歌名写进 songSwitch 就行，会去搜。/);
-  assert.match(sw, /别被这张单子框住——想放什么按你自己的品味来。/);
+  assert.match(sw, /这张单子只是参考——想放什么按你自己的品味来。/);
   // ⚠️只对着【发出去的那几句】断言：注释里那句是病历，连注释一起匹配的话越写清楚越红
   const swCode = sw.split("\n").map(l => l.split("//")[0]).join("\n");
   assert.ok(swCode.indexOf("歌单里可放的歌") < 0, "「可放的歌」那个说法还在——读起来就是只能从这几首里挑");
