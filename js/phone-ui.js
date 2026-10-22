@@ -1295,7 +1295,7 @@ function PeekPhotoMsg({ m }) {
   if (!src) return h("div", { "data-wk": "pcard", "data-label": m.label, style: { width: 210, borderRadius: 6, background: "#fff", padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.5, color: "#171717" } }, m.body || m.label);
   return h("img", { "data-wk": "pphoto", src: src, alt: m.body || "照片", style: { display: "block", maxWidth: 160, maxHeight: 220, borderRadius: 6, objectFit: "cover", background: "#ddd" } });
 }
-function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onTfReplyAs, onShopAs, transferPeers, sendAsWaiting, onRemark }) {
+function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onTfReplyAs, onShopAs, transferPeers, sendAsWaiting, onRemark, onDelFriend }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
@@ -1424,8 +1424,15 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 真实会话才给她这条口子：id 以 actual: 开头的那几条（app.js phoneWechatActual 长出来的），
   // 判据只写在【id 前缀】这一处，落盘那头（phoneSendAs）再照同一条判一次。
   // 群里那一枪跑着的时候，末尾挂三个点。私聊那一条不挂：她自己的回话由她自己说，没人在打字。
-  const asWaiting = !!(th && sendAsWaiting && sendAsWaiting === th.id);
+  // 删掉的好友（她 2026-10-22「做吧」）：名单只存在这台手机的 x_phoneWxDel 里，刷新不会把人放回来
+  const [delTick, bumpDel] = useState(0);
+  const delSet = new Set(((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []));   // delTick 变了就重读
+  const isDel = nm => delSet.has(String(nm || "").trim());
+  const asWaiting = !!(th && sendAsWaiting && sendAsWaiting === (th.id || "fake:" + th.name));
   const asCanSend = !!(onSendAs && th && String(th.id || "").indexOf("actual:") === 0 && th.type !== "contact");
+  // 刷新编出来的私聊也能发（2026-10-22）：对面那个人照这段聊天接话；删了的好友发不了
+  const asFake = !!(onSendAs && th && String(th.id || "").indexOf("actual:") !== 0 && th.type === "private" && !isDel(th.name));
+  const asCanType = asCanSend || asFake;
   // 拿他手机转账那一小块（群友 2026-10-13）：点「转账」展开金额、留言，群里再挑转给谁
   // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账；购物、外卖直接开那两页（花他的钱）
   const [plus, setPlus] = useState(null);
@@ -1441,7 +1448,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const canBuy = !!(onShopAs && th && th.type !== "group");
   const asSend = () => {
     const body = asDraft.trim();
-    if (!body || !asCanSend) return;
+    if (!body || !asCanType) return;
     if (onSendAs(th, body) === false) return;
     setAsDraft("");
     // 刚发出去那条在看不见的地方＝等于没发（她 2026-09-10 报过同一个毛病）
@@ -1492,8 +1499,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       h("div", { role: "status", "aria-label": "对面正在回复",
         style: { padding: "11px 13px", borderRadius: 5, background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)" } },
         h(TypingDots, { color: "#9a9a9a" }))) : null),
-    // 她自己打的那一栏：只在【没在看TA玩】而且这是一条真实会话时出现。
-    // ⚠️「按了没反应的按钮比没有按钮更糟」——推演出来的会话给不了真回复，所以那儿一栏都不画。
+    // 她自己打的那一栏：只在【没在看TA玩】时出现。真实会话照旧；推演出来的私聊（2026-10-22 起）也给，
+    //   对面那个人由模型照这段聊天接话（app.js phoneSendAsFake）。推演出来的群、删掉的好友不给。
+    // ⚠️「按了没反应的按钮比没有按钮更糟」：给了就得真有人回。
     !drive && asCanSend && plus === "menu" ? h("div", { "data-wk": "pplus", className: "shrink-0 flex", style: { gap: 18, padding: "14px 18px 8px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       [onTransferAs ? ["tf", "转账", [h("rect", { key: 1, x: 3, y: 6, width: 18, height: 13, rx: 2 }), h("path", { key: 2, d: "M9 9.5l3 3.5 3-3.5M12 13v4M9.5 14h5" })]] : null,
        canBuy ? ["shop", "购物", [h("path", { key: 1, d: "M5 8h14l-1.2 12H6.2z" }), h("path", { key: 2, d: "M9 10V6.5a3 3 0 016 0V10" })]] : null,
@@ -1512,8 +1520,9 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none" } }),
         h("button", { onClick: tfSend, disabled: !(Number(tfAmt) > 0) || (th.type === "group" && !tfTo),
           style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#fff", background: (Number(tfAmt) > 0 && (th.type !== "group" || tfTo)) ? "#f0a020" : "#ddd" } }, "转账"))) : null,
-    !drive && asCanSend ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      (onTransferAs || canBuy) ? h("button", { "data-wk": "pbtn", "data-part": "plus", onClick: () => setPlus(v => v ? null : "menu"), "aria-label": "更多",
+    !drive && th && th.type === "private" && isDel(th.name) ? h("div", { "data-wk": "pdelnote", className: "shrink-0", style: { padding: "12px 14px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 12px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", textAlign: "center" } }, "已经不是好友了，去通讯录点开 TA 加回来才能发") : null,
+    !drive && asCanType ? h("div", { className: "shrink-0 flex items-end gap-2", style: { padding: "8px 10px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 8px)", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
+      asCanSend && (onTransferAs || canBuy) ? h("button", { "data-wk": "pbtn", "data-part": "plus", onClick: () => setPlus(v => v ? null : "menu"), "aria-label": "更多",
         style: { flexShrink: 0, width: 40, height: 40, borderRadius: 999, border: "1.5px solid #444", color: "#444", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", transform: plus ? "rotate(45deg)" : "none", transition: "transform .15s" } },
         h("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" }, h("path", { d: "M12 5v14M5 12h14" }))) : null,
       h("textarea", { "data-wk": "pinput", value: asDraft, onChange: e => setAsDraft(e.target.value), rows: 1,
@@ -1636,12 +1645,19 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         block(h("div", { style: { padding: "14px 16px 17px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#8a8a8a", marginBottom: 9 } }, char.name + " 对这个人的备注与真实感想"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.9, color: "#333", whiteSpace: "pre-wrap" } }, PTX(thread.intro || "（没写）")))),
+        onDelFriend && !drive && isDel(thread.name) ? block(h("div", { "data-wk": "pdelfriend", "data-on": "1", style: { padding: "18px 16px", textAlign: "center" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#999", marginBottom: 12 } }, "已经从 " + char.name + " 的好友里删掉了"),
+          h("button", { onClick: () => { onDelFriend(char, thread.name, true); bumpDel(x => x + 1); }, className: "active:opacity-70", style: { padding: "9px 22px", borderRadius: 6, background: "#07c160", color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "加回好友"))) : null,
         // 发消息只在真有这个人的会话时才给——按了没反应的按钮比没有按钮更糟
-        sess ? h("button", {
+        sess && !isDel(thread.name) ? h("button", {
           onClick: () => setThread(sess),
           className: "w-full active:opacity-70",
           style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#07c160" }
-        }, "发消息") : null));
+        }, "发消息") : null,
+        onDelFriend && !drive && !thread._me && !isDel(thread.name) ? h("button", { "data-wk": "pdelfriend", "data-on": "0",
+          onClick: () => requestAppConfirm("删掉这个好友？", "从 " + char.name + " 的微信里删掉「" + (thread.remark || thread.name) + "」。聊天记录还在，随时能在这里加回来；" + char.name + " 下次说话时会发现。", () => { onDelFriend(char, thread.name, false); bumpDel(x => x + 1); }, "删除"),
+          className: "w-full active:opacity-70",
+          style: { marginTop: 10, background: "#fff", padding: "14px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#fa5151" } }, "删除好友") : null));
   }
   const navs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
   return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, "data-wk": "ptab", "data-on": tab === k ? "1" : "0", "data-watch": "tab:" + k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, label)))));
@@ -4783,7 +4799,7 @@ function renderPhoneModule(key, d, ctx) {
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
-  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, onTransferAs: ctx.onTransferAs, onTfReplyAs: ctx.onTfReplyAs, onShopAs: ctx.onShopAs, transferPeers: ctx.transferPeers, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark });
+  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, onTransferAs: ctx.onTransferAs, onTfReplyAs: ctx.onTfReplyAs, onShopAs: ctx.onShopAs, transferPeers: ctx.transferPeers, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark, onDelFriend: ctx.onDelFriend });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -4980,6 +4996,7 @@ function PhoneCarry({
   //   这一层没接、也没放进下面的 ctx，于是微信那页永远拿到 undefined，「›」一次都没出现过
   //   （她 2026-10-07：「为啥 978 的微信改备注 cf 显示不出来」——其实家里也没有）。
   onRemark,
+  onDelFriend,
   nowSongId,
   forumAccountsFor,
   playlistFor,
@@ -5624,6 +5641,7 @@ function PhoneCarry({
     sendAsWaiting: sendAsWaiting || "",
     // 没有 onRemark 就别给一个空函数：微信那页拿它的真假决定要不要露「›」
     onRemark: onRemark ? (ch, c, v) => onRemark(ch, c, v) : null,
+    onDelFriend: onDelFriend ? (ch, name, undo) => onDelFriend(ch, name, undo) : null,
     // 偷看转发：手机里的东西只有【转发了】才进TA的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk),
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张

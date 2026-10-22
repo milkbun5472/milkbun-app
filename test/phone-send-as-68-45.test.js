@@ -35,9 +35,9 @@ test("这一条留得下记号：是她替他发的", () => {
 
 test("界面那一头：输入栏只画在真实会话上，且看他玩时收起来", () => {
   assert.match(phone, /const asCanSend = !!\(onSendAs && th && String\(th\.id \|\| ""\)\.indexOf\("actual:"\) === 0/);
-  assert.match(phone, /!drive && asCanSend \? h\("div"/);
-  // 「按了没反应的按钮比没有按钮更糟」：推演会话那儿一栏都不画
-  assert.match(phone, /推演出来的会话给不了真回复，所以那儿一栏都不画/);
+  assert.match(phone, /!drive && asCanType \? h\("div"/);
+  // 2026-10-22 起推演出来的私聊也能发（对面由模型接话），推演的群和删掉的好友不给
+  assert.match(phone, /const asFake = !!\(onSendAs && th && String\(th\.id \|\| ""\)\.indexOf\("actual:"\) !== 0 && th\.type === "private" && !isDel\(th\.name\)\)/);
 });
 
 test("发完要滚到底，不然等于没发", () => {
@@ -81,10 +81,12 @@ test("真实会话的那一屏跑得起来，而且有她的发送键", () => {
   assert.ok(sendBtn(node), "真实会话上没有发送键");
 });
 
-test("推演出来的会话没有这条口子", () => {
+test("推演出来的私聊有这条口子（2026-10-22），推演出来的群没有", () => {
   const sess = { type: "private", name: "老张", messages: [{ from: "老张", text: "在吗", ts: 1 }] };
   const node = openThread(sess, { onSendAs: () => true });
-  assert.equal(sendBtn(node), undefined, "推演会话上不该有发送键");
+  assert.ok(sendBtn(node), "推演私聊上该有发送键");
+  const grp = { type: "group", name: "同事群", messages: [{ from: "老张", text: "在吗", ts: 1 }] };
+  assert.equal(sendBtn(openThread(grp, { onSendAs: () => true })), undefined, "推演的群不该有发送键");
 });
 
 test("没有 onSendAs 时也不炸，只是没有那一栏", () => {

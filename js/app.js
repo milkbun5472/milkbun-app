@@ -11748,6 +11748,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 刷新微信那一次：把她改过的告诉TA，留不留由TA；交出去就清
   const phoneRemarkSpec = (char, key, spec) => {
     const l = key === "wechat" ? ((loadJSON("x_phoneRemarkEdits", {}) || {})[char.id] || []) : [];
+    const md = key === "wechat" ? ((loadJSON("x_phoneMeddle", {}) || {})[char.id] || []) : [];
+    const dl = key === "wechat" ? ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []) : [];
+    if (md.length || dl.length) spec = { ...spec, instruction: spec.instruction
+      + (md.length ? "\n\n【她拿你手机做过的事】" + md.map(phoneMeddleLine).join("；") + "。这些已经发生了，写到相关的人时照这个来。" : "")
+      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "") };
     if (!l.length) return spec;
     return { ...spec, instruction: spec.instruction + "\n\n【她翻你手机时动过你的通讯录备注】现在你手机里就是这样：" + l.map(phoneRemarkLine).join("；")
       + "。这一轮要写到这几个人（contacts／userContact）时，remark 留着她改的、改回去、还是换一个，由你决定。" };
@@ -11756,6 +11761,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (key !== "wechat") return;
     const all = loadJSON("x_phoneRemarkEdits", {}) || {};
     if (all[char.id]) { delete all[char.id]; saveJSON("x_phoneRemarkEdits", all); }
+    const mall = loadJSON("x_phoneMeddle", {}) || {};
+    if (mall[char.id]) { delete mall[char.id]; saveJSON("x_phoneMeddle", mall); }
   };
   const peekDone = thoughts => {
     peekOffClose();
@@ -12093,7 +12100,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
-      const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
+      const meddleHint = opts.phoneMeddle && opts.phoneMeddle.length ? "\n\n【你刚发现】你手机上有几样不是你动的：" + uName + " 拿你的手机" + opts.phoneMeddle.map(phoneMeddleLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
+      const remarkHint = meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
@@ -21913,10 +21921,70 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //    不是聊天记录；往那里写等于把假对话喂成真的。
   // ⚠️两条路都不另开写入口：私聊走 watchSend（「看TA玩」发给她那条路），
   //    群里走 pGChat + replyGroup（群回复那条现成的链）。
+  // ── 她用他的手机动了别的联系人（她 2026-10-22「做吧」）─────────────────────
+  //   ① 给刷新编出来的那些私聊发消息：对面照这段聊天接话，写回他手机这条会话里；
+  //   ② 删好友 / 加回来：名单存在 x_phoneWxDel，刷新不会把人放回来。
+  //   两样都在她的聊天里落一行灰字；他按出来的下一轮知道（waitForHer.phoneMeddle），下一次刷新微信也知道（x_phoneMeddle）。
+  const phoneMeddleLine = e => e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
+    : e.kind === "undel" ? "把「" + e.name + "」加回了你的微信好友"
+    : "用你的微信给「" + e.name + "」发了「" + e.said + "」" + (e.back ? "，对方回了：" + e.back : "");
+  const phoneMeddleNote = (char, e) => {
+    const prev = (waitHerRef.current[char.id] || {}).phoneMeddle || [];
+    waitForHer(char.id, { phoneMeddle: [...prev, e].slice(-6) });
+    const all = loadJSON("x_phoneMeddle", {}) || {};
+    all[char.id] = [...(all[char.id] || []), e].slice(-8);
+    saveJSON("x_phoneMeddle", all);
+  };
+  const phoneDelFriend = (char, name, undo) => {
+    const nm = String(name || "").trim();
+    if (!char || !nm) return;
+    const all = loadJSON("x_phoneWxDel", {}) || {};
+    const cur = (all[char.id] || []).filter(x => x !== nm);
+    all[char.id] = undo ? cur : [...cur, nm];
+    saveJSON("x_phoneWxDel", all);
+    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你" + (undo ? "把「" + nm + "」加回了 " : "把「" + nm + "」从 ") + (char.remark || char.name) + (undo ? " 的微信好友" : " 的微信好友里删了"), ts: Date.now() }]);
+    phoneMeddleNote(char, { kind: undo ? "undel" : "del", name: nm });
+  };
+  const phoneSendAsFake = (char, session, body) => {
+    const name = String((session && session.name) || "").trim();
+    if (!name || (session && session.type) !== "private") return false;
+    if (((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
+    const wx = () => ((phonesRef.current || {})[char.id] || {}).wechat;
+    if (!wx()) return false;
+    const p = active;
+    if (!p) { toast("先去 设置·API 配一条线路"); return false; }
+    const d0 = typeof vDate === "function" ? vDate(Date.now(), char.id) : new Date();
+    const tm = String(d0.getHours()).padStart(2, "0") + ":" + String(d0.getMinutes()).padStart(2, "0");
+    const put = msgs => { const c2 = wx(); if (!c2) return;
+      savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && c.type !== "group" && String(c.name || "").trim() === name
+        ? { ...c, messages: [...(c.messages || []), ...msgs], last: String(msgs[msgs.length - 1].text || ""), time: tm } : c) }, { noArchive: true, patched: true }); };
+    put([{ from: char.name, text: body, byUser: true }]);
+    const key = "fake:" + name;
+    setPhoneAsWait(key);
+    const ct = (wx().contacts || []).find(c => c && String(c.name || "").trim() === name) || {};
+    const sess = (wx().chats || []).find(c => c && c.type !== "group" && String(c.name || "").trim() === name) || { messages: [] };
+    const log = (sess.messages || []).slice(-24).map(m => (m.from || "") + "：" + String(m.text || m.body || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
+    const sys = "你是「" + name + "」，" + char.name + " 微信里的一个联系人。"
+      + (ct.remark && ct.remark !== name ? char.name + " 给你存的备注是「" + ct.remark + "」。" : "")
+      + (ct.intro ? "在 " + char.name + " 眼里你是这样的人：" + String(ct.intro).slice(0, 400) + "\n" : "\n")
+      + "下面是你俩在微信上的聊天，最后一条是 " + char.name + " 刚发来的。照你这个人平时在微信上说话的样子回，一到三条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
+      + "只输出 JSON 字符串数组，一条一个元素。";
+    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 1200, timeout: 60000, logLabel: "查手机·联系人回话" })
+      .then(raw => {
+        let arr = parseJSONLoose(raw); if (!Array.isArray(arr)) arr = String(raw || "").split(/\n+/);
+        const lines = arr.map(x => String(x == null ? "" : (x.text || x)).trim()).filter(Boolean).slice(0, 3);
+        if (lines.length) put(lines.map(t => ({ from: name, text: t })));
+        pChat(char.id, pp => [...pp, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机给「" + name + "」发了：" + body.slice(0, 40), ts: Date.now() }]);
+        phoneMeddleNote(char, { kind: "msg", name, said: body.slice(0, 60), back: lines.join(" / ").slice(0, 120) });
+      }, e => toast("对面没回上：" + String((e && e.message) || e).slice(0, 40)))
+      .finally(() => setPhoneAsWait(w => (w === key ? "" : w)));
+    return true;
+  };
   const phoneSendAs = (char, session, text) => {
 
     const body = String(text || "").trim();
     const id = String((session && session.id) || "");
+    if (char && body && id.indexOf("actual:") !== 0) return phoneSendAsFake(char, session, body);
     if (!char || !body || id.indexOf("actual:") !== 0) return false;
     if (id === "actual:private:" + char.id) {
       watchSend(char, "wechat", userName(profileFor(char.id)), body, { byUser: true });
@@ -31439,7 +31507,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTfReplyAs: (char, tid, accept) => respondTransfer(char.id, tid, accept),
     onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
-    onRemark: phoneRemarkEdit,
+    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
