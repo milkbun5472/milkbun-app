@@ -759,7 +759,7 @@
     const L = now && Array.isArray(now.pages) ? Object.assign({}, now.pages) : (LS("x_homeLayout", {}) || {});
     const F = now && now.folders ? now.folders : (LS("x_homeFolders", {}) || {});
     const REG = (typeof window !== "undefined" && window.__homeReg) || {};
-    const zhOf = k => { const it = REG[k]; if (it && it.zh) return it.zh; if (it && it.kind === "widget") return HOME_WIDGET_ZH[it.which] || k; if (/^d_/.test(k)) return it && it.decor && it.decor.type === "code" ? "自己写的小组件（id " + k + "）" : "（你自己放的装饰）"; return k; };
+    const zhOf = k => { const it = REG[k]; if (it && it.zh) return it.zh; if (it && it.kind === "widget") return HOME_WIDGET_ZH[it.which] || k; if (/^d_/.test(k)) return it && it.decor && it.decor.type === "code" ? "自己写的小组件（id " + k + (Array.isArray(it.decor.imageRefs) && it.decor.imageRefs.length ? "，传了 " + it.decor.imageRefs.length + " 张图" : "") + "）" : "（你自己放的装饰）"; return k; };
     const pages = Object.keys(L).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
     const out = [];
     pages.forEach((n, i) => {
@@ -796,6 +796,7 @@
   docLines = () => _doc6() + "  widget 桌面上「自己写」的小组件：她要一个自己定样子的小组件（时钟、倒数、一句话、小动画……），你写一段 HTML 当 text（可以带 <style> 和 <script>），"
     + "id 写 new 就新摆一件；要改快照【桌面布局】里已有的那件「自己写的小组件（id d_…）」，id 就写那个 d_ 开头的 id，text 是改好后的整段代码。name 可选尺寸：short 2×1、square 2×2、wide 4×1、large 4×2、huge 4×4、three 3×1、threetall 3×2，不填就是 square。\n"
     + "    它画在一个隔开的小窗里：读不到 app 的任何数据（角色、聊天、她的名字都拿不到，要用就直接写进代码里），也不能联网取数据，不能点；背景默认透明，会透出她的壁纸。\n"
+    + "    要放她自己的照片：你拿不到图，让她在那件组件的编辑页「＋ 加一张图」传上去，代码里写 {{图1}}、{{图2}}…（按她传的顺序）就是那几张，比如 <img src=\"{{图1}}\">；网上的图直接写网址也行。\n"
     + "    尽量短，一般几十行以内；字号、留白照小格子来，内容要在窄窗里也排得下。\n";
 
   const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
