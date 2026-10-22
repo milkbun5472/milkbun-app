@@ -186,3 +186,22 @@ console.log("ok");
     assert.ok(Z.resultOf(id, t.qs.map(() => 1)).line);
   }
 }
+
+// 第四批：关系 7 套、心里 3 套各自结果均衡；两张清单按「最硬那档 / 看情况」列出来
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  for (const id of ["jealousreact", "loveview", "breakup", "reunite", "power", "secret", "lovefriend", "moral", "emotion", "defense"]) {
+    const t = Z.byId(id); assert.ok(t, id);
+    const c = {}; t.qs.forEach(q => q.opts.forEach(o => Object.keys(o.s).forEach(k => { c[k] = (c[k] || 0) + 1; })));
+    assert.equal(new Set(Object.values(c)).size, 1, id + " 各结果同样多选项");
+    assert.ok(Z.resultOf(id, t.qs.map(() => 0)).line);
+  }
+  for (const [id, cat] of [["bound", "gx"], ["cant", "xl"]]) {
+    const t = Z.byId(id); assert.equal(t.cat, cat); assert.equal(t.list.length, 3);
+    const r = Z.resultOf(id, t.qs.map((_, i) => i % 3));
+    assert.equal(r.code, "4-4"); assert.match(r.line, new RegExp("^" + t.list[0] + "："));
+    assert.match(Z.resultOf(id, t.qs.map(() => 2)).title, /^没有一条是/);
+  }
+}
