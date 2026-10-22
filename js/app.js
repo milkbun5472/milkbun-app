@@ -11379,6 +11379,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
     // 勾了「日常联系人」才编（她 2026-10-17：「查手机那里搞个开关就行要不要生成」）；偷偷翻的那一路不现编，有现成的才带
+    // 先把「他接过手机」那一层摆出来再去编（群里 2026-10-22「有人点不动了，按那个没反应」）：勾了日常联系人、又还没编过的那一回，
+    //   要先等模型编完（几十秒），原来这段时间屏幕上什么都没有，看着就像没点上
+    if (!sneak) setPeekPlay({ charId, allow, seen: "", hidden: [], script: null });
     if (!sneak && (allow || []).includes("daily")) { const c0 = (characters || []).find(x => x.id === charId); if (c0) await peekDailyEnsure(charId, c0); }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));

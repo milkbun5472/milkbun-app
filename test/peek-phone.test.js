@@ -428,3 +428,12 @@ test("被她拉黑时翻手机能把自己放出来：只在真被拉黑时提�
   assert.ok(app.includes('if (step.do === "unblockme") {\n      if (!(blocksRef.current[viewerId] || {}).iBlocked) return;\n      setBlockFor(viewerId, { iBlocked: false });'));
   assert.ok(pp.includes('else if (d === "unblockme" && !out.some(x => x.do === "unblockme")) out.push({ do: "unblockme" });'));
 });
+
+// 群里 2026-10-22「有人点不动了，按那个没反应」：勾了日常联系人、还没编过的那一回要先等模型编，先把「他在翻」那一层摆出来
+test("递手机一按下去先摆出播放层，再去编日常联系人", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const i = app.indexOf("const handPhoneTo = async");
+  const a = app.indexOf('if (!sneak) setPeekPlay({ charId, allow, seen: "", hidden: [], script: null });', i);
+  const b = app.indexOf("await peekDailyEnsure(charId, c0)", i);
+  assert.ok(a > i && b > a, "播放层要在等日常联系人之前摆出来");
+});
