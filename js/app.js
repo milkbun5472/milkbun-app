@@ -12879,7 +12879,7 @@ mood、action、wearing 与能力字段只记录已经形成的反应、状态�
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
-thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
+thought: string，【每轮必须写，禁止 null、空串或省略】。${THOUGHT_MEANING}${typeof THOUGHT_VOICE === "string" ? THOUGHT_VOICE : ""}${typeof stateExtraSpec === "function" && typeof stateTplFor === "function" && !sideRoom ? (x => x ? "\n" + x : "")(stateExtraSpec(stateTplFor(settingsFor(charId)))) : ""}
 【实时动作字段·普通角色每轮必填】
 action: string，每轮回复完成后${ACT_MEANING}。${typeof ACT_VOICE === "string" && !(sameRoomFor(charId) && !offlineTogetherNow(charId)) ? ACT_VOICE : ""}这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
@@ -12957,7 +12957,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   撤了：把旧心声摆给它看，它照着学（她 2026-10-04：「其他都是往极端走」）。
       // 她 2026-10-05：「心声为啥还在总结」——两处把它往总结那边拉：它跟 mood/action 被归进同一句「只记录已经形成的反应」，
       //   这里又写着「不是……互动总结」（禁令本身把那个词塞进去了）。两处都删，心声只照 THOUGHT_MEANING 那一句来。
-      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。"
+      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写本人此刻没说出口的第一人称念头；不能填 null、空串或省略。"
 ;
       // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
       // 这一句挂在每轮任务串里——历史缓存模式下它拼在最后一条用户消息末尾，离得最近。
@@ -13402,7 +13402,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
       if (parsed.thought != null) {
-        const rawThought = String(parsed.thought == null ? "" : parsed.thought).replace(/\s+/g, " ").trim();
+        const rawThought = String(parsed.thought == null ? "" : parsed.thought).replace(/[ \t\u3000]+/g, " ").trim();
         const guardedThought = TVG.accept(rawThought);
         // 普通角色的心声是逐轮快照：守卫误判时也不能悄悄沿用上一轮，让状态卡看起来冻住。
         // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
@@ -15265,7 +15265,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   （她：「反正他们也不会互通其他群聊记忆」）。互通群走上面那一份，本来就带着这四样。
       const _gHasNpc = members.some(c => c && c.npc);
       const npcStateHint = (!gs.memoryInterop && _gHasNpc) ? "\n【配角的状态卡】这个群里有配角（" + members.filter(c => c && c.npc).map(c => c.name).join("、") + "）。"
-        + "本轮真正发言的【配角】各给一份：\"thought\"（此刻没说出口的心声，一句话，第一人称『我』就是这个配角本人）、"
+        + "本轮真正发言的【配角】各给一份：\"thought\"（此刻没说出口的心声，第一人称『我』就是这个配角本人）、"
         + "\"mood\"（中文心情词）、\"wearing\"、\"action\"。这四样只更新后台状态，绝不写进 text 气泡。"
         + "其余成员这一轮不填这几样。\n" + MOOD_TURN_RULE : "";
       const thoughtField = gs.memoryInterop
@@ -16818,7 +16818,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const BLOCK_STATE_SPEC = "\n另外三栏跟平时聊天一样每轮都填：thought＝" + (typeof THOUGHT_MEANING === "string" ? THOUGHT_MEANING : "")
     + "\nmood＝{\"label\":\"此刻中文心情词\"}；action＝此刻正在做什么，第一人称一句。"
     + "\n" + (typeof SCHED_NOW_SPEC === "string" ? SCHED_NOW_SPEC : "") + "（被拉黑以后，原来跟她在一块儿的那些安排多半已经不成立了）";
-  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的一句心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
+  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
   const applyBlockTurnState = (charId, chatKey, d) => {
     try {
       if (!d) return;

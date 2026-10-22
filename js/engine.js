@@ -2524,7 +2524,7 @@ const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪
 const THOUGHT_MEANING = "他此刻心里正转着、没说出口的那一句，第一人称，照他脑子里真冒出来的样子写——可以是半截念头、一句嘀咕、一个闪过的画面，不用交代前因，也不用落到接下来要做什么。";
 // 心声的腔调和落点（她 2026-10-21）：只接在普通角色那几处；言秋那边一字不动（她：「言秋的不要动」），
 //   所以不并进 THOUGHT_MEANING——言秋在通话等处也吃 THOUGHT_MEANING。
-const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这一句；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。";
+const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人来想就不会是这样想；多半挂在这一轮眼前刚发生的事上，心里一直搁着别的也行。不用压成一句：念头怎么走就怎么写，可以跳、可以翻来覆去、可以自己跟自己拧着、可以自己把自己劝回来，想到哪儿停在哪儿。";
 // 一轮里好几个人各写一句心声时（群、群线下、群通话）：她 2026-10-21「特定场景全部角色都在用一种句型」——
 //   同一次调用里一口气写好几个人，后面的人就顺着第一个人的句子骨架往下写。说清楚各想各的。
 // 动描那一行的落点（她 2026-10-21：「心声改好了动描呢，感觉害羞所有人都是死死攥着手机盯着屏幕」）：
@@ -3384,7 +3384,7 @@ thought、mood、wearing、action 等附属字段只记录已经形成的场景�
 
 只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写，禁止 null、空串或省略：${THOUGHT_MEANING}${THOUGHT_VOICE}mood 每轮必须填写 {"label":"中文短词"}，禁止 null、空串或省略：它是【此刻重新看一眼】这个人的主导心情，不是「有变化才报」的变更通知。心情没变就照实写回同一个词——重新判断不等于必须改变，但不许因为「跟上轮一样」就省掉不填。wearing 仅在穿着发生有意义变化时填写，否则 null。action 每轮必须填写，禁止 null、空串或省略：${ACT_MEANING}。线下是一场正在推进的戏，这一格的事实本来就比线上变得快——但那是【事实真的变了】才更新，不是每一拍都换个说法；同一件事还在做，就照实写回同一句。affinityDelta: ${AFFINITY_DELTA_SPEC}${SCHED_NOW_SPEC}toy 仅在已授权且本轮实际触发时填写，否则 null。
 
-输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的一句真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
+输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的真实第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}
 先想清楚 TA 怎么看这一刻，场景再发生；系统最后记录。`;
 
 function offlineRendererScore(text) {
@@ -7786,7 +7786,7 @@ function bilingualRule(who, hanLang) {
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
     + "右边一律写简体、普通话的说法。" + (hanLang ? "粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。" : "")
     // 心声也带（她 2026-10-18：「翻译能不能让他顺手带上中文用竖线隔开跟消息一样」）——心声那颗「译」走免费翻译，网一断就翻不成
-    + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一句心声只用一根竖线；动作、穿着这些状态字段不加。";
+    + "心声（thought）是外语的话，也照这个写成「原文 | 中文」，一段心声只用一根竖线；动作、穿着这些状态字段不加。";
 }
 const TRANS_CACHE_KEY = "x_transCache";
 const TRANS_CACHE_MAX = 400;
@@ -8531,7 +8531,7 @@ ${archetypeGuard ? "角色卡里的强烈性格标签只决定人物会作何选
 ${offlineRevisionAddressRule(narr)}
 draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
 
-本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":"角色本人此刻没说出口的一句第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}');
+本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":"角色本人此刻没说出口的第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}');
 }
 
 function offlineArchetypeSelfReviseProtocol(shape, narr) {
@@ -8549,7 +8549,7 @@ ${offlineRevisionAddressRule(narr)}
 亲昵动作可以自然发生；但如果某个小动作只是在重复展示同一种人设、没有改变距离、选择、关系或感受，不要把它当作角色的固定签名每轮补一次。
 不要追求缩短，不把场景改成动作记录，也不要复用一种统一的冷静文风。draftScene 是内部草稿，scene 才展示并进入历史。
 
-本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":"角色本人此刻没说出口的一句第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}');
+本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":"角色本人此刻没说出口的第一人称心声","mood":{"label":"此刻中文心情词"},"action":"此刻正在做什么，第一人称一句","wearing":"换了才写，没换填 null","affinityDelta":0,"toy":null}');
 }
 
 // 语域跟着场面走，不跟着聊天记录走（v53.84）。

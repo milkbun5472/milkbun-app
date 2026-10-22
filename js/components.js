@@ -16777,7 +16777,7 @@ function StateCard({
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, s2.ts ? timeAgo(s2.ts) : ""),
           h("span", { style: { flex: 1 } }),
           delBtn("删", () => { onDelThought(i); if (hist.length <= 1) setShowHist(false); })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5, noModel: true }), "”"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink, whiteSpace: "pre-line" } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5, noModel: true }), "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }) : null))))
     : h(Fragment, null,
       (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? (hist.length ? "这一轮没留下心声" : "这间房还没有心声") : "还没有状态", sub: roomName ? (hist.length ? "下一轮有了就会出现在这儿；之前的在下面「翻旧的」" : "在这里聊过或赴约后，会只为本房留下") : "和" + scTa + "聊几句，状态会自动生成" }) : null,
@@ -16807,7 +16807,7 @@ function StateCard({
         // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: "calc(92px * var(--app-fs, 1))", lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
         h("div", { className: "flex items-center justify-between", style: { position: "relative" } }, label("心里想的", t.accent), delBtn("删", () => onDelThought("now"))),
-        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“", h(TransText, { text: S(state.thought), ink: t.ink, inline: true, size: 15, noModel: true }), "”")) : null,
+        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-line", marginTop: 8 } }, "“", h(TransText, { text: S(state.thought), ink: t.ink, inline: true, size: 15, noModel: true }), "”")) : null,
       h("div", { style: { padding: "0 15px" } }, histBtn(false)));
   return h(CenterCard, { onClose: onClose, wk: "statecard" }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
