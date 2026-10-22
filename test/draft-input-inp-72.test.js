@@ -20,7 +20,9 @@ test("DraftInput 自己攥着草稿：内部 useState + fire 清空上交", () =
   // 2026-10-15 起草稿可以按 keepKey 留在本机（退出对话再进来还在），初值从本机读，所以不再是 useState("")
   assert.match(d, /const \[draft, setDraftRaw\] = useState\(\(\) =>/);
   assert.match(d, /const draftKeyOf = k => "qq_draft:" \+ k|keepKey/);
-  assert.match(d, /const fire = \(\) => \{ const v = draft\.trim\(\); if \(!v\) return; setDraft\(""\); onSubmit && onSubmit\(v\); \}/);
+  // 2026-10-22 发完把焦点还回去（键盘不收），清空上交那两步照旧
+  assert.match(d, /const v = draft\.trim\(\); if \(!v\) return;/);
+  assert.match(d, /setDraft\(""\); onSubmit && onSubmit\(v\);/);
   // 按钮区拿到的是 (draft, fire, clear)，靠它们亮灭发送键、带走草稿
   assert.match(d, /after \? after\(draft, fire, clear\) : null/);
 });

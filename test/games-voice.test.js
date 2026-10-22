@@ -7,8 +7,10 @@ const g = require("node:fs").readFileSync(require.resolve("../js/games.js"), "ut
 test("共用一条 VOICE_RULE 和 voiceBrief，开口的那几处都接上了", () => {
   assert.match(g, /const VOICE_RULE = "【是这个人在说话 · 说人话】/);
   assert.match(g, /function voiceBrief\(p\)/);
-  assert.ok((g.match(/AC \+ SKILL_RULE \+ VOICE_RULE \+/g) || []).length >= 11);
-  assert.match(g, /const sys = AC \+ VOICE_RULE \+ "「" \+ gameZh/);
+  // 2026-10-22 抽成公共的：开口那几处都走 gameVoiceRules()（里面就是 AC + VOICE_RULE + SKILL_RULE + 语域那几条）
+  assert.match(g, /return AC \+ VOICE_RULE \+ SKILL_RULE \+/);
+  assert.ok((g.match(/gameVoiceRules\(\)/g) || []).length >= 25);
+  assert.match(g, /const sys = gameVoiceRules\(\) \+ "「" \+ gameZh/);
   assert.ok((g.match(/voiceBrief\((s|v|d|p|out)\)/g) || []).length >= 12);
   assert.doesNotMatch(g, /好的口气示例/);
 });

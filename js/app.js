@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.232";
+const APP_VERSION = "v76.238";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22562,7 +22562,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   帖子自己记着它属于哪个世界（forumPostWorld：新帖落盘时记下；老帖按作者推）。
   //   她在「全部」里发的帖（"*"）哪个世界都看得到：在哪个世界里看，就按哪个世界的人和世界观来回。
   const forumThreadWorld = post => { const pw = forumPostWorld(post); return pw === "*" ? forumCurWorld() : pw; };
-  const forumLoreLine = w => { const lore = charWorldLore(w); return lore ? "\n【这个论坛开在这样一个世界里】" + lore + "\n网友是这个世界的人：网名、口吻、聊的事、用的东西都是这个世界里有的，这个世界没有的东西（年代不对的物件、说法）一样都别出现。" : ""; };
+  // 世界只起了名字、没写世界观（群里 2026-10-22：加了个「武侠」，回帖的还是现代人）：原来连名字都不给，就落回现代。名字也是设定，照样压进去
+  const forumLoreLine = w => {
+    const lore = charWorldLore(w);
+    const name = w ? String(((charWorldsLoad().worlds.find(x => x.id === w) || {}).name) || "").trim() : "";
+    if (!lore && !name) return "";
+    return "\n【这个论坛开在这样一个世界里】" + (name ? "「" + name + "」" : "") + (lore ? "\n" + lore : "（没写更多设定，照这个名字本来的样子想：它是哪个年代、什么样的世道、人们怎么过日子）")
+      + "\n网友是这个世界的人：网名、口吻、聊的事、用的东西都是这个世界里有的，这个世界没有的东西（年代不对的物件、说法）一样都别出现。";
+  };
   // 「全部」（大杂烩）里不分世界：谁都能去谁的帖下面说话（她 2026-10-01：「在全部的时候古代角色也可以评论现代的，
   //   vice versa」）。切到某个世界才按世界分——想让两条线的人别碰面，就切过去逛。
   const forumInWorld = (c, post) => !!c && (forumCurWorld() === "*" || forumThreadWorld(post) === "*" || charWorldOf(c.id) === forumThreadWorld(post));
@@ -24708,7 +24715,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content && contextAllowsMessage(m)).slice(-30).map(m => m.content).join(" ").slice(0, 300);
       const d = await runProbeRetry(active, forumWorldCtx((query || "") + "\n" + recentAll, genW), {
-        instruction: forumFmtLine() + "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
+        instruction: forumFmtLine() + "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段：这个世界里的人会去逛的那种吧，名字照这个世界的样子起，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
         schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
         maxTokens: FTOK.board
       });

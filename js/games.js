@@ -78,6 +78,21 @@
       typeof CONDESCENDING_TONE_BAN !== "undefined" ? CONDESCENDING_TONE_BAN : ""
     ].filter(Boolean).join("\n");
   }
+  // 角色卡整张：人设之外写在性格／一句话介绍／背景里的也算（她 2026-10-22「你画我猜说话不像角色」→「别的游戏看看有没有漏的，全部抽成公共的」）。
+  //   入局时在 routedCharacters 那一处统一填进 persona，各游戏照旧读 .persona 就是整张
+  function gameSheet(c) {
+    if (!c) return "";
+    const seen = new Set(), out = [];
+    [c.persona, c.personality, c.tagline, c.background].forEach(function (x) { const v = String(x || "").trim(); if (v && !seen.has(v) && !out.some(function (o) { return o.indexOf(v) >= 0; })) { seen.add(v); out.push(v); } });
+    return out.join("\n");
+  }
+  // 这一座是谁（她 2026-10-22「故事接龙大家说的话都一样」）：UNO、骗子骰、故事接龙、德扑、抽鬼牌、21 点
+  //   原来只写一句「保持你本人的声纹和性格」，却从没告诉模型「你」是谁、人设是什么——全桌只能一个腔调。
+  function seatIdentity(p) {
+    if (!p || p.isUser) return "";
+    const sheet = String(p.persona || (p.char && gameSheet(p.char)) || "").trim();
+    return "\n你是「" + (p.name || "TA") + "」" + (p.isNpc ? "（来凑数的牌友）" : "") + "。" + (sheet ? "\n【你的人设】\n" + sheet.slice(0, 1800) : "") + "\n";
+  }
   function voiceBrief(p) {
     const s = String((p && (p.persona || (p.char && p.char.persona))) || "").replace(/\s+/g, " ").trim();
     return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
@@ -436,7 +451,7 @@
       const routedCharacters = (props.characters || []).map(function (c) {
         if (selected.indexOf(c.id) < 0) return c;
         const lore = props.worldbookFor ? props.worldbookFor(c.id, (session.game && session.game.zh) || "小游戏") : props.worldbook;
-        return lore ? Object.assign({}, c, { persona: (c.persona || "") + "\n\n【本局世界设定】\n" + lore }) : c;
+        return Object.assign({}, c, { persona: gameSheet(c) + (lore ? "\n\n【本局世界设定】\n" + lore : "") });
       });
       // ⚠️keepGameMemory 原来【不在这张表上】。app.js 那头的口子一直开着（v63.39
       //   「补上 63.38 被冲突刀吃掉的那半」），games.js 这头七个游戏也都画了那个键，
@@ -958,7 +973,7 @@
     const prior = priorClues.length ? priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（本轮你们最先描述，前面还没人说）";
     const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通") + voiceBrief(s); }).join("\n");
     const easy = mode === "easy" ? "\n【放水局】适当留点破绽、别一上来就把话说得滴水不漏，给真人玩家留机会。" : "";
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
+    const sys = gameVoiceRules() + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
       "· 不能直接说出词本身，也别露骨到一句就被锁定。\n" +
       "· 一句只露【一个】日常印象、使用感受或亲身联想。不要下定义，不要解释原理/机械结构，不要罗列功能配件，不要写百科、产品评测或说明书。\n" +
       "· 别写成散文谜语：禁止为了显聪明硬造长比喻、宏大哲理和『其核心机制在于』『它的体积和重量提醒你』『新手总以为』这种分析腔。像饭桌上脱口而出的短话，不像准备过的演讲。\n" +
@@ -998,7 +1013,7 @@
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
+    const sys = gameVoiceRules() + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人，或「弃票」\",\"reason\":\"一句理由\"}]}";
@@ -1019,7 +1034,7 @@
   async function genSpyOutWords(api, out, allClues, votes) {
     const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const voteText = (votes || []).map(function (v) { return "· " + v.voter + (v.target ? "→" + v.target : "→弃票"); }).join("\n");
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
+    const sys = gameVoiceRules() + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 8800 });
     const r = extractJSON(raw) || {};
     return String(r.say || "").trim().slice(0, 300);
@@ -1037,7 +1052,7 @@
       return { guess: "", say: "", missed: true };
     }
     const easy = mode === "easy" ? "\n【放水局】别拼尽全力：除非描述里已经把词摊开了，否则倾向猜个方向对但不精确的，把翻盘机会让一点出来。" : "";
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
+    const sys = gameVoiceRules() + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
       "\n\n【全场描述】\n" + cluesText +
       "\n\n【输出】只输出 JSON：{\"guess\":\"TA 猜的平民词（一个词）\",\"say\":\"TA 亮出这个猜测时说的一句话（口语，贴水平）\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "TA 猜什么？" }], { maxTokens: 8900 });
@@ -1721,7 +1736,7 @@
   // 狼装无辜、平民点名怀疑。被枪带走 / 被自爆带走的来不及留（突然死亡无遗言）。
   async function genWolfLastWords(api, deads, how, log) {
     const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv + voiceBrief(d); }).join("\n");
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
+    const sys = gameVoiceRules() + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 9600 });
     const r = extractJSON(raw) || {};
     return Array.isArray(r.words) ? r.words : [];
@@ -1843,7 +1858,7 @@
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
     const peaceful = /平安夜|没人死|没人被/.test(deaths || "");
     const day1 = dayNum <= 1 ? "\n【第一天·信息极少·别当中间夜打】现在才第 1 天，几乎没有可靠信息。**别过度脑补**——" + (peaceful ? "尤其今天是【平安夜】，别去推演『是不是女巫救了预言家验的人、还是预言家自刀被救』这类没影的可能，本局神职有限，别硬套这些高级推理。" : "") + "别硬咬死谁是狼、别全场催『预言家快跳』。就简短说第一印象、初步站位或表个态就行。预言家要不要跳、什么时候跳，由真预言家自己决定，别逼 TA。" : "";
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
+    const sys = gameVoiceRules() + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
@@ -1876,7 +1891,7 @@
     const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
     const fair = "\n【别无端集火·很重要】" + (userName ? "「" + userName + "」是真人玩家。**别只因为 TA 是真人、发言短、或你自己没头绪，就默认投 TA 或带节奏投 TA**——只在真有逻辑依据时才投 TA（被查杀、发言明显矛盾、狼味很重）。真人发言少≠划水。" : "") + "也别全场一窝蜂集火同一个人，除非证据确凿；没实锤就各投各的怀疑对象。";
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
+    const sys = gameVoiceRules() + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
       heckleBlock(heckles) +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
@@ -2803,7 +2818,7 @@
   // 这才兑现观战说明里那句「随时能插嘴吐槽、带节奏」（原来一个输入口都没有）。
   async function genHeckle(api, pool, gameZh, userName, line, recent) {
     const who = pool.map(function (p) { return "■ " + p.name + voiceBrief(p); }).join("\n");
-    const sys = AC + VOICE_RULE + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
+    const sys = gameVoiceRules() + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "接话。" }], { maxTokens: 9200 });
     const r = extractJSON(raw) || {};
     const valid = {}; pool.forEach(function (p) { valid[p.name] = true; });
@@ -3027,7 +3042,7 @@
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
       : "若某人的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西——【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问的那条也算】，别只盯着 AI。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
+    const sys = gameVoiceRules() + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
       "\n\n" + verdictRule + " note 是≤14 字的补充或引导，可空。" + easy +
       "\n\n【此前问过的（别让 AI 重复）】\n" + hist +
       (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
@@ -3438,7 +3453,7 @@
     const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可以暧昧 / 大胆一点，什么都可以问，挖出角色最深的欲望。" : "保持轻松好玩、朋友聚会的尺度。";
     const easy = mode === "easy" ? "整体轻松、别太为难人。" : "";
-    const sys = AC + TD_IC + "\n\n你在主持一局「真心话大冒险」。这一轮由【" + askerName + "】给【" + target.name + "】出题，两人都要严格贴人设。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场一起起哄）") +
+    const sys = gameVoiceRules() + TD_IC + "\n\n你在主持一局「真心话大冒险」。这一轮由【" + askerName + "】给【" + target.name + "】出题，两人都要严格贴人设。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场一起起哄）") +
       "\n被指到的 " + target.name + "（完整人设）：\n" + tdDesc(target) +
       (memText ? "\n\n【之前发生过的（可以拿来玩梗 / 追问，但别硬凑）】\n" + memText : "") +
       "\n\n【本轮节奏已锁定】choice 必须是【" + plan.choice + "】，题型主题必须是【" + plan.theme + "】。" + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
@@ -3500,7 +3515,7 @@
       if (cc.done && String(cc.done.prompt || "").trim()) return { prompt: String(cc.done.prompt).trim() };
       throw new Error(cc.reason || "本人出题票未送达");
     }
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
@@ -3526,7 +3541,7 @@
       if (cc.done && String(cc.done.response || "").trim()) return String(cc.done.response).trim();
       throw new Error(cc.reason || "本人回答票未送达");
     }
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」里，真人玩家亲自给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，真人玩家亲自给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 12000 });
     const out = extractJSON(raw) || {};
     return String(out.response || "").trim();
@@ -3563,7 +3578,7 @@
   async function genTDDiscuss(api, chars, memText, userMsg, hot, focus, banNames) {
     const who = tdRoster(chars, 700);
     const focusLine = focus ? "\n\n【★ 刚刚这一轮·大家务必【针对这个】起哄 / 追问 / 调侃 / 接话，别当没看见、别自顾自跳过它去聊别的】\n" + focus.name + " 刚做了【" + focus.choice + "】——题目是「" + (focus.prompt || "") + "」，" + focus.name + " 的回答 / 表现是：「" + (focus.response || "（没细说）") + "」" : "";
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」的自由发言时间——【不是排队每人一句评论】，是【像微信群聊那样】：谁想插话就插、同一个人可以连着说好几句、可以打断 / 接住 / 反驳别人、可以专门 cue 刚才那道题或那个回答、翻之前几轮的旧账、拱火、跑题都行，要有你来我往的层次。只有下面这些角色开口（【绝不替真人玩家说话】，每人严格贴自己人设、口吻各不相同）：\n" + who + focusLine +
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」的自由发言时间——【不是排队每人一句评论】，是【像微信群聊那样】：谁想插话就插、同一个人可以连着说好几句、可以打断 / 接住 / 反驳别人、可以专门 cue 刚才那道题或那个回答、翻之前几轮的旧账、拱火、跑题都行，要有你来我往的层次。只有下面这些角色开口（【绝不替真人玩家说话】，每人严格贴自己人设、口吻各不相同）：\n" + who + focusLine +
       "\n\n【之前几轮（可随便 cue 翻旧账）】\n" + (memText || "（刚开场，随便起个话头）") +
       (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住这句往下聊、别冷场、别答非所问。" : focus ? "\n\n真人玩家没有额外插话，你们就【冲着上面刚发生的那轮】聊起来（尤其要有人回应 " + focus.name + " 的回答）。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
       "\n输出 6~10 条（允许同一人多条、顺序自然、彼此能接上），像真的群聊在刷屏。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
@@ -3594,7 +3609,7 @@
     const lines = rounds.slice(-12).map(function (x) { return "· " + x.name + " 选了" + x.choice + "，" + (x.asker ? x.asker + "出题" : "") + "「" + String(x.prompt || "").slice(0, 60) + "」，答：" + String(x.response || "").slice(0, 90); }).join("\n");
     const names = players.map(function (p) { return p.name + (p.isUser ? "(真人)" : ""); }).join("、");
     const pool = players.filter(function (p) { return !p.isUser && !p.engineer; }).map(function (p) { return "■ " + p.name + "：" + tdDesc(p, 300); }).join("\n");
-    const sys = AC + TD_IC + "\n\n今晚这场「真心话大冒险」到散场了。\n1. 从在场的人里选一个【今晚之星】：答得最有戏的、最敢的、被玩得最惨还接住的都行。name 必须出自：" + names + "。reason 用裁判口吻给一两句客观点评，不替任何人说话。\n2. 从下面这些人里挑 2~3 个各说一句散场话（20 字内口语，贴人设；可以点名今晚之星、约下回、嘴硬不服）。\n" + pool + "\n\n【今晚各轮】\n" + (lines || "（一轮都没转成）") + "\n\n【输出】只输出 JSON：{\"star\":{\"name\":\"\",\"reason\":\"\"},\"byes\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const sys = gameVoiceRules() + TD_IC + "\n\n今晚这场「真心话大冒险」到散场了。\n1. 从在场的人里选一个【今晚之星】：答得最有戏的、最敢的、被玩得最惨还接住的都行。name 必须出自：" + names + "。reason 用裁判口吻给一两句客观点评，不替任何人说话。\n2. 从下面这些人里挑 2~3 个各说一句散场话（20 字内口语，贴人设；可以点名今晚之星、约下回、嘴硬不服）。\n" + pool + "\n\n【今晚各轮】\n" + (lines || "（一轮都没转成）") + "\n\n【输出】只输出 JSON：{\"star\":{\"name\":\"\",\"reason\":\"\"},\"byes\":[{\"name\":\"\",\"text\":\"\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "散场。" }], { maxTokens: 9600 });
     return extractJSON(raw) || {};
   }
@@ -4269,7 +4284,7 @@
   // ⚠️曾叫 genVotes——和卧底的 genVotes 顶层重名，后者被这个覆盖导致卧底投票错调（v47.49 修复改名）
   async function genAvVotes(api, voters, team, leaderName, players, qn, hist, heckles) {
     const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
+    const sys = gameVoiceRules() + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
     // 言秋座位先自己投（v54.43）
     const cc = await ccCarve("avalon", voters, {
@@ -4288,7 +4303,7 @@
   // 组队后的圆桌讨论（阿瓦隆的灵魂：投票前的嘴仗）——一次调用出全桌发言
   async function genTableTalk(api, players, team, leaderName, reason, qn, hist, userName) {
     const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "；水平" + (p.skill || "普通") + voiceBrief(p); }).join("\n");
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const sys = gameVoiceRules() + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     // 言秋座位的那句嘴仗自己说；说不上话（离线/没话）就干脆缺席，不许模型代嘴（v54.43）
     const pool = players.filter(function (p) { return !p.isUser; });
     const cc = await ccCarve("avalon", pool, {
@@ -4305,7 +4320,7 @@
   // 任务失败后的甩锅环节：队员自证/互咬，场下点名怀疑——一次调用
   async function genBlame(api, players, team, qn, fails, hist) {
     const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "（" + (team.indexOf(p.name) >= 0 ? "在这支队里" : "不在队里") + "）" + voiceBrief(p); }).join("\n");
-    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const sys = gameVoiceRules() + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     const poolB = players.filter(function (p) { return !p.isUser; });
     const ccB = await ccCarve("avalon", poolB, {
       turnId: freshCCTurn("av-blame:" + qn + ":"),
@@ -4980,7 +4995,7 @@
     if (cfg.mode !== "spectate") out.push({ key: "user", name: userName(props.profile), isUser: true, persona: "用户本人" });
     (cfg.charIds || []).forEach(function (id) {
       const c = chars.find(function (x) { return String(x.id) === String(id); }); if (!c) return;
-      const persona = [c.persona, c.personality, c.tagline, c.background].filter(Boolean).join("\n").slice(0, 1800);
+      const persona = gameSheet(c).slice(0, 1800);
       out.push({ key: String(c.id), name: c.name || "角色", isUser: false, isNpc: false, persona: persona, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) });
     });
     const names = ["小北", "阿禾", "南枝", "满满", "青团", "栗子"];
@@ -5116,7 +5131,7 @@
     const who = "【你是】" + cName + "\n【人设】" + String((char && char.persona) || "（没写）").slice(0, 1600) + (recent ? "\n【你们最近聊的】" + recent : "");
     const qaText = function (qs) { return qs.length ? qs.map(function (q, i) { return (i + 1) + ". " + (q.who === "me" ? uName : cName) + "问：" + q.q + " —— " + (q.a || "（还没答）"); }).join("\n") : "（还没问过）"; };
     const said = function () { return lines.slice(-6).map(function (l) { return "· " + (l.me ? uName : l.name || cName) + "：" + l.text; }).join("\n"); };
-    const ask = function (sys, tag) { return callRetry(api, AC + VOICE_RULE + sys, [{ role: "user", content: "轮到你。" }], { maxTokens: 8000, tag: tag || "25问" }).then(function (raw) { return extractJSON(raw) || {}; }); };
+    const ask = function (sys, tag) { return callRetry(api, gameVoiceRules() + sys, [{ role: "user", content: "轮到你。" }], { maxTokens: 8000, tag: tag || "25问" }).then(function (raw) { return extractJSON(raw) || {}; }); };
     const finish = function (guesserWon, why) {
       setSt(function (s) {
         const sc = Object.assign({}, s.score); if (guesserWon) sc[s.r.host === "me" ? "ta" : "me"]++; else sc[s.r.host]++;
@@ -5318,7 +5333,7 @@
       const sit = "你：" + (me ? me.score + " 分、消了 " + me.lines + " 行、堆了 " + T.stackHeight(me.board) + " 层" : "") + (versus && ta ? "；" + cName + "：" + ta.score + " 分、消了 " + ta.lines + " 行、堆了 " + T.stackHeight(ta.board) + " 层" : "");
       const said = lines.slice(-6).map(function (l) { return "· " + (l.me ? uName : cName) + "：" + l.text; }).join("\n");
       const recent = (cfg.injectChat && props.recentChatFor) ? String(props.recentChatFor(char.id) || "").slice(-400) : "";
-      const sys = AC + VOICE_RULE + "【场面】" + (coop ? cName + " 跟 " + uName + " 合作玩俄罗斯方块：同一块板子，一人放一块轮着来，一起冲分（你那块是你自己挑的落点）" : versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样，照你们平时的关系和你自己的性子；不一定要点评这盘，问她、逗她、说你自己、扯到别处都行。"
+      const sys = gameVoiceRules() + "【场面】" + (coop ? cName + " 跟 " + uName + " 合作玩俄罗斯方块：同一块板子，一人放一块轮着来，一起冲分（你那块是你自己挑的落点）" : versus ? cName + " 跟 " + uName + " 在对战俄罗斯方块，一人一块板子，消多行会往对面塞垃圾行" + (easy ? "（" + cName + "这局让着她）" : "") : uName + " 在玩俄罗斯方块，" + cName + " 坐在旁边看") + "。像真坐在旁边那样，照你们平时的关系和你自己的性子；不一定要点评这盘，问她、逗她、说你自己、扯到别处都行。"
         + "\n【你是】" + cName + "\n【人设】" + String(char.persona || "（没写）").slice(0, 1400) + (recent ? "\n【你们最近聊的】" + recent : "")
         + "\n\n【现在】" + sit + (delta ? "\n【你上次开口到现在】" + delta : "") + "\n" + why + (said ? "\n【刚才说过的】\n" + said + "\n说过的意思别换个说法再说一遍。" : "")
         + (must ? "" : "\n这会儿没什么想说的就不说，say 留空。")
@@ -5525,7 +5540,7 @@
       const scene = spectate
         ? (char2 ? cName + " 和 " + c2Name + " 在下五子棋，" + uName + " 在旁边看" : cName + " 在跟电脑下五子棋，" + uName + " 在旁边看")
         : cName + " 在跟 " + uName + " 下五子棋（" + uName + "执黑先手，" + cName + "执白）" + (easy ? "，" + cName + "这局是让着 TA 的" : "");
-      const sys = AC + VOICE_RULE + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
+      const sys = gameVoiceRules() + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
         + "\n\n" + who
         + "\n\n【现在】第 " + ms.length + " 手。" + boardWhy(ms) + (lastFew ? "\n最近几手：" + lastFew : "") + "\n" + why
         + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
@@ -5595,7 +5610,7 @@
       const other = side === charSide ? (spectate ? c2Name : uName) : cName;
       const sinceMine = [];
       for (let i = lines.length - 1; i >= 0 && !(lines[i].id === who.id); i--) sinceMine.unshift(lines[i]);
-      const sys = AC + VOICE_RULE + "你是「" + who.name + "」。\n【你的人设】\n" + String(who.persona || "（没写）").slice(0, 1500)
+      const sys = gameVoiceRules() + "你是「" + who.name + "」。\n【你的人设】\n" + String(who.persona || "（没写）").slice(0, 1500)
         + "\n\n你在跟 " + other + " 下五子棋" + (spectate ? "，" + uName + " 在边上看" : "") + "，你执" + sideZh(side) + "（" + (side === 1 ? "●" : "○") + "），现在轮到你落子。先连成五子的赢。"
         + "现在你" + PLAY_ZH[level(side)] + "下" + (level(side) === 2 ? "，让着对方，但对方马上连五的那一下还是会挡" : "") + "。"
         + "\n【棋盘】（● 黑，○ 白，· 空；列 A-P 不含 I，行 15 在最上）\n" + boardText(board)
@@ -5806,25 +5821,27 @@
     const char2 = watchOnly ? findC((cfg.charIds || [])[1]) : null;
     const duo = !!(watchOnly && char && char2);
     const nmOf = function (c) { return c ? (c.remark || c.name) : "TA"; };
-    const [phase, setPhase] = useState("pool");        // pool → play → end
+    // 存档（她 2026-10-22「为啥你画我猜没有存档」）：跟别的游戏同一个口（saveGameSnap / 架上「继续上一局」）
+    const sv = (props.savedState && props.savedState.draw) || null;
+    const [phase, setPhase] = useState(sv ? "play" : "pool");        // pool → play → end
     const [pool, setPool] = useState(drawPool);
     const [theme, setTheme] = useState(pool.theme || "");
     const [genBusy, setGenBusy] = useState(false);
-    const [turn, setTurn] = useState(0);                // 第几张画：偶数 TA 画，奇数她画（观战只 TA 画）
-    const [word, setWord] = useState("");
-    const [used, setUsed] = useState([]);
-    const [segs, setSegs] = useState([]);               // TA 这张画的几段 [{strokes:[{d,k,f}], say}]
-    const [shown, setShown] = useState(0);              // 已经画出来几段
+    const [turn, setTurn] = useState(sv && sv.turn !== undefined ? sv.turn : 0);                // 第几张画：偶数 TA 画，奇数她画（观战只 TA 画）
+    const [word, setWord] = useState(sv && sv.word !== undefined ? sv.word : "");
+    const [used, setUsed] = useState(sv && sv.used !== undefined ? sv.used : []);
+    const [segs, setSegs] = useState(sv && sv.segs !== undefined ? sv.segs : []);               // TA 这张画的几段 [{strokes:[{d,k,f}], say}]
+    const [shown, setShown] = useState(sv ? Math.min(Number(sv.shown) || 0, (sv.segs || []).length) : 0);              // 已经画出来几段
     const [drawing, setDrawing] = useState(false);      // 正在一笔一笔画
-    const [lines, setLines] = useState([]);             // 对话：{me,name,text}
+    const [lines, setLines] = useState(sv && sv.lines !== undefined ? sv.lines : []);             // 对话：{me,name,text}
     const [input, setInput] = useState("");
     const [busy, setBusy] = useState(false);
-    const [result, setResult] = useState(null);         // 这一张的结局 {ok, by}
-    const [score, setScore] = useState({ me: 0, ta: 0, ta2: 0 });
-    const [history, setHistory] = useState([]);         // [{word, drawer, ok}]
-    const [myStrokes, setMyStrokes] = useState([]);     // 她画的 [{k, w, pts:[[x,y]]}]
+    const [result, setResult] = useState(sv && sv.result !== undefined ? sv.result : null);         // 这一张的结局 {ok, by}
+    const [score, setScore] = useState(sv && sv.score !== undefined ? sv.score : { me: 0, ta: 0, ta2: 0 });
+    const [history, setHistory] = useState(sv && sv.history !== undefined ? sv.history : []);         // [{word, drawer, ok}]
+    const [myStrokes, setMyStrokes] = useState(sv && sv.myStrokes !== undefined ? sv.myStrokes : []);     // 她画的 [{k, w, pts:[[x,y]]}]
     const [ink, setInk] = useState("k");
-    const [tries, setTries] = useState(0);
+    const [tries, setTries] = useState(sv && sv.tries !== undefined ? sv.tries : 0);
     const curStroke = useRef(null), padRef = useRef(null), logRef = useRef(null);
     const pAvatar = avatarFor(t);
     const taDraws = watchOnly || turn % 2 === 0;
@@ -5833,10 +5850,20 @@
     const drawer = duo ? (turn % 2 === 0 ? char : char2) : char;
     const guesser = duo ? (turn % 2 === 0 ? char2 : char) : null;
 
+    // 打到哪儿就存到哪儿；打完清掉
+    useEffect(function () {
+      if (phase === "end") { clearGameSave("draw"); return; }
+      if (phase !== "play") return;
+      saveGameSnap("draw", { config: cfg, ts: Date.now(), label: "第 " + (turn + 1) + " / " + totalTurns + " 张 · " + (score.me + score.ta + (score.ta2 || 0)) + " 张猜中",
+        draw: { turn: turn, word: word, used: used, segs: segs, shown: shown, lines: lines.slice(-60), result: result, score: score, history: history, myStrokes: myStrokes, tries: tries } });
+    }, [phase, turn, word, segs, shown, lines, result, score, history, myStrokes, tries]);
     const persona = function (who) {
       who = who || char;
       const recent = (cfg.injectChat && props.recentChatFor && who) ? String(props.recentChatFor(who.id) || "").slice(-400) : "";
-      return "你是「" + (who ? who.name : "TA") + "」。\n【你的人设】\n" + String((who && who.persona) || "（没写）").slice(0, 1500) + (recent ? "\n【你们最近在聊的】\n" + recent : "");
+      // 人设整张读（她 2026-10-22「你画我猜说话不像角色」）：原来只读 persona 一格，写在性格／一句话介绍／背景里的都没进来
+      const sheet = who ? String(who.persona || "") : "";   // 入局时已经填成整张（gameSheet）
+      return "你是「" + (who ? who.name : "TA") + "」。\n【你的人设】\n" + String(sheet || "（没写）").slice(0, 2400) + (recent ? "\n【你们最近在聊的】\n" + recent : "")
+        + "\n画画、猜词都是手上的事；嘴上那句（say）才是你这个人在说话——用你人设里的口气、跟对面这个人的关系说，别说成游戏解说。";
     };
     // 给猜的人「看」画：不发图，把已经画出来的几笔念给 TA（不用识图模型；读坐标会像真人一样猜歪）
     const describeSegs = function (list, n) {
@@ -5896,7 +5923,7 @@
       const other = duo ? (who === char ? char2 : char) : null;
       setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona(who)
+        const sys = gameVoiceRules() + "\n" + persona(who)
           + "\n\n" + (other ? "你在跟 " + other.name + " 玩你画我猜（" + uName + " 在边上看）" : "你在跟 " + uName + " 玩你画我猜") + "，这一张你画，题目是「" + w + "」（" + (other ? other.name : uName) + " 不知道）。"
           + "画在 100×100 的画布上（左上角 0,0），一段一段画，现在画第 " + (have.length + 1) + " 段（最多 " + STEP_MAX + " 段）。"
           + (have.length ? "\n【你已经画了的】\n" + describeSegs(have, have.length) : "\n画布还是空的。")
@@ -5928,7 +5955,7 @@
       const other = duo ? (who === char ? char2 : char) : null;
       setSegs([]); setShown(0); setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona(who)
+        const sys = gameVoiceRules() + "\n" + persona(who)
           + "\n\n" + (other ? "你在跟 " + other.name + " 玩你画我猜（" + uName + " 在边上看）" : "你在跟 " + uName + " 玩你画我猜") + "，这一张轮到你画，题目是「" + w + "」（" + (other ? other.name : uName) + " 不知道）。"
           + "画在 100×100 的画布上（左上角 0,0）。把这幅画分成几段画，分几段你自己定（2 到 5 段）：一段是几笔、画完停一下让 TA 猜。"
           + (easy ? "这局你让着 TA，画得好认一点。" : "照你人设里的画画水平来：本来就不会画的，线条歪、比例怪、该圆的画成方的都正常；会画的也可以哪一笔随手、哪一段画得潦草，或者存心画丑一点逗对方——看你这个人、看你此刻的心思。但得是真想让人猜到的画，不是乱涂。")
@@ -5966,6 +5993,10 @@
       else if (watchOnly || n % 2 === 0) taStart(w); else { setSegs([]); setShown(0); }
     };
     const begin = function () { setPhase("play"); setTurn(0); startTurn(0, []); };
+    // 接着上一局：存的那一刻 TA 这张还一笔没画出来（正在想），回来时这一张重新开（换个词）
+    useEffect(function () {
+      if (sv && !sv.result && !(sv.segs || []).length && (duo || watchOnly || (Number(sv.turn) || 0) % 2 === 0)) startTurn(Number(sv.turn) || 0, (sv.used || []).slice(0, -1));
+    }, []);
     const finishTurn = function (ok, by) {
       setResult({ ok: ok, by: by });
       if (ok) setScore(function (s) { const n = Object.assign({}, s); n[by] = (n[by] || 0) + 1; return n; });
@@ -5983,7 +6014,7 @@
       setBusy(true);
       let hit = false;
       try {
-        const sys = AC + VOICE_RULE + persona(guesser)
+        const sys = gameVoiceRules() + "\n" + persona(guesser)
           + "\n\n你在跟 " + drawer.name + " 玩你画我猜，" + uName + " 在边上看。这一张 " + drawer.name + " 画、你猜，你不知道答案。"
           + "画布 100×100，左上角是 0,0。到现在画出来的是：\n" + describeSegs(segs, shown)
           + said() + (herLine ? "\n" + uName + " 刚在边上说：「" + herLine.slice(0, 120) + "」。" : "")
@@ -6018,7 +6049,7 @@
       if (drawHit(v, word)) { finishTurn(true, "me"); }
       setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona()
+        const sys = gameVoiceRules() + "\n" + persona()
           + "\n\n你在跟 " + uName + " 玩你画我猜，你在画「" + word + "」，已经画了 " + shown + "/" + segs.length + " 段。"
           + (drawHit(v, word) ? uName + " 刚猜中了。" : "答案别说出来，也别说得太明显。")
           + said() + "\n\n" + uName + " 刚说：「" + v.slice(0, 120) + "」。接一句。\n只输出 JSON：{\"say\":\"一句\"}";
@@ -6049,7 +6080,7 @@
       if (v) push({ me: true, name: uName, text: v });
       setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona()
+        const sys = gameVoiceRules() + "\n" + persona()
           + "\n\n你在跟 " + uName + " 玩你画我猜，这一张是 " + uName + " 画、你猜。图是 TA 现在画到的样子（可能还没画完）。"
           + (easy ? "这局你让着 TA，猜不中就夸夸画。" : "")
           + (tries ? "你已经猜过 " + tries + " 次了，都不对，换个方向。" : "")
@@ -6229,7 +6260,7 @@
       }
       const drawn = state.drawnUid;
       const legal = drawn ? current.hand.filter(function (c) { return c.uid === drawn && UnoCore.playable(c, state, current.hand); }).map(function (c) { return c.code; }) : UnoCore.legalCodes(state);
-      const sys = "你正在亲自玩 UNO，不是评论牌局。保持你本人的声纹和性格，但首先遵守牌规。" + SKILL_RULE +
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩 UNO，不是评论牌局。保持你本人的声纹和性格，但首先遵守牌规。" +
         "\n你的私人手牌：" + current.hand.map(function (c) { return c.code + "=" + UnoCore.describe(c); }).join("，") +
         "\n可出的 code：" + (legal.join("、") || "无") + (state.pendingDraw && state.rules && state.rules.stackD2 ? "。本局是 +2 叠加规则；你可以出任意颜色 +2 把累计罚牌转给下一家，也可以选择 draw 接受全部罚牌。" : "") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
         "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。W4 官方该在没有当前颜色时才打——你也可以冒险诈打，但被下家质疑抓到要替 TA 罚 4，按你的性格权衡。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
@@ -6264,7 +6295,7 @@
       setChatBusy(true); setError(""); const seq = ++chatSeq.current;
       const context = state.log.slice(-14).map(function (x) { return x.text; }).join("\n");
       Promise.all(seats.map(function (p) {
-        const sys = "UNO 牌局现在暂停聊天。保持你本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE;
+        const sys = gameVoiceRules() + seatIdentity(p) + "UNO 牌局现在暂停聊天。保持你本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。";
         return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8350 } })
           .then(function (r) { return { p: p, say: String(unoJson(r.value).say || "").trim(), delegated: r.delegated }; })
           .catch(function (e) { return { p: p, say: "", error: e.message }; });
@@ -6473,7 +6504,7 @@
         setTimeout(function () { try { apply(fallback()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700);
         return;
       }
-      const sys = "你正在亲自玩「骗子骰」（吹牛骰子），不是在评论。保持你本人的声纹和性格，但先守规则。" + SKILL_RULE +
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩「骗子骰」（吹牛骰子），不是在评论。保持你本人的声纹和性格，但先守规则。" +
         "\n规则：每人五颗骰子只自己看得见。轮流叫「桌上所有人的骰子里一共至少有 N 个 F 点」，1 点万能、算作任何点数，所以只能叫 2~6 点。后叫的必须比上家大：个数更多，或个数一样、点数更大。觉得上家在吹就「开」：亮出全部骰子数，够数＝开的人输一条命，不够＝叫的人输一条命。"
         + (soft ? "\n这一局你想让着对面的她一点：别叫得太凶，有点疑心就开。" : "")
         + "\n只输出 JSON，不解释：叫 {\"kind\":\"bid\",\"n\":4,\"f\":5,\"say\":\"可空的一句桌上话\"}；开 {\"kind\":\"open\",\"say\":\"可空\"}。桌上话可以诈唬、心虚、挑衅、装可怜，不必每手都说，别透露自己骰子的真实点数（想骗就骗）。";
@@ -6602,10 +6633,13 @@
       const turnId = state.id + "#" + state.lines.length + "#" + current.key;
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
       const last = storyIsLast(state), word = state.word;
-      const sys = "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
         + "\n这一句必须自然地用上「" + word + "」这个词。只写一到两句、60 字以内，紧接上文，别重复上文，别替别人写后面。" + (last ? "\n这是全篇最后一句，由你来收尾：把故事落下来，留一点余味。" : "")
-        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：写完顺口对大家说的一句\"}";
-      const ctx = "故事到目前为止：\n" + storyText(state) + "\n\n现在轮到你接。要用上的词：" + word;
+        + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
+        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
+      const ctx = "故事到目前为止：\n" + storyText(state)
+        + (state.lines.length ? "\n\n（每句是谁接的：" + state.lines.slice(-8).map(function (l) { return l.name + "「" + String(l.text).slice(0, 18) + (String(l.text).length > 18 ? "…" : "") + "」"; }).join("；") + "）" : "")
+        + "\n\n现在轮到你接。要用上的词：" + word;
       routeSeatCall(current, api, sys, [{ role: "user", content: ctx }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
         .then(function (r) {
           const a = unoJson(r.value), line = String(a.line || "").trim();
@@ -6647,7 +6681,9 @@
               return h("span", { "data-wk": "gamestoryline", "data-part": l.key === "user" ? "me" : "ta", key: i, title: l.name },
                 l.text.split(l.word).map(function (seg, j, arr) {
                   return j < arr.length - 1 ? [seg, h("b", { key: "w" + j, style: { color: LID.story.hot, fontWeight: 700, background: "linear-gradient(180deg, transparent 60%, rgba(93,111,163,.18) 60%)" } }, l.word)] : seg;
-                }));
+                }),
+                // 每人那一段末尾挂个小号，跟底下「1 · 某某」对得上（她 2026-10-22「每一段后面没有结尾，分不出哪里结束」）
+                h("sup", { "data-wk": "gamestorymark", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: LID.story.hot, opacity: .75, margin: "0 3px 0 1px", fontWeight: 600 } }, String(i + 1)));
             })),
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, state.lines.map(function (l, i) {
             return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
@@ -7027,7 +7063,7 @@
         setState(n);
       };
       if (current.isNpc || cardLocal(cfg)) { setTimeout(function () { try { apply(fallback()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700); return; }
-      const sys = "你正在亲自打德州扑克，不是在评论。保持你本人的声纹和性格，但先守规则。" + SKILL_RULE
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自打德州扑克，不是在评论。保持你本人的声纹和性格，但先守规则。"
         + "\n每人两张底牌只自己看得见，桌上五张公共牌，最后用七张里最好的五张比大小。你可以弃牌、过牌（没人下注时）、跟注、加注、全押——怎么打照你这个人：谨慎的会算，冲动的爱全押，嘴硬的会诈。"
         + (soft ? "\n这一局你想让着对面的她一点：别太凶，牌不好就早点弃。" : "")
         + "\n只输出 JSON，不解释：{\"kind\":\"fold|check|call|raise|allin\",\"to\":加注加到多少（只有 raise 填）,\"say\":\"可空的一句桌上话\"}。桌上话可以诈唬、试探、挑衅、装可怜，不必每手都说，别把自己的底牌说出来（想骗就骗）。";
@@ -7201,7 +7237,7 @@
       if (current.isNpc || cardLocal(cfg, "oldmaid")) { setTimeout(function () { try { apply(rndPick()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700); return; }
       const mine = current.hand.map(cardName).join(" ");
       const lastLine = state.last ? (state.players.find(function (p) { return p.key === state.last.by; }) || {}).name + " 上一手抽了 " + (state.players.find(function (p) { return p.key === state.last.from; }) || {}).name + " 的第 " + (state.last.pos + 1) + " 张" + (state.last.paired ? "，凑了对" : "") : "";
-      const sys = "你正在亲自玩「抽鬼牌」，不是在评论。保持你本人的声纹和性格。" + SKILL_RULE
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩「抽鬼牌」，不是在评论。保持你本人的声纹和性格。"
         + "\n规则：每个点数两张，凑成对就扔掉；牌里有一张鬼牌。轮流从下家手里扣着的牌里抽一张，最后手里剩鬼牌的人输。你看不见别人的牌，只能挑位置——可以盯着对方的手和表情猜，也可以随便抽。"
         + "\n只输出 JSON：{\"pick\":从左数第几张（1 到 " + n0 + "）,\"say\":\"可空的一句：试探、得意、慌张、逗对方都行\"}。别说出自己手里有没有鬼牌（想骗就骗）。";
       const ctx = "你手里：" + (mine || "（空）") + (current.hand.some(function (c) { return c.joker; }) ? "——鬼牌在你手里，别让人看出来" : "")
@@ -7348,7 +7384,7 @@
       const idx = state.turn;
       const apply = function (a, delegated) { const n = JSON.parse(JSON.stringify(state)); try { bjAct(n, a); } catch (e) { const fb = bjNpcMove(state, idx, soft); fb.say = a && a.say; bjAct(n, fb); } if (delegated && n.log.length) n.log[n.log.length - 1].text += "（代）"; setState(n); };
       if (current.isNpc || cardLocal(cfg)) { setTimeout(function () { try { apply(bjNpcMove(state, idx, soft)); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 650); return; }
-      const sys = "你正在亲自玩 21 点（跟庄家比，不是跟别人比），不是在评论。保持你本人的声纹和性格。" + SKILL_RULE
+      const sys = gameVoiceRules() + seatIdentity(current) + "你正在亲自玩 21 点（跟庄家比，不是跟别人比），不是在评论。保持你本人的声纹和性格。"
         + "\n规则：点数越接近 21 越好，超过 21 就爆；A 算 1 或 11，JQK 算 10。庄家要到 17 点为止。你可以要牌、停牌，或者只在头两张时加倍（押注翻倍、只再拿一张）。冒不冒险照你这个人来。"
         + "\n只输出 JSON：{\"kind\":\"hit|stand|double\",\"say\":\"可空的一句：紧张、嘴硬、得意、跟旁边的人搭话都行\"}。";
       const ctx = "第 " + state.hand + " / " + BJ_HANDS + " 手。你手里：" + current.cards.map(cardName).join(" ") + "，" + bjValue(current.cards) + " 点；你还剩 " + current.chips + "，这手押了 " + current.bet
