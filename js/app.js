@@ -10395,11 +10395,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
   };
   // 她自己身边的人：起一份草稿填回框里（不直接建人，她改完点「加进来」才存）
-  const draftMyNpc = async (ask, rel) => {
+  // me：照哪张面具写（关系页面具筛子挑的那张；没挑＝主面具）
+  const draftMyNpc = async (ask, rel, me) => {
     if (!String(ask || "").trim() && !String(rel || "").trim()) { toast("先写个名字或你俩什么关系"); return null; }
     const p = bgActiveRef.current || active;
     if (!p) { toast("先去 设置·API 配一条线路"); return null; }
-    try { return await generateMyNpc(p, profile, String(ask || "").trim() || String(rel || "").trim(), rel, npcsOf("me").map(c => c.name)); }
+    try { return await generateMyNpc(p, me || profile, String(ask || "").trim() || String(rel || "").trim(), rel, npcsOf("me").map(c => c.name)); }
     catch (e) { toast("没写出来：" + ((e && e.message) || e)); return null; }
   };
   // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc 手写，或者 draftMyNpc 起草稿。
