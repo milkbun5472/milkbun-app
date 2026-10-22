@@ -4945,6 +4945,9 @@ const HOME_DECOR_TYPES = [
   { id: "rotate", glyph: "↻", name: "轮换字条", text: "今天留一句", detail: "每行写一句\n每天自动换一句" },
   { id: "shortcut", glyph: "↗", name: "快捷入口牌", text: "", detail: "" },
   { id: "spacer", glyph: "□", name: "留白占位", text: "", detail: "" },
+  // 自己写（群友 2026-10-22「能不能出一个自定义小组件」，她：「不能她完全自定义吗」）：贴一段 HTML（可带 <style>、<script>），
+  //   画在一个隔离的小窗里（HOME_DECOR_CODE_DOC）。长什么样全她定；app 里的角色、聊天这些一样也够不着。
+  { id: "code", glyph: "</>", name: "自己写", text: "", detail: "" },
   { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
   { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" },
   // 竖着的那两样（她 2026-09-05：「现在都是横的」）。它们不是把横的转 90 度——
@@ -4956,6 +4959,12 @@ const HOME_DECOR_TYPES = [
 // 退役的那几种（她 2026-09-04：「删吧宝宝」——录音磁带／小物陈列盒／信封三样鸡肋）。
 // ⚠️不是从 HOME_DECOR_TYPES 里抠掉：抠掉了，已经摆在她桌面上的那几件当场变白框。
 //   照同人文那批退役板块的做法（fanfic.js 的 RETIRED_TABS）：新的不给选，老的照旧画出来。
+// 「自己写」那一件的上限和外壳。上限是怕一整份几百 K 的网页塞进桌面布局那一格（布局每次挪动都整份重存）。
+const HOME_DECOR_CODE_MAX = 40000;
+function HOME_DECOR_CODE_DOC(code) {
+  return "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+    + "<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;}</style></head><body>" + code + "</body></html>";
+}
 const HOME_DECOR_RETIRED = { letter: 1, cassette: 1, trinket: 1 };
 function homeDecorPickable() {
   return HOME_DECOR_TYPES.filter(function (x) { return !HOME_DECOR_RETIRED[x.id]; });
@@ -5873,6 +5882,15 @@ function HomeDecorItem({ item, preset, now }) {
   var meta = homeDecorMeta(item.type);
   var title = item.text || meta.text;
   var detail = item.detail || meta.detail;
+  // 自己写的那一件：srcdoc + sandbox="allow-scripts"（不给 allow-same-origin），里面的脚本跑在一个空白的独立来源里，
+  //   读不到这台 app 的 localStorage、IndexedDB、cookie，也碰不到外面这一页。
+  //   ⚠️pointerEvents 关掉：iframe 会把触摸吞掉，长按拿起来拖、打开样式页就都失灵了——这一件只看不点。
+  if (item.type === "code") {
+    var code = String(item.detail || "");
+    if (!code.trim()) return h("div", { style: { width: "100%", height: "100%", minHeight: 54, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11, color: sub } }, "还没写内容");
+    return h("iframe", { "data-wk": "decorcode", title: "自己写的小组件", sandbox: "allow-scripts", srcDoc: HOME_DECOR_CODE_DOC(code), tabIndex: -1, "aria-hidden": "true",
+      style: { width: "100%", height: "100%", minHeight: 54, border: 0, display: "block", background: "transparent", pointerEvents: "none", colorScheme: "normal" } });
+  }
   if (item.type === "spacer") return h("div", { "aria-label": "留白占位", style: { width: "100%", height: "100%", minHeight: 54, background: "transparent" } });
   if (item.type === "countdown" || item.type === "anniversary") {
     var target = /^\d{4}-\d{2}-\d{2}$/.test(String(detail || "")) ? new Date(detail + "T12:00:00") : null;
@@ -7013,7 +7031,7 @@ function Home({
   function decorItemOf(A, id) {
     var text = String(A.text || "").trim();
     var meta = homeDecorMeta(A.type);
-    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : A.type === "shortcut" ? shortcutTarget(String(A.detail || "").trim()) : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
+    return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : A.type === "shortcut" ? shortcutTarget(String(A.detail || "").trim()) : A.type === "code" ? String(A.detail || "").slice(0, HOME_DECOR_CODE_MAX) : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
   }
   function addDecoration() {
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
@@ -7974,9 +7992,14 @@ function Home({
               h(HomePhotoSlotEditor, { value: A.photos, frame: A.frame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, A.target, slot); }, onClear: function (slot) { clearDecorPhoto(A.target, slot); } }),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "照片可以先不放。多格相框以后也是逐格补，不会要求一次选满。")) : null)),
         A.isWidget || A.type === "spacer" ? null : section("words", "2", "写什么",
-          clip(A.type === "photo" ? A.text : (A.text || meta.text), 12) || "（还没写）",
+          (A.type === "code" ? (String(A.detail || "").trim() ? String(A.detail).length + " 字" : "") : clip(A.type === "photo" ? A.text : (A.text || meta.text), 12)) || "（还没写）",
           A.type === "photo"
             ? h("input", { "data-wk": "input", value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 6, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })
+            : A.type === "code" ? h("div", { style: { marginTop: 6 } },
+                h("textarea", { "data-wk": "textarea", "data-part": "decorcode", value: A.detail, onChange: function (e) { A.setDetail(e.target.value); }, rows: 10, maxLength: HOME_DECOR_CODE_MAX, spellCheck: false, autoCapitalize: "off", autoCorrect: "off",
+                  placeholder: "贴一段 HTML，可以带 <style> 和 <script>。\n比如：<div style=\"font-size:28px;text-align:center\">早安</div>", style: { width: "100%", resize: "vertical", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "10px 12px", fontFamily: "ui-monospace,Menlo,monospace", fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5 } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 7, lineHeight: 1.7 } },
+                  "上面的预览就是放到桌面的样子。不会写可以让秋秋写一段贴进来。它画在一个隔开的小窗里：动画、时钟这些都能跑，但读不到 app 里的角色和聊天，也不能点——长按照样拿起来拖、改样子。"))
             : A.type === "shortcut" ? h("div", { style: { marginTop: 6 } },
                 h("input", { "data-wk": "input", value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "图标上的字（可不填，不填就是一块空白，样子在下面「什么样子」里定）", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
                 h("select", { value: shortcutTarget(A.detail), onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
