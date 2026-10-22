@@ -15363,7 +15363,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -15583,6 +15583,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         // 一轮里各人各自一个 turnId，但共用同一个轮次戳：重 Roll 要整轮撤掉，不能留下前面几个人的旧发言
         const gRoundTs = Date.now();
+        // 引用这一轮里前面某人刚说的那条（群里 2026-10-20：顾暮回顾朝刚说的「连椅子都搬过来了」，可目录是这一轮之前编的、里面没有这句，
+        //   模型只好猜一个相邻的 Q 编号，引用气泡上就成了别人的另一句话）。quoteId 写 R+序号，指本轮数组里的第几条。
+        const gQuoteIn = (item, idx) => {
+          const m = /^R(\d+)$/i.exec(String((item && item.quoteId) || "").trim());
+          if (m) {
+            const k = Number(m[1]) - 1, src = k >= 0 && k < idx ? safeArr[k] : null, who = src && pickMember(members, src.name);
+            if (src && who && String(src.text || "").trim()) return { replyTo: String(src.text).trim(), replyToId: null, replyToSenderId: who.id, replyToSenderName: who.name };
+            return { replyTo: null, replyToId: null, replyToSenderId: null, replyToSenderName: null };
+          }
+          return window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+        };
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
           // 这一条的话写成了 {"voice":"…","emo":"…"} 一串字：拆回来当语音发（跟单聊同一支 unwrapVoiceJson）
@@ -15669,7 +15680,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           } else if (item.voice === true && item.text) {
             const vt = stripEchoedMeta(stripAiStamp(item.text));
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
-            const q = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+            const q = gQuoteIn(item, i);
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ...q, mid: "gvm_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId }]);
             autoTook();
           } else {
@@ -15716,7 +15727,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // 心声挂在末条气泡上显示。闭群也挂：它是这个群自己的内容，不回流主线
             //（往主线状态卡写的那一步在下面，照旧只认互通群和配角）。
             const gThought = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
-            const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+            const gResolvedQuote = gQuoteIn(item, i);
             // 动描：这一条发言的人此刻在做什么，摆在TA这几泡【前面】。
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
