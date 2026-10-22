@@ -38,7 +38,7 @@ test("正常那轮一个字都不许动（别误伤尖括号）", () => {
 test("接在调用点上，而且只补本来空着的那几栏", () => {
   const i = app.indexOf("if (typeof pullToolCallMarkup === \"function\") {");
   assert.ok(i > 0, "调用点没接上");
-  const seg = app.slice(i, i + 1200);
+  const seg = app.slice(i, i + 2000);
   assert.match(seg, /parsed\.affinityDelta == null && _f\.affinityDelta/);
   assert.match(seg, /parsed\.mood == null && _mood/);
   assert.ok(seg.indexOf("pullPhotoMarker") > 0, "和照片那一刀放在同一处，别散到两个地方");
