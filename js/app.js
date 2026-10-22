@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.332";
+const APP_VERSION = "v76.334";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22066,6 +22066,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     waitForHer(charId, { zyAsk: [...prev, { msgId: mid, testId }].slice(-3) });
     openChatById(charId);
   };
+  // 这套是哪个角色出的（他给她出的那种）：做题的人就是出题的人，还是别人出的
+  const zyAuthor = (test, charId) => { const by = test && test.by; if (!by) return null; if (String(by) === String(charId)) return { mine: true }; const a = characters.find(x => x.id === by); return a ? { name: a.remark || a.name } : null; };
   const zhaoyingRun = async (charId, msgId, testId) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
     const row = (chatsRef.current[charId] || []).find(x => x && x.id === msgId);
@@ -22074,7 +22076,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     patch({ status: "doing" });
     try {
       const scene = (row.zy || {}).scene || "";
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene, zyAuthor(test, charId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
       // 不算分的自定义题：结果就是他做完自己说的那句
       if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
@@ -22116,7 +22118,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (const c of mem) {
       if (onStep) onStep(c);
       try {
-        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
         const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
         if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
         Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), group: groupId });

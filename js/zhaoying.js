@@ -10,6 +10,8 @@
 
   function ZhaoyingApp(props) {
     const t = useTheme();
+    // 这一页的几支底色接主题工作台的「这一页的颜色」（她 2026-10-22「这页的美化顺便做了」）：没改过就是原来的纸色
+    const { PAPER, INK, FOG, LINE, ACC } = Z.colors();
     const chars = (props.characters || []).filter(c => c && !c.npc);
     const [who, setWho] = useState(chars[0] ? chars[0].id : "me");      // 在看谁的
     const [testId, setTestId] = useState(null);                         // 点开的那一套
@@ -200,6 +202,9 @@
       return page(test.name, () => { setTestId(null); setOpenRec(null); setCompare(false); },
         h(Fragment, null,
           cover(test, true),
+          // 他出的题：谁都能做（她 2026-10-22「我俩都能做也能发给别的角色」）
+          test.by && chars.some(c => c.id === test.by) ? h("div", { "data-wk": "zybyhint", style: { fontFamily: F_BODY, fontSize: 12, color: FOG, marginTop: 10, lineHeight: 1.6 } },
+            nameOf(test.by) + " 出的这套：你、" + nameOf(test.by) + " 自己、别的角色都能做——在下面「谁来做」里点谁就发给谁；做过的人能在底下对一对。") : null,
           test.custom ? h("div", { style: { textAlign: "right", marginTop: 6 } }, h("button", { "data-wk": "zyeditbtn", onClick: () => setEdit(JSON.parse(JSON.stringify(test))), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC } }, "✎ 改这套题")) : null,
           // 谁来做：点进来才挑人（她 2026-10-22「主页不要这个头像 要点进去才有」）；挑中谁，底下就是谁的档案
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: INK, margin: "18px 0 8px", letterSpacing: ".1em" } }, "谁来做"),
