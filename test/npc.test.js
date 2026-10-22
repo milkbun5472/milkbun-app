@@ -104,7 +104,8 @@ test("建群只要一个角色就能建", () => {
 // 「进去再拉人，可以从他已有关系里面拉」
 test("加人选单把有关系的排在前面单独一组", () => {
   assert.match(comp, /const relatedTo = id => \(memberIds \|\| \[\]\)\.some/);
-  assert.match(comp, /const nearby = pool\.filter\(c => \(c\.npc && memberIds\.includes\(c\.ownerId\)\) \|\| relatedTo\(c\.id\)\)/);
+  // 2026-10-22 她身边的配角（ownerId＝me）她在群里时也算认识的、排前面
+  assert.match(comp, /const nearby = pool\.filter\(c => \(c\.npc && \(memberIds\.includes\(c\.ownerId\)( \|\| \(_imIn && String\(c\.ownerId\) === "me"\))?\)\) \|\| relatedTo\(c\.id\)\)/);
   assert.match(comp, /"和群里的人有关系的"/);
   assert.match(comp, /"其他角色"/, "其余角色仍要列出来，不砍掉");
   assert.match(app, /rels: rels,/, "群设置要拿得到关系表");

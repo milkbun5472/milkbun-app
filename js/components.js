@@ -19858,7 +19858,9 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const relatedTo = id => (memberIds || []).some(mid =>
     (rels || {})[mid + "->" + id] || (rels || {})[id + "->" + mid]);
   const pool = outsiders.concat(npcOutsiders);
-  const nearby = pool.filter(c => (c.npc && memberIds.includes(c.ownerId)) || relatedTo(c.id));
+  // 她身边的配角：她自己就在这个群里，当然算认识的人，排前面（2026-10-22）
+  const _imIn = !(gs.spectate || (group && group.roomKind === "spectate"));
+  const nearby = pool.filter(c => (c.npc && (memberIds.includes(c.ownerId) || (_imIn && String(c.ownerId) === "me"))) || relatedTo(c.id));
   const nearbyIds = new Set(nearby.map(c => c.id));
   const rest = pool.filter(c => !nearbyIds.has(c.id));
   const addable = nearby.concat(rest);

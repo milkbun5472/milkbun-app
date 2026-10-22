@@ -22452,7 +22452,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
-      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 4)])].map(c => c.remark || c.name);
+      // 她身边的配角里跟发帖人连着关系的，也是共友（2026-10-22）
+      const myKnow = npcsOf("me").filter(n => rels[n.id + "->" + author.id] || rels[author.id + "->" + n.id]).slice(0, 2);
+      roster = [...new Set([primary, author, ...others.slice(0, 4), ...npcCrowd([author, ...others.slice(0, 4)], 4), ...myKnow])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
       const canSee = liveChars.filter(c => momSeen(mom, c.id));
@@ -23364,7 +23366,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️掷在代码里、不交给模型：「偶尔」写进提示词，模型要么每次都塞一条、要么从来不塞。
       //   掷中了就点名是谁、要一条【整条是TA写的】帖，它照样混在这一批网友帖中间。
       // ⚠️TA照样守关系隐私：TA生活里的事可以说，别人（台上那位、她）的私事不往网上发。
-      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id) && charWorldOf(c.id) === genW).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })));
+      const castPool = board === "匿名吧" ? [] : liveChars.filter(c => !(forumOffRef.current || []).includes(c.id) && charWorldOf(c.id) === genW).flatMap(c => npcsOf(c.id).map(n => ({ n, host: c })))
+        // 她身边的配角也会自己发帖（2026-10-22），在默认那个世界里
+        .concat(genW === "" ? npcsOf("me").map(n => ({ n, host: { id: "me", name: userName(profile) } })) : []);
       const cast = castPool.length && Math.random() < FORUM_CAST_CHANCE ? castPool[Math.floor(Math.random() * castPool.length)] : null;
       const castLine = cast
         ? "\n【这一批里有一条是「" + cast.n.name + "」发的】TA是 " + cast.host.name + " 身边的人。\n【TA的人设】" + (typeof groupPersonaText === "function" ? groupPersonaText(cast.n.persona, NPC_PERSONA_CAP) : String(cast.n.persona || "").slice(0, 900))
@@ -32292,6 +32296,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const liveProps = {
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
     characters: liveChars.filter(c => !c.npc && !isBody(c.id)),
+    myNpcs: npcsOf("me"),   // 她身边的配角：只来评论她发的视频
     profile: profile,
     wallet: wallet,
     regulars: shuaRegulars, regularPairs: shuaPairs, touchRegular: (id, dir, tone) => touchForumPublicTie(id, dir, tone),

@@ -759,7 +759,9 @@
       // 谁刷到了：本机先掷骰子（她 2026-10-15）——先掷有没有人刷到，再掷几个、是谁；
       //   掷中的那几位一枪写完，各带自己的人设、跟你的关系、你俩最近怎么说话（briefFor），外加防八股那一套（AC）。
       //   一个都没刷到就不花这次调用。合拍／情侣号／被拍同款的那一位本来就在，不掷。
-      const others = characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).sort(() => Math.random() - 0.5);
+      // 她自己身边的配角也刷得到她发的（群里 2026-10-22「我自己的 npc 在别的 app 也该能跟我互动」）：大号发的才来，跟角色一起掷
+      const myNpcs = maskUse ? [] : arr(props.myNpcs).filter(Boolean);
+      const others = characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).concat(myNpcs).sort(() => Math.random() - 0.5);
       const anyone = lead ? true : Math.random() < 0.4;   // 四成（她 2026-10-15：「太多了改成四成」）
       const howMany = anyone ? [1, 1, 2, 2, 2, 3, 3, 4][Math.floor(Math.random() * 8)] - (lead ? 1 : 0) : 0;
       const pool = (lead ? [lead] : []).concat(others.slice(0, Math.max(0, howMany)));
