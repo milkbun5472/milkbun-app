@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.316";
+const APP_VERSION = "v76.325";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11852,7 +11852,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她点完卡片留下的那一下（waitForHer）：她按出来的这一轮带上；主动消息不带（那不是在接她）。半天没接就作废。
     const _wh = !sideRoom && !opts.proactive && waitHerRef.current[charId];
     if (_wh && Date.now() - _wh._ts < 12 * 3600e3) { const { _ts, ...whPatch } = _wh; opts = { ...whPatch, ...opts }; }
-    if (opts.zyAsk && opts.zyAsk.length) opts.zyAsk.forEach(z => zhaoyingRun(charId, z.msgId, z.testId));
+    // 照影：等他这一轮的话先说完再去做（她 2026-10-22：原来一开口就去后台做，做得快，「做完了」的卡比他嘴上那几句还先落进聊天）
+    const _zyQueue = opts.zyAsk && opts.zyAsk.length ? opts.zyAsk.slice() : null;
     const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
@@ -12155,8 +12156,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
       // 照影：她刚看完他做那一套（她 2026-10-22「播放完再在聊天多写几句聊天」）
-      const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 让你做了一套小测「" + opts.zyDone.testName + "」，刚才看着你一题一题做完了，测出来是「" + opts.zyDone.title + "」。你每题选了什么、当时怎么想的，你都记得。接着跟她聊几句——认不认、哪题选得犹豫、想不想看她的。" : "";
-      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。你这就会去做（做题是另外的事，这一轮不用把题写出来）；照你这个人接一下她。" : "";
+      // ⚠️这两句只交代发生了什么，不替他定说什么（她 2026-10-22「回复那几句话也不太像他」：原来写着「这就会去做」「认不认、哪题犹豫、想不想看她的」，
+      //   他就照着报「题目发我，这就去填」、照着那三样一样样聊，谁来都是这几句）
+      const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 刚看着你把「" + opts.zyDone.testName + "」一题一题做完，测出来是「" + opts.zyDone.title + "」。每题选了什么、当时怎么想的你都记得。接下来说什么、提不提这次测试，照你这个人、照你们平时说话的样子。" : "";
+      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。题已经整套在这张卡里、就在你手机上，点开就能做，不用她再发；你这一轮说完就去做，做题是另外一件事，不用在话里宣布、也不用把题写出来。这一轮照你平时跟她说话的样子接她刚才的话，这张卡只是其中一件。" : "";
       const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint + zyDoneHint + zyAskHint;
       // 补时间戳的那一条（她关着 app 时「本该发出」的那会儿）：气泡上显示的是那会儿，可提示词里的钟是现在——
       //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
@@ -14338,6 +14341,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return null;                                  // 报错是报错，不许当成「空轮」再烧一次钱
     } finally {
       laneAbortEnd("c:" + chatKey, _abort);
+      if (_zyQueue) _zyQueue.forEach(z => zhaoyingRun(charId, z.msgId, z.testId));
     }
   };
   // CC 工具结果是异步的：云端完成后先作为隐藏系统事实落进同一私聊，
@@ -15363,7 +15367,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -15583,6 +15587,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         // 一轮里各人各自一个 turnId，但共用同一个轮次戳：重 Roll 要整轮撤掉，不能留下前面几个人的旧发言
         const gRoundTs = Date.now();
+        // 引用这一轮里前面某人刚说的那条（群里 2026-10-20：顾暮回顾朝刚说的「连椅子都搬过来了」，可目录是这一轮之前编的、里面没有这句，
+        //   模型只好猜一个相邻的 Q 编号，引用气泡上就成了别人的另一句话）。quoteId 写 R+序号，指本轮数组里的第几条。
+        const gQuoteIn = (item, idx) => {
+          const m = /^R(\d+)$/i.exec(String((item && item.quoteId) || "").trim());
+          if (m) {
+            const k = Number(m[1]) - 1, src = k >= 0 && k < idx ? safeArr[k] : null, who = src && pickMember(members, src.name);
+            if (src && who && String(src.text || "").trim()) return { replyTo: String(src.text).trim(), replyToId: null, replyToSenderId: who.id, replyToSenderName: who.name };
+            return { replyTo: null, replyToId: null, replyToSenderId: null, replyToSenderName: null };
+          }
+          return window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+        };
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
           // 这一条的话写成了 {"voice":"…","emo":"…"} 一串字：拆回来当语音发（跟单聊同一支 unwrapVoiceJson）
@@ -15669,7 +15684,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           } else if (item.voice === true && item.text) {
             const vt = stripEchoedMeta(stripAiStamp(item.text));
             const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
-            const q = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+            const q = gQuoteIn(item, i);
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ...q, mid: "gvm_" + Date.now() + "_" + i, ts: Date.now(), turnId: gTurnId }]);
             autoTook();
           } else {
@@ -15716,7 +15731,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // 心声挂在末条气泡上显示。闭群也挂：它是这个群自己的内容，不回流主线
             //（往主线状态卡写的那一步在下面，照旧只认互通群和配角）。
             const gThought = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
-            const gResolvedQuote = window.GroupQuote ? window.GroupQuote.resolve(item, gQuoteCatalog) : { replyTo: item.quote || null };
+            const gResolvedQuote = gQuoteIn(item, i);
             // 动描：这一条发言的人此刻在做什么，摆在TA这几泡【前面】。
             // ⚠️比的是【这个人自己上一次摆出来的那条】，不是全群最后一条——
             //   一轮里 A 变了、B 没变，只该出 A 那一行。
@@ -22037,11 +22052,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   她点开看完那一下，他接着在聊天里说几句（只说一次）。
   const [zyWatch, setZyWatch] = useState(null);   // { charId, testId, recId, msgId, replay }
   //   卡发出去先不动：等她把话说完、按了回复（waitForHer.zyAsk），那一轮里才开始做。
-  const zhaoyingAsk = (charId, testId) => {
+  // scene：「换个处境再做」那一次的前提（她 2026-10-22），空着就是平时的他
+  const zhaoyingAsk = (charId, testId, scene) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
     if (!c || !test) return;
     const mid = "zy_" + Date.now();
-    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」", ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId } }]);
+    const sc = String(scene || "").trim().slice(0, 60);
+    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」（" + test.qs.length + " 道题，题就在这张卡里，点开就能做）" + (sc ? "，这一次假设：" + sc : ""), ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId, ...(sc ? { scene: sc } : {}) } }]);
     const prev = (waitHerRef.current[charId] || {}).zyAsk || [];
     waitForHer(charId, { zyAsk: [...prev, { msgId: mid, testId }].slice(-3) });
     openChatById(charId);
@@ -22053,16 +22070,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const patch = zy => pChat(charId, p => p.map(x => x && x.id === msgId ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
     patch({ status: "doing" });
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+      const scene = (row.zy || {}).scene || "";
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene), schemaHint: Z.askSchema(test), maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
       // 不算分的自定义题：结果就是他做完自己说的那句
       if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(scene ? { scene } : {}) });
       patch({ status: "done", recId, title: res.title });
+      // 做完在他那边落一张卡（她 2026-10-22「不然还得往上翻」）：点开就是看他做，跟最早那张指向同一次
+      pChat(charId, p => [...p, { id: "zyd_" + Date.now(), role: "assistant", kind: "zyask", ts: Date.now(),
+        content: "〔照影〕我做完了「" + test.name + "」，测出「" + res.title + "」",
+        zy: { testId, testName: test.name, status: "done", recId, title: res.title, charId, srcId: msgId, ...(scene ? { scene } : {}) } }]);
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
-  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: m.id }); };
+  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id }); };
   const zyWatchDone = w => {
     if (!w || w.replay || !w.msgId) return;
     const row = (chatsRef.current[w.charId] || []).find(x => x && x.id === w.msgId);
@@ -22070,6 +22092,63 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(w.charId, p => p.map(x => x && x.id === w.msgId ? { ...x, zy: { ...(x.zy || {}), discussed: true } } : x));
     const test = window.Zhaoying.byId(w.testId);
     setTimeout(() => replyNow(w.charId, "", null, { zyDone: { testName: test ? test.name : "", title: (row.zy || {}).title || "" } }), 300);
+  };
+  // 他给她出一套（她 2026-10-22）：用他自己的线路和他的上下文出，存成一套带 by 的题，她来做
+  const zhaoyingCharGen = async charId => {
+    const Z = window.Zhaoying, c = characters.find(x => x.id === charId);
+    if (!Z || !c) return null;
+    try {
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId))), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
+      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId });
+      if (!t) { toast("他这回没出成题，再试一次"); return null; }
+      return t;
+    } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
+  };
+  // 一个群一起做（她 2026-10-22）：群里每个主角色各做一遍（一人一次调用），做完把大家的选法发进群，让他们自己聊
+  const zhaoyingGroupRun = async (groupId, testId, onStep) => {
+    const Z = window.Zhaoying, g = groups.find(x => x && x.id === groupId), test = Z && Z.byId(testId);
+    if (!g || !test) return 0;
+    const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
+    let n = 0;
+    for (const c of mem) {
+      if (onStep) onStep(c);
+      try {
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+        const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+        if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
+        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), group: groupId });
+        n++;
+      } catch (e) { toast((c.remark || c.name) + " 这回没做成"); }
+    }
+    if (n >= 2) {
+      const done = mem.filter(c => (Z.recordsOf(c.id, testId)[0] || {}).group === groupId);
+      const lines = done.map(c => { const r = Z.recordsOf(c.id, testId)[0]; return "「" + (c.remark || c.name) + "」测出「" + r.title + "」"; });
+      // 大家选得最不一样的那几题，摆出来让他们有得聊
+      const split = test.qs.map((q, i) => ({ i, k: new Set(done.map(c => Z.recordsOf(c.id, testId)[0].picks[i])).size })).filter(x => x.k > 1).sort((a, b) => b.k - a.k).slice(0, 2);
+      const qLines = split.map(x => "第 " + (x.i + 1) + " 题「" + test.qs[x.i].q + "」：" + done.map(c => (c.remark || c.name) + "选「" + Z.optText(test, x.i, Z.recordsOf(c.id, testId)[0].picks[x.i]) + "」").join("，"));
+      pGChat(groupId, p => [...p, { role: "user", content: "〔照影〕我让大家都做了「" + test.name + "」：" + lines.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + "\n你们自己说说？", ts: Date.now() }]);
+      try { replyGroup(groupId, {}); } catch (e) {}
+    }
+    return n;
+  };
+  // 一次结果收进时刻（她 2026-10-22「也可以存进时刻」）：走 pinToShike 同一处，一题一行
+  const zhaoyingPin = (charId, testId, rec) => {
+    const Z = window.Zhaoying, test = Z && Z.byId(testId), c = characters.find(x => x.id === charId);
+    if (!test || !c || !rec) return;
+    const who = c.remark || c.name, ts0 = Number(rec.ts) || Date.now();
+    const rows = [{ role: "assistant", content: "做了「" + test.name + "」" + (rec.scene ? "（前提：" + rec.scene + "）" : "") + "，" + (rec.free ? "做完说：" : "测出：") + rec.title + (rec.line && rec.line !== rec.title ? "——" + rec.line : ""), ts: ts0, _who: who }]
+      .concat(test.qs.map((q, i) => ({ role: "assistant", content: (i + 1) + ". " + q.q + " → " + Z.optText(test, i, (rec.picks || [])[i]) + ((rec.whys || [])[i] ? "（" + rec.whys[i] + "）" : ""), ts: ts0 + i + 1, _who: who })));
+    pinToShike(charId, rows, x => x._who || undefined);
+  };
+  // 一次结果存成图：照影页的记录和看他做的回放页共用这一处
+  const zhaoyingSaveImage = async (testId, rec, name) => { const Z = window.Zhaoying, test = Z && Z.byId(testId); if (!test) return; const b = await Z.resultImage(test, rec, name); if (b) saveFile(new File([b], "照影-" + test.name + ".png", { type: "image/png" })); };
+  // 她做完他出的那套：把她每题选了什么发给他（她按回复他才接，不当场替他开口）
+  const zhaoyingSendMine = (charId, testId, rec) => {
+    const Z = window.Zhaoying, test = Z && Z.byId(testId);
+    if (!test || !rec) return;
+    const body = test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.optText(test, i, (rec.picks || [])[i])).join("\n");
+    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: "〔照影〕你给我出的「" + test.name + "」我做完了，每题选的：\n" + body, ts: Date.now(), zy: { testName: test.name, title: "做完了你出的这套", who: userName(profileFor(charId)) } }]);
+    openChatById(charId);
   };
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
@@ -32655,7 +32734,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
-    onAsk: (charId, testId) => zhaoyingAsk(charId, testId),
+    onAsk: (charId, testId, scene) => zhaoyingAsk(charId, testId, scene),
+    onCharGen: zhaoyingCharGen,
+    onGroupRun: zhaoyingGroupRun,
+    onPin: zhaoyingPin,
+    onSendMine: zhaoyingSendMine,
+    onSaveImage: zhaoyingSaveImage,
     // 给主题出一套题：走她自己那条线路（出完进编辑页，存了才算）
     onGenTest: (theme, count, scored) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored); },
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
@@ -33893,7 +33977,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const rec = (window.Zhaoying.recordsOf(zyWatch.charId, zyWatch.testId) || []).find(r => r.id === zyWatch.recId);
     const c = characters.find(x => x.id === zyWatch.charId);
     return rec ? h(window.ZhaoyingWatch, { key: zyWatch.recId, testId: zyWatch.testId, rec, name: c ? (c.remark || c.name) : "他",
-      onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null) }) : null;
+      onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null),
+      // 看完就能存（她 2026-10-22「要」）：跟照影页那次记录上的两颗是同一处
+      onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
+      onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
   })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
     key: "cs:" + activeChar.id,

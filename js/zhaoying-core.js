@@ -104,6 +104,69 @@
     ]
   });
 
+  // 6. 九型人格（她 2026-10-22 加）：九种各 6 个选项指着，选得最多的那种就是
+  T.push({
+    id: "ennea", name: "九型人格", sub: "你心里最怕什么、最想要什么",
+    qs: [
+      { q: "别人交给你的事做完了，你最在意", opts: [{ t: "有没有哪儿做得不够对", s: { N1: 1 } }, { t: "他满不满意", s: { N2: 1 } }, { t: "能不能拿出去说是我做的", s: { N3: 1 } }] },
+      { q: "一群人吵起来了，你", opts: [{ t: "先弄明白怎么回事再开口", s: { N5: 1 } }, { t: "心里发紧，看看站哪边稳妥", s: { N6: 1 } }, { t: "只想大家别吵了", s: { N9: 1 } }] },
+      { q: "最怕别人觉得你", opts: [{ t: "平平无奇，跟谁都一样", s: { N4: 1 } }, { t: "被困住了，没得玩", s: { N7: 1 } }, { t: "软，好欺负", s: { N8: 1 } }] },
+      { q: "有人夸你，你最想听的是", opts: [{ t: "做得真好，挑不出毛病", s: { N1: 1 } }, { t: "你真的帮了我好多", s: { N2: 1 } }, { t: "你跟别人都不一样", s: { N4: 1 } }] },
+      { q: "周末一个人在家", opts: [{ t: "翻书查资料，把一件事搞懂", s: { N5: 1 } }, { t: "列个单子，想去哪玩", s: { N7: 1 } }, { t: "躺着发呆，挺舒服", s: { N9: 1 } }] },
+      { q: "碰到一个新机会", opts: [{ t: "先问清楚风险，有没有后路", s: { N6: 1 } }, { t: "上，做出点样子来", s: { N3: 1 } }, { t: "我说了算就干", s: { N8: 1 } }] },
+      { q: "朋友找你诉苦", opts: [{ t: "放下手里的事陪他", s: { N2: 1 } }, { t: "帮他理理到底哪儿出了问题", s: { N1: 1 } }, { t: "听着，心里替他难受好久", s: { N4: 1 } }] },
+      { q: "刚到一个新地方上班，你最先", opts: [{ t: "弄清楚怎么做才能被看到", s: { N3: 1 } }, { t: "先看着，别急着冒头", s: { N5: 1 } }, { t: "找一个靠得住的前辈", s: { N6: 1 } }] },
+      { q: "心情不好的时候", opts: [{ t: "找点开心的事把它盖过去", s: { N7: 1 } }, { t: "谁惹的我就找谁", s: { N8: 1 } }, { t: "不想麻烦别人，自己消化", s: { N9: 1 } }] },
+      { q: "看到桌上东西摆歪了", opts: [{ t: "忍不住摆正", s: { N1: 1 } }, { t: "没注意", s: { N9: 1 } }, { t: "觉得歪着也挺好看", s: { N4: 1 } }] },
+      { q: "有人需要帮忙但没开口", opts: [{ t: "我看得出来，主动去帮", s: { N2: 1 } }, { t: "等他自己开口", s: { N5: 1 } }, { t: "自己人就帮，外人再说", s: { N8: 1 } }] },
+      { q: "做选择最纠结的是", opts: [{ t: "选了这个就错过了别的", s: { N7: 1 } }, { t: "哪个更稳，不会出事", s: { N6: 1 } }, { t: "哪个更能证明我行", s: { N3: 1 } }] },
+      { q: "你的包里", opts: [{ t: "有一样对你很特别的小东西，别人看不懂", s: { N4: 1 } }, { t: "都是用得上的东西", s: { N5: 1 } }, { t: "塞满了好玩的小玩意", s: { N7: 1 } }] },
+      { q: "有人插队", opts: [{ t: "当面说他", s: { N8: 1 } }, { t: "心里很不舒服，这不对", s: { N1: 1 } }, { t: "算了，不差这一会儿", s: { N9: 1 } }] },
+      { q: "最让你累的是", opts: [{ t: "一直被需要，顾不上自己", s: { N2: 1 } }, { t: "不知道该信谁", s: { N6: 1 } }, { t: "一直被人盯着看", s: { N5: 1 } }] },
+      { q: "你最想被人记住的是", opts: [{ t: "我做成过的事", s: { N3: 1 } }, { t: "我就是我，有自己的样子", s: { N4: 1 } }, { t: "我护住了身边的人", s: { N8: 1 } }] },
+      { q: "计划好的事被打乱", opts: [{ t: "那就换个更好玩的", s: { N7: 1 } }, { t: "心慌，想再确认别的会不会也变", s: { N6: 1 } }, { t: "不舒服，事情就该照规矩来", s: { N1: 1 } }] },
+      { q: "跟人闹了点不愉快之后", opts: [{ t: "先去问是不是我哪儿让他不高兴了", s: { N2: 1 } }, { t: "想想怎么扳回来", s: { N3: 1 } }, { t: "先当没事，过两天就好了", s: { N9: 1 } }] }
+    ]
+  });
+
+  // 7. 适合你的另一半（她 2026-10-22 加）：六种，选得最多的那种
+  T.push({
+    id: "partner", name: "适合你的另一半", sub: "你心里那个人，大概是什么样子",
+    qs: [
+      { q: "你生病了，最希望对方", opts: [{ t: "熬粥喂药，一直在旁边", s: { Wa: 1 } }, { t: "讲笑话逗你，让你忘了难受", s: { Fu: 1 } }, { t: "什么也不说，就一直守着", s: { Mi: 1 } }] },
+      { q: "最理想的约会", opts: [{ t: "他早就安排好了", s: { St: 1 } }, { t: "临时起意，说走就走", s: { Fu: 1 } }, { t: "就在家待着，腻在一起", s: { Ni: 1 } }] },
+      { q: "吵架的时候，你希望他", opts: [{ t: "先低头哄你", s: { Wa: 1 } }, { t: "把话说清楚，对就是对", s: { Eq: 1 } }, { t: "追着你，不让你走", s: { Ni: 1 } }] },
+      { q: "最让你心动的一瞬间", opts: [{ t: "他对别人很冷，只对你笑", s: { Mi: 1 } }, { t: "他认真做事的样子", s: { St: 1 } }, { t: "他接住了你每一个梗", s: { Fu: 1 } }] },
+      { q: "你最受不了的是", opts: [{ t: "他太闷，没意思", s: { Fu: 1 } }, { t: "他什么都顺着你，没主见", s: { Eq: 1 } }, { t: "他忽冷忽热", s: { St: 1 } }, { t: "他不黏你", s: { Ni: 1 } }] },
+      { q: "他记得你哪件事最让你心动", opts: [{ t: "你随口说过的喜好", s: { Wa: 1 } }, { t: "你们第一次见面的细节", s: { Ni: 1 } }, { t: "你说过的梦想，他还一直推着你去做", s: { Eq: 1 } }] },
+      { q: "他的朋友圈", opts: [{ t: "几乎不发", s: { Mi: 1 } }, { t: "常发好玩的", s: { Fu: 1 } }, { t: "置顶的那条是你", s: { Ni: 1 } }] },
+      { q: "你累了一天回到家", opts: [{ t: "灯开着，饭在锅里", s: { Wa: 1 } }, { t: "他什么都不问，安安静静陪你坐着", s: { Mi: 1 } }, { t: "他扑过来抱住你", s: { Ni: 1 } }] },
+      { q: "出去玩迷路了", opts: [{ t: "他早就查好了路", s: { St: 1 } }, { t: "他说那就随便走走，说不定更好玩", s: { Fu: 1 } }, { t: "你俩争到底是谁带错的，然后一起笑", s: { Eq: 1 } }] },
+      { q: "你希望他的过去", opts: [{ t: "简单干净，一眼看得到", s: { Wa: 1 } }, { t: "有一段你不知道的故事", s: { Mi: 1 } }, { t: "也有过低谷，所以能互相撑着", s: { Eq: 1 } }] },
+      { q: "一起拿主意的时候", opts: [{ t: "他听你的", s: { Wa: 1 } }, { t: "吵一架，吵出个更好的", s: { Eq: 1 } }, { t: "他替你拿主意", s: { St: 1 } }, { t: "他嘴上不说，最后做的正是你想要的", s: { Mi: 1 } }] },
+      { q: "他最该对你说的一句", opts: [{ t: "有我在", s: { St: 1 } }, { t: "我想你了", s: { Ni: 1 } }, { t: "你还挺厉害的", s: { Eq: 1 } }, { t: "走，带你去个地方", s: { Fu: 1 } }] }
+    ]
+  });
+
+  // 8. 心理年龄（她 2026-10-22 加）：每个选项带一个岁数，取平均
+  T.push({
+    id: "mindage", name: "心理年龄", sub: "你心里住着几岁的自己",
+    qs: [
+      { q: "收到礼物，你最开心的是", opts: [{ t: "拆包装那一下", s: { age: 8 } }, { t: "拍照发出去", s: { age: 18 } }, { t: "正好用得上", s: { age: 35 } }, { t: "心意到了就好", s: { age: 60 } }] },
+      { q: "周末早上", opts: [{ t: "起来就看动画打游戏", s: { age: 10 } }, { t: "睡到中午", s: { age: 18 } }, { t: "照计划把事做完", s: { age: 35 } }, { t: "早起去买菜", s: { age: 55 } }] },
+      { q: "路边有只猫", opts: [{ t: "蹲下去逗半天", s: { age: 8 } }, { t: "拍照", s: { age: 18 } }, { t: "看一眼，挺可爱", s: { age: 35 } }, { t: "想着它冷不冷饿不饿", s: { age: 60 } }] },
+      { q: "跟人闹了矛盾", opts: [{ t: "哭，或者闹", s: { age: 8 } }, { t: "生闷气，发条朋友圈", s: { age: 18 } }, { t: "找个时间说开", s: { age: 35 } }, { t: "算了，不值得", s: { age: 65 } }] },
+      { q: "钱这件事", opts: [{ t: "有就花", s: { age: 10 } }, { t: "攒着买喜欢的", s: { age: 20 } }, { t: "按月存，有规划", s: { age: 38 } }, { t: "能省就省，以防万一", s: { age: 60 } }] },
+      { q: "你最常挂在嘴边的", opts: [{ t: "好耶 / 不要", s: { age: 8 } }, { t: "绝了 / 救命", s: { age: 18 } }, { t: "行，我来", s: { age: 35 } }, { t: "都行，随缘", s: { age: 60 } }] },
+      { q: "新年愿望", opts: [{ t: "想要一样东西", s: { age: 8 } }, { t: "变好看，谈个恋爱", s: { age: 18 } }, { t: "升职加薪", s: { age: 38 } }, { t: "家里人平平安安", s: { age: 60 } }] },
+      { q: "一个人的晚上", opts: [{ t: "抱着玩偶看动画", s: { age: 8 } }, { t: "刷手机到半夜", s: { age: 18 } }, { t: "看书，学点东西", s: { age: 35 } }, { t: "泡脚早睡", s: { age: 60 } }] },
+      { q: "听到一首老歌", opts: [{ t: "不知道是谁唱的", s: { age: 10 } }, { t: "有点土", s: { age: 18 } }, { t: "想起某段日子", s: { age: 38 } }, { t: "跟着哼，眼眶有点热", s: { age: 60 } }] },
+      { q: "做错了事", opts: [{ t: "先藏起来", s: { age: 8 } }, { t: "找个理由", s: { age: 18 } }, { t: "认了，想办法补", s: { age: 35 } }, { t: "看得开，谁没错过", s: { age: 60 } }] },
+      { q: "别人跟你吐槽", opts: [{ t: "听不太懂，先抱抱", s: { age: 8 } }, { t: "跟着一起骂", s: { age: 16 } }, { t: "帮他出主意", s: { age: 35 } }, { t: "听着，说一句都会过去的", s: { age: 60 } }] },
+      { q: "人这辈子最要紧的", opts: [{ t: "开心", s: { age: 10 } }, { t: "被喜欢", s: { age: 18 } }, { t: "活出个样子", s: { age: 35 } }, { t: "平安健康", s: { age: 60 } }] }
+    ]
+  });
+
   // ── 结果 ─────────────────────────────────────────────────
   const MBTI_NAME = {
     INTJ: "安静的谋划家", INTP: "爱钻牛角尖的思考者", ENTJ: "天生带队的人", ENTP: "爱抬杠的点子王",
@@ -119,6 +182,18 @@
   };
   const LOVE = { Q: "陪着你", W: "说给你听", G: "带给你", D: "替你做", K: "抱住你" };
   const VALUES = { Me: "先顾好自己", Us: "先顾好大家", R: "守规矩", X: "看情况", St: "求稳", Ad: "敢闯", Id: "信理想", Re: "看现实" };
+  const ENNEA = {
+    N1: ["1 号 · 完美型", "心里有一把尺，想把事做对，也对自己最严"], N2: ["2 号 · 助人型", "总先顾着别人，被需要的时候最安心"],
+    N3: ["3 号 · 成就型", "想做成点什么，也想被看见做成了"], N4: ["4 号 · 自我型", "想被真正懂，最怕活得跟谁都一样"],
+    N5: ["5 号 · 观察型", "先看懂再开口，需要一块自己的地方"], N6: ["6 号 · 忠诚型", "想要靠得住的人和事，心里常备着后路"],
+    N7: ["7 号 · 活跃型", "想把日子过得好玩，不想被困住"], N8: ["8 号 · 领袖型", "自己扛着走，护着自己人，不肯示弱"],
+    N9: ["9 号 · 和平型", "不想起冲突，让大家都舒服，自己往后放"]
+  };
+  const PARTNER = {
+    Wa: ["温柔、会照顾人的那种", "你需要一个把你放在心上、把日子打理暖的人"], Fu: ["有趣、能陪你一起疯的那种", "跟他在一起，日子不会无聊"],
+    St: ["沉稳、靠得住的那种", "有他在，天塌下来你也不慌"], Mi: ["有点难懂、让人想靠近的那种", "他不多说，但你越看越想懂他"],
+    Eq: ["跟你势均力敌的那种", "能吵能和好，互相推着往前走"], Ni: ["黏人、把你当全世界的那种", "你想要被很满很满地需要"]
+  };
   const ANIMAL = {
     Ca: ["猫", "有自己的脾气，愿意靠近的时候才靠近"], Do: ["狗", "热乎乎的，喜欢就绕着转"], Wo: ["狼", "认定了就守着，对外人冷"],
     Fo: ["狐狸", "聪明，心思多，不太好猜"], Ra: ["兔子", "软，容易受惊，被护着会很乖"], Be: ["熊", "慢吞吞的，可靠，抱起来很暖"]
@@ -136,7 +211,8 @@
     const sc = tally(test, picks);
     if (testId === "mbti") {
       const code = test.axes.map(([a, b]) => pickAxis(sc, a, b)).join("");
-      return { code, title: MBTI_NAME[code] || code, line: code };
+      // 四个字母要露出来（她 2026-10-22「实际 mbti 也没显示出来」）：卡上、结果框里都只摆 title
+      return { code, title: code + " · " + (MBTI_NAME[code] || code), line: "" };
     }
     if (testId === "attach") {
       const n = test.qs.length, A = (sc.A || 0) / n, V = (sc.V || 0) / n;
@@ -150,6 +226,20 @@
     if (testId === "values") {
       const tags = test.axes.map(([a, b]) => VALUES[pickAxis(sc, a, b)]);
       return { code: test.axes.map(([a, b]) => pickAxis(sc, a, b)).join("-"), title: tags.join(" · "), line: "" };
+    }
+    if (testId === "ennea") {
+      const order = Object.keys(ENNEA).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      return { code: order[0], title: ENNEA[order[0]][0], line: ENNEA[order[0]][1] };
+    }
+    if (testId === "partner") {
+      const order = Object.keys(PARTNER).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      return { code: order[0], title: "适合你的是：" + PARTNER[order[0]][0], line: PARTNER[order[0]][1] };
+    }
+    if (testId === "mindage") {
+      const n = (picks || []).filter((p, i) => test.qs[i] && test.qs[i].opts[p]).length || 1;
+      const age = Math.round((sc.age || 0) / n);
+      const line = age < 14 ? "心里住着个小孩" : age < 24 ? "还在青春里" : age < 40 ? "刚刚好的大人" : age < 55 ? "早熟的老灵魂" : "看透了的老人家";
+      return { code: String(age), title: "心理年龄 " + age + " 岁", line };
     }
     if (testId === "animal") {
       const order = Object.keys(ANIMAL).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
@@ -171,7 +261,8 @@
     const qs = (t.qs || []).map(q => ({ q: String((q && q.q) || "").trim().slice(0, 120),
       opts: ((q && q.opts) || []).map(o => ({ t: String((o && o.t) || "").trim().slice(0, 60), r: scored ? Math.max(0, Math.min(results.length - 1, Number(o && o.r) || 0)) : undefined })).filter(o => o.t).slice(0, 4) }))
       .filter(q => q.q && q.opts.length >= 2).slice(0, 30);
-    return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs };
+    return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs,
+      ...(t.by ? { by: String(t.by) } : {}) };
   }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   function delCustom(id) { saveJSON(CKEY, customs().filter(x => x.id !== id)); }
@@ -229,20 +320,27 @@
       lines.push({ t, r, picks });
     });
     return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.map(x =>
-      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks).join("\n");
+      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks).join("\n");
   }
 
   // 让他做一套题的那一段（照影页里调 runProbe）
-  function askInstruction(test, meName, prev) {
+  // scene：她给这一次定的处境（她 2026-10-22「换个处境再做」）——同一套题，在那个前提下的你会怎么选
+  function askInstruction(test, meName, prev, scene) {
     return "你在手机上做一套小测「" + test.name + "」（" + test.sub + "）。一题一题照你自己真实的样子选——不是挑看起来好的那个，也不是猜出题人想要什么。"
-      + "每题最后落定一个选项。steps 是你手指在这一题上的过程：手指移到一个选项上、按下去，那一刻心里冒的话写在 think（第一人称，照你平时想事情的样子，一两句，想得多就多写几句）。"
-      + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写两到四步：先按了一个、又改到另一个，或者在两个之间来回；最后一步就是你最终选的。犹不犹豫照你的性子来，不为了好看硬晃。"
+      + (scene ? "\n这一次有个前提：" + String(scene).slice(0, 60) + "。照这个前提下的你来答，心声里也是那时候的你；跟平时一样的题就一样，不为了显得不同硬改。" : "")
+      + "每题最后落定一个选项。steps 是你手指在这一题上的过程：手指移到一个选项上、按下去，那一刻脑子里一闪而过的东西写在 think——"
+      // 心声别写成分析（她 2026-10-22「心声太像模型分析了」：一句句都是「我这人向来…」「我最在乎…」，像在给自己写人物小传）
+      + "是你真在想事情时冒出来的那种：想到了哪个人、哪件事、哪个画面，或者只是一句嘀咕。它不是给自己下定义，也不是解释你是什么样的人、为什么这么选；有的题根本不用想，那就一两个字。第一人称，照你平时说话的口气。"
+      // 纠结的人可以来回好几次（她 2026-10-22「有些角色可能会来回选好几次纠结的吧」）：原来卡在两到四步，最多改一两回
+      + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写多步：按了一个又改到另一个，在两三个之间来回、改过去又改回来，最多六下；每一下心里冒的东西可以不一样。最后一步就是你最终选的。犹不犹豫、来回几次照你的性子来，不为了好看硬晃，也不为了干脆硬压。"
       + (meName ? "这是「" + meName + "」让你做的，她会看到你每一题选了什么、为什么。" : "")
       + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
       + (test.custom && !test.scored ? "\n这套不算分。全部做完后，feel 写你做完这一套的感觉，一两句，照你自己说话的样子。" : "")
+      // 结果下面那段评语（她 2026-10-22「写一小段评语，每个角色就算答案一样评语也不一样」）：同一次调用里一起写，不多花一枪
+      + "\nreview 是另一件事：测试页面在结果下面给做题这个人写的一小段解读，三四句，用「他」称呼你、口气是测试页面的口气，不是你自己说话。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体的题；别写这一类人谁都对得上的话。"
       + "\n题目：\n" + test.qs.map((q, i) => (i + 1) + ". " + q.q + "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n")).join("\n");
   }
-  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}]}";
+  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\"}";
   function askSchema(test) { return test && test.custom && !test.scored ? ASK_SCHEMA.replace(/\}$/, ",\"feel\":\"做完的感觉\"}") : ASK_SCHEMA; }
   function readAnswers(test, d) {
     const arr = Array.isArray(d && d.answers) ? d.answers : Array.isArray(d) ? d : [];
@@ -250,33 +348,47 @@
     const ok = (q, v) => { const n = Number(v); return n >= 0 && n < q.opts.length && Math.floor(n) === n; };
     test.qs.forEach((q, i) => {
       const a = arr.find(x => x && Number(x.i) === i + 1) || arr[i] || {};
-      let st = (Array.isArray(a.steps) ? a.steps : []).filter(x => x && ok(q, x.at)).slice(0, 4)
+      let st = (Array.isArray(a.steps) ? a.steps : []).filter(x => x && ok(q, x.at)).slice(0, 6)
         .map(x => ({ at: Number(x.at), think: String(x.think || "").trim().slice(0, 160) }));
       if (!st.length) { const p = ok(q, a.pick) ? Number(a.pick) : Math.floor(Math.random() * q.opts.length); st = [{ at: p, think: String(a.why || "").trim().slice(0, 160) }]; }
       picks.push(st[st.length - 1].at); paths.push(st);
       whys.push(st.map(x => x.think).filter(Boolean).join(" "));
     });
-    return { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120) };
+    return { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120), review: String((d && d.review) || "").trim().slice(0, 400) };
   }
 
   // ── 聊天里那张卡（她 2026-10-22：「点进去再按头像选人发卡到聊天让他做」）──────────
   //   kind:"zyask"＝她发去的邀请：他做的时候写「在做…」，做完了点开就是看他做（ZhaoyingWatch）；
   //   kind:"zyshare"＝早先转发过去的结果卡，照旧能显示。
   const PAPER = "#f6f1ea", INK = "#3b332a", FOG = "#9a8a76", LINE = "#e2d8ca", ACC = "#b0764a";
+  // 每套一个颜色和大符号：照影页的封面和聊天里那张卡共用这一份
+  const PAL = { mbti: { a: "#f3d9c8", b: "#d9a38a", deep: "#b5674a", g: "?" }, attach: { a: "#dfe3ef", b: "#a9b3d3", deep: "#5f6d9e", g: "⇄" },
+    love: { a: "#f6d6dc", b: "#e29aa8", deep: "#c05a6f", g: "♡" }, values: { a: "#e3e8d6", b: "#b3c094", deep: "#6f8150", g: "⚖" }, animal: { a: "#f1e3c4", b: "#d8b778", deep: "#a27b2f", g: "✦" },
+    ennea: { a: "#e6dcef", b: "#b9a3d3", deep: "#6e5596", g: "9" }, partner: { a: "#f7dfd3", b: "#e8a98f", deep: "#b4593d", g: "∞" }, mindage: { a: "#dcece8", b: "#9fcbbf", deep: "#3f7f70", g: "◷" } };
+  const PAL_C = [PAL.love, PAL.attach, PAL.values, PAL.animal, PAL.mbti];
+  function pal(tt) { const id = String((tt && tt.id) || ""); return PAL[id] || Object.assign({}, PAL_C[id.split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % PAL_C.length], { g: String((tt && tt.name) || "？").slice(0, 1) }); }
+  // 聊天里那张卡（她 2026-10-22「这张卡好丑修一修」）：跟照影页封面同一套——这一套的颜色、大符号、名字，下面一颗状态签
   function card(m) {
     const h = g.React && g.React.createElement; if (!h) return null;
     const z = (m && m.zy) || {};
     const ask = m && m.kind === "zyask";
     const st = z.status;
     const tap = ask && st === "done" && typeof g.__zyOpen === "function" ? () => g.__zyOpen(m) : null;
-    return h("div", { "data-wk": "zyshare", "data-kind": ask ? "ask" : "result", onClick: tap || undefined,
-      style: { width: 214, borderRadius: 10, overflow: "hidden", background: PAPER, border: "1px solid #d9cdbd", cursor: tap ? "pointer" : "default" } },
-      h("div", { style: { padding: "10px 12px 4px", fontSize: 10.5, letterSpacing: ".2em", color: FOG } }, "照影 · " + (z.testName || "")),
-      h("div", { style: { padding: "0 12px", fontSize: 16, color: INK, lineHeight: 1.45 } },
-        ask ? (st === "done" ? (z.title || "做完了") : st === "failed" ? "这次没做成" : "想让你做这一套") : (z.title || "")),
-      !ask && z.line ? h("div", { style: { padding: "4px 12px 0", fontSize: 12, color: "#6d6255", lineHeight: 1.5 } }, z.line) : null,
-      h("div", { style: { padding: "8px 12px 10px", fontSize: 11.5, color: ask && st === "done" ? ACC : FOG } },
-        ask ? (st === "done" ? "点开看他怎么选的 ›" : st === "failed" ? "回照影再发一次" : st === "wait" ? "等你按回复，他就开始做" : "他在做…") : "—— " + (z.who || "") + " 测的"));
+    const tt = byId(z.testId) || { id: z.testId || z.testName, name: z.testName };
+    const c = pal(tt);
+    const big = ask ? (st === "done" ? (z.title || "做完了") : st === "failed" ? "这次没做成" : st === "doing" ? "在做…" : "想让你做这一套") : (z.title || "");
+    const foot = ask ? (st === "done" ? "点开看他怎么选的 ›" : st === "failed" ? "回照影再发一次" : st === "wait" ? "等你按回复，他就开始做" : "做完了会在这儿亮起来") : "—— " + (z.who || "") + " 测的";
+    return h("div", { "data-wk": "zyshare", "data-kind": ask ? "ask" : "result", "data-status": st || "", onClick: tap || undefined,
+      style: { position: "relative", width: 228, maxWidth: "100%", borderRadius: 16, overflow: "hidden", padding: "12px 14px 12px",
+        background: "linear-gradient(135deg, " + c.a + " 0%, " + c.b + " 100%)", boxShadow: "0 6px 16px -10px " + c.deep, cursor: tap ? "pointer" : "default", boxSizing: "border-box" } },
+      h("span", { "aria-hidden": true, style: { position: "absolute", right: -4, top: -12, fontSize: 78, lineHeight: 1, color: "rgba(255,255,255,.45)", pointerEvents: "none" } }, c.g),
+      h("div", { style: { position: "relative", fontSize: 10.5, letterSpacing: ".22em", color: c.deep } }, "照影" + (tt.qs ? " · " + tt.qs.length + " 题" : "")),
+      h("div", { style: { position: "relative", fontSize: 17, color: "#2e261e", marginTop: 4, lineHeight: 1.35, maxWidth: "82%" } }, z.testName || tt.name || ""),
+      z.scene ? h("div", { style: { position: "relative", fontSize: 11.5, color: c.deep, marginTop: 3 } }, "这一次假设：" + z.scene) : null,
+      h("div", { style: { position: "relative", display: "inline-block", marginTop: 10, padding: "4px 11px", borderRadius: 999, background: "rgba(255,255,255,.72)", fontSize: 13, color: "#2e261e", lineHeight: 1.45, maxWidth: "100%", boxSizing: "border-box" } }, big),
+      !ask && z.line && z.line !== z.title ? h("div", { style: { position: "relative", fontSize: 12, color: "rgba(46,38,30,.75)", marginTop: 6, lineHeight: 1.5 } }, z.line) : null,
+      h("div", { style: { position: "relative", fontSize: 11.5, color: ask && st === "done" ? "#fff" : "rgba(46,38,30,.62)", marginTop: 8,
+        ...(ask && st === "done" ? { display: "inline-block", background: c.deep, padding: "3px 10px", borderRadius: 999 } : {}) } }, foot));
   }
 
   // ── 看他做（借查手机「看他玩」那套公共零件：触控圆点 WatchDot、浮着的心声 WatchThought、底下那条 WatchBar）──
@@ -300,7 +412,7 @@
     const [phase, setPhase] = R.useState("");          // move / press / think
     const [dot, setDot] = R.useState({ x: null, y: null, press: false });
     const [speed, setSpeed] = R.useState(1), [paused, setPaused] = R.useState(false);
-    const boxRef = R.useRef(null), optRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
+    const boxRef = R.useRef(null), resRef = R.useRef(0), optRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
     const done = step >= test.qs.length;
     const wait = (ms, fn) => { clearTimeout(timer.current); timer.current = setTimeout(fn, ms / speed); };
     R.useEffect(() => () => clearTimeout(timer.current), []);
@@ -338,10 +450,7 @@
         h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : " 在做"))),
       h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
         h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
-          done ? h("div", { "data-wk": "zyresult", style: { margin: "12px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
-            h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
-            h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
-            res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null) : null,
+
           test.qs.map((q, i) => h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
             h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
               h("span", { style: { fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
@@ -354,7 +463,17 @@
                 h("span", null, o.t));
             })),
             // 放完了才留档：心声落在这一题底下
-            done ? whyBox(test, q, pathOf(i)) : null))),
+            done ? whyBox(test, q, pathOf(i)) : null)),
+          // 放完了：结果和评语摆在题目最下面（她 2026-10-22），放完自己滚过去
+          done ? h("div", { "data-wk": "zyresult", ref: el => { if (el && !resRef.current) { resRef.current = 1; try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, style: { margin: "18px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
+            h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
+            h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
+            res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null,
+            rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null,
+            // 存成图／收进时刻：看完就在这儿点（她 2026-10-22）
+            (p.onSaveImage || p.onPin) ? h("div", { "data-wk": "zyrecacts", style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 } },
+              p.onSaveImage ? h("button", { onClick: p.onSaveImage, style: { fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 14px", minHeight: 40, background: "transparent" } }, "存成图") : null,
+              p.onPin ? h("button", { onClick: p.onPin, style: { fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 14px", minHeight: 40, background: "transparent" } }, "收进时刻") : null) : null) : null),
         W.WatchDot ? h(W.WatchDot, dot) : null,
         W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: nowThink }) : null,
         W.WatchBar ? h(W.WatchBar, { noKnock: true, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
@@ -362,7 +481,45 @@
           onClose: () => { clearTimeout(timer.current); p.onClose && p.onClose(); } }) : null));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText };
+  // ── 他给她出题（她 2026-10-22「他给你出题」）：照他自己想知道她什么来出，结果交给她做 ──
+  function charTestInstruction(meName) {
+    return "你想更了解「" + meName + "」，给她出一套小测，让她在手机上做。出什么由你：照你这个人会好奇她什么、你们之间聊过什么、你一直没问出口的，挑你真想知道的。"
+      + "6 到 10 道题，每题 2 到 4 个选项。题面是具体的日常场景或问题，用你自己说话的口气；选项是人在那个场景里真会有的不同反应，彼此拉得开。"
+      + "这套不算分，她做完你会看到她每题选了什么。name 是这套题的名字，sub 是你写在最前面给她的一句话。";
+  }
+  const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
+
+  // ── 结果存成一张图（她 2026-10-22）：纸色底、结果、每题选了什么和心声 ──
+  function resultImage(test, rec, name) {
+    const W = 750, PAD = 48, c = document.createElement("canvas"), x = c.getContext("2d");
+    const FONT = "'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif";
+    const wrap = (txt, size, maxW) => { x.font = size + "px " + FONT; const out = []; let line = "";
+      for (const ch of String(txt || "")) { if (ch === "\n" || x.measureText(line + ch).width > maxW) { out.push(line); line = ch === "\n" ? "" : ch; } else line += ch; }
+      if (line) out.push(line); return out; };
+    const rows = [];
+    const add = (txt, size, color, gap, indent) => wrap(txt, size, W - PAD * 2 - (indent || 0)).forEach((l, k) => rows.push({ l, size, color, gap: k ? size * 0.5 : (gap || 0), indent: indent || 0 }));
+    add("照影 · " + test.name, 22, FOG, 0);
+    add((name || "") + (rec.free ? " 做完说" : " 测出来是"), 24, FOG, 26);
+    add(rec.title || "", 44, INK, 10);
+    if (rec.line && rec.line !== rec.title) add(rec.line, 26, "#6d6255", 12);
+    if (rec.scene) add("这一次的前提：" + rec.scene, 24, ACC, 14);
+    if (rec.review) add(rec.review, 24, "#6d6255", 16);
+    test.qs.forEach((q, i) => {
+      add("Q" + (i + 1) + "  " + q.q, 27, INK, 34);
+      add("→ " + optText(test, i, (rec.picks || [])[i]), 26, ACC, 10, 20);
+      const w = (rec.whys || [])[i]; if (w) add("「" + w + "」", 24, "#6f5f4d", 8, 20);
+    });
+    add(dateZh(rec.ts || Date.now()) + " · 秋秋机", 22, FOG, 40);
+    let H = PAD; rows.forEach(r => { H += r.gap + r.size * 1.45; }); H += PAD;
+    c.width = W; c.height = Math.ceil(H);
+    x.fillStyle = PAPER; x.fillRect(0, 0, W, c.height);
+    x.strokeStyle = LINE; x.lineWidth = 2; x.strokeRect(16, 16, W - 32, c.height - 32);
+    let y = PAD; x.textBaseline = "top";
+    rows.forEach(r => { y += r.gap; x.font = r.size + "px " + FONT; x.fillStyle = r.color; x.fillText(r.l, PAD + r.indent, y); y += r.size * 1.45; });
+    return new Promise(res => c.toBlob(b => res(b), "image/png"));
+  }
+
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
