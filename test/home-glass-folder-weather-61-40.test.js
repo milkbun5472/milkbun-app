@@ -76,7 +76,7 @@ test("③ 天气详情是整页，而且 portal 到 body", () => {
   assert.doesNotMatch(w, /h\(Sheet, \{/, "天气详情还是半窗");
   assert.match(w, /ReactDOM\.createPortal/, "没 portal 出去，还会被主屏的 transform 容器锚住");
   assert.match(w, /document\.body\) : null;/, "portal 的落点不是 body");
-  assert.match(w, /position: "fixed", inset: 0/, "不是整页");
+  assert.match(w, /pageShellStyle\(\d+/, "不是整页");   // fixed+inset:0 在 pageShellStyle 里
   assert.match(w, /h\(Head, \{ zh: "天气"/, "整页没有那条紧凑顶栏，就没有返回键——照样关不掉");
   // 规矩自己也得还在：不然下一个人又会顺手摆个半窗
   assert.match(rule, /默认用整页，不要用半窗/);
