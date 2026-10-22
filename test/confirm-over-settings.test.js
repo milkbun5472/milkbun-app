@@ -11,7 +11,8 @@ test('删除确认 portal 位于设置页之上，取消和确认分别回调', 
   vm.runInContext(src.slice(a, b), ctx);
   const p = ctx.ConfirmDialog({ title: '删除', onConfirm: () => calls.push('confirm'), onCancel: () => calls.push('cancel') });
   assert.equal(p.target, body);
-  const settingsZ = Number(src.match(/position: "fixed", inset: 0, zIndex: (\d+) \}, pgSkin/)[1]);
+  // 设置页那一层的 z 不再写死，是 usePageZ(底值)（从半窗里打开会再往上叠）——按底值比
+  const settingsZ = Number(src.match(/const pageZ = usePageZ\((\d+)\);\s*\/\/ 从半窗/)[1]);
   assert.ok(p.node.props.style.zIndex > settingsZ);
   p.node.props.onClick(); assert.deepEqual(calls, ['cancel']);
   // ⚠️别按下标摸孩子：这张框里会多出纸纹、红印这种装饰层（v67.79 她要「删除框
