@@ -6599,6 +6599,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 配角没有好感度：null 时引擎那一行整句不发（typeof affinity === "number"）
     affinity: char.npc ? null : Math.round(affOf(char.id)),
     // 时刻 · 往前看（她 2026-10-03）：三天内有认识/在一起的整数天、周年或生日，就让TA知道；怎么表示全看TA
+    // 照影（2026-10-22）：他做过的小测、那次每题选了什么——他自己的事，只给他本人
+    zyNote: (!char.npc && window.Zhaoying) ? window.Zhaoying.chatNote(char.id) : "",
     shikeNote: (!char.npc && window.ShikeKit && window.ShikeKit.chatNote)
       ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile) }) : "",
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
@@ -30149,7 +30151,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
       const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
-      const OK = ["anon", "astro", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      const OK = ["anon", "astro", "zhaoying", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
       if (OK.indexOf(sc) < 0) return false;
       setScreen(sc);
       return true;
@@ -32581,6 +32583,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     ctxFor: ctxFor,
     apiFor: apiFor,
     onBack: () => setScreen("home")
+  });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
+    characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
+    onBack: goHome,
+    // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
+    onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
   });else if (screen === "astro") body = h(window.AstroApp, {
     characters: liveChars,
     profile: profile,

@@ -1829,7 +1829,7 @@ function lazyScreen(name, group, zh) {
  // 下面这一排都在 screens-ui.js（screens.js 的页面那一半，2026-10-18 拆出来）：点开其中哪一页，整组一起装上
  // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
  // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
- ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
+ ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ZhaoyingApp", "zhaoying", "照影"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
  ["NestApp", "nest", "秋秋小窝"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
  ["Cast", "screens", "人格档案馆"], ["CastForm", "screens", "角色档案"], ["Ties", "screens", "关系网"], ["WorldBook", "screens", "世界书"], ["ForumAnonWrap", "screens", "匿名"], ["Shop", "screens", "购物"], ["Takeout", "screens", "外卖"], ["MyKinPage", "screens", "亲属卡"], ["KinshipBill", "screens", "亲属卡账单"], ["ListenTogether", "screens", "一起听"], ["Config", "screens", "设置"], ["MemoryLib", "screens", "记忆库"], ["Diary", "screens", "日记"], ["MyWallet", "screens", "钱包"], ["CharWallet", "screens", "TA 的钱包"], ["EmoteMatrix", "screens", "表情包"], ["Favorites", "screens", "收藏"], ["Carry", "screens", "随身"], ["MyCloset", "screens", "衣柜"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
@@ -6413,7 +6413,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 // ⚠️她那三个没起名的文件夹在这儿得有名字：默认布局里并排三个「文件夹」等于没分组。
 //   名字按她自己的口气起（查一查／每日看／一起做／一起玩 都是她起的）。
 const DEFAULT_FOLDERS = {
-  f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
+  f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell", "zhaoying"] },
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua"] },
@@ -6605,6 +6605,8 @@ function Home({
     var st = loadJSON("x_homeFolders", {});
     if (st && Object.keys(st).length) st = placeAstroOnce(st);
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shike", "impression", "x_shikePlaced");
+    // 照影（2026-10-22）：她要放在「查一查」，跟查手机、随身物一组
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "zhaoying", "carry", "x_zhaoyingPlaced");
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "health", "astro", "x_healthPlaced");
     // 直播（v74.990）挪进了刷刷当一格：已经放过「直播」的，原位换成刷刷；没放过的，放到小剧场旁边
     if (st && Object.keys(st).length) st = swapAppOnce(st, "live", "shua", "x_shuaSwapped");
@@ -6685,6 +6687,7 @@ function Home({
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },
+    zhaoying: { kind: "app", zh: "照影", G: window.GZhaoying || GTarot },
     health: { kind: "app", zh: "健康", G: window.GHealth || GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
     companion: { kind: "app", zh: "陪伴", G: window.GCompanion || GFocus },
@@ -14652,6 +14655,7 @@ function shareCardOf(kind) {
   if (kind === "gameshare") return GameShareCard;
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
+  if (kind === "zyshare") return window.ZhaoyingCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;
   if (kind === "gachashare") return GachaShareCard;   // TA替她扳的那一发（抽卡）
   if (kind === "xhsshare") return window.XhsCard || null;   // 她贴进来的小红书分享（js/xhs-card.js）
