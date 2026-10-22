@@ -4967,6 +4967,8 @@ const HOME_SIZE_PRESETS = [
   { id: "square", name: "方块", note: "2 × 2", cols: 2, rows: 2, glyph: "■" },
   { id: "wide", name: "长条", note: "4 × 1", cols: 4, rows: 1, glyph: "━" },
   { id: "large", name: "大卡", note: "4 × 2", cols: 4, rows: 2, glyph: "▰" },
+  // 群友 2026-10-22：「尺寸可不可以出一个 4×4 的，想要大的那种小组件」——一页本来就有 7 行起，4 行放得下
+  { id: "huge", name: "大方块", note: "4 × 4", cols: 4, rows: 4, glyph: "█" },
   // 她 2026-09-03：「我也觉得要加两档有 3 的」——2 和 4 之间跳太狠，
   // 很多摆不下的洞就是这么留下的（3 格宽正好给日历那种让出一列）
   { id: "three", name: "三格条", note: "3 × 1", cols: 3, rows: 1, glyph: "▭" },

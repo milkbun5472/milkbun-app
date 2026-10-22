@@ -113,8 +113,10 @@ test("存档这一层：封顶、夹住、空了就把这一栏删掉", () => {
 
 test("新做的那件：贴纸先攒草稿，放上桌面那一刻才归档，取消就清掉", () => {
   assert.match(code, /const \[decorDraftStickers, setDecorDraftStickers\] = useState\(\[\]\);/);
-  const add = code.slice(code.indexOf("function addDecoration()"), code.indexOf("function removeDecoration(id)"));
-  assert.match(add, /if \(decorDraftStickers\.length\) setStickers\(function \(prev\) \{ var n = Object\.assign\(\{\}, prev\); n\[id\] = normalizeHomeStickers\(decorDraftStickers\); saveJSON\("x_homeStickers", n\); return n; \}\);/,
+  // v76.248 收成 placeNewDecoration：草稿贴纸交给它，它负责落档
+  assert.match(code, /placeNewDecoration\(item, decorDraftPreset, size, decorDraftStickers\);/);
+  const put = code.slice(code.indexOf("function placeNewDecoration("), code.indexOf("function addDecoration()"));
+  assert.match(put, /if \(stickers && stickers\.length\) setStickers\(function \(prev\) \{ var n = Object\.assign\(\{\}, prev\); n\[id\] = normalizeHomeStickers\(stickers\); saveJSON\("x_homeStickers", n\); return n; \}\);/,
     "新装饰放上桌面时没把贴纸一起落档");
   assert.match(code, /function resetDecorDraft\(\) \{ setDecorDraftStickers\(\[\]\);/, "取消之后草稿还留着，下一件会带上上一件的贴纸");
 });

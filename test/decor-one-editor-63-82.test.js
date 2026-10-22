@@ -93,9 +93,9 @@ test("多大：新建那一页原来压根没有这一段", () => {
   // 新建时多一颗「自动」——没挑过就按类型/相框推一个
   assert.match(PAGE, /A\.isNew \? h\("button", \{ onClick: function \(\) \{ A\.setSize\(""\); \}/);
   // ⚠️她明说的选择不许被自动那一路盖掉
-  assert.match(comp, /if \(decorDraftSize\) setWidgetSizes/);
-  assert.match(comp, /else if \(decorDraftType === "photo" && decorDraftFrame !== "single"\)/);
-  assert.match(comp, /else if \(decorDraftType !== "photo" && decorDraftType !== "quote"/);
+  // v76.248 收成 placeNewDecoration 一处：她挑过的尺寸先，没挑才按类型推
+  assert.match(comp, /var size = decorDraftSize\n      \|\| \(decorDraftType === "photo" && decorDraftFrame !== "single"/);
+  assert.match(comp, /: \(decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date"\)/);
   // 竖的那几款得说清挑哪一档
   assert.match(PAGE, /书签和挂轴那几款是竖的，挑「竖条」「竖块」才立得住。/);
   // 退出时草稿尺寸也要清
