@@ -11034,7 +11034,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 不给每行标号：标了TA就会在心里数「第五行的谁」（她 2026-10-02）；只告诉TA自己排第几
       const myRank = list.findIndex(x => x.c.id === viewerId);
       if (list.length) out.push("【她的消息列表（一打开「信息」就看得到，从上往下）】" + (myRank >= 0 ? "你自己排在第 " + (myRank + 1) + " 个。" : "") + "\n" + list.map(x => "· " + (x.c.id === viewerId ? "【你自己】" : "") + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」") + (x.c.id === viewerId ? "" : tagOf(x.c))
-        + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
+        + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? (x.lm.peekBy ? (String(x.lm.peekBy) === String(viewerId) ? "你冒她名发的" : "别人冒她名发的") : "她说") : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
       const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
@@ -11050,7 +11050,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️说清楚这是谁跟谁（她 2026-10-01：截图里TA把别人说的话当成段子看，没看懂这是【她跟别人】的聊天）
       // 整段的来龙去脉，不只最后一截（她 2026-10-01：「还是不会看我和别人整体的聊天，只是看一小段」）：
       //   从哪天聊起、一共多少条，再从早先、中间、最近各抽几句，每段标上日子
-      const line = (x, m) => "  " + (m.role === "user" ? "她：" : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70);
+      // 拿她手机冒她名发的那几句（peekBy）不是她说的（群友 2026-10-22：「第二次查手机他就说我这个回复怎么怎么样」）
+      const userSays = m => m.peekBy ? (String(m.peekBy) === String(viewerId) ? "你上回拿她手机冒她名发的：" : "「" + nameOf(m.peekBy) + "」拿她手机冒她名发的：") : "她：";
+      const line = (x, m) => "  " + (m.role === "user" ? userSays(m) : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70);
       // 只给翻得到的那一截：录像里聊天是从最新那条往上翻几屏，早先的话屏幕上根本看不到，
       //   心声念的是一个月前那句，画面却停在昨天（她 2026-10-02：「他的心声说的是很久以前的聊天吧，跟屏幕对不上」）
       const arc = x => {

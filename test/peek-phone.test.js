@@ -398,3 +398,11 @@ test("勾着的线下往期／日历／健康：看完聊天至少点开一样",
   assert.ok(app.includes('const extra = ["offline", "calendar", "health"].filter(a => apps.includes(a));'));
   assert.ok(app.includes("看完聊天，这几样里至少点开一样看看"));
 });
+
+// 群友 2026-10-22：「char 用我的手机给别人发消息，第二次查手机他就说我这个回复怎么怎么样」
+test("冒她名发的那几句（peekBy）下次翻手机时标出来，不当她说的", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.ok(app.includes('const userSays = m => m.peekBy ? (String(m.peekBy) === String(viewerId) ? "你上回拿她手机冒她名发的："'));
+  assert.ok(app.includes('(m.role === "user" ? userSays(m) :'));
+  assert.ok(app.includes('pChat(tgt.id, p => [...p, { role: "user", content: step.text, ts: Date.now(), peekBy: viewerId }]);'), "写的那头不带 peekBy，读的这头就认不出");
+});
