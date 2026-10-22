@@ -15668,6 +15668,13 @@ function draftMeasure(el) {
     return m.scrollHeight + c.extra;
   } catch (e) { return el.scrollHeight; }
 }
+// ⭐会跟着字长高的输入框，全库只用这一个（施工规则/typing-hot-path.md）：在替身框里量、量出来变了才写回真框。
+//   不许再写「先把真框高度设成 auto、再去读它的 scrollHeight」——那是每个字都让整页重排两遍，长页面里打字就卡、iOS 还会跟着跳
+function fitTextarea(el, maxH) {
+  if (!el) return;
+  const want = Math.min(maxH || DRAFT_MAX_H, draftMeasure(el)) + "px";
+  if (el.style.height !== want) el.style.height = want;
+}
 // keepKey（群友 2026-10-15：「聊天输入后可以保存在对话框，不会因为退出小窗就立刻消失」）：
 //   给了就把没发出去的那段留下，下次进这个对话还在；发出去就清掉。每个对话一把钥匙，单聊/群聊/线下各管各的。
 // ⚠️不放 localStorage（她 2026-10-15 实测：打字→左上角返回→再进来就没了）：小仓库快满的手机上
@@ -15693,11 +15700,7 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   // ⚠️量高度不许动真框（群里 2026-10-09 报：「一直反反复复弹上去弹下来」「修改对话很难」）：
   //   原来每打一个字都先把真框设成 auto 缩回一行再量，iOS 看见输入框忽高忽低，
   //   就跟着把整页推上推下、光标也跳——所以在看不见的替身框里量，高度真变了才写回去。
-  const fit = () => {
-    const el = ref.current; if (!el) return;
-    const want = Math.min(DRAFT_MAX_H, draftMeasure(el)) + "px";
-    if (el.style.height !== want) el.style.height = want;
-  };
+  const fit = () => fitTextarea(ref.current, DRAFT_MAX_H);
   useEffect(fit, [draft]);
   const clear = () => setDraft("");
   // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
@@ -16448,7 +16451,7 @@ function MsgEditSheet({ init, onCancel, onSave }) {
   const [txt, setTxt] = useState(init || "");
   const ref = useRef(null);
   const lift = useKbLift();
-  const grow = () => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.5)) + "px"; } };
+  const grow = () => fitTextarea(ref.current, Math.round(window.innerHeight * 0.5));
   // 弹层挂载后聚焦拉起键盘；聚焦前先 grow。用两次 rAF 让 Sheet 的进场动画先落定，聚焦更稳（避免 iOS 首次不弹）
   useEffect(() => {
     const el = ref.current; if (!el) return;

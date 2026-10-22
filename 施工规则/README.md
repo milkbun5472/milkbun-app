@@ -31,7 +31,7 @@
 | `merge-to-main.md` | 干完就自己合进 main（她 2026-09-16 授权，不用再问）；⚠️收冲突不许 `git checkout --ours` |
 | `anchor-on-code.md` | 测试切代码时，两头只许钉函数名/常量名，**不许钉注释或整行参数表** |
 
-剩下十二条**按今天动哪儿去挑**：
+剩下十三条**按今天动哪儿去挑**：
 
 | 今天动的是 | 读这份 |
 |---|---|
@@ -47,6 +47,7 @@
 | 任何 `callAI` / `runProbe` | `max-tokens-floor.md`（不许低于 8000） |
 | 查手机那四层数据 | `phone-data-layers.md`（钉死／演化／日志／快照＋名册） |
 | 任何要存下来的东西 | `no-small-warehouse.md`（一律进 IDB；不许新加 localStorage 键） |
+| 输入框、打字时会跑的代码（onChange／onInput／跟着输入变的 useEffect） | `typing-hot-path.md`（会长高的框一律 `fitTextarea`；每个字上不读整页排版、不同步写大仓库） |
 | 聊天里新加卡片／按钮，点完TA要接一句 | `wait-for-her.md`（不许当场替TA开口，交给 waitForHer 等她按回复） |
 
 ## 还留在 `.claude/rules/` 的两份，和这儿无关

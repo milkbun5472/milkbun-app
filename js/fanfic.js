@@ -2060,7 +2060,7 @@
     const leftPct = window.Fanfic.rpLeftPct(s, paras);
     const moreSrc = Number.isFinite(s.paraIdx) ? s.paraIdx < paras.length : false;
     const taRef = React.useRef(null);
-    function autoGrow() { const el = taRef.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(130, el.scrollHeight) + "px"; } }
+    function autoGrow() { if (typeof fitTextarea === "function") fitTextarea(taRef.current, 130); }   // 公共那一份（施工规则/typing-hot-path.md）
     // 原篇被删时 props.fic 没了，退回存档自己记着的那份 cp——不然这一局的人全空了，
     // 身份锚点那句话认不出「文里那位就是她」，玩家会被写成另一个人
     const cpc = cpChars((props.fic && props.fic.cp) || s.cp || [], props.characters, props.profile, props.fic && props.fic.meMask);

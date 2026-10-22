@@ -9,7 +9,7 @@ test("聊天输入框是会长高的多行框，回车发送、Shift+回车换�
   const a = comp.indexOf("function DraftInput("), b = comp.indexOf("function ReplyKey(", a);
   const f = comp.slice(a, b);
   assert.match(f, /h\("textarea"/);
-  assert.match(f, /const want = Math\.min\(DRAFT_MAX_H, draftMeasure\(el\)\) \+ "px";/);
+  assert.match(f, /fitTextarea\(ref\.current, DRAFT_MAX_H\)/);   // 长高走公共的 fitTextarea（2026-10-22）
   assert.match(f, /e\.key === "Enter" && !e\.shiftKey && (!e\.repeat && )?!e\.isComposing/);
 });
 
