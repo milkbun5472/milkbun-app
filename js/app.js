@@ -1508,6 +1508,10 @@ function App() {
   };
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+  // 聊天对象一换（点了别人的消息弹窗、从通知跳过去），开着的那张聊天设置就收起来：
+  //   那张页上是上一个人的草稿，留着再按保存，就把上一个人的备注、头像、美化写到这个人身上
+  const _csCharId = activeChar && activeChar.id;
+  useEffect(() => { setChatSettingsOpen(false); }, [_csCharId]);
   const [temperamentDraft, setTemperamentDraft] = useState(null);
   const [temperamentBusy, setTemperamentBusy] = useState(false);
   const [aShadowPanel, setAShadowPanel] = useState(null);
@@ -33801,6 +33805,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+    // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
+    key: "cs:" + activeChar.id,
     character: activeChar,
     // 「我在这儿的头像」那一格要显示我现在用的是哪张：跟聊天页同一个来源（这个人认的那张面具）
     meProfile: profileFor(activeChar.id),
