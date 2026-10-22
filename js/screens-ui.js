@@ -1467,7 +1467,10 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
         c.meChar === "me" && (masks || []).some(m => m && m.id && m.id !== maskPrimary) ? h(Fragment, null,
           h(Eyebrow, { style: { margin: "16px 0 8px" } }, "算谁认识的人"),
           h("div", { "data-wk": "tiesnpcmask", className: "flex flex-wrap", style: { gap: 6 } },
-            [["", "谁都看得见"]].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => [m.id, m.name || "没名字的面具"]))
+            // ⚠️空着＝主面具，不是「谁都看得见」（她 2026-10-22：「主面具不行啊只能选副面具或者全部」——
+            //   上一版这一档写成了「谁都看得见」，可空 maskId 的人在副面具筛子底下压根看不到，标签骗了人）。
+            //   叫法跟顶上筛子那排对齐：主面具 / 各张副面具。
+            [["", "主面具"]].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => [m.id, m.name || "没名字的面具"]))
               .map(function (row) {
                 const v = row[0], label = row[1];
                 const cur = c.npcMask === undefined ? (maskPick && maskPick !== "_main" ? maskPick : "") : c.npcMask;
@@ -1478,7 +1481,7 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
                     border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, label);
               })),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } },
-            "挑了某张面具，这个人就只在那张脸和「全部」底下出现（关系页顶上那排筛子）。"),
+            "挑哪张，这个人就只在那张脸和「全部」底下出现（对着关系页顶上那排筛子）。"),
         ) : null,
         h(Eyebrow, { style: { margin: "16px 0 8px" } }, c.meChar === "me" ? "你俩什么关系" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 的谁"),
         h("input", { "data-wk": "tiesnpcinput", "data-part": "rel",
@@ -1506,7 +1509,7 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
         h("button", { "data-wk": "tiesnpcsubmit", "data-part": "add",
           onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
             // 按面具编（她 2026-10-22）：筛子切在哪张副面具上，建出来的「我身边的人」就记在那张脸底下；
-            //   主面具／没挑＝不记，照旧谁都看得见
+            //   主面具／没挑＝不记（空 maskId 就是主面具那一档：在「主面具」和「全部」底下看得见，副面具底下看不到）
             const pickedMask = c.npcMask === undefined ? (maskPick && maskPick !== "_main" ? maskPick : "") : c.npcMask;
             if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar, pickedMask) !== false) set({ npcName: "", npcBrief: "", npcRel: "", npcMask: undefined }); },
           className: "w-full active:opacity-70",

@@ -41,7 +41,10 @@ test("表单上有一栏看得见的「算谁认识的人」，只给自己身�
   assert.ok(i > 0, "表单上没有这一栏");
   const seg = sui.slice(Math.max(0, i - 700), i + 1400);
   assert.match(seg, /c\.meChar === "me" && \(masks \|\| \[\]\)\.some/, "在角色身边的也给挑了，会跟主人那张脸打架");
-  assert.match(seg, /\[\["", "谁都看得见"\]\]\.concat/, "少了「谁都看得见」那一档");
+  // 空着＝主面具（它在副面具筛子底下看不到），叫法要跟顶上那排筛子对齐，别再写成「谁都看得见」
+  assert.match(seg, /\[\["", "主面具"\]\]\.concat/, "默认那一档的叫法跟筛子对不上");
+  //   只查给人看的字：注释里记着「上一版写错成什么」是对的
+  assert.ok(!/谁都看得见/.test(sui.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n")), "界面上还留着那个骗人的标签");
   assert.match(seg, /c\.npcMask === undefined \? \(maskPick && maskPick !== "_main" \? maskPick : ""\) : c\.npcMask/, "没碰过这一栏时该跟着筛子");
   assert.match(sui, /const pickedMask = c\.npcMask === undefined \? \(maskPick && maskPick !== "_main" \? maskPick : ""\) : c\.npcMask;/);
   assert.match(sui, /onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar, pickedMask\)/, "加进来那颗没照这一栏走");
