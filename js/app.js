@@ -22308,7 +22308,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         ts: Date.now(),
         liked: false,
         likeCount: 0,
-        comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户").map(c => ({ ...c, author: momentWho(c.author) }))
+        // 跟发帖人不认识的角色不来评论（群友 2026-10-22：三个角色互不相干，评论区里却称兄道弟）
+        comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户" && !momStrangerTo(char, c.author)).map(c => ({ ...c, author: momentWho(c.author) }))
       }, ...p]);
       // 开关在朋友圈页顶上（x_momentAutoImg，默认关）：开着就顺手把这张配图画出来
       if (newMomImage && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(newMomId), 60);
@@ -22521,7 +22522,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       else if (d.reply) reps = [typeof d.reply === "string" ? { author: fbAuthor, text: d.reply } : d.reply];
       else if (typeof d.text === "string") reps = [{ author: fbAuthor, text: d.text }];
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户"
-        && !(r.replyTo && momReplyToStranger(r.author, r.replyTo)));
+        && !(r.replyTo && momReplyToStranger(r.author, r.replyTo)) && !(author && momStrangerTo(author, r.author)));
       // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
       if (isMine) momentTakeouts(reps, "author");
@@ -22666,6 +22667,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) if (!momKnow(list[i], list[j])) out.push("「" + (list[i].remark || list[i].name) + "」和「" + (list[j].remark || list[j].name) + "」");
     return out.length ? "\n【这几对互不认识】" + out.slice(0, 12).join("、") + "：真微信里只有共同好友才看得见彼此的评论，所以他们各自只对她说话，不接对方的话、不互相打招呼，也不把对方算进「我们」。\n" : "";
   };
+  // 角色发的那条：跟发帖人不认识的角色不出现在评论区（路人、人设里写到的人不算角色，照旧能来）
+  const momStrangerTo = (owner, nm) => { const c = momCharByName(nm); return !!(owner && c && !momKnow(owner, c)); };
   // 回复的是一个不认识的人：这条不算（模型硬接了也不落进评论区）
   const momReplyToStranger = (fromName, toName) => { const a = momCharByName(fromName), b = momCharByName(toName); return !!(a && b && !momKnow(a, b)); };
   const reactToUserMoment = async mom => {
