@@ -129,3 +129,9 @@ test("没把页面变高的挪动，不许被判成「这一页满了」", () =>
   // 挪动的满不满跟 buildLayout 的 packRows 同一个数（她 2026-10-21）
   assert.match(comp, /var packCap = Math\.max\(4, rowCapRef\.current \|\| 6\) \+ HOME_SCROLL_EXTRA_ROWS;/);
 });
+
+// 群里 2026-10-23「我的字条原始尺寸变成这样了，改不回去」：挑「原尺寸」（存 "auto"）要回到这个组件自己的默认，不是掉到兜底那一条
+test("「原尺寸」跟组件自己的默认走（字条 4×2）", () => {
+  assert.ok(comp.includes('return (v && v !== "auto" ? v : "") || HOME_SIZE_DEFAULT[key] || "auto";'));
+  assert.ok(comp.includes('w_recent: "large"'));
+});

@@ -5679,7 +5679,9 @@ function homeAlignOf(key, aligns) {
 }
 function homeSizeOf(key, sizes) {
   var v = sizes && sizes[key];
-  return v || HOME_SIZE_DEFAULT[key] || "auto";
+  // 挑了「原尺寸」（存成 "auto"）＝跟这个组件自己的默认走（群里 2026-10-23「我的字条原始尺寸变成这样了，改不回去」）：
+  //   原来 "auto" 直接越过 HOME_SIZE_DEFAULT，字条那种默认 4×2 的就掉成一条
+  return (v && v !== "auto" ? v : "") || HOME_SIZE_DEFAULT[key] || "auto";
 }
 function homeItemSpan(key, it, sizes) {
   var wanted = homeSizeOf(key, sizes);
