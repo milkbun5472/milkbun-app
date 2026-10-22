@@ -391,3 +391,10 @@ test("查手机：脚本是空的先重要一次，还空就说清楚", () => {
   assert.match(src, /if \(!script\.length\) \{ d = await ask\(\); script = clean\(d\); \}/);
   assert.match(src, /if \(!script\.length && !sneak\) toast\("这次没翻出东西来/);
 });
+
+// 群友 2026-10-22：「勾选了的，但他就是不看」——线下往期、日历、健康勾了的，看完聊天至少点开一样
+test("勾着的线下往期／日历／健康：看完聊天至少点开一样", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.ok(app.includes('const extra = ["offline", "calendar", "health"].filter(a => apps.includes(a));'));
+  assert.ok(app.includes("看完聊天，这几样里至少点开一样看看"));
+});
