@@ -44,7 +44,9 @@
     if (stratCompare.test(text) || wrapup.test(text)) return { ok: false, reason: "post-hoc-planning" };
     if (verdict.test(text) || verdictLoose.test(text) || ledger.test(text)) return { ok: false, reason: "verdict-and-filing" };
     if (hasReplyPlan && (hasRecap || hasClassify)) return { ok: false, reason: "recap-and-reply-plan" };
-    if (hasRecap && hasClassify) return { ok: false, reason: "user-analysis" };
+    // 「她……在……」+「是在试探／像是在撒娇」单独出现不再拦（她 2026-10-22：小房间里演戏时
+    //   「她是不是在试探我」正是人会冒出来的念头，原来这一条让某个角色在房里轮轮被拦、看着像不写了）。
+    //   只有后面还跟着「我得怎么回」时才是导演稿，由上一条管。
     return { ok: true, reason: "inner-voice" };
   }
 
