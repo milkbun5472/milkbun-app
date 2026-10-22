@@ -3822,6 +3822,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!roomKey || !window.ChatRooms || !window.ChatRooms.isSideKey(roomKey)) return;
     const clean = TVG.accept(thought);
     const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
+    // 这一轮为什么空着（她 2026-10-22：「直接加那个记录吧」）：模型没写，还是写了被筛掉。只留最近这一轮，下一轮有心声就清掉
+    const missOf = () => { const r = String(meta && meta.raw != null ? meta.raw : (thought == null ? "" : thought)).replace(/\s+/g, " ").trim();
+      return r && r.toLowerCase() !== "null" ? { why: "filtered", raw: r.slice(0, 300), ts } : { why: "none", ts }; };
     const local = {};
     for (const key of ["action", "wearing", "place"]) {
       const value = meta && meta.state && meta.state[key];
@@ -3832,8 +3835,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const newMood = meta && meta.mood || "";
     const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
-      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null }
-      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null };
+      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null, thoughtMiss: null }
+      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null, thoughtMiss: missOf() };
     const statesNext = { ...roomStatesRef.current, [roomKey]: next };
     roomStatesRef.current = statesNext; setRoomStates(statesNext); saveJSON("x_roomStates", statesNext);
     if (!clean) return;
@@ -9118,7 +9121,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offlineThought = TVG.accept(res.thought);
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
-      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId });
+      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId, raw: res.thought });
       else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
@@ -13402,6 +13405,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
         // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受TA本人自愿留下且通过守卫的 thought。
         parsed.thought = guardedThought;
+        if (!guardedThought && rawThought && rawThought.toLowerCase() !== "null") parsed._thoughtDropped = rawThought;
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       // 只记录明确交回的更新或复看结果；省略时保留原文。
@@ -14275,7 +14279,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
       if (sideRoom) {
-        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId });
+        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought });
       } else {
         const _live = statesRef.current[charId] || {};
         if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_body) {
