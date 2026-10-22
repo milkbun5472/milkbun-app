@@ -4836,6 +4836,28 @@ const PHOTO_PART_ZH = "局部";
 const TOOLCALL_LINE = /^\s*(?:<\/?\s*(?:invoke|parameter|function_calls|antml:[a-z_]+)\b[^>]*>\s*)+$/i;
 // `</ ||DSML|| calls>` 这种被中间件改写过的收尾也认：竖线/空格里夹着字母的尖括号壳
 const TOOLCALL_FENCE = /^\s*<\/?\s*[|\s]*[A-Za-z_]+[|\s]*(?:calls)?\s*>\s*$/;
+// 字段写进了正文（她 2026-10-22 截图：气泡里冒出 `transfer:{"amount":520000` 和 `"note":"…"}` 两条）：
+//   模型没把 transfer 放进 JSON 那一栏，而是照字段名在 word 里写了一行「字段名:{…}」，拆气泡时又按逗号断开。
+//   认的形状只有一种：一条气泡以「英文字段名:{」打头，往后接着的几条把花括号补齐。能读成对象的还原成字段，正文一个字不留。
+const FIELD_LEAK_HEAD = /^\s*["']?([a-zA-Z][a-zA-Z0-9_]{1,24})["']?\s*[:：]\s*\{/;
+function pullFieldLeak(words) {
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  const out = [], fields = {};
+  let hit = false;
+  for (let i = 0; i < list.length; i++) {
+    const m = FIELD_LEAK_HEAD.exec(list[i]);
+    if (!m) { out.push(list[i]); continue; }
+    let buf = list[i], j = i;
+    const bal = x => (x.match(/\{/g) || []).length - (x.match(/\}/g) || []).length;
+    while (bal(buf) > 0 && j + 1 < list.length && j - i < 6) { j++; buf += "," + list[j]; }
+    const body = buf.slice(buf.indexOf("{"));
+    let obj = null;
+    try { obj = JSON.parse(body); } catch (e) { try { obj = typeof parseJSONLoose === "function" ? parseJSONLoose(body) : null; } catch (e2) {} }
+    if (obj && typeof obj === "object") { fields[m[1]] = obj; hit = true; i = j; continue; }
+    out.push(list[i]);
+  }
+  return { words: out, fields: hit ? fields : null };
+}
 function pullToolCallMarkup(words) {
   const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
   const out = [], fields = {};

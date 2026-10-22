@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.248";
+const APP_VERSION = "v76.249";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13343,6 +13343,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (parsed.mood == null && _mood) parsed.mood = { label: String(_mood).slice(0, 20) };
           if (parsed.thought == null && _f.thought) parsed.thought = String(_f.thought);
           if (parsed.action == null && _f.action) parsed.action = String(_f.action);
+        }
+      }
+      // 字段写进了正文（「transfer:{"amount":…」被逗号拆成两条气泡）：捞出来，这一轮那一栏空着就补上
+      if (typeof pullFieldLeak === "function") {
+        const _fl = pullFieldLeak(words);
+        if (_fl.fields) {
+          words = _fl.words.filter(w => String(w).trim());
+          Object.keys(_fl.fields).forEach(k => { if (parsed[k] == null || parsed[k] === "") parsed[k] = _fl.fields[k]; });
         }
       }
       // 模型把 photo 写进了正文（「[photo: kind=…, face=…, scene=…]」）：捞出来还原成照片，正文里不留这串参数
