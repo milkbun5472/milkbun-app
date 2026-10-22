@@ -16,7 +16,9 @@ test("常用语言：中文／留空一个字不发；别的说主要说什么",
 
 test("单聊、群里、通话各处人设串都接上同一句", () => {
   assert.match(eng, /parts\.push\("【角色人设】\\n" \+ \(char\.persona \|\| "（暂无设定）"\) \+ \(ctx\.notRoleplay \? "" : charLangLine\(char\)\)\)/);
-  const bare = (app + eng).match(/groupPersonaText\(c\.persona, [^\n]*/g).filter(l => !/charLangLine\(c\)/.test(l));
+  // 别只看这一行：接的那句可能写在下一行（人设串本来就长得换行）——按这一处往后数几百个字看接上没有
+  const src2 = app + eng, bare = [];
+  src2.replace(/groupPersonaText\(c\.persona, /g, (m, i) => { if (!/charLangLine\(c\)/.test(src2.slice(i, i + 700))) bare.push(src2.slice(i, i + 60)); return m; });
   assert.deepEqual(bare, [], "群里有一处人设串没接常用语言");
   assert.match(app, /if \(charLangLine\(c\) && !\(prev && charLangLine\(prev\)\) && \(chatSettings\[c\.id\] \|\| \{\}\)\.bilingual === undefined\)/);
   assert.match(scr, /lang: String\(lang \|\| ""\)\.trim\(\)\.slice\(0, 20\)/);

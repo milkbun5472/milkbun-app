@@ -122,7 +122,8 @@ test("这一页是整页，不是半窗", () => {
   // no-half-sheet.md：分类页收起来只有四五行，半窗就缩成小半屏、上面糊着聊天。
   assert.doesNotMatch(CS, /React\.createElement\(Sheet, \{\n?\s*key: settingsTab/, "又掀回半窗了");
   assert.match(CS, /ReactDOM\.createPortal\(/);
-  assert.match(CS, /position: "fixed", inset: 0/);
+  // 整页那层壳子统一走 pageShellStyle(z)（position:fixed + inset:0 都在它里面）
+  assert.match(CS, /pageShellStyle\(pageZ\)/);
   assert.match(CS, /className: "h-full flex flex-col"/);
   // 顶栏用公共的 Head（mobile-ui-layout.md §1），返回键一层一层退
   assert.match(CS, /h\(Head, \{/);

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.292";
+const APP_VERSION = "v76.295";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1508,6 +1508,10 @@ function App() {
   };
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+  // 聊天对象一换（点了别人的消息弹窗、从通知跳过去），开着的那张聊天设置就收起来：
+  //   那张页上是上一个人的草稿，留着再按保存，就把上一个人的备注、头像、美化写到这个人身上
+  const _csCharId = activeChar && activeChar.id;
+  useEffect(() => { setChatSettingsOpen(false); }, [_csCharId]);
   const [temperamentDraft, setTemperamentDraft] = useState(null);
   const [temperamentBusy, setTemperamentBusy] = useState(false);
   const [aShadowPanel, setAShadowPanel] = useState(null);
@@ -11411,6 +11415,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
         .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
+        // 调用记录里叫得出名字（她 2026-10-22 截图：原来只显示「其他·你就是某某…」，认不出是哪一样）
+        logFrom: sneak ? "查手机·他偷偷翻你手机" : "查手机·他翻你手机",
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
         instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
@@ -33799,6 +33805,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+    // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
+    key: "cs:" + activeChar.id,
     character: activeChar,
     // 「我在这儿的头像」那一格要显示我现在用的是哪张：跟聊天页同一个来源（这个人认的那张面具）
     meProfile: profileFor(activeChar.id),

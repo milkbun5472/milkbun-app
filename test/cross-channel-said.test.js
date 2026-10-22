@@ -89,7 +89,7 @@ test("群里这一段落在成员自己那一段，别的成员看不到", () =>
   const seg = (app.match(/return "【" \+ memberLabel\(members, c\) \+ "】" \+ groupPersonaText\(c\.persona, gPersonaCap\)[^;]*;/) || [])[0] || "";
   assert.ok(seg, "找不到群里那位成员自己那一段");
   assert.match(seg, /\+ xgSeg\b/, "没拼进那位成员自己那一段");
-  assert.match(app, /别的成员不一定知道，别替他们知道/, "隐私边界那句要写进去");
+  assert.match(app, /别的成员不一定知道，他们只知道自己听到的/, "隐私边界那句要写进去");
 });
 
 test("单聊也要有——以前它只知道「她在群里跟我互动过」，不知道我说了什么", () => {

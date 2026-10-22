@@ -63,7 +63,8 @@ test("开花他主动来说：照纪念日那条路的闸，一茬只说一次",
   assert.match(bloom, /told: true/, "说完没记，一茬会说好几遍");
   assert.match(app, /opts\.bloom \? "garden_bloom" :/, "出口没标，账上分不出这一条");
   assert.match(app, /opts\.bloom \? bloomHint :/, "hint 写了没接进链（v55.95 那个形状）");
-  assert.match(app, /别写成植物播报、也别硬煽情/, "hint 没拦住播报腔");
+  // v76.292 起改成正面说法：「像随口说起，情绪到哪儿说到哪儿」——钉的是别成播报腔这件事还在说
+  assert.match(app, /从这盆花说到你们，像随口说起，情绪到哪儿说到哪儿/, "hint 没拦住播报腔");
 });
 
 test("窗台在墙上、花房整页、durable 与脚本都挂了", () => {

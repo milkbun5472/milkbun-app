@@ -23,7 +23,8 @@ test("普通角色真的收到断句这条，不是只躺在没人用的串里",
   const i = app.indexOf("const _turnClosing =");
   const closing = app.slice(i, i + 900);
   assert.match(closing, /【一条一句】/, "收尾那句里得有");
-  assert.match(closing, /别拿逗号缝成一条/);
+  // v76.292 起「别 xxx」改成正面说法：钉「一句一条」这件事还在，不钉那句「别」
+  assert.match(closing, /一句一条/);
   endsWithClosing();
   // 字段定义上也写一句——和双语同一个落法，这是最强的位置
   assert.match(app, /word: string\[\]，角色实际发送的消息。【一个元素＝一句话】/, "字段定义上没写");

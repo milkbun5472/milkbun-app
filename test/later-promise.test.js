@@ -78,7 +78,8 @@ test("开口方式和「忽然想你」不一样：兑现那句话，别重开�
   assert.ok(i > 0);
   const seg = app.slice(i, i + 1800);
   assert.match(seg, /你说好了要回来找 Ta/);
-  assert.match(seg, /别当没这回事重新起一个话题/);
+  // v76.292 起改成正面说法：落点还是「从这件事接着说」
+  assert.match(seg, /\*\*从这件事接着说\*\*/);
   assert.match(app, /const proactiveHint = opts\.phoneAs \? phoneAsHint : opts\.promise \? promiseHint :/, "要顶掉普通主动那套开场白");
 });
 

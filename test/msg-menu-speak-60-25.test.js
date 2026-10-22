@@ -69,5 +69,5 @@ test("编辑框那句「可拖右下角放大」是假的——iOS 没有那个�
   assert.ok(live.indexOf("可拖右下角放大") < 0);
   const es = comp.slice(comp.indexOf("function MsgEditSheet("), comp.indexOf("function MsgMenu("));
   assert.match(es, /resize: "none"/, "拖拽角在她手机上根本不存在");
-  assert.match(es, /el\.style\.height = Math\.min\(el\.scrollHeight/, "得靠自己长高");
+  assert.match(es, /fitTextarea\(ref\.current/, "得靠自己长高");   // 长高那段统一走 fitTextarea
 });
