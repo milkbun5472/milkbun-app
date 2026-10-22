@@ -11329,7 +11329,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她的朋友圈谁刷得到（她 2026-10-09）：挑了「谁可以看」就照那个名单；没挑的话，是主面具的朋友圈——
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
   // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
-  const momSeen = (m, charId) => !!m && !!m.mine && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
+  // 她手机上被删了好友／拉黑的那位（x_peekCut）刷不到她的朋友圈，跟真微信一样（群友 2026-10-22：TA 果断删了人，朋友圈里那人还跟她互动得很好）
+  const momSeen = (m, charId) => !!m && !!m.mine && !((window.__peekCut || {})[charId]) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -11668,8 +11669,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 删好友／拉黑（她 2026-10-02：「删好友就是把那个聊天变成空白的假页面，给我一个加回来的按钮就恢复了」）：
   //   聊天记录一条不动，只是这一栏被盖上；x_peekCut = { [charId]: { kind: "unfriend"|"block", by, ts } }
-  const [peekCut, setPeekCut] = useState(() => loadJSON("x_peekCut", {}) || {});
-  const savePeekCut = f => setPeekCut(p => { const n = f(p); saveJSON("x_peekCut", n); return n; });
+  const [peekCut, setPeekCut] = useState(() => { const v = loadJSON("x_peekCut", {}) || {}; try { window.__peekCut = v; } catch (e) {} return v; });
+  const savePeekCut = f => setPeekCut(p => { const n = f(p); saveJSON("x_peekCut", n); try { window.__peekCut = n; } catch (e) {} return n; });
   const peekFollowRef = useRef([]);   // 用她名义发出去的那几句：翻完再让对面接
   const peekEffect = (viewerId, step) => {
     const v = (characters || []).find(x => x.id === viewerId);
