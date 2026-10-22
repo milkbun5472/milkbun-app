@@ -21,6 +21,11 @@
     const [gen, setGen] = useState({ theme: "", count: 10, busy: false });
     const [scene, setScene] = useState("");        // 换个处境再做：这一次的前提，空＝平时
     const [busyWho, setBusyWho] = useState("");    // 他在出题 / 群里谁在做
+    // 分类：记得上次停在哪一类（她 2026-10-22「搞个分类」）
+    const [cat, setCatS] = useState(() => { try { return (typeof loadJSON === "function" && loadJSON("x_zyCat", "all")) || "all"; } catch (e) { return "all"; } });
+    // 记着的那一类空了（比如自己出的题都删了）就回到全部
+    const curCat = cat !== "all" && !Z.allTests().some(tt => Z.catOf(tt) === cat) ? "all" : cat;
+    const setCat = c => { setCatS(c); try { typeof saveJSON === "function" && saveJSON("x_zyCat", c); } catch (e) {} };
 
     const timer = useRef(null);
     useEffect(() => () => clearTimeout(timer.current), []);
@@ -136,6 +141,10 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(46,38,30,.6)", marginTop: 6 } }, "出完会填进下面，随便改；会盖掉下面已经写的")),
         lab("名字"), inp(E.name, v => up({ name: v }), "这套题叫什么"),
         h("div", { style: { height: 8 } }), inp(E.sub, v => up({ sub: v }), "一句话说测什么（可不写）"),
+        lab("放进哪一类"),
+        h("div", { "data-wk": "zyeditcat", className: "flex gap-2 flex-wrap" }, [["", "自己出的"], ["xg", "性格"], ["gx", "关系"], ["xl", "心里"], ["wan", "好玩"]].map(([k, zh]) =>
+          h("button", { key: k || "mine", onClick: () => up({ cat: k }), className: "active:opacity-70", style: { minHeight: 40, padding: "6px 14px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13,
+            border: "1.5px solid " + ((E.cat || "") === k ? c.deep : LINE), color: (E.cat || "") === k ? c.deep : INK, background: (E.cat || "") === k ? "rgba(255,255,255,.7)" : "transparent" } }, zh))),
         E.scored ? h(Fragment, null, lab("结果（选哪个结果的选项最多，就测出哪个）"),
           (E.results || []).map((r, k) => h("div", { key: k, style: { display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 8 } },
             h("span", { style: { flexShrink: 0, width: 22, height: 22, marginTop: 8, borderRadius: 999, background: c.deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, String.fromCharCode(65 + k)),
@@ -319,8 +328,23 @@
     return h("div", { "data-wk": "zypage", className: "h-full flex flex-col", style: { background: PAPER } },
       h(Head, { zh: "照影", sub: "看看他会怎么选", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 18px 40px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: FOG, padding: "8px 2px 14px", lineHeight: 1.6 } }, "挑一套，点进去发给他做，或者自己做一份。"),
-        Z.allTests().map(tt => h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:scale-[.98]", style: { display: "block", marginBottom: 14, transition: "transform .15s" } }, cover(tt, false))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: FOG, padding: "8px 2px 10px", lineHeight: 1.6 } }, "挑一套，点进去发给他做，或者自己做一份。"),
+        // 分类是一排小圆镜（照影本来就是一面镜子）：照着的那面大一圈、镜面亮着、描一道边，名字在底下；没照的那几面小一号、蒙着
+        h("div", { "data-wk": "zycats", role: "tablist", className: "flex overflow-x-auto", style: { gap: 6, padding: "4px 2px 14px", alignItems: "flex-end" } },
+          Z.CATS.map(([k, zh, gl]) => {
+            const on = curCat === k, n = k === "all" ? Z.allTests().length : Z.allTests().filter(tt => Z.catOf(tt) === k).length;
+            if (k === "mine" && !n) return null;
+            const d = on ? 50 : 40;
+            return h("button", { key: k, role: "tab", "aria-selected": on, "data-wk": "zycat", "data-on": on ? "1" : "0", onClick: () => setCat(k), className: "shrink-0 flex flex-col items-center active:opacity-70",
+              style: { width: 62, minHeight: 72, gap: 5, transition: "all .2s" } },
+              h("span", { style: { position: "relative", width: d, height: d, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", transition: "all .2s",
+                background: on ? "radial-gradient(circle at 32% 28%, #fffdf8 0%, #f4ece0 38%, #d9c8b2 100%)" : "radial-gradient(circle at 35% 30%, #f3ece2 0%, #e2d6c6 100%)",
+                border: (on ? 2 : 1) + "px solid " + (on ? ACC : LINE), boxShadow: on ? "0 4px 12px -5px " + ACC + ", inset 0 -3px 6px rgba(120,90,60,.18)" : "inset 0 -2px 4px rgba(120,90,60,.12)", opacity: on ? 1 : .72 } },
+                on ? h("span", { "aria-hidden": true, style: { position: "absolute", left: "18%", top: "12%", width: "34%", height: "18%", borderRadius: 999, background: "rgba(255,255,255,.85)", transform: "rotate(-28deg)" } }) : null,
+                h("span", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: on ? 19 : 15, color: on ? ACC : FOG } }, gl)),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? INK : FOG, fontWeight: on ? 700 : 400, whiteSpace: "nowrap" } }, zh + " " + n));
+          })),
+        Z.allTests().filter(tt => curCat === "all" || Z.catOf(tt) === curCat).map(tt => h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:scale-[.98]", style: { display: "block", marginBottom: 14, transition: "transform .15s" } }, cover(tt, false))),
         h("button", { "data-wk": "zynew", onClick: () => { setGen({ theme: "", count: 10, busy: false }); setEdit({ id: "", name: "", sub: "", scored: false, results: [], qs: [{ q: "", opts: [{ t: "", r: 0 }, { t: "", r: 0 }] }] }); }, className: "w-full active:scale-[.98]",
           style: { display: "block", padding: "22px 0", borderRadius: 18, border: "1.5px dashed #cbbca9", fontFamily: F_DISPLAY, fontSize: 15, color: INK } },
           "＋ 出一套题", h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 4 } }, "自己写，或者给个主题让 AI 出，出完能改")),

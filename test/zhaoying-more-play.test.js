@@ -118,3 +118,22 @@ console.log("ok");
   assert.match(app, /onSaveImage: \(\) => zhaoyingSaveImage\(zyWatch\.testId, rec/);
   assert.match(app, /onPin: c \? \(\) => zhaoyingPin\(zyWatch\.charId, zyWatch\.testId, rec\) : null/);
 }
+
+// 她 2026-10-22「搞个分类」+ 新加四套：每套都落在一类里；新题各结果都有选项指着；分类是圆镜不是药丸
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.TESTS.forEach(t => assert.ok(["xg", "gx", "xl", "wan"].includes(t.cat), t.id + " 有分类"));
+  for (const [id, n] of [["fight", 6], ["child", 6], ["jianghu", 6]]) {
+    const c = {}; Z.byId(id).qs.forEach(q => q.opts.forEach(o => Object.keys(o.s).forEach(k => { c[k] = (c[k] || 0) + 1; })));
+    Object.values(c).forEach(v => assert.equal(v, n, id + " 每种结果 " + n + " 个选项指着"));
+  }
+  assert.match(Z.resultOf("bigfive", Z.byId("bigfive").qs.map(() => 0)).title, /好奇. · 靠谱. · 外向. · 随和. · 敏感./);
+  assert.equal(Z.catOf({ custom: true }), "mine");
+  assert.equal(Z.catOf({ custom: true, cat: "gx" }), "gx");
+  const ui = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(ui, /"data-wk": "zycats", role: "tablist"/);
+  assert.match(ui, /saveJSON\("x_zyCat", c\)/);
+}
