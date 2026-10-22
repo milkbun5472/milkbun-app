@@ -67,10 +67,7 @@
         c ? h(Avatar, { character: c, size: 40, radius: 999 }) : h("span", { style: { display: "flex", width: 40, height: 40, borderRadius: 999, alignItems: "center", justifyContent: "center", background: INK, color: PAPER, fontFamily: F_DISPLAY, fontSize: 15 } }, "我")),
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? INK : FOG, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label));
     // 每套一张封面：测试小网站那种——一块有颜色的底、一个大符号、题数和用时、谁测过
-    const PAL = { mbti: { a: "#f3d9c8", b: "#d9a38a", deep: "#b5674a", g: "?" }, attach: { a: "#dfe3ef", b: "#a9b3d3", deep: "#5f6d9e", g: "⇄" },
-      love: { a: "#f6d6dc", b: "#e29aa8", deep: "#c05a6f", g: "♡" }, values: { a: "#e3e8d6", b: "#b3c094", deep: "#6f8150", g: "⚖" }, animal: { a: "#f1e3c4", b: "#d8b778", deep: "#a27b2f", g: "✦" } };
-    const PAL_C = [PAL.love, PAL.attach, PAL.values, PAL.animal, PAL.mbti];
-    const pal = tt => PAL[tt.id] || Object.assign({}, PAL_C[String(tt.id || "").split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % PAL_C.length], { g: String(tt.name || "？").slice(0, 1) });
+    const pal = Z.pal;   // 颜色表收在 core 那一份，聊天里的卡也用它
     const cover = (tt, big) => {
       const c = pal(tt), done = [...chars.map(x => x.id), "me"].filter(id => Z.recordsOf(id, tt.id).length);
       return h("div", { "data-wk": "zycover", "data-test": tt.id, style: { position: "relative", overflow: "hidden", borderRadius: 18, padding: big ? "22px 18px 18px" : "18px 16px 14px", background: "linear-gradient(135deg, " + c.a + " 0%, " + c.b + " 100%)", boxShadow: "0 8px 22px -14px " + c.deep } },

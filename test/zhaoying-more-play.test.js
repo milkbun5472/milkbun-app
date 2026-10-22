@@ -44,3 +44,14 @@ console.log("ok");
   const app = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
   assert.match(app, /runProbe\(apiFor\(charId\), ctxFor\(c\), \{ voice: true, tag: "zhaoying", instruction: Z\.askInstruction/);
 }
+
+// 她 2026-10-22「这张卡好丑修一修」：聊天卡跟照影封面用同一份颜色表，不另写一份
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  const core = fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(core, /function pal\(tt\)/);
+  assert.match(core, /const c = pal\(tt\);/);
+  assert.match(ui, /const pal = Z\.pal;/);
+  assert.ok(!/const PAL = \{/.test(ui), "页面那边不再自己留一份颜色表");
+}
