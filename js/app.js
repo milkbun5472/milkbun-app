@@ -11411,6 +11411,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
         .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
+        // 调用记录里叫得出名字（她 2026-10-22 截图：原来只显示「其他·你就是某某…」，认不出是哪一样）
+        logFrom: sneak ? "查手机·他偷偷翻你手机" : "查手机·他翻你手机",
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
         instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
