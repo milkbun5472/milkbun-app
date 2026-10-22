@@ -11756,12 +11756,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const phoneRemarkSpec = (char, key, spec) => {
     const l = key === "wechat" ? ((loadJSON("x_phoneRemarkEdits", {}) || {})[char.id] || []) : [];
     const md = key === "wechat" ? ((loadJSON("x_phoneMeddle", {}) || {})[char.id] || []) : [];
-    const dl = key === "wechat" ? ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []) : [];
-    const gl = key === "wechat" ? ((loadJSON("x_phoneWxGone", {}) || {})[char.id] || []) : [];
-    if (md.length || dl.length || gl.length) spec = { ...spec, instruction: spec.instruction
+    const marks = key === "wechat" ? Object.keys(PHONE_WX_MARKS).map(k => [k, phoneWxList(k, char.id)]).filter(x => x[1].length) : [];
+    if (md.length || marks.length) spec = { ...spec, instruction: spec.instruction
       + (md.length ? "\n\n【她拿你手机做过的事】" + md.map(phoneMeddleLine).join("；") + "。这些已经发生了，写到相关的人时照这个来。" : "")
-      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "")
-      + (gl.length ? "\n\n【已经解散的群】" + gl.map(x => "「" + x + "」").join("") + "：不写这几个群的新消息。" : "") };
+      + marks.map(([k, l]) => "\n\n" + PHONE_WX_MARKS[k].spec(l.map(x => "「" + x + "」").join(""))).join("") };
     if (!l.length) return spec;
     return { ...spec, instruction: spec.instruction + "\n\n【她翻你手机时动过你的通讯录备注】现在你手机里就是这样：" + l.map(phoneRemarkLine).join("；")
       + "。这一轮要写到这几个人（contacts／userContact）时，remark 留着她改的、改回去、还是换一个，由你决定。" };
@@ -21934,11 +21932,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ① 给刷新编出来的那些私聊发消息：对面照这段聊天接话，写回他手机这条会话里；
   //   ② 删好友 / 加回来：名单存在 x_phoneWxDel，刷新不会把人放回来。
   //   两样都在她的聊天里落一行灰字；他按出来的下一轮知道（waitForHer.phoneMeddle），下一次刷新微信也知道（x_phoneMeddle）。
-  const phoneMeddleLine = e => e.kind === "gone" ? "把你微信里的群「" + e.name + "」解散了"
-    : e.kind === "ungone" ? "把你微信里解散掉的群「" + e.name + "」恢复了"
-    : e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
-    : e.kind === "undel" ? "把「" + e.name + "」加回了你的微信好友"
-    : "用你的微信给「" + e.name + "」发了「" + e.said + "」" + (e.back ? "，对方回了：" + e.back : "");
+  // 她拿他手机对微信名单做的那几样（删好友、解散群、拉黑）：同一个形状，只此一处（她 2026-10-22「不能单独搞个拉黑嘛」）。
+  //   每样一张名单（存在 key 里，按角色分），刷新微信不会把人放回来；做了／撤了都在她的聊天里落一行灰字，他下一轮和下次刷新都知道。
+  const PHONE_WX_MARKS = {
+    del: { key: "x_phoneWxDel", meddle: (n, un) => un ? "把「" + n + "」加回了你的微信好友" : "把「" + n + "」从你微信好友里删了",
+      sys: (n, who, un) => un ? "你把「" + n + "」加回了 " + who + " 的微信好友" : "你把「" + n + "」从 " + who + " 的微信好友里删了",
+      spec: l => "【现在不在你微信好友里的人】" + l + "：不写跟他们的新消息。" },
+    gone: { key: "x_phoneWxGone", meddle: (n, un) => un ? "把你微信里解散掉的群「" + n + "」恢复了" : "把你微信里的群「" + n + "」解散了",
+      sys: (n, who, un) => "你用 " + who + " 的手机" + (un ? "恢复了" : "解散了") + "群「" + n + "」",
+      spec: l => "【已经解散的群】" + l + "：不写这几个群的新消息。" },
+    block: { key: "x_phoneWxBlock", meddle: (n, un) => un ? "把「" + n + "」从你微信黑名单里放出来了" : "把你微信里的「" + n + "」拉黑了",
+      sys: (n, who, un) => un ? "你把「" + n + "」从 " + who + " 的微信黑名单里放出来了" : "你用 " + who + " 的手机把「" + n + "」拉黑了",
+      spec: l => "【你微信黑名单里的人】" + l + "：还在通讯录里，但他们发的消息你收不到，不写他们发来的新消息；你自己要不要发过去照你这个人来。" }
+  };
+  const phoneWxList = (kind, charId) => ((loadJSON(PHONE_WX_MARKS[kind].key, {}) || {})[charId]) || [];
+  const phoneMeddleLine = e => { const k = String(e.kind || "").replace(/^un/, ""); const M = PHONE_WX_MARKS[k];
+    return M ? M.meddle(e.name, /^un/.test(e.kind)) : "用你的微信给「" + e.name + "」发了「" + e.said + "」" + (e.back ? "，对方回了：" + e.back : ""); };
   const phoneMeddleNote = (char, e) => {
     const prev = (waitHerRef.current[char.id] || {}).phoneMeddle || [];
     waitForHer(char.id, { phoneMeddle: [...prev, e].slice(-6) });
@@ -21946,32 +21955,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     all[char.id] = [...(all[char.id] || []), e].slice(-8);
     saveJSON("x_phoneMeddle", all);
   };
-  const phoneDelFriend = (char, name, undo) => {
-    const nm = String(name || "").trim();
-    if (!char || !nm) return;
-    const all = loadJSON("x_phoneWxDel", {}) || {};
+  const phoneWxMark = (kind, char, name, undo) => {
+    const nm = String(name || "").trim(), M = PHONE_WX_MARKS[kind];
+    if (!char || !nm || !M) return;
+    const all = loadJSON(M.key, {}) || {};
     const cur = (all[char.id] || []).filter(x => x !== nm);
     all[char.id] = undo ? cur : [...cur, nm];
-    saveJSON("x_phoneWxDel", all);
-    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你" + (undo ? "把「" + nm + "」加回了 " : "把「" + nm + "」从 ") + (char.remark || char.name) + (undo ? " 的微信好友" : " 的微信好友里删了"), ts: Date.now() }]);
-    phoneMeddleNote(char, { kind: undo ? "undel" : "del", name: nm });
+    saveJSON(M.key, all);
+    pChat(char.id, p => [...p, { role: "system", kind: "system", content: M.sys(nm, char.remark || char.name, undo), ts: Date.now() }]);
+    phoneMeddleNote(char, { kind: (undo ? "un" : "") + kind, name: nm });
   };
-  const phoneDissolve = (char, name, undo) => {
-    const nm = String(name || "").trim();
-    if (!char || !nm) return;
-    const all = loadJSON("x_phoneWxGone", {}) || {};
-    const cur = (all[char.id] || []).filter(x => x !== nm);
-    all[char.id] = undo ? cur : [...cur, nm];
-    saveJSON("x_phoneWxGone", all);
-    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机" + (undo ? "恢复了" : "解散了") + "群「" + nm + "」", ts: Date.now() }]);
-    phoneMeddleNote(char, { kind: undo ? "ungone" : "gone", name: nm });
-  };
+  const phoneDelFriend = (char, name, undo) => phoneWxMark("del", char, name, undo);
+  const phoneDissolve = (char, name, undo) => phoneWxMark("gone", char, name, undo);
+  const phoneBlockFriend = (char, name, undo) => phoneWxMark("block", char, name, undo);
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
     const isGrp = (session && session.type) === "group";
     if (!name || !(isGrp || (session && session.type) === "private")) return false;
-    if (!isGrp && ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
-    if (isGrp && ((loadJSON("x_phoneWxGone", {}) || {})[char.id] || []).includes(name)) return false;
+    if (!isGrp && phoneWxList("del", char.id).includes(name)) return false;
+    if (isGrp && phoneWxList("gone", char.id).includes(name)) return false;
     const wx = () => ((phonesRef.current || {})[char.id] || {}).wechat;
     if (!wx()) return false;
     const p = active;
@@ -31565,7 +31567,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTfReplyAs: (char, tid, accept) => respondTransfer(char.id, tid, accept),
     onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
-    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend, onDissolve: phoneDissolve,
+    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend, onDissolve: phoneDissolve, onBlockFriend: phoneBlockFriend,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
