@@ -13697,7 +13697,7 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   }
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
-  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel });
+  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel, inline });
 }
 // ── 长按出菜单：一份公共的（她 2026-09-17 立）─────────────────────────
 // 她原话：**「上下滑的时候很容易误触让那一堆状态栏跳出来然后误触到撤回」**。
@@ -13820,7 +13820,7 @@ function useLongPressMenu(onFire, opts) {
   const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
   return { startPress: startPress, endPress: endPress };
 }
-function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false, long, size, noModel }) {
+function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false, long, size, noModel, inline }) {
   const t = useTheme();
   // 包在 TransWho 里、写的人开着「自带中译」：也当直接显示（她 2026-10-17）
   const _whoAuto = typeof transWhoAuto === "function" && transWhoAuto(isU), autoShow = autoShowAll || _whoAuto;
@@ -13862,7 +13862,11 @@ function TransTextState({ text, isU, zhReady, ink, autoShow: autoShowAll = false
         fontFamily: MONO, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.08em", lineHeight: 1.6,
         padding: "0 5px", borderRadius: 5, border: "1px solid " + fg, opacity: 0.42, color: fg }
     }, open ? "收起" : "译"),
-    open && h("span", { "data-wk": "translatebody", style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
+    // 夹在一行里的那几处（线下台词、「某某：一句话」）：译文接在原文后面、跟着这一行走，不另起一块——
+    //   原来这儿也是一整块，块落在台词那个带底色的 span 里，把这句和后面的字都盖住了（群里 2026-10-22 截图）
+    open && inline && h("span", { "data-wk": "translatebody", "data-part": "inline", style: { fontWeight: 400, fontStyle: "normal", background: "none", color: fg, opacity: 0.72, fontSize: "0.92em", marginLeft: 4 } },
+      "（" + (busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "没有译文")) + "）"),
+    open && !inline && h("span", { "data-wk": "translatebody", style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
       h("span", { style: { display: "block", fontFamily: MONO, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang + (by ? " · " + by : "")),
       h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: size || 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1, whiteSpace: "pre-wrap" } },
         busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
