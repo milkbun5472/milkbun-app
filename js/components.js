@@ -1520,8 +1520,14 @@ function Sheet({
 // ⚠️用法跟 Sheet 一模一样（onClose / children / scrollKey / skin 照收），换的时候里面一个字不用动：
 //   铺满整屏、紧凑顶栏（返回＝onClose）、正文自己滚。tall / lift 是半窗才要的，这里收下不用。
 //   zh 给顶栏标题；不传就只有返回键，里面原来那行大标题照旧当正文第一行。
+// 整页（fixed 铺满的那几层）从「半窗」聊天里打开时，得叠在半窗上面（群里 2026-10-22「查手机和查找记录点不动」）：
+//   半窗浮在 930，整页原来只有 240 上下——从半窗里点开的页被压在它底下，看不见也点不到。
+//   半窗那棵树外面包一层 HalfWinLayer，里面的整页问 usePageZ 要层数；别处打开的照旧。
+const HalfWinLayer = React.createContext(false);
+function usePageZ(z) { return useContext(HalfWinLayer) ? 935 + Math.max(0, z - 240) : z; }
 function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
   const t = useTheme();
+  const pageZ = usePageZ(245);
   const sk = typeof skin === "string" ? { background: skin } : (skin && typeof skin === "object" ? skin : null);
   const skinStyle = sk ? Object.keys(sk).reduce((a, k) => { if (k !== "handle") a[k] = sk[k]; return a; }, {}) : null;
   const scrollRef = useRef(null);
@@ -1530,7 +1536,7 @@ function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
     scrollRef.current.scrollTop = 0;
   }, [scrollKey]);
   return ReactDOM.createPortal(h("div", { "data-wk": "pagesheet", className: "h-full flex flex-col",
-    style: Object.assign({ position: "fixed", inset: 0, zIndex: 245, background: t.bg, animation: "fadeUp .22s ease both" }, skinStyle || {}) },
+    style: Object.assign({ position: "fixed", inset: 0, zIndex: pageZ, background: t.bg, animation: "fadeUp .22s ease both" }, skinStyle || {}) },
     h(Head, { bg: "transparent", zh: zh || "", sub: sub, onBack: onClose, right: right }),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pt-3",
       style: { overflowAnchor: "none", paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } }, children)), document.body);
@@ -20971,6 +20977,7 @@ function ChatSettings({
   onSummarizeRoom,
   renderContextDebug
 }) {
+  const pageZ = usePageZ(240);   // 从半窗里打开时叠在半窗上面
   const [exportWithOff, setExportWithOff] = useState(false);   // 导出聊天记录：要不要把线下一起导
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
@@ -21328,11 +21335,11 @@ function ChatSettings({
       })
     : { background: t.bg };
   // 「影」那一格直接是动态形象编辑页（整页，自己有顶栏），不套设置页的外壳
-  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin) },
+  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: pageZ }, pgSkin) },
     h(window.MotionEditor, { character: character, scene: "default", onBack: () => { setSettingsTab(""); setOpenSec(""); }, onSaved: () => {}, toast: m => window.__toast && window.__toast(m, 3000) })), document.body);
   return ReactDOM.createPortal(h(React.Fragment, null,
     lookPeek ? h(ThemePeekBar, { zh: cNm + " 的聊天长相（还没保存）", onBack: endPeek }) : null,
-    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, pgSkin, lookPeek ? { display: "none" } : null) },
+    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: pageZ }, pgSkin, lookPeek ? { display: "none" } : null) },
     h(Head, {
       bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",

@@ -33591,7 +33591,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.28)" } })),
         h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "收起")),
       h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
-        mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) })));
+        h(HalfWinLayer.Provider, { value: true }, mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) }))));   // 里面打开的整页叠在半窗上面（usePageZ）
   })(), (function () {
     // 帮手的小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）。
     // ⚠️挂在这儿是照上面配件浮层那一层的做法：一个 position:fixed 的兄弟节点，
