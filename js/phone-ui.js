@@ -1511,9 +1511,17 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
       : h("div", { "data-wk": "pbubble", "data-me": self ? "1" : "0", style: { position: "relative", padding: "9px 11px", borderRadius: 5, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.55, color: "#171717", background: self ? "#95ec69" : "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)", animation: m._new ? "wkpop .26s cubic-bezier(.2,1.5,.4,1) both" : undefined } }, PTX(m.text));
     // 一批新话的开头画一条时间线（真微信隔一阵就有一行灰字时间）。没打过 _at 的老消息不画。
     const prevM = i > 0 ? arr(th.messages).concat(driveSent)[i - 1] : null;
-    const batchLine = (m && m._at && (!prevM || prevM._at !== m._at))
+    // 隔十分钟以上才画一条（她替他发一句、对面回一句，不该各冒一行）；不是今天的，模型给的「14:20」前面补上日子
+    //   （群里 2026-10-23：「日期过了好几天那个时间戳能不能显示出来」）
+    const batchLine = (m && m._at && (!prevM || !prevM._at || Math.abs(m._at - prevM._at) > 10 * 60000))
       ? h("div", { key: "t" + i, className: "text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#a3a3a3", margin: "4px 0 -4px" } },
-          m._atLabel || (function (d) { return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })(new Date(m._at)))
+          (function (d) {
+            const md = (d.getMonth() + 1) + "月" + d.getDate() + "日";
+            const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+            const lb = String(m._atLabel || "");
+            if (!lb) return md + " " + hm;
+            return d.toDateString() === new Date().toDateString() || /月|日|昨|前天|周|星期/.test(lb) ? lb : md + " " + lb;
+          })(new Date(m._at)))
       : null;
     const row = h("div", { key: i, className: "flex items-start gap-2 " + (self ? "flex-row-reverse" : "") }, h(Avatar, { character: person(m.from, avatarForMessage(m, th)), size: 37, radius: 7 }), h("div", { style: { maxWidth: "72%" } }, thread.type === "group" && !self && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#888", margin: "0 4px 3px" } }, PTX(m.from)), body));
     return batchLine ? h(React.Fragment, { key: i }, batchLine, row) : row;
