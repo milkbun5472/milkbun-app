@@ -32585,6 +32585,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
+    // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
+    groups: groups,
+    onShareToGroup: (gid, text) => { pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]); toast("发到群里了"); try { replyGroup(gid, {}); } catch (e) {} },
     onBack: goHome,
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
     onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
