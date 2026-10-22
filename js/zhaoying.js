@@ -52,17 +52,27 @@
 
     const pill = (on, label, fn, wk) => h("button", { "data-wk": wk || "zychip", "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70 shrink-0",
       style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? INK : LINE), background: on ? INK : "transparent", color: on ? PAPER : INK } }, label);
+    // 答题卡上那颗圈：涂上了就是选了
+    const bubble = on => h("span", { style: { flexShrink: 0, width: 14, height: 14, borderRadius: 999, border: "1.5px solid " + (on ? ACC : "#cbbca9"), background: on ? ACC : "transparent", boxShadow: on ? "inset 0 0 0 2px #fffaf3" : "none", transition: "all .25s" } });
+    const whyStyle = live => ({ marginTop: 8, padding: "6px 10px", borderLeft: "2px solid " + ACC, background: "rgba(176,118,74,.06)", borderRadius: "0 6px 6px 0", fontFamily: F_BODY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#6f5f4d", lineHeight: 1.65, whiteSpace: "pre-wrap", animation: live ? "wkpop .3s ease-out both" : undefined });
+    // 挑人：一排小像，挑中的那张抬起来、描一圈
+    const face = (on, c, label, fn) => h("button", { key: c ? c.id : "me", "data-wk": "zychip", "data-on": on ? "1" : "0", onClick: fn, className: "shrink-0 flex flex-col items-center active:opacity-70", style: { gap: 5, width: 56, opacity: on ? 1 : .62, transform: on ? "translateY(-2px)" : "none", transition: "all .2s" } },
+      h("span", { style: { display: "block", padding: 2, borderRadius: 999, border: "1.5px solid " + (on ? ACC : "transparent") } },
+        c ? h(Avatar, { character: c, size: 40, radius: 999 }) : h("span", { style: { display: "flex", width: 40, height: 40, borderRadius: 999, alignItems: "center", justifyContent: "center", background: INK, color: PAPER, fontFamily: F_DISPLAY, fontSize: 15 } }, "我")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? INK : FOG, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label));
     const qBlock = (tt, i, pick, why, live) => {
       const q = tt.qs[i];
       return h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: INK, lineHeight: 1.6 } }, (i + 1) + ". " + q.q),
-        h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 5 } }, q.opts.map((o, j) => h("div", { key: j, "data-wk": "zyopt", "data-on": pick === j ? "1" : "0",
-          style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "6px 10px", borderRadius: 6, border: "1px solid " + (pick === j ? ACC : LINE),
-            background: pick === j ? "rgba(176,118,74,.10)" : "transparent", color: pick === j ? INK : FOG, transition: "all .25s" } }, (pick === j ? "✓ " : "") + o.t))),
-        why ? h("div", { "data-wk": "zywhy", style: { marginTop: 7, fontFamily: F_BODY, fontStyle: "italic", fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#7a6a58", lineHeight: 1.6,
-          animation: live ? "wkpop .3s ease-out both" : undefined } }, "心声：" + why) : null);
+        h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: ACC, letterSpacing: ".05em", flexShrink: 0 } }, "Q" + (i + 1)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: INK, lineHeight: 1.65 } }, q.q)),
+        h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } }, q.opts.map((o, j) => h("div", { key: j, "data-wk": "zyopt", "data-on": pick === j ? "1" : "0",
+          style: { display: "flex", alignItems: "center", gap: 9, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "7px 10px", borderRadius: 8, border: "1px solid " + (pick === j ? ACC : LINE),
+            background: pick === j ? "rgba(176,118,74,.10)" : "#fffaf3", color: pick === j ? INK : "#7d6f60", transition: "all .25s" } },
+          bubble(pick === j), h("span", null, o.t)))),
+        why ? h("div", { "data-wk": "zywhy", style: whyStyle(live) }, why) : null);
     };
-    const resultBox = (res, whoId) => h("div", { "data-wk": "zyresult", style: { margin: "14px 0", padding: "14px 14px", borderRadius: 10, background: "#efe6da", border: "1px solid " + LINE } },
+    const resultBox = (res, whoId) => h("div", { "data-wk": "zyresult", style: { position: "relative", flex: 1, minWidth: 0, margin: "14px 0", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".2em", color: FOG } }, nameOf(whoId) + " 测出来是"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: INK, marginTop: 4 } }, res.title),
       res.line && res.line !== res.title ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null);
@@ -103,7 +113,7 @@
           h("div", { "data-wk": "zyaskrow", className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6 } }, chars.map(c => h("button", { key: c.id, "data-wk": "zyaskwho", onClick: () => props.onAsk && props.onAsk(c.id, test.id), className: "shrink-0 flex flex-col items-center active:opacity-70", style: { gap: 4, width: 58 } },
             h(Avatar, { character: c, size: 44, radius: 999 }),
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: INK, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))),
-          h("button", { "data-wk": "zygome", onClick: startMe, className: "w-full active:opacity-70", style: { marginTop: 8, padding: "10px 0", borderRadius: 10, border: "1px solid " + LINE, color: INK, fontFamily: F_BODY } }, mine ? "我再做一次" : "我自己做一份"),
+          h("button", { "data-wk": "zygome", onClick: startMe, className: "w-full active:opacity-70", style: { marginTop: 10, padding: "11px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY, letterSpacing: ".1em" } }, mine ? "我再做一次" : "我自己做一份"),
           h("details", { "data-wk": "zyqlist", style: { marginTop: 12 } }, h("summary", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, cursor: "pointer" } }, "看看这套题（" + test.qs.length + " 题）"),
             test.qs.map((q, k) => qBlock(test, k, -1, "", false))),
           // ── 跟谁对一对（她 2026-10-22「加3和4」）：任意两个做过这套的人并排看，我也算一个 ──
@@ -163,14 +173,18 @@
     return h("div", { "data-wk": "zypage", className: "h-full flex flex-col", style: { background: PAPER } },
       h(Head, { zh: "照影", sub: "看看他会怎么选", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 18px 40px" } },
-        h("div", { "data-wk": "zywho", className: "flex gap-2 overflow-x-auto", style: { padding: "6px 0 14px" } },
-          chars.map(c => pill(who === c.id, c.remark || c.name, () => setWho(c.id))), pill(who === "me", "我自己", () => setWho("me"))),
-        Z.TESTS.map(tt => { const last = Z.recordsOf(who, tt.id)[0];
+        h("div", { "data-wk": "zywho", className: "flex gap-3 overflow-x-auto", style: { padding: "8px 2px 16px" } },
+          chars.map(c => face(who === c.id, c, c.remark || c.name, () => setWho(c.id))), face(who === "me", null, "我自己", () => setWho("me"))),
+        Z.TESTS.map((tt, k) => { const last = Z.recordsOf(who, tt.id)[0];
+          // 一张张答卷：左边一道装订线，右上角做过的盖个章
           return h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:opacity-70",
-            style: { display: "block", padding: "14px 14px", marginBottom: 10, borderRadius: 10, background: "#fffaf3", border: "1px solid " + LINE } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: INK } }, tt.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FOG, marginTop: 3 } }, tt.sub),
-            last ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: ACC, marginTop: 6 } }, "上次：" + last.title + " · " + Z.dateZh(last.ts)) : null); })));
+            style: { position: "relative", display: "block", padding: "15px 14px 14px 46px", marginBottom: 12, borderRadius: 4, background: "#fffaf3", border: "1px solid " + LINE,
+              boxShadow: "0 1px 0 #e9dfd1, 0 3px 0 -1px #fffaf3, 0 3px 0 0 " + LINE, backgroundImage: "linear-gradient(90deg, transparent 33px, rgba(176,118,74,.35) 33px, rgba(176,118,74,.35) 34px, transparent 34px)" } },
+            h("span", { style: { position: "absolute", left: 0, top: 14, width: 33, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 13, color: ACC } }, String(k + 1).padStart(2, "0")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: INK, paddingRight: last ? 64 : 0 } }, tt.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FOG, marginTop: 4, lineHeight: 1.55, paddingRight: last ? 64 : 0 } }, tt.sub + " · " + tt.qs.length + " 题"),
+            last ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: INK, marginTop: 8, paddingTop: 7, borderTop: "1px dashed " + LINE } }, "上次 · " + last.title + "　" + Z.dateZh(last.ts)) : null,
+            last ? h("span", { style: { position: "absolute", right: 12, top: 12, transform: "rotate(-8deg)", padding: "2px 7px", border: "1.5px solid " + ACC, borderRadius: 4, color: ACC, fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: ".15em", opacity: .85 } }, "已测") : null); })));
   }
   g.ZhaoyingApp = ZhaoyingApp;
 })();
