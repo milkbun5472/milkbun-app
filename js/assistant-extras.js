@@ -759,7 +759,7 @@
     const L = now && Array.isArray(now.pages) ? Object.assign({}, now.pages) : (LS("x_homeLayout", {}) || {});
     const F = now && now.folders ? now.folders : (LS("x_homeFolders", {}) || {});
     const REG = (typeof window !== "undefined" && window.__homeReg) || {};
-    const zhOf = k => { const it = REG[k]; if (it && it.zh) return it.zh; if (it && it.kind === "widget") return HOME_WIDGET_ZH[it.which] || k; if (/^d_/.test(k)) return "（你自己放的装饰）"; return k; };
+    const zhOf = k => { const it = REG[k]; if (it && it.zh) return it.zh; if (it && it.kind === "widget") return HOME_WIDGET_ZH[it.which] || k; if (/^d_/.test(k)) return it && it.decor && it.decor.type === "code" ? "自己写的小组件（id " + k + "）" : "（你自己放的装饰）"; return k; };
     const pages = Object.keys(L).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
     const out = [];
     pages.forEach((n, i) => {
@@ -778,6 +778,25 @@
   const _doc5 = docLines;
   docLines = () => _doc5() + "· 快照【桌面布局】是她主屏现在真实的样子：第几页、按顺序摆了什么、每个文件夹里装着什么。她问「xx 在哪儿」就照它说（第几页、在不在哪个文件夹里）；"
     + "主屏上没有的，再照攻略说从哪儿进。页数从左往右数，第1页是最左边那页。\n";
+
+  // ── 「自己写」小组件（她 2026-10-22：「秋秋能帮忙写不」）──────────────────
+  //   id＝new 新摆一件；id＝快照【桌面布局】里那件「自己写的小组件（id d_…）」就换掉它的代码。text＝整段 HTML。name 可填尺寸 id。
+  //   写进桌面走主屏那一处（window.__homePutCodeDecor），跟编辑页「放上去」同一个口子。
+  TARGETS.widget = {
+    zh: "桌面小组件",
+    read: () => [],
+    before: p => { const it = ((typeof window !== "undefined" && window.__homeReg) || {})[S(p.id)]; return it && it.decor ? "原来的代码 " + String(it.decor.detail || "").length + " 字" : "（新摆一件）"; },
+    write: (id, patch) => {
+      if (typeof window === "undefined" || typeof window.__homePutCodeDecor !== "function") throw new Error("主屏还没打开过，回主屏再点一次");
+      window.__homePutCodeDecor(S(id) === "new" ? "" : S(id), S(patch.text), S(patch.name).trim());
+      return 1;
+    }
+  };
+  const _doc6 = docLines;
+  docLines = () => _doc6() + "  widget 桌面上「自己写」的小组件：她要一个自己定样子的小组件（时钟、倒数、一句话、小动画……），你写一段 HTML 当 text（可以带 <style> 和 <script>），"
+    + "id 写 new 就新摆一件；要改快照【桌面布局】里已有的那件「自己写的小组件（id d_…）」，id 就写那个 d_ 开头的 id，text 是改好后的整段代码。name 可选尺寸：short 2×1、square 2×2、wide 4×1、large 4×2、three 3×1、threetall 3×2，不填就是 square。\n"
+    + "    它画在一个隔开的小窗里：读不到 app 的任何数据（角色、聊天、她的名字都拿不到，要用就直接写进代码里），也不能联网取数据，不能点；背景默认透明，会透出她的壁纸。\n"
+    + "    尽量短，一般几十行以内；字号、留白照小格子来，内容要在窄窗里也排得下。\n";
 
   const api = { GROUP_SETTINGS, OFFLINE_SETTINGS, GLOBALS, LORE_STAMPS, SETTINGS, SET_BY, TARGETS, okWithoutText, snapshotExtra, docLines, parseVal, roomSwitchRows, DANGER_WARN };
   if (typeof window !== "undefined") window.AssistExtras = api;
