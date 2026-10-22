@@ -1657,7 +1657,7 @@ const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: 
 const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
 const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
-function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore }) {
+function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore, onImportMany }) {
   const t = useTheme();
   const [trashOpen, setTrashOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
@@ -1798,10 +1798,11 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
     editing && h(WorldBookEntryPage, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
+      onImportMany: onImportMany ? list => { onImportMany(list, editing.charIds || []); setEditing(null); } : null,
       onDelete: editing.__new ? null : () => { onDelete(editing.id); setEditing(null); }
     }));
 }
-function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
+function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete, onImportMany }) {
   const t = useTheme();
   const isNew = !(entry && entry.id);
   const [f, setF] = useState(() => {
@@ -1820,8 +1821,17 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     if (!file || importLock.current) return;
     importLock.current = true; setImporting(true); setImportError("");
     try {
-      if (!/\.(docx|txt)$/i.test(file.name || "")) throw new Error("请选择 .docx 或 .txt 文件");
+      if (!/\.(docx|txt|json)$/i.test(file.name || "")) throw new Error("请选择 .json、.docx 或 .txt 文件");
       if (file.size > 20 * 1024 * 1024) throw new Error("文件超过 20 MB，请拆小后导入");
+      // 世界书 json（2026-10-22）：一条就填进这一页，多条直接全部收进世界书
+      if (/\.json$/i.test(file.name || "")) {
+        let d = null; try { d = JSON.parse(await file.text()); } catch (x) { throw new Error("这个 json 读不开，可能不完整"); }
+        const list = typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : [];
+        if (!list.length) throw new Error("这份 json 里没认出世界书词条");
+        if (list.length === 1) { const one = list[0]; setF(current => ({ ...current, title: one.title, payload: one.payload, keyword: one.keyword || "", alwaysOn: !!one.alwaysOn })); return; }
+        if (onImportMany) { onImportMany(list); return; }
+        throw new Error("这份里有 " + list.length + " 条，这一页只收得下一条");
+      }
       const payload = await readOfflineStyleDocument(file);
       if (!payload.trim()) throw new Error("文件里没有可导入的文字");
       setF(current => ({ ...current, title: file.name.replace(/\.(docx|txt)$/i, "").trim() || "导入设定", payload }));

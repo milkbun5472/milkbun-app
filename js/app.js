@@ -32092,6 +32092,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     characters: liveChars,
     onBack: goHome,
     onSave: e => saveLore([e].concat(loreRef.current.filter(x => x.id !== e.id))),
+    // 世界书 json 一次导进好几条（2026-10-22）：新开的那一页是从哪个角色进来的，就先绑那几个人
+    onImportMany: (list, charIds) => {
+      const now = Date.now();
+      const add = (list || []).map((e, i) => Object.assign({ category: "世界观", regex: false, ensemble: false, scope: { chat: true } }, e, { id: "le_json_" + now + "_" + i, charIds: (charIds || []).slice(), ts: now + i }));
+      saveLore(add.concat(loreRef.current || []));
+      toast("导进了 " + add.length + " 条" + ((charIds || []).length ? "" : "（没绑角色，去每条里按需要绑）"));
+    },
     // 最近删除（她 2026-10-03 群友：「修改世界书的时候一不小心给删掉了，这个有回收站吗」）：
     //   删的那条先进 x_loreTrash，留 30 天、最多 60 条，能原样放回去
     trash: loreTrashLive(),

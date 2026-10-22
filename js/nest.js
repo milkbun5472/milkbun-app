@@ -149,8 +149,8 @@
     }
     if (kind === "css") return { payload: /\.docx$/i.test(name || "") ? unWord(t) : t, title: base, note: t.length + " 字的 CSS" };
     if (kind === "lore") {
-      const list = d ? (Array.isArray(d) ? d : (d.entries || null)) : null;
-      if (d && !list) throw new Error("这份 json 里没有世界书词条");
+      const list = d ? (typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : (Array.isArray(d) ? d : (d.entries || null))) : null;
+      if (d && !(list && list.length)) throw new Error("这份 json 里没有世界书词条");
       if (list) return { payload: packLore(list), title: base, note: list.length + " 条词条" };
       return { payload: packLore([{ title: base || "导入设定", payload: t, category: "世界观", alwaysOn: true, enabled: true }]), title: base, note: "整份当成一条词条（" + t.length + " 字）" };
     }
