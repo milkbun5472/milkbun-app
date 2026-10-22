@@ -14869,9 +14869,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "TA 这一轮要不要在群里出声，看 TA 手上那件事腾不腾得出手："
       + "腾得出手（走着、坐着等人、排队）就照常说话，只是内容得跟这个处境对得上；"
       + "腾不出手（在开车、手上有活、正对着人说话、在睡）——**这一轮完全不出现是最自然的**，"
-      + "群里没人会觉得奇怪，也不必让别人替 TA 解释。真要回就只回一句，短，而且别专门交代自己为什么慢。"
+      + "群里没人会觉得奇怪，也不必让别人替 TA 解释。真要回就只回一句，短，接着话头说就行，慢不慢不用交代。"
       + "**绝不许让 TA 出现在和那处境矛盾的地点/活动里**（如同时说自己在家煮饭/在公司加班）。"
-      + "TA 不必也别主动说出自己正和谁在一起（关系隐私）。" : "";
+      + "TA 正和谁在一起是 TA 的私事（关系隐私），TA 自己不提。" : "";
     // 群线下进行中：这个群此刻有一场群线下相处（进行中），线上群回复要知道大家正面对面、别当没相处过（群版 offlineActiveFor）
     const gOffSess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs && (s.msgs || []).length);
     let gOfflineHint = "";
@@ -14879,7 +14879,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _un = userName(profile);
       const _gnarr = (gOffSess.msgs.find(m => m.role === "narration") || {}).content || "";
       const _gr = (gOffSess.msgs || []).filter(m => m && !isOocMsg(m) && m.content).slice(-8).map(m => (m.role === "narration" ? "【场景】" : m.role === "user" ? _un : (m.senderName || "某人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80)).join("\n");
-      gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**别当没相处过、别问『在哪呢/怎么还不来』**，也别演成才刚到。最近线下：\n" + _gr;
+      gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**照「我们正在一块儿」来说话**，人已经到了、已经在一起一阵了。最近线下：\n" + _gr;
     }
     // ── 自发那一段的总条数闸（她 2026-09-11 截图：设了 50，群里出到 61）────────
     // ⚠️**她设的是 50，她数的是屏幕上的行数**；可这个计数器一直数的是
@@ -14931,13 +14931,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _crossDay = _glast && new Date(_glast).toDateString() !== new Date().toDateString();
       const _gClockNames = members.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
       const gTimeHint = _gClockNames.length
-        ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse("g:" + groupId), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
+        ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse("g:" + groupId), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，那个旧场景已经结束了。" : "")
         : "";
       // 隔了很久再聊，上一轮那件事就算翻篇了（她 2026-10-16：「群里自己聊过了上限没聊完，过了一天再接话还是强行从上次那里接」）。
       //   上面那句只在有人开着时间感知时才说；没开的群里谁都不知道隔了多久，就只会接着最后那几句往下演。
       //   这句不报钟点、不说几点几天，只说「上回那段已经停了很久」——这是聊天本身的事，不是看表。
       const gTopicHint = (!_gClockNames.length && _ggap > 3 * 3600000)
-        ? "\n\n【上一轮已经停了很久】群里上次那段对话已经停下很久了，那件事算是聊完、翻篇了。这一轮别顺着上一轮最后那几句硬接下去，像隔了一阵子重新在群里冒头那样另起话头；除非有人主动又提起那件事。"
+        ? "\n\n【上一轮已经停了很久】群里上次那段对话已经停下很久了，那件事算是聊完、翻篇了。这一轮像隔了一阵子重新在群里冒头那样另起话头；除非有人主动又提起那件事。"
         : "";
       // 补充上文：每位成员入群前的私聊，作为「封闭空间」的 X 条前情提要——
       // 只在【未开记忆互通】时用；开了互通就实时抽单聊，这档自动让位、不叠加。
@@ -14967,7 +14967,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (pj) preJoin = "\n\n【每位成员入群前和用户的私聊 · ⚠️隐私边界铁律】\n"
           + "下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示、化用或质问另一个成员和用户之间私聊过什么、有过什么梗" + (gsFor(groupId).drama ? "" : "、是什么关系") + "**——除非那位成员【自己在群里主动说了出来】。\n"
           + "尤其注意：别人段落里的称呼、玩笑、专属梗、约定、旧事，对你来说【根本不存在】，不许拿来开场、接话或试探。每个成员只凭『自己那一段』和『群里公开说过的话』行动。\n"
-          + "这些只是背景，别生硬复述。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + pj;
+          + "这些只是背景，用得上时自然带出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + pj;
       }
       const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
       const _gSchedNames = [];
@@ -15002,7 +15002,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
         const xgSeg = (() => {
           const said = crossChannelSaid(c.id, groupId);
-          return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
+          return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿要跟它对得上：时间、安排、答应过的事都要接得上。别的成员不一定知道，他们只知道自己听到的；这件事自然接着说，不用提『我刚在群里说过』）〕\n" + said : "";
         })();
         // 今天此刻的安排（她 2026-10-20「群聊能改日程吗→接上吧」）：跟群线下 memberSched 同一份 schedBriefFor、同一句规矩；
         //   只给开着时间感知的本人，下面 schedNow 才有东西可对照
@@ -15047,7 +15047,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }).filter(Boolean).join("\n\n");
         const groupMem = formatMemLib(gSplit.shared);
         const gDramaOn = !!gsFor(groupId).drama;
-        interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么" + (gDramaOn ? "" : "、是什么关系") + "**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。" + (gDramaOn ? "（修罗场开着：谁跟用户是什么关系在这个群里是公开的，照上面【修罗场】那段来；这里管的只是私聊内容和记忆。）" : "绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。") + "每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：别复刻记忆里的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作，生活要有新的具体。" : "");
+        interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么" + (gDramaOn ? "" : "、是什么关系") + "**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。" + (gDramaOn ? "（修罗场开着：谁跟用户是什么关系在这个群里是公开的，照上面【修罗场】那段来；这里管的只是私聊内容和记忆。）" : "绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。") + "每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：记忆里的事是过去的，今天的生活有今天新的具体——新的菜、新的话、新的小动作。" : "");
       }
       const asPrivate = gs.spectate && members.length === 2;
       let dir = groupStageLine({ spectate: !!gs.spectate, pairNames: asPrivate ? [members[0].name, members[1].name] : [],
@@ -15095,9 +15095,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   下面那段群聊通用话里写着「这一轮里有人一句话都没说是正常的、别为了凑齐人头硬给每个人塞一句」——
       //   群里人多时那是对的；可只有两个人时，它等于告诉模型「另一个可以不说话」，于是整屏只剩一个人在自说自话。
       //   所以两个人的那一路换成对话本来的样子：两个人都在，你一句我一句地接。
-      const common = "\n\n【很重要】角色不是轮流回答用户的话。每个人在群里还是他私聊里那个人：同一个温度、同样在意的东西，对她也还是私下那个态度；他开口是因为他真有话要说，用的是他平时说话的样子，不是来给这个话题配一句漂亮台词——身份和职业是他的生活，不是他每句话的梗。他接谁的话、怎么接，由他这个人和他跟对方的交情决定，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言；同一个人一轮里也可以说好几次——B 接了 A 的话，A 再回 B，B 又接一句，话头就这么来回过手，一轮里来回好几趟才像真的在聊天。一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回、别三两句就收场。"
+      const common = "\n\n【很重要】角色不是轮流回答用户的话。每个人在群里还是他私聊里那个人：同一个温度、同样在意的东西，对她也还是私下那个态度；他开口是因为他真有话要说，用的是他平时说话的样子，不是来给这个话题配一句漂亮台词——身份和职业是他的生活，不是他每句话的梗。他接谁的话、怎么接，由他这个人和他跟对方的交情决定，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言；同一个人一轮里也可以说好几次——B 接了 A 的话，A 再回 B，B 又接一句，话头就这么来回过手，一轮里来回好几趟才像真的在聊天。一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回，聊尽兴了再收。"
           + "⚠️「多聊几个来回」不等于「点名每个人」：这一轮里有人一句话都没说是正常的（在忙、没看到、懒得接、没什么想说的），"
-          + "别为了凑齐人头硬给每个人塞一句——真实群聊从来是几个人在说、几个人在看。" : "**这一轮的额度只剩这么多，说到就停，别硬凑也别多写——多出来的会被丢掉。**") + "\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
+          + "有话的人才开口——真实群聊从来是几个人在说、几个人在看。" : "**这一轮的额度只剩这么多，说到就停——多出来的会被丢掉。**") + "\n【对话连贯·自己说过的话自己认】每个成员都要认清【自己在上文里说过什么、提过什么要求】——自己说过的话就是自己的，不反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账，接着往下说。";
       // 只换开头那一段（「不是每人每轮都要说话…几个人在看」），后面连贯、别否认自己说过的话这些照旧
       const commonTurn = asPrivate
         ? common.replace(/【很重要】[\s\S]*?(?=\n【对话连贯)/, "【很重要】这是两个人之间的对话：两个人都在，顺着对方刚说的话往下接，你一句我一句地来回，一个人也可以连说几句再轮到对方。一次产出 " + nMin + "~" + nMax + " 条。")
@@ -15115,14 +15115,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const uN = userName(profile);
         const hers = daysUntilBirthday(profile && profile.birthday, _t) === 0;
         return "\n【今天是谁的生日】今天是" + who.map(n => "「" + n + "」").join("、") + "的生日"
-          + (hers ? "，也是 " + uN + " 的生日（同一天）。" : "，**不是 " + uN + " 的生日**：别祝 " + uN + " 生日快乐、别叫 " + uN + " 寿星、别问 " + uN + " 想怎么过。今天要被大家记得的是上面这位。")
+          + (hers ? "，也是 " + uN + " 的生日（同一天）。" : "，**不是 " + uN + " 的生日**：生日快乐、寿星、想怎么过，这些都是冲着上面这位的。今天要被大家记得的是上面这位。")
           + "本人自己怎么表现看各自性子（期待被记得、感慨、故作不在意都行）。";
       })();
       const gPolls = _graw.filter(m => m.kind === "poll");
       const _gInv = pendingGroupInviteOf(groupId);
       const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, userName(profile)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:{\"go\":\"yes\" 或 \"no\",\"say\":\"答应的话，写在回执上给她的一句（可空）\"}；"
         + ((_gInv.replies && Object.keys(_gInv.replies).length) ? "已经回过的（" + _gInv.invitees.filter(x => _gInv.replies[x.id]).map(x => x.name + (_gInv.replies[x.id] === "yes" ? "去" : "不去")).join("、") + "）不用再填；" : "")
-        + "没被约到的人不填，也别替别人答。" : "";
+        + "没被约到的人不填，各人只答自己的。" : "";
       const gPollHint = gPolls.length ? "\n【投票操作】上文投票卡列出了编号与选项。成员要投票或改票，在自己的发言对象中增加 pollVote:{\"pollId\":\"对应投票编号\",\"choice\":从0起的选项序号}；-1 为撤回自己的票。只说投了不会改变票数，text 必须与 choice 一致。匿名投票不在 text 里透露自己的选择。" : "";
       // 每个成员只列他自己能用的那几套（她 2026-10-05：「群里只用自己那份」）。原来列的是全群合起来的一份，
       //   可落地只认这个人自己的（emotesForChar(spk.id)）——他挑了别人那套的词，就悄悄发不出去。
@@ -15157,7 +15157,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + photoCapLine(gUName, { face: !!gFaceMembers.length, duo: !!gDuoMembers.length, group: gGroupShotOk, me: canShootMe("g:" + groupId) }).replace(/你的脸/g, "TA 的脸").replace(/你自己的照片/g, "TA 自己的照片").replace(/你的手/g, "TA 的手").replace(/看不看得见你/g, "看不看得见 TA")
         + (gDuoMembers.length ? "\n合照仅限这几位有参考照的成员可发：" + gDuoMembers.map(c => c.name).join("、") + "。" : "")
         + (gGroupShotOk ? "\ngroup 是多人合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；**一个人在场时不许用**。" : "")
-        + "\n一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
+        + "\n一轮最多一个成员发，偶尔才有。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就不加这个字段。\n" + PHOTO_NO_EXCUSE : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       // ⚠️**action 这一格的说法只许有一份**（她 2026-09-11：「有我的群还是一句一个动作」）。
       //   下面 gActionField 早就改成了「没变就原样填写」，可【心声与心情】这一段里
@@ -15199,14 +15199,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gDmHint = gDmMembers.length ? "\n【dm 私下说】你可以在公开发言之外，【私下】单独发一句给「" + gUName + "」——它只会出现在你和 TA 的一对一私聊里，群里其他人看不到。\n"
         + "⚠️【默认不用】绝大多数轮次都不该出现 dm。群聊就是群聊，正常在群里说话就行；私聊是【例外】，不是每轮的附加动作。\n"
         + "只有满足下面之一才允许用，其余情况一律不填：\n"
-        + "① 你这一轮的 text 里【真的说了】「待会私聊说」「单独跟你讲」「回头发你」这类话——那就用 dm 把承诺的那句发出去，别放空炮；\n"
+        + "① 你这一轮的 text 里【真的说了】「待会私聊说」「单独跟你讲」「回头发你」这类话——那就用 dm 把承诺的那句发出去，说到做到；\n"
         + "② 这句话【当着群里其他人的面说不出口】（会拆穿别人、会让谁下不来台、或只属于你和 TA）；\n"
         + "③ TA 在群里明确让你私聊 TA。\n"
         + "【自检】如果这句话在群里公开说也完全没问题，那它就该留在 text 里，不要用 dm。想跟 TA 亲近不是理由——群里也能亲近。\n"
         + "写法：在你那条发言对象里加 \"dm\":[\"第一条\",\"第二条\"]。\n"
         + "⚠️它是【一个数组，一条一个气泡】，和 text 同一个规矩：私聊里没人会把一整段话憋成一条发出去。"
         + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；说了几句就发几条。**绝不要把整段塞进一条**。\n"
-        + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。"
+        + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，偶尔才有。"
         // 掷一下谁这一轮可以私下说一嘴（她 2026-10-05：「在群里聊天有几率回私聊说一嘴……基本没有触发过」）。
         //   上面那三条门槛全靠模型自己判，它几乎永远判「不用」。掷的是【给谁开这扇门】，不是替他决定说什么——
         //   没想说的照样可以不填（施工规则/bans-make-it-dumber.md：掷轴，别掷答案）。
@@ -15290,7 +15290,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   单聊那条「记录里说在一块儿就是在一块儿」到了群里，就成了谁都能宣称她此刻在自己身边。
       //   没开同处一室时把来源说清楚：她此刻在哪，只看这个群里说过的话。
       const gWhereHint = (!gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
-        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——别替自己认领一个「她就在我旁边」。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(userName(profile), true) : "";
+        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——照「不知道」来。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(userName(profile), true) : "";
       // ── 旁观群里唯一变的一件事：她不是【听众】（她 2026-09-11）──
       // 起因：「大晏趣闻·旁观中」里陆闻把话头扔进群里，说「Lisa你评评理」。
       // ⚠️v66.56 我第一版改过头了，她当场纠正：「我有旁观群就是看他们感情的，你去掉好感和
@@ -15313,7 +15313,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         ? "\n\n【身份铁律·旁观】这个群里【只有】上面那几位成员，" + _uN + " **不在这个群里**：Ta 在另一边看着，你们谁也不知道有人在看。"
           + "**绝不许对着 " + _uN + " 说话、@ Ta、向 Ta 提问、请 Ta 评理、把话头扔给 Ta、或者等 Ta 回答**——Ta 听不见，也不会回。"
           + "旁白是这个场景本身，不是谁说出口的话，更不是 " + _uN + " 在跟你们讲话。"
-          + "⚠️但**提起 Ta 是可以的**：像聊一个此刻不在场的人那样，用第三人称说 Ta ——想 Ta、提 Ta、抱怨 Ta、打趣谁跟 Ta 的事，都照你们本来的样子来。只是别转过头对着 Ta 说话。"
+          + "⚠️但**提起 Ta 是可以的**：像聊一个此刻不在场的人那样，用第三人称说 Ta ——想 Ta、提 Ta、抱怨 Ta、打趣谁跟 Ta 的事，都照你们本来的样子来。只是话还是对着在场的人说。"
           + "绝不生成 " + _uN + " 的台词、动作或心声，也绝不把 Ta 的口吻装进成员对象。"
           + "每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。"
         : "\n\n【身份铁律】用户「" + _uN + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。";
@@ -15339,7 +15339,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；别替别人填，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -15366,7 +15366,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n· 有人接住她之后，话头就该滑到你们几个中间去——" + G_EACH_OTHER + "。"
         + "\n· 也可以有人压根没先接她那句，接的是上一位成员还没说完的话。"
         + "\n· ⚠️**这一轮只要不止两条，就至少要有一条是说给另一个成员听的，不是说给她听的。**"
-        + "\n· 别写成「每个人对着她表态一轮」——那是客服轮班，不是群聊。";
+        + "\n· 群聊是几个人之间的来回，不是「每个人对着她表态一轮」的客服轮班。";
       // 让他们自己接着聊时，记录里会连着好几轮没有用户发言。模型读到这个只会得出一个结论：
       // 「她不理我」——于是第二轮开始整群都在演被冷落（她 2026-08-20 报）。
       // 用户没说话不是冷落，是她此刻不在这个话题里；这句必须写死，不然它自己会脑补。
@@ -15378,14 +15378,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   病根不是记不住，是**这句话叫他们把她删掉**。
       // 「没出声」和「不在场」是两件事：她可以人就在那儿、正被抱着，只是这一轮没说话。
       // 所以这一段只说前半件（别催她要回应），后半件反过来钉死（不许把她挪走、不许重开场面）。
-      if (!tail.length) userContent += "\n\n【重要·别演成被冷落，也别把 TA 从场面里挪走】上面的记录里连着几条都没有「" + userName(profile)
+      if (!tail.length) userContent += "\n\n【重要·TA 还在场，场面照常往下走】上面的记录里连着几条都没有「" + userName(profile)
         + "」发言，那只是因为 TA 此刻没在群里【打字】——【不是】不理你们、不是已读不回、不是在生气、也不是出了什么事。"
         + "\n⚠️**「没出声」不等于「不在场」**：上文里正在发生的事，人还是那些人、地方还是那个地方。"
         + "TA 要是本来就在这场面里，那 TA 现在【仍然在】，只是这一轮没开口——绝不许因为 TA 没说话就把 TA 挪走、写成 TA 走了/睡了/不在了，"
         // ⚠️隔了很久（3 小时以上）就不是「正在发生」了（她 2026-10-16：过了一天还强行从上次那里接）——
         //   这时候这句反过来：上回那段翻篇了，另起话头。跟上面 gTopicHint／gTimeHint 那句是同一个判断。
         + (_ggap > 3 * 3600000
-          ? "不过上一段已经停了很久，那件事已经过去了：这一轮另起一个话头，像隔了一阵子重新在群里冒头那样，别顺着上一轮最后那几句硬接。"
+          ? "不过上一段已经停了很久，那件事已经过去了：这一轮另起一个话头，像隔了一阵子重新在群里冒头那样。"
           : "更不许把上文那一场丢掉、另起一个话题或者从头把场面重新铺一遍。**顺着上面正在发生的那件事往下接。**")
         + "\n这一轮由你们几个把话往下推：" + G_EACH_OTHER + "；TA 没开口的这段时间里该发生什么就发生什么。"
         // ⚠️这里原来还连带禁了「@TA」和「反复提起 TA」——禁过头了：她 2026-09-23 报
@@ -15396,7 +15396,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             ? "想起 TA 的时候照样可以找 TA：聊到跟 TA 有关的事顺手 @ 一下、叫 TA 来看个东西、问 TA 一句正经的，都是群里本来就会有的事——"
               + "要不要找、找几次，看此刻聊到哪儿、这个人跟 TA 什么关系来定。"
             : "")
-        + "只是别把 TA 没出声当成一件事来说：「怎么不说话」「是不是不理我了」「人呢」这类催回应、闹委屈的话不要写。"
+        + "TA 没出声就是没出声，不算一件事：「怎么不说话」「是不是不理我了」「人呢」这类催回应、闹委屈的话不要写。"
         + "TA 什么时候插话都可以，到时候再自然接住就是了。"
         // ⚠️她开着「同处一室」的时候，上面 system 里那句 samePlacePresence 已经写明
         //   「在场的各位和 TA 都在同一个地方」——原来那句「就当 TA 不在场」跟它【正面打架】，
@@ -15412,7 +15412,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       if (rgOpts.auto && Array.isArray(rgOpts.urgeCharIds) && rgOpts.urgeCharIds.length) {
         const urgeNames = members.filter(c => rgOpts.urgeCharIds.includes(c.id)).map(c => c.name);
-        if (urgeNames.length) userContent += "\n\n【这轮自然动念】" + urgeNames.join("、") + " 此刻先想在群里说点什么：由 TA 自然先开口，其他人可顺势接话。不要解释这是系统触发，也别把『想念值』说出来。";
+        if (urgeNames.length) userContent += "\n\n【这轮自然动念】" + urgeNames.join("、") + " 此刻先想在群里说点什么：由 TA 自然先开口，其他人可顺势接话。就当是自己想发了，系统触发、『想念值』这些都不存在。";
       }
       const groupImageDataUrls = [];
       // tail 就是上次有人开口之后她新发的那一批

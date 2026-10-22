@@ -15,7 +15,7 @@ const { app, engine, cut, fixture, evaluate, wire, sections } = require('./_grou
 //   下面加了一条：这一行只在本人那段里，看不到别人的。
 // ⚠️v74.441 再换一次：关系那一段标签改成「以下是 X 跟用户的关系」，跟行程/状态的围栏分开（修罗场只公开关系那段）。
 const beforeHashes = {
-  online: '983c84e2ac1d00ef2335b9c6c534efab6fa4875f762bda3aca64053145a31f1d',
+  online: 'be6a6fdac60154e0efbd3bd651fd917cf97a310043643f4a54ee3b62d35839c8',   // 2026-10-22 「这些只是背景，别生硬复述」改成正面说法，故意的
   call: '2584a5ed1648a36dafc309a638f0adcb49bef4bd883ca1aeb5666db153bd9d63',
   offline: '074b43e33d9720371b2e4e9e6cf68bf51cd1a5eb25a8f05e8a734a2ee92eeb77',
 };

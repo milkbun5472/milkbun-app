@@ -10,9 +10,9 @@ test("群 → 私聊：dm 能力要说清「别放空炮」，并真的落进私
   assert.match(app, /const gDmHint = gDmMembers\.length \?/);
   const hint = app.slice(app.indexOf("const gDmHint"), app.indexOf("const gDmField"));
   assert.match(hint, /待会私聊说.*单独跟你讲.*回头发你/, "要点名这几句承诺");
-  assert.match(hint, /别放空炮/);
+  assert.match(hint, /说到做到/);
   assert.match(hint, /群里其他人看不到/, "得说清它和 text 是两回事");
-  assert.match(hint, /一轮最多一个人用，别频繁/);
+  assert.match(hint, /一轮最多一个人用，偶尔才有/);
   // 落地：形状必须和普通私聊消息一致，未读红点/预览/记忆才吃得到
   assert.match(app, /pChat\(spk\.id, p => \[\.\.\.p, \{ role: "assistant", content: gDmList\[di\], ts: Date\.now\(\), read: false, fromGroup: groupId, turnId: dmTurn \}\]\)/);
   // 被拉黑的人不该还能私聊过来

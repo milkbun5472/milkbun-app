@@ -23,8 +23,8 @@ test("群红包要有头像和发的人是谁", () => {
 });
 
 test("自发轮不许把「用户没说话」演成被冷落", () => {
-  assert.match(app, /if \(!tail\.length\) userContent \+= "\\n\\n【重要·别演成被冷落，也别把 TA 从场面里挪走】/);
-  const seg = app.slice(app.indexOf("【重要·别演成被冷落"), app.indexOf("【重要·别演成被冷落") + 1200);
+  assert.match(app, /if \(!tail\.length\) userContent \+= "\\n\\n【重要·TA 还在场，场面照常往下走】/);
+  const seg = app.slice(app.indexOf("【重要·TA 还在场"), app.indexOf("【重要·TA 还在场") + 1200);
   assert.match(seg, /【不是】不理你们、不是已读不回、不是在生气/);
   assert.match(seg, /怎么不说话/, "要点名禁掉这几句口头禅");
   assert.match(seg, /是不是不理我了/);
