@@ -13345,6 +13345,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (parsed.action == null && _f.action) parsed.action = String(_f.action);
         }
       }
+      // 字段写进了正文（「transfer:{"amount":…」被逗号拆成两条气泡）：捞出来，这一轮那一栏空着就补上
+      if (typeof pullFieldLeak === "function") {
+        const _fl = pullFieldLeak(words);
+        if (_fl.fields) {
+          words = _fl.words.filter(w => String(w).trim());
+          Object.keys(_fl.fields).forEach(k => { if (parsed[k] == null || parsed[k] === "") parsed[k] = _fl.fields[k]; });
+        }
+      }
       // 模型把 photo 写进了正文（「[photo: kind=…, face=…, scene=…]」）：捞出来还原成照片，正文里不留这串参数
       if (typeof pullPhotoMarker === "function") { const _pm = pullPhotoMarker(words); if (_pm.photo || _pm.words.length !== words.length) { words = _pm.words.filter(w => String(w).trim()); if (_pm.photo && !parsed.photo && !parsed.selfie) parsed.photo = _pm.photo; } }
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
