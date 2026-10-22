@@ -13255,6 +13255,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // 别的字段被模型写进了 word 里（群里 2026-10-22：气泡里冒出「photoSeen:{"note":"她发来两张……」）：
+      //   一条话长成「英文字段名:{…}／[…]／"…"」就是协议，不是人说的话——拿出气泡；那一格没填的话照它填上
+      if (parsed && Array.isArray(parsed.word)) parsed.word = parsed.word.filter(w => {
+        const m = typeof w === "string" && /^\s*["'“”]?([a-z][A-Za-z]{2,24})["'“”]?\s*[:：]\s*([\[{"“][\s\S]*)$/.exec(w);
+        if (!m) return true;
+        if (parsed[m[1]] == null && typeof parseJSONLoose === "function") { const v = parseJSONLoose(m[2]); if (v != null) parsed[m[1]] = v; }
+        return false;
+      });
       if (_bareCard) parsed.word = (Array.isArray(parsed.word) ? parsed.word : (parsed.word ? [parsed.word] : [])).concat([_bareCard.card]);
       const roomTurnState = sideRoom ? { ...parsed, mood: typeof parsed.mood === "string" ? parsed.mood : parsed.mood && parsed.mood.label } : null;
       // 不跟主线共用状态的房间：action 要封（别写进主线那张状态卡），可【动描那一行】还得摆出来——
