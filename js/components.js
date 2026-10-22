@@ -16780,7 +16780,7 @@ function StateCard({
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: t.ink } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5, noModel: true }), "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4 } }) : null))))
     : h(Fragment, null,
-      (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? "这间房还没有心声" : "还没有状态", sub: roomName ? "在这里聊过或赴约后，会只为本房留下" : "和" + scTa + "聊几句，状态会自动生成" }) : null,
+      (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? (hist.length ? "这一轮没留下心声" : "这间房还没有心声") : "还没有状态", sub: roomName ? (hist.length ? "下一轮有了就会出现在这儿；之前的在下面「翻旧的」" : "在这里聊过或赴约后，会只为本房留下") : "和" + scTa + "聊几句，状态会自动生成" }) : null,
       // 看得见的：穿着和动作本来就是同一眼看到的东西，合成一段——
       // 拆成两张并排的卡，那是状态面板的做法。
       // 还是一块（不拆成两张并排的卡），但分两拍念：身上什么样是轻的一行，
