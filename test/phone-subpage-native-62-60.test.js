@@ -36,7 +36,8 @@ test("微信联系人：分组 cell，不是灰底上一张白圆角卡", () => 
   assert.match(w, /borderTop: last === "first" \? "none" : "1px solid #ededed"/, "行间那道发丝线没了");
   assert.doesNotMatch(w, /borderRadius: 8, padding: "18px"/, "又变回一张白圆角卡了");
   // 按了没反应的按钮比没有按钮更糟：只有真有会话时才给「发消息」
-  assert.match(w, /sess \? h\("button"/);
+  //   v76.254 又多一条：删了好友也不给（加回来之前按了也没用）
+  assert.match(w, /sess && !isDel\(thread\.name\) \? h\("button"/);
   assert.match(w, /color: "#07c160"/);
 });
 

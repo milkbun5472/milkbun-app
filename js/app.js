@@ -21990,7 +21990,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + (ct.intro ? "在 " + char.name + " 眼里你是这样的人：" + String(ct.intro).slice(0, 400) + "\n" : "\n")
       + "下面是你俩在微信上的聊天，最后一条是 " + char.name + " 刚发来的。照你这个人平时在微信上说话的样子回，一到三条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
       + "只输出 JSON 字符串数组，一条一个元素。";
-    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 1200, timeout: 60000, logLabel: "查手机·联系人回话" })
+    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 65000, timeout: 60000, logLabel: "查手机·联系人回话" })
       .then(raw => {
         let arr = parseJSONLoose(raw); if (!Array.isArray(arr)) arr = String(raw || "").split(/\n+/);
         const rows = arr.map(x => ({ from: isGrp ? String((x && x.from) || "").trim() : name, text: String(x == null ? "" : (x.text || x)).trim() }))

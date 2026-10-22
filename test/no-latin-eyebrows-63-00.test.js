@@ -35,7 +35,9 @@ const ALLOW = {
   // ③ 发给模型的枚举值 / 模型返回的枚举值——不是给人看的字，各自都有中文映射
   "js/app.js": ["HIGH LOAD", "LOW LOAD", "NORMAL", "LIGHT"],
   "js/engine.js": ["CLEAR", "CLOUDY", "DRIZZLE", "KEEP", "OVERCAST", "PARTLY CLOUDY",
-    "RAIN", "REWRITE", "SHOWERS", "SNOW", "THUNDERSTORM", "WAVE"],
+    "RAIN", "REWRITE", "SHOWERS", "SNOW", "THUNDERSTORM", "WAVE",
+    // .ics（课表那种日历文件）里的字段名，不是给人看的眉标（2026-10-21 导入课表）
+    "DTSTART", "DTEND", "VEVENT", "BEGIN", "END", "SUMMARY", "LOCATION", "RRULE", "UNTIL", "BYDAY"],
   // 测量字宽用的那串字母
   "js/weekly.js": ["ABCDEFGHIJKL"]
 };

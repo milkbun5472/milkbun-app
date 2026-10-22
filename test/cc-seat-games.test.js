@@ -208,7 +208,9 @@ test("谁是卧底描述必须像真人随口给短线索，禁止百科与散�
   assert.match(clue, /别写成散文谜语/);
   assert.match(clue, /像饭桌上脱口而出的短话/);
   // 原来钉着一条口气例句；提示词里不放内容样本（她的常规），v75.327 换成共用的 VOICE_RULE 判据 + 每人人设
-  assert.match(clue, /AC \+ SKILL_RULE \+ VOICE_RULE \+/);
+  // v76.234 起所有开口的提示都走公共那一份 gameVoiceRules()（AC＋说话＋能力三样都在里面），不再各处自己拼
+  assert.match(clue, /const sys = gameVoiceRules\(\) \+/);
+  assert.match(games, /function gameVoiceRules\(\) \{[\s\S]{0,120}return AC \+ VOICE_RULE \+ SKILL_RULE/, "公共那一份里少了哪一样");
   assert.match(clue, /voiceBrief\(s\)/);
 });
 
