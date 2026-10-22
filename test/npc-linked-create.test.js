@@ -7,7 +7,7 @@ const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 const ts = fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8");
 
 function load(chars) {
-  const i = app.indexOf("  const addNpcLinked = ({ name, brief, ownerId, links }) => {"), j = app.indexOf("  const addMyNpc = ", i);
+  const i = app.indexOf("  const addNpcLinked = "), j = app.indexOf("  const addMyNpc = ", i);
   assert.ok(i > 0 && j > i, "抠不出 addNpcLinked");
   const out = { made: [], rels: {} };
   const fn = new Function("characters", "pC", "saveRel", "toast", "CharacterPronoun", app.slice(i, j) + "\nreturn addNpcLinked;")(

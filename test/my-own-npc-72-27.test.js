@@ -14,15 +14,15 @@ const app = P("js/app.js"), screens = (P("js/screens.js") + "\n" + P("js/screens
 
 // v75.27x：落成什么收进 addNpcLinked 一处（配角页新建、秋秋建配角也走它），addMyNpc 只是老入口的薄壳——两段一起看
 const addMy = (() => {
-  const i = app.indexOf("  const addNpcLinked = ({ name, brief, ownerId, links }) => {");
-  const j = app.indexOf("  const addMyNpc = (name, brief, relLabel, hostId) => {", i);
+  const i = app.indexOf("  const addNpcLinked = ");
+  const j = app.indexOf("  const addMyNpc = ", i);
   assert.ok(i > 0 && j > i, "抠不出 addNpcLinked / addMyNpc");
   return app.slice(i, app.indexOf("\n  };", j));
 })();
 
 test("她自己的人：她写什么就是什么，一枪都不打", () => {
   assert.ok(!/callAI|generateNpc|runProbe|await /.test(addMy), "她自己写的这一支还在调模型");
-  assert.ok(/addNpcLinked\(\{ name, brief, ownerId: "me", links: \[\{ id: "me", label: note \}\] \}\)/.test(addMy) && /meLink \? \{ knowsUser: true,/.test(addMy) && /npc: true, ownerId: owner/.test(addMy),
+  assert.ok(/addNpcLinked\(\{ name, brief, ownerId: "me", links: \[\{ id: "me", label: note \}\]/.test(addMy) && /meLink \? \{ knowsUser: true,/.test(addMy) && /npc: true, ownerId: owner/.test(addMy),
     "落成的字段不对：要么不是配角，要么主人不是她，要么没天然认识她");
   assert.ok(/if \(!nm\) \{ toast\("先写个名字"\); return null; \}/.test(addMy), "没名字也能加一张空卡");
   // 关系图两头都写：只写一头的话，群里另一头就不认得 TA
@@ -61,7 +61,8 @@ test("界面按主人分两支：她自己那支是手写表单", () => {
   ["TA 叫什么", "你俩什么关系", "TA 是个什么人"].forEach(x =>
     assert.ok(seg.includes('"' + x + '"'), "手写表单少了一栏：" + x));
   // 2026-10-03 起角色身边的人也能走这张手写表单，多传一个主人
-  assert.ok(/onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar\)/.test(seg), "加进来那颗没接上");
+  // 2026-10-22 起后面还跟着筛子那张面具（按面具编配角）：参数表不当锚，只认前四个
+  assert.ok(/onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar[,)]/.test(seg), "加进来那颗没接上");
   assert.ok(!/npcBusy/.test(seg), "她这一支还挂着角色那支的忙态");
   // 2026-10-21 起她这一支多一颗「照我的人设写一份」：只起草稿填回框里，存还是点「加进来」
   assert.ok(/onDraftMyNpc\(c\.npcName, c\.npcRel(, draftProfile \|\| profile)?\)/.test(seg), "草稿那颗没接上");

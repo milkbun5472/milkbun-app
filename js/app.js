@@ -10388,7 +10388,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 手写一位配角，一步连好【认识谁】（她 2026-10-10：「现在必须要设置在谁身边然后再把 npc 连到别的角色身上」）：
   //   links＝[{id, label}]，id 可以是 "me"、角色、别的配角，各连一条双向的关系；ownerId 可以是 "me"、某个角色，或空着＝不挂在谁身边。
   //   addMyNpc（关系页那两处老入口）和配角页的新建、秋秋建配角都落到这一处。
-  const addNpcLinked = ({ name, brief, ownerId, links }) => {
+  const addNpcLinked = ({ name, brief, ownerId, links, maskId }) => {
     const nm = String(name || "").trim().slice(0, 24);
     if (!nm) { toast("先写个名字"); return null; }
     const id = "c_" + Date.now() + "_" + Math.floor(Math.random() * 1000) + "_npc";
@@ -10396,6 +10396,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const meLink = ls.find(l => l.id === "me");
     const owner = ownerId === "me" || (ownerId && characters.some(c => c.id === ownerId)) ? ownerId : "";
     pC(prev => [...prev, CharacterPronoun.newCharacter(Object.assign({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: owner },
+      // 她自己身边的人才记面具：在角色身边的跟着主人那张走，另记一份只会两处打架
+      owner === "me" && maskId ? { maskId: String(maskId) } : {},
       meLink ? { knowsUser: true, knowsUserNote: String(meLink.label || "").trim().slice(0, 60) } : {}))]);
     ls.forEach(l => {
       const note = String(l.label || "").trim().slice(0, 60);
@@ -10405,7 +10407,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast("已加入「" + nm + "」，去群里拉上TA");
     return id;
   };
-  const addMyNpc = (name, brief, relLabel, hostId) => {
+  const addMyNpc = (name, brief, relLabel, hostId, maskId) => {
     const note = String(relLabel || "").trim().slice(0, 60);
     if (hostId && hostId !== "me") {
       if (!characters.some(c => c.id === hostId)) return false;
@@ -10414,7 +10416,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (id && note) saveRel(hostId + "->" + id, note, "");
       return !!id;
     }
-    return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
+    return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }], maskId: maskId });
   };
   // 她自己身边的人：起一份草稿填回框里（不直接建人，她改完点「加进来」才存）
   // me：照哪张面具写（关系页面具筛子挑的那张；没挑＝主面具）
@@ -31393,7 +31395,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   给的是【筛子】不是【分叉】：面具没有自己认识的人，人还是那些人。
     masks: masks,
     maskPrimary: maskPrimary,
-    maskOf: charId => String((settingsFor(charId) || {}).maskId || ""),
+    // 配角没有聊天设置（不单聊），所以不能直接问 chatSettings——那样每个配角都算主面具，
+    //   切到副面具时整排配角都被滤掉（她 2026-10-22：「按面具编 npc 呢」）。
+    //   配角问它的户口要：在谁身边就跟谁那张脸；她自己身边的人记在 maskId 上（建的时候戴的那张）。
+    //   ⚠️仍然只存一份关系网（2026-10-03 定的「面具给的是怎么看，不是存几份」）：这儿给的只是归属。
+    maskOf: charId => {
+      const c = (charactersRef.current || characters || []).find(x => x && x.id === charId);
+      if (c && c.npc) {
+        const own = String(c.ownerId || "");
+        if (own && own !== "me") return String((settingsFor(own) || {}).maskId || "");
+        return String(c.maskId || "");
+      }
+      return String((settingsFor(charId) || {}).maskId || "");
+    },
     onBack: goHome,
     onSave: saveRel,
     // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。

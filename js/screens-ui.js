@@ -1361,7 +1361,7 @@ function Ties({
     boardId !== "me" ? h("button", { "data-wk": "tiesdetailentry", onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, draftProfile: maskProfile, me, nameOf, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+      comp, setComp, characters, profile, draftProfile: maskProfile, maskPick: maskPick, me, nameOf, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
@@ -1370,7 +1370,7 @@ function Ties({
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, draftProfile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
+function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPick, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -1486,7 +1486,10 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, me, nam
           c.meChar === "me" ? "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 身边的人，【不认识你】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 " + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
         h("button", { "data-wk": "tiesnpcsubmit", "data-part": "add",
           onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
-            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
+            // 按面具编（她 2026-10-22）：筛子切在哪张副面具上，建出来的「我身边的人」就记在那张脸底下；
+            //   主面具／没挑＝不记，照旧谁都看得见
+            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar,
+              maskPick && maskPick !== "_main" ? maskPick : "") !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
           className: "w-full active:opacity-70",
           style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))",
             opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
