@@ -14,3 +14,7 @@ test("替他发、对面回的都记时间；时间线隔十分钟才画，不�
 test("刷新时告诉模型每个会话隔了几天", () => {
   assert.ok(ph.includes("（上次说话是 \" + _days + \" 天前，那件事已经过去了；这回说的是这几天新发生的）"));
 });
+
+test("替他发完，列表的日子和先后跟着动（_ts）", () => {
+  assert.ok(app.includes('time: tm, _upd: Date.now(), _ts: Date.now() } : c) }'));
+});

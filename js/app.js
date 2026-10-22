@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.302";
+const APP_VERSION = "v76.303";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22072,7 +22072,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const tm = String(d0.getHours()).padStart(2, "0") + ":" + String(d0.getMinutes()).padStart(2, "0");
     const put = msgs => { const c2 = wx(); if (!c2) return;
       savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name
-        ? { ...c, messages: [...(c.messages || []), ...msgs.map(m => ({ ...m, _at: m._at || Date.now() }))], last: String(msgs[msgs.length - 1].text || ""), time: tm, _upd: Date.now() } : c) }, { noArchive: true, patched: true }); };   // 记上时间：聊天里画得出那行灰字，刷新时也知道隔了几天
+        ? { ...c, messages: [...(c.messages || []), ...msgs.map(m => ({ ...m, _at: m._at || Date.now() }))], last: String(msgs[msgs.length - 1].text || ""), time: tm, _upd: Date.now(), _ts: Date.now() } : c) }, { noArchive: true, patched: true }); };   // 记上时间：聊天里画得出那行灰字，刷新时也知道隔了几天；_ts 跟着换，列表的日子和先后才会动（群里 2026-10-23「聊完日期没变」）
     put([{ from: char.name, text: body, byUser: true }]);
     const key = "fake:" + name;
     setPhoneAsWait(key);
