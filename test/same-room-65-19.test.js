@@ -65,7 +65,7 @@ test("常驻指令里那个「你俩隔着屏幕」的前提摘掉了", () => {
   // v66.12 把那条不再发送的 A/B 基线删了，这句现在只剩 selfTask 一份
   assert.equal((app.match(/完全代入「" \+ char\.name \+ "」和用户说话。/g) || []).length, 1);
   // 前提交还给上下文，这句话只许有一份，单聊群聊共用
-  const one = eng.match(/【你俩此刻在不在一个地方，看上下文，别默认隔着老远】/g) || [];
+  const one = eng.match(/【你俩此刻在不在一个地方，看上下文来定】/g) || [];
   assert.equal(one.length, 1);
   assert.match(eng, /const ONLINE_CHAT_RULE_V2 = `[\s\S]{0,600}?【你俩此刻在不在一个地方/,
     "这句得住在两边共用的那一份里，不然群聊吃不到");

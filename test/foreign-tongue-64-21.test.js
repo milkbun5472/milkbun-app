@@ -38,7 +38,7 @@ test("规则里不许有内容示范", () => {
     .forEach(x => assert.equal(rule.indexOf(x), -1, "示范又回来了：" + x));
   // 换成判据：反应从这个人长出来，不是照着单子挑一个
   assert.match(rule, /怎么表现出来是各人各样的/);
-  assert.match(rule, /别所有人都是同一种反应/);
+  assert.match(rule, /每个人的反应各是各的/);
 });
 
 test("三个总口都发了，一处不漏", () => {

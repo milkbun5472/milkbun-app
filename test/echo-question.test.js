@@ -6,7 +6,7 @@ const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const app = require("./_online-layer.js").expand(fs.readFileSync(path.join(root, "js/app.js"), "utf8"));
 
-// 她 2026-08-22：「我说看看自拍，有时候会回答：自拍？行，别后悔。明明直接说后部分就行」。
+// 她 2026-08-22：「我说看看自拍，有时候会回答：自拍？行，发你。明明直接说后部分就行」。
 // 回声式开场——把对方刚说的词原样反问一遍再回答。它不添任何东西，只是给真正的回答垫场。
 
 // v55.66 起禁令抽成了共用常量 ECHO_QUESTION_BAN（线上线下同一份），
@@ -17,11 +17,11 @@ const ONLINE = (() => {
 })();
 
 test("点名这个毛病，并说清它为什么是复述不是反应", () => {
-  assert.match(ONLINE, /别把对方刚说的词原样反问一遍再开口/);
+  assert.match(ONLINE, /开口直接从你的反应说起，不先把对方刚说的词原样反问一遍/);
   assert.match(ONLINE, /这种回声式开场不是反应，是复述/);
   assert.match(ONLINE, /把对方的话原样退回去一次，什么都没添/);
   // 用她给的原例，模型照着这个形状认最准
-  assert.match(ONLINE, /「行，别后悔」本身就是一句完整的回答，前面不需要挂一个「自拍？」/);
+  assert.match(ONLINE, /「行，发你」本身就是一句完整的回答，前面不需要挂一个「自拍？」/);
 });
 
 test("给可判定的检验，而不是再加一句「别反问」", () => {
@@ -36,7 +36,7 @@ test("真反问不许被误杀：区别在有没有带进新东西", () => {
 test("单聊和群聊都吃得到（共用同一个常量）", () => {
   const m = app.match(/ONLINE_CHAT_RULE_V2\.replace\("([^"]+)", "([^"]+)"\)/);
   assert.ok(m, "群聊那处的改写形状变了，得重新确认这条还在不在");
-  assert.match(ONLINE.replace(m[1], m[2]), /别把对方刚说的词原样反问一遍再开口/, "群聊也要带上");
+  assert.match(ONLINE.replace(m[1], m[2]), /开口直接从你的反应说起，不先把对方刚说的词原样反问一遍/, "群聊也要带上");
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/, "单聊");
 });
 
@@ -60,7 +60,7 @@ const S = (() => {
 
 test("语气助词不该让它逃掉", () => {
   assert.deepEqual(S(["自拍啊？", "行"], "看看自拍"), ["行"]);
-  assert.deepEqual(S(["自拍吗？行，别后悔"], "看看自拍"), ["行，别后悔"]);
+  assert.deepEqual(S(["自拍吗？行，发你"], "看看自拍"), ["行，发你"]);
   assert.deepEqual(S(["哦，自拍？", "行"], "看看自拍"), ["行"]);
 });
 
@@ -71,7 +71,7 @@ test("多几个字也还是回声", () => {
 });
 
 test("垫场不一定在第一泡——前两泡都要扫", () => {
-  assert.deepEqual(S(["嗯", "自拍？", "行，别后悔"], "看看自拍"), ["嗯", "行，别后悔"]);
+  assert.deepEqual(S(["嗯", "自拍？", "行，发你"], "看看自拍"), ["嗯", "行，发你"]);
   // 但第三泡以后不碰：那时候他已经在正经说话了
   assert.deepEqual(S(["嗯", "好", "自拍？", "行"], "看看自拍"), ["嗯", "好", "自拍？", "行"]);
 });
@@ -86,7 +86,7 @@ test("真反问一个都不许误杀", () => {
   // 削了就没话了
   assert.deepEqual(S(["自拍？"], "看看自拍"), ["自拍？"]);
   // 本来就没有回声
-  assert.deepEqual(S(["行，别后悔"], "看看自拍"), ["行，别后悔"]);
+  assert.deepEqual(S(["行，发你"], "看看自拍"), ["行，发你"]);
   // 太短/太长都不算
   assert.deepEqual(S(["你？", "行"], "你看看"), ["你？", "行"]);
 });

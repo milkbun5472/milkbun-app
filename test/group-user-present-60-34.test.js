@@ -12,11 +12,11 @@ const rule = eng.slice(eng.indexOf("const GROUP_USER_IS_PRESENT"), eng.indexOf("
 // 完全忘记群里还有我了。。。就如果是他俩私聊这种是好的，但是我还在。。。」
 
 test("要的不是禁止他们之间有自己的话——那正是群聊好看的地方", () => {
-  assert.match(rule, /那是这个群活着的样子，别收着/);
+  assert.match(rule, /那是这个群活着的样子，放开聊/);
   assert.match(rule, /你们之间那段来回可以照聊/);
   // 反方向也得管住：别把群聊写成排队向用户汇报
   assert.match(rule, /不是每个人每一句都要转向她/);
-  assert.match(rule, /别把群聊写成轮流面向用户发言/);
+  assert.match(rule, /群聊还是大家在聊，不是轮流面向用户发言/);
 });
 
 test("给的是可判定的那把尺子，不是一句「要照顾用户」", () => {

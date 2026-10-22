@@ -35,7 +35,7 @@ test("给冷淡的人留的那条路还在", () => {
 
 test("「停得住才像真的」删了，「别拿早点休息当句号」留着", () => {
   const rule = cut("const STOCK_REPLY_BAN = ", "const OVERREACH_BAN = ");
-  assert.match(rule, /别拿「早点休息」当句号/, "那个八股收尾的闸不该跟着删");
+  assert.match(rule, /句号落在你俩这件事上，不落在「早点休息」上/, "那个八股收尾的闸不该跟着删");
   assert.ok(rule.indexOf("停得住才像真的") < 0,
     "它是一句普适风格判词——「少即是真」，正好是连发十几条撒娇那种角色的反面");
 });
