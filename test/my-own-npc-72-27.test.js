@@ -57,7 +57,7 @@ test("喂给模型的那一行认得「这是她自己的人」", () => {
 test("界面按主人分两支：她自己那支是手写表单", () => {
   const i = screens.indexOf('(c.meChar === "me" || c.npcHand) ? h(Fragment, null,');
   assert.ok(i > 0, "没有按主人分支");
-  const seg = screens.slice(i, i + 4200);
+  const seg = screens.slice(i, i + 6400);   // 2026-10-22 表单中间多了「算谁认识的人」那一栏
   ["TA 叫什么", "你俩什么关系", "TA 是个什么人"].forEach(x =>
     assert.ok(seg.includes('"' + x + '"'), "手写表单少了一栏：" + x));
   // 2026-10-03 起角色身边的人也能走这张手写表单，多传一个主人

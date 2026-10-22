@@ -29,7 +29,25 @@ test("配角的面具跟着户口走：在谁身边就跟谁，自己身边的�
 
 test("建「我身边的人」时把筛子那张面具记下来；在角色身边的不另记", () => {
   assert.match(sui, /maskPick: maskPick,/, "筛子那张没传进去");
-  assert.match(sui, /onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar,\s*\n\s*maskPick && maskPick !== "_main" \? maskPick : ""\)/);
+  assert.match(sui, /onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar, pickedMask\)/);
   assert.match(app, /const addMyNpc = \(name, brief, relLabel, hostId, maskId\) =>/);
   assert.match(app, /owner === "me" && maskId \? \{ maskId: String\(maskId\) \} : \{\},/, "在角色身边的也记了一份，两处会打架");
+});
+
+// 她 2026-10-22 第二轮：「还是没有啊」——上一版只是闷头记下筛子当前那张，建的时候表单上看不见、也挑不了。
+//   现在「算在谁身边＝我」那张手写表单上多一栏「算谁认识的人」：默认跟筛子，可当场改。
+test("表单上有一栏看得见的「算谁认识的人」，只给自己身边的人，默认跟筛子", () => {
+  const i = sui.indexOf('"data-wk": "tiesnpcmask"');
+  assert.ok(i > 0, "表单上没有这一栏");
+  const seg = sui.slice(Math.max(0, i - 700), i + 1400);
+  assert.match(seg, /c\.meChar === "me" && \(masks \|\| \[\]\)\.some/, "在角色身边的也给挑了，会跟主人那张脸打架");
+  assert.match(seg, /\[\["", "谁都看得见"\]\]\.concat/, "少了「谁都看得见」那一档");
+  assert.match(seg, /c\.npcMask === undefined \? \(maskPick && maskPick !== "_main" \? maskPick : ""\) : c\.npcMask/, "没碰过这一栏时该跟着筛子");
+  assert.match(sui, /const pickedMask = c\.npcMask === undefined \? \(maskPick && maskPick !== "_main" \? maskPick : ""\) : c\.npcMask;/);
+  assert.match(sui, /onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar, pickedMask\)/, "加进来那颗没照这一栏走");
+  // 挑完得能收回去：下一个人别还挂着上一个挑的那张
+  assert.match(sui, /set\(\{ npcName: "", npcBrief: "", npcRel: "", npcMask: undefined \}\)/, "建完没把这一栏复位");
+  // 名单和主面具得传进表单，不然这一栏画不出来
+  assert.match(sui, /maskPick: maskPick, masks: masks, maskPrimary: maskPrimary,/);
+  assert.match(sui, /function RelComposer\(\{ comp, setComp, characters, profile, draftProfile, maskPick, masks, maskPrimary,/);
 });

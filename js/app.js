@@ -23523,7 +23523,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
     const pick = pool.slice(0, Math.random() < 0.5 ? 1 : 2);
     return "\n【楼主现实里认识的人刷到了这帖】下面这" + (pick.length > 1 ? "两位" : "位") + "是她身边的人，认得出这是她的号，这一轮来回一楼：\n"
-      + pick.map(c => "「" + c.name + "」" + (c.knowsUserNote ? "（跟她：" + c.knowsUserNote + "）" : "") + "：" + groupPersonaText(c.persona, 1200)).join("\n")
+      + pick.map(c => "「" + c.name + "」" + (c.knowsUserNote ? "（跟她：" + c.knowsUserNote + "）" : "") + "：" + groupPersonaText(c.persona, 1200) + charLangLine(c)).join("\n")
       + "\n口气、用词、在意的事照各自这个人来，按跟她的真实关系说话；公开楼里别把只有你们知道的私事说出来。authorName 写TA在网上用的网名。\n";
   };
   const forumCommentProbe = (post, n, opts = {}) => {

@@ -1361,7 +1361,7 @@ function Ties({
     boardId !== "me" ? h("button", { "data-wk": "tiesdetailentry", onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, draftProfile: maskProfile, maskPick: maskPick, me, nameOf, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+      comp, setComp, characters, profile, draftProfile: maskProfile, maskPick: maskPick, masks: masks, maskPrimary: maskPrimary, me, nameOf, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
@@ -1370,7 +1370,7 @@ function Ties({
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPick, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
+function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPick, masks, maskPrimary, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -1461,6 +1461,25 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
           className: "w-full bg-transparent outline-none pb-2",
           style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
         }),
+        // 给哪张面具（她 2026-10-22：「按面具编 npc 呢」「还是没有啊」——原来只是闷头记下筛子那张，表单上看不见也挑不了）。
+        //   只有【她自己身边的人】才挑：在某个角色身边的跟着那个角色认的那张脸走，另挑一张只会两处打架。
+        //   默认跟着上面筛子挑的那张；有副面具时才出现这一栏。
+        c.meChar === "me" && (masks || []).some(m => m && m.id && m.id !== maskPrimary) ? h(Fragment, null,
+          h(Eyebrow, { style: { margin: "16px 0 8px" } }, "算谁认识的人"),
+          h("div", { "data-wk": "tiesnpcmask", className: "flex flex-wrap", style: { gap: 6 } },
+            [["", "谁都看得见"]].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => [m.id, m.name || "没名字的面具"]))
+              .map(function (row) {
+                const v = row[0], label = row[1];
+                const cur = c.npcMask === undefined ? (maskPick && maskPick !== "_main" ? maskPick : "") : c.npcMask;
+                const on = cur === v;
+                return h("button", { key: v || "_any", "data-wk": "tiesnpcmaskpick", "data-on": on ? "1" : "0",
+                  onClick: () => set({ npcMask: v }), className: "active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "7px 12px", borderRadius: 999,
+                    border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, label);
+              })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } },
+            "挑了某张面具，这个人就只在那张脸和「全部」底下出现（关系页顶上那排筛子）。"),
+        ) : null,
         h(Eyebrow, { style: { margin: "16px 0 8px" } }, c.meChar === "me" ? "你俩什么关系" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 的谁"),
         h("input", { "data-wk": "tiesnpcinput", "data-part": "rel",
           value: c.npcRel || "", onChange: e => set({ npcRel: e.target.value.slice(0, 60) }),
@@ -1488,8 +1507,8 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
           onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
             // 按面具编（她 2026-10-22）：筛子切在哪张副面具上，建出来的「我身边的人」就记在那张脸底下；
             //   主面具／没挑＝不记，照旧谁都看得见
-            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar,
-              maskPick && maskPick !== "_main" ? maskPick : "") !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
+            const pickedMask = c.npcMask === undefined ? (maskPick && maskPick !== "_main" ? maskPick : "") : c.npcMask;
+            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar, pickedMask) !== false) set({ npcName: "", npcBrief: "", npcRel: "", npcMask: undefined }); },
           className: "w-full active:opacity-70",
           style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))",
             opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
