@@ -245,8 +245,8 @@
     const h = g.React.createElement, lines = path.filter(x => x.think);
     if (!lines.length) return null;
     const multi = path.length > 1;
-    return h("div", { "data-wk": "zywhy", style: { marginTop: 7, fontStyle: "italic", fontSize: 12.5, color: "#7a6a58", lineHeight: 1.6 } },
-      lines.map((x, k) => h("div", { key: k }, (multi ? "（按在「" + String((q.opts[x.at] || {}).t || "").slice(0, 12) + "」）" : "") + x.think)));
+    return h("div", { "data-wk": "zywhy", style: { marginTop: 8, padding: "6px 10px", borderLeft: "2px solid " + ACC, background: "rgba(176,118,74,.06)", borderRadius: "0 6px 6px 0", fontStyle: "italic", fontSize: 12.5, color: "#6f5f4d", lineHeight: 1.65 } },
+      lines.map((x, k) => h("div", { key: k, style: { marginTop: k ? 4 : 0 } }, multi ? h("span", { style: { fontStyle: "normal", fontSize: 11, color: ACC, marginRight: 4 } }, "按在「" + String((q.opts[x.at] || {}).t || "").slice(0, 10) + "」") : null, x.think)));
   }
   function ZhaoyingWatch(p) {
     const R = g.React, h = R.createElement, W = g.PhoneWatch || {};
@@ -296,16 +296,20 @@
         h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : " 在做"))),
       h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
         h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
-          done ? h("div", { "data-wk": "zyresult", style: { margin: "10px 0 6px", padding: "14px", borderRadius: 10, background: "#efe6da", border: "1px solid " + LINE } },
+          done ? h("div", { "data-wk": "zyresult", style: { margin: "12px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + " 测出来是"),
             h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
             res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null) : null,
           test.qs.map((q, i) => h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
-            h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.6 } }, (i + 1) + ". " + q.q),
-            h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 5 } }, q.opts.map((o, j) => {
+            h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
+              h("span", { style: { fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
+              h("span", { style: { fontSize: 14, color: INK, lineHeight: 1.65 } }, q.q)),
+            h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } }, q.opts.map((o, j) => {
               const on = lit(i) === j;
               return h("div", { key: j, ref: el => { optRefs.current[i + ":" + j] = el; }, "data-wk": "zyopt", "data-on": on ? "1" : "0",
-                style: { fontSize: 13, padding: "7px 10px", borderRadius: 6, border: "1px solid " + (on ? ACC : LINE), background: on ? "rgba(176,118,74,.12)" : "transparent", color: on ? INK : FOG, transition: "all .25s" } }, (on ? "✓ " : "") + o.t);
+                style: { display: "flex", alignItems: "center", gap: 9, fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid " + (on ? ACC : LINE), background: on ? "rgba(176,118,74,.12)" : "#fffaf3", color: on ? INK : "#7d6f60", transition: "all .25s" } },
+                h("span", { style: { flexShrink: 0, width: 14, height: 14, borderRadius: 999, border: "1.5px solid " + (on ? ACC : "#cbbca9"), background: on ? ACC : "transparent", boxShadow: on ? "inset 0 0 0 2px #fffaf3" : "none", transition: "all .25s" } }),
+                h("span", null, o.t));
             })),
             // 放完了才留档：心声落在这一题底下
             done ? whyBox(test, q, pathOf(i)) : null))),
