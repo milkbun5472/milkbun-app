@@ -173,3 +173,16 @@ console.log("ok");
   assert.match(rd("zhaoying-core.js"), /pagePalette\("zhaoying", base\)/);
   assert.match(rd("zhaoying.js"), /const \{ PAPER, INK, FOG, LINE, ACC \} = Z\.colors\(\);/);
 }
+
+// 第三批（GPT 单子里好玩的 8 套）：都在「好玩」，每种结果都由同样多的选项指着
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  for (const id of ["cat", "dog", "weather", "villain", "doom", "fairy", "campus", "hidden"]) {
+    const t = Z.byId(id); assert.equal(t.cat, "wan", id);
+    const c = {}; t.qs.forEach(q => q.opts.forEach(o => Object.keys(o.s).forEach(k => { c[k] = (c[k] || 0) + 1; })));
+    assert.deepEqual([...new Set(Object.values(c))], [6], id + " 各结果 6 个选项");
+    assert.ok(Z.resultOf(id, t.qs.map(() => 1)).line);
+  }
+}
