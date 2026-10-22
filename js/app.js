@@ -13268,6 +13268,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // JSON 里只交了表情包之类、话写在 JSON 外面（群里 2026-10-22：「{"emote":"看你编"}……？你脑子被门夹了？」——
+      //   表情发了，后面那几句被扔了，还报「这一轮没回上来」）：word 空着、JSON 外头有正文，就把那段当她收到的话
+      if (parsed && typeof parsed === "object" && !(Array.isArray(parsed.word) ? parsed.word.some(w => String(w || "").trim()) : String(parsed.word || "").trim())) {
+        const _rs = String(raw || ""), _a = _rs.indexOf("{"), _b = _rs.lastIndexOf("}");
+        const _outside = (_a >= 0 && _b > _a ? (_rs.slice(0, _a) + "\n" + _rs.slice(_b + 1)) : "").replace(/```(?:json)?/gi, "").trim();
+        if (_outside && !protocolFieldRe.test(_outside)) {
+          const _lines = _outside.split(/\n+/).map(x => x.trim()).filter(Boolean)
+            .flatMap(x => x.match(/[^。！？!?]+[。！？!?…]*[」』"”）)]*|[。！？!?…]+/g) || [x]).map(x => x.trim()).filter(Boolean);
+          if (_lines.length) parsed.word = _lines.slice(0, 12);
+        }
+      }
       // 别的字段被模型写进了 word 里（群里 2026-10-22：气泡里冒出「photoSeen:{"note":"她发来两张……」）：
       //   一条话长成「英文字段名:{…}／[…]／"…"」就是协议，不是人说的话——拿出气泡；那一格没填的话照它填上
       if (parsed && Array.isArray(parsed.word)) parsed.word = parsed.word.filter(w => {
