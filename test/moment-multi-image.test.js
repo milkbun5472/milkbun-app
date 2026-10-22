@@ -12,3 +12,8 @@ assert.match(a, /\.\.\.\(pics\.length > 1 \? \{ images: pics \} : \{\}\)/);
 assert.match(a, /if \(mo && Array\.isArray\(mo\.images\)\) for/, "开机搬图也搬多图");
 assert.equal((a.match(/"（配了 " \+ mom\.images\.length \+ " 张图片）"/g) || []).length, 2, "评论的人知道配了几张");
 console.log("ok");
+{
+  const ts = require("fs").readFileSync(require("path").join(__dirname, "../js/theme-studio.js"), "utf8");
+  require("node:assert/strict").match(ts, /\["mophotogrid", "/);
+  require("node:assert/strict").match(ts, /\["mocomposepics", "/);
+}
