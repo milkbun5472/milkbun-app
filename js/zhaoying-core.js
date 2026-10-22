@@ -469,7 +469,11 @@
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
             h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
             res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null,
-            rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null) : null),
+            rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null,
+            // 存成图／收进时刻：看完就在这儿点（她 2026-10-22）
+            (p.onSaveImage || p.onPin) ? h("div", { "data-wk": "zyrecacts", style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 } },
+              p.onSaveImage ? h("button", { onClick: p.onSaveImage, style: { fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 14px", minHeight: 40, background: "transparent" } }, "存成图") : null,
+              p.onPin ? h("button", { onClick: p.onPin, style: { fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 14px", minHeight: 40, background: "transparent" } }, "收进时刻") : null) : null) : null),
         W.WatchDot ? h(W.WatchDot, dot) : null,
         W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: nowThink }) : null,
         W.WatchBar ? h(W.WatchBar, { noKnock: true, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,

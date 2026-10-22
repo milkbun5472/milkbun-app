@@ -107,3 +107,14 @@ console.log("ok");
   const w = core.slice(core.indexOf("function ZhaoyingWatch"), core.indexOf("function charTestInstruction"));
   assert.ok(w.indexOf('"data-wk": "zyresult"') > w.indexOf("test.qs.map((q, i) =>"), "回放里结果在题目后面");
 }
+
+// 她 2026-10-22「要」：看他做的回放页，结果下面也有存成图／收进时刻，跟照影页记录共用同一处
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /const zhaoyingSaveImage = async \(testId, rec, name\) =>/);
+  assert.match(app, /onSaveImage: zhaoyingSaveImage,/);
+  assert.match(app, /onSaveImage: \(\) => zhaoyingSaveImage\(zyWatch\.testId, rec/);
+  assert.match(app, /onPin: c \? \(\) => zhaoyingPin\(zyWatch\.charId, zyWatch\.testId, rec\) : null/);
+}

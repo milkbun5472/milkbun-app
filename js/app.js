@@ -22140,6 +22140,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .concat(test.qs.map((q, i) => ({ role: "assistant", content: (i + 1) + ". " + q.q + " → " + Z.optText(test, i, (rec.picks || [])[i]) + ((rec.whys || [])[i] ? "（" + rec.whys[i] + "）" : ""), ts: ts0 + i + 1, _who: who })));
     pinToShike(charId, rows, x => x._who || undefined);
   };
+  // 一次结果存成图：照影页的记录和看他做的回放页共用这一处
+  const zhaoyingSaveImage = async (testId, rec, name) => { const Z = window.Zhaoying, test = Z && Z.byId(testId); if (!test) return; const b = await Z.resultImage(test, rec, name); if (b) saveFile(new File([b], "照影-" + test.name + ".png", { type: "image/png" })); };
   // 她做完他出的那套：把她每题选了什么发给他（她按回复他才接，不当场替他开口）
   const zhaoyingSendMine = (charId, testId, rec) => {
     const Z = window.Zhaoying, test = Z && Z.byId(testId);
@@ -32737,7 +32739,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onGroupRun: zhaoyingGroupRun,
     onPin: zhaoyingPin,
     onSendMine: zhaoyingSendMine,
-    onSaveImage: async (testId, rec, name) => { const Z = window.Zhaoying, test = Z && Z.byId(testId); if (!test) return; const b = await Z.resultImage(test, rec, name); if (b) saveFile(new File([b], "照影-" + test.name + ".png", { type: "image/png" })); },
+    onSaveImage: zhaoyingSaveImage,
     // 给主题出一套题：走她自己那条线路（出完进编辑页，存了才算）
     onGenTest: (theme, count, scored) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored); },
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
@@ -33975,7 +33977,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const rec = (window.Zhaoying.recordsOf(zyWatch.charId, zyWatch.testId) || []).find(r => r.id === zyWatch.recId);
     const c = characters.find(x => x.id === zyWatch.charId);
     return rec ? h(window.ZhaoyingWatch, { key: zyWatch.recId, testId: zyWatch.testId, rec, name: c ? (c.remark || c.name) : "他",
-      onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null) }) : null;
+      onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null),
+      // 看完就能存（她 2026-10-22「要」）：跟照影页那次记录上的两颗是同一处
+      onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
+      onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
   })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
     key: "cs:" + activeChar.id,
