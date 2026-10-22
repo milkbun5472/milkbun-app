@@ -15638,7 +15638,8 @@ const DRAFT_MAX_H = 130;
 // 回车换行那个开关（设置 → 外观）：四个输入面共用这一份
 function enterNewline() { try { return typeof loadJSON === "function" && loadJSON("x_enterNewline", false) === true; } catch (e) { return false; } }
 // 替身框：跟真框同宽同字体，只用来量「这段字要多高」，量完不留任何痕迹在真框上。
-let _draftMirror = null;
+let _draftMirror = null, _draftMirrorLast = null;
+const _draftMirrorFor = typeof WeakMap === "function" ? new WeakMap() : new Map();
 function draftMeasure(el) {
   try {
     if (!_draftMirror) {
@@ -15647,14 +15648,24 @@ function draftMeasure(el) {
       _draftMirror.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;height:0;overflow:hidden;";
       document.body.appendChild(_draftMirror);
     }
-    const cs = getComputedStyle(el), m = _draftMirror;
-    ["fontFamily", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "paddingTop", "paddingBottom",
-      "paddingLeft", "paddingRight", "borderTopWidth", "borderBottomWidth", "boxSizing", "wordBreak", "whiteSpace"]
-      .forEach(k => { m.style[k] = cs[k]; });
-    m.style.width = el.getBoundingClientRect().width + "px";
+    // 每打一个字都来量一次：样式只在框换了、或者宽度变了的时候抄一遍（群里 2026-10-22「输入和删除都有点延迟」）——
+    //   原来每个字都 getComputedStyle 再往替身框写十四样样式，长聊天里整页跟着重排，打字就跟不上手
+    const m = _draftMirror, w = el.offsetWidth;
+    let c = _draftMirrorFor.get(el);
+    if (!c || c.w !== w) {
+      const cs = getComputedStyle(el);
+      ["fontFamily", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "paddingTop", "paddingBottom",
+        "paddingLeft", "paddingRight", "borderTopWidth", "borderBottomWidth", "boxSizing", "wordBreak", "whiteSpace"]
+        .forEach(k => { m.style[k] = cs[k]; });
+      m.style.width = w + "px";
+      c = { w, extra: cs.boxSizing === "border-box" ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : -((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)) };
+      _draftMirrorFor.set(el, c); _draftMirrorLast = el;
+    } else if (_draftMirrorLast !== el) {
+      // 替身框被别的输入框借走过：照这个框的那份重新抄（宽度没变也得抄，字体可能不一样）
+      _draftMirrorFor.delete(el); return draftMeasure(el);
+    }
     m.rows = 1; m.value = el.value || " ";
-    const extra = cs.boxSizing === "border-box" ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : -((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0));
-    return m.scrollHeight + extra;
+    return m.scrollHeight + c.extra;
   } catch (e) { return el.scrollHeight; }
 }
 // keepKey（群友 2026-10-15：「聊天输入后可以保存在对话框，不会因为退出小窗就立刻消失」）：
