@@ -1224,6 +1224,9 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
   // 锁屏上的钟照 TA 那只（虚拟时间开着时，她 2026-10-11「查手机看看能不能也跟着虚拟时间」）
   const now = new Date(char && typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now());
   const lockSrc = phoneImage(look && look.lockWallpaper);
+  // 群里 2026-10-22：「char 换了我的照片，全被消息挡住了」——通知从顶上一路排到底，把锁屏壁纸整个盖住。
+  //   换上照片本来就是想看的，所以有壁纸时通知【贴底排】（真机锁屏就是这样，上半屏留给图）。
+  //   ⚠️「不想再看这几条」那一半不在这儿：同一轮另一处做了「× 清除」（永久划掉），别再加第二颗收起键。
   // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
   // 清掉的那几条不再挡锁屏（群友 2026-10-22「锁屏的那些消息能不能不显示或者有个叉掉，char 换了我的照片全被消息挡住了」）：
   //   记的是这几条的 id，之后新来的照样出来——跟 iPhone 锁屏上清通知一个意思
@@ -1266,7 +1269,8 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
       String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(30,28,24,.55)", marginTop: 6 } },
       (char && char.name || "TA") + " 的手机" + (newCount > 0 ? " · " + newCount + " 条新的" : ""))),
-  h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5" },
+  h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5",
+    style: lockSrc ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : null },
     !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
       cleared.size ? "" : "锁屏上什么都没有。解锁进去刷一遍吧。"),
     pool.length ? h("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 } },
