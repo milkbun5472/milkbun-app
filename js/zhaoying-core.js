@@ -195,21 +195,26 @@
   // 让他做一套题的那一段（照影页里调 runProbe）
   function askInstruction(test, meName, prev) {
     return "你在手机上做一套小测「" + test.name + "」（" + test.sub + "）。一题一题照你自己真实的样子选——不是挑看起来好的那个，也不是猜出题人想要什么。"
-      + "每题选一个选项，why 写你选的时候心里冒出来的那一句：第一人称，短，照你平时想事情的样子。"
+      + "每题最后落定一个选项。steps 是你手指在这一题上的过程：手指移到一个选项上、按下去，那一刻心里冒的话写在 think（第一人称，照你平时想事情的样子，一两句，想得多就多写几句）。"
+      + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写两到四步：先按了一个、又改到另一个，或者在两个之间来回；最后一步就是你最终选的。犹不犹豫照你的性子来，不为了好看硬晃。"
       + (meName ? "这是「" + meName + "」让你做的，她会看到你每一题选了什么、为什么。" : "")
       + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
       + "\n题目：\n" + test.qs.map((q, i) => (i + 1) + ". " + q.q + "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n")).join("\n");
   }
-  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"pick\":0,\"why\":\"选的时候心里那句\"}]}";
+  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}]}";
   function readAnswers(test, d) {
     const arr = Array.isArray(d && d.answers) ? d.answers : Array.isArray(d) ? d : [];
-    const picks = [], whys = [];
+    const picks = [], whys = [], paths = [];
+    const ok = (q, v) => { const n = Number(v); return n >= 0 && n < q.opts.length && Math.floor(n) === n; };
     test.qs.forEach((q, i) => {
       const a = arr.find(x => x && Number(x.i) === i + 1) || arr[i] || {};
-      let p = Number(a.pick); if (!(p >= 0 && p < q.opts.length)) p = Math.floor(Math.random() * q.opts.length);
-      picks.push(p); whys.push(String(a.why || "").trim().slice(0, 80));
+      let st = (Array.isArray(a.steps) ? a.steps : []).filter(x => x && ok(q, x.at)).slice(0, 4)
+        .map(x => ({ at: Number(x.at), think: String(x.think || "").trim().slice(0, 160) }));
+      if (!st.length) { const p = ok(q, a.pick) ? Number(a.pick) : Math.floor(Math.random() * q.opts.length); st = [{ at: p, think: String(a.why || "").trim().slice(0, 160) }]; }
+      picks.push(st[st.length - 1].at); paths.push(st);
+      whys.push(st.map(x => x.think).filter(Boolean).join(" "));
     });
-    return { picks, whys };
+    return { picks, whys, paths };
   }
 
   // ── 聊天里那张卡（她 2026-10-22：「点进去再按头像选人发卡到聊天让他做」）──────────
@@ -229,16 +234,27 @@
         ask ? (st === "done" ? (z.title || "做完了") : st === "failed" ? "这次没做成" : "想让你做这一套") : (z.title || "")),
       !ask && z.line ? h("div", { style: { padding: "4px 12px 0", fontSize: 12, color: "#6d6255", lineHeight: 1.5 } }, z.line) : null,
       h("div", { style: { padding: "8px 12px 10px", fontSize: 11.5, color: ask && st === "done" ? ACC : FOG } },
-        ask ? (st === "done" ? "点开看他怎么选的 ›" : st === "failed" ? "回照影再发一次" : "他在做…") : "—— " + (z.who || "") + " 测的"));
+        ask ? (st === "done" ? "点开看他怎么选的 ›" : st === "failed" ? "回照影再发一次" : st === "wait" ? "等你按回复，他就开始做" : "他在做…") : "—— " + (z.who || "") + " 测的"));
   }
 
   // ── 看他做（借查手机「看他玩」那套公共零件：触控圆点 WatchDot、浮着的心声 WatchThought、底下那条 WatchBar）──
   //   题目从上往下排开，圆点挪到他选的那一项上按一下，这一题的心声浮在屏幕上；
   //   放完了心声才落进每题底下留档，最上面摆结果。
+  // 留档：这一题手指落过的每一下、每一句心声都落下来；改过选的标上当时按的是哪项
+  function whyBox(test, q, path) {
+    const h = g.React.createElement, lines = path.filter(x => x.think);
+    if (!lines.length) return null;
+    const multi = path.length > 1;
+    return h("div", { "data-wk": "zywhy", style: { marginTop: 7, fontStyle: "italic", fontSize: 12.5, color: "#7a6a58", lineHeight: 1.6 } },
+      lines.map((x, k) => h("div", { key: k }, (multi ? "（按在「" + String((q.opts[x.at] || {}).t || "").slice(0, 12) + "」）" : "") + x.think)));
+  }
   function ZhaoyingWatch(p) {
     const R = g.React, h = R.createElement, W = g.PhoneWatch || {};
     const test = byId(p.testId), rec = p.rec;
-    const [step, setStep] = R.useState(p.replay === false ? test.qs.length : -1);   // 正在做第几题；=题数就是放完了
+    const [pos, setPos] = R.useState({ q: p.replay === false ? test.qs.length : -1, s: 0 });   // 第几题、这题的第几下；q＝题数就是放完了
+    const step = pos.q, sub = pos.s, setStep = q => setPos({ q, s: 0 });
+    // 每题的过程：手指落了哪几下（犹豫的会先按一个再改）；老记录只有一下
+    const pathOf = i => (rec.paths && rec.paths[i] && rec.paths[i].length) ? rec.paths[i] : [{ at: rec.picks[i], think: (rec.whys && rec.whys[i]) || "" }];
     const [phase, setPhase] = R.useState("");          // move / press / think
     const [dot, setDot] = R.useState({ x: null, y: null, press: false });
     const [speed, setSpeed] = R.useState(1), [paused, setPaused] = R.useState(false);
@@ -250,26 +266,30 @@
     R.useEffect(() => {
       if (done) { setDot({ x: null, y: null }); if (!doneRef.current) { doneRef.current = true; p.onDone && p.onDone(); } return; }
       if (step < 0 || paused) return;
-      const el = optRefs.current[step + ":" + rec.picks[step]], box = boxRef.current;
-      if (el && box) {
+      const path = pathOf(step), at = path[Math.min(sub, path.length - 1)].at, th = path[Math.min(sub, path.length - 1)].think || "";
+      const el = optRefs.current[step + ":" + at], box = boxRef.current;
+      if (sub === 0 && el && box) {
         const top = el.offsetTop - box.clientHeight / 2 + 40;
         try { box.scrollTo({ top: Math.max(0, top), behavior: "smooth" }); } catch (e) { box.scrollTop = Math.max(0, top); }
       }
       setPhase("move");
-      wait(520, () => {
-        const el2 = optRefs.current[step + ":" + rec.picks[step]], box2 = boxRef.current;
+      wait(sub ? 380 : 520, () => {
+        const el2 = optRefs.current[step + ":" + at], box2 = boxRef.current;
         if (el2 && box2) setDot({ x: el2.offsetLeft + Math.min(el2.offsetWidth - 30, 70), y: el2.offsetTop - box2.scrollTop + el2.offsetHeight / 2, press: false });
         wait(520, () => {
           setDot(d => Object.assign({}, d, { press: true })); setPhase("press");
           wait(220, () => {
             setDot(d => Object.assign({}, d, { press: false })); setPhase("think");
-            wait(1500 + Math.min(2200, (rec.whys[step] || "").length * 70), () => setStep(step + 1));
+            wait(1500 + Math.min(3200, th.length * 70), () => setPos(sub + 1 < path.length ? { q: step, s: sub + 1 } : { q: step + 1, s: 0 }));
           });
         });
       });
-    }, [step, paused, speed]);
+    }, [step, sub, paused, speed]);
     const res = { title: rec.title, line: rec.line };
-    const chosen = i => done || i < step || (i === step && (phase === "press" || phase === "think"));
+    // 这一题此刻亮着哪一项：做完的亮最后那项；正在做的，按下去才换，改选前先亮着上一下
+    const lit = i => { if (done || i < step) return rec.picks[i]; if (i !== step) return -1;
+      const path = pathOf(i); return (phase === "press" || phase === "think") ? path[Math.min(sub, path.length - 1)].at : sub > 0 ? path[sub - 1].at : -1; };
+    const nowThink = step >= 0 && !done ? (pathOf(step)[Math.min(sub, pathOf(step).length - 1)] || {}).think || "" : "";
     return h("div", { "data-wk": "zywatch", style: { position: "fixed", inset: 0, zIndex: 120, background: PAPER, display: "flex", flexDirection: "column" } },
       h("div", { "data-wk": "head", style: { flexShrink: 0, padding: "12px 16px 10px", paddingTop: typeof g.safeTop === "function" ? g.safeTop(12) : 12, borderBottom: "1px solid " + LINE } },
         h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, "照影 · " + test.name),
@@ -283,14 +303,14 @@
           test.qs.map((q, i) => h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
             h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.6 } }, (i + 1) + ". " + q.q),
             h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 5 } }, q.opts.map((o, j) => {
-              const on = chosen(i) && rec.picks[i] === j;
+              const on = lit(i) === j;
               return h("div", { key: j, ref: el => { optRefs.current[i + ":" + j] = el; }, "data-wk": "zyopt", "data-on": on ? "1" : "0",
                 style: { fontSize: 13, padding: "7px 10px", borderRadius: 6, border: "1px solid " + (on ? ACC : LINE), background: on ? "rgba(176,118,74,.12)" : "transparent", color: on ? INK : FOG, transition: "all .25s" } }, (on ? "✓ " : "") + o.t);
             })),
             // 放完了才留档：心声落在这一题底下
-            done && rec.whys && rec.whys[i] ? h("div", { "data-wk": "zywhy", style: { marginTop: 7, fontStyle: "italic", fontSize: 12.5, color: "#7a6a58", lineHeight: 1.6 } }, "心声：" + rec.whys[i]) : null))),
+            done ? whyBox(test, q, pathOf(i)) : null))),
         W.WatchDot ? h(W.WatchDot, dot) : null,
-        W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: rec.whys[step] || "" }) : null,
+        W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: nowThink }) : null,
         W.WatchBar ? h(W.WatchBar, { noKnock: true, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
           onPause: () => setPaused(v => !v), onSpeed: () => setSpeed(v => v >= 3 ? 1 : v + 1), onSkip: () => { clearTimeout(timer.current); setStep(test.qs.length); },
           onClose: () => { clearTimeout(timer.current); p.onClose && p.onClose(); } }) : null));

@@ -11852,6 +11852,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她点完卡片留下的那一下（waitForHer）：她按出来的这一轮带上；主动消息不带（那不是在接她）。半天没接就作废。
     const _wh = !sideRoom && !opts.proactive && waitHerRef.current[charId];
     if (_wh && Date.now() - _wh._ts < 12 * 3600e3) { const { _ts, ...whPatch } = _wh; opts = { ...whPatch, ...opts }; }
+    if (opts.zyAsk && opts.zyAsk.length) opts.zyAsk.forEach(z => zhaoyingRun(charId, z.msgId, z.testId));
     const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
@@ -12155,7 +12156,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
       // 照影：她刚看完他做那一套（她 2026-10-22「播放完再在聊天多写几句聊天」）
       const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 让你做了一套小测「" + opts.zyDone.testName + "」，刚才看着你一题一题做完了，测出来是「" + opts.zyDone.title + "」。你每题选了什么、当时怎么想的，你都记得。接着跟她聊几句——认不认、哪题选得犹豫、想不想看她的。" : "";
-      const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint + zyDoneHint;
+      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。你这就会去做（做题是另外的事，这一轮不用把题写出来）；照你这个人接一下她。" : "";
+      const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint + zyDoneHint + zyAskHint;
       // 补时间戳的那一条（她关着 app 时「本该发出」的那会儿）：气泡上显示的是那会儿，可提示词里的钟是现在——
       //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
       const _bdTs = Number(opts.backdateTs) || 0;
@@ -22023,18 +22025,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   卡先落进聊天（她发的），他在后台把整套答完、存成一次记录，卡变成「点开看他怎么选的」；
   //   她点开看完那一下，他接着在聊天里说几句（只说一次）。
   const [zyWatch, setZyWatch] = useState(null);   // { charId, testId, recId, msgId, replay }
-  const zhaoyingAsk = async (charId, testId) => {
+  //   卡发出去先不动：等她把话说完、按了回复（waitForHer.zyAsk），那一轮里才开始做。
+  const zhaoyingAsk = (charId, testId) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
     if (!c || !test) return;
     const mid = "zy_" + Date.now();
-    const patch = zy => pChat(charId, p => p.map(x => x && x.id === mid ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
-    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」", ts: Date.now(), zy: { testId, testName: test.name, status: "doing", charId } }]);
+    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」", ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId } }]);
+    const prev = (waitHerRef.current[charId] || {}).zyAsk || [];
+    waitForHer(charId, { zyAsk: [...prev, { msgId: mid, testId }].slice(-3) });
     openChatById(charId);
+  };
+  const zhaoyingRun = async (charId, msgId, testId) => {
+    const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
+    const row = (chatsRef.current[charId] || []).find(x => x && x.id === msgId);
+    if (!c || !test || !row || (row.zy || {}).status !== "wait") return;
+    const patch = zy => pChat(charId, p => p.map(x => x && x.id === msgId ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
+    patch({ status: "doing" });
     try {
       const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.ASK_SCHEMA, maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, code: res.code, title: res.title, line: res.line });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line });
       patch({ status: "done", recId, title: res.title });
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
