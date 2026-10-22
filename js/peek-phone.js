@@ -152,6 +152,7 @@
   const HOME_SPOT = { chat: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
     // 消息列表本身也是一处能看的（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
     messages: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
+    moments: { dock: "信息", path: [{ text: "朋友圈", exact: true, optional: true }] },
     forum: { dock: "论坛", path: [{ text: "我", exact: true, minTopK: 0.8, optional: true }] },
     diary: { dock: "日记", path: [{ call: "diaryMine" }] },
     memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop", path: [{ text: "我的", exact: true, minTopK: 0.8, optional: true }] },

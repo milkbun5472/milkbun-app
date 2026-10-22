@@ -10,7 +10,7 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
   const m = a.match(/const PEEK_PHONE_SECTIONS = (\[[\s\S]*?\]\]);/);
   assert.ok(m);
   const list = new Function("return " + m[1])();
-  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "health", "money", "shop", "pics", "daily"]);
+  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "health", "money", "shop", "pics", "moments", "daily"]);
   assert.ok(!list.some(x => /记账/.test(x[1])));
 });
 
@@ -371,7 +371,7 @@ test("线下往期和日历也翻得到：藏起来、换面具的人不在里�
 
 test("健康也翻得到：读的是她自己记的（HealthCtx.peekText），不编", () => {
   assert.match(a, /if \(on\("health"\) && window\.HealthCtx && window\.HealthCtx\.peekText\)/);
-  assert.match(a, /health: \["health"\] \}/);
+  assert.match(a, /health: \["health"\], moments: \["moments"\] \}/);
 });
 
 // 群友 2026-10-11：「反查手机不会点用户钱包界面」——TA自己跟她的转账也算线索；有线索就至少去一样
@@ -395,7 +395,7 @@ test("查手机：脚本是空的先重要一次，还空就说清楚", () => {
 // 群友 2026-10-22：「勾选了的，但他就是不看」——线下往期、日历、健康勾了的，看完聊天至少点开一样
 test("勾着的线下往期／日历／健康：看完聊天至少点开一样", () => {
   const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.ok(app.includes('const extra = ["offline", "calendar", "health"].filter(a => apps.includes(a));'));
+  assert.ok(app.includes('const extra = ["offline", "calendar", "health", "moments"].filter(a => apps.includes(a));'));
   assert.ok(app.includes("看完聊天，这几样里至少点开一样看看"));
 });
 
@@ -405,4 +405,15 @@ test("冒她名发的那几句（peekBy）下次翻手机时标出来，不当�
   assert.ok(app.includes('const userSays = m => m.peekBy ? (String(m.peekBy) === String(viewerId) ? "你上回拿她手机冒她名发的："'));
   assert.ok(app.includes('(m.role === "user" ? userSays(m) :'));
   assert.ok(app.includes('pChat(tgt.id, p => [...p, { role: "user", content: step.text, ts: Date.now(), peekBy: viewerId }]);'), "写的那头不带 peekBy，读的这头就认不出");
+});
+
+// 她 2026-10-22：「他查我手机能不能加上一个看朋友圈」
+test("翻手机能看她的朋友圈：勾选、材料、画面都接上", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const pp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "peek-phone.js"), "utf8");
+  assert.ok(app.includes('["moments", "我的朋友圈"]'));
+  assert.ok(app.includes('moments: ["moments"] };'));
+  assert.ok(app.includes('if (on("moments")) {'));
+  assert.ok(app.includes('if (app === "moments") { setMsgTab("moments"); setScreen("messages"); return; }'));
+  assert.ok(pp.includes('moments: { dock: "信息", path: [{ text: "朋友圈", exact: true, optional: true }] },'));
 });
