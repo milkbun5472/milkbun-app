@@ -11393,6 +11393,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 查岗不是逛手机（她 2026-10-01／02）：只查聊天，钱包、外卖、购物是聊天里翻出线索才顺着去的
           + "\n你是带着心思来查的：先看一眼消息列表，再一个一个点开聊天——单聊至少看 3 个人（列表里还有就接着点）；群是额外的，看完单聊想看就看、不想看就不看（她 2026-10-02），每个都往上翻着读；看完一个 back 退回列表再点下一个，别看了一个就走。"
           + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，就顺着去对应那一样看看是谁给谁、多少、什么时候——上面列出来的线索里至少挑一样去看；没线索的不用去。" : "")
+          + (() => { const ct = apps.includes("shop") ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
+              return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
+                + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
           + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[\"翻着翻着心里冒出的一句\",\"再往上翻又一句\"]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
@@ -11414,7 +11417,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (sneak) {
       if (!script.length) return;
       // 手脚当场就动了；她回放时只看，不再动一遍
-      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate"].includes(st.do)) peekEffect(charId, st); });
+      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate", "paycart"].includes(st.do)) peekEffect(charId, st); });
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
@@ -11623,6 +11626,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // t 给她看（聊天里那条记录）；mine 是TA自己记得的说法（进查手机记事）
     const note = (t, mine) => { pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);
       (peekDidRef.current[viewerId] = peekDidRef.current[viewerId] || []).push(mine); };
+    // 替她付购物车（群里 2026-10-22「反查手机他能看到我的购物车，能不能帮我清空购物车」）：跟她替TA付是反过来的同一件事——
+    //   从TA钱包扣，那几件从她购物车里拿掉，变成「TA替你付的」订单
+    if (step.do === "paycart") {
+      const cartNow = loadJSON("x_shopCart", []) || [];
+      const want = (step.items || []).map(x => String(x || "").trim()).filter(Boolean);
+      const pick = want.length ? cartNow.filter(x => x && x.name && want.some(w => x.name === w || x.name.includes(w) || w.includes(x.name))) : cartNow.slice();
+      if (!pick.length) return;
+      const total = Math.round(pick.reduce((n, x) => n + (Number(x.price) || 0), 0) * 100) / 100;
+      walletSpend(viewerId, total, "翻 " + userName(profile) + " 手机时替她付了购物车", "gift");
+      removeCartUids(pick.map(x => x.uid));
+      pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: viewerId, payLabel: vn + " 替你付的" }));
+      const names = pick.map(x => x.name).join("、");
+      note("「" + vn + "」翻你手机时替你把购物车里的 " + names + " 付了（¥" + total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + names);
+      return;
+    }
     if (step.do === "pin") {
       const id = tgt ? tgt.id : viewerId;
       setPinnedChats(p => { const n = [id, ...p.filter(x => x !== id)]; saveJSON("x_pinnedChats", n); return n; });
@@ -22321,7 +22339,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22333,6 +22351,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
       // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
+      if (isMine) momentTakeouts(reps, "author");
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
       const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
@@ -22444,6 +22463,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
     return pool.slice(0, max == null ? 3 : max);
   };
+  // 在她朋友圈底下说「点给你了」就真点（群里 2026-10-22：评论里说给她点了奶茶，私聊和外卖订单里都没有，回私聊还不认）：
+  //   跟私聊同一个下单口 postCharTakeout——卡落进私聊，那张卡本身就在聊天记录里，他回私聊自然知道，不另往上下文里塞朋友圈
+  const MOMENT_TAKEOUT_ASK = "\n【真给她点吃的喝的】只有正式角色能点，配角不行。看到她说想吃想喝、累了饿了，谁真打算给她点一份外卖，就在TA那一项里加 \"takeout\":{\"shop\":\"店名\",\"items\":[\"点的东西\"],\"note\":\"一句备注\"}，会从TA钱包扣钱、真送到她那儿；嘴上说点了就要填，没打算点就别说已经点了。";
+  const momentTakeouts = (rows, nameKey) => (rows || []).forEach(r => {
+    if (!r || !r.takeout || typeof r.takeout !== "object") return;
+    const nm = momentWho(r[nameKey || "name"]);
+    const c = liveChars.find(x => x && (x.name === nm || x.remark === nm));
+    if (c && !c.npc) try { postCharTakeout(c.id, r.takeout, { fromMoment: true }); } catch (e) {}
+  });
   const reactToUserMoment = async mom => {
     if (!active) return;
     const canSeeMain = liveChars.filter(c => momSeen(mom, c.id));
@@ -22470,7 +22498,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
         + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
         + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n" + MOMENT_TAKEOUT_ASK + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + ",\"takeout\":\"可省略\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -22494,6 +22522,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const top = canSeeMain.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
           if (top) likers.push(momentWho(top.name));
         }
+        momentTakeouts(d.reactions, "name"); momentTakeouts(d.replies, "name");
         const votes = {};
         if (mom.poll) (d.reactions || []).forEach(r => { const v = Number(r && r.vote); if (r && r.name && v >= 1 && v <= mom.poll.options.length) votes[momentWho(r.name)] = v - 1; });
         (d.replies || []).forEach(r => {
