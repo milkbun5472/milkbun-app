@@ -3824,7 +3824,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
     // 这一轮为什么空着（她 2026-10-22：「直接加那个记录吧」）：模型没写，还是写了被筛掉。只留最近这一轮，下一轮有心声就清掉
     const missOf = () => { const r = String(meta && meta.raw != null ? meta.raw : (thought == null ? "" : thought)).replace(/\s+/g, " ").trim();
-      return r && r.toLowerCase() !== "null" ? { why: "filtered", raw: r.slice(0, 300), ts } : { why: "none", ts }; };
+      return r && r.toLowerCase() !== "null" ? { why: "filtered", raw: r.slice(0, 300), ts } : { why: "none", keys: Array.isArray(meta && meta.keys) ? meta.keys.slice(0, 20) : null, ts }; };
     const local = {};
     for (const key of ["action", "wearing", "place"]) {
       const value = meta && meta.state && meta.state[key];
@@ -13379,6 +13379,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
+      // 换了个名字交的心声也认（她 2026-10-22 房里查「没写」时补的）
+      if (parsed.thought == null) { const _ak = ["innerThought", "inner", "心声", "os", "monologue", "innerVoice"].find(k => typeof parsed[k] === "string" && parsed[k].trim()); if (_ak) parsed.thought = parsed[_ak]; }
+      parsed._keys = Object.keys(parsed).filter(k => k[0] !== "_");
       // mood 兼容规范对象 {label,...}，也兼容模型偶发的简写字符串 "烦躁"。
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
@@ -14279,7 +14282,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
       if (sideRoom) {
-        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought });
+        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought, keys: parsed._keys });
       } else {
         const _live = statesRef.current[charId] || {};
         if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_body) {
