@@ -33400,7 +33400,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       tpl: roomCard || typeof stateTplFor !== "function" ? null : stateTplFor(settingsFor(scc.id)),
       onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast("改好了，下一轮他照这身来"); },
       roomName: roomMeta && roomMeta.name,
-      hideWearAction: roomCard,
+      // 房间自己的动作、穿着也摆（她 2026-10-22「房间的动作怎么也被丢掉了」）：setRoomThought 早就把这间房的 action/wearing 记在 roomStates 里，
+      //   是这里一直藏着没摆。摆的是本房那一份，不是主线的
+      hideWearAction: false,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
       gazeOn: !roomCard && !!window.Gaze && !noGaze(scc.id) && !scc.npc,
       uName: profile.name || "你",
