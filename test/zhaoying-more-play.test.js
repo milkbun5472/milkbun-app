@@ -137,3 +137,18 @@ console.log("ok");
   assert.match(ui, /"data-wk": "zycats", role: "tablist"/);
   assert.match(ui, /saveJSON\("x_zyCat", c\)/);
 }
+
+// 她 2026-10-22「继续都慢慢加进去吧」第二批：每套都分了类、每种结果都有同样多的选项指着、算得出来
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  for (const id of ["disc", "jealous", "secure", "stress", "escape", "color", "movie", "friend"]) {
+    const t = Z.byId(id); assert.ok(t && ["xg", "gx", "xl", "wan"].includes(t.cat), id);
+    const c = {}; t.qs.forEach(q => q.opts.forEach(o => Object.keys(o.s).forEach(k => { c[k] = (c[k] || 0) + 1; })));
+    assert.equal(new Set(Object.values(c)).size, 1, id + " 各结果一样多");
+    assert.ok(Z.resultOf(id, t.qs.map(() => 0)).title);
+  }
+  assert.equal(Z.resultOf("lovebrain", Z.byId("lovebrain").qs.map(() => 3)).title, "恋爱脑指数 100%");
+  assert.equal(Z.resultOf("lovebrain", Z.byId("lovebrain").qs.map(() => 0)).title, "恋爱脑指数 0%");
+}
