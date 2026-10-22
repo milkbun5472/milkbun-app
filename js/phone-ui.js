@@ -1224,6 +1224,10 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
   // 锁屏上的钟照 TA 那只（虚拟时间开着时，她 2026-10-11「查手机看看能不能也跟着虚拟时间」）
   const now = new Date(char && typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now());
   const lockSrc = phoneImage(look && look.lockWallpaper);
+  // 群里 2026-10-22：「char 换了我的照片，全被消息挡住了」——通知从顶上一路排到底，把锁屏壁纸整个盖住。
+  //   换上照片本来就是想看的。所以：有壁纸时通知【贴底排】（真机锁屏就是这样，上半屏留给图），
+  //   再给一颗能把它们整摞收起来的；收起来只剩图和钟，点一下回来。
+  const [notifOff, setNotifOff] = useState(false);
   // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
   const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead);
   const fresh = list.filter(r => newIds && newIds[r.id]);
@@ -1260,14 +1264,25 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
       String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(30,28,24,.55)", marginTop: 6 } },
       (char && char.name || "TA") + " 的手机" + (newCount > 0 ? " · " + newCount + " 条新的" : ""))),
-  h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5" },
+  h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5",
+    style: lockSrc ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : null },
+    // 收起来了：这一整摞不画，只留下面那颗「还有 N 条」把它叫回来
+    lockSrc && notifOff && pool.length ? h("button", { "data-wk": "phonelocknotifshow",
+      onClick: () => setNotifOff(false), className: "w-full active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.62)", padding: "8px 0 2px" } },
+      "⌃ " + pool.length + " 条消息收着") : null,
+    lockSrc && notifOff ? null : h(Fragment, null,
     !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
       "锁屏上什么都没有。解锁进去刷一遍吧。"),
     pool.map(card),
     newCount > pool.length && h("button", {
       onClick: onTimeline, className: "w-full active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.6)", padding: "6px 0 2px" }
-    }, "还有 " + (newCount - pool.length) + " 条 · 全部看")),
+    }, "还有 " + (newCount - pool.length) + " 条 · 全部看"),
+    // 展开着的时候给一颗收起：换上去的照片是想看的，别让一摞消息糊死
+    lockSrc && pool.length ? h("button", { "data-wk": "phonelocknotifhide",
+      onClick: () => setNotifOff(true), className: "w-full active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.62)", padding: "4px 0 2px" } }, "⌄ 收起消息，看这张图") : null)),
   h("div", { className: "shrink-0 px-6", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("button", {
       onClick: onUnlock, className: "w-full active:opacity-60",
