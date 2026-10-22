@@ -4,7 +4,7 @@ test("发朋友圈能提醒谁看，提醒的人一定看得见", () => {
   assert.match(comp, /"提醒谁看"/);
   assert.match(comp, /visibleTo: vis === "all" \? null : \[\.\.\.new Set\(\[\.\.\.sel, \.\.\.remind\]\)\]/);
   assert.match(app, /remind: Array\.isArray\(remind\) && remind\.length/);
-  assert.match(app, /const momSeen = \(m, charId\) => !!m && !!m\.mine && \(\(m\.remind \|\| \[\]\)\.includes\(charId\) \|\| \(m\.visibleTo/);
+  assert.match(app, /const momSeen = \(m, charId\) => !!m && !!m\.mine && !\(\(window\.__peekCut \|\| \{\}\)\[charId\]\) && \(\(m\.remind \|\| \[\]\)\.includes\(charId\) \|\| \(m\.visibleTo/);  // 被删好友／拉黑的人刷不到（2026-10-22）
 });
 test("提醒了的人：反应那一枪知道、聊天里也记得", () => {
   assert.match(app, /remindAsk/);
