@@ -22458,7 +22458,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
       const byAff = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50));
-      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4));
+      const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5).concat(npcCrowd(canSee, 4), myNpcCrowd(2));
       if (!uniq.length) return;
       primary = uniq[0];
       roster = uniq.map(c => c.remark || c.name);
@@ -22643,11 +22643,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const c = liveChars.find(x => x && (x.name === nm || x.remark === nm));
     if (c && !c.npc) try { postCharTakeout(c.id, r.takeout, { fromMoment: true }); } catch (e) {}
   });
+  // 她自己身边的配角：随机挑几个（她的朋友圈她身边的人当然刷得到）
+  const myNpcCrowd = max => {
+    const pool = (npcsOf("me") || []).filter(Boolean).slice();
+    for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+    return pool.slice(0, max == null ? 2 : max);
+  };
   const reactToUserMoment = async mom => {
     if (!active) return;
     const canSeeMain = liveChars.filter(c => momSeen(mom, c.id));
     if (!canSeeMain.length) return;
-    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3)];
+    // 她自己身边的配角（在谁身边＝我）也刷得到她的朋友圈（群里 2026-10-22：「只有他的 npc 跟我互动，我的 npc 都不跟我互动」）
+    const canSee = [...canSeeMain, ...npcCrowd(canSeeMain, 3), ...myNpcCrowd(2)];
     setGen(g => ({
       ...g,
       moment: true
@@ -22655,7 +22662,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
-        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）" + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
+        if (c.npc) { const host = characters.find(x => x.id === String(c.ownerId)); return "- " + c.name + "：人设[" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 300) : String(c.persona || "").slice(0, 300)).replace(/\s+/g, " ") + "]" + (String(c.ownerId) === "me"
+          ? "（我自己生活里的人" + ((rels[c.id + "->me"] || rels["me->" + c.id]) ? "，跟我是「" + (rels[c.id + "->me"] || rels["me->" + c.id]).label + "」" : (c.knowsUserNote ? "，跟我是「" + c.knowsUserNote + "」" : "")) + "，照我们俩的关系来说话）"
+          : "（「" + ((host && host.name) || "") + "」那边的人，跟我不算熟，偶尔路过点个赞或者插一句）") + charLangLine(c); }   // 设了常用语言的配角，朋友圈评论也照那种话说
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
