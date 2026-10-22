@@ -1530,6 +1530,17 @@ function usePageZ(z) { return useContext(HalfWinLayer) ? 935 + Math.max(0, z - 2
 //   美化 CSS 里自己也定义一个 fadeUp，就只有带这个动画的那几页被改成看不见（群里「查手机和查找记录点不动」）。
 //   现在位置、层级、进场动画都从这儿出；动画用专用名 qqIn（index.html），谁的 CSS 都撞不上。
 //   每页原来的 data-wk 一个不动（美化挂点）；外壳另带 data-page，写美化的人一条就能管到所有整页。
+// 整页的位置钉死（群里 2026-10-23「这套还是不行点不动」）：她的美化里一条 [data-wk="pagesheet"]{position:relative !important}，
+//   本意是给弹窗挂角上的小狗，结果整页从「钉在屏幕上」变成「排在 app 最底下」——开了，人在屏幕外面，看着就是点不动。
+//   样式表里的 !important 压得过普通内联样式，压不过【内联的 !important】：位置和层级这几样从这儿钉上，边框、颜色、贴纸照样随她改。
+//   外壳都带 data-page="1"，挂上 ref: pageShellPin 就行。
+function pageShellPin(el) {
+  if (!el || !el.style) return;
+  const z = el.style.zIndex;
+  el.style.setProperty("position", "fixed", "important");
+  ["top", "right", "bottom", "left"].forEach(k => el.style.setProperty(k, "0", "important"));
+  if (z) el.style.setProperty("z-index", z, "important");
+}
 function pageShellStyle(z, extra) { return Object.assign({ position: "fixed", inset: 0, zIndex: z, animation: "qqIn .22s ease both" }, extra || {}); }
 function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
   const t = useTheme();
@@ -1542,7 +1553,7 @@ function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
     scrollRef.current.scrollTop = 0;
   }, [scrollKey]);
   return ReactDOM.createPortal(h("div", { "data-wk": "pagesheet", className: "h-full flex flex-col",
-    "data-page": "1", style: pageShellStyle(pageZ, Object.assign({ background: t.bg }, skinStyle || {})) },
+    "data-page": "1", ref: pageShellPin, style: pageShellStyle(pageZ, Object.assign({ background: t.bg }, skinStyle || {})) },
     h(Head, { bg: "transparent", zh: zh || "", sub: sub, onBack: onClose, right: right }),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pt-3",
       style: { overflowAnchor: "none", paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } }, children)), document.body);
@@ -3050,7 +3061,7 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   // 详情页是从主屏小组件里传送出来的，会带着「铺在壁纸上」的上下文，字全翻成白的（群里 2026-10-22）：这一层明说不在壁纸上
   const tb = t.homeBaseTheme || t;   // 详情页用原来的主题，不用格子里那套白字
   const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(h(HomeDetailLayer, null,
-    h("div", { className: "h-full flex flex-col", "data-page": "1", style: pageShellStyle(240, weatherSkin(w, tb)) },
+    h("div", { className: "h-full flex flex-col", "data-page": "1", ref: pageShellPin, style: pageShellStyle(240, weatherSkin(w, tb)) },
     h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", bg: "transparent", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
     h(WeatherTagRail, { places: levels.top, value: levels.topValue, onPick: chooseTop }),
@@ -8070,7 +8081,7 @@ function Home({
         open ? h("div", { style: { padding: "4px 13px 14px" } }, body) : null);
     };
     return ReactDOM.createPortal(h("div", { className: "flex flex-col", "data-home-decor-editor": true,
-      "data-page": "1", style: pageShellStyle(240, Object.assign({}, (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }), { overflow: "hidden" })) },
+      "data-page": "1", ref: pageShellPin, style: pageShellStyle(240, Object.assign({}, (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }), { overflow: "hidden" })) },
       h(Head, { zh: A.isWidget ? "摆这个组件" : A.isNew ? "做一件装饰" : "改这件装饰",
         sub: A.isWidget ? homeWidgetName(REG[A.key]) + " · 改哪一样当场就落，不用按保存"
           : A.isNew ? "挑一样东西 · 写上字 · 定个样子" : meta.name + " · 改完记得保存",
@@ -19909,7 +19920,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   if (gPeek) return h(ThemePeekBar, { zh: ((group && group.name) || "这个群") + " 的长相（还没保存）", onBack: gPeekEnd });
   // 整页，不是半窗（她 2026-10-07：「群聊设置还是个半窗！」；施工规则/no-half-sheet.md）——
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
-  return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
+  return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
       right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
@@ -21357,11 +21368,11 @@ function ChatSettings({
       })
     : { background: t.bg };
   // 「影」那一格直接是动态形象编辑页（整页，自己有顶栏），不套设置页的外壳
-  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", "data-page": "1", className: "h-full flex flex-col", style: Object.assign(pageShellStyle(pageZ), pgSkin) },
+  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: Object.assign(pageShellStyle(pageZ), pgSkin) },
     h(window.MotionEditor, { character: character, scene: "default", onBack: () => { setSettingsTab(""); setOpenSec(""); }, onSaved: () => {}, toast: m => window.__toast && window.__toast(m, 3000) })), document.body);
   return ReactDOM.createPortal(h(React.Fragment, null,
     lookPeek ? h(ThemePeekBar, { zh: cNm + " 的聊天长相（还没保存）", onBack: endPeek }) : null,
-    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", "data-page": "1", className: "h-full flex flex-col", style: Object.assign(pageShellStyle(pageZ), pgSkin, lookPeek ? { display: "none" } : null) },
+    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: Object.assign(pageShellStyle(pageZ), pgSkin, lookPeek ? { display: "none" } : null) },
     h(Head, {
       bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",

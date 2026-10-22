@@ -19,3 +19,11 @@ test("整页外壳收成 pageShellStyle，动画不再叫 fadeUp", () => {
   assert.ok(!/animation: ?"?fadeUp /.test(all), "还有地方用 fadeUp 当自己的动画名，美化一撞就看不见");
   assert.match(require("fs").readFileSync(require("path").join(__dirname, "..", "index.html"), "utf8"), /@keyframes qqIn \{/);
 });
+
+// 群里 2026-10-23「这套还是不行点不动」：美化里 [data-wk="pagesheet"]{position:relative !important} 把整页挤到屏幕外——位置用内联 !important 钉死
+test("整页外壳挂 pageShellPin：位置和层级钉成内联 !important", () => {
+  assert.match(comp, /function pageShellPin\(el\) \{/);
+  assert.match(comp, /el\.style\.setProperty\("position", "fixed", "important"\);/);
+  const shells = (comp.match(/"data-page": "1", ref: pageShellPin,/g) || []).length;
+  assert.equal(shells, (comp.match(/"data-page": "1"/g) || []).length, "有整页外壳没挂上钉子");
+});
