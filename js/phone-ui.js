@@ -1431,7 +1431,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const asWaiting = !!(th && sendAsWaiting && sendAsWaiting === (th.id || "fake:" + th.name));
   const asCanSend = !!(onSendAs && th && String(th.id || "").indexOf("actual:") === 0 && th.type !== "contact");
   // 刷新编出来的私聊也能发（2026-10-22）：对面那个人照这段聊天接话；删了的好友发不了
-  const asFake = !!(onSendAs && th && String(th.id || "").indexOf("actual:") !== 0 && th.type === "private" && !isDel(th.name));
+  const asFake = !!(onSendAs && th && String(th.id || "").indexOf("actual:") !== 0 && (th.type === "group" || (th.type === "private" && !isDel(th.name))));
   const asCanType = asCanSend || asFake;
   // 拿他手机转账那一小块（群友 2026-10-13）：点「转账」展开金额、留言，群里再挑转给谁
   // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账；购物、外卖直接开那两页（花他的钱）
@@ -1500,7 +1500,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         style: { padding: "11px 13px", borderRadius: 5, background: "#fff", boxShadow: "0 1px 1px rgba(0,0,0,.05)" } },
         h(TypingDots, { color: "#9a9a9a" }))) : null),
     // 她自己打的那一栏：只在【没在看TA玩】时出现。真实会话照旧；推演出来的私聊（2026-10-22 起）也给，
-    //   对面那个人由模型照这段聊天接话（app.js phoneSendAsFake）。推演出来的群、删掉的好友不给。
+    //   对面由模型照这段聊天接话（app.js phoneSendAsFake）；推演出来的群也给（2026-10-22 她「群聊也开了吧」），群里的人接。删掉的好友不给。
     // ⚠️「按了没反应的按钮比没有按钮更糟」：给了就得真有人回。
     !drive && asCanSend && plus === "menu" ? h("div", { "data-wk": "pplus", className: "shrink-0 flex", style: { gap: 18, padding: "14px 18px 8px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       [onTransferAs ? ["tf", "转账", [h("rect", { key: 1, x: 3, y: 6, width: 18, height: 13, rx: 2 }), h("path", { key: 2, d: "M9 9.5l3 3.5 3-3.5M12 13v4M9.5 14h5" })]] : null,

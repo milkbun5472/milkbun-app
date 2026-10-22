@@ -21947,8 +21947,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
-    if (!name || (session && session.type) !== "private") return false;
-    if (((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
+    const isGrp = (session && session.type) === "group";
+    if (!name || !(isGrp || (session && session.type) === "private")) return false;
+    if (!isGrp && ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
     const wx = () => ((phonesRef.current || {})[char.id] || {}).wechat;
     if (!wx()) return false;
     const p = active;
@@ -21956,15 +21957,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const d0 = typeof vDate === "function" ? vDate(Date.now(), char.id) : new Date();
     const tm = String(d0.getHours()).padStart(2, "0") + ":" + String(d0.getMinutes()).padStart(2, "0");
     const put = msgs => { const c2 = wx(); if (!c2) return;
-      savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && c.type !== "group" && String(c.name || "").trim() === name
+      savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name
         ? { ...c, messages: [...(c.messages || []), ...msgs], last: String(msgs[msgs.length - 1].text || ""), time: tm } : c) }, { noArchive: true, patched: true }); };
     put([{ from: char.name, text: body, byUser: true }]);
     const key = "fake:" + name;
     setPhoneAsWait(key);
     const ct = (wx().contacts || []).find(c => c && String(c.name || "").trim() === name) || {};
-    const sess = (wx().chats || []).find(c => c && c.type !== "group" && String(c.name || "").trim() === name) || { messages: [] };
+    const sess = (wx().chats || []).find(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name) || { messages: [] };
     const log = (sess.messages || []).slice(-24).map(m => (m.from || "") + "：" + String(m.text || m.body || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
-    const sys = "你是「" + name + "」，" + char.name + " 微信里的一个联系人。"
+    // 群：群里除了他以外、聊天里出现过的那几个人来接
+    const members = isGrp ? [...new Set((sess.messages || []).map(m => String(m.from || "").trim()).filter(x => x && x !== char.name && x !== "我" && x !== "本人"))].slice(0, 8) : [];
+    const sys = isGrp ? ("你在演微信群「" + name + "」里除了 " + char.name + " 以外的人" + (members.length ? "：" + members.join("、") : "") + "。"
+      + "下面是这个群最近的聊天，最后一条是 " + char.name + " 刚发的。让群里一两个人照各自平时说话的样子接，一共一到四条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
+      + "只输出 JSON 数组，一条一个元素：[{\"from\":\"说话人（只能是上面这几个人）\",\"text\":\"内容\"}]")
+      : "你是「" + name + "」，" + char.name + " 微信里的一个联系人。"
       + (ct.remark && ct.remark !== name ? char.name + " 给你存的备注是「" + ct.remark + "」。" : "")
       + (ct.intro ? "在 " + char.name + " 眼里你是这样的人：" + String(ct.intro).slice(0, 400) + "\n" : "\n")
       + "下面是你俩在微信上的聊天，最后一条是 " + char.name + " 刚发来的。照你这个人平时在微信上说话的样子回，一到三条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
@@ -21972,10 +21978,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 1200, timeout: 60000, logLabel: "查手机·联系人回话" })
       .then(raw => {
         let arr = parseJSONLoose(raw); if (!Array.isArray(arr)) arr = String(raw || "").split(/\n+/);
-        const lines = arr.map(x => String(x == null ? "" : (x.text || x)).trim()).filter(Boolean).slice(0, 3);
-        if (lines.length) put(lines.map(t => ({ from: name, text: t })));
-        pChat(char.id, pp => [...pp, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机给「" + name + "」发了：" + body.slice(0, 40), ts: Date.now() }]);
-        phoneMeddleNote(char, { kind: "msg", name, said: body.slice(0, 60), back: lines.join(" / ").slice(0, 120) });
+        const rows = arr.map(x => ({ from: isGrp ? String((x && x.from) || "").trim() : name, text: String(x == null ? "" : (x.text || x)).trim() }))
+          .filter(r => r.text && (!isGrp || (r.from && r.from !== char.name && (!members.length || members.includes(r.from))))).slice(0, isGrp ? 4 : 3);
+        const lines = rows.map(r => (isGrp ? r.from + "：" : "") + r.text);
+        if (rows.length) put(rows);
+        pChat(char.id, pp => [...pp, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机" + (isGrp ? "在群「" + name + "」里" : "给「" + name + "」") + "发了：" + body.slice(0, 40), ts: Date.now() }]);
+        phoneMeddleNote(char, { kind: "msg", name: isGrp ? name + "（群）" : name, said: body.slice(0, 60), back: lines.join(" / ").slice(0, 160) });
       }, e => toast("对面没回上：" + String((e && e.message) || e).slice(0, 40)))
       .finally(() => setPhoneAsWait(w => (w === key ? "" : w)));
     return true;
