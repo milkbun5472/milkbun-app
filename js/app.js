@@ -12155,8 +12155,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
       // 照影：她刚看完他做那一套（她 2026-10-22「播放完再在聊天多写几句聊天」）
-      const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 让你做了一套小测「" + opts.zyDone.testName + "」，刚才看着你一题一题做完了，测出来是「" + opts.zyDone.title + "」。你每题选了什么、当时怎么想的，你都记得。接着跟她聊几句——认不认、哪题选得犹豫、想不想看她的。" : "";
-      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。你这就会去做（做题是另外的事，这一轮不用把题写出来）；照你这个人接一下她。" : "";
+      // ⚠️这两句只交代发生了什么，不替他定说什么（她 2026-10-22「回复那几句话也不太像他」：原来写着「这就会去做」「认不认、哪题犹豫、想不想看她的」，
+      //   他就照着报「题目发我，这就去填」、照着那三样一样样聊，谁来都是这几句）
+      const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 刚看着你把「" + opts.zyDone.testName + "」一题一题做完，测出来是「" + opts.zyDone.title + "」。每题选了什么、当时怎么想的你都记得。接下来说什么、提不提这次测试，照你这个人、照你们平时说话的样子。" : "";
+      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。你会去做，做题是另外一件事，不用在话里宣布、也不用把题写出来。这一轮照你平时跟她说话的样子接她刚才的话，这张卡只是其中一件。" : "";
       const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint + zyDoneHint + zyAskHint;
       // 补时间戳的那一条（她关着 app 时「本该发出」的那会儿）：气泡上显示的是那会儿，可提示词里的钟是现在——
       //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
@@ -22074,9 +22076,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const recId = "zy_" + Date.now().toString(36);
       Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(scene ? { scene } : {}) });
       patch({ status: "done", recId, title: res.title });
+      // 做完在他那边落一张卡（她 2026-10-22「不然还得往上翻」）：点开就是看他做，跟最早那张指向同一次
+      pChat(charId, p => [...p, { id: "zyd_" + Date.now(), role: "assistant", kind: "zyask", ts: Date.now(),
+        content: "〔照影〕我做完了「" + test.name + "」，测出「" + res.title + "」",
+        zy: { testId, testName: test.name, status: "done", recId, title: res.title, charId, srcId: msgId, ...(scene ? { scene } : {}) } }]);
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
-  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: m.id }); };
+  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id }); };
   const zyWatchDone = w => {
     if (!w || w.replay || !w.msgId) return;
     const row = (chatsRef.current[w.charId] || []).find(x => x && x.id === w.msgId);

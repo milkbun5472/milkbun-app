@@ -55,3 +55,17 @@ console.log("ok");
   assert.match(ui, /const pal = Z\.pal;/);
   assert.ok(!/const PAL = \{/.test(ui), "页面那边不再自己留一份颜色表");
 }
+
+// 她 2026-10-22：心声太像分析、做完要在他那边落张卡、MBTI 字母要露出来、接卡那几句别被提示词定死
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  const core = fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  assert.match(global.Zhaoying.resultOf("mbti", global.Zhaoying.byId("mbti").qs.map(() => 1)).title, /^[EI][SN][TF][JP] · /);
+  assert.match(core, /它不是给自己下定义，也不是解释你是什么样的人/);
+  assert.match(app, /role: "assistant", kind: "zyask"[\s\S]{0,300}srcId: msgId/);
+  assert.match(app, /msgId: z\.srcId \|\| m\.id/);
+  const hints = app.slice(app.indexOf("const zyDoneHint"), app.indexOf("const peekMemo = (opts.peekPhone"));
+  assert.ok(!/认不认|这就会去做|想不想看她的/.test(hints), "不替他定说什么");
+}
