@@ -212,19 +212,93 @@
     return { picks, whys };
   }
 
-  // 聊天里那张卡（转发过去的）
+  // ── 聊天里那张卡（她 2026-10-22：「点进去再按头像选人发卡到聊天让他做」）──────────
+  //   kind:"zyask"＝她发去的邀请：他做的时候写「在做…」，做完了点开就是看他做（ZhaoyingWatch）；
+  //   kind:"zyshare"＝早先转发过去的结果卡，照旧能显示。
+  const PAPER = "#f6f1ea", INK = "#3b332a", FOG = "#9a8a76", LINE = "#e2d8ca", ACC = "#b0764a";
   function card(m) {
     const h = g.React && g.React.createElement; if (!h) return null;
     const z = (m && m.zy) || {};
-    return h("div", { "data-wk": "zyshare", style: { width: 210, borderRadius: 10, overflow: "hidden", background: "#f6f1ea", border: "1px solid #d9cdbd", fontFamily: "inherit" } },
-      h("div", { style: { padding: "10px 12px 4px", fontSize: 10.5, letterSpacing: ".2em", color: "#9a8a76" } }, "照影 · " + (z.testName || "")),
-      h("div", { style: { padding: "0 12px", fontSize: 17, color: "#3b332a", lineHeight: 1.4 } }, z.title || ""),
-      z.line ? h("div", { style: { padding: "4px 12px 0", fontSize: 12, color: "#6d6255", lineHeight: 1.5 } }, z.line) : null,
-      h("div", { style: { padding: "8px 12px 10px", fontSize: 11, color: "#9a8a76" } }, "—— " + (z.who || "") + " 测的"));
+    const ask = m && m.kind === "zyask";
+    const st = z.status;
+    const tap = ask && st === "done" && typeof g.__zyOpen === "function" ? () => g.__zyOpen(m) : null;
+    return h("div", { "data-wk": "zyshare", "data-kind": ask ? "ask" : "result", onClick: tap || undefined,
+      style: { width: 214, borderRadius: 10, overflow: "hidden", background: PAPER, border: "1px solid #d9cdbd", cursor: tap ? "pointer" : "default" } },
+      h("div", { style: { padding: "10px 12px 4px", fontSize: 10.5, letterSpacing: ".2em", color: FOG } }, "照影 · " + (z.testName || "")),
+      h("div", { style: { padding: "0 12px", fontSize: 16, color: INK, lineHeight: 1.45 } },
+        ask ? (st === "done" ? (z.title || "做完了") : st === "failed" ? "这次没做成" : "想让你做这一套") : (z.title || "")),
+      !ask && z.line ? h("div", { style: { padding: "4px 12px 0", fontSize: 12, color: "#6d6255", lineHeight: 1.5 } }, z.line) : null,
+      h("div", { style: { padding: "8px 12px 10px", fontSize: 11.5, color: ask && st === "done" ? ACC : FOG } },
+        ask ? (st === "done" ? "点开看他怎么选的 ›" : st === "failed" ? "回照影再发一次" : "他在做…") : "—— " + (z.who || "") + " 测的"));
+  }
+
+  // ── 看他做（借查手机「看他玩」那套公共零件：触控圆点 WatchDot、浮着的心声 WatchThought、底下那条 WatchBar）──
+  //   题目从上往下排开，圆点挪到他选的那一项上按一下，这一题的心声浮在屏幕上；
+  //   放完了心声才落进每题底下留档，最上面摆结果。
+  function ZhaoyingWatch(p) {
+    const R = g.React, h = R.createElement, W = g.PhoneWatch || {};
+    const test = byId(p.testId), rec = p.rec;
+    const [step, setStep] = R.useState(p.replay === false ? test.qs.length : -1);   // 正在做第几题；=题数就是放完了
+    const [phase, setPhase] = R.useState("");          // move / press / think
+    const [dot, setDot] = R.useState({ x: null, y: null, press: false });
+    const [speed, setSpeed] = R.useState(1), [paused, setPaused] = R.useState(false);
+    const boxRef = R.useRef(null), optRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
+    const done = step >= test.qs.length;
+    const wait = (ms, fn) => { clearTimeout(timer.current); timer.current = setTimeout(fn, ms / speed); };
+    R.useEffect(() => () => clearTimeout(timer.current), []);
+    R.useEffect(() => { if (step === -1 && !paused) wait(700, () => setStep(0)); }, [step, paused]);
+    R.useEffect(() => {
+      if (done) { setDot({ x: null, y: null }); if (!doneRef.current) { doneRef.current = true; p.onDone && p.onDone(); } return; }
+      if (step < 0 || paused) return;
+      const el = optRefs.current[step + ":" + rec.picks[step]], box = boxRef.current;
+      if (el && box) {
+        const top = el.offsetTop - box.clientHeight / 2 + 40;
+        try { box.scrollTo({ top: Math.max(0, top), behavior: "smooth" }); } catch (e) { box.scrollTop = Math.max(0, top); }
+      }
+      setPhase("move");
+      wait(520, () => {
+        const el2 = optRefs.current[step + ":" + rec.picks[step]], box2 = boxRef.current;
+        if (el2 && box2) setDot({ x: el2.offsetLeft + Math.min(el2.offsetWidth - 30, 70), y: el2.offsetTop - box2.scrollTop + el2.offsetHeight / 2, press: false });
+        wait(520, () => {
+          setDot(d => Object.assign({}, d, { press: true })); setPhase("press");
+          wait(220, () => {
+            setDot(d => Object.assign({}, d, { press: false })); setPhase("think");
+            wait(1500 + Math.min(2200, (rec.whys[step] || "").length * 70), () => setStep(step + 1));
+          });
+        });
+      });
+    }, [step, paused, speed]);
+    const res = { title: rec.title, line: rec.line };
+    const chosen = i => done || i < step || (i === step && (phase === "press" || phase === "think"));
+    return h("div", { "data-wk": "zywatch", style: { position: "fixed", inset: 0, zIndex: 120, background: PAPER, display: "flex", flexDirection: "column" } },
+      h("div", { "data-wk": "head", style: { flexShrink: 0, padding: "12px 16px 10px", paddingTop: typeof g.safeTop === "function" ? g.safeTop(12) : 12, borderBottom: "1px solid " + LINE } },
+        h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, "照影 · " + test.name),
+        h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : " 在做"))),
+      h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
+        h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
+          done ? h("div", { "data-wk": "zyresult", style: { margin: "10px 0 6px", padding: "14px", borderRadius: 10, background: "#efe6da", border: "1px solid " + LINE } },
+            h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + " 测出来是"),
+            h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
+            res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null) : null,
+          test.qs.map((q, i) => h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
+            h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.6 } }, (i + 1) + ". " + q.q),
+            h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 5 } }, q.opts.map((o, j) => {
+              const on = chosen(i) && rec.picks[i] === j;
+              return h("div", { key: j, ref: el => { optRefs.current[i + ":" + j] = el; }, "data-wk": "zyopt", "data-on": on ? "1" : "0",
+                style: { fontSize: 13, padding: "7px 10px", borderRadius: 6, border: "1px solid " + (on ? ACC : LINE), background: on ? "rgba(176,118,74,.12)" : "transparent", color: on ? INK : FOG, transition: "all .25s" } }, (on ? "✓ " : "") + o.t);
+            })),
+            // 放完了才留档：心声落在这一题底下
+            done && rec.whys && rec.whys[i] ? h("div", { "data-wk": "zywhy", style: { marginTop: 7, fontStyle: "italic", fontSize: 12.5, color: "#7a6a58", lineHeight: 1.6 } }, "心声：" + rec.whys[i]) : null))),
+        W.WatchDot ? h(W.WatchDot, dot) : null,
+        W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: rec.whys[step] || "" }) : null,
+        W.WatchBar ? h(W.WatchBar, { noKnock: true, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
+          onPause: () => setPaused(v => !v), onSpeed: () => setSpeed(v => v >= 3 ? 1 : v + 1), onSkip: () => { clearTimeout(timer.current); setStep(test.qs.length); },
+          onClose: () => { clearTimeout(timer.current); p.onClose && p.onClose(); } }) : null));
   }
 
   g.Zhaoying = { TESTS: T, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
+  g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
   g.GZhaoying = function (p) {
     const h = g.React && g.React.createElement; if (!h) return null;

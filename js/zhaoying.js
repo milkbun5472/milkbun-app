@@ -42,17 +42,6 @@
       setRun(Object.assign({}, r, { done: true, res, step: Z.byId(r.testId).qs.length }));
       bump(x => x + 1);
     };
-    const startChar = async () => {
-      if (!char || !test) return;
-      const prev = Z.recordsOf(char.id, test.id);
-      setRun({ mode: "char", who: char.id, testId: test.id, busy: true, picks: [], whys: [], step: 0 });
-      try {
-        const d = await runProbe(props.apiFor(char.id), props.ctxFor(char), { voice: true, tag: "zhaoying",
-          instruction: Z.askInstruction(test, meName, prev), schemaHint: Z.ASK_SCHEMA, maxTokens: 20000 });
-        const a = Z.readAnswers(test, d);
-        play({ mode: "char", who: char.id, testId: test.id, picks: a.picks, whys: a.whys }, 0);
-      } catch (e) { setRun(null); props.toast && props.toast("他这回没做成：" + String((e && e.message) || e).slice(0, 60)); }
-    };
     const startMe = () => { if (test) setRun({ mode: "me", who: "me", testId: test.id, picks: [], whys: [], step: 0 }); };
     const mePick = p => setRun(r => {
       const picks = r.picks.concat([p]);
@@ -109,10 +98,14 @@
       return page(test.name, () => { setTestId(null); setOpenRec(null); setCompare(false); },
         h(Fragment, null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: FOG, lineHeight: 1.6, padding: "8px 0 12px" } }, test.sub + " · " + test.qs.length + " 题"),
-          who !== "me" ? h("button", { "data-wk": "zygo", onClick: startChar, className: "w-full active:opacity-70", style: { padding: "12px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
-            (recs.length ? "让 " + nameOf(who) + " 再做一次" : "让 " + nameOf(who) + " 做"))
-            : h("button", { "data-wk": "zygo", onClick: startMe, className: "w-full active:opacity-70", style: { padding: "12px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, recs.length ? "我再做一次" : "我来做"),
-          who !== "me" ? h("button", { "data-wk": "zygome", onClick: startMe, className: "w-full active:opacity-70", style: { marginTop: 8, padding: "10px 0", borderRadius: 10, border: "1px solid " + LINE, color: INK, fontFamily: F_BODY } }, mine ? "我也再做一次" : "我也做一份") : null,
+          // 按头像发卡：卡落进跟他的聊天，他在那边做；做完点卡看他怎么选（她 2026-10-22）
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "4px 0 6px" } }, "发给谁做（卡会落进跟他的聊天，在那边看他做）"),
+          h("div", { "data-wk": "zyaskrow", className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6 } }, chars.map(c => h("button", { key: c.id, "data-wk": "zyaskwho", onClick: () => props.onAsk && props.onAsk(c.id, test.id), className: "shrink-0 flex flex-col items-center active:opacity-70", style: { gap: 4, width: 58 } },
+            h(Avatar, { character: c, size: 44, radius: 999 }),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: INK, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))),
+          h("button", { "data-wk": "zygome", onClick: startMe, className: "w-full active:opacity-70", style: { marginTop: 8, padding: "10px 0", borderRadius: 10, border: "1px solid " + LINE, color: INK, fontFamily: F_BODY } }, mine ? "我再做一次" : "我自己做一份"),
+          h("details", { "data-wk": "zyqlist", style: { marginTop: 12 } }, h("summary", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, cursor: "pointer" } }, "看看这套题（" + test.qs.length + " 题）"),
+            test.qs.map((q, k) => qBlock(test, k, -1, "", false))),
           // ── 跟谁对一对（她 2026-10-22「加3和4」）：任意两个做过这套的人并排看，我也算一个 ──
           (function () {
             const others = [...chars.map(c => c.id), "me"].filter(id => id !== who && Z.recordsOf(id, test.id).length);
@@ -160,6 +153,7 @@
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: INK, flex: 1 } }, r.title),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, Z.dateZh(r.ts) + (openRec === r.id ? " ▴" : " ▾"))),
             openRec === r.id ? h("div", null,
+              who !== "me" && props.onReplay ? h("button", { "data-wk": "zyreplay", onClick: () => props.onReplay(who, r), className: "active:opacity-70", style: { margin: "6px 0", fontFamily: F_BODY, fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "4px 12px" } }, "▶ 看他做的回放") : null,
               test.qs.map((q, i) => qBlock(test, i, r.picks[i], (r.whys || [])[i], false)),
               h("button", { onClick: () => requestAppConfirm("删掉这一次？", "这次的结果和每题选了什么一起删掉，他也就不记得做过这一次了。", () => { Z.delRecord(who, r.id); setOpenRec(null); bump(x => x + 1); }, "删掉"),
                 className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: "#b85c5c" } }, "删掉这一次")) : null))));

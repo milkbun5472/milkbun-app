@@ -12153,7 +12153,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
-      const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint;
+      // 照影：她刚看完他做那一套（她 2026-10-22「播放完再在聊天多写几句聊天」）
+      const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 让你做了一套小测「" + opts.zyDone.testName + "」，刚才看着你一题一题做完了，测出来是「" + opts.zyDone.title + "」。你每题选了什么、当时怎么想的，你都记得。接着跟她聊几句——认不认、哪题选得犹豫、想不想看她的。" : "";
+      const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint + zyDoneHint;
       // 补时间戳的那一条（她关着 app 时「本该发出」的那会儿）：气泡上显示的是那会儿，可提示词里的钟是现在——
       //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
       const _bdTs = Number(opts.backdateTs) || 0;
@@ -22017,6 +22019,34 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const phoneDelFriend = (char, name, undo) => phoneWxMark("del", char, name, undo);
   const phoneDissolve = (char, name, undo) => phoneWxMark("gone", char, name, undo);
   const phoneBlockFriend = (char, name, undo) => phoneWxMark("block", char, name, undo);
+  // ── 照影：发卡让他做（她 2026-10-22）───────────────────────
+  //   卡先落进聊天（她发的），他在后台把整套答完、存成一次记录，卡变成「点开看他怎么选的」；
+  //   她点开看完那一下，他接着在聊天里说几句（只说一次）。
+  const [zyWatch, setZyWatch] = useState(null);   // { charId, testId, recId, msgId, replay }
+  const zhaoyingAsk = async (charId, testId) => {
+    const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
+    if (!c || !test) return;
+    const mid = "zy_" + Date.now();
+    const patch = zy => pChat(charId, p => p.map(x => x && x.id === mid ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
+    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」", ts: Date.now(), zy: { testId, testName: test.name, status: "doing", charId } }]);
+    openChatById(charId);
+    try {
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.ASK_SCHEMA, maxTokens: 20000 });
+      const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+      const recId = "zy_" + Date.now().toString(36);
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, code: res.code, title: res.title, line: res.line });
+      patch({ status: "done", recId, title: res.title });
+    } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
+  };
+  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: m.id }); };
+  const zyWatchDone = w => {
+    if (!w || w.replay || !w.msgId) return;
+    const row = (chatsRef.current[w.charId] || []).find(x => x && x.id === w.msgId);
+    if (!row || (row.zy || {}).discussed) return;
+    pChat(w.charId, p => p.map(x => x && x.id === w.msgId ? { ...x, zy: { ...(x.zy || {}), discussed: true } } : x));
+    const test = window.Zhaoying.byId(w.testId);
+    setTimeout(() => replyNow(w.charId, "", null, { zyDone: { testName: test ? test.name : "", title: (row.zy || {}).title || "" } }), 300);
+  };
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
     const isGrp = (session && session.type) === "group";
@@ -32584,6 +32614,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     apiFor: apiFor,
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
+    // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
+    onAsk: (charId, testId) => zhaoyingAsk(charId, testId),
+    onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
     // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
     groups: groups,
@@ -33814,7 +33847,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return { name: String(d && d.name || "").trim().slice(0, 24), persona: String(d && d.persona || "").trim().slice(0, 1500) };
     },
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
-  }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+  }) : null, zyWatch && window.ZhaoyingWatch ? (function () {
+    const rec = (window.Zhaoying.recordsOf(zyWatch.charId, zyWatch.testId) || []).find(r => r.id === zyWatch.recId);
+    const c = characters.find(x => x.id === zyWatch.charId);
+    return rec ? h(window.ZhaoyingWatch, { key: zyWatch.recId, testId: zyWatch.testId, rec, name: c ? (c.remark || c.name) : "他",
+      onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null) }) : null;
+  })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     // 换了人就是另一张设置页（群友 2026-10-22：开着A的聊天设置时点了B的消息弹窗，再按保存，A的名字头像全写到了B身上）
     key: "cs:" + activeChar.id,
     character: activeChar,
