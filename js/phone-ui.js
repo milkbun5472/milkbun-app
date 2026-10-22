@@ -1225,11 +1225,16 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
   const now = new Date(char && typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now());
   const lockSrc = phoneImage(look && look.lockWallpaper);
   // 群里 2026-10-22：「char 换了我的照片，全被消息挡住了」——通知从顶上一路排到底，把锁屏壁纸整个盖住。
-  //   换上照片本来就是想看的。所以：有壁纸时通知【贴底排】（真机锁屏就是这样，上半屏留给图），
-  //   再给一颗能把它们整摞收起来的；收起来只剩图和钟，点一下回来。
-  const [notifOff, setNotifOff] = useState(false);
+  //   换上照片本来就是想看的，所以有壁纸时通知【贴底排】（真机锁屏就是这样，上半屏留给图）。
+  //   ⚠️「不想再看这几条」那一半不在这儿：同一轮另一处做了「× 清除」（永久划掉），别再加第二颗收起键。
   // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
-  const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead);
+  // 清掉的那几条不再挡锁屏（群友 2026-10-22「锁屏的那些消息能不能不显示或者有个叉掉，char 换了我的照片全被消息挡住了」）：
+  //   记的是这几条的 id，之后新来的照样出来——跟 iPhone 锁屏上清通知一个意思
+  const lockKey = "x_phoneLockClear";
+  const [cleared, setCleared] = useState(() => new Set(((loadJSON(lockKey, {}) || {})[char && char.id] || []).map(String)));
+  const clearAll = ids => { const all = loadJSON(lockKey, {}) || {}; const next = [...new Set([...(all[char.id] || []), ...ids.map(String)])].slice(-200);
+    saveJSON(lockKey, { ...all, [char.id]: next }); setCleared(new Set(next)); };
+  const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead && !cleared.has(String(r.id)));
   const fresh = list.filter(r => newIds && newIds[r.id]);
   const pool = (fresh.length ? fresh : list).slice(0, 5);
   const dim = !fresh.length;
@@ -1266,23 +1271,17 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
       (char && char.name || "TA") + " 的手机" + (newCount > 0 ? " · " + newCount + " 条新的" : ""))),
   h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5",
     style: lockSrc ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : null },
-    // 收起来了：这一整摞不画，只留下面那颗「还有 N 条」把它叫回来
-    lockSrc && notifOff && pool.length ? h("button", { "data-wk": "phonelocknotifshow",
-      onClick: () => setNotifOff(false), className: "w-full active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.62)", padding: "8px 0 2px" } },
-      "⌃ " + pool.length + " 条消息收着") : null,
-    lockSrc && notifOff ? null : h(Fragment, null,
     !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
-      "锁屏上什么都没有。解锁进去刷一遍吧。"),
+      cleared.size ? "" : "锁屏上什么都没有。解锁进去刷一遍吧。"),
+    pool.length ? h("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 } },
+      h("button", { "data-wk": "phonelockclear", onClick: () => clearAll(list.map(r => r.id)), "aria-label": "清除锁屏通知", className: "active:opacity-60",
+        style: { minHeight: 32, padding: "0 12px", borderRadius: 999, background: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.6)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+          fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.7)" } }, "× 清除")) : null,
     pool.map(card),
-    newCount > pool.length && h("button", {
+    pool.length > 0 && newCount > pool.length && h("button", {
       onClick: onTimeline, className: "w-full active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.6)", padding: "6px 0 2px" }
-    }, "还有 " + (newCount - pool.length) + " 条 · 全部看"),
-    // 展开着的时候给一颗收起：换上去的照片是想看的，别让一摞消息糊死
-    lockSrc && pool.length ? h("button", { "data-wk": "phonelocknotifhide",
-      onClick: () => setNotifOff(true), className: "w-full active:opacity-60",
-      style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.62)", padding: "4px 0 2px" } }, "⌄ 收起消息，看这张图") : null)),
+    }, "还有 " + (newCount - pool.length) + " 条 · 全部看")),
   h("div", { className: "shrink-0 px-6", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("button", {
       onClick: onUnlock, className: "w-full active:opacity-60",

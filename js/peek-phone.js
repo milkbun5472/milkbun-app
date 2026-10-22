@@ -53,7 +53,7 @@
         return;
       }
       // 被跳过的那一段里，真动手的那几步（改备注、置顶……）照留——它们不靠那一页
-      if (skip && ["rename", "pin", "unpin", "unfriend", "block", "impersonate", "paycart"].indexOf(d) < 0) return;
+      if (skip && ["rename", "pin", "unpin", "unfriend", "block", "impersonate", "paycart", "unblockme"].indexOf(d) < 0) return;
       // 改备注、置顶、删好友这些有自己的一步，模型却常自己去「点设置、点备注」——屏幕上没有那些字，
       //   播出来就是圆点在空处划拉（她 2026-10-02）。这种点一律不演
       if (d === "tap" && /备注|置顶|删除|拉黑|设置|资料|更多|…|\.\.\./.test(S(s.text))) return;
@@ -82,6 +82,8 @@
       }
       // 改她给TA的备注（她 2026-10-02：「给他权限进入自己聊天开一个假框改备注，然后真的能改」）：一趟最多一次
       // 替她付购物车（2026-10-22）：一趟最多一次，items 空＝全付
+      // 把自己从她的黑名单里放出来（2026-10-22）：一趟最多一次；她没拉黑他，app 那头不生效
+      else if (d === "unblockme" && !out.some(x => x.do === "unblockme")) out.push({ do: "unblockme" });
       else if (d === "paycart" && !out.some(x => x.do === "paycart")) {
         out.push({ do: "paycart", items: (Array.isArray(s.items) ? s.items : []).map(x => S(x).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 30)).filter(Boolean).slice(0, 12) });
       }
@@ -152,6 +154,7 @@
   const HOME_SPOT = { chat: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
     // 消息列表本身也是一处能看的（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
     messages: { dock: "信息", path: [{ text: "聊天", exact: true, minTopK: 0.8, optional: true }] },
+    moments: { dock: "信息", path: [{ text: "朋友圈", exact: true, optional: true }] },
     forum: { dock: "论坛", path: [{ text: "我", exact: true, minTopK: 0.8, optional: true }] },
     diary: { dock: "日记", path: [{ call: "diaryMine" }] },
     memo: { key: "w_memo" }, listen: { key: "w_music" }, shop: { key: "shop", path: [{ text: "我的", exact: true, minTopK: 0.8, optional: true }] },
@@ -398,6 +401,11 @@
           } else if (s.do === "paycart") {
             setCaption("在替你付购物车");
             setRenameBox({ title: "购物车 · 结算", typed: s.items && s.items.length ? s.items.join("、") : "全部", ok: "付款", noCaret: true }); await sleep(1600);
+            setRenameBox(null);
+            props.onEffect && props.onEffect(s); await sleep(900);
+          } else if (s.do === "unblockme") {
+            setCaption("在把自己从黑名单里放出来");
+            setRenameBox({ title: "黑名单", typed: "移出 · " + (props.selfName || "自己"), ok: "确定", noCaret: true }); await sleep(1500);
             setRenameBox(null);
             props.onEffect && props.onEffect(s); await sleep(900);
           } else if (["pin", "unpin", "unfriend", "block", "impersonate"].indexOf(s.do) >= 0) {

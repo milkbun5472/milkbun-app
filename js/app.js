@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.268";
+const APP_VERSION = "v76.276";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -211,7 +211,7 @@ function ScreenBoundaryClass() {
 // 聊天页「给TA看手机」那张单子和下面拼素材的那段读同一张表。
 // 她 2026-10-02：「我们真的需要那些 app 吗」——查岗只查聊天；钱包、外卖、购物是聊天里翻出线索才顺着去的。
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
-const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
+const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock }) {
   const t = useTheme();
@@ -11146,6 +11146,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (rows.length) out.push("【线下见面的往期——她和别人当面见过的那几回，不是和你的】\n" + rows.map(one).join("\n"));
     }
     // 她的日历：前后两周写着的安排（谁的名字写在上面，一眼就看得到）
+    // 她的朋友圈（她 2026-10-22「他查我手机能不能加上一个看朋友圈」「我就是想给他看我联系人的朋友圈，如果没藏起来的话」）：
+    //   她刷得到的那一页——联系人发的最近几条（她藏起来的人、别的面具那边的人不在），再加她自己发的。
+    //   她自己那几条：设了「谁可以看」、平时不给他看的，拿着她的手机也看得到——标出来
+    if (on("moments")) {
+      const vm = maskKeyOf(viewerId) || "";
+      const likesOf = m => (m.likers || []).map(x => typeof x === "string" ? x : (x && (x.name || x.author)) || "").filter(Boolean).slice(0, 8);
+      const tail = m => { const likes = likesOf(m), cms = (m.comments || []).filter(c => c && c.text).slice(-4).map(c => "    " + (c.author || "某人") + "：" + cut(c.text, 40));
+        return (likes.length ? "\n  赞：" + likes.join("、") : "") + (cms.length ? "\n  评论：\n" + cms.join("\n") : ""); };
+      const pic = m => (m.images && m.images.length) || m.image ? "（配了图）" : "";
+      const feed = (momentsRef.current || []).filter(m => m && !m.mine && m.characterId && m.characterId !== viewerId && shownId(m.characterId) && !maskTrace(m.content)).slice(0, 8);
+      if (feed.length) out.push("【她朋友圈里刷得到的——她联系人发的，最近这几条】\n" + feed.map(m => "· 「" + (nameOf(m.characterId) || "某人") + "」" + md(m.ts) + "　" + cut(m.content, 80) + pic(m) + tail(m)).join("\n"));
+      const mine = (momentsRef.current || []).filter(m => m && m.mine && String(m.mask || "") === vm && !maskTrace(m.content)).slice(0, 6);
+      if (mine.length) out.push("【她自己发的朋友圈，最近这几条】\n" + mine.map(m => {
+        const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
+        const hidFromYou = vis && !vis.map(String).includes(String(viewerId));
+        return "· " + md(m.ts) + "　" + cut(m.content, 80) + pic(m)
+          + (hidFromYou ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "") + tail(m);
+      }).join("\n"));
+    }
     if (on("calendar")) {
       const cal = calendar || {}, now = new Date(), ls = [];
       for (let d = -7; d <= 14; d++) {
@@ -11181,8 +11200,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 递手机：先让TA写一段「怎么翻」的录像（每点开一样东西想一句），在她真的 app 上播完，再回聊天开口。
   //   跟「看他玩」一个形状（phone-watch.js），只是这回被翻的是她的手机。
-  const PEEK_APPS = { chats: ["messages", "chat"], forum: ["forum"], money: ["wallet"], shop: ["shop", "takeout"], music: ["listen"], memo: ["memo"], journal: ["diary"], pics: ["chat"], offline: ["offline"], calendar: ["calendar"], health: ["health"] };
-  const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" };
+  const PEEK_APPS = { chats: ["messages", "chat"], forum: ["forum"], money: ["wallet"], shop: ["shop", "takeout"], music: ["listen"], memo: ["memo"], journal: ["diary"], pics: ["chat"], offline: ["offline"], calendar: ["calendar"], health: ["health"], moments: ["moments"] };
+  const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" , moments: "朋友圈" };
   // 上次翻过什么（x_peekLast[charId]）：下一次先去没看过的
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
   // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
@@ -11221,6 +11240,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (dp) setPeekDailyView(dp);
       return;
     }
+    if (app === "moments") { setMsgTab("moments"); setScreen("messages"); return; }   // 朋友圈是「信息」顶上那一栏，不是单独一页
     if (PEEK_APP_ZH[app]) setScreen(app);
   };
   const peekBack = () => {
@@ -11359,6 +11379,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
     // 勾了「日常联系人」才编（她 2026-10-17：「查手机那里搞个开关就行要不要生成」）；偷偷翻的那一路不现编，有现成的才带
+    // 先把「他接过手机」那一层摆出来再去编（群里 2026-10-22「有人点不动了，按那个没反应」）：勾了日常联系人、又还没编过的那一回，
+    //   要先等模型编完（几十秒），原来这段时间屏幕上什么都没有，看着就像没点上
+    if (!sneak) setPeekPlay({ charId, allow, seen: "", hidden: [], script: null });
     if (!sneak && (allow || []).includes("daily")) { const c0 = (characters || []).find(x => x.id === charId); if (c0) await peekDailyEnsure(charId, c0); }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
@@ -11404,10 +11427,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (apps.includes("offline") ? "；offline（她和别人线下见面的往期，要写 who＝那个人的名字）" : "")
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
           + (apps.includes("health") ? "；health（她的健康 app，她自己记的吃喝、睡眠、心情、不舒服）" : "")
+          + (apps.includes("moments") ? "；moments（她的朋友圈：她联系人发的和她自己发的，谁赞了谁评了）" : "")
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 把她给你的备注改掉（只写这一步就行，进自己那一栏、点设置这些不用写；text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。" + peekRenameAngles()
           // ⚠️上一版写「真气到那份上才用，不想就别写」，TA几乎从来不动手（她 2026-10-02：「不会删好友拉黑或者回复，概率好低」）
           + "\n你拿着的是她的手机，看到让你不舒服的人、过了界的话，可以顺手动一下——这些都是真的会生效的，正是查手机的意思；照你的性子挑一两样做（各一趟最多一次）：pin 置顶（who 空＝把你自己置顶，填名字＝置顶那个人）；unpin 把某人取消置顶（who）；unfriend 删掉她和某人的好友（who）；block 把某人拉黑（who）；impersonate 用她的手机、以她的名义给某人发一句（who、text 填那句话——对面会当成是她说的，会接着回）。⚠️这句是【她】在说：句子里的「我」是她、「你」是对面那个人；谁叫谁什么、谁先说的那句话，照上面那段聊天的原话对清楚再写，别把方向说反（她 2026-10-17：对面一直被她叫「哥」，这句却写成了叫对面别再叫她「哥」）。who 只能填上面能选的单聊名字。动了手，心声里也带一句你为什么这么做。"
+          // 她拉黑了他、他拿着她的手机（群友 2026-10-22「把 char 拉黑了，char 查手机的时候能把自己拉回嘛」）
+          + ((blocksRef.current[charId] || {}).iBlocked ? "\n你现在在她那儿是被拉黑的，手机就在你手上：可以加一步 {\"do\":\"unblockme\"} 把自己从她的黑名单里放出来——真的会生效，她会发现。放不放照你这个人来。" : "")
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
@@ -11418,7 +11444,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，就顺着去对应那一样看看是谁给谁、多少、什么时候——上面列出来的线索里至少挑一样去看；没线索的不用去。" : "")
           // 她勾着递过来的那几样（群友 2026-10-22：「勾选了的，但他就是不看」）：原来只列成「能打开」，模型一门心思翻聊天，从来不去。
           //   聊天照旧是重点；看完聊天，这几样里至少点开一样（挑哪样照你想知道什么）
-          + (() => { const extra = ["offline", "calendar", "health"].filter(a => apps.includes(a)); return extra.length ? "\n她递手机时把" + extra.map(a => PEEK_APP_ZH[a]).join("、") + "也留着给你看了：看完聊天，这几样里至少点开一样看看（挑哪样照你这会儿最想知道什么）。" : ""; })()
+          + (() => { const extra = ["offline", "calendar", "health", "moments"].filter(a => apps.includes(a)); return extra.length ? "\n她递手机时把" + extra.map(a => PEEK_APP_ZH[a]).join("、") + "也留着给你看了：看完聊天，这几样里至少点开一样看看（挑哪样照你这会儿最想知道什么）。" : ""; })()
           + (() => { const ct = apps.includes("shop") ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
               return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
                 + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
@@ -11443,7 +11469,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (sneak) {
       if (!script.length) return;
       // 手脚当场就动了；她回放时只看，不再动一遍
-      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate", "paycart"].includes(st.do)) peekEffect(charId, st); });
+      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate", "paycart", "unblockme"].includes(st.do)) peekEffect(charId, st); });
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
@@ -11665,6 +11691,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: viewerId, payLabel: vn + " 替你付的" }));
       const names = pick.map(x => x.name).join("、");
       note("「" + vn + "」翻你手机时替你把购物车里的 " + names + " 付了（¥" + total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + names);
+      return;
+    }
+    if (step.do === "unblockme") {
+      if (!(blocksRef.current[viewerId] || {}).iBlocked) return;
+      setBlockFor(viewerId, { iBlocked: false });
+      note(vn + " 把自己从你的黑名单里放出来了", "拿她的手机把你自己从她的黑名单里放出来了");
       return;
     }
     if (step.do === "pin") {
@@ -13223,6 +13255,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // 别的字段被模型写进了 word 里（群里 2026-10-22：气泡里冒出「photoSeen:{"note":"她发来两张……」）：
+      //   一条话长成「英文字段名:{…}／[…]／"…"」就是协议，不是人说的话——拿出气泡；那一格没填的话照它填上
+      if (parsed && Array.isArray(parsed.word)) parsed.word = parsed.word.filter(w => {
+        const m = typeof w === "string" && /^\s*["'“”]?([a-z][A-Za-z]{2,24})["'“”]?\s*[:：]\s*([\[{"“][\s\S]*)$/.exec(w);
+        if (!m) return true;
+        if (parsed[m[1]] == null && typeof parseJSONLoose === "function") { const v = parseJSONLoose(m[2]); if (v != null) parsed[m[1]] = v; }
+        return false;
+      });
       if (_bareCard) parsed.word = (Array.isArray(parsed.word) ? parsed.word : (parsed.word ? [parsed.word] : [])).concat([_bareCard.card]);
       const roomTurnState = sideRoom ? { ...parsed, mood: typeof parsed.mood === "string" ? parsed.mood : parsed.mood && parsed.mood.label } : null;
       // 不跟主线共用状态的房间：action 要封（别写进主线那张状态卡），可【动描那一行】还得摆出来——
@@ -33551,7 +33591,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.28)" } })),
         h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "收起")),
       h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
-        mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) })));
+        h(HalfWinLayer.Provider, { value: true }, mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) }))));   // 里面打开的整页叠在半窗上面（usePageZ）
   })(), (function () {
     // 帮手的小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）。
     // ⚠️挂在这儿是照上面配件浮层那一层的做法：一个 position:fixed 的兄弟节点，
