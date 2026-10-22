@@ -13296,6 +13296,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   原来两件事共用 parsed.action 一个格子，一封就连那行动作一起没了（群友 2026-10-12：「在房间里开线上动作描写好像没生效」）。
       //   所以封之前先留一份，只给摆那一行用，不进状态。
       let _roomActLine = parsed && parsed.action;
+      // 模型自己交了哪几格（封闸、补位之前拍下；没写心声时摆给她看）
+      const _modelKeys = parsed && typeof parsed === "object" ? Object.keys(parsed).filter(k => parsed[k] != null && parsed[k] !== "" && String(parsed[k]).toLowerCase() !== "null") : null;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const w = room.writeback || {};
@@ -13381,7 +13383,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
       // 换了个名字交的心声也认（她 2026-10-22 房里查「没写」时补的）
       if (parsed.thought == null) { const _ak = ["innerThought", "inner", "心声", "os", "monologue", "innerVoice"].find(k => typeof parsed[k] === "string" && parsed[k].trim()); if (_ak) parsed.thought = parsed[_ak]; }
-      parsed._keys = Object.keys(parsed).filter(k => k[0] !== "_");
       // mood 兼容规范对象 {label,...}，也兼容模型偶发的简写字符串 "烦躁"。
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
@@ -14282,7 +14283,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
       if (sideRoom) {
-        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought, keys: parsed._keys });
+        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought, keys: _modelKeys });
       } else {
         const _live = statesRef.current[charId] || {};
         if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_body) {
