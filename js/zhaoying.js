@@ -60,6 +60,21 @@
       h("span", { style: { display: "block", padding: 2, borderRadius: 999, border: "1.5px solid " + (on ? ACC : "transparent") } },
         c ? h(Avatar, { character: c, size: 40, radius: 999 }) : h("span", { style: { display: "flex", width: 40, height: 40, borderRadius: 999, alignItems: "center", justifyContent: "center", background: INK, color: PAPER, fontFamily: F_DISPLAY, fontSize: 15 } }, "我")),
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? INK : FOG, maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label));
+    // 每套一张封面：测试小网站那种——一块有颜色的底、一个大符号、题数和用时、谁测过
+    const PAL = { mbti: { a: "#f3d9c8", b: "#d9a38a", deep: "#b5674a", g: "?" }, attach: { a: "#dfe3ef", b: "#a9b3d3", deep: "#5f6d9e", g: "⇄" },
+      love: { a: "#f6d6dc", b: "#e29aa8", deep: "#c05a6f", g: "♡" }, values: { a: "#e3e8d6", b: "#b3c094", deep: "#6f8150", g: "⚖" }, animal: { a: "#f1e3c4", b: "#d8b778", deep: "#a27b2f", g: "✦" } };
+    const pal = tt => PAL[tt.id] || PAL.mbti;
+    const cover = (tt, big) => {
+      const c = pal(tt), done = [...chars.map(x => x.id), "me"].filter(id => Z.recordsOf(id, tt.id).length);
+      return h("div", { "data-wk": "zycover", "data-test": tt.id, style: { position: "relative", overflow: "hidden", borderRadius: 18, padding: big ? "22px 18px 18px" : "18px 16px 14px", background: "linear-gradient(135deg, " + c.a + " 0%, " + c.b + " 100%)", boxShadow: "0 8px 22px -14px " + c.deep } },
+        h("span", { "aria-hidden": true, style: { position: "absolute", right: -6, top: big ? -18 : -14, fontSize: big ? 120 : 92, lineHeight: 1, color: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, pointerEvents: "none" } }, c.g),
+        h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11, letterSpacing: ".25em", color: c.deep } }, tt.qs.length + " 题 · 约 " + Math.max(1, Math.round(tt.qs.length / 4)) + " 分钟"),
+        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: big ? "calc(26px * var(--app-fs, 1))" : "calc(21px * var(--app-fs, 1))", color: "#2e261e", marginTop: 6 } }, tt.name),
+        h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(46,38,30,.72)", marginTop: 5, lineHeight: 1.6, maxWidth: "82%" } }, tt.sub),
+        h("div", { style: { position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: big ? 14 : 12 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.deep, background: "rgba(255,255,255,.6)", padding: "3px 10px", borderRadius: 999 } }, done.length ? done.length + " 人测过" : "还没人测过"),
+          big ? null : h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: c.deep, padding: "5px 14px", borderRadius: 999 } }, "去测 →")));
+    };
     const qBlock = (tt, i, pick, why, live) => {
       const q = tt.qs[i];
       return h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE } },
@@ -107,13 +122,16 @@
       const mine = Z.recordsOf("me", test.id)[0];
       return page(test.name, () => { setTestId(null); setOpenRec(null); setCompare(false); },
         h(Fragment, null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: FOG, lineHeight: 1.6, padding: "8px 0 12px" } }, test.sub + " · " + test.qs.length + " 题"),
-          // 按头像发卡：卡落进跟他的聊天，他在那边做；做完点卡看他怎么选（她 2026-10-22）
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "4px 0 6px" } }, "发给谁做（卡会落进跟他的聊天，在那边看他做）"),
-          h("div", { "data-wk": "zyaskrow", className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6 } }, chars.map(c => h("button", { key: c.id, "data-wk": "zyaskwho", onClick: () => props.onAsk && props.onAsk(c.id, test.id), className: "shrink-0 flex flex-col items-center active:opacity-70", style: { gap: 4, width: 58 } },
-            h(Avatar, { character: c, size: 44, radius: 999 }),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: INK, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))),
-          h("button", { "data-wk": "zygome", onClick: startMe, className: "w-full active:opacity-70", style: { marginTop: 10, padding: "11px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY, letterSpacing: ".1em" } }, mine ? "我再做一次" : "我自己做一份"),
+          cover(test, true),
+          // 谁来做：点进来才挑人（她 2026-10-22「主页不要这个头像 要点进去才有」）；挑中谁，底下就是谁的档案
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: INK, margin: "18px 0 8px", letterSpacing: ".1em" } }, "谁来做"),
+          h("div", { "data-wk": "zyaskrow", className: "flex gap-3 overflow-x-auto", style: { padding: "4px 2px 6px" } },
+            chars.map(c => face(who === c.id, c, c.remark || c.name, () => setWho(c.id))), face(who === "me", null, "我自己", () => setWho("me"))),
+          who !== "me" && char ? h("button", { "data-wk": "zyaskwho", onClick: () => props.onAsk && props.onAsk(char.id, test.id), className: "w-full active:scale-[.98]",
+            style: { marginTop: 10, padding: "13px 0", borderRadius: 999, background: pal(test).deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: ".08em", boxShadow: "0 6px 16px -6px " + pal(test).deep } },
+            "发给 " + (char.remark || char.name) + " 做 →") : null,
+          who !== "me" && char ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, textAlign: "center", marginTop: 6 } }, "卡会落进你们的聊天，你按回复他就开始做") : null,
+          who === "me" ? h("button", { "data-wk": "zygome", onClick: startMe, className: "w-full active:scale-[.98]", style: { marginTop: 10, padding: "13px 0", borderRadius: 999, background: pal(test).deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: ".08em", boxShadow: "0 6px 16px -6px " + pal(test).deep } }, mine ? "我再做一次 →" : "开始做题 →") : null,
           h("details", { "data-wk": "zyqlist", style: { marginTop: 12 } }, h("summary", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, cursor: "pointer" } }, "看看这套题（" + test.qs.length + " 题）"),
             test.qs.map((q, k) => qBlock(test, k, -1, "", false))),
           // ── 跟谁对一对（她 2026-10-22「加3和4」）：任意两个做过这套的人并排看，我也算一个 ──
@@ -173,18 +191,8 @@
     return h("div", { "data-wk": "zypage", className: "h-full flex flex-col", style: { background: PAPER } },
       h(Head, { zh: "照影", sub: "看看他会怎么选", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 18px 40px" } },
-        h("div", { "data-wk": "zywho", className: "flex gap-3 overflow-x-auto", style: { padding: "8px 2px 16px" } },
-          chars.map(c => face(who === c.id, c, c.remark || c.name, () => setWho(c.id))), face(who === "me", null, "我自己", () => setWho("me"))),
-        Z.TESTS.map((tt, k) => { const last = Z.recordsOf(who, tt.id)[0];
-          // 一张张答卷：左边一道装订线，右上角做过的盖个章
-          return h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:opacity-70",
-            style: { position: "relative", display: "block", padding: "15px 14px 14px 46px", marginBottom: 12, borderRadius: 4, background: "#fffaf3", border: "1px solid " + LINE,
-              boxShadow: "0 1px 0 #e9dfd1, 0 3px 0 -1px #fffaf3, 0 3px 0 0 " + LINE, backgroundImage: "linear-gradient(90deg, transparent 33px, rgba(176,118,74,.35) 33px, rgba(176,118,74,.35) 34px, transparent 34px)" } },
-            h("span", { style: { position: "absolute", left: 0, top: 14, width: 33, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 13, color: ACC } }, String(k + 1).padStart(2, "0")),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: INK, paddingRight: last ? 64 : 0 } }, tt.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FOG, marginTop: 4, lineHeight: 1.55, paddingRight: last ? 64 : 0 } }, tt.sub + " · " + tt.qs.length + " 题"),
-            last ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: INK, marginTop: 8, paddingTop: 7, borderTop: "1px dashed " + LINE } }, "上次 · " + last.title + "　" + Z.dateZh(last.ts)) : null,
-            last ? h("span", { style: { position: "absolute", right: 12, top: 12, transform: "rotate(-8deg)", padding: "2px 7px", border: "1.5px solid " + ACC, borderRadius: 4, color: ACC, fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: ".15em", opacity: .85 } }, "已测") : null); })));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: FOG, padding: "8px 2px 14px", lineHeight: 1.6 } }, "挑一套，点进去发给他做，或者自己做一份。"),
+        Z.TESTS.map(tt => h("button", { key: tt.id, "data-wk": "zytest", onClick: () => setTestId(tt.id), className: "w-full text-left active:scale-[.98]", style: { display: "block", marginBottom: 14, transition: "transform .15s" } }, cover(tt, false)))));
   }
   g.ZhaoyingApp = ZhaoyingApp;
 })();
