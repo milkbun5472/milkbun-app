@@ -8,6 +8,7 @@ const app = require("node:fs").readFileSync(require.resolve("../js/app.js"), "ut
 test("每轮都留开着时，本体模式的总纲也要求每轮交三格，并说明历史里看不到", () => {
   const i = app.indexOf("const _primer = _body"), seg = app.slice(i, app.indexOf("\n      const", i + 30));
   assert.match(seg, /_bodyFill \? "这里开着「每轮都留心情、心声和好感」：每一轮都照本轮末尾那份 JSON 交/);
-  assert.match(seg, /别照着历史省掉/);
+  // v76.292 起改成正面说法（「收进 App 了、不是没写，这一轮照样写」）——钉的是把这件事说清，不钉「别」字
+  assert.match(seg, /不是没写，这一轮照样写/);
   assert.ok(app.indexOf("const _bodyFill =") < i);
 });

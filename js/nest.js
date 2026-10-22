@@ -772,9 +772,12 @@
   //   两条路：从手机里选一份文件（每一类都行），或者从 app 里现成的挑（世界书、文风、预设、人设）。
   //   主题、聊天美化、CSS 在 app 里没有「挑一个」这回事，就是文件或者贴一份。
   // 嵌进去的图（data:image）：跟后端 embeddedImages 同一把尺子（她 2026-10-17「直接开放」）——
-  //   位图（png/jpg/webp/gif）每张压到 ASSET_CHARS 以内都收，矢量图 8KB 内收；字体文件不收；一件最多 12 张、整份 1.6MB。
+  //   位图（png/jpg/webp/gif）每张压到 ASSET_CHARS 以内都收，矢量图 8KB 内收；字体文件不收；整份 1.6MB。
+  //   张数（ASSET_COUNT）原来是 12（群里 2026-10-22：一套 iOS 图标主题被这条挡住了——
+  //   一套图标本来就二三十张）。真正的天花板是整份大小（D1 一行 2MB），张数这道闸只防一眼看出的离谱，
+  //   所以抬到 40，超了由大小那一条去拦、顺便告诉她压一压。
   //   上传前先 shrinkImages 压一遍，再拿 imgProblem 查一遍，卡住了直接说是哪一样
-  const SVG_MAX = 8192, ASSET_CHARS = 400 * 1024, ASSET_COUNT = 12, PAYLOAD_ALL = 1600 * 1024;
+  const SVG_MAX = 8192, ASSET_CHARS = 400 * 1024, ASSET_COUNT = 40, PAYLOAD_ALL = 1600 * 1024;
   const RASTER = ["png", "jpeg", "jpg", "webp", "gif"];
   const blobToData = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
   function embeddedImages(text) {

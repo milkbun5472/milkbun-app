@@ -104,7 +104,7 @@ test("退回和称号：管理模式才有退回键、要写原因；作者改�
   ["\"by \" + (it.nick || \"无名\"), h(Badge, { b: it.badge })", "c.name, h(Badge, { b: c.badge })", "d.user.name, h(Badge, { b: d.user.badge })"].forEach(x => assert.ok(nest.includes(x), x));
 });
 
-test("嵌进去的图：小 SVG、压得下的位图都能传；大 SVG、字体、超过 12 张拦下，说是哪种、在哪段后面", () => {
+test("嵌进去的图：小 SVG、压得下的位图都能传；大 SVG、字体、张数超了拦下，说是哪种、在哪段后面", () => {
   const N = load({});
   const svg = 'url("data:image/svg+xml;utf8,<svg/>")';
   assert.equal(N.imgProblem('[data-wk="bubble"]::after{background:' + svg + '}'), "");
@@ -112,7 +112,11 @@ test("嵌进去的图：小 SVG、压得下的位图都能传；大 SVG、字体
   const big = N.imgProblem('.tail{width:8px;background:url("data:image/svg+xml,' + "x".repeat(9000) + '")}');
   assert.match(big, /KB 的矢量图（超过 8KB）/); assert.match(big, /「background:url\("?」后面/);
   assert.match(N.imgProblem("@font-face{src:url(data:font/woff2;base64,AA)}"), /字体/);
-  assert.match(N.imgProblem(Array.from({ length: 13 }, () => "a{b:url(data:image/png;base64,AA)}").join("")), /最多 12 张/);
+  // 张数那道闸只防离谱（一套 iOS 图标主题本来就二三十张，群里 2026-10-22 被 12 张挡过）——
+  //   钉的是「超了会说」，不是钉那个数
+  const cap = Number(require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/nest.js"), "utf8").match(/ASSET_COUNT = (\d+)/)[1]);
+  assert.ok(cap >= 30, "一套图标主题装不下");
+  assert.match(N.imgProblem(Array.from({ length: cap + 1 }, () => "a{b:url(data:image/png;base64,AA)}").join("")), new RegExp("最多 " + cap + " 张"));
   // JSON 包里（主题、整套美化）引号是转义过的，也认得出
   assert.match(N.imgProblem(JSON.stringify({ look: { customCSS: 'a{b:url("data:image/tiff;base64,AAA=")}' } })), /tiff/);
 });
