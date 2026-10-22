@@ -73,7 +73,7 @@
     "{\"type\":\"fill_blank|choice|true_false\",\"prompt\":\"题目\",\"point_id\":\"当前要点id\"," +
     "\"options\":[{\"id\":\"A\",\"label\":\"选项文字\"}],\"answer\":\"标准答案或选项id\",\"aliases\":[\"可接受别名\"]," +
     "\"word_bank\":[\"填空可选词块\"],\"hints\":[\"一级：只提醒方向\",\"二级：指出关键步骤\",\"三级：给相似例子但仍不直接给答案\"],\"explanation\":\"答对后的简短解释\"}。" +
-    "choice 必须有 2~5 个 options；true_false 的 answer 只能是 true/false 且不需要 options；fill_blank 可给 aliases（大小写不用重复列，系统会自动忽略）。" +
+    "choice 必须有 2~5 个 options；正确答案不止一个的就是多选题：answer 写成逗号隔开的几个选项 id（如 \"A,C\"），题面写明是多选；true_false 的 answer 只能是 true/false 且不需要 options；fill_blank 可给 aliases（大小写不用重复列，系统会自动忽略）。" +
     "适合拼句、排序或词汇回忆的 fill_blank 可以给 3~12 个 word_bank 词块（含必要干扰项），不适合就省略。" +
     "每题尽量给 2~3 级递进 hints；前两级绝不能直接泄露答案，最后一级也优先给相似例子。题面不要泄露答案，别在 say 里再重复整道题。只依据当前小节出题。" +
     // ⚠️她 2026-09-23：「老师出题都只是 multiple choice」。三种题型一直都在，可这儿从没说过什么时候用哪一种——
@@ -515,7 +515,13 @@
     if (type === "choice" && options.length < 2) return null;
     let answer = type === "true_false" ? String(q.answer).toLowerCase() : String(q.answer || "").trim();
     if (!answer || (type === "true_false" && !["true", "false"].includes(answer))) return null;
-    if (type === "choice" && !options.some(function (o) { return o.id === answer; })) {
+    // 多选（群友 2026-10-22 许愿）：answer 是几个选项 id（逗号／顿号隔开，或者数组），排好序存成 "A,C"
+    let multi = false;
+    if (type === "choice") {
+      const ids = (Array.isArray(q.answer) ? q.answer.map(String) : answer.split(/[,，、\s]+/)).map(function (x) { return x.trim(); }).filter(Boolean);
+      if (ids.length >= 2 && ids.every(function (x) { return options.some(function (o) { return o.id === x; }); })) { multi = true; answer = quizMultiKey(ids); }
+    }
+    if (type === "choice" && !multi && !options.some(function (o) { return o.id === answer; })) {
       // 模型常把 answer 写成选项文字而非选项 id；按归一化文字映射回 id，映射不到=坏题，宁可不出
       const hit = options.find(function (o) { return normalizeQuizAnswer(o.label) === normalizeQuizAnswer(answer); });
       if (!hit) return null;
@@ -526,7 +532,7 @@
       .filter(Boolean).slice(0, 12) : [];
     return {
       type: type, prompt: prompt.slice(0, 600), pointId: pointId,
-      options: options, answer: answer,
+      options: options, answer: answer, multi: multi,
       aliases: Array.isArray(q.aliases) ? q.aliases.map(String).filter(Boolean).slice(0, 12) : [],
       wordBank: wordBank,
       hints: Array.isArray(q.hints) ? q.hints.map(String).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 3) : [],
@@ -605,7 +611,16 @@
       .replace(/[。.!！?？]+$/g, "").trim();
   }
 
+  // 多选的答案统一成「去重、排好序、逗号连起来」，比的时候顺序不算数
+  function quizMultiKey(ids) { return [...new Set((ids || []).map(function (x) { return String(x).trim(); }).filter(Boolean))].sort().join(","); }
+  function quizMultiToggle(cur, id) { const set = String(cur || "").split(",").filter(Boolean); const i = set.indexOf(id); if (i >= 0) set.splice(i, 1); else set.push(id); return quizMultiKey(set); }
   async function gradeQuizAnswer(active, quiz, userAnswer) {
+    if (quiz && quiz.multi) {
+      const want = String(quiz.answer || "").split(","), got = String(userAnswer || "").split(",").filter(Boolean);
+      if (quizMultiKey(got) === quizMultiKey(want)) return { result: "correct", feedback: "答对了", local: true };
+      const hit = got.filter(function (x) { return want.includes(x); }).length;
+      return { result: "incorrect", feedback: hit && got.every(function (x) { return want.includes(x); }) ? "选对了一部分，还漏了" : "这次还不对，再想想", local: true };
+    }
     const actual = normalizeQuizAnswer(userAnswer);
     const accepted = [quiz.answer].concat(quiz.aliases || []).map(normalizeQuizAnswer);
     if (accepted.includes(actual)) return { result: "correct", feedback: "答对了", local: true };
@@ -680,7 +695,7 @@
       hintedCount: ((old && Number(old.hintedCount)) || 0) + (hintedNow ? 1 : 0),
       lastAnswer: outcome.answer != null ? String(outcome.answer).slice(0, 300) : ((old && old.lastAnswer) || ""),
       key: key, pointId: quiz.pointId, sourceSessionId: session.id,
-      type: quiz.type, prompt: quiz.prompt, options: (quiz.options || []).slice(), answer: quiz.answer,
+      type: quiz.type, prompt: quiz.prompt, options: (quiz.options || []).slice(), answer: quiz.answer, multi: !!quiz.multi,
       aliases: (quiz.aliases || []).slice(), wordBank: (quiz.wordBank || []).slice(),
       hints: (quiz.hints || []).slice(), explanation: quiz.explanation || "",
       // 错因是她自己点的：这张卡再怎么重做都留着，除非她改；答对出本了也留着，回头看得见当初是怎么错的
@@ -743,7 +758,10 @@
   // 题卡上的答案读成人话：选择题存的是选项 id
   function quizAnswerText(x, v) {
     if (!x) return String(v || "");
-    if (x.type === "choice") { const o = (x.options || []).find(function (o) { return o.id === v; }); return o ? o.id + ". " + o.label : String(v || ""); }
+    if (x.type === "choice") {
+      const one = id => { const o = (x.options || []).find(function (o) { return o.id === id; }); return o ? o.id + ". " + o.label : String(id || ""); };
+      return String(v || "").indexOf(",") > 0 ? String(v).split(",").map(one).join("；") : one(v);
+    }
     if (x.type === "true_false") return v === "true" || v === true ? "正确" : (v === "false" || v === false ? "错误" : String(v || ""));
     return String(v || "");
   }
@@ -754,7 +772,7 @@
     return (Array.isArray(items) ? items : []).filter(function (x) { return x && x.type !== "flashcard" && Number(x.nextReviewAt) <= now; })
       .sort(function (a, b) { return Number(a.nextReviewAt) - Number(b.nextReviewAt); }).slice(0, 2).map(function (x) {
         return {
-          type: x.type, prompt: x.prompt, pointId: x.pointId, options: (x.options || []).slice(), answer: x.answer,
+          type: x.type, prompt: x.prompt, pointId: x.pointId, options: (x.options || []).slice(), answer: x.answer, multi: !!x.multi,
           aliases: (x.aliases || []).slice(), wordBank: (x.wordBank || []).slice(), hints: (x.hints || []).slice(), hintsUsed: 0,
           explanation: x.explanation || "", attempts: [], status: "open", isReview: true, reviewKey: x.key
         };
@@ -1365,7 +1383,7 @@
       "\n\n出 " + Math.min(12, Math.max(6, points.length * 2)) + " 道，每个要点至少一道，题型在 choice / true_false / fill_blank 之间轮换，fill_blank 至少占三分之一。" +
       "每道题只考一个点，题干自己说得清，不依赖前一道。explanation 是做完以后给她看的一句解析。" +
       "\n只输出 JSON：{\"quizzes\":[{\"point_id\":\"要点 id\",\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题干\"," +
-      "\"options\":[{\"id\":\"A\",\"label\":\"选项\"}],\"answer\":\"choice 填选项 id / true_false 填 true 或 false / fill_blank 填标准答案\",\"aliases\":[\"可接受的别的写法\"],\"explanation\":\"解析\"}]}";
+      "\"options\":[{\"id\":\"A\",\"label\":\"选项\"}],\"answer\":\"choice 填选项 id（多选题填几个 id，逗号隔开，题面写明多选）/ true_false 填 true 或 false / fill_blank 填标准答案\",\"aliases\":[\"可接受的别的写法\"],\"explanation\":\"解析\"}]}";
     const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
     const quizzes = parseUnitTest(raw, ids);
     if (quizzes.length < 3) throw new Error("没出成一套能用的题。老师这回写的是：\n" + String(raw || "").slice(0, 320));
@@ -1575,7 +1593,7 @@
   async function answerReviewItem(active, curId, x, value, sessionTag) {
     const val = String(value == null ? "" : value).trim();
     if (!val) return { ok: false, empty: true };
-    const quiz = { type: x.type, prompt: x.prompt, pointId: x.pointId, options: x.options || [], answer: x.answer, aliases: x.aliases || [], isReview: true, reviewKey: x.key };
+    const quiz = { type: x.type, prompt: x.prompt, pointId: x.pointId, options: x.options || [], answer: x.answer, multi: !!x.multi, aliases: x.aliases || [], isReview: true, reviewKey: x.key };
     const g = await gradeQuizAnswer(active, quiz, val);
     if (g.reviewFailed) return { ok: false, reviewFailed: true };
     updateCurriculumReview(curId, { id: sessionTag || "review" }, quiz, { result: g.result, support: "none", confidence: "sure", ts: Date.now(), answer: quizAnswerText(x, val) });
@@ -2043,6 +2061,10 @@
               x.type === "flashcard" ? h("div", { className: "flex", style: { gap: 6 } }, [["miss", "不记得"], ["fuzzy", "模糊"], ["good", "记得"]].map(function (o) {
                 return h("button", { key: o[0], onClick: function () { rateCard(x, o[0]); }, className: "active:opacity-70", style: btn(o[0] === "good") }, o[1]);
               }))
+              : x.type === "choice" && x.multi ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, (x.options || []).map(function (o) {
+                const on = String(draft).split(",").includes(o.id);
+                return h("button", { key: o.id, disabled: busy, onClick: function () { setDraft(quizMultiToggle(draft, o.id)); }, className: "active:opacity-70", style: btn(on) }, (on ? "✓ " : "") + o.id + ". " + o.label);
+              }).concat([h("button", { key: "__go", disabled: busy || !draft, onClick: function () { answer(x, draft); setDraft(""); }, className: "active:opacity-70 disabled:opacity-40", style: btn(true) }, "选好了")]))
               : x.type === "choice" ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, (x.options || []).map(function (o) {
                 return h("button", { key: o.id, disabled: busy, onClick: function () { answer(x, o.id); }, className: "active:opacity-70", style: btn(false) }, o.id + ". " + o.label);
               }))
@@ -2873,10 +2895,16 @@
             return h("span", { key: k, style: { flex: 1, height: 4, borderRadius: 2, background: k < idx ? accent : k === idx ? STUDY_SKIN.ink : STUDY_SKIN.line } });
           })),
           h("section", { "data-wk": "studycard", style: paper },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: accent, letterSpacing: ".04em" } }, "第 " + (idx + 1) + " / " + quizzes.length + " 道 · " + (q.type === "choice" ? "选择" : q.type === "true_false" ? "判断" : "填空")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: accent, letterSpacing: ".04em" } }, "第 " + (idx + 1) + " / " + quizzes.length + " 道 · " + (q.type === "choice" ? (q.multi ? "多选" : "选择") : q.type === "true_false" ? "判断" : "填空")),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.6, color: STUDY_SKIN.ink, marginTop: 8, whiteSpace: "pre-wrap" } }, q.prompt)),
           h("div", { style: { marginTop: 12 } },
-            q.type === "choice" ? q.options.map(function (o) {
+            q.type === "choice" && q.multi ? h("div", null, q.options.map(function (o) {
+              const on = String(draft).split(",").includes(o.id);
+              return h("button", { key: o.id, disabled: busy, onClick: function () { setDraft(quizMultiToggle(draft, o.id)); }, className: "w-full flex items-center active:opacity-70",
+                style: Object.assign({}, btn(on), { justifyContent: "flex-start", padding: "10px 14px", marginBottom: 8, gap: 10, textAlign: "left", height: "auto" }) },
+                h("span", { style: { fontFamily: F_DISPLAY, color: on ? undefined : accent } }, (on ? "✓ " : "") + o.id), h("span", { style: { flex: 1 } }, o.label));
+            }), h("button", { disabled: busy || !draft, onClick: function () { answer(draft); setDraft(""); }, className: "w-full active:opacity-70 disabled:opacity-40", style: Object.assign({}, btn(true), { marginTop: 2 }) }, "选好了"))
+            : q.type === "choice" ? q.options.map(function (o) {
               return h("button", { key: o.id, disabled: busy, onClick: function () { answer(o.id); }, className: "w-full flex items-center active:opacity-70",
                 style: Object.assign({}, btn(false), { justifyContent: "flex-start", padding: "10px 14px", marginBottom: 8, gap: 10, textAlign: "left", height: "auto" }) },
                 h("span", { style: { fontFamily: F_DISPLAY, color: accent } }, o.id), h("span", { style: { flex: 1 } }, o.label));
@@ -3679,7 +3707,7 @@
           }) });
         });
         const selected = entry.quiz.type === "choice"
-          ? ((entry.quiz.options || []).find(function (o) { return o.id === answer; }) || {}).label || answer
+          ? (entry.quiz.multi ? quizAnswerText(entry.quiz, answer) : ((entry.quiz.options || []).find(function (o) { return o.id === answer; }) || {}).label || answer)
           : (entry.quiz.type === "true_false" ? (answer === "true" ? "正确" : "错误") : answer);
         nextTranscript.push({ id: answerId, role: "user", studyAction: "quiz_answer", hidden: true,
           quizId: entry.id, quizPointId: entry.quiz.pointId, quizResult: grade.result,
@@ -3961,8 +3989,8 @@
       let answerUI;
       if (q.type === "choice") {
         answerUI = h("div", { className: "flex flex-col gap-2" }, (q.options || []).map(function (o) {
-          const on = draft === o.id;
-          return h("button", { key: o.id, disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: o.id }); }); },
+          const on = q.multi ? String(draft).split(",").includes(o.id) : draft === o.id;
+          return h("button", { key: o.id, disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: q.multi ? quizMultiToggle(old[m.id], o.id) : o.id }); }); },
             className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, on ? { borderColor: accent, background: accent + "12" } : {}) },
             h("span", { style: { color: accent, marginRight: 7 } }, o.id), o.label);
         }));
@@ -3991,7 +4019,7 @@
       }
       return h("div", { "data-wk": "block", style: { position: "relative", width: "min(100%, 430px)", background: "repeating-linear-gradient(to bottom," + STUDY_SKIN.paper + " 0," + STUDY_SKIN.paper + " 27px,rgba(92,112,126,.10) 28px)", border: "1px solid " + accent + "66", borderTop: "4px solid " + accent, borderRadius: "4px 14px 14px 4px", padding: "13px 13px 14px", boxShadow: "0 7px 18px " + STUDY_SKIN.shadow } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: ".15em", color: accent } }, "小测 · " + (q.type === "choice" ? "单选" : q.type === "true_false" ? "判断" : "填空")),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: ".15em", color: accent } }, "小测 · " + (q.type === "choice" ? (q.multi ? "多选" : "单选") : q.type === "true_false" ? "判断" : "填空")),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: STUDY_SKIN.fog } }, attempts.length ? "已答 " + attempts.length + " 次" : "未作答")),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.7, color: STUDY_SKIN.ink, marginBottom: 11, whiteSpace: "pre-wrap" } }, q.prompt),
         answerUI,
