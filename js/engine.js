@@ -2755,7 +2755,7 @@ function calRepeatOn(startDate, repeat, dayKey) {
 // ── 世界书 json 认法（她 2026-10-22「世界书能不能支持 json」）──────────────────
 // 一份 json 里认出词条，统一成本 app 的词条形状。认这几种：
 //   · 本 app 自己导出的（title / payload / keyword…）原样收；
-//   · 酒馆那种世界书：entries 是数组或「编号 → 词条」的对象，key/keys/keysecondary、content、comment、constant、disable；
+//   · 常见的那种世界书 json：entries 是数组或「编号 → 词条」的对象，key/keys/keysecondary、content、comment、constant、disable；
 //   · 角色卡里带的 character_book；· 直接一个词条数组。
 // 世界书页「导入」和小窝放进世界书都走这一份（one-public-mechanism）。
 function loreEntriesFromJson(d) {
