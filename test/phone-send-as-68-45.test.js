@@ -37,7 +37,7 @@ test("界面那一头：输入栏只画在真实会话上，且看他玩时收�
   assert.match(phone, /const asCanSend = !!\(onSendAs && th && String\(th\.id \|\| ""\)\.indexOf\("actual:"\) === 0/);
   assert.match(phone, /!drive && asCanType \? h\("div"/);
   // 2026-10-22 起推演出来的私聊也能发（对面由模型接话），推演的群和删掉的好友不给
-  assert.match(phone, /const asFake = !!\(onSendAs && th && String\(th\.id \|\| ""\)\.indexOf\("actual:"\) !== 0 && \(th\.type === "group" \|\| \(th\.type === "private" && !isDel\(th\.name\)\)\)\)/);
+  assert.match(phone, /const asFake = !!\(onSendAs && th && String\(th\.id \|\| ""\)\.indexOf\("actual:"\) !== 0 && \(\(th\.type === "group" && !isGone\(th\.name\)\) \|\| \(th\.type === "private" && !isDel\(th\.name\)\)\)\)/);
 });
 
 test("发完要滚到底，不然等于没发", () => {

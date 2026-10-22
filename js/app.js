@@ -11750,9 +11750,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const l = key === "wechat" ? ((loadJSON("x_phoneRemarkEdits", {}) || {})[char.id] || []) : [];
     const md = key === "wechat" ? ((loadJSON("x_phoneMeddle", {}) || {})[char.id] || []) : [];
     const dl = key === "wechat" ? ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []) : [];
-    if (md.length || dl.length) spec = { ...spec, instruction: spec.instruction
+    const gl = key === "wechat" ? ((loadJSON("x_phoneWxGone", {}) || {})[char.id] || []) : [];
+    if (md.length || dl.length || gl.length) spec = { ...spec, instruction: spec.instruction
       + (md.length ? "\n\n【她拿你手机做过的事】" + md.map(phoneMeddleLine).join("；") + "。这些已经发生了，写到相关的人时照这个来。" : "")
-      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "") };
+      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "")
+      + (gl.length ? "\n\n【已经解散的群】" + gl.map(x => "「" + x + "」").join("") + "：不写这几个群的新消息。" : "") };
     if (!l.length) return spec;
     return { ...spec, instruction: spec.instruction + "\n\n【她翻你手机时动过你的通讯录备注】现在你手机里就是这样：" + l.map(phoneRemarkLine).join("；")
       + "。这一轮要写到这几个人（contacts／userContact）时，remark 留着她改的、改回去、还是换一个，由你决定。" };
@@ -21925,7 +21927,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ① 给刷新编出来的那些私聊发消息：对面照这段聊天接话，写回他手机这条会话里；
   //   ② 删好友 / 加回来：名单存在 x_phoneWxDel，刷新不会把人放回来。
   //   两样都在她的聊天里落一行灰字；他按出来的下一轮知道（waitForHer.phoneMeddle），下一次刷新微信也知道（x_phoneMeddle）。
-  const phoneMeddleLine = e => e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
+  const phoneMeddleLine = e => e.kind === "gone" ? "把你微信里的群「" + e.name + "」解散了"
+    : e.kind === "ungone" ? "把你微信里解散掉的群「" + e.name + "」恢复了"
+    : e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
     : e.kind === "undel" ? "把「" + e.name + "」加回了你的微信好友"
     : "用你的微信给「" + e.name + "」发了「" + e.said + "」" + (e.back ? "，对方回了：" + e.back : "");
   const phoneMeddleNote = (char, e) => {
@@ -21945,11 +21949,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你" + (undo ? "把「" + nm + "」加回了 " : "把「" + nm + "」从 ") + (char.remark || char.name) + (undo ? " 的微信好友" : " 的微信好友里删了"), ts: Date.now() }]);
     phoneMeddleNote(char, { kind: undo ? "undel" : "del", name: nm });
   };
+  const phoneDissolve = (char, name, undo) => {
+    const nm = String(name || "").trim();
+    if (!char || !nm) return;
+    const all = loadJSON("x_phoneWxGone", {}) || {};
+    const cur = (all[char.id] || []).filter(x => x !== nm);
+    all[char.id] = undo ? cur : [...cur, nm];
+    saveJSON("x_phoneWxGone", all);
+    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机" + (undo ? "恢复了" : "解散了") + "群「" + nm + "」", ts: Date.now() }]);
+    phoneMeddleNote(char, { kind: undo ? "ungone" : "gone", name: nm });
+  };
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
     const isGrp = (session && session.type) === "group";
     if (!name || !(isGrp || (session && session.type) === "private")) return false;
     if (!isGrp && ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
+    if (isGrp && ((loadJSON("x_phoneWxGone", {}) || {})[char.id] || []).includes(name)) return false;
     const wx = () => ((phonesRef.current || {})[char.id] || {}).wechat;
     if (!wx()) return false;
     const p = active;
@@ -31515,7 +31530,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTfReplyAs: (char, tid, accept) => respondTransfer(char.id, tid, accept),
     onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
-    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend,
+    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend, onDissolve: phoneDissolve,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
