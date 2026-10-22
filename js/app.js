@@ -22061,7 +22061,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const tm = String(d0.getHours()).padStart(2, "0") + ":" + String(d0.getMinutes()).padStart(2, "0");
     const put = msgs => { const c2 = wx(); if (!c2) return;
       savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name
-        ? { ...c, messages: [...(c.messages || []), ...msgs.map(m => ({ ...m, _at: m._at || Date.now() }))], last: String(msgs[msgs.length - 1].text || ""), time: tm, _upd: Date.now() } : c) }, { noArchive: true, patched: true }); };   // 记上时间：聊天里画得出那行灰字，刷新时也知道隔了几天
+        ? { ...c, messages: [...(c.messages || []), ...msgs.map(m => ({ ...m, _at: m._at || Date.now() }))], last: String(msgs[msgs.length - 1].text || ""), time: tm, _upd: Date.now(), _ts: Date.now() } : c) }, { noArchive: true, patched: true }); };   // 记上时间：聊天里画得出那行灰字，刷新时也知道隔了几天；_ts 跟着换，列表的日子和先后才会动（群里 2026-10-23「聊完日期没变」）
     put([{ from: char.name, text: body, byUser: true }]);
     const key = "fake:" + name;
     setPhoneAsWait(key);
