@@ -28038,7 +28038,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     let armed = false;
     // 回到前台那一刻 iOS 不让直接出声（要有一下手指）：直接放被拒了，就等她在屏幕上随便点一下再接着放
     const onTap = () => { armed = false; document.removeEventListener("pointerdown", onTap, true); document.removeEventListener("touchend", onTap, true); resume(true); };
-    const arm = () => { if (armed) return; armed = true; document.addEventListener("pointerdown", onTap, true); document.addEventListener("touchend", onTap, true); };
+    const arm = () => { if (armed) return; armed = true; document.addEventListener("pointerdown", onTap, true); document.addEventListener("touchend", onTap, true);
+      if (typeof toast === "function") toast("歌停在这儿了，点一下屏幕就接着放"); };   // 她离开久了 iOS 才这样（2026-10-23），说一声免得以为坏了
     const resume = fromTap => {
       const el = audioElRef.current;
       if (!el || !el.getAttribute("src") || !el.paused || document.visibilityState === "hidden") return;
