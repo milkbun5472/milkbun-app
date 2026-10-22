@@ -3822,9 +3822,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!roomKey || !window.ChatRooms || !window.ChatRooms.isSideKey(roomKey)) return;
     const clean = TVG.accept(thought);
     const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
-    // 这一轮为什么空着（她 2026-10-22：「直接加那个记录吧」）：模型没写，还是写了被筛掉。只留最近这一轮，下一轮有心声就清掉
-    const missOf = () => { const r = String(meta && meta.raw != null ? meta.raw : (thought == null ? "" : thought)).replace(/\s+/g, " ").trim();
-      return r && r.toLowerCase() !== "null" ? { why: "filtered", raw: r.slice(0, 300), ts } : { why: "none", keys: Array.isArray(meta && meta.keys) ? meta.keys.slice(0, 20) : null, ts }; };
     const local = {};
     for (const key of ["action", "wearing", "place"]) {
       const value = meta && meta.state && meta.state[key];
@@ -3835,8 +3832,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const newMood = meta && meta.mood || "";
     const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
-      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null, thoughtMiss: null }
-      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null, thoughtMiss: missOf() };
+      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null }
+      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null };
     const statesNext = { ...roomStatesRef.current, [roomKey]: next };
     roomStatesRef.current = statesNext; setRoomStates(statesNext); saveJSON("x_roomStates", statesNext);
     if (!clean) return;
@@ -9121,7 +9118,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offlineThought = TVG.accept(res.thought);
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
-      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId, raw: res.thought });
+      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId });
       else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
@@ -13296,8 +13293,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   原来两件事共用 parsed.action 一个格子，一封就连那行动作一起没了（群友 2026-10-12：「在房间里开线上动作描写好像没生效」）。
       //   所以封之前先留一份，只给摆那一行用，不进状态。
       let _roomActLine = parsed && parsed.action;
-      // 模型自己交了哪几格（封闸、补位之前拍下；没写心声时摆给她看）
-      const _modelKeys = parsed && typeof parsed === "object" ? Object.keys(parsed).filter(k => parsed[k] != null && parsed[k] !== "" && String(parsed[k]).toLowerCase() !== "null") : null;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const w = room.writeback || {};
@@ -13381,8 +13376,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
-      // 换了个名字交的心声也认（她 2026-10-22 房里查「没写」时补的）
-      if (parsed.thought == null) { const _ak = ["innerThought", "inner", "心声", "os", "monologue", "innerVoice"].find(k => typeof parsed[k] === "string" && parsed[k].trim()); if (_ak) parsed.thought = parsed[_ak]; }
       // mood 兼容规范对象 {label,...}，也兼容模型偶发的简写字符串 "烦躁"。
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
@@ -13409,7 +13402,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
         // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受TA本人自愿留下且通过守卫的 thought。
         parsed.thought = guardedThought;
-        if (!guardedThought && rawThought && rawThought.toLowerCase() !== "null") parsed._thoughtDropped = rawThought;
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       // 只记录明确交回的更新或复看结果；省略时保留原文。
@@ -14283,7 +14275,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
       if (sideRoom) {
-        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought, keys: _modelKeys });
+        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId });
       } else {
         const _live = statesRef.current[charId] || {};
         if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_body) {
