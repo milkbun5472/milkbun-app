@@ -1040,7 +1040,7 @@
           h("div", { className: "flex-1 min-w-0" },
             h("div", { "data-wk": "shuacpname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: P.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, a ? a.handle : "和 " + (c.remark || c.name) + " 的情侣号"),
             h("div", { "data-wk": "shuacpbio", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: P.dim, marginTop: 2, lineHeight: 1.45 } },
-              a ? (a.bio || "还没有简介") + " · " + fmtN(a.followers || 0) + " 粉丝" + (on ? " · 正在用" : "") : "还没开"))),
+              a ? (a.bio || "还没有简介") + " · " + fmtN((((((db.me && db.me.statsOv) || {})["cp:" + id]) || {}).fans) != null ? db.me.statsOv["cp:" + id].fans : (a.followers || 0)) + " 粉丝" + (on ? " · 正在用" : "") : "还没开"))),
         editing && a ? h("div", { style: { marginTop: 6 } },
           inp("cpn_" + id, a.handle, "号名", v => v && setCp(id, { handle: v }), 20),
           inp("cpb_" + id, a.bio || "", "主页简介（一两句）", v => setCp(id, { bio: v }), 80)) : null,
@@ -1137,9 +1137,24 @@
         h("div", { "data-wk": "shuaprofilehead", className: "flex items-center", style: { gap: 14, marginTop: 6 } },
           h(Avatar, { character: { name: maskUse ? maskName : uName, avatarImage: (maskUse && (maskList.find(m => m.id === maskUse) || {}).avatarImage) || (profile && profile.avatarImage) }, size: 70 }),
           h("div", { className: "flex", style: { gap: 20 } },
-            [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [onCp ? (cps[cpId].followers || 0) : onAlt ? 0 : characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: P.ink } }, fmtN(x[0])),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: P.dim } }, x[1]))))),
+            // 获赞、粉丝能自己改（群里 2026-10-22 许愿）：点一下填个数，按号分开记（大号／小号／情侣号各一份）；清空就回到算出来的那个
+            (() => {
+              const acctKey = onCp ? "cp:" + cpId : onAlt ? "alt" : "main";
+              const ov = ((db.me && db.me.statsOv) || {})[acctKey] || {};
+              const calcLikes = mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), calcFans = onCp ? (cps[cpId].followers || 0) : onAlt ? 0 : characters.length;
+              const edit = (k, zh, cur) => typeof requestAppPrompt === "function" && requestAppPrompt("改" + zh, "填你想显示的" + zh + "数，只改这里显示的数字。清空就回到 app 自己算的那个。", ov[k] != null ? String(ov[k]) : "", v => {
+                const t = String(v == null ? "" : v).replace(/[,，\s]/g, "");
+                const m = /^(\d+(?:\.\d+)?)(万|w|W)?$/.exec(t);
+                const all = Object.assign({}, (dbRef.current.me && dbRef.current.me.statsOv) || {}), mine2 = Object.assign({}, all[acctKey] || {});
+                if (!t) delete mine2[k]; else if (m) mine2[k] = Math.round(Number(m[1]) * (m[2] ? 10000 : 1)); else return;
+                all[acctKey] = mine2;
+                save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { statsOv: all }) }));
+              }, "改好了");
+              return [[mine.length, "作品", null], [ov.likes != null ? ov.likes : calcLikes, "获赞", "likes"], [ov.fans != null ? ov.fans : calcFans, "粉丝", "fans"]].map(x => h(x[2] ? "button" : "div", { key: x[1], "data-wk": "shuastat", "data-part": x[2] || "works",
+                  onClick: x[2] ? () => edit(x[2], x[1], x[0]) : undefined, className: x[2] ? "text-left active:opacity-70" : undefined, style: x[2] ? { background: "transparent", border: "none", padding: 0 } : undefined },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: P.ink } }, fmtN(x[0])),
+                h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: P.dim } }, x[1] + (x[2] ? " ✎" : ""))));
+            })())),
         h("input", { "data-wk": "shuahandle", key: "h_" + skin, defaultValue: S(db.me && db.me.handle), placeholder: "账号名（默认用你的名字）", onBlur: e => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { handle: e.target.value.trim().slice(0, 20) }) })),
           className: "w-full outline-none", style: { marginTop: 14, minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
