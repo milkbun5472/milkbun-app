@@ -1225,7 +1225,13 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
   const now = new Date(char && typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now());
   const lockSrc = phoneImage(look && look.lockWallpaper);
   // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
-  const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead);
+  // 清掉的那几条不再挡锁屏（群友 2026-10-22「锁屏的那些消息能不能不显示或者有个叉掉，char 换了我的照片全被消息挡住了」）：
+  //   记的是这几条的 id，之后新来的照样出来——跟 iPhone 锁屏上清通知一个意思
+  const lockKey = "x_phoneLockClear";
+  const [cleared, setCleared] = useState(() => new Set(((loadJSON(lockKey, {}) || {})[char && char.id] || []).map(String)));
+  const clearAll = ids => { const all = loadJSON(lockKey, {}) || {}; const next = [...new Set([...(all[char.id] || []), ...ids.map(String)])].slice(-200);
+    saveJSON(lockKey, { ...all, [char.id]: next }); setCleared(new Set(next)); };
+  const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead && !cleared.has(String(r.id)));
   const fresh = list.filter(r => newIds && newIds[r.id]);
   const pool = (fresh.length ? fresh : list).slice(0, 5);
   const dim = !fresh.length;
@@ -1262,9 +1268,13 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
       (char && char.name || "TA") + " 的手机" + (newCount > 0 ? " · " + newCount + " 条新的" : ""))),
   h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5" },
     !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
-      "锁屏上什么都没有。解锁进去刷一遍吧。"),
+      cleared.size ? "" : "锁屏上什么都没有。解锁进去刷一遍吧。"),
+    pool.length ? h("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 } },
+      h("button", { "data-wk": "phonelockclear", onClick: () => clearAll(list.map(r => r.id)), "aria-label": "清除锁屏通知", className: "active:opacity-60",
+        style: { minHeight: 32, padding: "0 12px", borderRadius: 999, background: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.6)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+          fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.7)" } }, "× 清除")) : null,
     pool.map(card),
-    newCount > pool.length && h("button", {
+    pool.length > 0 && newCount > pool.length && h("button", {
       onClick: onTimeline, className: "w-full active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(30,28,24,.6)", padding: "6px 0 2px" }
     }, "还有 " + (newCount - pool.length) + " 条 · 全部看")),
