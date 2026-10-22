@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.290";
+const APP_VERSION = "v76.291";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27975,6 +27975,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const el = audioElRef.current;
     if (el) { el.loop = false; el.src = url; el.play().then(() => setPlayer(p => ({ ...p, playing: true, loading: false }))).catch(() => setPlayer(p => ({ ...p, loading: false }))); }
   };
+  // 不是她按的暂停（摘耳机、被别的视频／电话抢了声音）：记下来，等她回到 App、或者耳机重新连上就接着放
+  //   （她 2026-10-22：「摘下耳机或者跳到别的视频再回来不会主动播放」）。她自己按的暂停、关掉播放器，不接。
+  const userPauseRef = useRef(false), interruptedRef = useRef(false);
+  useEffect(() => {
+    const resume = () => {
+      const el = audioElRef.current;
+      if (!interruptedRef.current || !el || !el.getAttribute("src") || !el.paused || document.visibilityState === "hidden") return;
+      const pr = el.play(); if (pr && pr.then) pr.then(() => { interruptedRef.current = false; setPlayer(p => ({ ...p, playing: true })); }).catch(() => {});
+    };
+    const vis = () => { if (document.visibilityState === "visible") setTimeout(resume, 400); };
+    document.addEventListener("visibilitychange", vis); window.addEventListener("focus", resume);
+    const md = navigator.mediaDevices; if (md && md.addEventListener) md.addEventListener("devicechange", resume);
+    return () => { document.removeEventListener("visibilitychange", vis); window.removeEventListener("focus", resume); if (md && md.removeEventListener) md.removeEventListener("devicechange", resume); };
+  }, []);
   const togglePlay = () => {
     const el = audioElRef.current; if (!el) return;
     const L = listenRef.current || {};
@@ -27987,7 +28001,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       || null;
     if (!player.songId) { if (restoredId) playSong(restoredId, savedQueue.length ? savedQueue : undefined); return; }
     if (el.paused) { if (!el.getAttribute("src")) return playSong(restoredId || player.songId, savedQueue.length ? savedQueue : L.nowQueue); el.play(); setPlayer(p => ({ ...p, playing: true })); }
-    else { el.pause(); setPlayer(p => ({ ...p, playing: false })); }
+    else { userPauseRef.current = true; el.pause(); setPlayer(p => ({ ...p, playing: false })); }
   };
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
   // 关键：切歌时把当前队列一起传给 playSong，否则播放歌单里点下一首会把队列缩成单曲。
@@ -28085,7 +28099,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 悬浮球上的叉：立刻停播 + 收起悬浮（player.songId 清空 → 悬浮不显示）。再进一起听点歌才会重新唤起。
   const stopPlayer = () => {
     const el = audioElRef.current;
-    if (el) { el.pause(); el.loop = false; el.removeAttribute("src"); try { el.load(); } catch (e) {} }
+    if (el) { userPauseRef.current = true; el.pause(); el.loop = false; el.removeAttribute("src"); try { el.load(); } catch (e) {} }
     if (playUrlRef.current) { URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = null; }
     playerSongIdRef.current = null;
     nextUpRef.current = { id: null, url: null, song: null };
@@ -28373,7 +28387,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const el2 = audioElRef.current;
     if (!el2) return;
     if (prev.t > 1) { try { el2.currentTime = prev.t; } catch (e) {} }   // 还回原来那个位置
-    if (!prev.playing) { el2.pause(); setPlayer(p => ({ ...p, playing: false })); } // 原来是暂停的就还它一个暂停
+    if (!prev.playing) { if (typeof userPauseRef !== "undefined") userPauseRef.current = true; el2.pause(); setPlayer(p => ({ ...p, playing: false })); } // 原来是暂停的就还它一个暂停
   };
   const discEnter = cid => {
     // 唱片是空的也要进这道门：不落针，但把她原来那首记下来（见 roomMusicEnter 上面那段）。
@@ -33701,7 +33715,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     ref: audioElRef,
     style: { display: "none" },
     onTimeUpdate: e => setPlayer(p => ({ ...p, t: e.target.currentTime || 0, dur: e.target.duration || 0 })),
-    onEnded: advanceSong
+    onEnded: advanceSong,
+    onPlay: () => { userPauseRef.current = false; interruptedRef.current = false; },
+    // 系统替她停的：播放器上也显示停了（原来还显示在放，她一点反而变成暂停）
+    onPause: e => { const el = e.target; if (el.ended) return; if (!userPauseRef.current) interruptedRef.current = true; userPauseRef.current = false; setPlayer(p => p.playing ? { ...p, playing: false } : p); }
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
   }, h(ScreenBoundaryClass(), { screen: screen, onBack: () => setScreen("home") }, body)), window.CompanionFloat ? h(window.CompanionFloat, { characters: liveChars, moods: moods, apiFor: apiFor, bgActive: bgActive, toast: toast, ctxFor: ctxFor, profile: profile, screen: screen, music: !!player.playing, hidden: COMPANION_HIDE_SCREENS.has(screen), onOpen: () => setScreen("companion") }) : null, (player.songId && screen !== "listen") ? h(MiniPlayer, {
