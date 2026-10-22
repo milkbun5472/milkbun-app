@@ -81,3 +81,13 @@ console.log("ok");
   assert.equal(a.picks[0], 1, "最后一下才是选的");
   assert.match(Z.askInstruction(t, "她", [], ""), /最多六下/);
 }
+
+// 她 2026-10-22「还是在说把题发过来」：卡和提示里说清题就在卡里；他这一轮说完了才去做
+{
+  const assert = require("node:assert/strict");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /题就在这张卡里，点开就能做/);
+  assert.match(app, /题已经整套在这张卡里、就在你手机上，点开就能做，不用她再发/);
+  assert.match(app, /laneAbortEnd\("c:" \+ chatKey, _abort\);\n      if \(_zyQueue\) _zyQueue\.forEach\(z => zhaoyingRun/);
+  assert.ok(!/opts\.zyAsk\.forEach\(z => zhaoyingRun/.test(app), "不再一开口就去做");
+}

@@ -11852,7 +11852,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她点完卡片留下的那一下（waitForHer）：她按出来的这一轮带上；主动消息不带（那不是在接她）。半天没接就作废。
     const _wh = !sideRoom && !opts.proactive && waitHerRef.current[charId];
     if (_wh && Date.now() - _wh._ts < 12 * 3600e3) { const { _ts, ...whPatch } = _wh; opts = { ...whPatch, ...opts }; }
-    if (opts.zyAsk && opts.zyAsk.length) opts.zyAsk.forEach(z => zhaoyingRun(charId, z.msgId, z.testId));
+    // 照影：等他这一轮的话先说完再去做（她 2026-10-22：原来一开口就去后台做，做得快，「做完了」的卡比他嘴上那几句还先落进聊天）
+    const _zyQueue = opts.zyAsk && opts.zyAsk.length ? opts.zyAsk.slice() : null;
     const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
@@ -12158,7 +12159,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️这两句只交代发生了什么，不替他定说什么（她 2026-10-22「回复那几句话也不太像他」：原来写着「这就会去做」「认不认、哪题犹豫、想不想看她的」，
       //   他就照着报「题目发我，这就去填」、照着那三样一样样聊，谁来都是这几句）
       const zyDoneHint = opts.zyDone ? "\n\n【刚发生的】" + uName + " 刚看着你把「" + opts.zyDone.testName + "」一题一题做完，测出来是「" + opts.zyDone.title + "」。每题选了什么、当时怎么想的你都记得。接下来说什么、提不提这次测试，照你这个人、照你们平时说话的样子。" : "";
-      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。你会去做，做题是另外一件事，不用在话里宣布、也不用把题写出来。这一轮照你平时跟她说话的样子接她刚才的话，这张卡只是其中一件。" : "";
+      const zyAskHint = opts.zyAsk && opts.zyAsk.length ? "\n\n【刚发生的】" + uName + " 发来一张小测卡，想让你做「" + opts.zyAsk.map(z => (window.Zhaoying.byId(z.testId) || {}).name || "").filter(Boolean).join("」「") + "」。题已经整套在这张卡里、就在你手机上，点开就能做，不用她再发；你这一轮说完就去做，做题是另外一件事，不用在话里宣布、也不用把题写出来。这一轮照你平时跟她说话的样子接她刚才的话，这张卡只是其中一件。" : "";
       const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint + zyDoneHint + zyAskHint;
       // 补时间戳的那一条（她关着 app 时「本该发出」的那会儿）：气泡上显示的是那会儿，可提示词里的钟是现在——
       //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
@@ -14340,6 +14341,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return null;                                  // 报错是报错，不许当成「空轮」再烧一次钱
     } finally {
       laneAbortEnd("c:" + chatKey, _abort);
+      if (_zyQueue) _zyQueue.forEach(z => zhaoyingRun(charId, z.msgId, z.testId));
     }
   };
   // CC 工具结果是异步的：云端完成后先作为隐藏系统事实落进同一私聊，
@@ -22056,7 +22058,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!c || !test) return;
     const mid = "zy_" + Date.now();
     const sc = String(scene || "").trim().slice(0, 60);
-    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」" + (sc ? "，这一次假设：" + sc : ""), ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId, ...(sc ? { scene: sc } : {}) } }]);
+    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」（" + test.qs.length + " 道题，题就在这张卡里，点开就能做）" + (sc ? "，这一次假设：" + sc : ""), ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId, ...(sc ? { scene: sc } : {}) } }]);
     const prev = (waitHerRef.current[charId] || {}).zyAsk || [];
     waitForHer(charId, { zyAsk: [...prev, { msgId: mid, testId }].slice(-3) });
     openChatById(charId);
