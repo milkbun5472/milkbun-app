@@ -7797,6 +7797,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               () => { const l2 = loadJSON("x_studyRemindLog", {}); l2[cu.id] = dayKey; saveJSON("x_studyRemindLog", l2); });
             return;                                               // 一次一个，错峰
           }
+          // 学习计划：今天那份还没打卡，傍晚以后那门课的老师来聊天里问一句（她在计划页里关了「到点问我」就不问）
+          const plog = loadJSON("x_studyRemindLog", {});
+          for (const cu of curs) {
+            const pl = cu && cu.plan; if (!pl || pl.remind === false || !Array.isArray(pl.days)) continue;
+            const td = pl.days.find(x => x && x.date === dayKey); if (!td || td.done != null) continue;
+            if (plog["plan:" + cu.id] === dayKey) continue;
+            const tid = cu.teacher_id || (cu.character_ids || [])[0];
+            const cand = characters.find(c => c.id === tid);
+            if (!cand || hist(cand).length < 2 || viewRef.current.charId === cand.id || laneBusy("c:" + cand.id)) continue;
+            const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 18 || hr > 23) continue;
+            if (pSkip("studyplan:" + cu.id)) continue;
+            pOnce("studyplan:" + cu.id, "studyPlan:" + dayKey,
+              () => { const K = window.ChatRooms, rid = String(cu.roomId || "main"), rm = K && rid !== "main" ? K.get(cand.id, rid) : null;
+                const inRoom = !!(rm && !rm.main);
+                return replyNow(cand.id, "", null, { proactive: true, ...(inRoom ? { chatKey: K.chatKey(cand.id, rid), room: rm } : {}),
+                  remind: { title: "今天的「" + (cu.subject || cu.title || "这门课") + "」", note: "按计划今天要学：" + String(td.task).slice(0, 60) + "，她还没说学完没有", src: "study" } }); },
+              () => { const l2 = loadJSON("x_studyRemindLog", {}); l2["plan:" + cu.id] = dayKey; saveJSON("x_studyRemindLog", l2); });
+            return;
+          }
         }
       } catch (e) {}
       // —— 忙的时候晚点回：那段忙完了，TA 自己回一次（一枪看完这期间她发的全部）——
@@ -17112,6 +17131,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       saveJSON("x_calendar", n);
       return n;
     });
+  };
+  // 一起学的学习计划写进「我」的日历（群里 2026-10-22「编到日程里」）：每门课一组，srcId＝studyplan:<课 id>；
+  //   重排一次就整组换掉，不往同一天上叠
+  if (typeof window !== "undefined") window.__studyPlanCal = {
+    sync: (curId, title, days) => setCalendar(prev => {
+      const n = cloneCal(prev), b = n.mine, tag = "studyplan:" + curId;
+      Object.keys(b).forEach(k => { const left = (b[k] || []).filter(e => e && e.srcId !== tag); if (left.length) b[k] = left; else delete b[k]; });
+      (days || []).forEach((d, i) => { if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(String(d.date)) || !String(d.task || "").trim()) return;
+        b[d.date] = [...(b[d.date] || []), { id: "ev_sp_" + Date.now() + "_" + i, title: "学「" + String(title || "").slice(0, 12) + "」：" + String(d.task).slice(0, 40), note: "", srcId: tag }]; });
+      saveJSON("x_calendar", n);
+      return n;
+    })
   };
   const delCalEvent = (view, dateKey, id) => setCalendar(prev => {
     const n = cloneCal(prev);

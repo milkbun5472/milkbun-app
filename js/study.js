@@ -1642,6 +1642,56 @@
       tests: tests.map(function (x) { return { title: x.unitTitle, score: x.score, total: x.total }; }), causes: causes, nextWeek: nextWeek, note: note };
   }
   // 老师写一句评语：料全在 system，user 只留一句触发（prompt-send-shape）
+  // ── 学习计划（群里 2026-10-22：「能和角色讨论安排，根据死线和学习量提醒我一天学多少」）─────────────────
+  //   存在这门课自己身上（cur.plan），不另开一个仓库。日期由代码排好（从今天到死线、去掉她说不排的星期几），
+  //   模型只往每一天上填「学什么」——它数不准日子，日子不交给它。
+  const PLAN_WEEK = ["日", "一", "二", "三", "四", "五", "六"];
+  function planDayKey(t) { const d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function planDates(deadline, offDays, from) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(deadline || "")); if (!m) return [];
+    const end = new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    const start = new Date(from || Date.now()); start.setHours(0, 0, 0, 0);
+    const off = new Set((offDays || []).map(Number)), out = [];
+    for (let t = start.getTime(); t <= end && out.length < 120; t += DAY_MS) { const d = new Date(t); if (!off.has(d.getDay())) out.push(planDayKey(t)); }
+    return out;
+  }
+  function planToday(cur) { const pl = cur && cur.plan; if (!pl || !Array.isArray(pl.days)) return null; const k = planDayKey(Date.now()); return pl.days.find(function (x) { return x && x.date === k; }) || null; }
+  function savePlan(curId, plan) {
+    const fresh = findCurriculum(curId); if (!fresh) return null;
+    const next = Object.assign({}, fresh, { plan: plan, updated_at: Date.now() });
+    saveCurriculum(next);
+    try { if (typeof window !== "undefined" && window.__studyPlanCal) window.__studyPlanCal.sync(curId, fresh.subject || fresh.title || "", plan ? plan.days : []); } catch (e) {}
+    return next;
+  }
+  // ask：{ amount 要学多少, deadline, offDays, note 她这次想怎么改, prev 旧计划（重排时带上打卡记录） }
+  async function genStudyPlan(active, cur, teacher, worldbook, ask) {
+    const prev = ask.prev && Array.isArray(ask.prev.days) ? ask.prev.days : [];
+    const todayK = planDayKey(Date.now());
+    const doneTxt = prev.filter(function (x) { return x && x.date < todayK || x.done != null; }).map(function (x) {
+      return x.date + "「" + x.task + "」" + (x.done === 1 ? "学完了" : x.done === 0.5 ? "学了一半" : x.done === 0 ? "没学" : "没打卡");
+    }).slice(-20).join("；");
+    const dates = planDates(ask.deadline, ask.offDays);
+    if (!dates.length) throw new Error("死线得在今天或以后，而且不能每天都不排");
+    const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + (cur.subject || cur.title || "这门课") + "』。" +
+      "\n【角色人设】\n" + (teacher && teacher.persona || "（暂无）") +
+      (worldbook ? "\n【世界书】\n" + worldbook : "") +
+      "\n\n她请你帮她排学习计划。\n【要学完的】" + String(ask.amount || "").slice(0, 400) +
+      "\n【死线】" + ask.deadline + "（今天 " + todayK + "）" +
+      "\n【能排的日子】一共 " + dates.length + " 天：" + dates.join("、") +
+      (doneTxt ? "\n【之前的计划她做得怎样】" + doneTxt + "——还没学完的要摊到后面这些天里，落下的别假装没落下。" : "") +
+      (ask.note ? "\n【她这次说想怎么改】" + String(ask.note).slice(0, 300) : "") +
+      "\n\n按这门课本来的难度和她实际能学的量来排：一天的量要具体到她打开书就知道今天学哪儿（第几章到第几章、多少道题、哪几个知识点），前面打底、后面留出复习和机动的日子；量排不下就照实说，别把不可能塞进去的硬塞。" +
+      "\n每一天都要有一项，那天就是休息也写「休息／复习前面的」。say 是你排完对她说的一两句话，用你自己说话的样子，说清这份计划紧不紧、哪几天最要命。" +
+      "\n只输出 JSON：{\"say\":\"…\",\"days\":[{\"date\":\"上面那些日子之一\",\"task\":\"那天学什么\"}]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "排吧。" }], { maxTokens: TOK.plan });
+    const d = extractJSON(raw) || {};
+    const byDate = {}; (Array.isArray(d.days) ? d.days : []).forEach(function (x) { if (x && x.date && x.task) byDate[String(x.date)] = String(x.task).trim().slice(0, 80); });
+    const keep = {}; prev.forEach(function (x) { if (x && x.date < todayK) keep[x.date] = x; });
+    const days = Object.keys(keep).sort().map(function (k) { return keep[k]; }).concat(dates.map(function (k) { return { date: k, task: byDate[k] || "（这天没排上，跟老师说一声再排）" }; }));
+    if (!Object.keys(byDate).length) throw new Error("老师这回没排出来，再试一次");
+    return { amount: String(ask.amount || "").slice(0, 400), deadline: ask.deadline, offDays: (ask.offDays || []).map(Number), say: String(d.say || "").trim().slice(0, 300),
+      days: days, remind: ask.prev ? ask.prev.remind !== false : true, ts: Date.now() };
+  }
   async function genWeeklyNote(active, cur, report, teacher, worldbook) {
     const causeTxt = Object.keys(report.causes).map(function (k) { return MISTAKE_CAUSE[k].zh + " " + report.causes[k] + " 道"; }).join("、");
     const sys = CB() + "你是「" + (teacher && teacher.name || "老师") + "」，在教她『" + cur.subject + "』。" +
@@ -1676,6 +1726,7 @@
   }
 
   window.Study = {
+    planDates: planDates, planToday: planToday, genStudyPlan: genStudyPlan, savePlan: savePlan,
     loadSessions: loadSessions, saveSessions: saveSessions,
     loadCurricula: loadCurricula, findCurriculum: findCurriculum, findCurriculumBySubject: findCurriculumBySubject,
     saveCurricula: saveCurricula, saveCurriculum: saveCurriculum, pushCurriculumSummary: pushCurriculumSummary,
@@ -2558,6 +2609,109 @@
   function levelTone(accent, lv) {
     return lv === 3 ? accent : lv === 2 ? accent + "8c" : lv === 1 ? DASH_TONES.review : lv === 0 ? DASH_TONES.fresh : "transparent";
   }
+  // 学习计划页：没排过是一张表（要学多少／死线／哪几天不排），排过是一列日子，今天那格能打卡、能跟老师说怎么改
+  function StudyPlanPage(props) {
+    const cur0 = findCurriculum(props.curriculum.id) || props.curriculum;
+    const accent = studyModeSkin(cur0.mode).accent;
+    const plan = cur0.plan || null;
+    const ex = examCountdown(cur0);
+    const teacherId = cur0.teacher_id || (cur0.character_ids || [])[0];
+    const teacher = (props.characters || []).find(function (c) { return c.id === teacherId; }) || null;
+    const tn = teacher ? (teacher.remark || teacher.name) : "老师";
+    const [, bump] = useState(0);
+    const [busy, setBusy] = useState(false);
+    const [editing, setEditing] = useState(!plan);
+    const [amount, setAmount] = useState(plan ? plan.amount : "");
+    const [deadline, setDeadline] = useState(plan ? plan.deadline : (ex && ex.days >= 0 ? ex.date : ""));
+    const [off, setOff] = useState(plan ? plan.offDays || [] : []);
+    const [note, setNote] = useState("");
+    const todayK = planDayKey(Date.now());
+    const paper = { marginTop: 10, padding: "14px 16px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 14px 14px 4px" };
+    const inp = { width: "100%", borderRadius: 8, border: "1px solid " + STUDY_SKIN.line, background: STUDY_SKIN.paper2, padding: "8px 10px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.ink, outline: "none" };
+    const eyebrow = function (t) { return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".04em", color: accent, marginBottom: 7 } }, t); };
+    const btn = function (label, onClick, primary, dis) {
+      return h("button", { onClick: onClick, disabled: !!dis, className: "active:opacity-70 disabled:opacity-40",
+        style: { padding: "8px 14px", borderRadius: "4px 10px 4px 4px", background: primary ? accent : "transparent", color: primary ? STUDY_SKIN.paper : STUDY_SKIN.sub, border: primary ? "none" : "1px solid " + STUDY_SKIN.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, label);
+    };
+    async function run(withNote) {
+      if (busy) return;
+      if (!String(amount).trim()) { props.toast && props.toast("先写要学完多少"); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) { props.toast && props.toast("先选个死线"); return; }
+      if (!props.active && !props.bgActive) { props.toast && props.toast("请先到设置配置 API"); return; }
+      setBusy(true);
+      try {
+        const wb = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, cur0.subject) : props.worldbook;
+        const next = await genStudyPlan(props.active || props.bgActive, cur0, teacher, wb, { amount: amount, deadline: deadline, offDays: off, note: withNote ? note : "", prev: plan });
+        savePlan(cur0.id, next); setNote(""); setEditing(false);
+        bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh();
+        props.toast && props.toast("排好了，也写进了你的日历");
+      } catch (e) { props.toast && props.toast(String(e && e.message || "没排成，再试一次").split("\n")[0]); }
+      finally { setBusy(false); }
+    }
+    function mark(date, v) {
+      const fresh = findCurriculum(cur0.id); if (!fresh || !fresh.plan) return;
+      savePlan(cur0.id, Object.assign({}, fresh.plan, { days: fresh.plan.days.map(function (x) { return x.date === date ? Object.assign({}, x, { done: x.done === v ? null : v }) : x; }) }));
+      bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh();
+    }
+    const doneN = plan ? plan.days.filter(function (x) { return x.done === 1; }).length : 0;
+    const lagN = plan ? plan.days.filter(function (x) { return x.date < todayK && x.done !== 1 && !/休息/.test(x.task); }).length : 0;
+    return h("div", { "data-wk": "studypage", className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "学习计划", en: cur0.subject || cur0.title || "", mode: cur0.mode, onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        editing || !plan ? h("section", { "data-wk": "studyplanform", style: Object.assign({}, paper, { marginTop: 12 }) },
+          eyebrow("要学完多少"),
+          h("textarea", { "data-wk": "textarea", value: amount, onChange: function (e) { setAmount(e.target.value); }, rows: 3, maxLength: 400, placeholder: "比如：课本 12 章 + 两套真题；写得越具体，排出来越能照着学", style: Object.assign({ resize: "none", lineHeight: 1.6 }, inp) }),
+          h("div", { style: { marginTop: 12 } }, eyebrow("死线")),
+          h("input", { "data-wk": "studyinput", type: "date", value: deadline, onChange: function (e) { setDeadline(e.target.value); }, style: Object.assign({ height: 38 }, inp) }),
+          h("div", { style: { marginTop: 12 } }, eyebrow("哪几天不排")),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, [1, 2, 3, 4, 5, 6, 0].map(function (w) {
+            const on = off.indexOf(w) >= 0;
+            return h("button", { key: w, "data-wk": "studyplanoff", "data-on": on ? "1" : "0", onClick: function () { setOff(on ? off.filter(function (x) { return x !== w; }) : off.concat([w])); }, className: "active:opacity-70",
+              style: { width: 40, height: 34, borderRadius: 8, border: "1px solid " + (on ? accent : STUDY_SKIN.line), background: on ? accent : "transparent", color: on ? STUDY_SKIN.paper : STUDY_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "周" + PLAN_WEEK[w]);
+          })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: STUDY_SKIN.fog, marginTop: 10, lineHeight: 1.6 } },
+            tn + " 照这门课的难度排出每天学哪儿，排好会写进你日历里（每天一条）。每排一次算一次调用。"),
+          h("div", { className: "flex", style: { gap: 8, marginTop: 12 } },
+            btn(busy ? "在排…" : (plan ? "照这个重排" : "让 " + tn + " 排"), function () { run(false); }, true, busy),
+            plan ? btn("算了", function () { setEditing(false); }, false, busy) : null))
+        : h(React.Fragment, null,
+          h("section", { "data-wk": "studyplanhead", style: Object.assign({}, paper, { marginTop: 12 }) },
+            h("div", { className: "flex items-baseline", style: { gap: 6 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: STUDY_SKIN.sub } }, "到 " + plan.deadline + " · 完成"),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", color: STUDY_SKIN.ink } }, doneN),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: STUDY_SKIN.sub } }, "/ " + plan.days.length + " 天"),
+              h("span", { className: "flex-1" }),
+              lagN ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: STUDY_SKIN.red } }, "落下 " + lagN + " 天") : null),
+            plan.say ? h("div", { style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: STUDY_SKIN.paper2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.65, color: STUDY_SKIN.ink } }, tn + "：" + plan.say) : null,
+            h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
+              h(Toggle, { on: plan.remind !== false, onChange: function () { savePlan(cur0.id, Object.assign({}, findCurriculum(cur0.id).plan, { remind: plan.remind === false })); bump(function (n) { return n + 1; }); }, color: accent, offColor: STUDY_SKIN.line, size: "s", label: "到点问我" }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: STUDY_SKIN.sub, lineHeight: 1.5 } }, "当天没打卡，傍晚以后 " + tn + " 来聊天里问一句（一天一次）"))),
+          h("section", { "data-wk": "studyplanask", style: paper },
+            eyebrow("跟 " + tn + " 说怎么改"),
+            h("textarea", { "data-wk": "textarea", value: note, onChange: function (e) { setNote(e.target.value); }, rows: 2, maxLength: 300, placeholder: "比如：周末别排太满／前面多排点／我落下了，帮我摊一摊", style: Object.assign({ resize: "none", lineHeight: 1.6 }, inp) }),
+            h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 8 } },
+              btn(busy ? "在排…" : "照这句重排", function () { run(true); }, true, busy || !note.trim()),
+              btn("改死线／学习量", function () { setEditing(true); }, false, busy),
+              btn("不要了", function () { savePlan(cur0.id, null); setEditing(true); bump(function (n) { return n + 1; }); props.onRefresh && props.onRefresh(); }, false, busy))),
+          h("section", { "data-wk": "studyplandays", style: paper },
+            plan.days.map(function (x) {
+              const isToday = x.date === todayK, past = x.date < todayK;
+              const d = new Date(x.date.replace(/-/g, "/"));
+              return h("div", { key: x.date, "data-wk": "studyplanday", "data-on": isToday ? "1" : "0",
+                style: { padding: "9px 0", borderTop: "1px dashed " + STUDY_SKIN.line, opacity: past && x.done === 1 ? 0.55 : 1 } },
+                h("div", { className: "flex items-baseline", style: { gap: 8 } },
+                  h("span", { style: { width: 64, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: isToday ? accent : STUDY_SKIN.fog, fontWeight: isToday ? 700 : 400 } },
+                    isToday ? "今天" : (d.getMonth() + 1) + "/" + d.getDate() + " 周" + PLAN_WEEK[d.getDay()]),
+                  h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: STUDY_SKIN.ink, lineHeight: 1.55 } }, x.task),
+                  x.done != null ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: x.done === 1 ? accent : x.done === 0.5 ? STUDY_SKIN.sub : STUDY_SKIN.red } }, x.done === 1 ? "✓ 学完" : x.done === 0.5 ? "一半" : "没学") : null),
+                (isToday || past) ? h("div", { className: "flex", style: { gap: 6, marginTop: 6, paddingLeft: 72 } }, [[1, "学完了"], [0.5, "学了一半"], [0, "没学"]].map(function (o) {
+                  const on = x.done === o[0];
+                  return h("button", { key: o[1], "data-wk": "studyplanmark", onClick: function () { mark(x.date, o[0]); }, className: "active:opacity-70",
+                    style: { padding: "3px 10px", borderRadius: 999, border: "1px solid " + (on ? accent : STUDY_SKIN.line), background: on ? accent : "transparent", color: on ? STUDY_SKIN.paper : STUDY_SKIN.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, o[1]);
+                })) : null);
+            }),
+            lagN ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: STUDY_SKIN.sub, marginTop: 10, lineHeight: 1.6 } }, "落下的不会自己挪：在上面跟 " + tn + " 说一句「帮我摊一摊」，他照你打的卡把剩下的重新排。") : null))));
+  }
   function KnowledgeMap(props) {
     const cur = findCurriculum(props.curriculum.id) || props.curriculum;
     const accent = studyModeSkin(cur.mode).accent;
@@ -2818,6 +2972,9 @@
     if (bookOpen === "week") return h(WeeklyPage, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
       worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
       onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
+    if (bookOpen === "plan") return h(StudyPlanPage, { curriculum: cur, characters: props.characters, active: props.active, bgActive: props.bgActive,
+      worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+      onRefresh: props.onRefresh, onBack: function () { setBookOpen(false); props.onRefresh && props.onRefresh(); } });
     if (bookOpen === "map") return h(KnowledgeMap, { curriculum: cur, sessions: props.sessions,
       onBook: function () { setBookOpen("book"); }, onBack: function () { setBookOpen(false); } });
     if (bookOpen === "test") return h(UnitTest, { curriculum: cur, sessions: props.sessions, characters: props.characters, active: props.active, bgActive: props.bgActive,
@@ -2915,7 +3072,11 @@
               cell("test", "单元测", nTests ? "测过 " + nTests + " 次 ›" : "闭卷做一套 ›")),
             h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
               cell("drill", "快刷", dueNow ? dueNow + " 张到点了，刷一摞 ›" : "现在没有到点的 ›"),
-              cell("week", "这周", "学了 " + wk.days + " 天" + (wk.learned.length ? " · 新会 " + wk.learned.length + " 个" : "") + " ›")));
+              cell("week", "这周", "学了 " + wk.days + " 天" + (wk.learned.length ? " · 新会 " + wk.learned.length + " 个" : "") + " ›")),
+            // 学习计划（群里 2026-10-22）：今天那格写在入口上，点进去看整份
+            (function () { const td = planToday(cur);
+              return h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+                cell("plan", "学习计划", cur.plan ? (td ? "今天：" + String(td.task).slice(0, 18) + (td.done === 1 ? " ✓" : "") + " ›" : "到 " + cur.plan.deadline + " ›") : "按死线和学习量排每天学多少 ›")); })());
         })(),
         // 错题本入口（她 2026-09-23）：一整条，写着还剩几道
         h("button", { onClick: function () { setBookOpen("book"); }, className: "w-full flex items-center active:opacity-70",
