@@ -1634,7 +1634,11 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     : "";
   const wxChatList = wxUpdOnly
     ? characterText(char, "\n【他微信里现有的会话（name 必须从这里面照抄）】\n") + _wxChats.map(function (c) {
-        return "· " + (c.name || "") + (c.type === "group" ? "（群）" : "") + (c.last ? "：" + String(c.last).slice(0, 24) : "");
+        // 隔了几天就照实说（群里 2026-10-23：「过了一个星期还在说同一个」）——上次那件事早过去了，这回说的是这几天的
+        const _lastAt = Math.max(0, Number(c._upd) || 0, Number(c._ts) || 0, ...((Array.isArray(c.messages) ? c.messages : []).map(m => Number(m && m._at) || 0)));
+        const _days = _lastAt ? Math.floor((Date.now() - _lastAt) / 86400000) : 0;
+        return "· " + (c.name || "") + (c.type === "group" ? "（群）" : "") + (c.last ? "：" + String(c.last).slice(0, 24) : "")
+          + (_days >= 1 ? "（上次说话是 " + _days + " 天前，那件事已经过去了；这回说的是这几天新发生的）" : "");
       }).join("\n") + "\n"
     : "";
   const bookList = bookUpdOnly

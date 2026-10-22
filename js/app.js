@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.300";
+const APP_VERSION = "v76.301";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22072,13 +22072,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const tm = String(d0.getHours()).padStart(2, "0") + ":" + String(d0.getMinutes()).padStart(2, "0");
     const put = msgs => { const c2 = wx(); if (!c2) return;
       savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name
-        ? { ...c, messages: [...(c.messages || []), ...msgs], last: String(msgs[msgs.length - 1].text || ""), time: tm } : c) }, { noArchive: true, patched: true }); };
+        ? { ...c, messages: [...(c.messages || []), ...msgs.map(m => ({ ...m, _at: m._at || Date.now() }))], last: String(msgs[msgs.length - 1].text || ""), time: tm, _upd: Date.now() } : c) }, { noArchive: true, patched: true }); };   // 记上时间：聊天里画得出那行灰字，刷新时也知道隔了几天
     put([{ from: char.name, text: body, byUser: true }]);
     const key = "fake:" + name;
     setPhoneAsWait(key);
     const ct = (wx().contacts || []).find(c => c && String(c.name || "").trim() === name) || {};
     const sess = (wx().chats || []).find(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name) || { messages: [] };
-    const log = (sess.messages || []).slice(-24).map(m => (m.from || "") + "：" + String(m.text || m.body || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
+    // 她刚发的那句一定放在最后（群里 2026-10-23「我跟推演出来的聊天说话接不上，她不回我的话」）：
+    //   上面 put 刚写进去，这一刻读回来的 sess 多半还是写之前那份——原来对面看到的最后一条是上一轮的，就接着上一轮说
+    const _prev = (sess.messages || []).filter(m => !(m && m.byUser && String(m.text || "") === body));
+    const log = _prev.slice(-24).map(m => (m.from || "") + "：" + String(m.text || m.body || "").replace(/\s+/g, " ").slice(0, 120)).join("\n")
+      + "\n【" + char.name + " 刚发的，你要回的就是这一句】" + char.name + "：" + body.replace(/\s+/g, " ").slice(0, 300);
     // 群：群里除了他以外、聊天里出现过的那几个人来接
     const members = isGrp ? [...new Set((sess.messages || []).map(m => String(m.from || "").trim()).filter(x => x && x !== char.name && x !== "我" && x !== "本人"))].slice(0, 8) : [];
     const sys = isGrp ? ("你在演微信群「" + name + "」里除了 " + char.name + " 以外的人" + (members.length ? "：" + members.join("、") : "") + "。"
