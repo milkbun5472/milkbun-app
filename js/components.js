@@ -4289,7 +4289,74 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
+// 导入课表那一页（2026-10-22）：截图 / 粘贴文字 / .ics 三条路 → 先列出来能改能删 → 定学期起止 → 存
+const WEEKDAY_ZH = ["", "周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+function ClassImportSheet({ ownerName, onParse, onSave, onClose }) {
+  const t = useTheme();
+  const today = new Date(), pad = n => String(n).padStart(2, "0");
+  const k = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const [termStart, setTermStart] = useState(() => k(today));
+  const [termEnd, setTermEnd] = useState(() => { const d = new Date(today); d.setDate(d.getDate() + 18 * 7); return k(d); });
+  const [mode, setMode] = useState("image");
+  const [text, setText] = useState("");
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const inSt = { width: "100%", outline: "none", padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink };
+  const lbl = s => h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 5px" } }, s);
+  const run = async payload => { setBusy(true); try { const r = await onParse(payload); if (r && r.length) setRows(r); } finally { setBusy(false); } };
+  const pickFile = (accept, cb) => { const i = document.createElement("input"); i.type = "file"; i.accept = accept; i.onchange = () => { const f = i.files && i.files[0]; if (f) cb(f); }; i.click(); };
+  const fromImage = () => pickFile("image/*", async f => { const url = typeof blobToDataUrl === "function" ? await blobToDataUrl(f) : null; if (url) run({ image: url }); });
+  const fromIcs = () => pickFile(".ics,text/calendar", async f => {
+    const r = typeof parseIcsClasses === "function" ? parseIcsClasses(await f.text()) : [];
+    if (!r.length) { window.__toast && window.__toast("这个文件里没读到课"); return; }
+    setRows(r);
+  });
+  const setRow = (i, p) => setRows(rs => rs.map((r, j) => j === i ? Object.assign({}, r, p) : r));
+  const chip = (on, label, fn) => h("button", { "data-wk": "classimportmode", "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70",
+    style: { padding: "6px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : t.bg2, color: on ? t.bg : t.sub } }, label);
+  return h(PageSheet, { onClose, tall: true },
+    h("div", { "data-wk": "classimport", className: "px-1 pb-4" },
+      h(Eyebrow, { style: { marginBottom: 6 } }, "导入课表" + (ownerName ? " · " + ownerName : "")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+        "每节课存成一条每周重复的日程，到学期末自动停；单双周的课隔一周出现一次。先认出来给你看，改好了再存。"),
+      lbl("这学期从哪天到哪天"),
+      h("div", { className: "flex gap-2" },
+        h("input", { "data-wk": "calinput", "data-part": "termstart", type: "date", value: termStart, onChange: e => setTermStart(e.target.value), style: inSt }),
+        h("input", { "data-wk": "calinput", "data-part": "termend", type: "date", value: termEnd, min: termStart, onChange: e => setTermEnd(e.target.value), style: inSt })),
+      !rows ? h(Fragment, null,
+        lbl("从哪儿导"),
+        h("div", { className: "flex gap-2 flex-wrap" },
+          chip(mode === "image", "课表截图", () => setMode("image")), chip(mode === "text", "粘贴文字", () => setMode("text")), chip(mode === "ics", ".ics 文件", () => setMode("ics"))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "10px 0" } },
+          mode === "image" ? "教务系统或课表 App 截一张整周的图，花一次调用。只写了第几节的话，最好把每节几点到几点也截进去。"
+            : mode === "text" ? "从教务网页把课表那一段复制下来贴进来，花一次调用。"
+            : "课表 App 里「导出到日历」那种 .ics 文件，直接读，不花调用。"),
+        mode === "text" ? h("textarea", { "data-wk": "calinput", "data-part": "classtext", value: text, onChange: e => setText(e.target.value), rows: 7, style: Object.assign({}, inSt, { resize: "none", lineHeight: 1.6 }) }) : null,
+        h("button", { "data-wk": "classimportgo", disabled: busy || (mode === "text" && !text.trim()),
+          onClick: () => mode === "image" ? fromImage() : mode === "text" ? run({ text }) : fromIcs(),
+          className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 12, background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
+          busy ? "在认…" : mode === "image" ? "选一张截图" : mode === "text" ? "认出来" : "选 .ics 文件"))
+      : h(Fragment, null,
+        lbl("认出来 " + rows.length + " 节，不对的直接改，用不上的点 ✕"),
+        rows.map((r, i) => h("div", { key: i, "data-wk": "classimportrow", style: { borderBottom: "1px solid " + t.line, padding: "8px 0" } },
+          h("div", { className: "flex gap-2 items-center" },
+            h("input", { value: r.title, onChange: e => setRow(i, { title: e.target.value }), style: Object.assign({}, inSt, { flex: 1 }) }),
+            h("button", { onClick: () => setRows(rs => rs.filter((_, j) => j !== i)), "aria-label": "不要这节", className: "active:opacity-60", style: { width: 32, height: 32, color: t.fog, background: "none", border: "none", fontSize: 16 } }, "✕")),
+          h("div", { className: "flex gap-2 items-center", style: { marginTop: 6 } },
+            r.firstDate ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minWidth: 64 } }, r.firstDate.slice(5) + " 起")
+              : h("select", { value: r.weekday, onChange: e => setRow(i, { weekday: +e.target.value }), style: Object.assign({}, inSt, { width: 76, padding: "7px 6px" }) }, [1, 2, 3, 4, 5, 6, 7].map(w => h("option", { key: w, value: w }, WEEKDAY_ZH[w]))),
+            h("input", { type: "time", value: r.start, onChange: e => setRow(i, { start: e.target.value }), style: Object.assign({}, inSt, { width: 92, padding: "7px 6px" }) }),
+            h("input", { type: "time", value: r.end, onChange: e => setRow(i, { end: e.target.value }), style: Object.assign({}, inSt, { width: 92, padding: "7px 6px" }) }),
+            r.firstDate ? null : h("select", { value: r.weeks, onChange: e => setRow(i, { weeks: e.target.value }), style: Object.assign({}, inSt, { width: 70, padding: "7px 6px" }) },
+              [["all", "每周"], ["odd", "单周"], ["even", "双周"]].map(([v, l]) => h("option", { key: v, value: v }, l)))),
+          h("input", { value: r.location, placeholder: "教室（可以空着）", onChange: e => setRow(i, { location: e.target.value }), style: Object.assign({}, inSt, { marginTop: 6 }) }))),
+        h("div", { className: "flex gap-2", style: { marginTop: 14 } },
+          h("button", { onClick: () => setRows(null), className: "active:opacity-70", style: { flex: 1, padding: "12px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, color: t.sub } }, "重新导"),
+          h("button", { "data-wk": "classimportsave", disabled: !rows.length || !termStart,
+            onClick: () => { const n = onSave(rows.filter(r => String(r.title || "").trim()), termStart, termEnd); window.__toast && window.__toast(n ? "存好了 " + n + " 节课" : "没存进去（学期日期对不上？）"); if (n) onClose(); },
+            className: "active:opacity-70 disabled:opacity-40", style: { flex: 2, padding: "12px 0", borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "存进日历")))));
+}
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onCopyMaskSched, onParseTimetable, onSaveClasses, onDelEvent, onGenMonth, onGenMyWeek, myWeekBusy, myMasks, maskKeyOf, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
   // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
@@ -4320,7 +4387,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // 每张面具一本日程（她 2026-10-14「点我的头像可以选不同面具的日程，每个单独选能看到的角色，角色跟着面具走」）：
   //   主面具＝owner "mine"（原来的那一本，一条不动）；副面具＝"mine:面具id"。点「我」的头像换面具。
   const [myMask, setMyMask] = useState(""), [maskPick, setMaskPick] = useState(false);
-  const [copyAll, setCopyAll] = useState(false);   // 复制别的面具的日程：默认只搬今天及以后的
+  const [copyAll, setCopyAll] = useState(false);
+  const [classOpen, setClassOpen] = useState(false);   // 导入课表那一页   // 复制别的面具的日程：默认只搬今天及以后的
   const maskList = Array.isArray(myMasks) && myMasks.length ? myMasks : [{ key: "", name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }];
   const curMask = maskList.find(m => m.key === myMask) || maskList[0];
   const evOwner = view === "mine" ? (myMask ? "mine:" + myMask : "mine") : view;
@@ -4619,6 +4687,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     h("div", { style: { position: "absolute", right: 18, bottom: 22, zIndex: 30 } },
       fab && h("div", { "data-wk": "calfabmenu", style: { position: "absolute", right: 0, bottom: 62, width: 190, background: t.bg2, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
         h("button", { "data-wk": "calfabitem", "data-part": "new", onClick: () => { setFab(false); setForm({ owner: evOwner, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
+        view === "mine" && onParseTimetable && onSaveClasses && h("button", { "data-wk": "calfabitem", "data-part": "classes", onClick: () => { setFab(false); setClassOpen(true); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px" } }, "📚　导入课表"),
         isCharView && h("button", { "data-wk": "calfabitem", "data-part": "genweek", onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
         // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
         // 「删除」两个字底下藏着多少东西，得让她在按之前就看见。
@@ -4726,6 +4795,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, background: t.bg2, borderRadius: 10, padding: "8px 11px" } },
             "存好以后 TA 就照这个过：聊天里问 TA 在干嘛按这个答，「TA的一天」里的小人也照新写的事和地方换房间。地方写清楚认得最准。")));
     })(),
+    classOpen && h(ClassImportSheet, { ownerName: maskList.length > 1 ? curMask.name : "", onParse: onParseTimetable, onClose: () => setClassOpen(false),
+      onSave: (rows, a, b) => onSaveClasses(rows, evOwner, a, b) }),
     maskPick && h(Sheet, { onClose: () => setMaskPick(false) },
       h("div", { "data-wk": "calmaskpick", className: "px-1 pb-2" },
         h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "看哪张面具的日程"),
@@ -4803,6 +4874,7 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
   const [color, setColor] = useState(ini.color || "");
   // 重复（v56.35，她 2026-08-26：「跟备忘录一样」）——用的是同一套规则（calRepeatOn）
   const [repeat, setRepeat] = useState(ini.repeat || "none");
+  const [until, setUntil] = useState(ini.until || "");   // 重复到哪天为止，空着＝一直重复
   const allDay = !stt;
   const rec = repeat !== "none";
   const inSt = { width: "100%", outline: "none", padding: "11px 13px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink };
@@ -4810,7 +4882,7 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
   const save = () => {
     if (!title.trim() || !sd) return;
     // 重复的一律单日：跨天 + 重复叠在一起讲不清楚，备忘录那边也是单日
-    onSave({ id: ini.id, owner: ini.owner || owner, startDate: sd, endDate: rec ? sd : (ed || sd), startTime: stt, endTime: stt ? ett : "", title: title.trim(), location: loc.trim(), icon, color, repeat, createdAt: ini.createdAt });
+    onSave({ id: ini.id, owner: ini.owner || owner, startDate: sd, endDate: rec ? sd : (ed || sd), startTime: stt, endTime: stt ? ett : "", title: title.trim(), location: loc.trim(), icon, color, repeat, until: rec ? until : "", src: ini.src, createdAt: ini.createdAt });
   };
   return h(PageSheet, { onClose, tall: true },
     h("div", { "data-wk": "calform", className: "px-1 pb-3" },
@@ -4846,6 +4918,8 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
               border: "1.6px solid " + t.accent, borderRadius: "50%", transform: "rotate(-3.5deg)", pointerEvents: "none" } }) : null,
             l);
         })),
+      rec ? h("div", { style: { margin: "10px 0" } }, lbl("重复到哪天为止（空着＝一直重复）"),
+        h("input", { "data-wk": "calinput", "data-part": "until", type: "date", value: until, min: sd || undefined, onChange: e => setUntil(e.target.value), style: inSt })) : null,
       rec ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, lineHeight: 1.6, background: t.bg2, borderRadius: 10, padding: "8px 11px", marginBottom: 14 } },
         (() => {
           const d = sd ? new Date(sd.split("-")[0], sd.split("-")[1] - 1, sd.split("-")[2]) : null;
