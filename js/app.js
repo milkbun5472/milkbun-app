@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.250";
+const APP_VERSION = "v76.255";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7797,6 +7797,25 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               () => { const l2 = loadJSON("x_studyRemindLog", {}); l2[cu.id] = dayKey; saveJSON("x_studyRemindLog", l2); });
             return;                                               // 一次一个，错峰
           }
+          // 学习计划：今天那份还没打卡，傍晚以后那门课的老师来聊天里问一句（她在计划页里关了「到点问我」就不问）
+          const plog = loadJSON("x_studyRemindLog", {});
+          for (const cu of curs) {
+            const pl = cu && cu.plan; if (!pl || pl.remind === false || !Array.isArray(pl.days)) continue;
+            const td = pl.days.find(x => x && x.date === dayKey); if (!td || td.done != null) continue;
+            if (plog["plan:" + cu.id] === dayKey) continue;
+            const tid = cu.teacher_id || (cu.character_ids || [])[0];
+            const cand = characters.find(c => c.id === tid);
+            if (!cand || hist(cand).length < 2 || viewRef.current.charId === cand.id || laneBusy("c:" + cand.id)) continue;
+            const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 18 || hr > 23) continue;
+            if (pSkip("studyplan:" + cu.id)) continue;
+            pOnce("studyplan:" + cu.id, "studyPlan:" + dayKey,
+              () => { const K = window.ChatRooms, rid = String(cu.roomId || "main"), rm = K && rid !== "main" ? K.get(cand.id, rid) : null;
+                const inRoom = !!(rm && !rm.main);
+                return replyNow(cand.id, "", null, { proactive: true, ...(inRoom ? { chatKey: K.chatKey(cand.id, rid), room: rm } : {}),
+                  remind: { title: "今天的「" + (cu.subject || cu.title || "这门课") + "」", note: "按计划今天要学：" + String(td.task).slice(0, 60) + "，她还没说学完没有", src: "study" } }); },
+              () => { const l2 = loadJSON("x_studyRemindLog", {}); l2["plan:" + cu.id] = dayKey; saveJSON("x_studyRemindLog", l2); });
+            return;
+          }
         }
       } catch (e) {}
       // —— 忙的时候晚点回：那段忙完了，TA 自己回一次（一枪看完这期间她发的全部）——
@@ -11393,6 +11412,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 查岗不是逛手机（她 2026-10-01／02）：只查聊天，钱包、外卖、购物是聊天里翻出线索才顺着去的
           + "\n你是带着心思来查的：先看一眼消息列表，再一个一个点开聊天——单聊至少看 3 个人（列表里还有就接着点）；群是额外的，看完单聊想看就看、不想看就不看（她 2026-10-02），每个都往上翻着读；看完一个 back 退回列表再点下一个，别看了一个就走。"
           + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，就顺着去对应那一样看看是谁给谁、多少、什么时候——上面列出来的线索里至少挑一样去看；没线索的不用去。" : "")
+          + (() => { const ct = apps.includes("shop") ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
+              return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
+                + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
           + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[\"翻着翻着心里冒出的一句\",\"再往上翻又一句\"]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
@@ -11414,7 +11436,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (sneak) {
       if (!script.length) return;
       // 手脚当场就动了；她回放时只看，不再动一遍
-      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate"].includes(st.do)) peekEffect(charId, st); });
+      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate", "paycart"].includes(st.do)) peekEffect(charId, st); });
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
@@ -11623,6 +11645,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // t 给她看（聊天里那条记录）；mine 是TA自己记得的说法（进查手机记事）
     const note = (t, mine) => { pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);
       (peekDidRef.current[viewerId] = peekDidRef.current[viewerId] || []).push(mine); };
+    // 替她付购物车（群里 2026-10-22「反查手机他能看到我的购物车，能不能帮我清空购物车」）：跟她替TA付是反过来的同一件事——
+    //   从TA钱包扣，那几件从她购物车里拿掉，变成「TA替你付的」订单
+    if (step.do === "paycart") {
+      const cartNow = loadJSON("x_shopCart", []) || [];
+      const want = (step.items || []).map(x => String(x || "").trim()).filter(Boolean);
+      const pick = want.length ? cartNow.filter(x => x && x.name && want.some(w => x.name === w || x.name.includes(w) || w.includes(x.name))) : cartNow.slice();
+      if (!pick.length) return;
+      const total = Math.round(pick.reduce((n, x) => n + (Number(x.price) || 0), 0) * 100) / 100;
+      walletSpend(viewerId, total, "翻 " + userName(profile) + " 手机时替她付了购物车", "gift");
+      removeCartUids(pick.map(x => x.uid));
+      pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: viewerId, payLabel: vn + " 替你付的" }));
+      const names = pick.map(x => x.name).join("、");
+      note("「" + vn + "」翻你手机时替你把购物车里的 " + names + " 付了（¥" + total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + names);
+      return;
+    }
     if (step.do === "pin") {
       const id = tgt ? tgt.id : viewerId;
       setPinnedChats(p => { const n = [id, ...p.filter(x => x !== id)]; saveJSON("x_pinnedChats", n); return n; });
@@ -11711,6 +11748,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 刷新微信那一次：把她改过的告诉TA，留不留由TA；交出去就清
   const phoneRemarkSpec = (char, key, spec) => {
     const l = key === "wechat" ? ((loadJSON("x_phoneRemarkEdits", {}) || {})[char.id] || []) : [];
+    const md = key === "wechat" ? ((loadJSON("x_phoneMeddle", {}) || {})[char.id] || []) : [];
+    const dl = key === "wechat" ? ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []) : [];
+    if (md.length || dl.length) spec = { ...spec, instruction: spec.instruction
+      + (md.length ? "\n\n【她拿你手机做过的事】" + md.map(phoneMeddleLine).join("；") + "。这些已经发生了，写到相关的人时照这个来。" : "")
+      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "") };
     if (!l.length) return spec;
     return { ...spec, instruction: spec.instruction + "\n\n【她翻你手机时动过你的通讯录备注】现在你手机里就是这样：" + l.map(phoneRemarkLine).join("；")
       + "。这一轮要写到这几个人（contacts／userContact）时，remark 留着她改的、改回去、还是换一个，由你决定。" };
@@ -11719,6 +11761,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (key !== "wechat") return;
     const all = loadJSON("x_phoneRemarkEdits", {}) || {};
     if (all[char.id]) { delete all[char.id]; saveJSON("x_phoneRemarkEdits", all); }
+    const mall = loadJSON("x_phoneMeddle", {}) || {};
+    if (mall[char.id]) { delete mall[char.id]; saveJSON("x_phoneMeddle", mall); }
   };
   const peekDone = thoughts => {
     peekOffClose();
@@ -12056,7 +12100,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——" + spaceRel((couplesRef.current || {})[charId]).together + "。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
-      const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
+      const meddleHint = opts.phoneMeddle && opts.phoneMeddle.length ? "\n\n【你刚发现】你手机上有几样不是你动的：" + uName + " 拿你的手机" + opts.phoneMeddle.map(phoneMeddleLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
+      const remarkHint = meddleHint + (opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "");
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
@@ -17095,6 +17140,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return n;
     });
   };
+  // 一起学的学习计划写进「我」的日历（群里 2026-10-22「编到日程里」）：每门课一组，srcId＝studyplan:<课 id>；
+  //   重排一次就整组换掉，不往同一天上叠
+  if (typeof window !== "undefined") window.__studyPlanCal = {
+    sync: (curId, title, days) => setCalendar(prev => {
+      const n = cloneCal(prev), b = n.mine, tag = "studyplan:" + curId;
+      Object.keys(b).forEach(k => { const left = (b[k] || []).filter(e => e && e.srcId !== tag); if (left.length) b[k] = left; else delete b[k]; });
+      (days || []).forEach((d, i) => { if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(String(d.date)) || !String(d.task || "").trim()) return;
+        b[d.date] = [...(b[d.date] || []), { id: "ev_sp_" + Date.now() + "_" + i, title: "学「" + String(title || "").slice(0, 12) + "」：" + String(d.task).slice(0, 40), note: "", srcId: tag }]; });
+      saveJSON("x_calendar", n);
+      return n;
+    })
+  };
   const delCalEvent = (view, dateKey, id) => setCalendar(prev => {
     const n = cloneCal(prev);
     const bucket = calBucket(n, view);
@@ -21864,10 +21921,78 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //    不是聊天记录；往那里写等于把假对话喂成真的。
   // ⚠️两条路都不另开写入口：私聊走 watchSend（「看TA玩」发给她那条路），
   //    群里走 pGChat + replyGroup（群回复那条现成的链）。
+  // ── 她用他的手机动了别的联系人（她 2026-10-22「做吧」）─────────────────────
+  //   ① 给刷新编出来的那些私聊发消息：对面照这段聊天接话，写回他手机这条会话里；
+  //   ② 删好友 / 加回来：名单存在 x_phoneWxDel，刷新不会把人放回来。
+  //   两样都在她的聊天里落一行灰字；他按出来的下一轮知道（waitForHer.phoneMeddle），下一次刷新微信也知道（x_phoneMeddle）。
+  const phoneMeddleLine = e => e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
+    : e.kind === "undel" ? "把「" + e.name + "」加回了你的微信好友"
+    : "用你的微信给「" + e.name + "」发了「" + e.said + "」" + (e.back ? "，对方回了：" + e.back : "");
+  const phoneMeddleNote = (char, e) => {
+    const prev = (waitHerRef.current[char.id] || {}).phoneMeddle || [];
+    waitForHer(char.id, { phoneMeddle: [...prev, e].slice(-6) });
+    const all = loadJSON("x_phoneMeddle", {}) || {};
+    all[char.id] = [...(all[char.id] || []), e].slice(-8);
+    saveJSON("x_phoneMeddle", all);
+  };
+  const phoneDelFriend = (char, name, undo) => {
+    const nm = String(name || "").trim();
+    if (!char || !nm) return;
+    const all = loadJSON("x_phoneWxDel", {}) || {};
+    const cur = (all[char.id] || []).filter(x => x !== nm);
+    all[char.id] = undo ? cur : [...cur, nm];
+    saveJSON("x_phoneWxDel", all);
+    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你" + (undo ? "把「" + nm + "」加回了 " : "把「" + nm + "」从 ") + (char.remark || char.name) + (undo ? " 的微信好友" : " 的微信好友里删了"), ts: Date.now() }]);
+    phoneMeddleNote(char, { kind: undo ? "undel" : "del", name: nm });
+  };
+  const phoneSendAsFake = (char, session, body) => {
+    const name = String((session && session.name) || "").trim();
+    const isGrp = (session && session.type) === "group";
+    if (!name || !(isGrp || (session && session.type) === "private")) return false;
+    if (!isGrp && ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
+    const wx = () => ((phonesRef.current || {})[char.id] || {}).wechat;
+    if (!wx()) return false;
+    const p = active;
+    if (!p) { toast("先去 设置·API 配一条线路"); return false; }
+    const d0 = typeof vDate === "function" ? vDate(Date.now(), char.id) : new Date();
+    const tm = String(d0.getHours()).padStart(2, "0") + ":" + String(d0.getMinutes()).padStart(2, "0");
+    const put = msgs => { const c2 = wx(); if (!c2) return;
+      savePhoneApp(char.id, "wechat", { ...c2, chats: (c2.chats || []).map(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name
+        ? { ...c, messages: [...(c.messages || []), ...msgs], last: String(msgs[msgs.length - 1].text || ""), time: tm } : c) }, { noArchive: true, patched: true }); };
+    put([{ from: char.name, text: body, byUser: true }]);
+    const key = "fake:" + name;
+    setPhoneAsWait(key);
+    const ct = (wx().contacts || []).find(c => c && String(c.name || "").trim() === name) || {};
+    const sess = (wx().chats || []).find(c => c && (c.type === "group") === isGrp && String(c.name || "").trim() === name) || { messages: [] };
+    const log = (sess.messages || []).slice(-24).map(m => (m.from || "") + "：" + String(m.text || m.body || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
+    // 群：群里除了他以外、聊天里出现过的那几个人来接
+    const members = isGrp ? [...new Set((sess.messages || []).map(m => String(m.from || "").trim()).filter(x => x && x !== char.name && x !== "我" && x !== "本人"))].slice(0, 8) : [];
+    const sys = isGrp ? ("你在演微信群「" + name + "」里除了 " + char.name + " 以外的人" + (members.length ? "：" + members.join("、") : "") + "。"
+      + "下面是这个群最近的聊天，最后一条是 " + char.name + " 刚发的。让群里一两个人照各自平时说话的样子接，一共一到四条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
+      + "只输出 JSON 数组，一条一个元素：[{\"from\":\"说话人（只能是上面这几个人）\",\"text\":\"内容\"}]")
+      : "你是「" + name + "」，" + char.name + " 微信里的一个联系人。"
+      + (ct.remark && ct.remark !== name ? char.name + " 给你存的备注是「" + ct.remark + "」。" : "")
+      + (ct.intro ? "在 " + char.name + " 眼里你是这样的人：" + String(ct.intro).slice(0, 400) + "\n" : "\n")
+      + "下面是你俩在微信上的聊天，最后一条是 " + char.name + " 刚发来的。照你这个人平时在微信上说话的样子回，一到三条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
+      + "只输出 JSON 字符串数组，一条一个元素。";
+    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 1200, timeout: 60000, logLabel: "查手机·联系人回话" })
+      .then(raw => {
+        let arr = parseJSONLoose(raw); if (!Array.isArray(arr)) arr = String(raw || "").split(/\n+/);
+        const rows = arr.map(x => ({ from: isGrp ? String((x && x.from) || "").trim() : name, text: String(x == null ? "" : (x.text || x)).trim() }))
+          .filter(r => r.text && (!isGrp || (r.from && r.from !== char.name && (!members.length || members.includes(r.from))))).slice(0, isGrp ? 4 : 3);
+        const lines = rows.map(r => (isGrp ? r.from + "：" : "") + r.text);
+        if (rows.length) put(rows);
+        pChat(char.id, pp => [...pp, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机" + (isGrp ? "在群「" + name + "」里" : "给「" + name + "」") + "发了：" + body.slice(0, 40), ts: Date.now() }]);
+        phoneMeddleNote(char, { kind: "msg", name: isGrp ? name + "（群）" : name, said: body.slice(0, 60), back: lines.join(" / ").slice(0, 160) });
+      }, e => toast("对面没回上：" + String((e && e.message) || e).slice(0, 40)))
+      .finally(() => setPhoneAsWait(w => (w === key ? "" : w)));
+    return true;
+  };
   const phoneSendAs = (char, session, text) => {
 
     const body = String(text || "").trim();
     const id = String((session && session.id) || "");
+    if (char && body && id.indexOf("actual:") !== 0) return phoneSendAsFake(char, session, body);
     if (!char || !body || id.indexOf("actual:") !== 0) return false;
     if (id === "actual:private:" + char.id) {
       watchSend(char, "wechat", userName(profileFor(char.id)), body, { byUser: true });
@@ -22321,7 +22446,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22333,6 +22458,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       reps = reps.filter(r => r && r.text && String(r.text).trim() && String(r.text).toLowerCase() !== "null" && r.author !== meName && r.author !== "我" && r.author !== "用户");
       // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
+      if (isMine) momentTakeouts(reps, "author");
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
       const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
@@ -22444,6 +22570,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
     return pool.slice(0, max == null ? 3 : max);
   };
+  // 在她朋友圈底下说「点给你了」就真点（群里 2026-10-22：评论里说给她点了奶茶，私聊和外卖订单里都没有，回私聊还不认）：
+  //   跟私聊同一个下单口 postCharTakeout——卡落进私聊，那张卡本身就在聊天记录里，他回私聊自然知道，不另往上下文里塞朋友圈
+  const MOMENT_TAKEOUT_ASK = "\n【真给她点吃的喝的】只有正式角色能点，配角不行。看到她说想吃想喝、累了饿了，谁真打算给她点一份外卖，就在TA那一项里加 \"takeout\":{\"shop\":\"店名\",\"items\":[\"点的东西\"],\"note\":\"一句备注\"}，会从TA钱包扣钱、真送到她那儿；嘴上说点了就要填，没打算点就别说已经点了。";
+  const momentTakeouts = (rows, nameKey) => (rows || []).forEach(r => {
+    if (!r || !r.takeout || typeof r.takeout !== "object") return;
+    const nm = momentWho(r[nameKey || "name"]);
+    const c = liveChars.find(x => x && (x.name === nm || x.remark === nm));
+    if (c && !c.npc) try { postCharTakeout(c.id, r.takeout, { fromMoment: true }); } catch (e) {}
+  });
   const reactToUserMoment = async mom => {
     if (!active) return;
     const canSeeMain = liveChars.filter(c => momSeen(mom, c.id));
@@ -22470,7 +22605,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
         + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
         + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n" + MOMENT_TAKEOUT_ASK + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + ",\"takeout\":\"可省略\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -22494,6 +22629,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const top = canSeeMain.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
           if (top) likers.push(momentWho(top.name));
         }
+        momentTakeouts(d.reactions, "name"); momentTakeouts(d.replies, "name");
         const votes = {};
         if (mom.poll) (d.reactions || []).forEach(r => { const v = Number(r && r.vote); if (r && r.name && v >= 1 && v <= mom.poll.options.length) votes[momentWho(r.name)] = v - 1; });
         (d.replies || []).forEach(r => {
@@ -31379,7 +31515,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTfReplyAs: (char, tid, accept) => respondTransfer(char.id, tid, accept),
     onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
-    onRemark: phoneRemarkEdit,
+    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
