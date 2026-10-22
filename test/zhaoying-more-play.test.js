@@ -91,3 +91,19 @@ console.log("ok");
   assert.match(app, /laneAbortEnd\("c:" \+ chatKey, _abort\);\n      if \(_zyQueue\) _zyQueue\.forEach\(z => zhaoyingRun/);
   assert.ok(!/opts\.zyAsk\.forEach\(z => zhaoyingRun/.test(app), "不再一开口就去做");
 }
+
+// 她 2026-10-22：结果放题目最下面，配一段照这一次怎么选写的评语（同一次调用里写，不多花）
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, t = Z.byId("mbti");
+  assert.match(Z.ASK_SCHEMA, /"review"/);
+  assert.match(Z.askInstruction(t, "她", [], ""), /review 是另一件事/);
+  assert.equal(Z.readAnswers(t, { answers: [], review: "他第3题改了两回" }).review, "他第3题改了两回");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  assert.equal((app.match(/\.\.\.\(a\.review \? \{ review: a\.review \} : \{\}\)/g) || []).length, 2, "单人和群里做的都存评语");
+  const core = fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8");
+  const w = core.slice(core.indexOf("function ZhaoyingWatch"), core.indexOf("function charTestInstruction"));
+  assert.ok(w.indexOf('"data-wk": "zyresult"') > w.indexOf("test.qs.map((q, i) =>"), "回放里结果在题目后面");
+}

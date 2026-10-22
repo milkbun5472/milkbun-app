@@ -336,9 +336,11 @@
       + (meName ? "这是「" + meName + "」让你做的，她会看到你每一题选了什么、为什么。" : "")
       + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
       + (test.custom && !test.scored ? "\n这套不算分。全部做完后，feel 写你做完这一套的感觉，一两句，照你自己说话的样子。" : "")
+      // 结果下面那段评语（她 2026-10-22「写一小段评语，每个角色就算答案一样评语也不一样」）：同一次调用里一起写，不多花一枪
+      + "\nreview 是另一件事：测试页面在结果下面给做题这个人写的一小段解读，三四句，用「他」称呼你、口气是测试页面的口气，不是你自己说话。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体的题；别写这一类人谁都对得上的话。"
       + "\n题目：\n" + test.qs.map((q, i) => (i + 1) + ". " + q.q + "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n")).join("\n");
   }
-  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}]}";
+  const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\"}";
   function askSchema(test) { return test && test.custom && !test.scored ? ASK_SCHEMA.replace(/\}$/, ",\"feel\":\"做完的感觉\"}") : ASK_SCHEMA; }
   function readAnswers(test, d) {
     const arr = Array.isArray(d && d.answers) ? d.answers : Array.isArray(d) ? d : [];
@@ -352,7 +354,7 @@
       picks.push(st[st.length - 1].at); paths.push(st);
       whys.push(st.map(x => x.think).filter(Boolean).join(" "));
     });
-    return { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120) };
+    return { picks, whys, paths, feel: String((d && d.feel) || "").trim().slice(0, 120), review: String((d && d.review) || "").trim().slice(0, 400) };
   }
 
   // ── 聊天里那张卡（她 2026-10-22：「点进去再按头像选人发卡到聊天让他做」）──────────
@@ -410,7 +412,7 @@
     const [phase, setPhase] = R.useState("");          // move / press / think
     const [dot, setDot] = R.useState({ x: null, y: null, press: false });
     const [speed, setSpeed] = R.useState(1), [paused, setPaused] = R.useState(false);
-    const boxRef = R.useRef(null), optRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
+    const boxRef = R.useRef(null), resRef = R.useRef(0), optRefs = R.useRef({}), timer = R.useRef(null), doneRef = R.useRef(false);
     const done = step >= test.qs.length;
     const wait = (ms, fn) => { clearTimeout(timer.current); timer.current = setTimeout(fn, ms / speed); };
     R.useEffect(() => () => clearTimeout(timer.current), []);
@@ -448,10 +450,7 @@
         h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : " 在做"))),
       h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
         h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
-          done ? h("div", { "data-wk": "zyresult", style: { margin: "12px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
-            h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
-            h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
-            res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null) : null,
+
           test.qs.map((q, i) => h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE, opacity: !done && i > step ? 0.55 : 1 } },
             h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
               h("span", { style: { fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
@@ -464,7 +463,13 @@
                 h("span", null, o.t));
             })),
             // 放完了才留档：心声落在这一题底下
-            done ? whyBox(test, q, pathOf(i)) : null))),
+            done ? whyBox(test, q, pathOf(i)) : null)),
+          // 放完了：结果和评语摆在题目最下面（她 2026-10-22），放完自己滚过去
+          done ? h("div", { "data-wk": "zyresult", ref: el => { if (el && !resRef.current) { resRef.current = 1; try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, style: { margin: "18px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
+            h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
+            h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
+            res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null,
+            rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null) : null),
         W.WatchDot ? h(W.WatchDot, dot) : null,
         W.WatchThought && !done && phase === "think" ? h(W.WatchThought, { text: nowThink }) : null,
         W.WatchBar ? h(W.WatchBar, { noKnock: true, done, paused, speed, i: Math.max(0, Math.min(step + 1, test.qs.length)), total: test.qs.length,
@@ -494,6 +499,7 @@
     add(rec.title || "", 44, INK, 10);
     if (rec.line && rec.line !== rec.title) add(rec.line, 26, "#6d6255", 12);
     if (rec.scene) add("这一次的前提：" + rec.scene, 24, ACC, 14);
+    if (rec.review) add(rec.review, 24, "#6d6255", 16);
     test.qs.forEach((q, i) => {
       add("Q" + (i + 1) + "  " + q.q, 27, INK, 34);
       add("→ " + optText(test, i, (rec.picks || [])[i]), 26, ACC, 10, 20);
