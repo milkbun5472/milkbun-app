@@ -7112,7 +7112,9 @@ function mmSoundHint() {
   return "也可以插声音，写成英文半角括号：(breath) 换气、(sighs) 叹气、(gasps) 倒吸气、(chuckle) 轻笑、(laughs) 笑出声、(sniffs) 吸鼻子、(snorts) 哼一声、(exhale) 呼气、(pant) 喘、(emm) 嗯、(lip-smacking) 亲一下、(humming) 哼着、(coughs) 咳、(clear-throat) 清嗓子、(groans) 闷哼、(crying) 哭腔。放在这个人此刻真会出声的地方，一条一两个就够；括号里的不会显示成字，只会变成声音。";
 }
 // 方括号 [whispers]、后面再跟一两个词的 (whispers softly) 也算（群里 2026-10-19：语音里把 whisper 念了出来）
-const TTS_MARK_TAG_RE = new RegExp("[\\(\\[]\\s*(?:" + TTS_MARK_TAGS.concat(["breath", "pant", "sniffs", "snorts", "lip-smacking", "humming", "hissing", "clear-throat", "groans", "emm", "sneezes", "crying"]).join("|") + ")(?:[ \\t]+[A-Za-z-]+){0,2}\\s*[\\)\\]]", "gi");
+const TTS_MARK_TAG_RE = new RegExp("[\\(\\[]\\s*(?:" + TTS_MARK_TAGS.concat(["breath", "pant", "sniffs", "snorts", "lip-smacking", "humming", "hissing", "clear-throat", "groans", "emm", "sneezes", "crying",
+  // 词根也认（她 2026-10-22「又掉」：气泡里漏了个 (yawn)——名单上只有 yawns）：后面跟 s／es／ing／ed 都算同一个
+  "yawn", "sniff", "sneeze", "groan", "cough", "hum", "sniffle", "smile", "grin", "nod", "shrug", "stretch", "pout", "blush"]).join("|") + ")(?:s|es|ing|ed)?(?:[ \\t]+[A-Za-z-]+){0,2}\\s*[\\)\\]]", "gi");
 // 教模型怎么在语音里插停顿，单聊和群聊共用这一句。
 // ⚠️只给许可，不加禁令：剥标记是代码的活（ttsMarkForSynth），提示词这边不说
 //   （施工规则/bans-make-it-dumber.md）。

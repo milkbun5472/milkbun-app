@@ -132,3 +132,16 @@ test("方括号、带一两个修饰词的语气标记也剥掉，不念出来�
   assert.equal(f.ttsMarkForSynth("(whispers softly) 过来"), "过来");
   assert.equal(f.ttsMarkForSynth("我说(真的)你听"), "我说(真的)你听");
 });
+
+// 她 2026-10-22「又掉」：气泡里漏了个 (yawn)——词根也得认
+test("(yawn) (yawning softly) (smiles) 都剥，(Paris) 不动", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const tags = src.slice(src.indexOf("const TTS_MARK_TAGS"), src.indexOf("];", src.indexOf("const TTS_MARK_TAGS")) + 2);
+  const reS = src.indexOf("const TTS_MARK_TAG_RE"), re = src.slice(reS, src.indexOf('"gi");', reS) + 6);
+  const R = new Function(tags + "\n" + re + "\nreturn TTS_MARK_TAG_RE;")();
+  const strip = s => s.replace(R, "").trim();
+  assert.equal(strip("(yawn) 昨晚八点多就睡了"), "昨晚八点多就睡了");
+  assert.equal(strip("(yawning softly) 嗯"), "嗯");
+  assert.equal(strip("(smiles)"), "");
+  assert.equal(strip("(Paris) 是个城市"), "(Paris) 是个城市");
+});
