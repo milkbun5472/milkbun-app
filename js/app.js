@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.305";
+const APP_VERSION = "v76.314";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3822,6 +3822,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!roomKey || !window.ChatRooms || !window.ChatRooms.isSideKey(roomKey)) return;
     const clean = TVG.accept(thought);
     const ts = Date.now(), prev = roomStatesRef.current[roomKey] || {};
+    // 这一轮为什么空着（她 2026-10-22：「直接加那个记录吧」）：模型没写，还是写了被筛掉。只留最近这一轮，下一轮有心声就清掉
+    const missOf = () => { const r = String(meta && meta.raw != null ? meta.raw : (thought == null ? "" : thought)).replace(/\s+/g, " ").trim();
+      return r && r.toLowerCase() !== "null" ? { why: "filtered", raw: r.slice(0, 300), ts } : { why: "none", keys: Array.isArray(meta && meta.keys) ? meta.keys.slice(0, 20) : null, ts }; };
     const local = {};
     for (const key of ["action", "wearing", "place"]) {
       const value = meta && meta.state && meta.state[key];
@@ -3832,8 +3835,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const newMood = meta && meta.mood || "";
     const moodPatch = newMood && newMood !== prev.mood ? { mood: newMood, moodTs: ts } : { mood: prev.mood || newMood, moodTs: prev.moodTs || (newMood ? ts : 0) };
     const next = clean
-      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null }
-      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null };
+      ? { ...prev, ...local, thought: clean, thoughtUpdatedAt: ts, ...moodPatch, ts, turnId: meta && meta.turnId || null, thoughtMiss: null }
+      : { ...prev, ...local, thought: null, thoughtUpdatedAt: 0, ...moodPatch, ts, turnId: meta && meta.turnId || null, thoughtMiss: missOf() };
     const statesNext = { ...roomStatesRef.current, [roomKey]: next };
     roomStatesRef.current = statesNext; setRoomStates(statesNext); saveJSON("x_roomStates", statesNext);
     if (!clean) return;
@@ -9118,7 +9121,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const offlineThought = TVG.accept(res.thought);
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
       else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
-      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId });
+      if (sideRoom) setRoomThought(scopeKey, offlineThought, { mood: res.mood && res.mood.label, state: { ...res, action: offlineAction }, turnId: offTurnId, raw: res.thought });
       else if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 dongnian 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
@@ -13268,6 +13271,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // JSON 里只交了表情包之类、话写在 JSON 外面（群里 2026-10-22：「{"emote":"看你编"}……？你脑子被门夹了？」——
+      //   表情发了，后面那几句被扔了，还报「这一轮没回上来」）：word 空着、JSON 外头有正文，就把那段当她收到的话
+      if (parsed && typeof parsed === "object" && !(Array.isArray(parsed.word) ? parsed.word.some(w => String(w || "").trim()) : String(parsed.word || "").trim())) {
+        const _rs = String(raw || ""), _a = _rs.indexOf("{"), _b = _rs.lastIndexOf("}");
+        const _outside = (_a >= 0 && _b > _a ? (_rs.slice(0, _a) + "\n" + _rs.slice(_b + 1)) : "").replace(/```(?:json)?/gi, "").trim();
+        if (_outside && !protocolFieldRe.test(_outside)) {
+          const _lines = _outside.split(/\n+/).map(x => x.trim()).filter(Boolean)
+            .flatMap(x => x.match(/[^。！？!?]+[。！？!?…]*[」』"”）)]*|[。！？!?…]+/g) || [x]).map(x => x.trim()).filter(Boolean);
+          if (_lines.length) parsed.word = _lines.slice(0, 12);
+        }
+      }
       // 别的字段被模型写进了 word 里（群里 2026-10-22：气泡里冒出「photoSeen:{"note":"她发来两张……」）：
       //   一条话长成「英文字段名:{…}／[…]／"…"」就是协议，不是人说的话——拿出气泡；那一格没填的话照它填上
       if (parsed && Array.isArray(parsed.word)) parsed.word = parsed.word.filter(w => {
@@ -13282,6 +13296,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   原来两件事共用 parsed.action 一个格子，一封就连那行动作一起没了（群友 2026-10-12：「在房间里开线上动作描写好像没生效」）。
       //   所以封之前先留一份，只给摆那一行用，不进状态。
       let _roomActLine = parsed && parsed.action;
+      // 模型自己交了哪几格（封闸、补位之前拍下；没写心声时摆给她看）
+      const _modelKeys = parsed && typeof parsed === "object" ? Object.keys(parsed).filter(k => parsed[k] != null && parsed[k] !== "" && String(parsed[k]).toLowerCase() !== "null") : null;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const w = room.writeback || {};
@@ -13365,6 +13381,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
+      // 换了个名字交的心声也认（她 2026-10-22 房里查「没写」时补的）
+      if (parsed.thought == null) { const _ak = ["innerThought", "inner", "心声", "os", "monologue", "innerVoice"].find(k => typeof parsed[k] === "string" && parsed[k].trim()); if (_ak) parsed.thought = parsed[_ak]; }
       // mood 兼容规范对象 {label,...}，也兼容模型偶发的简写字符串 "烦躁"。
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
@@ -13391,6 +13409,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
         // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受TA本人自愿留下且通过守卫的 thought。
         parsed.thought = guardedThought;
+        if (!guardedThought && rawThought && rawThought.toLowerCase() !== "null") parsed._thoughtDropped = rawThought;
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       // 只记录明确交回的更新或复看结果；省略时保留原文。
@@ -14264,7 +14283,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
       // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
       if (sideRoom) {
-        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId });
+        setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId, raw: parsed._thoughtDropped || parsed.thought, keys: _modelKeys });
       } else {
         const _live = statesRef.current[charId] || {};
         if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_body) {
@@ -22042,10 +22061,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const patch = zy => pChat(charId, p => p.map(x => x && x.id === msgId ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
     patch({ status: "doing" });
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.ASK_SCHEMA, maxTokens: 20000 });
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+      // 不算分的自定义题：结果就是他做完自己说的那句
+      if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free });
       patch({ status: "done", recId, title: res.title });
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
@@ -32643,6 +32664,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
     onAsk: (charId, testId) => zhaoyingAsk(charId, testId),
+    // 给主题出一套题：走她自己那条线路（出完进编辑页，存了才算）
+    onGenTest: (theme, count, scored) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored); },
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
     // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
