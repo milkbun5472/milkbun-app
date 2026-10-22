@@ -23613,6 +23613,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         continue;
       }
       if (!b.on && !b.pendingAt && b.checkAt && b.checkAt <= now && iFollow) { delete all[cid]; changed = true; setTimeout(() => forumBackDecide(cid), 0); }
+      // 回关这功能上线前就关注着的（群里 2026-10-22「只有 crush 没跟我互关」）：那一下没走过 forumBackDecide，
+      //   一条记录都没有，这里就永远轮不到他。没记录、她又关注着、他有论坛号的，补掂量一次
+      if (iFollow && !all[cid] && !c.npc) setTimeout(() => forumBackDecide(cid), 0);
     }
     if (changed) forumBackSave(all);
   };
