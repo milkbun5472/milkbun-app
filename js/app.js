@@ -33004,7 +33004,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     bgApiId: bgApiId,
     onSetBgApi: setBgApi,
     characters: liveChars,
-    autoCharacters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    // 言秋也列进来（她 2026-10-22：「言秋自动那几样我在设置里不能开关」）：后台那几样本来就按 autoRefreshOn(功能, 他的 id) 认这一格，只是名单把他筛掉了
+    autoCharacters: liveChars,
     autoRefreshPolicy: autoRefreshPolicy,
     onSetAutoRefreshGlobal: setAutoRefreshGlobal,
     onSetAutoRefreshRate: setAutoRefreshRate,
