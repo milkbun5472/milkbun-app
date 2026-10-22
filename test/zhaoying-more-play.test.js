@@ -4,9 +4,9 @@ const fs = require("fs"), path = require("path");
 const rd = f => fs.readFileSync(path.join(__dirname, "../js", f), "utf8");
 const core = rd("zhaoying-core.js"), ui = rd("zhaoying.js"), app = rd("app.js"), ts = rd("theme-studio.js");
 // 处境：一路带到提示词和记录
-assert.match(core, /function askInstruction\(test, meName, prev, scene\)/);
+assert.match(core, /function askInstruction\(test, meName, prev, scene, author\)/);
 assert.match(app, /const zhaoyingAsk = \(charId, testId, scene\) =>/);
-assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene\)/);
+assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\.recordsOf\(charId, testId\), scene, zyAuthor\(test, charId\)\)/);
 assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\) \}\);\n      patch\(\{ status: "done"/);
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
@@ -151,4 +151,25 @@ console.log("ok");
   }
   assert.equal(Z.resultOf("lovebrain", Z.byId("lovebrain").qs.map(() => 3)).title, "恋爱脑指数 100%");
   assert.equal(Z.resultOf("lovebrain", Z.byId("lovebrain").qs.map(() => 0)).title, "恋爱脑指数 0%");
+}
+
+// 她 2026-10-22「角色写的我俩都能做也能发给别的角色」「这页的美化顺便做了」
+{
+  const assert = require("node:assert/strict");
+  const fs = require("fs"), path = require("path");
+  const rd = f => fs.readFileSync(path.join(__dirname, "../js", f), "utf8");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, t = Z.byId("mbti");
+  assert.match(Z.askInstruction(t, "她", [], "", { mine: true }), /这套题是你自己当初出给「她」的/);
+  assert.match(Z.askInstruction(t, "她", [], "", { name: "顾朝" }), /这套题是「顾朝」出的/);
+  assert.match(rd("app.js"), /zyAuthor\(test, charId\)\)/);
+  assert.match(rd("app.js"), /zyAuthor\(test, c\.id\)\)/);
+  // 美化：照影是一页、挂点在照影那一组；颜色走公共的 pagePalette
+  assert.match(rd("core.js"), /zhaoying: "照影"/);
+  const ts = rd("theme-studio.js"), gi = ts.indexOf('zh: "照影", pages: Object.freeze(["zhaoying"])');
+  assert.ok(gi > 0, "主题工作台有照影这一页");
+  const grp = ts.slice(gi, ts.indexOf("})", gi));
+  for (const k of ["zypage", "zycats", "zycover", "zyq", "zyopt", "zyresult", "zyreview", "zybyhint"]) assert.match(grp, new RegExp('\\["' + k + '", '), k);
+  assert.match(rd("zhaoying-core.js"), /pagePalette\("zhaoying", base\)/);
+  assert.match(rd("zhaoying.js"), /const \{ PAPER, INK, FOG, LINE, ACC \} = Z\.colors\(\);/);
 }

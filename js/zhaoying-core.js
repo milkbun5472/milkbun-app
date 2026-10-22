@@ -556,8 +556,10 @@
 
   // 让他做一套题的那一段（照影页里调 runProbe）
   // scene：她给这一次定的处境（她 2026-10-22「换个处境再做」）——同一套题，在那个前提下的你会怎么选
-  function askInstruction(test, meName, prev, scene) {
+  // author：这套是谁出的（角色给她出的那种）；mine＝就是你自己出的（她 2026-10-22「我俩都能做也能发给别的角色」）
+  function askInstruction(test, meName, prev, scene, author) {
     return "你在手机上做一套小测「" + test.name + "」（" + test.sub + "）。一题一题照你自己真实的样子选——不是挑看起来好的那个，也不是猜出题人想要什么。"
+      + (author && author.mine ? "\n这套题是你自己当初出给「" + (meName || "她") + "」的，现在你自己也答一遍。" : author && author.name ? "\n这套题是「" + author.name + "」出的。" : "")
       + (scene ? "\n这一次有个前提：" + String(scene).slice(0, 60) + "。照这个前提下的你来答，心声里也是那时候的你；跟平时一样的题就一样，不为了显得不同硬改。" : "")
       + "每题最后落定一个选项。steps 是你手指在这一题上的过程：手指移到一个选项上、按下去，那一刻脑子里一闪而过的东西写在 think——"
       // 心声别写成分析（她 2026-10-22「心声太像模型分析了」：一句句都是「我这人向来…」「我最在乎…」，像在给自己写人物小传）
@@ -592,6 +594,12 @@
   //   kind:"zyask"＝她发去的邀请：他做的时候写「在做…」，做完了点开就是看他做（ZhaoyingWatch）；
   //   kind:"zyshare"＝早先转发过去的结果卡，照旧能显示。
   const PAPER = "#f6f1ea", INK = "#3b332a", FOG = "#9a8a76", LINE = "#e2d8ca", ACC = "#b0764a";
+  // 照影这一页的几支底色：走公共的 pagePalette（主题工作台「这一页的颜色」），照影页和看他做的回放共用
+  function colors() {
+    const base = { bg: PAPER, ink: INK, fog: FOG, line: LINE, accent: ACC };
+    const p = typeof g.pagePalette === "function" ? g.pagePalette("zhaoying", base) : (typeof pagePalette === "function" ? pagePalette("zhaoying", base) : base);
+    return { PAPER: p.bg, INK: p.ink, FOG: p.fog, LINE: p.line, ACC: p.accent };
+  }
   // 每套一个颜色和大符号：照影页的封面和聊天里那张卡共用这一份
   const PAL = { mbti: { a: "#f3d9c8", b: "#d9a38a", deep: "#b5674a", g: "?" }, attach: { a: "#dfe3ef", b: "#a9b3d3", deep: "#5f6d9e", g: "⇄" },
     love: { a: "#f6d6dc", b: "#e29aa8", deep: "#c05a6f", g: "♡" }, values: { a: "#e3e8d6", b: "#b3c094", deep: "#6f8150", g: "⚖" }, animal: { a: "#f1e3c4", b: "#d8b778", deep: "#a27b2f", g: "✦" },
@@ -642,6 +650,7 @@
   }
   function ZhaoyingWatch(p) {
     const R = g.React, h = R.createElement, W = g.PhoneWatch || {};
+    const { PAPER, INK, FOG, LINE, ACC } = colors();
     const test = byId(p.testId), rec = p.rec;
     const [pos, setPos] = R.useState({ q: p.replay === false ? test.qs.length : -1, s: 0 });   // 第几题、这题的第几下；q＝题数就是放完了
     const step = pos.q, sub = pos.s, setStep = q => setPos({ q, s: 0 });
@@ -757,7 +766,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal, CATS, catOf };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
