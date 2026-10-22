@@ -69,3 +69,15 @@ console.log("ok");
   const hints = app.slice(app.indexOf("const zyDoneHint"), app.indexOf("const peekMemo = (opts.peekPhone"));
   assert.ok(!/认不认|这就会去做|想不想看她的/.test(hints), "不替他定说什么");
 }
+
+// 她 2026-10-22：纠结的角色能来回选好几次（最多六下），存的时候也不砍到四下
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, t = Z.byId("mbti");
+  const steps = [0, 1, 0, 1, 0, 1].map((at, k) => ({ at, think: "第" + (k + 1) + "下" }));
+  const a = Z.readAnswers(t, { answers: [{ i: 1, steps }] });
+  assert.equal(a.paths[0].length, 6);
+  assert.equal(a.picks[0], 1, "最后一下才是选的");
+  assert.match(Z.askInstruction(t, "她", [], ""), /最多六下/);
+}

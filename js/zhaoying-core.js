@@ -331,7 +331,8 @@
       + "每题最后落定一个选项。steps 是你手指在这一题上的过程：手指移到一个选项上、按下去，那一刻脑子里一闪而过的东西写在 think——"
       // 心声别写成分析（她 2026-10-22「心声太像模型分析了」：一句句都是「我这人向来…」「我最在乎…」，像在给自己写人物小传）
       + "是你真在想事情时冒出来的那种：想到了哪个人、哪件事、哪个画面，或者只是一句嘀咕。它不是给自己下定义，也不是解释你是什么样的人、为什么这么选；有的题根本不用想，那就一两个字。第一人称，照你平时说话的口气。"
-      + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写两到四步：先按了一个、又改到另一个，或者在两个之间来回；最后一步就是你最终选的。犹不犹豫照你的性子来，不为了好看硬晃。"
+      // 纠结的人可以来回好几次（她 2026-10-22「有些角色可能会来回选好几次纠结的吧」）：原来卡在两到四步，最多改一两回
+      + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写多步：按了一个又改到另一个，在两三个之间来回、改过去又改回来，最多六下；每一下心里冒的东西可以不一样。最后一步就是你最终选的。犹不犹豫、来回几次照你的性子来，不为了好看硬晃，也不为了干脆硬压。"
       + (meName ? "这是「" + meName + "」让你做的，她会看到你每一题选了什么、为什么。" : "")
       + (prev && prev.length ? "\n你以前做过这套：" + prev.slice(0, 3).map(r => dateZh(r.ts) + "测出「" + r.title + "」").join("；") + "。这次照你现在的样子答，变了就变了，没变也不用硬改。" : "")
       + (test.custom && !test.scored ? "\n这套不算分。全部做完后，feel 写你做完这一套的感觉，一两句，照你自己说话的样子。" : "")
@@ -345,7 +346,7 @@
     const ok = (q, v) => { const n = Number(v); return n >= 0 && n < q.opts.length && Math.floor(n) === n; };
     test.qs.forEach((q, i) => {
       const a = arr.find(x => x && Number(x.i) === i + 1) || arr[i] || {};
-      let st = (Array.isArray(a.steps) ? a.steps : []).filter(x => x && ok(q, x.at)).slice(0, 4)
+      let st = (Array.isArray(a.steps) ? a.steps : []).filter(x => x && ok(q, x.at)).slice(0, 6)
         .map(x => ({ at: Number(x.at), think: String(x.think || "").trim().slice(0, 160) }));
       if (!st.length) { const p = ok(q, a.pick) ? Number(a.pick) : Math.floor(Math.random() * q.opts.length); st = [{ at: p, think: String(a.why || "").trim().slice(0, 160) }]; }
       picks.push(st[st.length - 1].at); paths.push(st);
