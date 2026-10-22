@@ -6,7 +6,7 @@ const comp = R("components.js"), app = R("app.js");
 test("整页问 usePageZ 要层数；半窗那棵树包着 HalfWinLayer", () => {
   assert.match(comp, /const HalfWinLayer = React\.createContext\(false\);/);
   assert.match(comp, /function usePageZ\(z\) \{ return useContext\(HalfWinLayer\) \? 935 \+ Math\.max\(0, z - 240\) : z; \}/);
-  assert.match(comp, /"data-page": "1", style: pageShellStyle\(pageZ, /);
+  assert.match(comp, /"data-page": "1", ref: pageShellPin, style: pageShellStyle\(pageZ, /);
   assert.match(app, /h\(HalfWinLayer\.Provider, \{ value: true \}, mkThread\(\{ key: "half::"/);
   assert.ok(/data-halfwin[\s\S]{0,400}zIndex: 930/.test(app), "半窗还在 930，usePageZ 的 935 得比它高");
 });
