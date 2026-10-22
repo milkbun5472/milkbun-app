@@ -17,7 +17,14 @@ test("单聊、线下、群聊、心声卡、日记、查手机：写死的字�
 test("主屏和主屏小组件一个都不动", () => {
   const home = comp.slice(comp.indexOf("function GlassIcon("), comp.indexOf("function MusicCardEdit("));
   assert.ok(!/--app-fs/.test(home), "主屏小组件被接上了");
-  const h = comp.slice(comp.indexOf("function Home({"), comp.indexOf("\nfunction ", comp.indexOf("function Home({") + 10));
+  // ⚠️只查主屏【画出来】的那半。装饰那一页的编辑面板也写在 Home 函数体里（贴 HTML 的框、「＋ 加一张图」、
+  //   底下那行说明），它是普通设置界面、跟字号走才对（2026-10-22 加「自己写」时撞上）：从「写什么」那一节
+  //   到「什么样子」那一节之间挖掉再查。
+  const hi = comp.indexOf("function Home({");
+  const hAll = comp.slice(hi, comp.indexOf("\nfunction ", hi + 10));
+  const ed0 = hAll.indexOf('section("words"'), ed1 = hAll.indexOf('section("look"', ed0);
+  assert.ok(ed0 > 0 && ed1 > ed0, "装饰编辑面板那两节的界找不到了");
+  const h = hAll.slice(0, ed0) + hAll.slice(ed1);
   assert.ok(!/--app-fs/.test(h), "主屏被接上了");
 });
 test("线下自己的正文字号、气泡字号再乘上它", () => {

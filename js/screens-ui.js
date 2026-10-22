@@ -1361,7 +1361,7 @@ function Ties({
     boardId !== "me" ? h("button", { "data-wk": "tiesdetailentry", onClick: () => setView(boardId), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.tint, padding: "8px 0 12px" } }, "按条看 · 改配角简介 ›") : null,
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, draftProfile: maskProfile, me, nameOf, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
+      comp, setComp, characters, profile, draftProfile: maskProfile, maskPick: maskPick, masks: masks, maskPrimary: maskPrimary, me, nameOf, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
@@ -1370,7 +1370,7 @@ function Ties({
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, draftProfile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
+function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPick, masks, maskPrimary, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -1461,6 +1461,28 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, me, nam
           className: "w-full bg-transparent outline-none pb-2",
           style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line }
         }),
+        // 给哪张面具（她 2026-10-22：「按面具编 npc 呢」「还是没有啊」——原来只是闷头记下筛子那张，表单上看不见也挑不了）。
+        //   只有【她自己身边的人】才挑：在某个角色身边的跟着那个角色认的那张脸走，另挑一张只会两处打架。
+        //   默认跟着上面筛子挑的那张；有副面具时才出现这一栏。
+        c.meChar === "me" && (masks || []).some(m => m && m.id && m.id !== maskPrimary) ? h(Fragment, null,
+          h(Eyebrow, { style: { margin: "16px 0 8px" } }, "算谁认识的人"),
+          h("div", { "data-wk": "tiesnpcmask", className: "flex flex-wrap", style: { gap: 6 } },
+            // ⚠️空着＝主面具，不是「谁都看得见」（她 2026-10-22：「主面具不行啊只能选副面具或者全部」——
+            //   上一版这一档写成了「谁都看得见」，可空 maskId 的人在副面具筛子底下压根看不到，标签骗了人）。
+            //   叫法跟顶上筛子那排对齐：主面具 / 各张副面具。
+            [["", "主面具"]].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => [m.id, m.name || "没名字的面具"]))
+              .map(function (row) {
+                const v = row[0], label = row[1];
+                const cur = c.npcMask === undefined ? (maskPick && maskPick !== "_main" ? maskPick : "") : c.npcMask;
+                const on = cur === v;
+                return h("button", { key: v || "_any", "data-wk": "tiesnpcmaskpick", "data-on": on ? "1" : "0",
+                  onClick: () => set({ npcMask: v }), className: "active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "7px 12px", borderRadius: 999,
+                    border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, label);
+              })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } },
+            "挑哪张，这个人就只在那张脸和「全部」底下出现（对着关系页顶上那排筛子）。"),
+        ) : null,
         h(Eyebrow, { style: { margin: "16px 0 8px" } }, c.meChar === "me" ? "你俩什么关系" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 的谁"),
         h("input", { "data-wk": "tiesnpcinput", "data-part": "rel",
           value: c.npcRel || "", onChange: e => set({ npcRel: e.target.value.slice(0, 60) }),
@@ -1486,7 +1508,10 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, me, nam
           c.meChar === "me" ? "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 身边的人，【不认识你】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 " + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
         h("button", { "data-wk": "tiesnpcsubmit", "data-part": "add",
           onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
-            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
+            // 按面具编（她 2026-10-22）：筛子切在哪张副面具上，建出来的「我身边的人」就记在那张脸底下；
+            //   主面具／没挑＝不记（空 maskId 就是主面具那一档：在「主面具」和「全部」底下看得见，副面具底下看不到）
+            const pickedMask = c.npcMask === undefined ? (maskPick && maskPick !== "_main" ? maskPick : "") : c.npcMask;
+            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar, pickedMask) !== false) set({ npcName: "", npcBrief: "", npcRel: "", npcMask: undefined }); },
           className: "w-full active:opacity-70",
           style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))",
             opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
@@ -1654,7 +1679,7 @@ const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: 
 const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
 const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
-function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore }) {
+function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore, onImportMany }) {
   const t = useTheme();
   const [trashOpen, setTrashOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
@@ -1795,10 +1820,11 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
     editing && h(WorldBookEntryPage, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
+      onImportMany: onImportMany ? list => { onImportMany(list, editing.charIds || []); setEditing(null); } : null,
       onDelete: editing.__new ? null : () => { onDelete(editing.id); setEditing(null); }
     }));
 }
-function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
+function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete, onImportMany }) {
   const t = useTheme();
   const isNew = !(entry && entry.id);
   const [f, setF] = useState(() => {
@@ -1817,8 +1843,17 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     if (!file || importLock.current) return;
     importLock.current = true; setImporting(true); setImportError("");
     try {
-      if (!/\.(docx|txt)$/i.test(file.name || "")) throw new Error("请选择 .docx 或 .txt 文件");
+      if (!/\.(docx|txt|json)$/i.test(file.name || "")) throw new Error("请选择 .json、.docx 或 .txt 文件");
       if (file.size > 20 * 1024 * 1024) throw new Error("文件超过 20 MB，请拆小后导入");
+      // 世界书 json（2026-10-22）：一条就填进这一页，多条直接全部收进世界书
+      if (/\.json$/i.test(file.name || "")) {
+        let d = null; try { d = JSON.parse(await file.text()); } catch (x) { throw new Error("这个 json 读不开，可能不完整"); }
+        const list = typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : [];
+        if (!list.length) throw new Error("这份 json 里没认出世界书词条");
+        if (list.length === 1) { const one = list[0]; setF(current => ({ ...current, title: one.title, payload: one.payload, keyword: one.keyword || "", alwaysOn: !!one.alwaysOn })); return; }
+        if (onImportMany) { onImportMany(list); return; }
+        throw new Error("这份里有 " + list.length + " 条，这一页只收得下一条");
+      }
       const payload = await readOfflineStyleDocument(file);
       if (!payload.trim()) throw new Error("文件里没有可导入的文字");
       setF(current => ({ ...current, title: file.name.replace(/\.(docx|txt)$/i, "").trim() || "导入设定", payload }));
@@ -2157,6 +2192,7 @@ function Forum({
   const [searchQ, setSearchQ] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [followListOpen, setFollowListOpen] = useState(false);
+  const [fanListOpen, setFanListOpen] = useState(false);   // 我的粉丝里哪些是角色（群友 2026-10-22）
   const feedScrollRef = useRef(null);
   const feedScrollTopRef = useRef(0);
   const [forumNow, setForumNow] = useState(() => Date.now());
@@ -2198,6 +2234,8 @@ function Forum({
   const unreadPM = (pms || []).filter(x => x.unread).length;
   const activeChars = (characters || []).filter(c => !(forumOff || []).includes(c.id)); // 在逛论坛的角色
   const followedChars = (characters || []).filter(c => flw.includes(c.id));
+  // 关注了我的角色：回关过、现在还关注着的那几位；我也关注着TA的就是互关
+  const fanChars = (characters || []).filter(c => ((followBack || {})[c.id] || {}).on);
   const npcFollowSet = new Set(npcFollows);
   const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
   const floorArrivedAt = forumFloorArrivedAt;
@@ -2680,7 +2718,9 @@ function Forum({
           isMe
             ? h("button", { onClick: () => setFollowListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注 ›"))
             : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
+          isMe
+            ? h("button", { "data-wk": "forumfans", onClick: () => setFanListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝 ›"))
+            : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
         // 首页排版放在「我」里（她 2026-10-07：「单列双列的设置放进我里面吧不要放现在那里」）
         isMe && h("div", { className: "flex items-center gap-2 mt-3" },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "首页排版"),
@@ -3101,6 +3141,18 @@ function Forum({
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),
       h(ForumWorlds, { characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name), h("div", { "data-wk": "block", style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); })) })),
     // 我关注的角色 + 公开网友目录，点进各自主页
+    fanListOpen && h(PageSheet, { onClose: () => setFanListOpen(false) },
+      h(Eyebrow, { style: { marginBottom: 6 } }, "关注我的角色"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "粉丝数里其余的是路人网友。你也关注着的标「互相关注」；你关注了TA、TA还没回关的，在「关注」那张单子里。"),
+      fanChars.length === 0 && h(Empty, { text: "还没有角色关注你", sub: "去角色主页点关注，TA 会自己决定回不回关" }),
+      h("div", { "data-wk": "forumfanlist", className: "space-y-1 max-h-80 overflow-y-auto" },
+        fanChars.map(c => h("button", { key: c.id, onClick: () => { setFanListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" },
+          h(Avatar, { character: c, size: 36, radius: 18 }),
+          h("div", { className: "flex-1 text-left min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: flw.includes(c.id) ? FORUM_SKIN.accent : t.fog } },
+              (flw.includes(c.id) ? "互相关注" : "TA 关注了你") + " · @" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))),
+          h(IChevR, { size: 16, color: t.fog }))))),
     followListOpen && h(PageSheet, { onClose: () => setFollowListOpen(false) },
       h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色、小号与普通网友共用这张公开关注名单；小号不会显示背后真身"),

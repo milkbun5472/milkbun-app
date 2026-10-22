@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.256";
+const APP_VERSION = "v76.265";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10388,7 +10388,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 手写一位配角，一步连好【认识谁】（她 2026-10-10：「现在必须要设置在谁身边然后再把 npc 连到别的角色身上」）：
   //   links＝[{id, label}]，id 可以是 "me"、角色、别的配角，各连一条双向的关系；ownerId 可以是 "me"、某个角色，或空着＝不挂在谁身边。
   //   addMyNpc（关系页那两处老入口）和配角页的新建、秋秋建配角都落到这一处。
-  const addNpcLinked = ({ name, brief, ownerId, links }) => {
+  const addNpcLinked = ({ name, brief, ownerId, links, maskId }) => {
     const nm = String(name || "").trim().slice(0, 24);
     if (!nm) { toast("先写个名字"); return null; }
     const id = "c_" + Date.now() + "_" + Math.floor(Math.random() * 1000) + "_npc";
@@ -10396,6 +10396,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const meLink = ls.find(l => l.id === "me");
     const owner = ownerId === "me" || (ownerId && characters.some(c => c.id === ownerId)) ? ownerId : "";
     pC(prev => [...prev, CharacterPronoun.newCharacter(Object.assign({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: owner },
+      // 她自己身边的人才记面具：在角色身边的跟着主人那张走，另记一份只会两处打架
+      owner === "me" && maskId ? { maskId: String(maskId) } : {},
       meLink ? { knowsUser: true, knowsUserNote: String(meLink.label || "").trim().slice(0, 60) } : {}))]);
     ls.forEach(l => {
       const note = String(l.label || "").trim().slice(0, 60);
@@ -10405,7 +10407,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast("已加入「" + nm + "」，去群里拉上TA");
     return id;
   };
-  const addMyNpc = (name, brief, relLabel, hostId) => {
+  const addMyNpc = (name, brief, relLabel, hostId, maskId) => {
     const note = String(relLabel || "").trim().slice(0, 60);
     if (hostId && hostId !== "me") {
       if (!characters.some(c => c.id === hostId)) return false;
@@ -10414,7 +10416,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (id && note) saveRel(hostId + "->" + id, note, "");
       return !!id;
     }
-    return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
+    return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }], maskId: maskId });
   };
   // 她自己身边的人：起一份草稿填回框里（不直接建人，她改完点「加进来」才存）
   // me：照哪张面具写（关系页面具筛子挑的那张；没挑＝主面具）
@@ -11753,9 +11755,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const l = key === "wechat" ? ((loadJSON("x_phoneRemarkEdits", {}) || {})[char.id] || []) : [];
     const md = key === "wechat" ? ((loadJSON("x_phoneMeddle", {}) || {})[char.id] || []) : [];
     const dl = key === "wechat" ? ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []) : [];
-    if (md.length || dl.length) spec = { ...spec, instruction: spec.instruction
+    const gl = key === "wechat" ? ((loadJSON("x_phoneWxGone", {}) || {})[char.id] || []) : [];
+    if (md.length || dl.length || gl.length) spec = { ...spec, instruction: spec.instruction
       + (md.length ? "\n\n【她拿你手机做过的事】" + md.map(phoneMeddleLine).join("；") + "。这些已经发生了，写到相关的人时照这个来。" : "")
-      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "") };
+      + (dl.length ? "\n\n【现在不在你微信好友里的人】" + dl.map(x => "「" + x + "」").join("") + "：不写跟他们的新消息。" : "")
+      + (gl.length ? "\n\n【已经解散的群】" + gl.map(x => "「" + x + "」").join("") + "：不写这几个群的新消息。" : "") };
     if (!l.length) return spec;
     return { ...spec, instruction: spec.instruction + "\n\n【她翻你手机时动过你的通讯录备注】现在你手机里就是这样：" + l.map(phoneRemarkLine).join("；")
       + "。这一轮要写到这几个人（contacts／userContact）时，remark 留着她改的、改回去、还是换一个，由你决定。" };
@@ -21928,7 +21932,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ① 给刷新编出来的那些私聊发消息：对面照这段聊天接话，写回他手机这条会话里；
   //   ② 删好友 / 加回来：名单存在 x_phoneWxDel，刷新不会把人放回来。
   //   两样都在她的聊天里落一行灰字；他按出来的下一轮知道（waitForHer.phoneMeddle），下一次刷新微信也知道（x_phoneMeddle）。
-  const phoneMeddleLine = e => e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
+  const phoneMeddleLine = e => e.kind === "gone" ? "把你微信里的群「" + e.name + "」解散了"
+    : e.kind === "ungone" ? "把你微信里解散掉的群「" + e.name + "」恢复了"
+    : e.kind === "del" ? "把「" + e.name + "」从你微信好友里删了"
     : e.kind === "undel" ? "把「" + e.name + "」加回了你的微信好友"
     : "用你的微信给「" + e.name + "」发了「" + e.said + "」" + (e.back ? "，对方回了：" + e.back : "");
   const phoneMeddleNote = (char, e) => {
@@ -21948,11 +21954,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你" + (undo ? "把「" + nm + "」加回了 " : "把「" + nm + "」从 ") + (char.remark || char.name) + (undo ? " 的微信好友" : " 的微信好友里删了"), ts: Date.now() }]);
     phoneMeddleNote(char, { kind: undo ? "undel" : "del", name: nm });
   };
+  const phoneDissolve = (char, name, undo) => {
+    const nm = String(name || "").trim();
+    if (!char || !nm) return;
+    const all = loadJSON("x_phoneWxGone", {}) || {};
+    const cur = (all[char.id] || []).filter(x => x !== nm);
+    all[char.id] = undo ? cur : [...cur, nm];
+    saveJSON("x_phoneWxGone", all);
+    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你用 " + (char.remark || char.name) + " 的手机" + (undo ? "恢复了" : "解散了") + "群「" + nm + "」", ts: Date.now() }]);
+    phoneMeddleNote(char, { kind: undo ? "ungone" : "gone", name: nm });
+  };
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
     const isGrp = (session && session.type) === "group";
     if (!name || !(isGrp || (session && session.type) === "private")) return false;
     if (!isGrp && ((loadJSON("x_phoneWxDel", {}) || {})[char.id] || []).includes(name)) return false;
+    if (isGrp && ((loadJSON("x_phoneWxGone", {}) || {})[char.id] || []).includes(name)) return false;
     const wx = () => ((phonesRef.current || {})[char.id] || {}).wechat;
     if (!wx()) return false;
     const p = active;
@@ -21978,7 +21995,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + (ct.intro ? "在 " + char.name + " 眼里你是这样的人：" + String(ct.intro).slice(0, 400) + "\n" : "\n")
       + "下面是你俩在微信上的聊天，最后一条是 " + char.name + " 刚发来的。照你这个人平时在微信上说话的样子回，一到三条短消息；就当是 " + char.name + " 本人发的，照常接。\n"
       + "只输出 JSON 字符串数组，一条一个元素。";
-    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 1200, timeout: 60000, logLabel: "查手机·联系人回话" })
+    callAI(p, sys, [{ role: "user", content: log }], { maxTokens: 65000, timeout: 60000, logLabel: "查手机·联系人回话" })
       .then(raw => {
         let arr = parseJSONLoose(raw); if (!Array.isArray(arr)) arr = String(raw || "").split(/\n+/);
         const rows = arr.map(x => ({ from: isGrp ? String((x && x.from) || "").trim() : name, text: String(x == null ? "" : (x.text || x)).trim() }))
@@ -23496,6 +23513,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const mutuals = meOwn ? (knowers || []).filter(c => ((forumBackRef.current || {})[c.id] || {}).on && (forumFollowsRef.current || []).includes(c.id)) : [];
     return mutuals.length ? "\n【互相关注】" + mutuals.map(c => "「" + c.name + "」").join("、") + " 跟她在论坛上互关，她一发帖他们就刷到了：这一轮里他们要是还没在这帖出现过，至少来一位，用大号。\n" : "";
   };
+  // 她身边的配角也来回她的帖（群友 2026-10-22：「我今天发的帖子，npc 都不跟我互动」）：
+  //   原来楼里只有正式角色和路人，配角只会自己偶尔发一帖。她用主面具、大号发的帖，挂在她身边的配角
+  //   和认识她的那些配角刷得到，每轮掷一下点一两位来回帖；人设给全，按跟她的真实关系说话。
+  const forumMyCrowdRule = (post, meOwn) => {
+    if (!meOwn || post.mask) return "";
+    const pool = [];
+    const add = c => { if (c && c.npc && !pool.some(x => x.id === c.id)) pool.push(c); };
+    npcsOf("me").forEach(add);
+    (liveChars || []).forEach(h0 => npcsOf(h0.id).forEach(n => { if (n && n.knowsUser) add(n); }));
+    if (!pool.length || Math.random() >= 0.6) return "";
+    for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+    const pick = pool.slice(0, Math.random() < 0.5 ? 1 : 2);
+    return "\n【楼主现实里认识的人刷到了这帖】下面这" + (pick.length > 1 ? "两位" : "位") + "是她身边的人，认得出这是她的号，这一轮来回一楼：\n"
+      + pick.map(c => "「" + c.name + "」" + (c.knowsUserNote ? "（跟她：" + c.knowsUserNote + "）" : "") + "：" + groupPersonaText(c.persona, 1200) + charLangLine(c)).join("\n")
+      + "\n口气、用词、在意的事照各自这个人来，按跟她的真实关系说话；公开楼里别把只有你们知道的私事说出来。authorName 写TA在网上用的网名。\n";
+  };
   const forumCommentProbe = (post, n, opts = {}) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
     const opChar = isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
@@ -23539,7 +23572,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "") + forumMutualRule(meOwn, opKnowers)
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "") + forumMutualRule(meOwn, opKnowers) + forumMyCrowdRule(post, meOwn)
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan
       // 认识楼主的人照他的真实设定说话，路人才照帖子猜（群里 2026-10-18 那次是「知道他很富还说他穷」）。
@@ -31381,7 +31414,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   给的是【筛子】不是【分叉】：面具没有自己认识的人，人还是那些人。
     masks: masks,
     maskPrimary: maskPrimary,
-    maskOf: charId => String((settingsFor(charId) || {}).maskId || ""),
+    // 配角没有聊天设置（不单聊），所以不能直接问 chatSettings——那样每个配角都算主面具，
+    //   切到副面具时整排配角都被滤掉（她 2026-10-22：「按面具编 npc 呢」）。
+    //   配角问它的户口要：在谁身边就跟谁那张脸；她自己身边的人记在 maskId 上（建的时候戴的那张）。
+    //   ⚠️仍然只存一份关系网（2026-10-03 定的「面具给的是怎么看，不是存几份」）：这儿给的只是归属。
+    maskOf: charId => {
+      const c = (charactersRef.current || characters || []).find(x => x && x.id === charId);
+      if (c && c.npc) {
+        const own = String(c.ownerId || "");
+        if (own && own !== "me") return String((settingsFor(own) || {}).maskId || "");
+        return String(c.maskId || "");
+      }
+      return String((settingsFor(charId) || {}).maskId || "");
+    },
     onBack: goHome,
     onSave: saveRel,
     // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
@@ -31518,7 +31563,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTfReplyAs: (char, tid, accept) => respondTransfer(char.id, tid, accept),
     onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
-    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend,
+    onRemark: phoneRemarkEdit, onDelFriend: phoneDelFriend, onDissolve: phoneDissolve,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
@@ -32050,6 +32095,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     characters: liveChars,
     onBack: goHome,
     onSave: e => saveLore([e].concat(loreRef.current.filter(x => x.id !== e.id))),
+    // 世界书 json 一次导进好几条（2026-10-22）：新开的那一页是从哪个角色进来的，就先绑那几个人
+    onImportMany: (list, charIds) => {
+      const now = Date.now();
+      const add = (list || []).map((e, i) => Object.assign({ category: "世界观", regex: false, ensemble: false, scope: { chat: true } }, e, { id: "le_json_" + now + "_" + i, charIds: (charIds || []).slice(), ts: now + i }));
+      saveLore(add.concat(loreRef.current || []));
+      toast("导进了 " + add.length + " 条" + ((charIds || []).length ? "" : "（没绑角色，去每条里按需要绑）"));
+    },
     // 最近删除（她 2026-10-03 群友：「修改世界书的时候一不小心给删掉了，这个有回收站吗」）：
     //   删的那条先进 x_loreTrash，留 30 天、最多 60 条，能原样放回去
     trash: loreTrashLive(),

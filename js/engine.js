@@ -2752,6 +2752,34 @@ function calRepeatOn(startDate, repeat, dayKey) {
 // 课表落成一组「每周 / 隔周重复、到学期末为止」的日程。三条路最后都变成同一种行：
 //   { title, weekday(1-7，周一=1), start "08:00", end "09:40", location, weeks: "all"|"odd"|"even" }
 // .ics 本地读、不花调用；截图和文字交给模型认。
+// ── 世界书 json 认法（她 2026-10-22「世界书能不能支持 json」）──────────────────
+// 一份 json 里认出词条，统一成本 app 的词条形状。认这几种：
+//   · 本 app 自己导出的（title / payload / keyword…）原样收；
+//   · 常见的那种世界书 json：entries 是数组或「编号 → 词条」的对象，key/keys/keysecondary、content、comment、constant、disable；
+//   · 角色卡里带的 character_book；· 直接一个词条数组。
+// 世界书页「导入」和小窝放进世界书都走这一份（one-public-mechanism）。
+function loreEntriesFromJson(d) {
+  if (!d || typeof d !== "object") return [];
+  const src = d.data && typeof d.data === "object" ? d.data : d;
+  let list = Array.isArray(src) ? src
+    : src.character_book && src.character_book.entries ? src.character_book.entries
+    : src.entries != null ? src.entries
+    : src.lore != null ? src.lore : null;
+  if (list && !Array.isArray(list) && typeof list === "object") list = Object.keys(list).map(k => list[k]);
+  if (!Array.isArray(list)) return [];
+  return list.map((e, i) => {
+    if (!e || typeof e !== "object") return null;
+    if (e.payload != null && !e.content) return Object.assign({}, e, { payload: String(e.payload || "") });   // 本 app 自己的
+    const body = String(e.content || e.text || e.entry || "").trim();
+    const keys = [].concat(e.keys || e.key || []).concat(e.keysecondary || e.secondary_keys || []).map(k => String(k || "").trim()).filter(Boolean);
+    return {
+      title: String(e.comment || e.name || e.title || "").trim().slice(0, 40) || ("导入设定 " + (i + 1)),
+      payload: body, keyword: [...new Set(keys)].join(","), alwaysOn: !!e.constant || !keys.length,
+      enabled: !(e.enabled === false || e.disable === true), priority: 3
+    };
+  }).filter(x => x && String(x.payload || "").trim().length > 0);
+}
+if (typeof window !== "undefined") window.loreEntriesFromJson = loreEntriesFromJson;
 function parseIcsClasses(text) {
   const raw = String(text || "").replace(/\r?\n[ \t]/g, "");   // 折行接回去
   const out = [];
