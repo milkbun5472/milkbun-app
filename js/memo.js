@@ -244,7 +244,7 @@
     // fixed 会被劫持成相对 Sheet 定位+被其 overflow 裁头——就是她两次报「标题被顶没了」的根因
     // 结构铁律：头/尾 shrink-0、只有中间列表滚；容器 overflow hidden 兜底
     return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose, "data-wk": "memocommentpickertap", "data-part": "close" },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "fadeUp .2s ease both" }, "data-wk": "memocommentpickertap", "data-part": "2" },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "qqIn .2s ease both" }, "data-wk": "memocommentpickertap", "data-part": "2" },
         h("div", { className: "flex items-center justify-between shrink-0", style: { marginBottom: 4 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, "让谁来批注"),
           avail.length > 1 && h("button", { onClick: () => setSel(allSel ? [] : avail.map(c => c.id)), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: ACCENT }, "data-wk": "memocommentpickerbtn", "data-part": "1" }, allSel ? "全不选" : "全选")),
@@ -266,7 +266,7 @@
     const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
     // portal 挂 body：同 CommentPicker，躲开详情 Sheet 的 transform 劫持 fixed
     return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose, "data-wk": "memovisiblepickertap", "data-part": "close" },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "fadeUp .2s ease both" }, "data-wk": "memovisiblepickertap", "data-part": "2" },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "qqIn .2s ease both" }, "data-wk": "memovisiblepickertap", "data-part": "2" },
         h("div", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "谁能看到 / 提醒你"),
         h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "选中的角色：临近时会在聊天里自然提起；到期当天可能主动发消息提醒你。"),
         (props.characters || []).length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有角色。")

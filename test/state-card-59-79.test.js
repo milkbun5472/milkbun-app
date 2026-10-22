@@ -117,7 +117,7 @@ test("土司居中不许再靠 transform——它跟自己的 fadeUp 抢同一�
   assert.match(toast, /className: "fixed inset-0 flex items-center justify-center pointer-events-none"/, "居中仍交给外层 flex");
   assert.match(toast, /zIndex: APP_OVERLAY_LAYERS.feedback/);
   // 动画仍在，只是从此只有它一个人用 transform
-  assert.match(toast, /animation: "fadeUp \.2s ease both"/);
+  assert.match(toast, /animation: "qqIn \.2s ease both"/);   // 2026-10-22 起 app 自己的进场动画叫 qqIn
   // 外层铺满整屏，不许挡住底下的操作
   assert.match(toast, /pointer-events-none/);
 });

@@ -1201,7 +1201,7 @@ function ThemePeekBar({ zh, onBack }) {
   }, h("div", {
     className: "flex items-center pointer-events-auto",
     style: { gap: 12, maxWidth: "100%", background: t.ink, color: t.bg2, borderRadius: 999,
-      padding: "0 6px 0 16px", minHeight: 44, boxShadow: "0 10px 30px rgba(20,18,14,.34)", animation: "fadeUp .2s ease both" }
+      padding: "0 6px 0 16px", minHeight: 44, boxShadow: "0 10px 30px rgba(20,18,14,.34)", animation: "qqIn .2s ease both" }
   },
     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
       "正在预览 · " + zh),
@@ -1501,7 +1501,7 @@ function Sheet({
     style: Object.assign({
       background: t.bg2,
       borderRadius: "26px 26px 0 0",
-      animation: "fadeUp .3s ease both",
+      animation: "qqIn .3s ease both",
       maxHeight: tall ? "88%" : "72%",
       overflowY: "auto",
       overflowAnchor: "none",
@@ -1525,6 +1525,12 @@ function Sheet({
 //   半窗那棵树外面包一层 HalfWinLayer，里面的整页问 usePageZ 要层数；别处打开的照旧。
 const HalfWinLayer = React.createContext(false);
 function usePageZ(z) { return useContext(HalfWinLayer) ? 935 + Math.max(0, z - 240) : z; }
+// 整页（铺满一屏的那一层）的外壳只此一份（她 2026-10-22「为什么不把这些页面收成公共的」）：
+//   原来七处各写 position/inset/zIndex、有的带进场动画有的不带，动画名还叫最常见的 fadeUp——
+//   美化 CSS 里自己也定义一个 fadeUp，就只有带这个动画的那几页被改成看不见（群里「查手机和查找记录点不动」）。
+//   现在位置、层级、进场动画都从这儿出；动画用专用名 qqIn（index.html），谁的 CSS 都撞不上。
+//   每页原来的 data-wk 一个不动（美化挂点）；外壳另带 data-page，写美化的人一条就能管到所有整页。
+function pageShellStyle(z, extra) { return Object.assign({ position: "fixed", inset: 0, zIndex: z, animation: "qqIn .22s ease both" }, extra || {}); }
 function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
   const t = useTheme();
   const pageZ = usePageZ(245);
@@ -1536,7 +1542,7 @@ function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
     scrollRef.current.scrollTop = 0;
   }, [scrollKey]);
   return ReactDOM.createPortal(h("div", { "data-wk": "pagesheet", className: "h-full flex flex-col",
-    style: Object.assign({ position: "fixed", inset: 0, zIndex: pageZ, background: t.bg, animation: "fadeUp .22s ease both" }, skinStyle || {}) },
+    "data-page": "1", style: pageShellStyle(pageZ, Object.assign({ background: t.bg }, skinStyle || {})) },
     h(Head, { bg: "transparent", zh: zh || "", sub: sub, onBack: onClose, right: right }),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pt-3",
       style: { overflowAnchor: "none", paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } }, children)), document.body);
@@ -1967,7 +1973,7 @@ function PromptDialog({ title, body, value, placeholder, okLabel, multiline, max
   const box = { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink,
     background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", outline: "none" };
   return appDialogPortal(
-    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginBottom: body ? 8 : 14, textAlign: "center" } }, title),
       body ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 14, whiteSpace: "pre-wrap" } }, body) : null,
       multiline
@@ -2065,7 +2071,7 @@ function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfi
       width: "100%", maxWidth: 312, position: "relative", overflow: "hidden",
       background: t.bg2, border: "1px solid " + t.line, borderRadius: 20, padding: "22px 20px 18px",
       boxShadow: "0 2px 4px rgba(46,38,29,.10), 0 22px 46px -14px rgba(46,38,29,.34), inset 0 1px 0 rgba(255,255,255,.75)",
-      animation: "fadeUp .2s ease both" } },
+      animation: "qqIn .2s ease both" } },
       // 纸纹：跟卷宗卡、日记纸皮同一套两道斜线
       h("span", { "aria-hidden": "true", style: { position: "absolute", inset: 0, pointerEvents: "none",
         background: "repeating-linear-gradient(58deg, rgba(255,255,255,.34) 0px, rgba(255,255,255,.34) 1px, transparent 1px, transparent 9px), repeating-linear-gradient(-34deg, rgba(46,38,29,.016) 0px, rgba(46,38,29,.016) 1px, transparent 1px, transparent 13px)" } }),
@@ -2107,7 +2113,7 @@ function Toast({
       fontFamily: F_BODY,
       fontSize: "calc(12.5px * var(--app-fs, 1))",
       lineHeight: 1.5,
-      animation: "fadeUp .2s ease both",
+      animation: "qqIn .2s ease both",
       whiteSpace: "pre-wrap",
       wordBreak: "break-word"
     }
@@ -3044,7 +3050,7 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   // 详情页是从主屏小组件里传送出来的，会带着「铺在壁纸上」的上下文，字全翻成白的（群里 2026-10-22）：这一层明说不在壁纸上
   const tb = t.homeBaseTheme || t;   // 详情页用原来的主题，不用格子里那套白字
   const detail = open && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(h(HomeDetailLayer, null,
-    h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: 240 }, weatherSkin(w, tb)) },
+    h("div", { className: "h-full flex flex-col", "data-page": "1", style: pageShellStyle(240, weatherSkin(w, tb)) },
     h(Head, { zh: "天气", sub: place ? (place.kind === "world" ? place.sub + " · " + place.label : place.sub) : "你所在地", bg: "transparent", onBack: function () { setOpen(false); } }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
     h(WeatherTagRail, { places: levels.top, value: levels.topValue, onPick: chooseTop }),
@@ -3373,12 +3379,12 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
       // 结果
       h("div", { "data-wk": "wheelresult", style: { minHeight: 46, marginTop: 22, textAlign: "center" } },
         spinning ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "rgba(255,255,255,0.6)" } }, "命运旋转中…")
-        : result ? h("div", { style: { animation: "fadeUp .35s ease both" } },
+        : result ? h("div", { style: { animation: "qqIn .35s ease both" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.5)" } }, "命运说——"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#f5d78e", marginTop: 3, fontWeight: 600 } }, result)) : null),
       // 角色起哄（完整气泡，不截断）
       quipBusy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,0.4)", marginTop: 14 } }, "有人闻着味来了…") : null,
-      quip ? h("div", { className: "flex items-start gap-2.5", style: { marginTop: 14, maxWidth: 320, animation: "fadeUp .3s ease both" } },
+      quip ? h("div", { className: "flex items-start gap-2.5", style: { marginTop: 14, maxWidth: 320, animation: "qqIn .3s ease both" } },
         quip.char ? h(Avatar, { character: quip.char, size: 36, radius: 999 }) : null,
         h("div", { "data-wk": "block", style: { background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 16, borderTopLeftRadius: 4, padding: "9px 13px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,0.55)", marginBottom: 2 } }, quip.name),
@@ -3529,7 +3535,7 @@ function UsWidget({ characters, couples, sweet, onOpen, dot, homeSize }) {
   const forced = homeSize && homeSize !== "auto";
   return h(GlassCard, { onClick: onOpen, style: { padding: forced ? "10px 16px" : "12px 16px", cursor: "pointer", position: "relative", height: forced ? "100%" : "auto", display: forced ? "flex" : "block", flexDirection: "column", justifyContent: "center", overflow: "hidden" } },
     dot ? h("span", { style: { position: "absolute", top: 10, right: 12, width: 8, height: 8, borderRadius: 999, background: "#e0524a" } }) : null,
-    p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "fadeUp .35s ease both" } },
+    p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "qqIn .35s ease both" } },
       h("span", { "data-wk": "wicon", style: { display: "contents" } }, h(Avatar, { character: p, size: 44, radius: 999 })),
       h("div", { className: "flex-1 min-w-0" },
         // 名字与纪念日共用一条弹性行：名字可收缩，天数紧贴在右侧；数字单独放大标粉。
@@ -8064,7 +8070,7 @@ function Home({
         open ? h("div", { style: { padding: "4px 13px 14px" } }, body) : null);
     };
     return ReactDOM.createPortal(h("div", { className: "flex flex-col", "data-home-decor-editor": true,
-      style: Object.assign({}, (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }), { position: "fixed", inset: 0, zIndex: 240, overflow: "hidden" }) },
+      "data-page": "1", style: pageShellStyle(240, Object.assign({}, (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 }), { overflow: "hidden" })) },
       h(Head, { zh: A.isWidget ? "摆这个组件" : A.isNew ? "做一件装饰" : "改这件装饰",
         sub: A.isWidget ? homeWidgetName(REG[A.key]) + " · 改哪一样当场就落，不用按保存"
           : A.isNew ? "挑一样东西 · 写上字 · 定个样子" : meta.name + " · 改完记得保存",
@@ -12810,7 +12816,7 @@ function CallScreen({
   },
     isVideo && !bye ? h("div", { "data-call-camera-status": true, role: "status", style: { padding: "4px 16px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: camera.phase === "error" ? "#f0b06a" : "rgba(255,255,255,.68)", maxHeight: 54, overflowY: "auto", lineHeight: 1.6, textAlign: "center" } }, camera.message || (camera.phase === "on" ? "镜头开着 · 每次发话时给对方看当前画面" : "镜头关着 · 开启后发话就能给对方看")) : null,
     // 打字框：点「打字」才从按键上面滑出来；发完一句不收，方便连着打
-    typeOpen && !bye ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
+    typeOpen && !bye ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "qqIn .18s ease both" } },
       isVideo ? h("button", {
         "data-wk": "callactkey", "data-on": actMode ? "1" : "0",
         onClick: () => setActMode(v => !v), "aria-pressed": actMode ? "true" : "false",
@@ -15172,7 +15178,7 @@ function DateComposeDialog({ place, places, members, who, onCancel, onSend }) {
   const field = { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px" };
   return appDialogPortal(
     // 地方多、人多的时候整框会比屏幕高：框里自己滚，别把「递过去」挤出屏幕
-    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, maxHeight: "88vh", overflowY: "auto", overscrollBehavior: "contain", background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, maxHeight: "88vh", overflowY: "auto", overscrollBehavior: "contain", background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, textAlign: "center" } }, "约" + who),
       pickMode ? h("div", { style: { marginTop: 14 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "去哪儿"),
@@ -16236,7 +16242,7 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
   const balText = myBalance == null ? "—" : (M ? M.fmt(myBalance, charId) : "¥" + myBalance);
   const sym = h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.fog, lineHeight: 1 } }, cur.symbol);
   return appDialogPortal(
-    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+    h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, textAlign: "center" } }, "转账给 " + cName),
       isCNY ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginTop: 4 } }, "按 " + cur.symbol + " 记 · TA 那边的钱"),
       // 金额那一行
@@ -16552,7 +16558,7 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
       borderRadius: 20, border: "1px solid " + t.line,
       borderTop: "3px solid " + t.accent,
       boxShadow: "0 24px 60px rgba(20,19,15,.34)", overflow: "hidden",
-      animation: "fadeUp .22s ease both"
+      animation: "qqIn .22s ease both"
     }
   }, children));
 }
@@ -19887,7 +19893,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   if (gPeek) return h(ThemePeekBar, { zh: ((group && group.name) || "这个群") + " 的长相（还没保存）", onBack: gPeekEnd });
   // 整页，不是半窗（她 2026-10-07：「群聊设置还是个半窗！」；施工规则/no-half-sheet.md）——
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
-  return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+  return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
       right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
@@ -21335,11 +21341,11 @@ function ChatSettings({
       })
     : { background: t.bg };
   // 「影」那一格直接是动态形象编辑页（整页，自己有顶栏），不套设置页的外壳
-  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: pageZ }, pgSkin) },
+  if (settingsTab === "motion" && window.MotionEditor) return ReactDOM.createPortal(h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", "data-page": "1", className: "h-full flex flex-col", style: Object.assign(pageShellStyle(pageZ), pgSkin) },
     h(window.MotionEditor, { character: character, scene: "default", onBack: () => { setSettingsTab(""); setOpenSec(""); }, onSaved: () => {}, toast: m => window.__toast && window.__toast(m, 3000) })), document.body);
   return ReactDOM.createPortal(h(React.Fragment, null,
     lookPeek ? h(ThemePeekBar, { zh: cNm + " 的聊天长相（还没保存）", onBack: endPeek }) : null,
-    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", className: "h-full flex flex-col", style: Object.assign({ position: "fixed", inset: 0, zIndex: pageZ }, pgSkin, lookPeek ? { display: "none" } : null) },
+    h("div", { "data-wk": "chatsetpage", "data-part": "chatsettings", "data-page": "1", className: "h-full flex flex-col", style: Object.assign(pageShellStyle(pageZ), pgSkin, lookPeek ? { display: "none" } : null) },
     h(Head, {
       bg: "transparent",
       zh: settingsTab ? (settingPages.find(x => x.key === settingsTab) || {}).title : "聊天设置",

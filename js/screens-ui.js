@@ -3045,7 +3045,7 @@ function Forum({
         myBoardNow && h("button", { onClick: () => { const b = forumCustomBoards().find(x => x.name === tab) || {}; setNewBoard({ name: String(b.name || tab).replace(/吧$/, ""), about: b.about || "", rules: (Array.isArray(b.rules) ? b.rules : []).join("\n"), skin: forumCustomSkinIndex(b), editOf: tab }); }, className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "编辑"),
         myBoardNow && h("button", { onClick: () => dropBoard(tab), className: "shrink-0 active:opacity-60", style: { padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "拆吧"),
         onClearBoard && h("button", { onClick: () => onClearBoard(tab), className: "shrink-0 active:opacity-60", style: { marginLeft: 2, padding: "0 7px", borderRadius: 3, border: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.paper, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", lineHeight: "16px", color: FORUM_SKIN.fog, whiteSpace: "nowrap" } }, "清空本版")),
-      rulesOpen && h("div", { "data-wk": "block", onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "fadeUp .18s ease both" } },
+      rulesOpen && h("div", { "data-wk": "block", onClick: () => setRulesOpen(false), style: { position: "absolute", top: "100%", left: 10, right: 10, marginTop: 6, padding: "9px 12px", borderRadius: 7, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 10px 24px rgba(39,49,38,.16)", animation: "qqIn .18s ease both" } },
         boardRules.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
@@ -3060,7 +3060,7 @@ function Forum({
         nx[0] === "notice" && unreadNoticeCount > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -23, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(8.5px * var(--app-fs, 1))", fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadNoticeCount > 99 ? "99+" : unreadNoticeCount)); })),
     refreshMenu && !inSub && nav === "home" && tab !== "收藏" && h(React.Fragment, null,
       h("div", { onClick: () => setRefreshMenu(false), style: { position: "absolute", inset: 0, zIndex: 40 } }),
-      h("div", { "data-wk": "block", style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "fadeUp .16s ease both" } },
+      h("div", { "data-wk": "block", style: { position: "absolute", top: safeTop(46), right: 12, zIndex: 41, minWidth: 168, padding: 5, borderRadius: 10, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 12px 28px rgba(39,49,38,.18)", animation: "qqIn .16s ease both" } },
         [tab !== "关注" && ["刷新", "网友来发帖", () => onGenBoard(tab)],
          onGenCharPosts && ["请TA们发帖", tab === "关注" ? "你的 char，自己挑吧" : "你的 char，发到「" + tab + "」", () => onGenCharPosts(tab)]]
           .filter(Boolean).map((x, k) => h("button", { key: k, onClick: () => { setRefreshMenu(false); x[2](); }, className: "w-full text-left active:opacity-60",
@@ -3462,7 +3462,7 @@ function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, charac
       h("div", { "data-wk": "shopdetail",
         onClick: e => e.stopPropagation(),
         className: "w-full",
-        style: { background: MSHOP.card, borderRadius: "18px 18px 0 0", maxHeight: "84vh", overflowY: "auto", animation: "fadeUp .26s ease both", paddingBottom: COMPOSER_PAD_BOTTOM }
+        style: { background: MSHOP.card, borderRadius: "18px 18px 0 0", maxHeight: "84vh", overflowY: "auto", animation: "qqIn .26s ease both", paddingBottom: COMPOSER_PAD_BOTTOM }
       },
         h("div", { "data-wk": "shopdetailhero", style: { position: "relative", height: 180, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)", borderRadius: "18px 18px 0 0" } },
           h("div", { style: { position: "absolute", inset: 0, borderRadius: "18px 18px 0 0", background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
@@ -11800,7 +11800,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
         : h("button", { "data-wk": "carryclosethangopen", onClick: () => setHangOpen(true), className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: carryTint("outfit", .95), background: "transparent", border: "1px dashed " + carryTint("outfit", .35), borderRadius: 12 } }, "自己挂一身 ＋")) : null);
     content = !total
       ? h("div", { "data-wk": "carryempty", "data-part": "closet", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "衣柜是空的", addBox)
-      : h("div", { "data-wk": "carrycloset", style: { animation: "fadeUp .3s ease both" } },
+      : h("div", { "data-wk": "carrycloset", style: { animation: "qqIn .3s ease both" } },
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
             h("span", { "data-wk": "carrysectionnote", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".04em", color: t.fog, whiteSpace: "nowrap" } },
               (groups.length > 1 ? groups.length + " 种场合 · " : "") + total + " 身"
@@ -11848,7 +11848,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     };
     content = !items.length
       ? h("div", { "data-wk": "carryempty", "data-part": "stuff", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "空空如也")
-      : h("div", { "data-wk": "carrystuff", style: { animation: "fadeUp .3s ease both" } },
+      : h("div", { "data-wk": "carrystuff", style: { animation: "qqIn .3s ease both" } },
           sec.zip ? zipper(t, carryTint(sectionKey, .42)) : null,
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 12 } },
             h("span", { "data-wk": "carrysectionnote", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.16em", color: t.fog, whiteSpace: "nowrap" } },
@@ -11872,7 +11872,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     const items = (data && data.items) || [];
     content = items.length === 0
       ? h("div", { "data-wk": "carryempty", "data-part": "list", className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "空空如也")
-      : h("div", { style: { animation: "fadeUp .3s ease both" } }, items.map((it, i) => h("button", { "data-wk": "carryrow", "data-on": isPinned(it) ? "1" : "0", key: i, onClick: () => setSheet(it), className: "w-full text-left flex items-start justify-between gap-3 py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
+      : h("div", { style: { animation: "qqIn .3s ease both" } }, items.map((it, i) => h("button", { "data-wk": "carryrow", "data-on": isPinned(it) ? "1" : "0", key: i, onClick: () => setSheet(it), className: "w-full text-left flex items-start justify-between gap-3 py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
           h("div", { className: "min-w-0 flex-1" },
             h("div", { "data-wk": "carryrowname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", color: t.ink } }, it.name, pinDot(it)),
             it.note && h("div", { "data-wk": "carryrownote", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.6 } }, STX(it.note))),

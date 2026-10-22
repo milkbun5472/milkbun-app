@@ -55,7 +55,7 @@ test("天气那一整页接上了，而且顶栏透上来", () => {
   const seg = code.slice(code.indexOf("const detail = open && typeof ReactDOM"), code.indexOf("const detail = open && typeof ReactDOM") + 900);
   // v76.225 起外面包一层 HomeDetailLayer（小组件换了底色/底图，点开的这页不跟着变白字），皮肤用底色那套 tb
   assert.match(seg, /ReactDOM\.createPortal\(h\(HomeDetailLayer, null,/, "没包那一层，点开的页会跟着小组件的底色走");
-  assert.match(seg, /style: Object\.assign\(\{ position: "fixed", inset: 0, zIndex: 240 \}, weatherSkin\(w, tb\)\)/);
+  assert.match(seg, /style: pageShellStyle\(240, weatherSkin\(w, tb\)\)/);   // 2026-10-22 整页外壳收成 pageShellStyle
   assert.match(seg, /h\(Head, \{ zh: "天气", sub: [^}]*bg: "transparent"/);
   assert.ok(!/zIndex: 240, background: t\.bg \} \},\s*h\(Head, \{ zh: "天气"/.test(code), "还留着平色");
 });

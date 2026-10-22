@@ -120,6 +120,9 @@
   input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 1px solid #ddd8cd; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
   input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #fff; border: 1px solid #ddd8cd; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+  /* app 自己的进场动画用专用名 qqIn（2026-10-22）：fadeUp 太常见，美化 CSS 里自己定义一个同名的，
+     app 里所有弹窗、整页就跟着变成看不见（群里「查手机和查找记录点不动」）。fadeUp 留着给已有的美化引用 */
+  @keyframes qqIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
   @keyframes wk-spin { to { transform: rotate(360deg); } }
   /* 「看TA玩」里角色打字那一竖光标 */
   @keyframes wkcaret { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }

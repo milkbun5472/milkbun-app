@@ -19,7 +19,7 @@ const PAGE = cut('(showDecorLibrary || (styleKey && REG[styleKey] && (REG[styleK
 test("整页，不是半窗（no-half-sheet）", () => {
   assert.ok(bare(PAGE).indexOf("h(Sheet") < 0, "又掀回半窗了");
   assert.match(PAGE, /ReactDOM\.createPortal\(h\("div", \{ className: "flex flex-col"/);
-  assert.match(PAGE, /position: "fixed", inset: 0, zIndex: 240, overflow: "hidden"/);
+  assert.match(PAGE, /"data-page": "1", style: pageShellStyle\(240, Object\.assign\(\{\}, \(typeof pageSkin === "function" \? pageSkin\("paper", t\) : \{ background: t\.bg2 \}\), \{ overflow: "hidden" \}\)\) \}/);   // 2026-10-22 整页外壳收成 pageShellStyle
   assert.match(PAGE, /document\.body\)/);
   // 顶栏走公共的紧凑标题栏，别自己再写一条（mobile-ui-layout §1）
   assert.match(PAGE, /h\(Head, \{ zh: A\.isWidget \? "摆这个组件" : A\.isNew \? "做一件装饰" : "改这件装饰"/);

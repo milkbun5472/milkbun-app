@@ -2011,7 +2011,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
   const title = tab === "library" ? "全部" : tab === "saved" ? "我收着的" : characterText(char, "他的几摞");
   const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? characterText(char, "他把 ") + items.length + " 张分成了这几摞" : saved.length + " 张 · 刷新也不会丢";
-  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
+  return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "album", style: { background: "#fff", animation: "qqIn .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 
 // 各 app 详情内容
@@ -4617,7 +4617,7 @@ function MusicView({ pl, char, t: appT, onGen, busy, onPlay, onPeek, onBack, dri
       border: "1px solid " + (danger ? t.accent : t.line), color: danger ? t.accent : t.ink
     }
   }, label);
-  return shell(h("div", { style: { animation: "fadeUp .3s ease both" } },
+  return shell(h("div", { style: { animation: "qqIn .3s ease both" } },
     // 碟 + 这张叫什么
     h("div", { className: "flex items-center", style: { gap: 15, padding: "2px 0 18px" } }, disc,
       h("div", { className: "min-w-0", style: { flex: 1 } },
@@ -4808,7 +4808,7 @@ function renderPhoneModule(key, d, ctx) {
   };
   const wrap = kids => h("div", {
     style: {
-      animation: "fadeUp .3s ease both"
+      animation: "qqIn .3s ease both"
     }
   }, kids);
   // 模型偶尔会把 items 返回成字符串或对象；a || [] 会原样放行，下一步 .map 就是白屏
