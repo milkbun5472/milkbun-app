@@ -7033,18 +7033,14 @@ function Home({
     var meta = homeDecorMeta(A.type);
     return { id: id, type: A.type, text: A.type === "photo" ? "" : (text || meta.text), detail: A.type === "photo" ? "" : A.type === "shortcut" ? shortcutTarget(String(A.detail || "").trim()) : A.type === "code" ? String(A.detail || "").slice(0, HOME_DECOR_CODE_MAX) : (String(A.detail || "").trim() || meta.detail || ""), caption: A.type === "photo" ? text : "", imageRefs: A.type === "photo" ? normalizeHomePhotoSlots(A.photos, A.frame) : [], frame: A.type === "photo" ? A.frame : "", surface: A.surface, borderMode: A.borderMode, accent: A.accent, ground: A.ground, align: A.align, mark: String(A.mark || "").trim(), badge: String(A.badge || "").trim(), tilt: normalizeHomeDecorTilt(A.tilt), layer: normalizeHomeLayer(A.layer), createdAt: Date.now() };
   }
-  function addDecoration() {
-    var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
-    var item = decorItemOf(decorAdapter("new"), id);
+  // 往桌面上新摆一件装饰：编辑页「放上去」和秋秋的卡（__homePutCodeDecor）都走这一处——REG、存档、样式、尺寸、落在哪一页只写一遍。
+  function placeNewDecoration(item, preset, size, stickers) {
+    var id = item.id;
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
-    setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
-    // ⚠️她自己在「多大」那一段挑过就听她的；没挑（""＝自动）才按类型／相框推一个。
-    //   自动那一路是给「懒得挑」兜底的，不该盖掉她明说的选择。
-    if (decorDraftStickers.length) setStickers(function (prev) { var n = Object.assign({}, prev); n[id] = normalizeHomeStickers(decorDraftStickers); saveJSON("x_homeStickers", n); return n; });
-    if (decorDraftSize) setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftSize; saveJSON("x_homeWidgetSizes", n); return n; });
-    else if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = HOME_PHOTO_FRAMES_TALL[decorDraftFrame] ? "column" : (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
-    else if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"); saveJSON("x_homeWidgetSizes", n); return n; });
+    setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = preset; saveJSON("x_homeWidgetStyles", n); return n; });
+    if (stickers && stickers.length) setStickers(function (prev) { var n = Object.assign({}, prev); n[id] = normalizeHomeStickers(stickers); saveJSON("x_homeStickers", n); return n; });
+    if (size) setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = size; saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
       var pi = Math.max(0, Math.min(page, L.length - 1));
@@ -7054,9 +7050,30 @@ function Home({
       setTimeout(function () { try { var p2 = findSlot(buildLayout(saved), id); if (p2) goPage(p2.p); } catch (e) {} }, 0);
       return saved;
     });
+  }
+  function addDecoration() {
+    var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
+    var item = decorItemOf(decorAdapter("new"), id);
+    // ⚠️她自己在「多大」那一段挑过就听她的；没挑（""＝自动）才按类型／相框推一个。
+    //   自动那一路是给「懒得挑」兜底的，不该盖掉她明说的选择。
+    var size = decorDraftSize
+      || (decorDraftType === "photo" && decorDraftFrame !== "single" ? (HOME_PHOTO_FRAMES_TALL[decorDraftFrame] ? "column" : (decorDraftFrame === "film3" || decorDraftFrame === "slats5" || decorDraftFrame === "weave3" || decorDraftFrame === "receipt2") ? "wide" : "large")
+      : (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") ? ((decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : (decorDraftType === "bookmark" ? "slim" : decorDraftType === "scroll" ? "column" : "square"))
+      : "");
+    placeNewDecoration(item, decorDraftPreset, size, decorDraftStickers);
     setShowDecorLibrary(false); resetDecorDraft();
     if (typeof toast === "function") toast("装饰已经放到桌面上");
   }
+  // 秋秋写的「自己写」小组件（她 2026-10-22：「秋秋能帮忙写不」）：id 是桌面上已有的那一件就换掉它的代码，否则新摆一件。返回那一件的 id。
+  if (typeof window !== "undefined") window.__homePutCodeDecor = function (id, code, size) {
+    var html = String(code || "").slice(0, HOME_DECOR_CODE_MAX);
+    if (!html.trim()) throw new Error("代码是空的");
+    var cur = id && REG[id] && REG[id].kind === "decor" ? REG[id] : null;
+    if (cur) { if (cur.which !== "code") throw new Error("那一件不是「自己写」的组件"); updateDecoration(id, { detail: html }); return id; }
+    var nid = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
+    placeNewDecoration({ id: nid, type: "code", text: "", detail: html, createdAt: Date.now() }, "bare", HOME_SIZE_PRESETS.some(function (x) { return x.id === size; }) ? size : "square", null);
+    return nid;
+  };
   function saveStyleDecoration() {
     var it = styleKey && REG[styleKey];
     if (!it || it.kind !== "decor" || !it.decor) return;
@@ -7999,7 +8016,7 @@ function Home({
                 h("textarea", { "data-wk": "textarea", "data-part": "decorcode", value: A.detail, onChange: function (e) { A.setDetail(e.target.value); }, rows: 10, maxLength: HOME_DECOR_CODE_MAX, spellCheck: false, autoCapitalize: "off", autoCorrect: "off",
                   placeholder: "贴一段 HTML，可以带 <style> 和 <script>。\n比如：<div style=\"font-size:28px;text-align:center\">早安</div>", style: { width: "100%", resize: "vertical", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "10px 12px", fontFamily: "ui-monospace,Menlo,monospace", fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5 } }),
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 7, lineHeight: 1.7 } },
-                  "上面的预览就是放到桌面的样子。不会写可以让秋秋写一段贴进来。它画在一个隔开的小窗里：动画、时钟这些都能跑，但读不到 app 里的角色和聊天，也不能点——长按照样拿起来拖、改样子。"))
+                  "上面的预览就是放到桌面的样子。不会写就跟秋秋说想要什么样的，她写好出一张卡，点应用就摆上桌面。它画在一个隔开的小窗里：动画、时钟这些都能跑，但读不到 app 里的角色和聊天，也不能点——长按照样拿起来拖、改样子。"))
             : A.type === "shortcut" ? h("div", { style: { marginTop: 6 } },
                 h("input", { "data-wk": "input", value: A.text, onChange: function (e) { A.setText(e.target.value); }, maxLength: 24, placeholder: "图标上的字（可不填，不填就是一块空白，样子在下面「什么样子」里定）", style: { width: "100%", outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } }),
                 h("select", { value: shortcutTarget(A.detail), onChange: function (e) { A.setDetail(e.target.value); }, style: { width: "100%", marginTop: 9, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, padding: "11px 12px" } },
