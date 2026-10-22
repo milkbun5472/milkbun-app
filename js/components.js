@@ -11549,6 +11549,8 @@ function ChatThread({
     onSubmit: send,
     after: (draft, fire, clear) => h(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       onClick: fire,
+      // 按下去不抢输入框的焦点：键盘留着，能连着发好几条（群里 2026-10-22）
+      onMouseDown: e => e.preventDefault(),
       disabled: sending || !draft.trim(),
       className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
       // 发送键原来直接刷「我的气泡色」，默认那个粉太跳（她 2026-09-03：「改成好看点的颜色」）。
@@ -15496,12 +15498,21 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   };
   useEffect(fit, [draft]);
   const clear = () => setDraft("");
-  const fire = () => { const v = draft.trim(); if (!v) return; setDraft(""); onSubmit && onSubmit(v); };
+  // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
+  //   发送键按下不抢焦点；有的手机照样先失焦了，那就看是不是刚失焦，是的话在这次点击里把焦点还回去
+  const blurAt = useRef(0);
+  const fire = () => {
+    const v = draft.trim(); if (!v) return;
+    const el = ref.current, keep = el && (document.activeElement === el || Date.now() - blurAt.current < 600);
+    setDraft(""); onSubmit && onSubmit(v);
+    if (keep) try { el.focus({ preventScroll: true }); } catch (e) {}
+  };
   return h(React.Fragment, null,
     h("textarea", Object.assign({
       ref, rows: 1,
       value: draft,
       onChange: e => setDraft(e.target.value),
+      onBlur: () => { blurAt.current = Date.now(); },
       // 回车：默认发送；设置 → 外观里改成「回车换行」的话就只换行，按发送键才发（她 2026-10-17）。
       //   手机键盘上「长按回车」浏览器认不出来，所以给的是一个开关；接着实体键盘按住回车不放（repeat）也当换行
       onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.repeat && !e.isComposing && e.keyCode !== 229 && !enterNewline()) { e.preventDefault(); fire(); } },
@@ -19160,6 +19171,7 @@ function GroupThread({
     onSubmit: send,
     after: (draft, fire) => h("button", {
       onClick: fire,
+      onMouseDown: e => e.preventDefault(),   // 同单聊：按发送不收键盘
       disabled: sending || !draft.trim(),
       className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0",
       "data-wk": "send",
