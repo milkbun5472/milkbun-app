@@ -27642,6 +27642,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   原来只说「以某某身份给用户写一封情书」，没说用哪个人称——模型偶尔就写成「他提笔……她……」的旁白。
   //   写信和回信共用这一句（one-public-mechanism）。
   const LETTER_PERSON = "这是你亲笔写给她的信：用「我」写你自己，用「你」（或你平时叫她的那个称呼）叫她。是信，不是旁白——不许写成「他／她」的第三人称叙事。";
+  // 收信人点名（群友 2026-10-22：「俞的第一封情书是给江忘年写的」）：原来只写「给用户写」，
+  //   他上下文里还认识别的人，模型就拿了一个现成的名字当收信人。说清是谁、叫什么。
+  const letterTo = char => { const nm = userName(profileFor(char.id)); return "收信人是「" + nm + "」——就是一直跟你聊天、跟你在一起的她，不是你认识的别的任何人；信里的「你」只指她。"; };
   const genCoupleLetter = async char => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     // 手动硬门槛：距上一封「TA 发的」情书 ≥3 天（被删的已不在数组、自动不算）
@@ -27662,7 +27665,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true,
         // 字数（她 2026-09-05：「情书是不是也有点短」）：150-300 写不开——
         // 那是张卡片的长度，不是一封信。下限比上限重要：说清至少要写到这个份上。
-        instruction: relSay(char) + "。以「" + char.name + "」身份，给用户写一封**" + letterWord(char) + "**——正式、真挚、有分量（不是日常小纸条）。" + LETTER_PERSON
+        instruction: relSay(char) + "。以「" + char.name + "」身份，给「" + userName(profileFor(char.id)) + "」写一封**" + letterWord(char) + "**——正式、真挚、有分量（不是日常小纸条）。" + letterTo(char) + LETTER_PERSON
           + "一个标题 + 一封完整的信：**至少 450 个汉字、别超过 1000**，4-7 个自然段，贴人设，可回顾你们的点滴、说心里话，结尾落款。"
           + "别喊口号、别写成流水账。⚠️长不等于绕：每一段都要有一件具体的事或一句真话，别用感慨和排比把篇幅填满。信要写完整，别中途断。" + PAST_LETTERS,
         schemaHint: "{\"title\":\"情书标题\",\"body\":\"信的正文\"}",
@@ -27730,7 +27733,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const d = await runProbe(apiFor(char.id), ctxFor(char), { // 情书回信=TA 亲笔，跟随专线（v48.37）
         voice: true,
-        instruction: relSay(char) + "，在" + letterWord(char) + "里一来一回。" + (isNewLetter ? "用户刚给你写了一封" + letterWord(char) + "，你读完后回应" : "顺着下面的" + letterWord(char) + "往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】\n" + (context || ""),
+        instruction: relSay(char) + "，在" + letterWord(char) + "里一来一回。" + letterTo(char) + (isNewLetter ? "用户刚给你写了一封" + letterWord(char) + "，你读完后回应" : "顺着下面的" + letterWord(char) + "往来，回应最新一句") + "。以「" + char.name + "」身份真挚回应，可以分成 2-4 条短消息（气泡），贴人设、别喊口号、别复述。" + LETTER_PERSON + "\n【情书往来】\n" + (context || ""),
         schemaHint: "{\"bubbles\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 12000
       });
