@@ -64,7 +64,7 @@ test("界面按主人分两支：她自己那支是手写表单", () => {
   assert.ok(/onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar\)/.test(seg), "加进来那颗没接上");
   assert.ok(!/npcBusy/.test(seg), "她这一支还挂着角色那支的忙态");
   // 2026-10-21 起她这一支多一颗「照我的人设写一份」：只起草稿填回框里，存还是点「加进来」
-  assert.ok(/onDraftMyNpc\(c\.npcName, c\.npcRel\)/.test(seg), "草稿那颗没接上");
+  assert.ok(/onDraftMyNpc\(c\.npcName, c\.npcRel(, draftProfile \|\| profile)?\)/.test(seg), "草稿那颗没接上");
   // 生成那一支原样留着
   assert.ok(/"陆闻 \/ TA的属下 \/ 她师姐"/.test(screens), "角色那一支的例子没了");
   // 她点名要去掉的那个名字

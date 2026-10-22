@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.239";
+const APP_VERSION = "v76.242";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10395,11 +10395,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
   };
   // 她自己身边的人：起一份草稿填回框里（不直接建人，她改完点「加进来」才存）
-  const draftMyNpc = async (ask, rel) => {
+  // me：照哪张面具写（关系页面具筛子挑的那张；没挑＝主面具）
+  const draftMyNpc = async (ask, rel, me) => {
     if (!String(ask || "").trim() && !String(rel || "").trim()) { toast("先写个名字或你俩什么关系"); return null; }
     const p = bgActiveRef.current || active;
     if (!p) { toast("先去 设置·API 配一条线路"); return null; }
-    try { return await generateMyNpc(p, profile, String(ask || "").trim() || String(rel || "").trim(), rel, npcsOf("me").map(c => c.name)); }
+    try { return await generateMyNpc(p, me || profile, String(ask || "").trim() || String(rel || "").trim(), rel, npcsOf("me").map(c => c.name)); }
     catch (e) { toast("没写出来：" + ((e && e.message) || e)); return null; }
   };
   // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc 手写，或者 draftMyNpc 起草稿。
@@ -23612,6 +23613,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         continue;
       }
       if (!b.on && !b.pendingAt && b.checkAt && b.checkAt <= now && iFollow) { delete all[cid]; changed = true; setTimeout(() => forumBackDecide(cid), 0); }
+      // 回关这功能上线前就关注着的（群里 2026-10-22「只有 crush 没跟我互关」）：那一下没走过 forumBackDecide，
+      //   一条记录都没有，这里就永远轮不到他。没记录、她又关注着、他有论坛号的，补掂量一次
+      if (iFollow && !all[cid] && !c.npc) setTimeout(() => forumBackDecide(cid), 0);
     }
     if (changed) forumBackSave(all);
   };
@@ -33396,7 +33400,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       tpl: roomCard || typeof stateTplFor !== "function" ? null : stateTplFor(settingsFor(scc.id)),
       onSetWearing: roomCard ? null : v => { const live = statesRef.current[scc.id] || {}, now = Date.now(); setStateFor(scc.id, { ...live, wearing: v, wearingUpdatedAt: now, wearingRefreshPending: false, ts: now }); toast("改好了，下一轮他照这身来"); },
       roomName: roomMeta && roomMeta.name,
-      hideWearAction: roomCard,
+      // 房间自己的动作、穿着也摆（她 2026-10-22「房间的动作怎么也被丢掉了」）：setRoomThought 早就把这间房的 action/wearing 记在 roomStates 里，
+      //   是这里一直藏着没摆。摆的是本房那一份，不是主线的
+      hideWearAction: false,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
       gazeOn: !roomCard && !!window.Gaze && !noGaze(scc.id) && !scc.npc,
       uName: profile.name || "你",
