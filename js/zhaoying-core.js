@@ -15,7 +15,7 @@
 
   // 1. 四个字母那套：每个维度 4 题，两两相对
   T.push({
-    id: "mbti", name: "MBTI", sub: "十六种人格里的哪一种",
+    id: "mbti", cat: "xg", name: "MBTI", sub: "十六种人格里的哪一种",
     axes: [["E", "I"], ["S", "N"], ["T", "F"], ["J", "P"]],
     qs: [
       { q: "难得空出一整个周末，你最想", opts: [{ t: "约几个朋友出去，热闹一点", s: { E: 1 } }, { t: "谁也不约，一个人待着把电充满", s: { I: 1 } }] },
@@ -39,7 +39,7 @@
 
   // 2. 靠近与退开（依恋）：焦虑 A、回避 V 两条轴
   T.push({
-    id: "attach", name: "依恋类型", sub: "在亲近的人面前，是往前靠还是往后退",
+    id: "attach", cat: "gx", name: "依恋类型", sub: "在亲近的人面前，是往前靠还是往后退",
     qs: [
       { q: "喜欢的人半天没回消息", opts: [{ t: "该干嘛干嘛，他忙完会回", s: {} }, { t: "隔一会儿看一眼手机", s: { A: 1 } }, { t: "开始想是不是我说错话了", s: { A: 2 } }, { t: "那我也不回了", s: { V: 1, A: 1 } }] },
       { q: "对方说「我们聊聊」", opts: [{ t: "好啊，聊什么", s: {} }, { t: "心一下子提起来", s: { A: 2 } }, { t: "第一反应是想躲开", s: { V: 2 } }] },
@@ -56,7 +56,7 @@
 
   // 3. 心意怎么给：五种（陪伴 Q、言语 W、礼物 G、行动 D、触碰 K）
   T.push({
-    id: "love", name: "爱的语言", sub: "你最会用哪一种方式对人好，也最吃哪一种",
+    id: "love", cat: "gx", name: "爱的语言", sub: "你最会用哪一种方式对人好，也最吃哪一种",
     qs: [
       { q: "对方生日，你最想", opts: [{ t: "空出一整天只陪他", s: { Q: 1 } }, { t: "写一段很长的话给他", s: { W: 1 } }, { t: "挑一样他念叨很久的东西", s: { G: 1 } }] },
       { q: "累了一天回家，最想对方", opts: [{ t: "把饭做好了等你", s: { D: 1 } }, { t: "什么都不说先抱一下", s: { K: 1 } }, { t: "坐下来听你说今天", s: { Q: 1 } }] },
@@ -73,7 +73,7 @@
 
   // 4. 三观：四条轴（自我 Me／大家 Us、守规矩 R／看情况 X、求稳 St／敢闯 Ad、理想 Id／现实 Re）
   T.push({
-    id: "values", name: "三观", sub: "什么事在你这儿更重",
+    id: "values", cat: "xl", name: "三观", sub: "什么事在你这儿更重",
     axes: [["Me", "Us"], ["R", "X"], ["St", "Ad"], ["Id", "Re"]],
     qs: [
       { q: "家里希望你回老家，你自己想留在外面", opts: [{ t: "留下，日子是自己的", s: { Me: 1 } }, { t: "回去，家里人更要紧", s: { Us: 1 } }] },
@@ -89,7 +89,7 @@
 
   // 5. 像哪种动物：猫 Ca、狗 Do、狼 Wo、狐 Fo、兔 Ra、熊 Be
   T.push({
-    id: "animal", name: "动物塑", sub: "要是变成一只动物，你是哪只",
+    id: "animal", cat: "xg", name: "动物塑", sub: "要是变成一只动物，你是哪只",
     qs: [
       { q: "到了一个新地方", opts: [{ t: "先找个角落观察", s: { Ca: 1, Ra: 1 } }, { t: "到处跑跑看看", s: { Do: 1 } }, { t: "先认清谁说了算", s: { Wo: 1, Fo: 1 } }] },
       { q: "有人来摸你的头", opts: [{ t: "看心情，可能躲开", s: { Ca: 1 } }, { t: "开心，再来", s: { Do: 1, Ra: 1 } }, { t: "你谁啊", s: { Wo: 1 } }] },
@@ -106,7 +106,7 @@
 
   // 6. 九型人格（她 2026-10-22 加）：九种各 6 个选项指着，选得最多的那种就是
   T.push({
-    id: "ennea", name: "九型人格", sub: "你心里最怕什么、最想要什么",
+    id: "ennea", cat: "xg", name: "九型人格", sub: "你心里最怕什么、最想要什么",
     qs: [
       { q: "别人交给你的事做完了，你最在意", opts: [{ t: "有没有哪儿做得不够对", s: { N1: 1 } }, { t: "他满不满意", s: { N2: 1 } }, { t: "能不能拿出去说是我做的", s: { N3: 1 } }] },
       { q: "一群人吵起来了，你", opts: [{ t: "先弄明白怎么回事再开口", s: { N5: 1 } }, { t: "心里发紧，看看站哪边稳妥", s: { N6: 1 } }, { t: "只想大家别吵了", s: { N9: 1 } }] },
@@ -131,7 +131,7 @@
 
   // 7. 适合你的另一半（她 2026-10-22 加）：六种，选得最多的那种
   T.push({
-    id: "partner", name: "适合你的另一半", sub: "你心里那个人，大概是什么样子",
+    id: "partner", cat: "gx", name: "适合你的另一半", sub: "你心里那个人，大概是什么样子",
     qs: [
       { q: "你生病了，最希望对方", opts: [{ t: "熬粥喂药，一直在旁边", s: { Wa: 1 } }, { t: "讲笑话逗你，让你忘了难受", s: { Fu: 1 } }, { t: "什么也不说，就一直守着", s: { Mi: 1 } }] },
       { q: "最理想的约会", opts: [{ t: "他早就安排好了", s: { St: 1 } }, { t: "临时起意，说走就走", s: { Fu: 1 } }, { t: "就在家待着，腻在一起", s: { Ni: 1 } }] },
@@ -150,7 +150,7 @@
 
   // 8. 心理年龄（她 2026-10-22 加）：每个选项带一个岁数，取平均
   T.push({
-    id: "mindage", name: "心理年龄", sub: "你心里住着几岁的自己",
+    id: "mindage", cat: "xl", name: "心理年龄", sub: "你心里住着几岁的自己",
     qs: [
       { q: "收到礼物，你最开心的是", opts: [{ t: "拆包装那一下", s: { age: 8 } }, { t: "拍照发出去", s: { age: 18 } }, { t: "正好用得上", s: { age: 35 } }, { t: "心意到了就好", s: { age: 60 } }] },
       { q: "周末早上", opts: [{ t: "起来就看动画打游戏", s: { age: 10 } }, { t: "睡到中午", s: { age: 18 } }, { t: "照计划把事做完", s: { age: 35 } }, { t: "早起去买菜", s: { age: 55 } }] },
@@ -166,6 +166,85 @@
       { q: "人这辈子最要紧的", opts: [{ t: "开心", s: { age: 10 } }, { t: "被喜欢", s: { age: 18 } }, { t: "活出个样子", s: { age: 35 } }, { t: "平安健康", s: { age: 60 } }] }
     ]
   });
+
+  // 9. 大五人格（她 2026-10-22「做吧宝宝」）：五条线，每条三题，选「高」那头的算一分
+  T.push({
+    id: "bigfive", cat: "xg", name: "大五人格", sub: "五条线，看你在每一条上站在哪儿",
+    qs: [
+      { q: "去一家常吃的店", opts: [{ t: "点每次都点的那道", s: {} }, { t: "试一道没吃过的", s: { O: 1 } }] },
+      { q: "答应别人的小事", opts: [{ t: "一定记着办", s: { C: 1 } }, { t: "经常转头就忘", s: {} }] },
+      { q: "一桌人吃饭", opts: [{ t: "话最多的那个是我", s: { E: 1 } }, { t: "我多半在听", s: {} }] },
+      { q: "朋友找你借钱", opts: [{ t: "能帮就帮", s: { A: 1 } }, { t: "先问清楚为什么", s: {} }] },
+      { q: "发出去的消息对方半天没回", opts: [{ t: "会翻来覆去地想", s: { N: 1 } }, { t: "没回就没回", s: {} }] },
+      { q: "朋友推荐一部看不懂的怪电影", opts: [{ t: "算了，不是我的菜", s: {} }, { t: "越看不懂越想看", s: { O: 1 } }] },
+      { q: "出门之前", opts: [{ t: "钥匙手机钱包检查一遍", s: { C: 1 } }, { t: "抓起就走", s: {} }] },
+      { q: "周五晚上", opts: [{ t: "出去找点乐子", s: { E: 1 } }, { t: "在家最舒服", s: {} }] },
+      { q: "别人跟你想得不一样", opts: [{ t: "先想想他为什么这么想", s: { A: 1 } }, { t: "直接说他不对", s: {} }] },
+      { q: "睡觉之前", opts: [{ t: "常把今天的事过一遍，睡不着", s: { N: 1 } }, { t: "躺下就睡", s: {} }] },
+      { q: "你更常琢磨", opts: [{ t: "明天要做的事", s: {} }, { t: "一些没答案的问题", s: { O: 1 } }] },
+      { q: "一件事做到一半很无聊", opts: [{ t: "咬牙做完", s: { C: 1 } }, { t: "先放着，以后再说", s: {} }] },
+      { q: "有事要问人", opts: [{ t: "直接打电话", s: { E: 1 } }, { t: "能发消息就不打电话", s: {} }] },
+      { q: "排队有人插到你前面", opts: [{ t: "算了", s: { A: 1 } }, { t: "当面说他", s: {} }] },
+      { q: "一点小事出了岔子", opts: [{ t: "心情坏一整天", s: { N: 1 } }, { t: "过一会儿就忘了", s: {} }] }
+    ]
+  });
+
+  // 10. 吵架的时候你是哪种（她 2026-10-22）：五种，各 6 个选项指着
+  T.push({
+    id: "fight", cat: "gx", name: "吵架的时候你是哪种", sub: "吵起来的那一刻，你会往哪边走",
+    qs: [
+      { q: "吵着吵着，对方声音大了", opts: [{ t: "我也大起来，吵到底", s: { Cl: 1 } }, { t: "翻出他上次的事", s: { Ol: 1 } }, { t: "先软下来", s: { So: 1 } }] },
+      { q: "吵到一半", opts: [{ t: "说「你上次也是这样」", s: { Ol: 1 } }, { t: "起身走开", s: { Es: 1 } }, { t: "把话一句一句掰清楚", s: { Cl: 1 } }] },
+      { q: "吵完的那天晚上", opts: [{ t: "等他先来找我", s: { Co: 1 } }, { t: "我先发消息道歉", s: { So: 1 } }, { t: "当作没发生过", s: { Es: 1 } }] },
+      { q: "吵架时你最常说的一句", opts: [{ t: "你什么意思", s: { Cl: 1 } }, { t: "随便你", s: { Co: 1 } }, { t: "你每次都这样", s: { Ol: 1 } }] },
+      { q: "发现其实是自己错了", opts: [{ t: "马上认", s: { So: 1 } }, { t: "嘴上不认，行动上改", s: { Co: 1 } }, { t: "转移话题", s: { Es: 1 } }] },
+      { q: "对方翻你旧账", opts: [{ t: "我也翻他的", s: { Ol: 1 } }, { t: "说清楚那次到底怎么回事", s: { Cl: 1 } }, { t: "不吭声", s: { Es: 1 } }] },
+      { q: "吵架的时候最怕", opts: [{ t: "话没说完就被打断", s: { Cl: 1 } }, { t: "把关系吵坏了", s: { So: 1 } }, { t: "被逼着当场表态", s: { Es: 1 } }] },
+      { q: "冷静下来以后", opts: [{ t: "吵过的每句话都记很久", s: { Ol: 1 } }, { t: "几天都不想理他", s: { Co: 1 } }, { t: "先抱一下再说", s: { So: 1 } }] },
+      { q: "有人劝你们和好", opts: [{ t: "我又没错", s: { Co: 1 } }, { t: "那我先低个头", s: { So: 1 } }, { t: "别管我，我出去走走", s: { Es: 1 } }] },
+      { q: "吵完之后你心里", opts: [{ t: "一笔一笔都记着", s: { Ol: 1 } }, { t: "想立刻说开", s: { Cl: 1 } }, { t: "早就不气了，只是拉不下脸", s: { Co: 1 } }] }
+    ]
+  });
+
+  // 11. 你小时候是个什么样的小孩（她 2026-10-22）
+  T.push({
+    id: "child", cat: "xl", name: "你小时候是个什么样的小孩", sub: "那个小孩，现在还在你身上吗",
+    qs: [
+      { q: "放学回家第一件事", opts: [{ t: "写作业", s: { Gd: 1 } }, { t: "出去疯", s: { Pl: 1 } }, { t: "躲进自己房间", s: { Qt: 1 } }] },
+      { q: "家里大人吵架", opts: [{ t: "去哄他们", s: { Wr: 1 } }, { t: "躲起来", s: { Qt: 1 } }, { t: "哭着要人抱", s: { Sp: 1 } }] },
+      { q: "老师眼里的你", opts: [{ t: "最省心的那个", s: { Gd: 1 } }, { t: "最让人头疼的那个", s: { Pl: 1 } }, { t: "没什么存在感的那个", s: { Qt: 1 } }] },
+      { q: "想要一样东西", opts: [{ t: "撒个娇就有了", s: { Sp: 1 } }, { t: "自己攒钱买", s: { Wr: 1 } }, { t: "不敢开口", s: { Qt: 1 } }] },
+      { q: "你的玩具", opts: [{ t: "收得整整齐齐", s: { Gd: 1 } }, { t: "全都拆过", s: { Pl: 1 } }, { t: "让给弟弟妹妹了", s: { Wr: 1 } }] },
+      { q: "生病的时候", opts: [{ t: "全家围着我转", s: { Sp: 1 } }, { t: "自己吃药，怕大人担心", s: { Wr: 1 } }, { t: "正好不用上学", s: { Pl: 1 } }] },
+      { q: "小时候最常听到的一句", opts: [{ t: "这孩子真懂事", s: { Wr: 1 } }, { t: "又闯祸了", s: { Pl: 1 } }, { t: "这孩子真乖", s: { Gd: 1 } }] },
+      { q: "过年见亲戚", opts: [{ t: "上去表演节目", s: { Sp: 1 } }, { t: "规规矩矩叫人", s: { Gd: 1 } }, { t: "躲在大人身后", s: { Qt: 1 } }] },
+      { q: "摔了一跤", opts: [{ t: "大哭，等人来", s: { Sp: 1 } }, { t: "爬起来接着跑", s: { Pl: 1 } }, { t: "怕被骂，偷偷把伤藏起来", s: { Wr: 1 } }] },
+      { q: "你的秘密基地", opts: [{ t: "自己的书桌", s: { Gd: 1 } }, { t: "衣柜里、被子里", s: { Qt: 1 } }, { t: "大人的怀里", s: { Sp: 1 } }] }
+    ]
+  });
+
+  // 12. 你是江湖里的哪一号人（她 2026-10-22）
+  T.push({
+    id: "jianghu", cat: "wan", name: "你是江湖里的哪一号人", sub: "要是活在武侠里，你是谁",
+    qs: [
+      { q: "路见不平", opts: [{ t: "拔刀就上", s: { Xi: 1 } }, { t: "记下这笔账，日后再算", s: { Ma: 1 } }, { t: "看一眼就走", s: { Ys: 1 } }] },
+      { q: "你的兵器", opts: [{ t: "一把剑", s: { Xi: 1 } }, { t: "一套银针", s: { Sh: 1 } }, { t: "一张嘴", s: { Sw: 1 } }] },
+      { q: "手下有一百个人", opts: [{ t: "带他们闯出个名堂", s: { Ba: 1 } }, { t: "让他们都怕我", s: { Ma: 1 } }, { t: "散了吧，我一个人自在", s: { Ys: 1 } }] },
+      { q: "有人受了伤倒在路边", opts: [{ t: "先救人", s: { Sh: 1 } }, { t: "先问是谁干的", s: { Xi: 1 } }, { t: "把这事编成故事讲出去", s: { Sw: 1 } }] },
+      { q: "你住在", opts: [{ t: "深山里", s: { Ys: 1 } }, { t: "总舵", s: { Ba: 1 } }, { t: "茶馆楼上", s: { Sw: 1 } }] },
+      { q: "被人背叛了", opts: [{ t: "不死不休", s: { Ma: 1 } }, { t: "让他走，此生不见", s: { Ys: 1 } }, { t: "替他把伤治好，两清", s: { Sh: 1 } }] },
+      { q: "江湖上提起你", opts: [{ t: "说你仗义", s: { Xi: 1 } }, { t: "说你可怕", s: { Ma: 1 } }, { t: "说你什么都知道", s: { Sw: 1 } }] },
+      { q: "你最想要", opts: [{ t: "天下太平", s: { Xi: 1 } }, { t: "一帮好兄弟", s: { Ba: 1 } }, { t: "没人来打扰", s: { Ys: 1 } }] },
+      { q: "打不过的时候", opts: [{ t: "先退，留着命", s: { Sh: 1 } }, { t: "喊兄弟来", s: { Ba: 1 } }, { t: "动点歪心思", s: { Ma: 1 } }] },
+      { q: "你的口头禅", opts: [{ t: "救人要紧", s: { Sh: 1 } }, { t: "听我说个故事", s: { Sw: 1 } }, { t: "都听我的", s: { Ba: 1 } }] },
+      { q: "夜里睡不着", opts: [{ t: "上屋顶喝酒", s: { Xi: 1 } }, { t: "磨刀", s: { Ma: 1 } }, { t: "把今天听来的事记下来", s: { Sw: 1 } }] },
+      { q: "退隐以后", opts: [{ t: "开个医馆", s: { Sh: 1 } }, { t: "收几个徒弟", s: { Ba: 1 } }, { t: "种田钓鱼", s: { Ys: 1 } }] }
+    ]
+  });
+
+  // ── 分类（她 2026-10-22「搞个分类，不用上下疯狂划」）：内置的写在每套的 cat 上；她出的、他出的落进「自己出的」，也能自己挑一类
+  const CATS = [["all", "全部", "✧"], ["xg", "性格", "?"], ["gx", "关系", "♡"], ["xl", "心里", "◷"], ["wan", "好玩", "✦"], ["mine", "自己出的", "✎"]];
+  function catOf(t) { const c = t && t.cat; return ["xg", "gx", "xl", "wan"].indexOf(c) >= 0 ? c : (t && t.custom ? "mine" : "wan"); }
 
   // ── 结果 ─────────────────────────────────────────────────
   const MBTI_NAME = {
@@ -194,6 +273,16 @@
     St: ["沉稳、靠得住的那种", "有他在，天塌下来你也不慌"], Mi: ["有点难懂、让人想靠近的那种", "他不多说，但你越看越想懂他"],
     Eq: ["跟你势均力敌的那种", "能吵能和好，互相推着往前走"], Ni: ["黏人、把你当全世界的那种", "你想要被很满很满地需要"]
   };
+  const B5 = { O: ["好奇", "对没见过的东西总想碰一碰", "喜欢熟悉的、稳妥的"], C: ["靠谱", "说了就会做到", "随性，走一步看一步"], E: ["外向", "人多的地方你最有劲", "一个人待着最充电"],
+    A: ["随和", "先替别人着想", "有话直说，不太顺着别人"], N: ["敏感", "心里的事放不太下", "什么事都看得开"] };
+  const B5_LV = ["低", "偏低", "偏高", "高"];
+  const FIGHT = { Cl: ["当场说清型", "吵就吵明白，话不说完不罢休"], Co: ["冷战型", "嘴上不说，用沉默等对方先低头"], So: ["先认错型", "比起输赢，更怕把人吵没了"],
+    Ol: ["翻旧账型", "每一笔都记得，吵着吵着就全翻出来"], Es: ["躲开型", "吵不下去就走，等风头过了再说"] };
+  const CHILD = { Gd: ["乖小孩", "省心、守规矩，大人一放就放心"], Pl: ["皮小孩", "闯祸最多，笑得也最多"], Qt: ["闷小孩", "躲在角落里，自己跟自己玩"],
+    Wr: ["小大人", "很早就懂事，先顾着大人的情绪"], Sp: ["被宠着的小孩", "摔一跤就有人来抱"] };
+  const JIANGHU = { Xi: ["侠客", "路见不平就拔刀"], Ma: ["魔头", "谁惹了你，你都记着"], Ys: ["隐士", "江湖的事，你只想远远看着"],
+    Sh: ["神医", "先救人，别的再说"], Sw: ["说书人", "江湖上什么事都瞒不过你"], Ba: ["帮主", "有你在，兄弟们就有地方去"] };
+  const topOf = (map, sc) => Object.keys(map).sort((a, b) => (sc[b] || 0) - (sc[a] || 0))[0];
   const ANIMAL = {
     Ca: ["猫", "有自己的脾气，愿意靠近的时候才靠近"], Do: ["狗", "热乎乎的，喜欢就绕着转"], Wo: ["狼", "认定了就守着，对外人冷"],
     Fo: ["狐狸", "聪明，心思多，不太好猜"], Ra: ["兔子", "软，容易受惊，被护着会很乖"], Be: ["熊", "慢吞吞的，可靠，抱起来很暖"]
@@ -241,6 +330,14 @@
       const line = age < 14 ? "心里住着个小孩" : age < 24 ? "还在青春里" : age < 40 ? "刚刚好的大人" : age < 55 ? "早熟的老灵魂" : "看透了的老人家";
       return { code: String(age), title: "心理年龄 " + age + " 岁", line };
     }
+    if (testId === "bigfive") {
+      const keys = Object.keys(B5), lv = k => Math.max(0, Math.min(3, sc[k] || 0));
+      const far = keys.slice().sort((a, b) => Math.abs(lv(b) - 1.5) - Math.abs(lv(a) - 1.5))[0];
+      return { code: keys.map(k => k + lv(k)).join(""), title: keys.map(k => B5[k][0] + B5_LV[lv(k)]).join(" · "), line: "最明显的一条：" + (lv(far) >= 2 ? B5[far][1] : B5[far][2]) };
+    }
+    if (testId === "fight") { const k = topOf(FIGHT, sc); return { code: k, title: FIGHT[k][0], line: FIGHT[k][1] }; }
+    if (testId === "child") { const k = topOf(CHILD, sc); return { code: k, title: "小时候是个" + CHILD[k][0], line: CHILD[k][1] }; }
+    if (testId === "jianghu") { const k = topOf(JIANGHU, sc); return { code: k, title: "江湖里你是：" + JIANGHU[k][0], line: JIANGHU[k][1] }; }
     if (testId === "animal") {
       const order = Object.keys(ANIMAL).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
       return { code: order[0], title: "像一只" + ANIMAL[order[0]][0], line: ANIMAL[order[0]][1] };
@@ -262,7 +359,7 @@
       opts: ((q && q.opts) || []).map(o => ({ t: String((o && o.t) || "").trim().slice(0, 60), r: scored ? Math.max(0, Math.min(results.length - 1, Number(o && o.r) || 0)) : undefined })).filter(o => o.t).slice(0, 4) }))
       .filter(q => q.q && q.opts.length >= 2).slice(0, 30);
     return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs,
-      ...(t.by ? { by: String(t.by) } : {}) };
+      ...(t.by ? { by: String(t.by) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
   }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   function delCustom(id) { saveJSON(CKEY, customs().filter(x => x.id !== id)); }
@@ -364,7 +461,9 @@
   // 每套一个颜色和大符号：照影页的封面和聊天里那张卡共用这一份
   const PAL = { mbti: { a: "#f3d9c8", b: "#d9a38a", deep: "#b5674a", g: "?" }, attach: { a: "#dfe3ef", b: "#a9b3d3", deep: "#5f6d9e", g: "⇄" },
     love: { a: "#f6d6dc", b: "#e29aa8", deep: "#c05a6f", g: "♡" }, values: { a: "#e3e8d6", b: "#b3c094", deep: "#6f8150", g: "⚖" }, animal: { a: "#f1e3c4", b: "#d8b778", deep: "#a27b2f", g: "✦" },
-    ennea: { a: "#e6dcef", b: "#b9a3d3", deep: "#6e5596", g: "9" }, partner: { a: "#f7dfd3", b: "#e8a98f", deep: "#b4593d", g: "∞" }, mindage: { a: "#dcece8", b: "#9fcbbf", deep: "#3f7f70", g: "◷" } };
+    ennea: { a: "#e6dcef", b: "#b9a3d3", deep: "#6e5596", g: "9" }, partner: { a: "#f7dfd3", b: "#e8a98f", deep: "#b4593d", g: "∞" }, mindage: { a: "#dcece8", b: "#9fcbbf", deep: "#3f7f70", g: "◷" },
+    bigfive: { a: "#e2e6ee", b: "#a8b5cc", deep: "#4f6187", g: "≋" }, fight: { a: "#f5dad6", b: "#e09c92", deep: "#a84b3f", g: "↯" },
+    child: { a: "#fbe9cf", b: "#efc68a", deep: "#a36d24", g: "☁" }, jianghu: { a: "#e4e0d6", b: "#b8ad93", deep: "#6b5c3c", g: "剑" } };
   const PAL_C = [PAL.love, PAL.attach, PAL.values, PAL.animal, PAL.mbti];
   function pal(tt) { const id = String((tt && tt.id) || ""); return PAL[id] || Object.assign({}, PAL_C[id.split("").reduce((a, ch) => a + ch.charCodeAt(0), 0) % PAL_C.length], { g: String((tt && tt.name) || "？").slice(0, 1) }); }
   // 聊天里那张卡（她 2026-10-22「这张卡好丑修一修」）：跟照影页封面同一套——这一套的颜色、大符号、名字，下面一颗状态签
@@ -519,7 +618,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, pal, CATS, catOf };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
