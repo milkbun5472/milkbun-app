@@ -2228,7 +2228,10 @@ function App() {
         if (cancelled) return;
         // 朋友圈图（用户上传的才是 base64；AI 朋友圈的 image 是文字描述，isB64 false 自动跳过）
         const moms = loadJSON("x_moments", []); let mChg = false;
-        for (const mo of moms) { if (mo && isB64(mo.image)) { mo.image = await imgToVault(mo.image); mChg = true; } }
+        for (const mo of moms) {
+          if (mo && isB64(mo.image)) { mo.image = await imgToVault(mo.image); mChg = true; }
+          if (mo && Array.isArray(mo.images)) for (let k = 0; k < mo.images.length; k++) if (isB64(mo.images[k])) { mo.images[k] = await imgToVault(mo.images[k]); mChg = true; }
+        }
         if (cancelled) return; if (mChg) { saveJSON("x_moments", moms); setMoments(moms); }
         // 朋友圈封面（{key: dataUrl}）
         const cov = loadJSON("x_momentsCover", {}); let covChg = false;
@@ -22241,7 +22244,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const thread = (mom.comments || []).map(c => (c.author || "某人") + "：" + String(c.text || "")).join("\n");
       const scene = author
         ? "这是「" + author.name + "」发的朋友圈：「" + mom.content + "」。"
-        : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。"
+        : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "。"
           + (mom.poll ? "这条带了投票：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o + "（" + Object.keys(mom.poll.votes || {}).filter(n => mom.poll.votes[n] === i).join("、") + "投了）").join("　") + "。" : "");
       // ⚠️这三句是她 2026-09-29 之前就有的那一档，一个字没改。
       //   多出来的 more 那一支是【没有用户新评论】时走的：刷更多评论。
@@ -22354,20 +22357,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   };
   // 我发一条朋友圈（可带图描述、可选可见范围）
-  const postUserMoment = ({
+  const postUserMoment = async ({
     content,
     image,
+    images,
     visibleTo,
     remind,
     poll,
     mask
   }) => {
     const id = "m_" + Date.now();
+    // 多图（群里 2026-10-22）：每张先进图片保险箱，存档里只留 iv_ 小引用——九张 base64 塞进朋友圈存档会把它撑爆
+    const toRef = async x => { try { return await imgToVault(x); } catch (e) { return x; } };
+    const pics = Array.isArray(images) ? (await Promise.all(images.slice(0, 9).map(toRef))).filter(Boolean) : [];
+    if (pics.length) image = pics[0];
+    else if (image) image = await toRef(image);
     const mom = {
       id,
       mine: true,
       content,
       image: image || null,
+      ...(pics.length > 1 ? { images: pics } : {}),
       visibleTo: visibleTo || null,
       remind: Array.isArray(remind) && remind.length ? remind.slice(0, 20) : null,
       mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
@@ -22415,7 +22425,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
         + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
         + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"

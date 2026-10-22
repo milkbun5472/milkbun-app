@@ -9012,6 +9012,19 @@ function MomentPoll({ poll, characters }) {
         who.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, marginTop: 3 } }, who.map(n => momentDisplayName(characters, n)).join("、")) : null);
     }));
 }
+// 朋友圈多图（群里 2026-10-22 许愿：「朋友圈一次多发几张图」）：两张起排成九宫格，点哪张从哪张开始左右翻。
+//   动态流和个人页同一个；一张图的那种照旧走原来那块（m.image），这里不管。
+function MomentGrid({ refs }) {
+  const [at, setAt] = useState(-1);
+  const list = (refs || []).filter(Boolean).slice(0, 9);
+  if (list.length < 2) return null;
+  const cols = list.length === 4 ? 2 : 3;
+  return h("div", { "data-wk": "mophotogrid", className: "mt-2.5", style: { display: "grid", gridTemplateColumns: "repeat(" + cols + ", 84px)", gap: 4 } },
+    list.map((r, i) => h("button", { key: i, "data-wk": "mophoto", "data-kind": "img", "aria-label": "第 " + (i + 1) + " 张图", onClick: () => setAt(i), className: "active:opacity-80",
+      style: { width: 84, height: 84, padding: 0, borderRadius: 6, overflow: "hidden", display: "block" } },
+      h("img", { src: resolveImg(r), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }))),
+    at >= 0 && h(ImageViewer, { items: list.map(r => ({ src: resolveImg(r) })), at, onClose: () => setAt(-1) }));
+}
 function MomentCompose({
   friendGroups,
   characters,
@@ -9022,6 +9035,8 @@ function MomentCompose({
   const [text, setText] = useState("");
   const [withImg, setWithImg] = useState(false);
   const [img, setImg] = useState("");
+  // 从相册选的真图，一次最多 9 张；只有一张时照旧走 image 那一格
+  const [pics, setPics] = useState([]);
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
   // 提醒谁看（群里许咏安 2026-10-18：「朋友圈可不可以加一个提醒谁看」）：点名的人一定刷到、知道是她特意叫的
@@ -9042,7 +9057,8 @@ function MomentCompose({
   });
   const post = () => {
     const body = text.trim();
-    const image = withImg && img.trim() ? img.trim() : null;
+    const realPics = withImg ? pics.slice(0, 9) : [];
+    const image = realPics[0] || (withImg && img.trim() && !String(img).startsWith("data:") ? img.trim() : null);
     const opts = withPoll ? pollOpts.map(x => x.trim()).filter(Boolean).slice(0, 4) : [];
     if (!body && !image) {
       onClose();
@@ -9051,6 +9067,7 @@ function MomentCompose({
     onPost({
       content: body,
       image,
+      images: realPics.length > 1 ? realPics : null,
       visibleTo: vis === "all" ? null : [...new Set([...sel, ...remind])],   // 提醒了谁，谁就得看得见
       remind: remind.length ? remind : null,
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
@@ -9110,12 +9127,17 @@ function MomentCompose({
   }), withImg ? "已配图" : "配图"),
     h("button", { "data-wk": "mopollbtn", "data-on": withPoll ? "1" : "0", onClick: () => setWithPoll(v => !v), className: "px-3 py-1.5 active:opacity-70",
       style: { borderRadius: 8, border: `1px solid ${withPoll ? t.ink : t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: withPoll ? t.ink : t.fog } }, withPoll ? "已加投票" : "投票"),
-    withImg && h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "px-3 py-1.5 flex items-center gap-1.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "📷 从相册选真图"),
-    h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1080, 0.82).then(d => setImg(d)); } })),
-    withImg && (String(img).startsWith("data:")
-      ? h("div", { className: "mb-2 relative", style: { display: "inline-block" } },
-          h("img", { src: img, style: { maxWidth: 140, maxHeight: 140, borderRadius: 10, display: "block" } }),
-          h("button", { onClick: () => setImg(""), className: "absolute active:opacity-70", style: { top: -8, right: -8, width: 22, height: 22, borderRadius: 999, background: t.ink, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, "×"))
+    withImg && h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "px-3 py-1.5 flex items-center gap-1.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, pics.length ? "📷 再选几张（" + pics.length + "/9）" : "📷 从相册选真图（可多选，最多 9 张）"),
+    h("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" }, onChange: e => {
+      const fs = Array.from((e.target.files || [])).slice(0, Math.max(0, 9 - pics.length));
+      e.target.value = "";
+      Promise.all(fs.map(f => resizeImageFile(f, 1080, 0.82))).then(ds => setPics(p => p.concat(ds.filter(Boolean)).slice(0, 9)));
+    } })),
+    withImg && (pics.length
+      ? h("div", { "data-wk": "mocomposepics", className: "mb-2 flex flex-wrap", style: { gap: 10, paddingTop: 8 } },
+          pics.map((d, i) => h("div", { key: i, className: "relative", style: { width: 72, height: 72 } },
+            h("img", { src: d, style: { width: 72, height: 72, objectFit: "cover", borderRadius: 8, display: "block" } }),
+            h("button", { "aria-label": "去掉这张", onClick: () => setPics(p => p.filter((_, j) => j !== i)), className: "absolute active:opacity-70", style: { top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, "×"))))
       : h("input", {
     value: img,
     onChange: e => setImg(e.target.value),
@@ -9619,7 +9641,7 @@ function MomentsFeed({
       //   展开走免费优先那条链（Google → MyMemory → 后台线路）。
       //   zhReady＝生成那一轮模型随手给的译文（这个人的聊天设置开了「外语中译」才会有），
       //   有就直接显示、不再花一次翻译；没有也点得动。
-    }, h(TransWho, { id: m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))), m.image && (isImgRef(m.image) ? h("button", {
+    }, h(TransWho, { id: m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))), Array.isArray(m.images) && m.images.length > 1 ? h(MomentGrid, { refs: m.images }) : m.image && (isImgRef(m.image) ? h("button", {
       onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
       "data-wk": "mophoto", "data-kind": "img",
       className: "mt-2.5 block active:opacity-80"
@@ -9909,7 +9931,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
 
   const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, h(TransWho, { id: isMe ? null : m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))),
-    m.image ? (isImgRef(m.image)
+    Array.isArray(m.images) && m.images.length > 1 ? h(MomentGrid, { refs: m.images }) : m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
       : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "[图片] 点开看描述"))) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
