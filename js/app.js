@@ -22037,11 +22037,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   她点开看完那一下，他接着在聊天里说几句（只说一次）。
   const [zyWatch, setZyWatch] = useState(null);   // { charId, testId, recId, msgId, replay }
   //   卡发出去先不动：等她把话说完、按了回复（waitForHer.zyAsk），那一轮里才开始做。
-  const zhaoyingAsk = (charId, testId) => {
+  // scene：「换个处境再做」那一次的前提（她 2026-10-22），空着就是平时的他
+  const zhaoyingAsk = (charId, testId, scene) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
     if (!c || !test) return;
     const mid = "zy_" + Date.now();
-    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」", ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId } }]);
+    const sc = String(scene || "").trim().slice(0, 60);
+    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」" + (sc ? "，这一次假设：" + sc : ""), ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId, ...(sc ? { scene: sc } : {}) } }]);
     const prev = (waitHerRef.current[charId] || {}).zyAsk || [];
     waitForHer(charId, { zyAsk: [...prev, { msgId: mid, testId }].slice(-3) });
     openChatById(charId);
@@ -22053,12 +22055,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const patch = zy => pChat(charId, p => p.map(x => x && x.id === msgId ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
     patch({ status: "doing" });
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+      const scene = (row.zy || {}).scene || "";
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene), schemaHint: Z.askSchema(test), maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
       // 不算分的自定义题：结果就是他做完自己说的那句
       if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(scene ? { scene } : {}) });
       patch({ status: "done", recId, title: res.title });
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
@@ -22070,6 +22073,61 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(w.charId, p => p.map(x => x && x.id === w.msgId ? { ...x, zy: { ...(x.zy || {}), discussed: true } } : x));
     const test = window.Zhaoying.byId(w.testId);
     setTimeout(() => replyNow(w.charId, "", null, { zyDone: { testName: test ? test.name : "", title: (row.zy || {}).title || "" } }), 300);
+  };
+  // 他给她出一套（她 2026-10-22）：用他自己的线路和他的上下文出，存成一套带 by 的题，她来做
+  const zhaoyingCharGen = async charId => {
+    const Z = window.Zhaoying, c = characters.find(x => x.id === charId);
+    if (!Z || !c) return null;
+    try {
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId))), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
+      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId });
+      if (!t) { toast("他这回没出成题，再试一次"); return null; }
+      return t;
+    } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
+  };
+  // 一个群一起做（她 2026-10-22）：群里每个主角色各做一遍（一人一次调用），做完把大家的选法发进群，让他们自己聊
+  const zhaoyingGroupRun = async (groupId, testId, onStep) => {
+    const Z = window.Zhaoying, g = groups.find(x => x && x.id === groupId), test = Z && Z.byId(testId);
+    if (!g || !test) return 0;
+    const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
+    let n = 0;
+    for (const c of mem) {
+      if (onStep) onStep(c);
+      try {
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
+        const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+        if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
+        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, group: groupId });
+        n++;
+      } catch (e) { toast((c.remark || c.name) + " 这回没做成"); }
+    }
+    if (n >= 2) {
+      const done = mem.filter(c => (Z.recordsOf(c.id, testId)[0] || {}).group === groupId);
+      const lines = done.map(c => { const r = Z.recordsOf(c.id, testId)[0]; return "「" + (c.remark || c.name) + "」测出「" + r.title + "」"; });
+      // 大家选得最不一样的那几题，摆出来让他们有得聊
+      const split = test.qs.map((q, i) => ({ i, k: new Set(done.map(c => Z.recordsOf(c.id, testId)[0].picks[i])).size })).filter(x => x.k > 1).sort((a, b) => b.k - a.k).slice(0, 2);
+      const qLines = split.map(x => "第 " + (x.i + 1) + " 题「" + test.qs[x.i].q + "」：" + done.map(c => (c.remark || c.name) + "选「" + Z.optText(test, x.i, Z.recordsOf(c.id, testId)[0].picks[x.i]) + "」").join("，"));
+      pGChat(groupId, p => [...p, { role: "user", content: "〔照影〕我让大家都做了「" + test.name + "」：" + lines.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + "\n你们自己说说？", ts: Date.now() }]);
+      try { replyGroup(groupId, {}); } catch (e) {}
+    }
+    return n;
+  };
+  // 一次结果收进时刻（她 2026-10-22「也可以存进时刻」）：走 pinToShike 同一处，一题一行
+  const zhaoyingPin = (charId, testId, rec) => {
+    const Z = window.Zhaoying, test = Z && Z.byId(testId), c = characters.find(x => x.id === charId);
+    if (!test || !c || !rec) return;
+    const who = c.remark || c.name, ts0 = Number(rec.ts) || Date.now();
+    const rows = [{ role: "assistant", content: "做了「" + test.name + "」" + (rec.scene ? "（前提：" + rec.scene + "）" : "") + "，" + (rec.free ? "做完说：" : "测出：") + rec.title + (rec.line && rec.line !== rec.title ? "——" + rec.line : ""), ts: ts0, _who: who }]
+      .concat(test.qs.map((q, i) => ({ role: "assistant", content: (i + 1) + ". " + q.q + " → " + Z.optText(test, i, (rec.picks || [])[i]) + ((rec.whys || [])[i] ? "（" + rec.whys[i] + "）" : ""), ts: ts0 + i + 1, _who: who })));
+    pinToShike(charId, rows, x => x._who || undefined);
+  };
+  // 她做完他出的那套：把她每题选了什么发给他（她按回复他才接，不当场替他开口）
+  const zhaoyingSendMine = (charId, testId, rec) => {
+    const Z = window.Zhaoying, test = Z && Z.byId(testId);
+    if (!test || !rec) return;
+    const body = test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.optText(test, i, (rec.picks || [])[i])).join("\n");
+    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: "〔照影〕你给我出的「" + test.name + "」我做完了，每题选的：\n" + body, ts: Date.now(), zy: { testName: test.name, title: "做完了你出的这套", who: userName(profileFor(charId)) } }]);
+    openChatById(charId);
   };
   const phoneSendAsFake = (char, session, body) => {
     const name = String((session && session.name) || "").trim();
@@ -32655,7 +32713,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
-    onAsk: (charId, testId) => zhaoyingAsk(charId, testId),
+    onAsk: (charId, testId, scene) => zhaoyingAsk(charId, testId, scene),
+    onCharGen: zhaoyingCharGen,
+    onGroupRun: zhaoyingGroupRun,
+    onPin: zhaoyingPin,
+    onSendMine: zhaoyingSendMine,
+    onSaveImage: async (testId, rec, name) => { const Z = window.Zhaoying, test = Z && Z.byId(testId); if (!test) return; const b = await Z.resultImage(test, rec, name); if (b) saveFile(new File([b], "照影-" + test.name + ".png", { type: "image/png" })); },
     // 给主题出一套题：走她自己那条线路（出完进编辑页，存了才算）
     onGenTest: (theme, count, scored) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored); },
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),

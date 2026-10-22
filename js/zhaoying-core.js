@@ -171,7 +171,8 @@
     const qs = (t.qs || []).map(q => ({ q: String((q && q.q) || "").trim().slice(0, 120),
       opts: ((q && q.opts) || []).map(o => ({ t: String((o && o.t) || "").trim().slice(0, 60), r: scored ? Math.max(0, Math.min(results.length - 1, Number(o && o.r) || 0)) : undefined })).filter(o => o.t).slice(0, 4) }))
       .filter(q => q.q && q.opts.length >= 2).slice(0, 30);
-    return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs };
+    return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs,
+      ...(t.by ? { by: String(t.by) } : {}) };
   }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   function delCustom(id) { saveJSON(CKEY, customs().filter(x => x.id !== id)); }
@@ -229,12 +230,14 @@
       lines.push({ t, r, picks });
     });
     return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.map(x =>
-      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks).join("\n");
+      "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks).join("\n");
   }
 
   // 让他做一套题的那一段（照影页里调 runProbe）
-  function askInstruction(test, meName, prev) {
+  // scene：她给这一次定的处境（她 2026-10-22「换个处境再做」）——同一套题，在那个前提下的你会怎么选
+  function askInstruction(test, meName, prev, scene) {
     return "你在手机上做一套小测「" + test.name + "」（" + test.sub + "）。一题一题照你自己真实的样子选——不是挑看起来好的那个，也不是猜出题人想要什么。"
+      + (scene ? "\n这一次有个前提：" + String(scene).slice(0, 60) + "。照这个前提下的你来答，心声里也是那时候的你；跟平时一样的题就一样，不为了显得不同硬改。" : "")
       + "每题最后落定一个选项。steps 是你手指在这一题上的过程：手指移到一个选项上、按下去，那一刻心里冒的话写在 think（第一人称，照你平时想事情的样子，一两句，想得多就多写几句）。"
       + "大多数题一步就定。只有你这个人在这题上真的会拿不准、会反复的时候，才写两到四步：先按了一个、又改到另一个，或者在两个之间来回；最后一步就是你最终选的。犹不犹豫照你的性子来，不为了好看硬晃。"
       + (meName ? "这是「" + meName + "」让你做的，她会看到你每一题选了什么、为什么。" : "")
@@ -362,7 +365,44 @@
           onClose: () => { clearTimeout(timer.current); p.onClose && p.onClose(); } }) : null));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText };
+  // ── 他给她出题（她 2026-10-22「他给你出题」）：照他自己想知道她什么来出，结果交给她做 ──
+  function charTestInstruction(meName) {
+    return "你想更了解「" + meName + "」，给她出一套小测，让她在手机上做。出什么由你：照你这个人会好奇她什么、你们之间聊过什么、你一直没问出口的，挑你真想知道的。"
+      + "6 到 10 道题，每题 2 到 4 个选项。题面是具体的日常场景或问题，用你自己说话的口气；选项是人在那个场景里真会有的不同反应，彼此拉得开。"
+      + "这套不算分，她做完你会看到她每题选了什么。name 是这套题的名字，sub 是你写在最前面给她的一句话。";
+  }
+  const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
+
+  // ── 结果存成一张图（她 2026-10-22）：纸色底、结果、每题选了什么和心声 ──
+  function resultImage(test, rec, name) {
+    const W = 750, PAD = 48, c = document.createElement("canvas"), x = c.getContext("2d");
+    const FONT = "'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif";
+    const wrap = (txt, size, maxW) => { x.font = size + "px " + FONT; const out = []; let line = "";
+      for (const ch of String(txt || "")) { if (ch === "\n" || x.measureText(line + ch).width > maxW) { out.push(line); line = ch === "\n" ? "" : ch; } else line += ch; }
+      if (line) out.push(line); return out; };
+    const rows = [];
+    const add = (txt, size, color, gap, indent) => wrap(txt, size, W - PAD * 2 - (indent || 0)).forEach((l, k) => rows.push({ l, size, color, gap: k ? size * 0.5 : (gap || 0), indent: indent || 0 }));
+    add("照影 · " + test.name, 22, FOG, 0);
+    add((name || "") + (rec.free ? " 做完说" : " 测出来是"), 24, FOG, 26);
+    add(rec.title || "", 44, INK, 10);
+    if (rec.line && rec.line !== rec.title) add(rec.line, 26, "#6d6255", 12);
+    if (rec.scene) add("这一次的前提：" + rec.scene, 24, ACC, 14);
+    test.qs.forEach((q, i) => {
+      add("Q" + (i + 1) + "  " + q.q, 27, INK, 34);
+      add("→ " + optText(test, i, (rec.picks || [])[i]), 26, ACC, 10, 20);
+      const w = (rec.whys || [])[i]; if (w) add("「" + w + "」", 24, "#6f5f4d", 8, 20);
+    });
+    add(dateZh(rec.ts || Date.now()) + " · 秋秋机", 22, FOG, 40);
+    let H = PAD; rows.forEach(r => { H += r.gap + r.size * 1.45; }); H += PAD;
+    c.width = W; c.height = Math.ceil(H);
+    x.fillStyle = PAPER; x.fillRect(0, 0, W, c.height);
+    x.strokeStyle = LINE; x.lineWidth = 2; x.strokeRect(16, 16, W - 32, c.height - 32);
+    let y = PAD; x.textBaseline = "top";
+    rows.forEach(r => { y += r.gap; x.font = r.size + "px " + FONT; x.fillStyle = r.color; x.fillText(r.l, PAD + r.indent, y); y += r.size * 1.45; });
+    return new Promise(res => c.toBlob(b => res(b), "image/png"));
+  }
+
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, delRecord, chatNote, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
