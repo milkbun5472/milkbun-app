@@ -2192,6 +2192,7 @@ function Forum({
   const [searchQ, setSearchQ] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [followListOpen, setFollowListOpen] = useState(false);
+  const [fanListOpen, setFanListOpen] = useState(false);   // 我的粉丝里哪些是角色（群友 2026-10-22）
   const feedScrollRef = useRef(null);
   const feedScrollTopRef = useRef(0);
   const [forumNow, setForumNow] = useState(() => Date.now());
@@ -2233,6 +2234,8 @@ function Forum({
   const unreadPM = (pms || []).filter(x => x.unread).length;
   const activeChars = (characters || []).filter(c => !(forumOff || []).includes(c.id)); // 在逛论坛的角色
   const followedChars = (characters || []).filter(c => flw.includes(c.id));
+  // 关注了我的角色：回关过、现在还关注着的那几位；我也关注着TA的就是互关
+  const fanChars = (characters || []).filter(c => ((followBack || {})[c.id] || {}).on);
   const npcFollowSet = new Set(npcFollows);
   const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
   const floorArrivedAt = forumFloorArrivedAt;
@@ -2715,7 +2718,9 @@ function Forum({
           isMe
             ? h("button", { onClick: () => setFollowListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注 ›"))
             : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.following)), h("span", { style: { color: t.fog } }, " 关注")),
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
+          isMe
+            ? h("button", { "data-wk": "forumfans", onClick: () => setFanListOpen(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝 ›"))
+            : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, whiteSpace: "nowrap" } }, h("b", null, fmtNum(meta.followers)), h("span", { style: { color: t.fog } }, " 粉丝"))),
         // 首页排版放在「我」里（她 2026-10-07：「单列双列的设置放进我里面吧不要放现在那里」）
         isMe && h("div", { className: "flex items-center gap-2 mt-3" },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "首页排版"),
@@ -3136,6 +3141,18 @@ function Forum({
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),
       h(ForumWorlds, { characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name), h("div", { "data-wk": "block", style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); })) })),
     // 我关注的角色 + 公开网友目录，点进各自主页
+    fanListOpen && h(PageSheet, { onClose: () => setFanListOpen(false) },
+      h(Eyebrow, { style: { marginBottom: 6 } }, "关注我的角色"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "粉丝数里其余的是路人网友。你也关注着的标「互相关注」；你关注了TA、TA还没回关的，在「关注」那张单子里。"),
+      fanChars.length === 0 && h(Empty, { text: "还没有角色关注你", sub: "去角色主页点关注，TA 会自己决定回不回关" }),
+      h("div", { "data-wk": "forumfanlist", className: "space-y-1 max-h-80 overflow-y-auto" },
+        fanChars.map(c => h("button", { key: c.id, onClick: () => { setFanListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" },
+          h(Avatar, { character: c, size: 36, radius: 18 }),
+          h("div", { className: "flex-1 text-left min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: flw.includes(c.id) ? FORUM_SKIN.accent : t.fog } },
+              (flw.includes(c.id) ? "互相关注" : "TA 关注了你") + " · @" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))),
+          h(IChevR, { size: 16, color: t.fog }))))),
     followListOpen && h(PageSheet, { onClose: () => setFollowListOpen(false) },
       h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色、小号与普通网友共用这张公开关注名单；小号不会显示背后真身"),
