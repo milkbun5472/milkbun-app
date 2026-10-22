@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.306";
+const APP_VERSION = "v76.309";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22053,10 +22053,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const patch = zy => pChat(charId, p => p.map(x => x && x.id === msgId ? { ...x, zy: { ...(x.zy || {}), ...zy } } : x));
     patch({ status: "doing" });
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.ASK_SCHEMA, maxTokens: 20000 });
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
       const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+      // 不算分的自定义题：结果就是他做完自己说的那句
+      if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free });
       patch({ status: "done", recId, title: res.title });
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
@@ -32653,6 +32655,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
     onAsk: (charId, testId) => zhaoyingAsk(charId, testId),
+    // 给主题出一套题：走她自己那条线路（出完进编辑页，存了才算）
+    onGenTest: (theme, count, scored) => { const p = bgActiveRef.current || active; if (!p) { toast("先去 设置·API 配一条线路"); return Promise.resolve(null); } return window.Zhaoying.genTest(p, theme, count, scored); },
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
     // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
