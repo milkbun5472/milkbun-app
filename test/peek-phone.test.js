@@ -414,6 +414,8 @@ test("翻手机能看她的朋友圈：勾选、材料、画面都接上", () =>
   assert.ok(app.includes('["moments", "我的朋友圈"]'));
   assert.ok(app.includes('moments: ["moments"] };'));
   assert.ok(app.includes('if (on("moments")) {'));
+  // 联系人发的也在（她 2026-10-22「我就是想给他看我联系人的朋友圈，如果没藏起来的话」）：藏起来的人、别的面具那边的人不给
+  assert.ok(app.includes('m.characterId !== viewerId && shownId(m.characterId) && !maskTrace(m.content)'));
   assert.ok(app.includes('if (app === "moments") { setMsgTab("moments"); setScreen("messages"); return; }'));
   assert.ok(pp.includes('moments: { dock: "信息", path: [{ text: "朋友圈", exact: true, optional: true }] },'));
 });

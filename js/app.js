@@ -11146,19 +11146,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (rows.length) out.push("【线下见面的往期——她和别人当面见过的那几回，不是和你的】\n" + rows.map(one).join("\n"));
     }
     // 她的日历：前后两周写着的安排（谁的名字写在上面，一眼就看得到）
-    // 她自己的朋友圈（她 2026-10-22「他查我手机能不能加上一个看朋友圈」）：这张面具发的最近几条，谁赞了、谁评了；
-    //   拿着她的手机，设了「谁可以看」、平时不给他看的那几条也看得到——标出来
+    // 她的朋友圈（她 2026-10-22「他查我手机能不能加上一个看朋友圈」「我就是想给他看我联系人的朋友圈，如果没藏起来的话」）：
+    //   她刷得到的那一页——联系人发的最近几条（她藏起来的人、别的面具那边的人不在），再加她自己发的。
+    //   她自己那几条：设了「谁可以看」、平时不给他看的，拿着她的手机也看得到——标出来
     if (on("moments")) {
       const vm = maskKeyOf(viewerId) || "";
+      const likesOf = m => (m.likers || []).map(x => typeof x === "string" ? x : (x && (x.name || x.author)) || "").filter(Boolean).slice(0, 8);
+      const tail = m => { const likes = likesOf(m), cms = (m.comments || []).filter(c => c && c.text).slice(-4).map(c => "    " + (c.author || "某人") + "：" + cut(c.text, 40));
+        return (likes.length ? "\n  赞：" + likes.join("、") : "") + (cms.length ? "\n  评论：\n" + cms.join("\n") : ""); };
+      const pic = m => (m.images && m.images.length) || m.image ? "（配了图）" : "";
+      const feed = (momentsRef.current || []).filter(m => m && !m.mine && m.characterId && m.characterId !== viewerId && shownId(m.characterId) && !maskTrace(m.content)).slice(0, 8);
+      if (feed.length) out.push("【她朋友圈里刷得到的——她联系人发的，最近这几条】\n" + feed.map(m => "· 「" + (nameOf(m.characterId) || "某人") + "」" + md(m.ts) + "　" + cut(m.content, 80) + pic(m) + tail(m)).join("\n"));
       const mine = (momentsRef.current || []).filter(m => m && m.mine && String(m.mask || "") === vm && !maskTrace(m.content)).slice(0, 6);
-      if (mine.length) out.push("【她的朋友圈——她自己发的，最近这几条】\n" + mine.map(m => {
+      if (mine.length) out.push("【她自己发的朋友圈，最近这几条】\n" + mine.map(m => {
         const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
         const hidFromYou = vis && !vis.map(String).includes(String(viewerId));
-        const likes = (m.likers || []).map(x => typeof x === "string" ? x : (x && (x.name || x.author)) || "").filter(Boolean).slice(0, 8);
-        const cms = (m.comments || []).filter(c => c && c.text).slice(-4).map(c => "    " + (c.author || "某人") + "：" + cut(c.text, 40));
-        return "· " + md(m.ts) + "　" + cut(m.content, 80) + ((m.images && m.images.length) || m.image ? "（配了图）" : "")
-          + (hidFromYou ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "")
-          + (likes.length ? "\n  赞：" + likes.join("、") : "") + (cms.length ? "\n  评论：\n" + cms.join("\n") : "");
+        return "· " + md(m.ts) + "　" + cut(m.content, 80) + pic(m)
+          + (hidFromYou ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "") + tail(m);
       }).join("\n"));
     }
     if (on("calendar")) {
@@ -11420,7 +11424,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (apps.includes("offline") ? "；offline（她和别人线下见面的往期，要写 who＝那个人的名字）" : "")
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
           + (apps.includes("health") ? "；health（她的健康 app，她自己记的吃喝、睡眠、心情、不舒服）" : "")
-          + (apps.includes("moments") ? "；moments（她的朋友圈：她发了什么、谁赞了谁评了）" : "")
+          + (apps.includes("moments") ? "；moments（她的朋友圈：她联系人发的和她自己发的，谁赞了谁评了）" : "")
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 把她给你的备注改掉（只写这一步就行，进自己那一栏、点设置这些不用写；text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。" + peekRenameAngles()
           // ⚠️上一版写「真气到那份上才用，不想就别写」，TA几乎从来不动手（她 2026-10-02：「不会删好友拉黑或者回复，概率好低」）
