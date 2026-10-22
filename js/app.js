@@ -16936,6 +16936,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       startTime: ev.startTime || "", endTime: ev.endTime || "",
       title: String(ev.title || "").trim(), location: String(ev.location || "").trim(),
       icon: ev.icon || "", color: ev.color || "", repeat: ev.repeat || "none", note: String(ev.note || "").trim(),
+      ...(ev.repeat && ev.repeat !== "none" && ev.until ? { until: String(ev.until) } : {}), ...(ev.src ? { src: String(ev.src) } : {}),
       createdAt: ev.createdAt || Date.now(), updatedAt: Date.now()
     };
     if (!clean.title || !clean.startDate) { toast("至少要有日期和事项"); return null; }
@@ -16947,6 +16948,41 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return clean;
   };
   const delCalTimedEvent = id => calEvSave((calEventsRef.current || []).filter(x => x.id !== id));
+  // 导入课表：截图或文字交给模型认成一行行课（.ics 在页面里本地读，不走这儿）
+  const parseTimetable = async ({ text, image }) => {
+    const p = active;
+    if (!p) { toast("先去 设置·API 配一条线路"); return null; }
+    try {
+      const raw = await callAI(p, CLASS_PARSE_SYS, [image ? { role: "user", content: "这是我的课表截图，帮我整理。", imageDataUrls: [image] } : { role: "user", content: "这是我的课表：\n" + String(text || "").slice(0, 12000) }],
+        { maxTokens: 8000, timeout: 120000, logLabel: "导入课表" });
+      const rows = cleanClassRows(parseJSONLoose(raw));
+      if (!rows.length) { toast("没认出课来，换张更清楚的图，或者把课表文字粘进来试试"); return null; }
+      return rows;
+    } catch (e) { toast("没认出来：" + String((e && e.message) || e).slice(0, 60)); return null; }
+  };
+  // 一次存一整学期：每节课一条重复日程，到学期末为止
+  const saveClassRows = (rows, owner, termStart, termEnd) => {
+    const add = [];
+    const startD = calEvParseDay(termStart); if (!startD) return 0;
+    const key = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    (rows || []).forEach((r, i) => {
+      if (!r || !r.title) return;
+      let first = r.firstDate || "";
+      if (!first) {
+        // 学期第一天所在那一周算第 1 周：从那周周一数起，单周落在第 1 周、双周落在第 2 周；落在开学前就往后挪
+        const d = new Date(startD); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + (r.weekday - 1) + (r.weeks === "even" ? 7 : 0));
+        while (d < startD) d.setDate(d.getDate() + (r.weeks === "all" ? 7 : 14));
+        first = key(d);
+      }
+      if (termEnd && first > termEnd) return;
+      add.push({ id: "ce_" + Date.now().toString(36) + "c" + i + Math.floor(Math.random() * 1e4).toString(36), owner: String(owner || "mine"),
+        startDate: first, endDate: first, startTime: r.start || "", endTime: r.start ? (r.end || "") : "", title: r.title, location: r.location || "",
+        icon: "📚", color: "", repeat: r.weeks === "odd" || r.weeks === "even" || r.weeks === "biweekly" ? "biweekly" : "weekly", note: "",
+        until: r.until || termEnd || "", src: "timetable", createdAt: Date.now(), updatedAt: Date.now() });
+    });
+    if (add.length) calEvSave([...(calEventsRef.current || []), ...add]);
+    return add.length;
+  };
   // 把一张面具的日程复制到另一张（她 2026-10-19「做吧」）：加进去、不删原有的；同一天同一时段同一件事的跳过。
   //   onlyAhead：只搬今天及以后的（重复的那种照搬，它本来就一直在）。复制出来的是新的一条，之后两边各改各的。
   const copyMaskSched = (srcOwner, dstOwner, onlyAhead) => {
@@ -16975,6 +17011,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 重复的：从今天往后找第一次落点，找到就报那一天
         for (let i = 0; i <= n; i++) {
           const k = schedShiftDayKey(t0k, i);
+          if (e.until && k > e.until) break;
           if (!calRepeatOn(e.startDate, e.repeat, k)) continue;
           out.push({ id: e.id, title: e.title, date: k, endDate: k, time: e.startTime || "", location: e.location || "", icon: e.icon || "", repeat: e.repeat, days: i });
           break;
@@ -32984,7 +33021,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSavePeriod: savePeriodSettings,
     onRecordPeriod: recordPeriodStart,
     onSaveTimed: saveCalTimedEvent,
-    onCopyMaskSched: copyMaskSched,
+    onCopyMaskSched: copyMaskSched, onParseTimetable: parseTimetable, onSaveClasses: saveClassRows,
     onDelTimed: delCalTimedEvent,
     // 手动重排：只重排【今天到本周日】。手动这一下也记账，免得随后自动那档又跑一遍。
     onGenWeek: async c => {

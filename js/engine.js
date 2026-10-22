@@ -2748,13 +2748,60 @@ function calRepeatOn(startDate, repeat, dayKey) {
 }
 // 某一天该显示哪些手动事件。跨天事件在每一天各出现一次，并给出【这一天之内】的起止：
 // 首日 = 开始时刻→24:00，中间整天，末日 = 00:00→结束时刻。没填时刻的算全天。
+// ── 导入课表（群友许愿、她 2026-10-22「做吧」）─────────────────────────
+// 课表落成一组「每周 / 隔周重复、到学期末为止」的日程。三条路最后都变成同一种行：
+//   { title, weekday(1-7，周一=1), start "08:00", end "09:40", location, weeks: "all"|"odd"|"even" }
+// .ics 本地读、不花调用；截图和文字交给模型认。
+function parseIcsClasses(text) {
+  const raw = String(text || "").replace(/\r?\n[ \t]/g, "");   // 折行接回去
+  const out = [];
+  const blocks = raw.split(/BEGIN:VEVENT/).slice(1);
+  const val = (b, k) => { const m = new RegExp("^" + k + "(?:;[^:\\n]*)?:(.*)$", "m").exec(b); return m ? m[1].trim().replace(/\\([,;\\])/g, "$1").replace(/\\n/gi, " ") : ""; };
+  const when = s => { const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/.exec(s || ""); return m ? { date: m[1] + "-" + m[2] + "-" + m[3], time: m[4] ? m[4] + ":" + m[5] : "", wd: new Date(+m[1], +m[2] - 1, +m[3]).getDay() || 7 } : null; };
+  blocks.forEach(b => {
+    const s = when(val(b, "DTSTART")), e = when(val(b, "DTEND"));
+    const title = val(b, "SUMMARY");
+    if (!s || !title) return;
+    const rr = val(b, "RRULE");
+    const iv = /INTERVAL=(\d+)/.exec(rr), un = /UNTIL=(\d{8})/.exec(rr);
+    out.push({ title: title.slice(0, 40), weekday: s.wd, start: s.time, end: e ? e.time : "", location: val(b, "LOCATION").slice(0, 40),
+      weeks: iv && +iv[1] === 2 ? "biweekly" : "all", firstDate: s.date, until: un ? un[1].slice(0, 4) + "-" + un[1].slice(4, 6) + "-" + un[1].slice(6, 8) : "", weekly: /FREQ=WEEKLY/.test(rr) });
+  });
+  // 不少课表 App 导出时每一次课都是单独一条（没有 RRULE）：同一门、同一个星期几、同一个钟点的并成一条，
+  //   从最早那次起、到最后那次止；相邻两次隔两周就是隔周的课
+  const groups = {}, merged = out.filter(r => r.weekly);
+  out.filter(r => !r.weekly).forEach(r => { const g = r.title + "|" + r.weekday + "|" + r.start; (groups[g] = groups[g] || []).push(r); });
+  Object.keys(groups).forEach(g => {
+    const list = groups[g].sort((a, b) => a.firstDate < b.firstDate ? -1 : 1);
+    const first = list[0], last = list[list.length - 1];
+    const gaps = list.slice(1).map((r, i) => Math.round((new Date(r.firstDate) - new Date(list[i].firstDate)) / 86400000));
+    merged.push(Object.assign({}, first, { until: list.length > 1 ? last.firstDate : first.firstDate, weeks: gaps.length && gaps.every(x => x >= 14) ? "biweekly" : "all" }));
+  });
+  return merged;
+}
+function cleanClassRows(arr) {
+  const hm = x => { const m = /(\d{1,2})[:：](\d{2})/.exec(String(x || "")); return m ? String(Math.min(23, +m[1])).padStart(2, "0") + ":" + m[2] : ""; };
+  return (Array.isArray(arr) ? arr : []).map(r => ({
+    title: String((r && (r.title || r.name)) || "").trim().slice(0, 40),
+    weekday: Math.max(1, Math.min(7, Number(r && r.weekday) || 0)) || 0,
+    start: hm(r && r.start), end: hm(r && r.end),
+    location: String((r && r.location) || "").trim().slice(0, 40),
+    weeks: ["odd", "even"].includes(r && r.weeks) ? r.weeks : "all"
+  })).filter(r => r.title && r.weekday);
+}
+const CLASS_PARSE_SYS = "你在帮用户把一张大学课表整理成数据。只照课表上真写着的抄，看不清、没写的就留空，绝不补。\n"
+  + "每一节课一行：title 课名；weekday 星期几（周一=1…周日=7）；start、end 上下课时刻（24 小时制 HH:MM；课表只写第几节、旁边又标了各节的时间，就换算成时刻；没有任何时间信息就留空）；location 教室；"
+  + "weeks：只上单周写 odd，只上双周写 even，其余写 all。同一门课一周上几次就写几行。\n"
+  + "只输出 JSON 数组，不要代码块：[{\"title\":\"\",\"weekday\":1,\"start\":\"08:00\",\"end\":\"09:40\",\"location\":\"\",\"weeks\":\"all\"}]";
+if (typeof window !== "undefined") { window.parseIcsClasses = parseIcsClasses; window.cleanClassRows = cleanClassRows; }
 function calEventsOnDay(events, owner, dayKey) {
   const day = calEvParseDay(dayKey);
   if (!day) return [];
   return (Array.isArray(events) ? events : []).filter(e => {
     if (!e || String(e.owner) !== String(owner)) return false;
     // 重复的一律按【单日】算：跨天 + 重复叠在一起没法讲清楚，备忘录那边也是单日
-    if (e.repeat && e.repeat !== "none") return calRepeatOn(e.startDate, e.repeat, dayKey);
+    // 重复到哪天为止（课表那种，2026-10-22）：过了 until 就不再出现
+    if (e.repeat && e.repeat !== "none") return !(e.until && String(dayKey) > String(e.until)) && calRepeatOn(e.startDate, e.repeat, dayKey);
     const s = calEvParseDay(e.startDate), en = calEvParseDay(e.endDate || e.startDate);
     return s && en && day >= s && day <= en;
   }).map(e => {
