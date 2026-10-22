@@ -26,3 +26,21 @@ for (const k of ["zyscene", "zyscenechip", "zyscenediff", "zyrecacts", "zysendmi
   assert.match(ts, new RegExp('\\["' + k + '", "'), k + " 登记了");
 }
 console.log("ok");
+
+// 她 2026-10-22「加吧宝宝 九型人格 另一半 心理年龄」：每种结果都有人指着，算得出来
+{
+  const assert = require("node:assert/strict");
+  global.window = global;
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  const per = id => { const c = {}; Z.byId(id).qs.forEach(q => q.opts.forEach(o => Object.keys(o.s).forEach(k => { c[k] = (c[k] || 0) + 1; }))); return c; };
+  const en = per("ennea"); assert.equal(Object.keys(en).length, 9); Object.values(en).forEach(n => assert.equal(n, 6, "九型每型 6 个选项指着"));
+  const pa = per("partner"); assert.equal(Object.keys(pa).length, 6); Object.values(pa).forEach(n => assert.ok(n >= 6 && n <= 7));
+  const t = Z.byId("mindage");
+  assert.equal(Z.resultOf("mindage", t.qs.map(() => 0)).title, "心理年龄 9 岁");
+  assert.match(Z.resultOf("mindage", t.qs.map(q => q.opts.length - 1)).title, /^心理年龄 6\d 岁$/);
+  assert.match(Z.resultOf("ennea", Z.byId("ennea").qs.map(() => 0)).title, /号 · /);
+  // 他做题走的是公共那套 bundle（runProbe voice），不另写一份人设规矩
+  const app = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /runProbe\(apiFor\(charId\), ctxFor\(c\), \{ voice: true, tag: "zhaoying", instruction: Z\.askInstruction/);
+}
