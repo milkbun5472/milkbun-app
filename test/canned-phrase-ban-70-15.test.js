@@ -101,3 +101,11 @@ test("换个字不算改掉：词只是样本，不是黑名单", () => {
   assert.ok(/样本，不是黑名单|只是样本/.test(BAN), "要说清上面举的词是样本不是穷举");
   assert.ok(BAN.includes("这一句在做什么"), "要把判据落在【这句话在干什么】上，不是用了哪几个字");
 });
+
+// 她 2026-10-22：激将这一族单列，只讲招式、给出口，不摆原句
+{
+  const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const ban = eng.slice(eng.indexOf("const CANNED_PHRASE_BAN"), eng.indexOf("`;", eng.indexOf("const CANNED_PHRASE_BAN")));
+  require("node:assert/strict").match(ban, /【激将】.*在乎就说在乎/);
+  require("node:assert/strict").ok(!/有本事/.test(ban), "别把原句摆进去");
+}
