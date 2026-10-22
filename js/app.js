@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.304";
+const APP_VERSION = "v76.306";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13268,6 +13268,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // JSON 里只交了表情包之类、话写在 JSON 外面（群里 2026-10-22：「{"emote":"看你编"}……？你脑子被门夹了？」——
+      //   表情发了，后面那几句被扔了，还报「这一轮没回上来」）：word 空着、JSON 外头有正文，就把那段当她收到的话
+      if (parsed && typeof parsed === "object" && !(Array.isArray(parsed.word) ? parsed.word.some(w => String(w || "").trim()) : String(parsed.word || "").trim())) {
+        const _rs = String(raw || ""), _a = _rs.indexOf("{"), _b = _rs.lastIndexOf("}");
+        const _outside = (_a >= 0 && _b > _a ? (_rs.slice(0, _a) + "\n" + _rs.slice(_b + 1)) : "").replace(/```(?:json)?/gi, "").trim();
+        if (_outside && !protocolFieldRe.test(_outside)) {
+          const _lines = _outside.split(/\n+/).map(x => x.trim()).filter(Boolean)
+            .flatMap(x => x.match(/[^。！？!?]+[。！？!?…]*[」』"”）)]*|[。！？!?…]+/g) || [x]).map(x => x.trim()).filter(Boolean);
+          if (_lines.length) parsed.word = _lines.slice(0, 12);
+        }
+      }
       // 别的字段被模型写进了 word 里（群里 2026-10-22：气泡里冒出「photoSeen:{"note":"她发来两张……」）：
       //   一条话长成「英文字段名:{…}／[…]／"…"」就是协议，不是人说的话——拿出气泡；那一格没填的话照它填上
       if (parsed && Array.isArray(parsed.word)) parsed.word = parsed.word.filter(w => {
@@ -28031,16 +28042,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 不是她按的暂停（摘耳机、被别的视频／电话抢了声音）：记下来，等她回到 App、或者耳机重新连上就接着放
   //   （她 2026-10-22：「摘下耳机或者跳到别的视频再回来不会主动播放」）。她自己按的暂停、关掉播放器，不接。
   const userPauseRef = useRef(false), interruptedRef = useRef(false);
+  // 播放器此刻自认在不在放（她 2026-10-23「一起听回来还是不能继续自动播放」）：iOS 切后台把声音挂起时常常【不发 pause】，
+  //   interruptedRef 就没被记上——回来一看播放器还写着在放、声音却停了，也算被打断
+  const playingRef = useRef(false); playingRef.current = !!(player && player.playing);
   useEffect(() => {
-    const resume = () => {
+    let armed = false;
+    // 回到前台那一刻 iOS 不让直接出声（要有一下手指）：直接放被拒了，就等她在屏幕上随便点一下再接着放
+    const onTap = () => { armed = false; document.removeEventListener("pointerdown", onTap, true); document.removeEventListener("touchend", onTap, true); resume(true); };
+    const arm = () => { if (armed) return; armed = true; document.addEventListener("pointerdown", onTap, true); document.addEventListener("touchend", onTap, true); };
+    const resume = fromTap => {
       const el = audioElRef.current;
-      if (!interruptedRef.current || !el || !el.getAttribute("src") || !el.paused || document.visibilityState === "hidden") return;
-      const pr = el.play(); if (pr && pr.then) pr.then(() => { interruptedRef.current = false; setPlayer(p => ({ ...p, playing: true })); }).catch(() => {});
+      if (!el || !el.getAttribute("src") || !el.paused || document.visibilityState === "hidden") return;
+      if (!interruptedRef.current && !(playingRef.current && !userPauseRef.current)) return;
+      interruptedRef.current = true;
+      const pr = el.play(); if (pr && pr.then) pr.then(() => { interruptedRef.current = false; setPlayer(p => ({ ...p, playing: true })); }).catch(() => { if (!fromTap) arm(); });
     };
-    const vis = () => { if (document.visibilityState === "visible") setTimeout(resume, 400); };
-    document.addEventListener("visibilitychange", vis); window.addEventListener("focus", resume);
-    const md = navigator.mediaDevices; if (md && md.addEventListener) md.addEventListener("devicechange", resume);
-    return () => { document.removeEventListener("visibilitychange", vis); window.removeEventListener("focus", resume); if (md && md.removeEventListener) md.removeEventListener("devicechange", resume); };
+    const vis = () => { if (document.visibilityState === "visible") setTimeout(() => resume(false), 400); };
+    const onFocus = () => resume(false);
+    document.addEventListener("visibilitychange", vis); window.addEventListener("focus", onFocus);
+    const md = navigator.mediaDevices; if (md && md.addEventListener) md.addEventListener("devicechange", onFocus);
+    return () => { document.removeEventListener("visibilitychange", vis); window.removeEventListener("focus", onFocus); if (md && md.removeEventListener) md.removeEventListener("devicechange", onFocus);
+      document.removeEventListener("pointerdown", onTap, true); document.removeEventListener("touchend", onTap, true); };
   }, []);
   const togglePlay = () => {
     const el = audioElRef.current; if (!el) return;
