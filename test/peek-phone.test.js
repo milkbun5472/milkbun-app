@@ -419,3 +419,12 @@ test("翻手机能看她的朋友圈：勾选、材料、画面都接上", () =>
   assert.ok(app.includes('if (app === "moments") { setMsgTab("moments"); setScreen("messages"); return; }'));
   assert.ok(pp.includes('moments: { dock: "信息", path: [{ text: "朋友圈", exact: true, optional: true }] },'));
 });
+
+// 群友 2026-10-22：「把 char 拉黑了，char 查手机的时候能把自己拉回嘛」
+test("被她拉黑时翻手机能把自己放出来：只在真被拉黑时提，生效走 setBlockFor", () => {
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const pp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "peek-phone.js"), "utf8");
+  assert.ok(app.includes('((blocksRef.current[charId] || {}).iBlocked ? "\\n你现在在她那儿是被拉黑的'));
+  assert.ok(app.includes('if (step.do === "unblockme") {\n      if (!(blocksRef.current[viewerId] || {}).iBlocked) return;\n      setBlockFor(viewerId, { iBlocked: false });'));
+  assert.ok(pp.includes('else if (d === "unblockme" && !out.some(x => x.do === "unblockme")) out.push({ do: "unblockme" });'));
+});
