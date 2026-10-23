@@ -487,8 +487,10 @@
       //   而且它还会弹一句「没有能收的：这局上场的都是 NPC」，等于点一次骗她一次。
       //   （一层写在两处、第二处没跟上；这一次断在第三处。）
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
-      // Lisa 明确要求这盒永不进回忆：连可写主线的回调都不下发。
+      // 原来这盒永不进回忆；她 2026-10-23 松口：可以收，但写清这是在手机上操控小人玩的游戏，不是真去约会了。
+      //   所以收的时候战报那一段由 date-game.js 自己写开头那句框定，这里只把回调递下去。
       if (session.game.key === "date") return h(window.DateGame, {
+        keepGameMemory: props.keepGameMemory, sendGameReport: props.sendGameReport, sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups, toast: props.toast,
         config: session.config, savedState: session.saved, active: props.active, characters: routedCharacters,
         profile: props.profile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
         call: callRetry, rules: gameVoiceRules(), isEngineer: props.isEngineer,
@@ -2811,13 +2813,14 @@
     const pick = out.length > 10 ? out.slice(0, 2).concat(["……"], out.slice(-8)) : out;
     return pick.join("；").slice(0, 450);
   }
+  if (typeof window !== "undefined") window.GameKeepMemBtn = function (p) { return KeepMemBtn(p); };
   function KeepMemBtn(props) {
     const t = props.t, host = props.host || {};
     const rep = React.useMemo(function () { try { return props.rep ? props.rep() : null; } catch (e) { return null; } }, []);
     const proc = React.useMemo(function () { return rep && rep.proc ? procText(rep.proc) : ""; }, []);
     const [withProc, setWithProc] = useState(false);
     // 勾了「连过程一起」：收进记忆、发战报都带上那一段；没勾就只给结果
-    const out = rep ? Object.assign({}, rep, { text: rep.text + (withProc && proc ? "\n过程：" + proc : "") }) : rep;
+    const out = rep ? Object.assign({}, rep, { text: rep.text + (withProc && proc ? "\n" + (rep.procLabel || "过程") + "：" + proc : "") }) : rep;
     const [kept, setKept] = useState(false);
     const [sent, setSent] = useState({});
     useEffect(function () { recordGame(rep); }, []);
