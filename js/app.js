@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.342";
+const APP_VERSION = "v76.343";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22056,12 +22056,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const [zyWatch, setZyWatch] = useState(null);   // { charId, testId, recId, msgId, replay }
   //   卡发出去先不动：等她把话说完、按了回复（waitForHer.zyAsk），那一轮里才开始做。
   // scene：「换个处境再做」那一次的前提（她 2026-10-22），空着就是平时的他
-  const zhaoyingAsk = (charId, testId, scene) => {
+  const zhaoyingAsk = (charId, testId, scene, guess) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId), test = Z && Z.byId(testId);
     if (!c || !test) return;
     const mid = "zy_" + Date.now();
     const sc = String(scene || "").trim().slice(0, 60);
-    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」（" + test.qs.length + " 道题，题就在这张卡里，点开就能做）" + (sc ? "，这一次假设：" + sc : ""), ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId, ...(sc ? { scene: sc } : {}) } }]);
+    pChat(charId, p => [...p, { id: mid, role: "user", kind: "zyask", content: "〔照影〕我想让你做一套小测「" + test.name + "」（" + test.qs.length + " 道题，题就在这张卡里，点开就能做）" + (sc ? "，这一次假设：" + sc : ""), ts: Date.now(), zy: { testId, testName: test.name, status: "wait", charId, ...(sc ? { scene: sc } : {}), ...(guess != null && guess >= 0 ? { guess } : {}) } }]);
     const prev = (waitHerRef.current[charId] || {}).zyAsk || [];
     waitForHer(charId, { zyAsk: [...prev, { msgId: mid, testId }].slice(-3) });
     openChatById(charId);
@@ -22077,11 +22077,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const scene = (row.zy || {}).scene || "";
       const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(charId)), Z.recordsOf(charId, testId), scene, zyAuthor(test, charId)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
-      const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+      const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
       // 不算分的自定义题：结果就是他做完自己说的那句
       if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
       const recId = "zy_" + Date.now().toString(36);
-      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(scene ? { scene } : {}) });
+      Z.addRecord(charId, { id: recId, testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(scene ? { scene } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...((row.zy || {}).guess != null ? { guess: row.zy.guess } : {}) });
       patch({ status: "done", recId, title: res.title });
       // 做完在他那边落一张卡（她 2026-10-22「不然还得往上翻」）：点开就是看他做，跟最早那张指向同一次
       pChat(charId, p => [...p, { id: "zyd_" + Date.now(), role: "assistant", kind: "zyask", ts: Date.now(),
@@ -22119,9 +22119,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (onStep) onStep(c);
       try {
         const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id)), schemaHint: Z.askSchema(test), maxTokens: 20000 });
-        const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks);
+        const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
         if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
-        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), group: groupId });
+        Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), group: groupId });
         n++;
       } catch (e) { toast((c.remark || c.name) + " 这回没做成"); }
     }
@@ -22152,7 +22152,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const Z = window.Zhaoying, test = Z && Z.byId(testId);
     if (!test || !rec) return;
     const body = test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.optText(test, i, (rec.picks || [])[i])).join("\n");
-    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: "〔照影〕你给我出的「" + test.name + "」我做完了，每题选的：\n" + body, ts: Date.now(), zy: { testName: test.name, title: "做完了你出的这套", who: userName(profileFor(charId)) } }]);
+    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: "〔照影〕你给我出的「" + test.name + "」我做完了，每题选的：\n" + body + (test.bait ? "\n（做完我才看到，你出这套其实是想知道：" + test.bait + "）" : ""), ts: Date.now(), zy: { testName: test.name, title: "做完了你出的这套", who: userName(profileFor(charId)) } }]);
     openChatById(charId);
   };
   const phoneSendAsFake = (char, session, body) => {
@@ -32762,7 +32762,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: () => setScreen("home")
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
-    onAsk: (charId, testId, scene) => zhaoyingAsk(charId, testId, scene),
+    onAsk: (charId, testId, scene, guess) => zhaoyingAsk(charId, testId, scene, guess),
     onCharGen: zhaoyingCharGen,
     onGroupRun: zhaoyingGroupRun,
     onPin: zhaoyingPin,
