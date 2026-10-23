@@ -21,10 +21,11 @@
     const [compare, setCompare] = useState(false);
     const [edit, setEdit] = useState(null);     // 正在出／改的那套题（草稿，存了才算）
     const [gen, setGen] = useState({ theme: "", count: 10, busy: false });
-    const [scene, setScene] = useState("");
-    const [guess, setGuess] = useState(-1);
+    const [scene, setScene] = useState("");        // 换个处境再做：这一次的前提，空＝平时
+    const [guess, setGuess] = useState(-1);        // 排序／拍卖：发出去之前押他的第一（她 2026-10-23）
     const [badgeOpen, setBadgeOpen] = useState(false);
-    const [genMode, setGenMode] = useState("");      // 让他出题：""＝写给我的，"open"＝大家都能做        // 排序／拍卖：发出去之前押他的第一（她 2026-10-23）        // 换个处境再做：这一次的前提，空＝平时
+    const [genMode, setGenMode] = useState("");      // 让他出题：""＝写给我的，"open"＝大家都能做
+    const [sendTo, setSendTo] = useState("");        // 自己做完发给谁看
     const [busyWho, setBusyWho] = useState("");    // 他在出题 / 群里谁在做
     // 分类：记得上次停在哪一类（她 2026-10-22「搞个分类」）
     const [cat, setCatS] = useState(() => { try { return (typeof loadJSON === "function" && loadJSON("x_zyCat", "all")) || "all"; } catch (e) { return "all"; } });
@@ -278,11 +279,19 @@
           run.done && run.mode === "me" && tt.bait ? h("div", { "data-wk": "zybait", style: { margin: "4px 0 12px", padding: "12px 14px", borderRadius: 12, border: "1.5px dashed " + ACC, background: "rgba(176,118,74,.06)", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: INK, lineHeight: 1.7, animation: "wkpop .35s ease-out both" } },
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: ACC, marginBottom: 4 } }, "其实"), nameOf(tt.by) + " 出这套题，是想知道：" + tt.bait) : null,
           share,
-          // 做完想跟他说的：写在这儿，跟答案一起发过去（她 2026-10-23）
-          run.done && run.mode === "me" && tt.by && props.onSendMine && chars.some(c => c.id === tt.by) ? h("textarea", { "data-wk": "zynote", value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "想跟 " + nameOf(tt.by) + " 说的（会跟答案一起发过去，可不写）",
-            style: { width: "100%", margin: "4px 0 8px", padding: "10px 12px", borderRadius: 10, border: "1px solid " + LINE, background: "#fffaf3", color: INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, resize: "none", outline: "none" } }) : null,
-          run.done && run.mode === "me" && tt.by && props.onSendMine && chars.some(c => c.id === tt.by) ? h("button", { "data-wk": "zysendmine", onClick: () => { const r0 = Z.recordsOf("me", tt.id)[0]; if (r0) { props.onSendMine(tt.by, tt.id, r0, note); setNote(""); } }, className: "w-full active:opacity-70",
-            style: { marginTop: 4, padding: "12px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY } }, "发给 " + nameOf(tt.by) + " 看我的答案") : null,
+          // 做完发给谁看（她 2026-10-23「两个人互相发结果」）：任何一套都能发，附一句话；他也做过的话发过去就是你俩并排的对照
+          run.done && run.mode === "me" && props.onSendMine && chars.length ? (function () {
+            const to = sendTo && chars.some(c => c.id === sendTo) ? sendTo : (tt.by && chars.some(c => c.id === tt.by) ? tt.by : chars[0].id);
+            const hisRec = Z.recordsOf(to, tt.id)[0];
+            return h("div", { "data-wk": "zysendbox", style: { margin: "6px 0 10px", padding: "12px 12px 10px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INK, marginBottom: 6 } }, "发给谁看"),
+              h("div", { className: "flex gap-3 overflow-x-auto", style: { padding: "2px 2px 6px" } }, chars.map(c => face(to === c.id, c, c.remark || c.name, () => setSendTo(c.id)))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: hisRec ? ACC : FOG, margin: "2px 0 8px" } }, hisRec ? nameOf(to) + " 也做过这套（测出「" + hisRec.title + "」），发过去是你俩并排的对照" : nameOf(to) + " 还没做过这套，发过去是你的答案"),
+              h("textarea", { "data-wk": "zynote", value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "想跟 " + nameOf(to) + " 说的（会一起发过去，可不写）",
+                style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid " + LINE, background: "#fffdf8", color: INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, resize: "none", outline: "none" } }),
+              h("button", { "data-wk": "zysendmine", onClick: () => { const r0 = Z.recordsOf("me", tt.id)[0]; if (r0) { props.onSendMine(to, tt.id, r0, note); setNote(""); } }, className: "w-full active:opacity-70",
+                style: { marginTop: 8, minHeight: 44, borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY } }, "发给 " + nameOf(to) + " 看"));
+          })() : null,
           // 拍卖自己做：一页摆开十样，加加减减，剩多少一直看得见，不会超
           run.mode === "me" && !run.done && tt.bid ? (function () {
             const left = tt.bid - run.bids.reduce((x, y) => x + y, 0);
@@ -444,7 +453,8 @@
               h("div", { "data-wk": "zyrecacts", className: "flex gap-2 flex-wrap", style: { margin: "6px 0" } },
                 props.onSaveImage ? h("button", { onClick: () => props.onSaveImage(test.id, r, nameOf(who)), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 12px", minHeight: 40 } }, "存成图") : null,
                 who !== "me" && props.onPin ? h("button", { onClick: () => props.onPin(who, test.id, r), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACC, border: "1px solid " + ACC, borderRadius: 999, padding: "6px 12px", minHeight: 40 } }, "收进时刻") : null,
-                who === "me" && test.by && props.onSendMine && chars.some(c => c.id === test.by) ? h("button", { onClick: () => props.onSendMine(test.by, test.id, r), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: ACC, borderRadius: 999, padding: "6px 12px", minHeight: 40 } }, "发给 " + nameOf(test.by) + " 看我的答案") : null),
+                // 我的那次：发给谁都行（她 2026-10-23）
+                who === "me" && props.onSendMine ? chars.map(c => h("button", { key: c.id, onClick: () => props.onSendMine(c.id, test.id, r), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: ACC, borderRadius: 999, padding: "6px 12px", minHeight: 40 } }, "发给 " + nameOf(c.id))) : null),
               // 换了处境的那次：跟最近一次「平时」的并排，只列选得不一样的题
               r.scene ? (function () {
                 const base = recs.find(x => !x.scene && x.id !== r.id);

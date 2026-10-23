@@ -322,7 +322,7 @@ console.log("ok");
   const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
   assert.match(app, /const zhaoyingSendMine = \(charId, testId, rec, note\) =>/);
   assert.match(app, /onLieGuess: i => window\.Zhaoying\.patchRecord\(/);
-  assert.match(zy, /props\.onSendMine\(tt\.by, tt\.id, r0, note\)/);
+  assert.match(zy, /props\.onSendMine\(to, tt\.id, r0, note\)/);
   assert.match(zy, /const DRAFT = "x_zyDraft"/); assert.match(zy, /else saveDraft\(r\.testId, next\)/);
   assert.match(zy, /Z\.optsView\(tt, q, i,/);
 }
@@ -381,4 +381,22 @@ console.log("ok");
   const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
   assert.match(zy, /props\.onCharGen\(c\.id, genMode\)/); assert.match(zy, /"data-wk": "zygenmode"/);
   assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /async function genTest[\s\S]{0,900}avoidNote\(""\)/);
+}
+
+// 互相发结果（她 2026-10-23）：任何一套都能发给任何人；他也做过就是并排对照；发过的他聊天时记得
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.addRecord("me", { id: "m1", testId: "mbti", ts: 1, picks: [0], title: "INFP · 心里有片海的理想派" });
+  assert.equal(Z.chatNote("c7"), "");
+  Z.patchRecord("me", "m1", { sentTo: ["c7"] });
+  assert.match(Z.chatNote("c7"), /她做完发给你看过的：「MBTI[^」]*」.*测出「INFP/);
+  const fs = require("node:fs"), path = require("node:path");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /咱俩每题对一对/); assert.match(app, /Z\.patchRecord\("me", rec\.id, \{ sentTo:/);
+  const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /"data-wk": "zysendbox"/); assert.doesNotMatch(zy, /run\.done && run\.mode === "me" && tt\.by && props\.onSendMine/);
 }

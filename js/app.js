@@ -22157,13 +22157,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 一次结果存成图：照影页的记录和看他做的回放页共用这一处
   const zhaoyingSaveImage = async (testId, rec, name) => { const Z = window.Zhaoying, test = Z && Z.byId(testId); if (!test) return; const b = await Z.resultImage(test, rec, name); if (b) saveFile(new File([b], "照影-" + test.name + ".png", { type: "image/png" })); };
   // 她做完他出的那套：把她每题选了什么发给他（她按回复他才接，不当场替他开口）
+  // 把我做的那份发给他（她 2026-10-23「两个人互相发结果」）：任何一套都行；他也做过就是并排的对照，记下发给过谁，他聊天时就知道
   const zhaoyingSendMine = (charId, testId, rec, note) => {
     const Z = window.Zhaoying, test = Z && Z.byId(testId);
     if (!test || !rec) return;
-    const body = test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.answerText(test, rec, i)).join("\n");
+    const mine = String(test.by || "") === String(charId), his = Z.recordsOf(charId, testId)[0];
+    const body = his
+      ? test.qs.map((q, i) => { const a = Z.answerText(test, rec, i), b = Z.answerText(test, his, i); return (i + 1) + ". " + q.q + "\n   我：" + a + (a === b ? "（一样）" : "\n   你：" + b); }).join("\n")
+      : test.qs.map((q, i) => (i + 1) + ". " + q.q + " → " + Z.answerText(test, rec, i)).join("\n");
     // 做完想跟他说的那句（她 2026-10-23「能不能编辑一下跟答案一起发回聊天」）：放在答案后面一起发
     const say = String(note || "").trim().slice(0, 500);
-    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: "〔照影〕你给我出的「" + test.name + "」我做完了，每题选的：\n" + body + (test.bait ? "\n（做完我才看到，你出这套其实是想知道：" + test.bait + "）" : "") + (say ? "\n\n" + say : ""), ts: Date.now(), zy: { testName: test.name, title: "做完了你出的这套", who: userName(profileFor(charId)) } }]);
+    const head = mine ? "〔照影〕你给我出的「" + test.name + "」我做完了" : "〔照影〕我做了「" + test.name + "」" + (rec.title && !rec.free ? "，测出「" + rec.title + "」" : "");
+    pChat(charId, p => [...p, { role: "user", kind: "zyshare", content: head + (his ? "。你上次测出「" + his.title + "」，咱俩每题对一对：\n" : "，每题选的：\n") + body + (mine && test.bait ? "\n（做完我才看到，你出这套其实是想知道：" + test.bait + "）" : "") + (say ? "\n\n" + say : ""), ts: Date.now(),
+      zy: { testName: test.name, title: mine ? "做完了你出的这套" : (rec.title || "做完了"), who: userName(profileFor(charId)) } }]);
+    if (rec.id) Z.patchRecord("me", rec.id, { sentTo: Array.from(new Set([...(rec.sentTo || []), charId])) });
     openChatById(charId);
   };
   const phoneSendAsFake = (char, session, body) => {

@@ -949,8 +949,13 @@
 
   // 聊天时他知道的那一行（她 2026-10-22：「就他能看到结果并且知道自己选了啥」）：
   //   每套只摆最近一次，带上那次每题选了什么；更早的只报个结果。写的是「你做过这些」，不是「你是谁」。
+  // 她做完发给你看过的（她 2026-10-23）：你知道她测出了什么，最近 5 套
+  function herNote(charId) {
+    const l = recordsOf("me").filter(r => (r.sentTo || []).indexOf(charId) >= 0).slice(0, 5);
+    return l.length ? "\n她做完发给你看过的：" + l.map(r => { const t = byId(r.testId); return t ? "「" + t.name + "」" + dateZh(r.ts) + (r.title && !r.free ? "测出「" + r.title + "」" : "做完了") : ""; }).filter(Boolean).join("、") : "";
+  }
   function chatNote(charId) {
-    const l = recordsOf(charId); if (!l.length) return "";
+    const l = recordsOf(charId); if (!l.length) return herNote(charId).replace(/^\n/, "你没做过照影的题。");
     const seen = {};
     const lines = [];
     l.forEach(r => {
@@ -971,7 +976,7 @@
     return "你做过照影里的小测（这是你自己做过的事，结果只是那次测出来的，不用照着它演）：\n" + lines.slice(0, 5).map((x, k) =>
       "·「" + x.t.name + "」" + dateZh(x.r.ts) + " 测出「" + x.r.title + "」" + (x.r.scene ? "（那次的前提是：" + x.r.scene + "）" : "") + (seen[x.t.id].length ? "（更早几次：" + seen[x.t.id].slice(0, 3).join("、") + "）" : "") + "。那次你选的：" + x.picks
       + (x.r.review ? "\n  做完你写的评语：" + String(x.r.review).slice(0, k ? 80 : 300) : "")
-      + (k ? "" : recallDetail(x.t, x.r))).join("\n") + (more ? "\n·更早做过的：" + more : "");
+      + (k ? "" : recallDetail(x.t, x.r))).join("\n") + (more ? "\n·更早做过的：" + more : "") + herNote(charId);
   }
   function recallDetail(t, r) {
     const whys = (r.whys || []).map((w, i) => w ? "Q" + (i + 1) + "「" + String(w).slice(0, 40) + "」" : "").filter(Boolean).join(" ");
