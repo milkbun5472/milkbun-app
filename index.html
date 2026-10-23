@@ -108,6 +108,8 @@
   * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; -webkit-touch-callout: none; }
   /* 全局禁用长按选择/拷贝菜单（输入框除外），避免长按气泡弹出 iOS 选择菜单 */
   body { -webkit-user-select: none; user-select: none; }
+  /* 多选消息时，气泡里的「译」、展开的译文、链接都不接点击，点到哪儿都算选这一条（群里 2026-10-23：开着译文的那条选不中） */
+  [data-wk="bubble"][data-sel="1"] * { pointer-events: none; }
   /* 气泡里一长串没空格的（链接、房间号）照样折行，不撑出屏（她 2026-10-11：「气泡炸了」）。写在这里而不是内联：单聊、群聊、预览所有气泡一处管住，她自己的 CSS 想改照样盖得过 */
   [data-wk="bubble"] { overflow-wrap: anywhere; }
   input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
