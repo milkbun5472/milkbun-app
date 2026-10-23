@@ -23,7 +23,7 @@
   }
 
   function newGame(size, komi) {
-    const n = [9, 13, 19].indexOf(size) >= 0 ? size : 9;
+    const n = [9, 13, 17, 19].indexOf(size) >= 0 ? size : 9;
     return { size: n, komi: komi == null ? 7.5 : komi, board: new Array(n * n).fill(0), turn: BLACK, ko: -1, passes: 0, caps: { 1: 0, 2: 0 }, history: [] };
   }
   // 一块棋和它的气。随机模拟一秒要跑上万次，所以用一套复用的数组打标记，不每次新建 Set

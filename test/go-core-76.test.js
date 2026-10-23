@@ -49,3 +49,6 @@ const dead = G.estimateDead(s, 300);
 assert.ok(dead.indexOf(at(s, "B2")) >= 0, "孤子没判死");
 assert.equal(G.zh(G.newGame(9), { p: at(s, "E5") }), "黑下在 E5");
 console.log("ok");
+// 十七路（她 2026-10-23）
+assert.equal(G.newGame(17).size, 17);
+console.log("17 ok");

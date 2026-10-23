@@ -818,8 +818,8 @@
             : "出牌归手机，照每个人的路数打，不卡。轮回你那一手（或者一手打完）时，一次调用让全桌各说一句；这一次只看桌上公开的，谁也看不见别人的牌。")) : null,
         game.key === "go" ? h("div", { "data-wk": "gosize", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "棋盘"),
-          h(Segmented, { t: t, value: String(goSize), onChange: function (v) { setGoSize(Number(v)); }, options: [{ key: "9", zh: "九路" }, { key: "13", zh: "十三路" }, { key: "19", zh: "十九路" }] }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, goSize === 19 ? "十九路格子小、一盘下得久，电脑在这么大的盘上偏弱。" : goSize === 13 ? "十三路，一盘半小时上下。" : "九路一盘十来分钟，手机上看得最清楚，电脑也下得最像样。")) : null,
+          h(Segmented, { t: t, value: String(goSize), onChange: function (v) { setGoSize(Number(v)); }, options: [{ key: "9", zh: "九路" }, { key: "13", zh: "十三路" }, { key: "17", zh: "十七路" }, { key: "19", zh: "十九路" }] }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, goSize >= 17 ? (goSize === 19 ? "十九路" : "十七路") + "格子小、一盘下得久，电脑在这么大的盘上偏弱。" : goSize === 13 ? "十三路，一盘半小时上下。" : "九路一盘十来分钟，手机上看得最清楚，电脑也下得最像样。")) : null,
         ["chess", "xiangqi", "go"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "教学", sub: "你说话或者按「让TA说」的时候，TA 照着引擎看出来的实情讲：你上一步怎么样、哪里有危险。按提示时 TA 也顺口讲为什么。怎么教、耐不耐心，照 TA 自己的性子。", on: boardTeach, onToggle: function () { setBoardTeach(!boardTeach); } })) : null,
         game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
@@ -6356,9 +6356,9 @@
     const confirmCount = function () { const sc = G.score(state, dead || []); setResult({ winner: sc.winner, black: sc.black, white: sc.white, margin: sc.margin }); };
 
     // 棋盘：木板，有光泽的子，星位，最后一手一个红点；数子时死子半透明打叉，地盘上小方块
-    const n = size, cell = n === 19 ? 18 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
+    const n = size, cell = n === 19 ? 18 : n === 17 ? 20 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
     const X = function (p) { return pad + (p % n) * cell; }, Y = function (p) { return pad + ((p / n) | 0) * cell; };
-    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
+    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : n === 17 ? [[3, 3], [8, 3], [13, 3], [3, 8], [8, 8], [13, 8], [3, 13], [8, 13], [13, 13]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
     const lastMv = state.history.length ? state.history[state.history.length - 1].mv : null;
     const own = counting && dead ? G.score(state, dead).owner : null;
     const R = cell * 0.46;
@@ -6376,7 +6376,7 @@
         h("line", { x1: pad, y1: pad + i * cell, x2: pad + (n - 1) * cell, y2: pad + i * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 }),
         h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (n - 1) * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 })); }),
       stars.map(function (s0, i) { return h("circle", { key: "s" + i, cx: pad + s0[0] * cell, cy: pad + s0[1] * cell, r: Math.max(2, cell * 0.09), fill: "#5e4424" }); }),
-      n <= 13 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
+      n <= 17 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
       own ? own.map(function (o, p) { return o && !state.board[p] || (o && dead && dead.indexOf(p) >= 0) ? h("rect", { key: "o" + p, x: X(p) - cell * 0.15, y: Y(p) - cell * 0.15, width: cell * 0.3, height: cell * 0.3, fill: o === 1 ? "#1a1816" : "#fff", opacity: .7 }) : null; }) : null,
       state.board.map(function (c, p) {
         if (!c) return null;
