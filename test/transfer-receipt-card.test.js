@@ -10,5 +10,5 @@ test("收下/退回转账：原 system 行挂 receipt，界面画成回执卡（
   // 回执卡必须排在通用 system 灰字之前，不然会被吞成一行字
   const a = comp.indexOf("if (m.receipt && m.receipt.amount != null)");
   assert.ok(a > 0 && a < comp.indexOf('if (m.kind === "system" || m.role === "system") return h(SysNote', a - 1) + 1);
-  assert.ok(comp.includes('m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账"'));
+  assert.ok(comp.includes('m.receiptCard ? (m.packet ? (m.status === "accepted" ? "红包已领" : "红包退回") : m.status === "accepted" ? "收款" : "退还") : "转账"'));
 });

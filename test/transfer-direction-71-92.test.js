@@ -59,6 +59,6 @@ assert.match(app, /m\.kind === "paylater" \? "【" \+ uName \+ "把一张购物�
   "代付请求没告诉他是谁推过来的、付没付");
 
 // ---- 4. 屏幕上那句不许动：TransferCard 不读 content，正文原样留着给搜索/收藏 ----
-assert.match(app, /content: "\[转账\] 你向 " \+ char\.name/, "屏幕上那条正文被改了——她说了只改模型看的");
+assert.match(app, /: "\[转账\] 你向 " \+ char\.name/, "屏幕上那条正文被改了——她说了只改模型看的");
 
 console.log("✓ 转账方向：两个方向都点名、状态跟着卡走，四处入口都接上了");

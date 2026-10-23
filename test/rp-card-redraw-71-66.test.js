@@ -8,7 +8,7 @@ const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const app = P("js/app.js"), comp = P("js/components.js");
 
 const card = () => {
-  const i = comp.indexOf("function RedPacketCard({ rp, onClick }) {"), j = comp.indexOf("// 发起投票（群聊 +面板 → 投票）", i);
+  const i = comp.indexOf("function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {"), j = comp.indexOf("// 发起投票（群聊 +面板 → 投票）", i);
   assert.ok(i > 0 && j > i, "抠不出 RedPacketCard");
   return comp.slice(i, j);
 };
@@ -62,7 +62,7 @@ test("画的是一个红封，不是一条橙色提示杠", () => {
 
 test("已领完／不是给你的，整张要暗下去", () => {
   const seg = card();
-  assert.ok(/const dim = done \|\| locked;/.test(seg), "两种情况没走同一档灰");
+  assert.ok(/const dim = dimIn != null \? dimIn : \(done \|\| locked\);/.test(seg), "两种情况没走同一档灰");  // 私聊红包（2026-10-23）自己给 dim，群里照旧
   assert.ok(/RED = dim \?/.test(seg) && /GOLD = dim \?/.test(seg), "暗下去只暗了一半");
   assert.ok(seg.includes("不是给你的"), "专属那一档的底注丢了");
 });

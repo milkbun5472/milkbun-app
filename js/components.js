@@ -10714,7 +10714,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -10759,8 +10759,9 @@ function ChatThread({
     } else if (k === "chatsearch") {
       setPanelOpen(false);
       setSearchOpen(true);
-    } else if (k === "transfer") {
-      setTransferOpen(true);
+    } else if (k === "transfer" || k === "packet") {
+      // 红包和转账是同一张单子：packet＝发出去看不见金额
+      setTransferOpen(k === "packet" ? "packet" : true);
       setPanelOpen(false);
     } else if (k === "mykin") {
       setPanelOpen(false);
@@ -11275,6 +11276,19 @@ function ChatThread({
     // 刻歌那张卡 role 也是 system，但它有自己的样子（在下面）；先被这里接走就成了一块空的「系统」（她 2026-10-13 截图）
     if ((m.kind === "system" || m.role === "system") && m.kind !== "carved") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
+    // 私聊红包：钱走的是转账那一套（m.packet），脸是红包——拆开之前谁都看不到多少
+    if (m.kind === "transfer" && m.packet) {
+      const mine = m.role === "user", st = m.status || "pending", amt = typeof Money !== "undefined" && Money ? Money.fmt(m.amount, character && character.id) : "¥" + m.amount;
+      const canOpen = st === "pending" && m.dir === "toMe" && onRespondTransfer;
+      return h("div", { key: i, "data-wk": "rpsingle", "data-status": st, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start"),
+        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+        style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 } },
+        !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        h(RedPacketCard, { rp: { message: m.note }, dim: st !== "pending",
+          foot: st === "accepted" ? (mine ? cName + " 领了 " : "你领了 ") + amt : st === "returned" ? (mine ? cName + " 没收，退回来了" : "你退回了") : mine ? "等 " + cName + " 拆开" : "拆红包",
+          onClick: selMode ? () => toggleSel(i) : canOpen ? () => onRespondTransfer(m.tid, true) : undefined }),
+        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    }
     if (m.kind === "transfer") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -11882,10 +11896,10 @@ function ChatThread({
     myBalance: myBalance,
     onClose: () => setTransferOpen(false),
     onSend: (amount, note) => {
-      onSendTransfer(amount, note);
+      onSendTransfer(amount, note, transferOpen === "packet");
       setTransferOpen(false);
     }
-  }), geoOpen && h(GeoStampSheet, {
+  , packet: transferOpen === "packet" }), geoOpen && h(GeoStampSheet, {
     recent: geoRecent,
     places: invitePlaces || [],
     onMoveMe: onSetMyPlace || null,
@@ -14353,7 +14367,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "takeout" ? "🛵外卖" : m.kind === "emote" ? "表情" : null;
-  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : gameChatText({ ...m, content: m.content || m.desc || "" });
+  const textOf = m => m.kind === "transfer" && m.packet ? "红包" + (m.status === "accepted" ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "") : m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : gameChatText({ ...m, content: m.content || m.desc || "" });
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
   const hits = (kw || typeF) ? msgs.filter(x => matchType(x.m) && (!kw || String(textOf(x.m)).indexOf(kw) >= 0)) : [];
@@ -15953,7 +15967,7 @@ function TransferCard({
     h("div", { className: "flex items-start justify-between px-4 pt-3.5 pb-3" },
       h("div", { style: { minWidth: 0 } },
         // 美化挂点（她 2026-10-02 转群友：「转账卡片的『转账』是不是不能改」）
-        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.22em", color: FADE } }, (m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账") + (m.inCall ? " · 通话中" : "")),
+        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: "0.22em", color: FADE } }, (m.receiptCard ? (m.packet ? (m.status === "accepted" ? "红包已领" : "红包退回") : m.status === "accepted" ? "收款" : "退还") : "转账") + (m.inCall ? " · 通话中" : "")),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
           h("span", { "data-wk": "transfercur", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：
@@ -16280,7 +16294,7 @@ function GeoCard({ m, isU, who, avatar, myAvatar }) {
 //
 // ⚠️所以走 appDialogPortal——全库十几处弹窗共用的那一份（portal 到 body、压暗背景、
 //   居中）。它是【公共那一层】，别再自己写一个居中的盒子。
-function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
+function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend, packet }) {
   const t = useTheme();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -16295,7 +16309,7 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
   const sym = h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.fog, lineHeight: 1 } }, cur.symbol);
   return appDialogPortal(
     h("div", { "data-wk": "block", onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "qqIn .2s ease both" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, textAlign: "center" } }, "转账给 " + cName),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, textAlign: "center" } }, (packet ? "给 " + cName + " 发红包" : "转账给 " + cName)),
       isCNY ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", marginTop: 4 } }, "按 " + cur.symbol + " 记 · TA 那边的钱"),
       // 金额那一行
       h("div", { className: "flex items-baseline justify-center gap-2", style: { marginTop: 18, paddingBottom: 10, borderBottom: "1px solid " + t.line } },
@@ -16314,13 +16328,13 @@ function TransferComposeSheet({ cName, myBalance, charId, onClose, onSend }) {
         !isCNY && cny != null ? "从你钱包扣 ¥" + cny.toFixed(2) : ""),
       h("input", {
         value: note, onChange: e => setNote(e.target.value),
-        placeholder: "附言（如：诚意金）",
+        placeholder: packet ? "写在红包上的一句（拆开前他只看得到这句）" : "附言（如：诚意金）",
         className: "w-full outline-none",
         style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", marginTop: 10 }
       }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: cny != null && !enough ? t.accent : t.fog, textAlign: "center", marginTop: 10 } },
         cny != null && !enough && myBalance != null ? "余额不够 · 你有 " + balText
-          : "我的余额 " + balText + " · TA 接受后才扣款"),
+          : "我的余额 " + balText + (packet ? " · TA 拆开才扣款" : " · TA 接受后才扣款")),
       h("div", { className: "flex gap-3", style: { marginTop: 16 } },
         h("button", { onClick: onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, "取消"),
         // ⚠️字色 t.bg2 不是 #fff：深色主题里 t.ink 本身是浅色
@@ -19699,12 +19713,13 @@ function PollCard({
 //   所以这张卡就画这几样：封口那道横压边、正中那枚金印、右下角一个折角。
 //   ⚠️「只给 XXX」提到封口上面单做一枚小标签，不跟祝福语抢宽度；
 //     祝福语给两行（clamp 2），长了才收，而不是一行就断。
-function RedPacketCard({ rp, onClick }) {
-  const done = (rp.claims || []).length >= rp.count;
+// foot／dim：私聊红包（她 2026-10-23「转账和红包要不要合并」→ 代码合一、界面分开）借这张脸，自己写底下那行和暗不暗
+function RedPacketCard({ rp, onClick, foot, dim: dimIn }) {
+  const done = rp.count != null && (rp.claims || []).length >= rp.count;
   const only = rp.toId ? (rp.toName || "某位") : "";
   // 点名给别人的：她碰不到，整张暗下去（跟「已被领完」同一档）
   const locked = !!(rp.toId && rp.toId !== "me" && !rp.byMe);
-  const dim = done || locked;
+  const dim = dimIn != null ? dimIn : (done || locked);
   const RED = dim ? "#9c5a52" : "#c3372c", RED_D = dim ? "#7e4740" : "#9d251c";
   const GOLD = dim ? "#d8c39c" : "#f2d79a";
   return h("button", {
@@ -19733,7 +19748,7 @@ function RedPacketCard({ rp, onClick }) {
         display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" } },
         rp.message || "恭喜发财，大吉大利"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.82)", marginTop: 5 } },
-        done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
+        foot != null ? foot : done ? "已被领完" : locked ? "不是给你的" : "领取红包")));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
 function PollComposeSheet({ onSubmit, onClose }) {
