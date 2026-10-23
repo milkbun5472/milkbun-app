@@ -326,3 +326,30 @@ console.log("ok");
   assert.match(zy, /const DRAFT = "x_zyDraft"/); assert.match(zy, /else saveDraft\(r\.testId, next\)/);
   assert.match(zy, /Z\.optsView\(tt, q, i,/);
 }
+
+// 自己出／AI 出／他出的题也能换答法（她 2026-10-23）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  assert.ok(!Z.KINDS.some(k => k[0] === "pic"), "看图选不开放");
+  const r = Z.saveCustom({ kind: "rank", name: "r", items: ["a", "b", "c", "d"] }); assert.equal(r.qs.length, 3); assert.equal(Z.resultOf(r.id, [2]).title, "排第一：c");
+  assert.equal(Z.saveCustom({ kind: "bracket", items: ["a", "b"] }), null, "淘汰赛不满 16 样存不了");
+  assert.equal(Z.saveCustom({ kind: "bracket", items: "abcdefghijklmnop".split("") }).qs.length, 15);
+  assert.equal(Z.saveCustom({ kind: "bid", items: ["a", "b", "c"] }).bid, 100);
+  const sc = Z.saveCustom({ kind: "scale", scale: "心软", qs: [{ q: "x" }] }); assert.equal(Z.resultOf(sc.id, [4]).title, "心软 10 / 10");
+  assert.ok(Z.saveCustom({ kind: "fill", qs: [{ q: "我 ____" }] }).fill);
+  assert.equal(Z.saveCustom({ kind: "quick", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }, { t: "3" }] }] }).qs[0].opts.length, 2);
+  // 改题：条目回到草稿里
+  assert.deepEqual(Z.draftOf(r).items, ["a", "b", "c", "d"]); assert.equal(Z.draftOf(r).kind, "rank");
+  // 普通算分题不受影响
+  const p = Z.saveCustom({ scored: true, results: [{ title: "A" }, { title: "B" }], qs: [{ q: "q", opts: [{ t: "x", r: 1 }, { t: "y", r: 0 }] }] });
+  assert.equal(Z.resultOf(p.id, [0]).title, "B");
+  // 他出题时自己挑答法
+  assert.match(Z.charTestInstruction("她"), /答法由你挑，写在 kind/); assert.match(Z.CHAR_TEST_SCHEMA, /"kind"/);
+  const fs = require("node:fs"), path = require("node:path");
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /genTest\(p, theme, count, scored, kind\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8"), /"data-wk": "zykind"/);
+}
