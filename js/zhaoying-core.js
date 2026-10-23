@@ -779,7 +779,9 @@
     Sh: ["神医", "先救人，别的再说"], Sw: ["说书人", "江湖上什么事都瞒不过你"], Ba: ["帮主", "有你在，兄弟们就有地方去"] };
   // 票数一样时谁赢（群友 2026-10-23「狗测出来都是金毛」）：原来是表里排第一的赢，金毛、兔子这种排前面的白捡；
   //   现在平票时用「这一份答卷」掷一次签：对每个结果都公平，同一份答卷永远是同一个结果（看最后几题也试过，会偏向排在后面题里的那几种）
-  const tieHash = (seed, k) => { let x = 2166136261; for (const ch of seed + "|" + k) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
+  //   最后那几步把每一位都搅匀：不搅的话两个只差最后一个字的结果会被前面那串带着走，掷签就不公平
+  const tieHash = (seed, k) => { let x = 2166136261; for (const ch of seed + "|" + k) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); }
+    x ^= x >>> 16; x = Math.imul(x, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; return x >>> 0; };
   const byScore = sc => (a, b) => ((sc[b] || 0) - (sc[a] || 0)) || (tieHash(sc.__seed || "", b) - tieHash(sc.__seed || "", a));
   const topOf = (map, sc) => Object.keys(map).sort(byScore(sc))[0];
   const ANIMAL = {
@@ -788,12 +790,17 @@
   };
   function tally(test, picks) {
     const sc = {};
-    (picks || []).forEach((p, i) => { const q = test.qs[i]; const o = q && q.opts[p]; if (o) Object.keys(o.s).forEach(k => { sc[k] = (sc[k] || 0) + o.s[k]; }); });
+    const last = {};
+    (picks || []).forEach((p, i) => { const q = test.qs[i]; const o = q && q.opts[p]; if (o) Object.keys(o.s).forEach(k => { sc[k] = (sc[k] || 0) + o.s[k]; last[k] = i; }); });
     Object.defineProperty(sc, "__seed", { value: test.id + ":" + (picks || []).join(",") });   // 平票掷签用，不算进分数
+    Object.defineProperty(sc, "__last", { value: last });                                       // 两头的维度打平时用
     return sc;
   }
   // 平分时取前一个（题数是偶数的那几套才可能平）
-  const pickAxis = (sc, a, b) => ((sc[a] || 0) >= (sc[b] || 0) ? a : b);
+  // 两头打平时也掷签（她 2026-10-23「还有别的要改的吗」）：原来平了固定给前一个，MBTI 一个维度 4 题、2 比 2 的机会快四成，
+  //   一律给 E、S、T、J；三观一个维度 2 题，一半是平的。同一份答卷还是同一个结果
+  //   平了就看这个维度【最后那一题】选的哪头：每题两头各一个选项，所以对两头一样公平（掷签在题少时做不到这么平）
+  const pickAxis = (sc, a, b) => (sc[a] || 0) !== (sc[b] || 0) ? ((sc[a] || 0) > (sc[b] || 0) ? a : b) : (((sc.__last || {})[a] != null ? sc.__last[a] : -1) > ((sc.__last || {})[b] != null ? sc.__last[b] : -1) ? a : b);
   function resultOf(testId, picks, bids) {
     const test = byId(testId); if (!test) return null;
     if (test.custom && !kindOf(test)) return customResult(test, picks);
@@ -817,11 +824,11 @@
       return { code: test.axes.map(([a, b]) => pickAxis(sc, a, b)).join("-"), title: tags.join(" · "), line: "" };
     }
     if (testId === "ennea") {
-      const order = Object.keys(ENNEA).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(ENNEA).sort(byScore(sc));
       return { code: order[0], title: ENNEA[order[0]][0], line: ENNEA[order[0]][1] };
     }
     if (testId === "partner") {
-      const order = Object.keys(PARTNER).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(PARTNER).sort(byScore(sc));
       return { code: order[0], title: "适合你的是：" + PARTNER[order[0]][0], line: PARTNER[order[0]][1] };
     }
     if (testId === "mindage") {
