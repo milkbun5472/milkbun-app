@@ -5369,7 +5369,13 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const identityText = [visualCanon, char.appearance, personaVisualSource].filter(Boolean).join("\n");
   const clothingText = [fixedOutfit, currentWearing, closetText, char.appearance, personaVisualSource].filter(Boolean).join("\n");
   const wantsLightArmor = /(?:骑士|铠甲|盔甲|护甲|armor|armour)/i.test(clothingText) && /(?:不厚重|不笨重|轻便|轻型|轻甲|修身|贴身|灵活|便于行动|lightweight|slim|fitted)/i.test(clothingText);
-  const isMinor = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bboy\b|\bgirl\b|\bminor\b|(?:[1-9]|1[0-7])\s*岁)/i.test(identityText);
+  // ⚠️年龄数字要整数认（群里 2026-10-23「有的角色生图啥都敏感」）：原来没挡前面的数字，「21岁」里的「1岁」
+  //   就被认成一岁——人设写了二十几岁的，生图全被当成儿童加了硬锁。「八岁那年」这种往事也不算现在的年纪；
+  //   人设里写着成年的岁数，就以它为准。
+  const _minorWord = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bminor\b)/i.test(identityText);
+  const _minorAge = /(?<![0-9０-９])(?:[1-9]|1[0-7])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
+  const _adultAge = /(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
+  const isMinor = _minorWord || (_minorAge && !_adultAge);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
   if (multi || kind === "duo" || char.refPhoto) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");

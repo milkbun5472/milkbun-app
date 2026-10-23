@@ -337,7 +337,23 @@
     return pick[Math.floor(Math.random() * pick.length)];
   }
 
-  const api = { STYLES: ["attack", "solid", "trade", "wild"], PIECE_ZH, PIECE_GLYPH, newGame, legalMoves, move, status, bestMove, san, zh, fromFEN, toFEN, inCheck, evaluate };
+  // 为什么这一步不能走：点了走不了的格子时给一句人话
+  function whyNot(s, from, to) {
+    const p = s.board[from[0]][from[1]];
+    if (!p || p[0] !== s.turn) return "";
+    const out = []; pseudo(s, from[0], from[1], out);
+    const m = out.find(function (x) { return x.to[0] === to[0] && x.to[1] === to[1]; });
+    if (!m) return PIECE_ZH[p[1]] + "不能这么走";
+    if (m.castle) return "现在不能易位（王正被将军，或者要经过、落到被攻击的格子）";
+    if (inCheck(applyRaw(s, m), s.turn)) return inCheck(s, s.turn) ? "你正被将军，这步解不了将" : "走了以后自己的王会被将军";
+    return "";
+  }
+  function boardText(s) {
+    const rows = [];
+    for (let r = 0; r < 8; r++) rows.push((8 - r) + " " + s.board[r].map(function (p) { return p ? (p[0] === "w" ? "白" : "黑") + PIECE_ZH[p[1]] : "··"; }).join(" "));
+    return "上面是黑方，下面是白方，列从左到右是 a～h：\n" + rows.join("\n");
+  }
+  const api = { whyNot, boardText, STYLES: ["attack", "solid", "trade", "wild"], PIECE_ZH, PIECE_GLYPH, newGame, legalMoves, move, status, bestMove, san, zh, fromFEN, toFEN, inCheck, evaluate };
   if (typeof window !== "undefined") window.ChessCore = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

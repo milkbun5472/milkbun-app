@@ -1592,17 +1592,34 @@ function useBrowserKbPad() {
     const vv = window.visualViewport;
     // 主屏幕模式也挂上（她 2026-10-11：「她应该也是桌面图标，有时我也会这样」）：iOS 有时没把页面推上来，
     //   输入栏照样压在「⌃ ⌄ ✓」后面。这里只在【真的被压住】时才垫（over > 0）；推得好好的那几次一个像素都不动。
-    if (!vv) return;
+    // 键盘升起那几帧会漏出最底层的米黄底子（群里 2026-10-23「点输入栏会闪一下黄色」）：
+    //   在聊天窗里时，把底层那三块（html / body / #root）的底色临时换成这个聊天窗的底色，离开就还原。
+    //   她 2026-10-23 点头才动的：只换颜色，不碰根节点的布局、高度、安全区（施工规则/home-screen-layout.md）。
+    const under = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
+    const was = under.map(x => x.style.backgroundColor);
+    const untint = () => under.forEach((x, i) => { x.style.backgroundColor = was[i]; });
+    const tint = () => {
+      const el = ref.current; if (!el || !window.getComputedStyle) return;
+      let c = "", n = el;
+      for (let k = 0; n && k < 3 && !c; k++, n = n.firstElementChild) { const bg = getComputedStyle(n).backgroundColor; if (bg && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)|transparent/.test(bg)) c = bg; }
+      if (c) under.forEach(x => { x.style.backgroundColor = c; });
+    };
+    tint();
+    if (!vv) return untint;
     const put = () => {
       const el = ref.current; if (!el) return;
       const kbOpen = window.innerHeight - vv.height > KB_MIN_PX;
+      if (kbOpen) tint();
       if (!kbOpen) { el.style.paddingBottom = ""; return; }
       const r = el.getBoundingClientRect();
       const over = Math.round(r.bottom - (vv.offsetTop + vv.height));
       el.style.paddingBottom = over > 0 ? over + "px" : "";
     };
     vv.addEventListener("resize", put); vv.addEventListener("scroll", put); put();
-    return () => { vv.removeEventListener("resize", put); vv.removeEventListener("scroll", put); if (ref.current) ref.current.style.paddingBottom = ""; };
+    // 聚焦输入框那一下就先染好（键盘还没升起来，resize 还没来）
+    const onFocus = e => { if (ref.current && e.target && ref.current.contains(e.target)) tint(); };
+    document.addEventListener("focusin", onFocus);
+    return () => { vv.removeEventListener("resize", put); vv.removeEventListener("scroll", put); document.removeEventListener("focusin", onFocus); if (ref.current) ref.current.style.paddingBottom = ""; untint(); };
   }, []);
   return ref;
 }

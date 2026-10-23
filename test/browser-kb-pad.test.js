@@ -8,7 +8,9 @@ test("单聊、群聊两页都挂上；主屏幕模式也挂；垫的量＝聊�
   assert.equal((cmp.match(/const kbPadRef = useBrowserKbPad\(\);/g) || []).length, 3, "单聊、群聊、通话页");
   assert.equal((cmp.match(/ref: kbPadRef,/g) || []).length, 3);
   const f = cmp.slice(cmp.indexOf("function useBrowserKbPad()"), cmp.indexOf("// 全 App 共用的确认入口。"));
-  assert.match(f, /if \(!vv\) return;/);
+  assert.match(f, /if \(!vv\) return untint;/);   // 没有 visualViewport 也要把底色还原（2026-10-23 加了键盘底色）
+  assert.match(f, /const untint = \(\) => under\.forEach/);
+  assert.match(f, /document\.addEventListener\("focusin", onFocus\);/);
   assert.doesNotMatch(f, /standalone\) return/, "主屏幕模式也会被压住（她 2026-10-11），不能跳过");
   assert.match(f, /over > 0 \? over \+ "px" : ""/, "只在真的被压住时才垫");
   assert.match(f, /r\.bottom - \(vv\.offsetTop \+ vv\.height\)/);

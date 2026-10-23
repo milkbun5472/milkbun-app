@@ -94,3 +94,8 @@ C.STYLES.forEach(function (stl) {
   assert.ok(new Set(seqs).size >= 3, "风格没拉开：" + seqs.join(" | "));
 }
 console.log("styles ok");
+// 点了走不了的格子说为什么；整盘能摆给模型看
+assert.match(C.whyNot(C.newGame(), [6, 4], [3, 4]), /兵不能这么走/);
+assert.match(C.whyNot(C.fromFEN("4k3/8/8/8/8/8/8/r3K3 w - - 0 1"), [7, 4], [7, 3]), /解不了将|会被将军/);
+assert.match(C.boardText(C.newGame()), /8 黑车 黑马/);
+console.log("whyNot ok");
