@@ -22149,9 +22149,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
   };
   // 一个群一起做（她 2026-10-22）：群里每个主角色各做一遍（一人一次调用），做完把大家的选法发进群，让他们自己聊
+  // 同一个群同一套还在跑就不再进（她 2026-10-24 截图：同一条发了两遍）
+  const zyGroupBusy = useRef({});
   const zhaoyingGroupRun = async (groupId, testId, onStep, lie) => {
     const Z = window.Zhaoying, g = groups.find(x => x && x.id === groupId), test = Z && Z.byId(testId);
     if (!g || !test) return 0;
+    const busyKey = groupId + "|" + testId;
+    if (zyGroupBusy.current[busyKey]) return 0;
+    zyGroupBusy.current[busyKey] = true;
+    try { return await zhaoyingGroupRunInner(g, groupId, testId, test, Z, onStep, lie); }
+    finally { delete zyGroupBusy.current[busyKey]; }
+  };
+  const zhaoyingGroupRunInner = async (g, groupId, testId, test, Z, onStep, lie) => {
     const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
     let n = 0;
     for (const c of mem) {
@@ -22170,7 +22179,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const sp = Z.spreadOf(test, done.map(c => ({ name: c.remark || c.name, rec: Z.recordsOf(c.id, testId)[0] })));
       const pick = sp.rows.map((r, i) => Object.assign({ i }, r)).filter(r => test.fill || r.spread > (test.bid ? 0 : 1)).sort((a, b) => test.fill ? a.i - b.i : b.spread - a.spread).slice(0, 2);
       const qLines = pick.map(r => "第 " + (r.i + 1) + " 题「" + r.q + "」：" + r.lines.join("，"));
-      pGChat(groupId, p => [...p, { role: "user", content: "〔照影〕我让大家都做了「" + test.name + "」：" + sp.head.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + (lie ? "\n（每个人都偷偷撒了一题谎，我还在猜）" : "") + "\n你们自己说说？", ts: Date.now() }]);
+      pGChat(groupId, p => [...p, { role: "user", kind: "zygroup", zy: { testId, testName: test.name, lie: !!lie, members: done.map(c => { const r = Z.recordsOf(c.id, testId)[0] || {}; return { charId: c.id, recId: r.id, name: c.remark || c.name, title: r.title || "" }; }) }, content: "〔照影〕我让大家都做了「" + test.name + "」：" + sp.head.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + (lie ? "\n（每个人都偷偷撒了一题谎，我还在猜）" : "") + "\n你们自己说说？", ts: Date.now() }]);
       try { replyGroup(groupId, {}); } catch (e) {}
     }
     return n;

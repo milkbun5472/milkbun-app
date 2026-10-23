@@ -14719,7 +14719,7 @@ function shareCardOf(kind) {
   if (kind === "gameshare") return GameShareCard;
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
-  if (kind === "zyshare" || kind === "zyask") return window.ZhaoyingCard || null;
+  if (kind === "zyshare" || kind === "zyask" || kind === "zygroup") return window.ZhaoyingCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;
   if (kind === "gachashare") return GachaShareCard;   // TA替她扳的那一发（抽卡）
   if (kind === "xhsshare") return window.XhsCard || null;   // 她贴进来的小红书分享（js/xhs-card.js）

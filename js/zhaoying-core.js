@@ -1225,6 +1225,23 @@
   function card(m) {
     const h = g.React && g.React.createElement; if (!h) return null;
     const z = (m && m.zy) || {};
+    // 群里一起做的那张（她 2026-10-24「群聊的照影是文字，而且看不到他们做的过程」）：一人一行，点谁就看谁做的回放
+    if (m && m.kind === "zygroup") {
+      const tt = byId(z.testId) || { id: z.testId || z.testName, name: z.testName }, c = pal(tt);
+      const open = r => e => { if (e && e.stopPropagation) e.stopPropagation(); if (typeof g.__zyOpen === "function") g.__zyOpen({ id: m.id, zy: { charId: r.charId, testId: z.testId, recId: r.recId, she: true } }); };
+      return h("div", { "data-wk": "zyshare", "data-kind": "group",
+        style: { position: "relative", width: 248, maxWidth: "100%", borderRadius: 16, overflow: "hidden", padding: "12px 14px", background: "linear-gradient(135deg, " + c.a + " 0%, " + c.b + " 100%)", boxShadow: "0 6px 16px -10px " + c.deep, boxSizing: "border-box" } },
+        h("span", { "aria-hidden": true, style: { position: "absolute", right: -4, top: -12, fontSize: 78, lineHeight: 1, color: "rgba(255,255,255,.45)", pointerEvents: "none" } }, c.g),
+        h("div", { style: { position: "relative", fontSize: 10.5, letterSpacing: ".22em", color: c.deep } }, "照影 · 大家都做了"),
+        h("div", { style: { position: "relative", fontSize: 17, color: "#2e261e", marginTop: 4, lineHeight: 1.35, maxWidth: "82%" } }, z.testName || tt.name || ""),
+        z.lie ? h("div", { style: { position: "relative", fontSize: 11.5, color: c.deep, marginTop: 3 } }, "每个人都偷偷撒了一题谎") : null,
+        h("div", { style: { position: "relative", marginTop: 9, display: "flex", flexDirection: "column", gap: 6 } }, (z.members || []).map(r => h("button", { key: r.charId, "data-wk": "zygrouprow", onClick: open(r),
+          style: { display: "flex", alignItems: "center", gap: 8, textAlign: "left", padding: "6px 10px", borderRadius: 10, background: "rgba(255,255,255,.72)", border: "none", color: "#2e261e", fontSize: 13, cursor: "pointer" } },
+          h("span", { style: { flexShrink: 0, color: c.deep } }, r.name),
+          h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title || ""),
+          h("span", { style: { flexShrink: 0, fontSize: 11, color: c.deep } }, "看 ›")))),
+        h("div", { style: { position: "relative", fontSize: 11.5, color: "rgba(46,38,30,.62)", marginTop: 8 } }, "点谁就看谁一题题怎么选的"));
+    }
     const ask = m && m.kind === "zyask";
     const st = z.status;
     // 她发给他的那份（she:true）：跟他那张一个样子，点开是她的回放
