@@ -71,3 +71,8 @@ assert.equal(guard.accept("收拾这丫头一顿"), "收拾她一顿", "没带�
   //   那几类狠话由上面这把 guard 在代码里拦，提示词只留去处：说得出口的就让 TA 听见。
   assert.doesNotMatch(app, /『回去看我怎么收拾她』/);
 }
+
+// 她 2026-10-22：房里演戏时，琢磨她什么意思是人会冒出来的念头，不拦（只拦再跟着盘算怎么回的）
+["她是不是在试探我。", "她看起来是在生气，可我也不知道为什么。", "她现在这样，像是在撒娇吧。"]
+  .forEach(text => assert.equal(guard.accept(text), text, "不该拦：" + text));
+assert.equal(guard.accept("她是在试探我，我得先安抚她再解释。"), null);

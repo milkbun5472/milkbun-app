@@ -58,7 +58,10 @@ test("敷衍那族说清了它到底在干什么——不然只是一张词表",
   assert.match(BAN, /不是在回答，是在\*\*收摊\*\*/);
   assert.match(BAN, /把「你不讲理」和「我懒得跟你说」一起递过去/);
   // 给出口：真烦了怎么说
-  assert.match(BAN, /真烦了就说清是什么让你烦/);
+  assert.match(BAN, /照你这个人平时说话的样子来/);
+  // 她 2026-10-22：出口里不点性格名字（点了凶，温和的人也会凶）；性格词只在总则里带着「本来就」出现
+  ["要凶", "要顶就", "要别扭"].forEach(w => assert.ok(!BAN.includes(w), "出口又点了性格：" + w));   // 她 2026-10-22：出口别把嘴硬的推成坦白
+  assert.match(BAN, /不是要你换个性子说话/);
 });
 
 test("称呼那族给的是【从哪儿长出来】，不是「不许起昵称」", () => {
@@ -68,7 +71,9 @@ test("称呼那族给的是【从哪儿长出来】，不是「不许起昵称�
 });
 
 test("禁的是模子不是尺度", () => {
-  assert.match(BAN, /本来就爱怼、爱冷、懒得解释、爱叫她一堆乱七八糟的名字，那全部照写/);
+  assert.match(BAN, /你这个人本来怎么说话，就全部照写/);
+  // 她 2026-10-22：总则也不列性格（列了哪几样就往哪几样推）
+  ["爱怼", "爱冷"].forEach(w => assert.ok(!BAN.includes(w), "总则又在列性格：" + w));
   ["删掉重说", "立刻销毁", "禁止出现", "自检", "逐条核对"].forEach(x =>
     assert.ok(!BAN.includes(x), "判决式／自检清单那一套：" + x));
 });
@@ -101,3 +106,11 @@ test("换个字不算改掉：词只是样本，不是黑名单", () => {
   assert.ok(/样本，不是黑名单|只是样本/.test(BAN), "要说清上面举的词是样本不是穷举");
   assert.ok(BAN.includes("这一句在做什么"), "要把判据落在【这句话在干什么】上，不是用了哪几个字");
 });
+
+// 她 2026-10-22：激将这一族单列，只讲招式、给出口，不摆原句
+{
+  const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const ban = eng.slice(eng.indexOf("const CANNED_PHRASE_BAN"), eng.indexOf("`;", eng.indexOf("const CANNED_PHRASE_BAN")));
+  require("node:assert/strict").match(ban, /【激将】.*不管她这一轮说了什么/);
+  require("node:assert/strict").ok(!/有本事/.test(ban), "别把原句摆进去");
+}

@@ -5,6 +5,8 @@
   if (root) root.ThoughtVoiceGuard = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   const clean = value => String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+  // 心声可以是好几行（她 2026-10-22：别压成一句）：每行各自收空白，换行留着
+  const cleanLines = value => String(value == null ? "" : value).split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n");
 
   function inspect(value) {
     const text = clean(value);
@@ -44,7 +46,9 @@
     if (stratCompare.test(text) || wrapup.test(text)) return { ok: false, reason: "post-hoc-planning" };
     if (verdict.test(text) || verdictLoose.test(text) || ledger.test(text)) return { ok: false, reason: "verdict-and-filing" };
     if (hasReplyPlan && (hasRecap || hasClassify)) return { ok: false, reason: "recap-and-reply-plan" };
-    if (hasRecap && hasClassify) return { ok: false, reason: "user-analysis" };
+    // 「她……在……」+「是在试探／像是在撒娇」单独出现不再拦（她 2026-10-22：小房间里演戏时
+    //   「她是不是在试探我」正是人会冒出来的念头，原来这一条让某个角色在房里轮轮被拦、看着像不写了）。
+    //   只有后面还跟着「我得怎么回」时才是导演稿，由上一条管。
     return { ok: true, reason: "inner-voice" };
   }
 
@@ -66,8 +70,8 @@
   }
 
   function accept(value, pronoun) {
-    const text = normalizeAppellation(clean(value), pronoun);
-    return inspect(text).ok ? text : null;
+    const text = cleanLines(value).split("\n").map(l => normalizeAppellation(l, pronoun)).join("\n");
+    return inspect(text.replace(/\n/g, " ")).ok ? text : null;
   }
 
   function normalizeAction(value, characterName) {
@@ -89,7 +93,7 @@
   //   旧念头从 liveState 里原样抄回去，于是只有守卫拒过的那个人冻住。
   //   单聊（v?? 起）早就是「立刻清掉」，又是一层写在两处、第二处没跟上。
   function turnPatch(live, next, now) {
-    const text = clean(next);
+    const text = cleanLines(next);
     if (text && text.toLowerCase() !== "null") return { thought: text, thoughtUpdatedAt: now, thoughtSkips: 0 };
     return { thought: null, thoughtUpdatedAt: 0, thoughtSkips: Math.min((Number((live || {}).thoughtSkips) || 0) + 1, 99) };
   }
