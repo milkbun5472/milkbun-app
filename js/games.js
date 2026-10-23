@@ -5818,12 +5818,41 @@
     });
     return s;
   }
+  // TA 下得多好照人设（她 2026-10-23：「正常水平也要符合人设，不能人人都是国际大师」）。
+  //   她在开局页钉过一档就用钉的；没钉就照点头像那张能力小传同一套说法估一次，估出来的档跟小传一起存进 x_gameSkill，下一局不再花钱。
+  //   三档对应引擎三档：新手 easy / 会下 normal / 高手 hard。放水局一律 easy。
+  const BOARD_TIER_LV = { rookie: "easy", mid: "normal", pro: "hard" };
+  function useBoardSkill(props, key, zh, chars) {
+    const [tiers, setTiers] = useState({});
+    useEffect(function () {
+      chars.forEach(function (c) {
+        const pin = loadSkillPins()[c.id];
+        if (BOARD_TIER_LV[pin]) { setTiers(function (o) { return Object.assign({}, o, { [c.id]: pin }); }); return; }
+        const persona = String(c.persona || "").trim(), stamp = persona.length + ":v2";
+        const got = ((loadJSON(GAME_SKILL_KEY, {}) || {})[key] || {})[c.id];
+        if (got && got.n === stamp && BOARD_TIER_LV[got.tier]) { setTiers(function (o) { return Object.assign({}, o, { [c.id]: got.tier }); }); return; }
+        const api = props.active;
+        if (!api) { setTiers(function (o) { return Object.assign({}, o, { [c.id]: "mid" }); }); return; }
+        const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「" + zh + "」的能力评估器。照这个人的人设，判断 TA 下" + zh + "的真实水平：学没学过、平时下不下、会不会算几步。人设里没提到下棋，就照一般人估。"
+          + "写一段「牌桌能力小传」，第三人称，不写分数；再挑一档 tier：rookie（新手，规则都不太熟或很少下）、mid（会下，业余随便玩玩）、pro（真下过、算得深）。只输出 JSON：{\"skill\":\"……\",\"tier\":\"rookie|mid|pro\"}";
+        callRetry(api, sys, [{ role: "user", content: "【这个人】" + (c.remark || c.name) + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 65000, tag: zh + "·能力评估" })
+          .then(function (raw) {
+            const d = extractJSON(raw) || {}, tier = BOARD_TIER_LV[d.tier] ? d.tier : "mid", text = String(d.skill || "").trim();
+            const all = loadJSON(GAME_SKILL_KEY, {}) || {};
+            all[key] = Object.assign({}, all[key] || {}, { [c.id]: Object.assign({ n: stamp, tier: tier }, text ? { text: text } : {}) });
+            saveJSON(GAME_SKILL_KEY, all);
+            setTiers(function (o) { return Object.assign({}, o, { [c.id]: tier }); });
+          }).catch(function () { setTiers(function (o) { return Object.assign({}, o, { [c.id]: "mid" }); }); });
+      });
+    }, []);
+    return tiers;
+  }
   // 放水才有的提示次数多：正常局三次，放水不限
   const BOARD_HINTS = 3;
 
   // ============================ 国际象棋 ============================
   function ChessGame(props) {
-    const C = window.ChessCore;
+    const C = window.ChessCore, KEY = "chess", ZH = "国际象棋";
     const t = props.t, cfg = props.config, sv = props.savedState;
     const spectate = cfg.mode === "spectate", easy = cfg.mode === "easy";
     const findC = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }) || null; };
@@ -5834,7 +5863,10 @@
     const userSide = spectate ? "" : "w", charSide = spectate ? "w" : "b";
     const nameOf = function (s) { return s === userSide ? uName : s === charSide ? nm(char) : nm(char2); };
     const sideZh = function (s) { return s === "w" ? "白" : "黑"; };
-    const levelOf = function (s) { return !spectate && easy && s === charSide ? "easy" : "normal"; };
+    const tiers = useBoardSkill(props, KEY, ZH, [char, char2].filter(Boolean));
+    const sideChar = function (s) { return s === charSide ? char : s !== userSide ? char2 : null; };
+    // 还没估出来就先等着（null），估出来再走
+    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id]] : null; };
     const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
     const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
     const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
@@ -5848,7 +5880,7 @@
     const talkers = [char, char2].filter(Boolean);
     const lastZh = function (n) { return state.history.slice(-n).map(function (x, i, a) { return x.san; }).join(" "); };
     const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "国际象棋",
-      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : ""); },
+      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id]] : ""); },
       scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下国际象棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下国际象棋（" + uName + "执白先手）"; },
       where: function () {
         const h0 = state.history, last = h0[h0.length - 1];
@@ -5867,9 +5899,11 @@
     // 不是她走的那一方：停一拍再走，像在想
     useEffect(function () {
       if (over || state.turn === userSide) return;
-      const tm = setTimeout(function () { const m = C.bestMove(state, levelOf(state.turn)); if (m) play(m); }, spectate ? 900 : 600);
+      const lv = levelOf(state.turn);
+      if (!lv) return;
+      const tm = setTimeout(function () { const m = C.bestMove(state, lv); if (m) play(m); }, spectate ? 900 : 600);
       return function () { clearTimeout(tm); };
-    }, [mvs.length, over]);
+    }, [mvs.length, over, tiers]);
 
     const targets = sel ? C.legalMoves(state, sel) : [];
     const tap = function (r, c) {
@@ -5940,7 +5974,7 @@
 
   // ============================ 中国象棋 ============================
   function XiangqiGame(props) {
-    const C = window.XiangqiCore;
+    const C = window.XiangqiCore, KEY = "xiangqi", ZH = "中国象棋";
     const t = props.t, cfg = props.config, sv = props.savedState;
     const spectate = cfg.mode === "spectate", easy = cfg.mode === "easy";
     const findC = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }) || null; };
@@ -5951,7 +5985,10 @@
     const userSide = spectate ? "" : "r", charSide = spectate ? "r" : "b";
     const nameOf = function (s) { return s === userSide ? uName : s === charSide ? nm(char) : nm(char2); };
     const sideZh = function (s) { return s === "r" ? "红" : "黑"; };
-    const levelOf = function (s) { return !spectate && easy && s === charSide ? "easy" : "normal"; };
+    const tiers = useBoardSkill(props, KEY, ZH, [char, char2].filter(Boolean));
+    const sideChar = function (s) { return s === charSide ? char : s !== userSide ? char2 : null; };
+    // 还没估出来就先等着（null），估出来再走
+    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id]] : null; };
     const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
     const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
     const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
@@ -5964,7 +6001,7 @@
     const runId = useRef((sv && sv.runId) || ("xiangqi-" + Date.now().toString(36)));
     const talkers = [char, char2].filter(Boolean);
     const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "中国象棋",
-      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : ""); },
+      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id]] : ""); },
       scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下象棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下象棋（" + uName + "执红先走）"; },
       where: function () {
         const h0 = state.history, last = h0[h0.length - 1];
@@ -5982,9 +6019,11 @@
     const play = function (mv) { setMvs(function (a) { return a.concat([{ from: mv.from, to: mv.to }]); }); setSel(null); setHint(null); };
     useEffect(function () {
       if (over || state.turn === userSide) return;
-      const tm = setTimeout(function () { const m = C.bestMove(state, levelOf(state.turn)); if (m) play(m); }, spectate ? 900 : 600);
+      const lv = levelOf(state.turn);
+      if (!lv) return;
+      const tm = setTimeout(function () { const m = C.bestMove(state, lv); if (m) play(m); }, spectate ? 900 : 600);
       return function () { clearTimeout(tm); };
-    }, [mvs.length, over]);
+    }, [mvs.length, over, tiers]);
 
     const targets = sel ? C.legalMoves(state, sel) : [];
     const tap = function (r, c) {
