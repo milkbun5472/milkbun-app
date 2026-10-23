@@ -475,8 +475,14 @@ console.log("ok");
 {
   const assert = require("node:assert/strict");
   global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  // 比的是「随手乱选时落到它的机会」：每个选项算 1／这一题的选项数（三选一的选项比四选一的值钱，光数个数不够）
   global.Zhaoying.TESTS.filter(t => t.id !== "attach").forEach(t => {
-    const c = {}; t.qs.forEach(q => q.opts.forEach(o => Object.keys(o.s || {}).forEach(k => { c[k] = (c[k] || 0) + o.s[k]; })));
-    const v = Object.values(c); if (v.length) assert.equal(Math.max(...v), Math.min(...v), t.id + " " + JSON.stringify(c));
+    const c = {}; t.qs.forEach(q => q.opts.forEach(o => Object.keys(o.s || {}).forEach(k => { c[k] = (c[k] || 0) + o.s[k] / q.opts.length; })));
+    const v = Object.values(c); if (v.length) assert.ok(Math.max(...v) - Math.min(...v) < 1e-9, t.id + " " + JSON.stringify(c));
   });
+  // 平票不再让表里排第一的白捡（群友「狗测出来都是金毛」）：同一份答卷结果不变，乱选几千次各种都差不多
+  const Z = global.Zhaoying, dog = Z.byId("dog"), cnt = {};
+  let seed = 11; for (let n = 0; n < 6000; n++) { const p = dog.qs.map(q => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % q.opts.length; }); const k = Z.resultOf("dog", p).code; cnt[k] = (cnt[k] || 0) + 1; }
+  const v = Object.values(cnt); assert.equal(v.length, 6); assert.ok(Math.max(...v) / Math.min(...v) < 1.3, JSON.stringify(cnt));
+  const p0 = dog.qs.map(() => 0); assert.equal(Z.resultOf("dog", p0).code, Z.resultOf("dog", p0.slice()).code);
 }
