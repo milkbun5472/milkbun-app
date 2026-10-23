@@ -19447,7 +19447,9 @@ function GroupThread({
       minWidth: 0
     },
     onSubmit: send,
-    after: (draft, fire) => h("button", {
+    // 叶子键挪进 after 里（她 2026-10-24「单聊输入框有东西按叶子能发出去让他们回，群聊不行，统一一下」）：
+    //   拿得到输入框里那句——有字就先发出去再让他们回，跟单聊一个样。DraftInput 本来就是 Fragment，挪进来 DOM 层级不变（美化不受影响）
+    after: (draft, fire, clear) => h(React.Fragment, null, h("button", {
       onClick: fire,
       onMouseDown: e => e.preventDefault(),   // 同单聊：按发送不收键盘
       disabled: sending || !draft.trim(),
@@ -19462,13 +19464,13 @@ function GroupThread({
     }, h(ISend, {
       size: 16,
       color: "#16330a"
+    })), chatMode !== "ooc" && h(ReplyKey, {
+      sending: sending, disabled: sending,
+      // 虚圈＝只让他们回一轮，回完仍旧等你；实圈＝回一轮并开一段自发
+      hold: !!gHold,
+      title: gHold ? (gs.spectate ? "让他们演一轮（回完仍旧等你）" : "让他们回一轮（回完仍旧等你）") : (gs.spectate ? "让他们继续" : "让他们回复"),
+      onClick: () => { const v = String(draft || "").trim(); if (v) { clear(); send(v); setTimeout(onReply, 80); } else onReply(); }
     }))
-  }), chatMode !== "ooc" && h(ReplyKey, {
-    sending: sending, disabled: sending,
-    // 虚圈＝只让他们回一轮，回完仍旧等你；实圈＝回一轮并开一段自发
-    hold: !!gHold,
-    title: gHold ? (gs.spectate ? "让他们演一轮（回完仍旧等你）" : "让他们回一轮（回完仍旧等你）") : (gs.spectate ? "让他们继续" : "让他们回复"),
-    onClick: onReply
   })),
   // ＋面板在输入框【下面】，跟单聊一样（她 2026-10-02：「加号跑到下面、里面的东西跑上来了，做反了」）
   !selMode && panel && h("div", {
