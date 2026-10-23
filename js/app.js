@@ -14895,6 +14895,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const callEpoch = groupAutoCallEpochRef.current[groupId] || 0;
     const autoCancelled = () => !!rgOpts.auto && (groupCallActive(groupId) || (groupAutoCallEpochRef.current[groupId] || 0) !== callEpoch);
     const checkAutoCall = () => { if (autoCancelled()) throw new Error("群通话已接管自发聊天"); };
+    if (!rgOpts.auto) zhaoyingGroupKick(groupId);   // 她按叶子：群里等着的照影卡这一下开始做
     if (laneBusy("g:" + groupId)) return;
     // 黑色回复键 / 让他们继续：立即开一张全新额度卡，且这一段起聊不等动念。
     // lastUserTs 必须一起记上她【最后那句话】的时间——否则下一次巡检会把它当成
@@ -22126,8 +22127,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         zy: { testId, testName: test.name, status: "done", recId, title: res.title, charId, srcId: msgId, ...(scene ? { scene } : {}) } }]);
     } catch (e) { patch({ status: "failed" }); toast("他这回没做成：" + String((e && e.message) || e).slice(0, 50)); }
   };
-  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id, ...(z.she ? { replay: true } : {}) }); };
+  window.__zyOpen = m => { const z = (m && m.zy) || {}; if (z.recId) setZyWatch({ charId: z.charId, testId: z.testId, recId: z.recId, msgId: z.srcId || m.id, ...(z.groupId ? { groupId: z.groupId } : {}), ...(z.she ? { replay: true } : {}) }); };
   const zyWatchDone = w => {
+    // 群卡：看过的那一行记下；每个做完的人都看过一遍、卡也做完了，他们就接着在群里聊（只一次）
+    if (w && w.groupId && w.msgId && !w.replay) {
+      const card = (groupChatsRef.current[w.groupId] || []).find(x => x && x.id === w.msgId);
+      if (!card || (card.zy || {}).discussed) return;
+      const members = ((card.zy || {}).members || []).map(r => r.charId === w.charId ? { ...r, seen: true } : r);
+      const all = (card.zy || {}).status === "done" && members.filter(r => r.recId).every(r => r.seen);
+      pGChat(w.groupId, p => p.map(x => x && x.id === w.msgId ? { ...x, zy: { ...(x.zy || {}), members, ...(all ? { discussed: true } : {}) } } : x));
+      if (all) setTimeout(() => { try { replyGroup(w.groupId, {}); } catch (e) {} }, 300);
+      return;
+    }
     if (!w || w.replay || !w.msgId) return;
     const row = (chatsRef.current[w.charId] || []).find(x => x && x.id === w.msgId);
     if (!row || (row.zy || {}).discussed) return;
@@ -22156,22 +22167,31 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const zhaoyingGroupRun = async (groupId, testId, onStep, lie) => {
     const Z = window.Zhaoying, g = groups.find(x => x && x.id === groupId), test = Z && Z.byId(testId);
     if (!g || !test) return 0;
-    const busyKey = groupId + "|" + testId;
-    if (zyGroupBusy.current[busyKey]) return 0;
-    zyGroupBusy.current[busyKey] = true;
-    try { return await zhaoyingGroupRunInner(g, groupId, testId, test, Z, onStep, lie); }
-    finally { delete zyGroupBusy.current[busyKey]; }
-  };
-  const zhaoyingGroupRunInner = async (g, groupId, testId, test, Z, onStep, lie) => {
+    // 跟单聊一样（她 2026-10-24「改吧」）：卡先落进群、带她跳过去；等她把话说完按叶子（replyGroup），那一轮里才开始做
     const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
-    // 跟单聊一样：卡先落进群、人跳进群里看（她 2026-10-24），谁做完那一行就亮起来、点得开回放
-    const mid = "zyg_" + Date.now();
+    pGChat(groupId, p => [...p, { id: "zyg_" + Date.now(), role: "user", kind: "zygroup", ts: Date.now(), read: true,
+      content: "〔照影〕我想让大家一起做一套小测「" + test.name + "」。",
+      zy: { testId, testName: test.name, lie: !!lie, groupId, status: "wait", members: mem.map(c => ({ charId: c.id, name: c.remark || c.name, title: "", state: "wait" })) } }]);
+    openChatById(groupId, "group");
+    return -1;
+  };
+  // 她按叶子那一下：群里还在「等」的照影卡开始做（每张只开一次）
+  const zhaoyingGroupKick = groupId => {
+    const Z = window.Zhaoying, g = groups.find(x => x && x.id === groupId);
+    if (!Z || !g) return;
+    (groupChatsRef.current[groupId] || []).filter(m => m && m.kind === "zygroup" && (m.zy || {}).status === "wait").forEach(m => {
+      const z = m.zy, test = Z.byId(z.testId), busyKey = groupId + "|" + m.id;
+      if (!test || zyGroupBusy.current[busyKey]) return;
+      zyGroupBusy.current[busyKey] = true;
+      zhaoyingGroupRunInner(g, groupId, z.testId, test, Z, null, z.lie, m.id).finally(() => { delete zyGroupBusy.current[busyKey]; });
+    });
+  };
+  const zhaoyingGroupRunInner = async (g, groupId, testId, test, Z, onStep, lie, mid) => {
+    const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
+    // 谁做完那一行就亮起来、点得开回放
     const patchCard = fn => pGChat(groupId, p => p.map(x => x && x.id === mid ? fn(x) : x));
     const setRow = (cid, patch) => patchCard(x => ({ ...x, zy: { ...(x.zy || {}), members: ((x.zy || {}).members || []).map(r => r.charId === cid ? { ...r, ...patch } : r) } }));
-    pGChat(groupId, p => [...p, { id: mid, role: "user", kind: "zygroup", ts: Date.now(), read: true,
-      content: "〔照影〕我让大家一起做「" + test.name + "」，正在做。",
-      zy: { testId, testName: test.name, lie: !!lie, status: "doing", members: mem.map(c => ({ charId: c.id, name: c.remark || c.name, title: "", state: "wait" })) } }]);
-    openChatById(groupId, "group");
+    patchCard(x => ({ ...x, zy: { ...(x.zy || {}), status: "doing" } }));
     let n = 0;
     for (const c of mem) {
       if (onStep) onStep(c);
@@ -22193,8 +22213,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pick = sp.rows.map((r, i) => Object.assign({ i }, r)).filter(r => test.fill || r.spread > (test.bid ? 0 : 1)).sort((a, b) => test.fill ? a.i - b.i : b.spread - a.spread).slice(0, 2);
       const qLines = pick.map(r => "第 " + (r.i + 1) + " 题「" + r.q + "」：" + r.lines.join("，"));
       patchCard(x => ({ ...x, content: "〔照影〕我让大家都做了「" + test.name + "」：" + sp.head.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + (lie ? "\n（每个人都偷偷撒了一题谎，我还在猜）" : "") + "\n你们自己说说？", zy: { ...(x.zy || {}), status: "done" } }));
-      // 卡上那段字是刚改的，等它落进存档再叫他们接话
-      setTimeout(() => { try { replyGroup(groupId, {}); } catch (e) {} }, 200);
+      // 不在这儿叫他们接话：跟单聊一样，等她把每个人的回放都看过一遍再开口（zyWatchDone）
     }
     return n;
   };

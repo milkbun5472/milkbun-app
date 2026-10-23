@@ -425,10 +425,11 @@
               h("div", { className: "flex gap-2 flex-wrap" }, gs.map(gr => pill(false, gr.name || "群", () => {
                 if (busyWho) return;
                 const n0 = (gr.memberIds || []).filter(id => chars.some(c => c.id === id)).length;
-                requestAppConfirm("让「" + (gr.name || "群") + "」一起做？", "群里 " + n0 + " 个人各做一遍，一人一次调用。卡会先落进群里、带你跳过去，谁做完那一行就亮起来，点开能看他怎么选的。", async () => {
+                requestAppConfirm("让「" + (gr.name || "群") + "」一起做？", "群里 " + n0 + " 个人各做一遍，一人一次调用。卡会先落进群里、带你跳过去；你说完话按叶子他们才开始做，谁做完那一行就亮起来，点开看他怎么选的；每个人都看完，他们就接着聊。", async () => {
                   setBusyWho("在做…");
                   const n = await props.onGroupRun(gr.id, test.id, c => setBusyWho((c.remark || c.name) + " 在做…"), groupLie && !(test.rank || test.bid || test.bracket || test.fill));
                   setBusyWho(""); bump(x => x + 1);
+                  if (n === -1) return;   // 卡已经落进群、人也跳过去了：等她按叶子才开始做
                   props.toast && props.toast(n >= 2 ? "做完了，发进群里了" : "做成的人太少，没发进群");
                 }, "开始");
               }, "zygroupbtn"))));
