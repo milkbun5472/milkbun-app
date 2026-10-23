@@ -22112,8 +22112,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId);
     if (!Z || !c) return null;
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId)), mode, charId), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
-      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId, ...(mode === "open" ? { open: true } : {}) });
+      // 答法：有了他的偏好就照偏好抽（带保底）；还没有的第一次让他自己挑，顺便把偏好写出来（她 2026-10-23）
+      const hasPref = !!Z.prefOf(charId), kind = hasPref ? Z.drawKind(charId) : null;
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId)), mode, charId, kind, !hasPref), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
+      const t = Z.saveCustom({ ...(d || {}), ...(kind != null ? { kind } : {}), id: "", scored: false, by: charId, ...(mode === "open" ? { open: true } : {}) });
+      if (!hasPref && d && d.pref && typeof d.pref === "object") Z.setPref(charId, d.pref);
+      if (t) Z.noteKind(charId, Z.kindOf(t));
       if (!t) { toast("他这回没出成题，再试一次"); return null; }
       return t;
     } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }

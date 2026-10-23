@@ -377,7 +377,7 @@ console.log("ok");
   const t = Z.saveCustom({ name: "x", by: "c1", open: true, bait: "秘密", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
   assert.equal(t.open, true); assert.equal(t.bait, undefined);
   const fs = require("node:fs"), path = require("node:path");
-  assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /Z\.charTestInstruction\(userName\(profileFor\(charId\)\), mode, charId\)/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /Z\.charTestInstruction\(userName\(profileFor\(charId\)\), mode, charId, kind, !hasPref\)/);
   const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
   assert.match(zy, /props\.onCharGen\(c\.id, genMode\)/); assert.match(zy, /"data-wk": "zygenmode"/);
   assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /async function genTest[\s\S]{0,900}avoidNote\(""\)/);
@@ -433,4 +433,31 @@ console.log("ok");
   assert.match(core, /const she = !ask && z\.she;/);
   assert.match(core, /if \(rec\.react\) add\(/); assert.match(core, /if \(test\.bid && rec\.bids\) rec\.bids\.map/); assert.match(core, /if \(rec\.lie && rec\.lieGuess != null\)/);
   assert.match(zy, /"data-wk": "zygrouplie"/); assert.match(zy, /"data-wk": "zycomparebar"/); assert.match(zy, /const sp = Z\.spreadOf\(test, ids\.map/);
+}
+
+// 取舍／打分／连线（她 2026-10-23）＋他的出题偏好：照分抽，带保底
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  for (const id of ["trdevil", "trpawn", "trredo", "stday", "sthard", "stlife", "lkpeople", "lkanimal", "lkplace"]) assert.ok(Z.byId(id).qs.length >= 8, id);
+  assert.equal(Z.resultOf("trdevil", [0, 0, 1]).title, "换了 2 样");
+  assert.match(Z.resultOf("sthard", Array(10).fill(4)).title, /难开口 5\.0 星/);
+  const lk = Z.byId("lkpeople"); assert.equal(Z.kindOf(lk), "link"); assert.match(Z.askSchema(lk), /放在这一格的人/);
+  assert.match(Z.askInstruction(lk, "她"), /这一套是连线/); assert.doesNotMatch(Z.askInstruction(lk, "她"), /这一套是填空/);
+  ["trade", "star", "link"].forEach(k => assert.ok(Z.KINDS.some(x => x[0] === k), k));
+  assert.deepEqual(Z.saveCustom({ kind: "trade", trade: ["要", "不要"], qs: [{ q: "x" }] }).trade, ["要", "不要"]);
+  // 偏好：没设过就不抽；设过以后 40 次里每种都轮到过，最爱的那种最多
+  assert.equal(Z.drawKind("c"), null);
+  Z.setPref("c", { choice: 2, quick: 0, scale: 1, fill: 9, rank: 3, bid: 0, bracket: 0, trade: 10, star: 2, link: 5 });
+  const cnt = {}; let seed = 7; for (let i = 0; i < 40; i++) { seed = (seed * 9301 + 49297) % 233280; const k = Z.drawKind("c", seed / 233280); cnt[k || "choice"] = (cnt[k || "choice"] || 0) + 1; Z.noteKind("c", k); }
+  assert.equal(Object.keys(cnt).length, 10, JSON.stringify(cnt));
+  assert.ok(cnt.trade >= 3 && cnt.trade >= cnt.quick, JSON.stringify(cnt));
+  assert.match(Z.charTestInstruction("她", "", null, "star"), /这一次的答法是「打分」，kind 写 star/);
+  assert.match(Z.charTestInstruction("她", "", null, null, true), /pref 给这几种答法各打一个 0 到 10 的分/);
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /const hasPref = !!Z\.prefOf\(charId\), kind = hasPref \? Z\.drawKind\(charId\) : null;/);
+  assert.match(app, /if \(t\) Z\.noteKind\(charId, Z\.kindOf\(t\)\)/);
 }
