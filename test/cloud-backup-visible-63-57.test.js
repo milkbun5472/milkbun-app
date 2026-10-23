@@ -163,8 +163,9 @@ test("pushState 说得出三件事：上次什么时候、算不算过期、这�
 
 test("真出事了要挂在她每天开得最多的那一页上，而且划不走", () => {
   const seg = slice(components, "// ── 备份坏了要看得见", "h(\"div\", { className: \"flex-1 min-h-0\"");
-  assert.match(seg, /st\.needsAttention/, "没读公共状态");
-  assert.match(seg, /if \(!st \|\| !st\.needsAttention\)/, "云同步没开着也挂，那是吓唬人");
+  // 横幅条件收在 Cloud.pushState().banner：云有毛病、且一天内没导出过文件（群友 2026-10-23「备份完它还在」）
+  assert.match(seg, /if \(!st \|\| !st\.banner\)/, "云同步没开着也挂，那是吓唬人");
+  assert.match(cloud, /out\.banner = out\.needsAttention && !out\.exportedRecent;/, "导出过文件还在聊天列表上喊");
   assert.match(seg, /className: "shrink-0"/, "横幅会跟着列表滚走");
   assert.match(seg, /导出全部数据/, "只报警不说怎么办");
   assert.match(app, /onOpenSettings: \(\) => setScreen\("config"\)/, "横幅点不动");
@@ -230,4 +231,11 @@ test("退出登录原来连一次确认都没有", () => {
   // 它做的事是「清空本机」，比「从云端恢复」更狠，却是单击直发
   assert.ok(!/key: "out", onClick: doSignOut/.test(screens), "又变回单击直接退了");
   assert.match(screens, /onClick: \(\) => \{ setConfirmOut\(true\); setSaved\(""\); \}/);
+});
+
+test("导出过文件就记一笔，聊天列表那条一天内不再喊（群友 2026-10-23）", () => {
+  assert.match(cloud, /noteExport\(\) \{ try \{ localStorage\.setItem\(EXPORT_MARK/);
+  assert.match(cloud, /const EXPORT_MARK = "local_export_at";/, "这个标记只记本机，不带 x_");
+  assert.match(app, /saved = true;\n      try \{ window\.Cloud && window\.Cloud\.noteExport/);
+  assert.match(screens, /今天已经导出过一份到本机/);
 });

@@ -7630,8 +7630,9 @@ function CloudSync({ toast, onExport }) {
             (bad ? "⚠️ " : "") + (agoText || "备份状态未知")),
           st && st.blocked ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#c0503f", marginTop: 4 } },
             "这一次没备份：" + st.why) : null,
-          bad ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 6 } },
-            "先去「导入与导出 → 导出全部数据」存一份到本机，再决定要不要手动备份。") : null),
+          bad ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.6, color: st.exportedRecent ? "#4a7f5c" : t.fog, marginTop: 6 } },
+            st.exportedRecent ? "✅ 今天已经导出过一份到本机（" + String(st.exportedAt).replace("T", " ").slice(5, 16) + "），聊天列表顶上不再提醒；云备份没好的话，可以再按下面「立即备份到云端」。"
+              : "先去「导入与导出 → 导出全部数据」存一份到本机，再决定要不要手动备份。") : null),
         note("数据改动会自动备份到云端，换设备/重装登录后自动拉回最新存档。上面那一行是它真的做到没有——别只看开关。"),
         h("button", { key: "push", onClick: doPush, disabled: !!busy, className: "mt-4 w-full py-3", style: btnDark },
           busy === "push" ? "备份中…" : "立即备份到云端"),

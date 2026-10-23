@@ -30559,6 +30559,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const via = await saveTextFile(pack.name, pack.text, "application/json");
       if (via === "cancel") { toast("导出取消了，什么都没存"); return; }
       saved = true;
+      try { window.Cloud && window.Cloud.noteExport && window.Cloud.noteExport(); } catch (e) {}
       toast("文字那一份" + (via === "share" ? "已交给分享面板，在里面选「存储到文件」" : "已导出") + "——图片和视频在下面按包接着存");
     } catch (e) {
       toast("导出没成功：" + (e && e.message || e) + "——数据还在，没有丢");
@@ -30629,6 +30630,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const ok = await copyText(body);
     if (!ok) { toast("这个浏览器不让复制这么大一段——数据还在，没有丢"); return; }
     setCopyParts(Object.assign({}, box, { done: Object.assign({}, box.done, { [i]: true }) }));
+    // 每段都复制走了才算这一份备份到手
+    if (Object.keys(box.done).length + (box.done[i] ? 0 : 1) >= box.parts.length) { try { window.Cloud && window.Cloud.noteExport && window.Cloud.noteExport(); } catch (e) {} }
     toast(n > 1
       ? "第 " + i + "/" + n + " 段已复制（约 " + Math.round(body.length / 1024) + "KB）——发出去，再回来点下一段"
       : "文字备份已复制（约 " + Math.round(body.length / 1024) + "KB" + box.what + "）——去微信／QQ 发给自己，或者存进备忘录");
