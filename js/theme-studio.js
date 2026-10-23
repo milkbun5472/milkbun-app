@@ -798,7 +798,12 @@
       try { migrateHist(); const a = JSON.parse(prev), b = JSON.parse(next); delete a.updatedAt; delete b.updatedAt;
         if (JSON.stringify(a) !== JSON.stringify(b)) LH().note(HIST_SCOPE, prev, next); } catch (_) {}
     }
-    localStorage.setItem(KEY, next); return n;
+    try { localStorage.setItem(KEY, next); }
+    catch (e) { throw new Error(/quota|exceed/i.test(String((e && (e.name + e.message)) || "")) ? "手机上的小仓库满了，这一版没存进去（主题 " + Math.round(next.length / 1024) + "K）" : "没存进去：" + ((e && e.message) || e)); }
+    // 存完立刻读回来对一遍（群友 2026-10-23：点了正式应用、退出再进来，新加的字没了）：
+    //   对不上就当场说，不报「已应用」
+    if (localStorage.getItem(KEY) !== next) throw new Error("存进去再读出来对不上，这一版没存住");
+    return n;
   };
   // 还能退几步、能换回来几步（新的在前）。undoStep("back") 退一步、undoStep("fwd") 把退掉的换回来；
   //   一直点「退一步」就一直往更早退，最多 10 版。
