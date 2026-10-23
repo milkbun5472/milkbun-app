@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.414";
+const APP_VERSION = "v76.415";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18228,7 +18228,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 论坛开着双列（x_forumLayout=cards，开关在论坛排序那排）时，帖子照小红书的格式写——
   //   只换格式，不换话题和脾气：吐槽吧照样吐槽，只是长成一篇小红书笔记的样子。
   const forumFmtLine = () => { let on = false; try { on = localStorage.getItem("x_forumLayout") === "cards"; } catch (e) {}
-    return on ? " 【格式·小红书笔记】论坛现在是双列卡片排版，这一批帖子都写成小红书笔记的格式：标题抓人、可以带一两个 emoji；正文分段、口语、有具体细节；结尾带 2~4 个「#话题」；多数帖配一张图（photo 写清图里拍到了什么）。只改格式，这个吧原来聊什么、什么脾气照旧。" : ""; };
+    return on ? " 【格式·小红书笔记】论坛现在是双列卡片排版，这一批帖子都写成小红书笔记的格式：标题抓人、可以带一两个 emoji；正文分段、口语、有具体细节；结尾带 2~4 个「#话题」；多数帖配一张图（photo 写清图里拍到了什么）。发笔记的网友像小红书上各有自己常写那一块的博主，这一篇是他们那一块里的一篇。只改格式，这个吧原来聊什么、什么脾气照旧。" : ""; };
   // 两套入口（她 2026-10-07：「切到小红书排版就只显示那个排版生成的帖子，换回来也一样」）：
   //   双列时生成/发出的帖子打上 fmt:"xhs"，论坛主页只列跟当前排版同一套的帖子。
   const forumFmtTag = () => { try { return localStorage.getItem("x_forumLayout") === "cards" ? { fmt: "xhs" } : {}; } catch (e) { return {}; } };
@@ -23068,6 +23068,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "多数人根本不提；真提起来的那一条，可以是认真的、也可以是拿它抬杠、还可以是嫌它多余。"
       + "帖子发得不对地方时，会有人顺口说一句该发哪个吧——说完照样接着聊，不是把人赶走。\n";
   };
+  // 小红书那套（双列开着时发出来的 fmt:"xhs" 笔记，她 2026-10-23「真的变成更像小红书」）：底下是评论区，不是楼层
+  const FORUM_XHS_CMT = " 【这是一篇小红书笔记，底下是它的评论区】说话是小红书评论区的样子，不是贴吧盖楼：一条条短评论、各说各的；提到发笔记的人就叫作者或博主，不说几楼、沙发、楼主这些贴吧的叫法；作者回评论时就是作者本人在回。"
+  const forumPostVoice = post => forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "");
   const forumBoardVoice = b => ({
     "吐槽吧": "「吐槽吧」：网友在这儿发牢骚、阴阳怪气、吐槽不爽。语气刻薄、损、带情绪、标题党，别正能量别说教。",
     "日常吧": "「日常吧」：网友分享兴趣、日常、和谁都无关的琐碎生活。语气松弛随意、有生活气，像随手一发。",
@@ -23966,7 +23969,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       const opRule2Full = opRule2 + meRule + opMineBan;
       return {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_ID_VOICE + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
+        instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_ID_VOICE + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
         schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
         maxTokens: FTOK.floors
       };
@@ -23978,7 +23981,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       ? "**楼里是常驻熟面孔与一次性路人的混合**，**不要出现你认识的任何角色**——这是搜来的陌生话题吧。"
       : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色冒泡时 identity 可以是 main（大号）、alt（固定小号）或 anonymous（匿名）——**别全用大号**：角色冒泡的楼里大约三成该是小号或匿名（想说点不方便顶着名字说的、想看热闹不想被认出来的时候）；" + FORUM_ID_VOICE + "小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
     return {
-      instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock
+      instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule + relBlock
         + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
         + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "" + FORUM_THREAD_LINE + (isSearch ? "楼中楼里也全是常驻网友和路人。" : "楼中楼里可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true。") + FORUM_PHOTO_LINE,
       schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
@@ -25213,7 +25216,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (isSearch ? "" : forumActiveChars().filter(c => !groundedR.has(c.id) && forumInWorld(c, post))
             .map(c => forumCharGrounding(c, post, "这层楼里可能开口的", myText)).join(""));
       const d = await runProbeRetry(active, forumWorldCtx((post.title || "") + "\n" + (post.body || "") + "\n" + myText, forumThreadWorld(post)), {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + (typeof forumTimeLine === "function" ? forumTimeLine(post) : "") + relBlockR + opGroundR
+        instruction: forumPostVoice(post) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + (typeof forumTimeLine === "function" ? forumTimeLine(post) : "") + relBlockR + opGroundR
           + forumPmKnow(post, [resp.name, floor.authorName, post.authorName].concat((floor.replies || []).map(r => r && r.authorName))) + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在〔" + (typeof fmtStampAI === "function" ? fmtStampAI(Date.now()) : "刚刚") + "〕有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
