@@ -262,7 +262,8 @@
     story:     { paper: "#eee8dc", ink: "#3e4250", hot: "#5d6fa3", band: "#3e4250", bandInk: "#eee8dc" },
     tetris:    { paper: "#26252c", ink: "#ece8e0", hot: "#e8b53c", band: "#17161b", bandInk: "#ece8e0" },
     chess:     { paper: "#ece4d6", ink: "#3d3128", hot: "#b58863", band: "#3d3128", bandInk: "#ece4d6" },
-    xiangqi:   { paper: "#f2dfb8", ink: "#5a3418", hot: "#b8322a", band: "#5a3418", bandInk: "#f2dfb8" }
+    xiangqi:   { paper: "#f2dfb8", ink: "#5a3418", hot: "#b8322a", band: "#5a3418", bandInk: "#f2dfb8" },
+    go:        { paper: "#e9cf98", ink: "#3d2c16", hot: "#1a1816", band: "#3d2c16", bandInk: "#e9cf98" }
   };
   function GameLid(props) {
     const k = props.k, c = LID[k] || LID.spy;
@@ -425,6 +426,12 @@
         h("circle", { key: "d", cx: 76, cy: 50, r: 15, fill: "#f7e6c4", stroke: "#2b2622", strokeWidth: 2 }),
         h("text", { key: "e", x: 76, y: 56, textAnchor: "middle", fontSize: 16, fontWeight: 700, fill: "#2b2622" }, "将")
       ],
+      // 一角十九路，黑白几颗子交错着
+      go: [
+        h("path", { key: "a", d: "M24 26h72M24 38h72M24 50h72M24 62h72M24 74h72M30 20v60M42 20v60M54 20v60M66 20v60M78 20v60M90 20v60", stroke: c.ink, strokeWidth: 1.1, opacity: .35 }),
+        h("circle", { key: "b", cx: 42, cy: 50, r: 5.5, fill: c.hot }), h("circle", { key: "c", cx: 54, cy: 38, r: 5.5, fill: c.hot }), h("circle", { key: "d", cx: 66, cy: 50, r: 5.5, fill: c.hot }),
+        h("circle", { key: "e", cx: 54, cy: 50, r: 5.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }), h("circle", { key: "f", cx: 54, cy: 62, r: 5.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }), h("circle", { key: "g", cx: 66, cy: 62, r: 5.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4 })
+      ],
       story: [
         h("path", { key: "a", d: "M60 24c-10-5-24-6-36-3v46c12-3 26-2 36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
         h("path", { key: "b", d: "M60 24c10-5 24-6 36-3v46c-12-3-26-2-36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
@@ -508,6 +515,7 @@
       if (session.game.key === "gomoku") return h(GomokuGame, engineProps);
       if (session.game.key === "chess" && window.ChessCore) return h(ChessGame, engineProps);
       if (session.game.key === "xiangqi" && window.XiangqiCore) return h(XiangqiGame, engineProps);
+      if (session.game.key === "go" && window.GoCore) return h(GoGame, engineProps);
       if (session.game.key === "draw") return h(DrawGuessGame, engineProps);
       if (session.game.key === "liar") return h(LiarDiceGame, engineProps);
       if (session.game.key === "poker") return h(PokerGame, engineProps);
@@ -662,6 +670,8 @@
     const [dateTheme, setDateTheme] = useState("plain"); // 各怀心思的约会：这一局是哪种约会（她 2026-10-14）
     const [gmkCasual, setGmkCasual] = useState({});
     const [gmkBrain, setGmkBrain] = useState("local");
+    const [boardTeach, setBoardTeach] = useState(false);   // 围棋、象棋、国际象棋：教学（她 2026-10-23）
+    const [goSize, setGoSize] = useState(9);
     const [cardBrain, setCardBrain] = useState("local");
     const [bjDealer, setBjDealer] = useState("house");   // 21 点谁坐庄：house 手机 / ta 选的第一个角色（她 2026-10-16「都做了」）
     const [pkTruth, setPkTruth] = useState(false);       // 德州：每手输得最多的人答赢家一个真心话 // UNO / 德州 / 21 点谁来出牌：local 手机出牌、一圈说一次 / self 每人自己想
@@ -806,6 +816,12 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, cardBrain === "self"
             ? "每到角色那一手问 TA 本人一次，出牌和说话一起回来，像 TA 亲自在想。一手一次调用，人多了贵、也要等。"
             : "出牌归手机，照每个人的路数打，不卡。轮回你那一手（或者一手打完）时，一次调用让全桌各说一句；这一次只看桌上公开的，谁也看不见别人的牌。")) : null,
+        game.key === "go" ? h("div", { "data-wk": "gosize", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "棋盘"),
+          h(Segmented, { t: t, value: String(goSize), onChange: function (v) { setGoSize(Number(v)); }, options: [{ key: "9", zh: "九路" }, { key: "13", zh: "十三路" }, { key: "19", zh: "十九路" }] }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, goSize === 19 ? "十九路格子小、一盘下得久，电脑在这么大的盘上偏弱。" : goSize === 13 ? "十三路，一盘半小时上下。" : "九路一盘十来分钟，手机上看得最清楚，电脑也下得最像样。")) : null,
+        ["chess", "xiangqi", "go"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
+          h(ToggleRow, { t: t, label: "教学", sub: "你说话或者按「让TA说」的时候，TA 照着引擎看出来的实情讲：你上一步怎么样、哪里有危险。按提示时 TA 也顺口讲为什么。怎么教、耐不耐心，照 TA 自己的性子。", on: boardTeach, onToggle: function () { setBoardTeach(!boardTeach); } })) : null,
         game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来想棋"),
           h(Segmented, { t: t, value: gmkBrain, onChange: setGmkBrain, options: [{ key: "local", zh: "本地棋手" }, { key: "model", zh: "TA 自己下" }] }),
@@ -907,7 +923,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -2959,7 +2975,8 @@
     story: ["#5d6fa3", "#3e4250"],
     tetris: ["#4fb3c8", "#26252c"],
     chess: ["#b58863", "#3d3128"],
-    xiangqi: ["#b8322a", "#5a3418"]
+    xiangqi: ["#b8322a", "#5a3418"],
+    go: ["#c8a467", "#3d2c16"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -5791,7 +5808,10 @@
         return "■ " + c.name + "（" + o.seatOf(c) + "）\n【人设】" + String(c.persona || "（没写）").slice(0, talkers.length > 1 ? 900 : 1600) + (recent ? "\n【最近在聊】" + recent : "");
       }).join("\n\n");
       const sys = gameVoiceRules() + "【场面】" + o.scene() + "。棋不归你们走，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
-        + "\n\n" + who + "\n\n【现在】" + o.where() + "\n" + why
+        + "\n\n" + who + "\n\n【现在】" + o.where()
+        // 教学（她 2026-10-23）：实情是引擎看的，怎么讲照这个人——讲多讲少、耐不耐心、打不打比方都随 TA；水平不够的地方可以说自己也拿不准
+        + (o.teach ? "\n\n【这局在教 " + o.uName + " 下】下面是引擎看出来的实情，你照你这个人看得出来的程度、照你平时说话的样子讲给 TA 听；你水平没那么高的话，看不太懂的地方可以直说拿不准。别念坐标清单，TA 没问就别把下一步的答案直接报出来。\n【局面实情】" + (o.teachFacts() || "还没什么可讲的。") : "")
+        + "\n" + why
         + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
         + "\n\n" + GAME_SAY_FREE + (talkers.length > 1 ? "两个人可以一个人说，也可以一来一回；同一个人连着说几句就在 talks 里连着放几条。" : "")
         + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\"}]}";
@@ -5811,7 +5831,7 @@
       if (v) setLines(function (L) { return L.concat([{ me: true, name: o.uName, text: v.slice(0, 200), at: Date.now() }]); });
       say(v ? (o.spectate ? "场外的 " + o.uName + " 插了一句" : o.uName + " 跟你说") + "：「" + v.slice(0, 120) + "」。" : (o.spectate ? o.uName + " 在等你们说话。" : o.uName + " 在等你开口。"));
     };
-    return { lines: lines, setLines: setLines, talking: talking, heckle: heckle, setHeckle: setHeckle, send: send };
+    return { lines: lines, setLines: setLines, talking: talking, heckle: heckle, setHeckle: setHeckle, send: send, say: say };
   }
   // 局面从开局一步步重放出来（存档只存走过的步，悔棋、重复局面都靠它）
   function boardReplay(C, mvs) {
@@ -5887,8 +5907,16 @@
     const [hintsUsed, setHintsUsed] = useState(sv && sv.hintsUsed ? sv.hintsUsed : 0);
     const runId = useRef((sv && sv.runId) || ("chess-" + Date.now().toString(36)));
     const talkers = [char, char2].filter(Boolean);
+    const teach = !!cfg.boardTeach && !spectate, teachRef = useRef(null);
+    const teachFacts = function () {
+      const n0 = teachRef.current, bits = [];
+      if (n0) bits.push(uName + "上一步：" + n0.mine + (n0.better ? "；引擎觉得更好的是：" + n0.better : "；跟引擎想的一样"));
+      if (!over && state.turn === userSide) { const b = C.bestMove(state, "normal"); if (b) bits.push(uName + "现在最好的一步：" + C.zh(state, b)); }
+      if (st.check) bits.push(uName + "正被将军");
+      return bits.join("\n");
+    };
     const lastZh = function (n) { return state.history.slice(-n).map(function (x, i, a) { return x.san; }).join(" "); };
-    const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "国际象棋",
+    const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "国际象棋", teach: teach, teachFacts: teachFacts,
       seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id].tier] + (tiers[c.id].style ? "，路子" + BOARD_STYLE_ZH[tiers[c.id].style] : "") : ""); },
       scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下国际象棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下国际象棋（" + uName + "执白先手）"; },
       where: function () {
@@ -5904,7 +5932,10 @@
       saveGameSnap("chess", { runId: runId.current, config: cfg, mvs: mvs, lines: talk.lines.slice(-30), hintsUsed: hintsUsed, ts: Date.now(), label: "第 " + Math.ceil(mvs.length / 2) + " 回合" });
     }, [mvs.length, over, talk.lines.length]);
 
-    const play = function (mv) { setMvs(function (a) { return a.concat([{ from: mv.from, to: mv.to, promo: mv.promo }]); }); setSel(null); setHint(null); };
+    const play = function (mv) {
+      if (teach && state.turn === userSide) { const b = C.bestMove(state, "normal"); teachRef.current = { mine: C.zh(state, mv), better: b && !(b.from + "" === mv.from + "" && b.to + "" === mv.to + "") ? C.zh(state, b) : "" }; }
+      setMvs(function (a) { return a.concat([{ from: mv.from, to: mv.to, promo: mv.promo }]); }); setSel(null); setHint(null);
+    };
     // 不是她走的那一方：停一拍再走，像在想
     useEffect(function () {
       if (over || state.turn === userSide) return;
@@ -5923,7 +5954,7 @@
       setSel(p && p[0] === userSide && !(sel && sel[0] === r && sel[1] === c) ? [r, c] : null);
     };
     const canHint = !over && state.turn === userSide && (easy || hintsUsed < BOARD_HINTS);
-    const askHint = function () { if (!canHint) return; const m = C.bestMove(state, "hard"); if (m) { setHint(m); setSel(m.from); setHintsUsed(hintsUsed + 1); } };
+    const askHint = function () { if (!canHint) return; const m = C.bestMove(state, "hard"); if (m) { setHint(m); setSel(m.from); setHintsUsed(hintsUsed + 1); if (teach) talk.say(uName + "按了提示，提示是：" + (C.zhPlain ? C.zhPlain(state, m) : C.zh(state, m)) + "。顺口讲讲这步好在哪。"); } };
     const undo = function () { if (over || spectate || mvs.length < 2 || state.turn !== userSide) return; setMvs(mvs.slice(0, -2)); setSel(null); setHint(null); };
     const resign = function () { if (over || spectate) return; requestAppConfirm("认输？", "这一局算 " + nm(char) + " 赢。", function () { setResigned(userSide); }, "认输"); };
 
@@ -6033,7 +6064,15 @@
     const [hintsUsed, setHintsUsed] = useState(sv && sv.hintsUsed ? sv.hintsUsed : 0);
     const runId = useRef((sv && sv.runId) || ("xiangqi-" + Date.now().toString(36)));
     const talkers = [char, char2].filter(Boolean);
-    const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "中国象棋",
+    const teach = !!cfg.boardTeach && !spectate, teachRef = useRef(null);
+    const teachFacts = function () {
+      const n0 = teachRef.current, bits = [];
+      if (n0) bits.push(uName + "上一步：" + n0.mine + (n0.better ? "；引擎觉得更好的是：" + n0.better : "；跟引擎想的一样"));
+      if (!over && state.turn === userSide) { const b = C.bestMove(state, "normal"); if (b) bits.push(uName + "现在最好的一步：" + C.zhPlain(state, b)); }
+      if (st.check) bits.push(uName + "正被将军");
+      return bits.join("\n");
+    };
+    const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "中国象棋", teach: teach, teachFacts: teachFacts,
       seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id].tier] + (tiers[c.id].style ? "，路子" + BOARD_STYLE_ZH[tiers[c.id].style] : "") : ""); },
       scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下象棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下象棋（" + uName + "执红先走）"; },
       where: function () {
@@ -6049,7 +6088,10 @@
       saveGameSnap("xiangqi", { runId: runId.current, config: cfg, mvs: mvs, lines: talk.lines.slice(-30), hintsUsed: hintsUsed, ts: Date.now(), label: "第 " + Math.ceil(mvs.length / 2) + " 回合" });
     }, [mvs.length, over, talk.lines.length]);
 
-    const play = function (mv) { setMvs(function (a) { return a.concat([{ from: mv.from, to: mv.to }]); }); setSel(null); setHint(null); };
+    const play = function (mv) {
+      if (teach && state.turn === userSide) { const b = C.bestMove(state, "normal"); teachRef.current = { mine: C.zhPlain(state, mv), better: b && !(b.from + "" === mv.from + "" && b.to + "" === mv.to + "") ? C.zhPlain(state, b) : "" }; }
+      setMvs(function (a) { return a.concat([{ from: mv.from, to: mv.to }]); }); setSel(null); setHint(null);
+    };
     useEffect(function () {
       if (over || state.turn === userSide) return;
       const lv = levelOf(state.turn);
@@ -6067,7 +6109,7 @@
       setSel(p && p[0] === userSide && !(sel && sel[0] === r && sel[1] === c) ? [r, c] : null);
     };
     const canHint = !over && state.turn === userSide && (easy || hintsUsed < BOARD_HINTS);
-    const askHint = function () { if (!canHint) return; const m = C.bestMove(state, "hard"); if (m) { setHint(m); setSel(m.from); setHintsUsed(hintsUsed + 1); } };
+    const askHint = function () { if (!canHint) return; const m = C.bestMove(state, "hard"); if (m) { setHint(m); setSel(m.from); setHintsUsed(hintsUsed + 1); if (teach) talk.say(uName + "按了提示，提示是：" + (C.zhPlain ? C.zhPlain(state, m) : C.zh(state, m)) + "。顺口讲讲这步好在哪。"); } };
     const undo = function () { if (over || spectate || mvs.length < 2 || state.turn !== userSide) return; setMvs(mvs.slice(0, -2)); setSel(null); setHint(null); };
     const resign = function () { if (over || spectate) return; requestAppConfirm("认输？", "这一局算 " + nm(char) + " 赢。", function () { setResigned(userSide); }, "认输"); };
 
@@ -6170,6 +6212,196 @@
             const winC = winner === charSide ? char : (winner && winner !== "draw" && winner !== userSide ? char2 : null);
             return { key: "xiangqi", zh: "中国象棋", ids: realCharIds(talkers.map(seat)), wins: winC ? realCharIds([seat(winC)]) : [], meWin: spectate ? null : winner === userSide,
               text: (spectate ? "看 " + nm(char) + " 和 " + nm(char2) + " 下了一盘象棋" : "跟 " + nm(char) + " 下了一盘象棋") + "，" + Math.ceil(state.history.length / 2) + " 回合，" + res + "。" };
+          } }) : null) : null));
+  }
+
+  // ============================ 围棋 ============================
+  // 她 2026-10-23「围棋是不是也可以做了」：落子由 js/go-core.js 算（随机模拟对局挑子），TA 只说话。
+  //   双方连着停一手就进数子：电脑先估死子标出来，她点一块改死／活，确认后按中国规则数（黑贴 7.5）。
+  function goReplay(G, size, mvs) {
+    let s = G.newGame(size);
+    (mvs || []).forEach(function (m) { s = G.move(s, m.pass ? { pass: true } : { p: m.p }); });
+    return s;
+  }
+  function GoGame(props) {
+    const G = window.GoCore, KEY = "go", ZH = "围棋";
+    const t = props.t, cfg = props.config, sv = props.savedState;
+    const spectate = cfg.mode === "spectate", easy = cfg.mode === "easy", size = (sv && sv.size) || cfg.goSize || 9;
+    const findC = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }) || null; };
+    const char = findC((cfg.charIds || [])[0]), char2 = spectate ? findC((cfg.charIds || [])[1]) : null;
+    const pf = props.profile || {}, uName = pf.name || "你";
+    const nm = function (c) { return c ? (c.remark || c.name) : "电脑"; };
+    // 她执黑先下；观战时 TA 执黑、另一位（或电脑）执白
+    const userSide = spectate ? 0 : 1, charSide = spectate ? 1 : 2;
+    const nameOf = function (s) { return s === userSide ? uName : s === charSide ? nm(char) : nm(char2); };
+    const sideZh = function (s) { return s === 1 ? "黑" : "白"; };
+    const tiers = useBoardSkill(props, KEY, ZH, [char, char2].filter(Boolean));
+    const sideChar = function (s) { return s === charSide ? char : s !== userSide ? char2 : null; };
+    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id].tier] : null; };
+    const styleOf = function (s) { const c = sideChar(s); return c && tiers[c.id] ? tiers[c.id].style || undefined : undefined; };
+    const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
+    const state = React.useMemo(function () { return goReplay(G, size, mvs); }, [mvs]);
+    const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : 0);
+    // 数子：两手停之后进来；dead 是她确认过的死子
+    const counting = state.passes >= 2 && !resigned;
+    const [dead, setDead] = useState(sv && sv.dead ? sv.dead : null);
+    const [result, setResult] = useState(sv && sv.result ? sv.result : null);   // { winner, black, white, margin }
+    const over = !!resigned || !!result;
+    const winner = resigned ? 3 - resigned : result ? result.winner : 0;
+    const [pend, setPend] = useState(-1);
+    const [hint, setHint] = useState(-1);
+    const [hintsUsed, setHintsUsed] = useState(sv && sv.hintsUsed ? sv.hintsUsed : 0);
+    const [busy, setBusy] = useState(false);
+    const runId = useRef((sv && sv.runId) || ("go-" + Date.now().toString(36)));
+    const talkers = [char, char2].filter(Boolean);
+    const teach = !!cfg.boardTeach && !spectate, teachRef = useRef(null);
+    const teachFacts = function () {
+      const bits = [], n0 = teachRef.current;
+      if (n0) bits.push(uName + "上一手：" + n0.mine + (n0.better ? "；这手赢面大约 " + Math.round(n0.mineRate * 100) + "%，引擎觉得更好的是 " + n0.better + "（赢面大约 " + Math.round(n0.bestRate * 100) + "%）" : "；跟引擎想的差不多"));
+      const mine = G.weakGroups(state, 1), theirs = G.weakGroups(state, 2);
+      if (mine.length) bits.push(uName + "气紧的棋：" + mine.map(function (g) { return g.at + " 那块 " + g.stones + " 子剩 " + g.libs + " 口气"; }).join("；"));
+      if (theirs.length) bits.push("对面气紧的棋：" + theirs.map(function (g) { return g.at + " 那块 " + g.stones + " 子剩 " + g.libs + " 口气"; }).join("；"));
+      bits.push("提子：黑提了 " + state.caps[1] + "，白提了 " + state.caps[2]);
+      return bits.join("\n");
+    };
+    const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "围棋", teach: teach, teachFacts: teachFacts,
+      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : 2) + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id].tier] + (tiers[c.id].style ? "，路子" + BOARD_STYLE_ZH[tiers[c.id].style] : "") : ""); },
+      scene: function () { return (spectate ? nm(char) + " 和 " + nm(char2) + " 在下围棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下围棋（" + uName + "执黑先下）") + "，" + size + " 路棋盘"; },
+      where: function () {
+        const h0 = state.history, last = h0[h0.length - 1];
+        return "第 " + h0.length + " 手。" + (over ? (resigned ? nameOf(winner) + "赢了（对面认输）。" : "数完子，" + nameOf(winner) + "赢了 " + result.margin + " 目。") : counting ? "双方都停了一手，正在数子。"
+          : (last ? "上一手：" + nameOf(last.side) + (last.mv.pass ? "停了一手" : "下在 " + G.coord(size, last.mv.p) + (last.took ? "，提了 " + last.took + " 子" : "")) + "。" : "还没开始下。"))
+          + "\n提子：黑 " + state.caps[1] + "，白 " + state.caps[2] + "。";
+      } });
+
+    useEffect(function () {
+      if (over) { clearGameSave("go"); return; }
+      if (!mvs.length) return;
+      saveGameSnap("go", { runId: runId.current, config: cfg, size: size, mvs: mvs, dead: dead, lines: talk.lines.slice(-30), hintsUsed: hintsUsed, ts: Date.now(), label: size + " 路 · 第 " + mvs.length + " 手" });
+    }, [mvs.length, over, talk.lines.length, dead]);
+
+    const play = function (mv) {
+      const before = state;
+      if (teach && before.turn === userSide && !mv.pass) {
+        setTimeout(function () {
+          const b = G.bestMove(before, "normal"), mr = G.winRate(before, mv.p, 250), br = b && !b.pass ? G.winRate(before, b.p, 250) : mr;
+          teachRef.current = { mine: G.coord(size, mv.p), mineRate: mr, better: b && !b.pass && b.p !== mv.p && br - mr > 0.08 ? G.coord(size, b.p) : "", bestRate: br };
+        }, 30);
+      }
+      setMvs(function (a) { return a.concat([mv.pass ? { pass: true } : { p: mv.p }]); }); setPend(-1); setHint(-1);
+    };
+    // 不是她下的那一方：停一拍再下，像在想
+    useEffect(function () {
+      if (over || counting || state.turn === userSide) return;
+      const lv = levelOf(state.turn);
+      if (!lv) return;
+      setBusy(true);
+      const tm = setTimeout(function () { const m = G.bestMove(state, lv, styleOf(state.turn)); setBusy(false); play(m && !m.pass ? { p: m.p } : { pass: true }); }, spectate ? 500 : 250);
+      return function () { clearTimeout(tm); setBusy(false); };
+    }, [mvs.length, over, counting, tiers]);
+    // 进数子：先估一遍死子
+    useEffect(function () { if (counting && !dead && !result) setTimeout(function () { setDead(G.estimateDead(state, 600)); }, 30); }, [counting]);
+
+    const tap = function (p) {
+      if (over) return;
+      if (counting) {   // 数子时点一块：改死／活
+        if (!dead || !state.board[p]) return;
+        const g = G.group(state, p).stones, isDead = dead.indexOf(p) >= 0;
+        setDead(isDead ? dead.filter(function (q) { return g.indexOf(q) < 0; }) : dead.concat(g));
+        return;
+      }
+      if (state.turn !== userSide || busy || !G.isLegal(state, p)) return;
+      if (pend === p) play({ p: p }); else setPend(p);   // 手指粗：第一下标出来，同一格再点一下才落
+    };
+    const canHint = !over && !counting && state.turn === userSide && (easy || hintsUsed < BOARD_HINTS);
+    const askHint = function () {
+      if (!canHint) return;
+      setBusy(true);
+      setTimeout(function () {
+        const m = G.bestMove(state, "hard"); setBusy(false);
+        setHintsUsed(hintsUsed + 1);
+        if (m && !m.pass) { setHint(m.p); setPend(m.p); if (teach) talk.say(uName + "按了提示，提示是下在 " + G.coord(size, m.p) + "。顺口讲讲这手好在哪。"); }
+        else if (teach) talk.say(uName + "按了提示，这会儿引擎觉得可以停一手了。顺口讲讲为什么。");
+      }, 30);
+    };
+    const undo = function () { if (over || counting || spectate || mvs.length < 2 || state.turn !== userSide) return; setMvs(mvs.slice(0, -2)); setPend(-1); setHint(-1); };
+    const pass = function () { if (over || counting || spectate || state.turn !== userSide) return; play({ pass: true }); };
+    const resign = function () { if (over || spectate) return; requestAppConfirm("认输？", "这一局算 " + nm(char) + " 赢。", function () { setResigned(userSide); }, "认输"); };
+    const keepPlaying = function () { setDead(null); setMvs(mvs.slice(0, -2)); };   // 数子前反悔：退回停一手之前接着下
+    const confirmCount = function () { const sc = G.score(state, dead || []); setResult({ winner: sc.winner, black: sc.black, white: sc.white, margin: sc.margin }); };
+
+    // 棋盘：木板，有光泽的子，星位，最后一手一个红点；数子时死子半透明打叉，地盘上小方块
+    const n = size, cell = n === 19 ? 18 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
+    const X = function (p) { return pad + (p % n) * cell; }, Y = function (p) { return pad + ((p / n) | 0) * cell; };
+    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
+    const lastMv = state.history.length ? state.history[state.history.length - 1].mv : null;
+    const own = counting && dead ? G.score(state, dead).owner : null;
+    const R = cell * 0.46;
+    const boardSvg = h("svg", { "data-wk": "goboard", viewBox: "0 0 " + W + " " + W, style: { width: "100%", maxWidth: 460, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "linear-gradient(135deg, #e9c98c 0%, #dcb26c 50%, #e6c282 100%)", boxShadow: "inset 0 0 0 3px rgba(107,76,36,.3), 0 10px 24px rgba(60,40,15,.3)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
+          const x = Math.round(((e.clientX - b.left) * k - pad) / cell), y = Math.round(((e.clientY - b.top) * k - pad) / cell);
+          if (x >= 0 && y >= 0 && x < n && y < n) tap(y * n + x);
+        } },
+      h("defs", { key: "d" },
+        h("radialGradient", { id: "goB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#6f6a64" }), h("stop", { offset: ".55", stopColor: "#1a1816" })),
+        h("radialGradient", { id: "goW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e6e0d3" }), h("stop", { offset: "1", stopColor: "#c9c0ae" }))),
+      Array.from({ length: n }).map(function (_, i) { return h("g", { key: "l" + i },
+        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (n - 1) * cell, y2: pad + i * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 }),
+        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (n - 1) * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 })); }),
+      stars.map(function (s0, i) { return h("circle", { key: "s" + i, cx: pad + s0[0] * cell, cy: pad + s0[1] * cell, r: Math.max(2, cell * 0.09), fill: "#5e4424" }); }),
+      n <= 13 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
+      own ? own.map(function (o, p) { return o && !state.board[p] || (o && dead && dead.indexOf(p) >= 0) ? h("rect", { key: "o" + p, x: X(p) - cell * 0.15, y: Y(p) - cell * 0.15, width: cell * 0.3, height: cell * 0.3, fill: o === 1 ? "#1a1816" : "#fff", opacity: .7 }) : null; }) : null,
+      state.board.map(function (c, p) {
+        if (!c) return null;
+        const isDead = counting && dead && dead.indexOf(p) >= 0;
+        return h("g", { key: "p" + p, opacity: isDead ? .45 : 1 },
+          h("circle", { cx: X(p) + cell * 0.04, cy: Y(p) + cell * 0.07, r: R, fill: "#3b2a12", opacity: .28 }),
+          h("circle", { cx: X(p), cy: Y(p), r: R, fill: c === 1 ? "url(#goB)" : "url(#goW)" }),
+          isDead ? h("path", { d: "M" + (X(p) - R * .5) + " " + (Y(p) - R * .5) + "l" + R + " " + R + "M" + (X(p) + R * .5) + " " + (Y(p) - R * .5) + "l" + (-R) + " " + R, stroke: "#d24b3a", strokeWidth: 2 }) : null);
+      }),
+      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, fill: "#d24b3a" }) : null,
+      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" }) : null,
+      pend >= 0 ? h("circle", { cx: X(pend), cy: Y(pend), r: R, fill: userSide === 1 ? "url(#goB)" : "url(#goW)", opacity: .5, stroke: t.tint, strokeWidth: 1.2, strokeDasharray: "2 2" }) : null);
+
+    const status = over ? (resigned ? nameOf(winner) + "赢了（认输）" : nameOf(winner) + "赢了 " + result.margin + " 目（黑 " + result.black + " · 白 " + result.white + "）")
+      : counting ? (dead ? "数子：点一块子改死／活，好了按「数子」" : "在估死子…")
+      : state.turn === userSide ? (busy ? "在想提示…" : pend >= 0 ? "再点一下同一个点落子" : (lastMv && lastMv.pass ? nameOf(3 - userSide) + "停了一手，轮到你" : "轮到你（黑）")) : nameOf(state.turn) + "在想…";
+    const btn = function (wk, label, on, dis) { return h("button", { "data-wk": wk, onClick: on, disabled: dis, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: dis ? .45 : 1 } }, label); };
+    return h("div", { "data-wk": "go", className: "h-full flex flex-col", style: gameTable("go", t) },
+      h(Head, { zh: "围棋", onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },
+        h(GameVsBar, { t: t, evalOf: { host: props, key: "go", zh: "围棋" }, mid: state.history.length ? state.history.length + " 手" : size + " 路", seats: [1, 2].map(function (sd) {
+          const isMe = sd === userSide, c = sd === charSide ? char : char2;
+          return { key: "s" + sd, name: nameOf(sd), char: isMe ? { name: uName, avatarImage: pf.avatarImage, color: pf.color } : c, isUser: isMe, on: !over && !counting && state.turn === sd,
+            mark: h(GmkStone, { side: sd, size: 15 }), sub: over ? (winner === sd ? "赢了" : "") : sideZh(sd) + " · 提 " + state.caps[sd], hot: winner === sd };
+        }) }),
+        h("div", { "data-wk": "gotalk" }, h(GameTalkLog, { t: t, lines: talk.lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: talk.talking, names: talkers.length > 1, k: "go",
+          charOf: function (l) { return findC(l.id) || char; }, empty: spectate ? "他们在下棋，你可以在下面插一句" : nm(char) + " 在对面坐着" })),
+        boardSvg,
+        h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
+          h("input", { "data-wk": "gameinput", "data-part": "go", value: talk.heckle, onChange: function (e) { talk.setHeckle(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") talk.send(); },
+            placeholder: spectate ? "台下插一句…（空着按就是让他们说）" : "跟 " + nm(char) + " 说一句…（空着按就是让 TA 开口）",
+            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "gosend", onClick: talk.send, disabled: talk.talking, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: talk.talking ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, talk.heckle.trim() ? "说" : "让TA说")),
+        h("div", { style: { textAlign: "center", marginTop: 12 } }, h("span", { "data-wk": "gostatus", style: { display: "inline-block", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: over ? "#f3efe6" : t.ink, background: over ? t.ink : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, status)),
+        counting && !over ? h("div", { style: { display: "flex", justifyContent: "center", gap: 8, marginTop: 10 } },
+          btn("gocount", "数子", confirmCount, !dead),
+          !spectate ? btn("gokeepon", "还没下完，接着下", keepPlaying, false) : null) : null,
+        !over && !counting && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", gap: 8, marginTop: 10, flexWrap: "wrap" } },
+          btn("gohint", easy ? "提示" : "提示（还剩 " + Math.max(0, BOARD_HINTS - hintsUsed) + "）", askHint, !canHint || busy),
+          btn("gopass", "停一手", pass, state.turn !== userSide || busy),
+          btn("goundo", "悔一步", undo, mvs.length < 2 || state.turn !== userSide || busy),
+          btn("goresign", "认输", resign, false)) : null,
+        over ? h("div", { style: { marginTop: 14 } },
+          h("button", { "data-wk": "block", onClick: props.onBack, className: "active:opacity-80", style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const res = resigned ? nameOf(winner) + "赢了（对面认输）" : nameOf(winner) + "赢了 " + result.margin + " 目";
+            const seat = function (c) { return { key: c.id, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) }; };
+            const winC = winner === charSide ? char : (winner && winner !== userSide ? char2 : null);
+            return { key: "go", zh: "围棋", ids: realCharIds(talkers.map(seat)), wins: winC ? realCharIds([seat(winC)]) : [], meWin: spectate ? null : winner === userSide,
+              text: (spectate ? "看 " + nm(char) + " 和 " + nm(char2) + " 下了一盘" + size + "路围棋" : "跟 " + nm(char) + " 下了一盘" + size + "路围棋") + "，" + state.history.length + " 手，" + res + "。" };
           } }) : null) : null));
   }
 
