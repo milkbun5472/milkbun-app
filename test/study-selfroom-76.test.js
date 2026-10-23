@@ -16,3 +16,10 @@ assert.match(st, /照各自平时说话的样子，想说几句就几句，一�
 assert.match(st, /voiceGuards\(\[cx\.directives\], \[\{ sr: cx\.studyRules/);
 assert.equal((st.match(/halfSaid: true/g) || []).length, 1);
 console.log("ok");
+// 她 2026-10-23「接上群聊那种保存全部人人设防止 ooc」：几个人时跟群聊同一摞规矩、同一把人设额度
+assert.match(st, /chars\.length > 1 && typeof groupBans === "function" \? \[groupBans\(\{ worldbook: true \}\)\]/);
+assert.match(st, /groupPersonaText\(c\.persona, budget\)/);
+assert.match(st, /const budget = typeof groupPersonaBudget === "function" \? groupPersonaBudget\(chars\.length\)/);
+assert.match(st, /【在场的人彼此之间】/);
+assert.ok(!/String\(c\.persona \|\| "（暂无设定）"\)\.slice\(0, chars\.length > 1 \? 1600/.test(st), "又把人设砍回 1600 字了");
+console.log("group ok");

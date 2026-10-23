@@ -4217,7 +4217,7 @@
     if (view === "selfRoom") {
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
-      return h(SelfStudyRoom, { session: sess, active: props.active, characters: props.characters, profile: props.profile, profileFor: props.profileFor, selfFor: props.selfFor, besideFor: props.besideFor,
+      return h(SelfStudyRoom, { session: sess, active: props.active, characters: props.characters, relFor: props.relFor, profile: props.profile, profileFor: props.profileFor, selfFor: props.selfFor, besideFor: props.besideFor,
         directivesFor: props.directivesFor, studyRulesFor: props.studyRulesFor, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: function () { refresh(); setTab("self"); setView("home"); restoreHome(); } });
     }
@@ -4362,21 +4362,32 @@
     const o = opts || {};
     const link = selfLinkOf(sess);
     const uName = (ctxFor(chars[0]).profile && ctxFor(chars[0]).profile.name) || "我";
-    const parts = [ANTI_CLICHE];
-    if (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
-    parts.push(CHARCARD_RULE, USER_SLOT_PROTECT);
-    if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    // 跟群聊同一摞规矩（她 2026-10-23「接上群聊那种保存全部人人设防止 ooc」）：
+    //   groupBans 里有人设优先、各说各的不串人、她也在场、那几族反八股；人设按在场人数分额度，跟群聊同一把尺子。
+    //   一个人的时候就是一对一，照旧用一起学单人那套开头。
+    const parts = chars.length > 1 && typeof groupBans === "function" ? [groupBans({ worldbook: true })] : [ANTI_CLICHE];
+    if (chars.length < 2 && typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
+    parts.push(chars.length > 1 ? USER_SLOT_PROTECT : CHARCARD_RULE + "\n\n" + USER_SLOT_PROTECT);
+    if (chars.length < 2 && typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    const budget = typeof groupPersonaBudget === "function" ? groupPersonaBudget(chars.length) : 3000;
     chars.forEach(function (c) {
       const cx = ctxFor(c);
-      parts.push("【" + c.name + " 的人设】\n" + String(c.persona || "（暂无设定）").slice(0, chars.length > 1 ? 1600 : 3000)
+      parts.push("【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, budget) : String(c.persona || "（暂无设定）"))
         + (typeof grownSelfBlock === "function" && cx.grown ? "\n" + grownSelfBlock(cx.grown, cx.grownEvolve) : ""));
       voiceGuards([cx.directives], [{ sr: cx.studyRules, name: chars.length > 1 ? c.name : "" }]).forEach(function (x) { parts.push(x); });
     });
+    if (chars.length > 1) {
+      if (typeof sameNameNote === "function") { const sn = sameNameNote(chars); if (sn) parts.push(sn); }
+      // 彼此是什么关系（群聊有，自习室原来没有）：没设定过的就照不熟的人来
+      const rf = ctxFor(chars[0]).relFor, rels = [];
+      if (rf) chars.forEach(function (a, i) { chars.slice(i + 1).forEach(function (b) { const r = rf(a.id, b.id); if (r && (r.mine || r.theirs)) rels.push("· " + a.name + " 眼里 " + b.name + "：" + (r.mine || "（没说）") + "；" + b.name + " 眼里 " + a.name + "：" + (r.theirs || "（没说）")); }); });
+      parts.push("【在场的人彼此之间】" + (rels.length ? "\n" + rels.join("\n") : "没设定过关系的，就照不熟的人相处：客气、各学各的，别凭空熟络。"));
+    }
     if (VOICE()) parts.push(VOICE());
     const cx0 = ctxFor(chars[0]);
     if (cx0.beside) parts.push(cx0.beside + BESIDE_TAIL);
     else if (cx0.profile && (cx0.profile.name || cx0.profile.persona)) parts.push("【一起自习的人 · " + uName + "】\n" + (cx0.profile.persona || "（未填写）"));
-    if (cx0.worldbook && String(cx0.worldbook).trim()) parts.push(WORLDBOOK_RULE + "\n【世界书】\n" + String(cx0.worldbook).trim());
+    if (cx0.worldbook && String(cx0.worldbook).trim()) parts.push((chars.length > 1 ? "" : WORLDBOOK_RULE + "\n") + "【世界书】\n" + String(cx0.worldbook).trim());
     const names = chars.map(function (c) { return c.name; }).join("、");
     parts.push("【场面】" + uName + " 和 " + names + " 在一间自习室里" + (chars.length > 1 ? "各学各的" : "一人一张桌子各学各的") + "。这是自习，不是上课：不讲课、不出题、不考 " + uName + "，各自忙自己的事，安静为主。"
       + "每个人这会儿在学什么、做什么，照各自的人设和身份来，不用硬跟 " + uName + " 学一样的。");
@@ -4389,6 +4400,7 @@
     if (said.length) parts.push("【自习室里刚才说过的】\n" + said.join("\n") + "\n说过的意思别换个说法再说一遍。");
     parts.push("【这一下】" + why);
     parts.push("照各自平时说话的样子，想说几句就几句，一句一条；没什么想说的人可以不说。" + (o.summary ? "\n另外写一段 summary：第三人称、几句话，记下 " + uName + " 这轮实际做了什么、发过的进度、卡在哪里，给下次接着学的时候看；没什么可记就留空。" : "")
+      + (chars.length > 1 ? "\nname 必须逐字等于上面在场的人名之一（" + chars.map(function (c) { return c.name; }).join("、") + "），每个人只说自己的话，不替别人开口，也不替 " + uName + " 说话。" : "")
       + "\n只输出 JSON：{\"says\":[{\"name\":\"说话的人\",\"text\":\"一句\"}]" + (o.summary ? ",\"summary\":\"……\"" : "") + "}");
     const lastImg = (sess.transcript || []).slice().reverse().find(function (m) { return m.role === "user" && m.imageRef; });
     const msgs = [Object.assign({ role: "user", content: o.userLine || "开口吧。" }, o.withImage && lastImg ? { _imageRefs: [lastImg.imageRef] } : {})];
@@ -4485,7 +4497,7 @@
       const me = props.selfFor && char ? props.selfFor(char) : null;
       return { profile: (props.profileFor && char ? props.profileFor(char.id) : null) || props.profile, beside: props.besideFor && char ? props.besideFor(char) : "",
         grown: me && me.grown || "", grownEvolve: !!(me && me.evolve), directives: props.directivesFor && char ? props.directivesFor(char) : [],
-        studyRules: props.studyRulesFor && char ? props.studyRulesFor(char) : null,
+        studyRules: props.studyRulesFor && char ? props.studyRulesFor(char) : null, relFor: props.relFor,
         worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, sessRef.current.task].filter(Boolean).join("\n")) : props.worldbook };
     };
     const commit = function (next) {
