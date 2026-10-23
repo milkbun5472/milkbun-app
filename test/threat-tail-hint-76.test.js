@@ -10,7 +10,7 @@ const re = new Function(eng.match(/const THREAT_TAIL_RE = (\/.*\/);/)[0] + " ret
   .forEach(t => assert.ok(!re.test(t), "不该认：" + t));
 const hint = eng.match(/const THREAT_TAIL_HINT = "(.*)";/)[1];
 assert.ok(!re.test(hint), "提醒里别念原句");
-assert.match(app, /\+ _rerollHint \+ _threatTailHint \+ _turnClosing/);
+assert.match(app, /\+ _rerollHint \+ _threatTailHint \+ (_seeThroughHint \+ )?_turnClosing/);
 assert.match(app, /const _threatTailHint = !_body && /);   // 言秋／本体模式不加
 console.log("ok");
 // 她 2026-10-23 截图：「别逼我顺着网线爬过去把你的嘴捂住」
