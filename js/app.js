@@ -19150,6 +19150,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return n;
     });
   };
+  // 撤销他钱包里的一笔（她 2026-10-23：旅行扣了两次、小票删不了）：这一行拿掉，钱按原数退回余额
+  const undoCharWalletEntry = (charId, entryId) => {
+    setCharWallet(p => {
+      const cur = p[charId]; if (!cur) return p;
+      const e = (cur.ledger || []).find(x => x && String(x.id) === String(entryId)); if (!e) return p;
+      const n = { ...p, [charId]: { ...cur, balance: r2((Number(cur.balance) || 0) - (Number(e.delta) || 0)), ledger: (cur.ledger || []).filter(x => x !== e) } };
+      saveJSON("x_charWallet", n); charWalletRef.current = n; return n;
+    });
+  };
   // 手动把角色余额改成指定值（记一条调整流水）
   const setCharWalletTo = (charId, target) => {
     const tv = r2(target);
@@ -31938,6 +31947,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onInit: initCharWallet,
     onCatchUp: catchUpWallet,
     onSetBalance: setCharWalletTo,
+    onUndoEntry: undoCharWalletEntry,
     onSettleDebt: settleDebt,
     debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
     onRefresh: refreshCharAssets,
