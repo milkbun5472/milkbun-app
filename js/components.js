@@ -1595,7 +1595,7 @@ function useBrowserKbPad() {
     // 键盘升起那几帧会漏出最底层的米黄底子（群里 2026-10-23「点输入栏会闪一下黄色」）：
     //   在聊天窗里时，把底层那三块（html / body / #root）的底色临时换成这个聊天窗的底色，离开就还原。
     //   她 2026-10-23 点头才动的：只换颜色，不碰根节点的布局、高度、安全区（施工规则/home-screen-layout.md）。
-    const under = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
+    const under = [document.documentElement, document.body, document.getElementById("root"), document.querySelector('[data-wk="app"]')].filter(Boolean);
     const was = under.map(x => x.style.backgroundColor);
     const untint = () => under.forEach((x, i) => { x.style.backgroundColor = was[i]; });
     const tint = () => {

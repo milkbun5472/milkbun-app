@@ -992,7 +992,8 @@ if (typeof module !== "undefined" && module.exports) {
     let n = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, window.innerHeight - 2)), c = "";
     for (let k = 0; n && k < 40 && !c; k++, n = n.parentElement) { const bg = getComputedStyle(n).backgroundColor; if (!clear(bg)) c = bg; }
     if (!c) return;
-    under = [root, document.body, document.getElementById("root")].filter(Boolean);
+    // 漏出来的那条往往不是 html，是 App 外壳 [data-wk="app"] 自己的主题底色（群友 2026-10-23「哪个界面都是这样」）——一起刷
+    under = [root, document.body, document.getElementById("root"), document.querySelector('[data-wk="app"]')].filter(Boolean);
     was = under.map(x => x.style.backgroundColor);
     under.forEach(x => { x.style.backgroundColor = c; });
   });
