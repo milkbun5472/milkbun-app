@@ -62,12 +62,12 @@
       { q: "累了一天回家，最想对方", opts: [{ t: "把饭做好了等你", s: { D: 1 } }, { t: "什么都不说先抱一下", s: { K: 1 } }, { t: "坐下来听你说今天", s: { Q: 1 } }] },
       { q: "最让你心里一软的是", opts: [{ t: "他说「你今天很好看」", s: { W: 1 } }, { t: "他顺路给你带了你爱吃的", s: { G: 1 } }, { t: "他牵了你的手", s: { K: 1 } }] },
       { q: "道歉的时候你更会", opts: [{ t: "把要说的话认认真真说出来", s: { W: 1 } }, { t: "默默把惹他不高兴的事做好", s: { D: 1 } }, { t: "买点什么哄他", s: { G: 1 } }] },
-      { q: "最受不了的是", opts: [{ t: "在一起却各玩各的手机", s: { Q: 1 } }, { t: "很久没抱过了", s: { K: 1 } }] },
+      { q: "最受不了的是", opts: [{ t: "在一起却各玩各的手机", s: { Q: 1 } }, { t: "他从来不夸你", s: { W: 1 } }, { t: "很久没抱过了", s: { K: 1 } }] },
       { q: "他生病了，你会", opts: [{ t: "请假陪在旁边", s: { Q: 1 } }, { t: "跑去买药煮粥", s: { D: 1 } }, { t: "一直握着他的手", s: { K: 1 } }] },
       { q: "收到哪样最开心", opts: [{ t: "一张手写的小纸条", s: { W: 1 } }, { t: "一个他记得你随口提过的小东西", s: { G: 1 } }, { t: "他帮你把一直拖着的事办了", s: { D: 1 } }] },
       { q: "异地的晚上", opts: [{ t: "开着视频一起做各自的事", s: { Q: 1 } }, { t: "睡前发一大段想你", s: { W: 1 } }, { t: "寄个包裹给他", s: { G: 1 } }] },
       { q: "看电影的时候", opts: [{ t: "靠在一起", s: { K: 1 } }, { t: "看完要聊很久", s: { Q: 1 } }, { t: "提前把零食饮料都买好", s: { D: 1 } }] },
-      { q: "你心里「他很爱我」的证据是", opts: [{ t: "他说过的那些话", s: { W: 1 } }, { t: "他为我做过的那些事", s: { D: 1 } }, { t: "他留下的那些东西", s: { G: 1 } }, { t: "他抱我的样子", s: { K: 1 } }] }
+      { q: "你心里「他很爱我」的证据是", opts: [{ t: "他为我做过的那些事", s: { D: 1 } }, { t: "他留下的那些东西", s: { G: 1 } }, { t: "他抱我的样子", s: { K: 1 } }] }
     ]
   });
 
@@ -90,7 +90,7 @@
   // 5. 像哪种动物：猫 Ca、狗 Do、狼 Wo、狐 Fo、兔 Ra、熊 Be
   T.push({
     id: "animal", cat: "xg", name: "动物塑", sub: "要是变成一只动物，你是哪只",
-    // 每个选项只算一种动物、六种动物各 6 个选项（群友 2026-10-23「好几个狗男测出来都是兔子」：
+    // 九道题每题四个选项、每个选项只算一种动物、六种动物各 6 个——每种被选中的机会一模一样（群友 2026-10-23「好几个狗男测出来都是兔子」：
     //   原来兔子挂在 8 个选项上，还跟猫、狗绑在「躲角落」「找暖和地方」「怕被丢下」这些上，谨慎冷淡的人一路攒兔子）
     qs: [
       { q: "到了一个新地方", opts: [{ t: "先找个角落观察", s: { Ca: 1 } }, { t: "到处跑跑看看", s: { Do: 1 } }, { t: "先认清谁说了算", s: { Wo: 1 } }, { t: "紧挨着认识的人", s: { Ra: 1 } }] },
@@ -99,10 +99,9 @@
       { q: "一个人的下午", opts: [{ t: "晒太阳睡觉", s: { Ca: 1 } }, { t: "等谁回来", s: { Do: 1 } }, { t: "琢磨点小心思", s: { Fo: 1 } }, { t: "吃点好的，窝着", s: { Be: 1 } }] },
       { q: "被惹毛了", opts: [{ t: "冷着脸走开", s: { Ca: 1 } }, { t: "当场咬回去", s: { Wo: 1 } }, { t: "表面笑笑，记着", s: { Fo: 1 } }, { t: "缩起来，自己难受", s: { Ra: 1 } }] },
       { q: "喜欢一个人的时候", opts: [{ t: "绕着他转，藏不住", s: { Do: 1 } }, { t: "嘴上不说，但会出现在他附近", s: { Ca: 1 } }, { t: "认定了就一直守着", s: { Wo: 1 } }, { t: "先试探几回，确定了再说", s: { Fo: 1 } }] },
-      { q: "朋友眼里的你", opts: [{ t: "靠得住，像座山", s: { Be: 1 } }, { t: "聪明，有点难猜", s: { Fo: 1 } }, { t: "软软的，容易受惊", s: { Ra: 1 } }] },
-      { q: "冬天", opts: [{ t: "囤好吃的，窝起来", s: { Be: 1 } }, { t: "照样出去跑", s: { Do: 1 } }, { t: "钻进被窝谁叫都不出来", s: { Ra: 1 } }] },
-      { q: "一群人里，你通常是", opts: [{ t: "带头的", s: { Wo: 1 } }, { t: "气氛组", s: { Do: 1 } }, { t: "出主意的", s: { Fo: 1 } }] },
-      { q: "最怕", opts: [{ t: "被关起来", s: { Ca: 1 } }, { t: "被丢下", s: { Ra: 1 } }, { t: "没吃的", s: { Be: 1 } }] }
+      { q: "朋友眼里的你", opts: [{ t: "靠得住，像座山", s: { Be: 1 } }, { t: "聪明，有点难猜", s: { Fo: 1 } }, { t: "软软的，容易受惊", s: { Ra: 1 } }, { t: "热乎乎的，一叫就到", s: { Do: 1 } }] },
+      { q: "冬天", opts: [{ t: "囤好吃的，窝起来", s: { Be: 1 } }, { t: "照样出去跑", s: { Do: 1 } }, { t: "钻进被窝谁叫都不出来", s: { Ra: 1 } }, { t: "盯着窗外琢磨开春去哪", s: { Fo: 1 } }] },
+      { q: "最怕", opts: [{ t: "被关起来", s: { Ca: 1 } }, { t: "被丢下", s: { Ra: 1 } }, { t: "没吃的", s: { Be: 1 } }, { t: "被人看不起", s: { Wo: 1 } }] }
     ]
   });
 
@@ -136,17 +135,17 @@
     id: "partner", cat: "gx", name: "适合你的另一半", sub: "你心里那个人，大概是什么样子",
     qs: [
       { q: "你生病了，最希望对方", opts: [{ t: "熬粥喂药，一直在旁边", s: { Wa: 1 } }, { t: "讲笑话逗你，让你忘了难受", s: { Fu: 1 } }, { t: "什么也不说，就一直守着", s: { Mi: 1 } }] },
-      { q: "最理想的约会", opts: [{ t: "他早就安排好了", s: { St: 1 } }, { t: "临时起意，说走就走", s: { Fu: 1 } }, { t: "就在家待着，腻在一起", s: { Ni: 1 } }, { t: "陪你去你一直想去的那家店", s: { Wa: 1 } }] },
-      { q: "吵架的时候，你希望他", opts: [{ t: "先低头哄你", s: { Wa: 1 } }, { t: "把话说清楚，对就是对", s: { Eq: 1 } }, { t: "追着你，不让你走", s: { Ni: 1 } }, { t: "先冷一冷，过后一句话把你哄好", s: { Mi: 1 } }] },
+      { q: "最理想的约会", opts: [{ t: "他早就安排好了", s: { St: 1 } }, { t: "就在家待着，腻在一起", s: { Ni: 1 } }, { t: "陪你去你一直想去的那家店", s: { Wa: 1 } }] },
+      { q: "吵架的时候，你希望他", opts: [{ t: "先低头哄你", s: { Wa: 1 } }, { t: "把话说清楚，对就是对", s: { Eq: 1 } }, { t: "追着你，不让你走", s: { Ni: 1 } }] },
       { q: "最让你心动的一瞬间", opts: [{ t: "他对别人很冷，只对你笑", s: { Mi: 1 } }, { t: "他认真做事的样子", s: { St: 1 } }, { t: "他接住了你每一个梗", s: { Fu: 1 } }] },
-      { q: "你最受不了的是", opts: [{ t: "他太闷，没意思", s: { Fu: 1 } }, { t: "他什么都顺着你，没主见", s: { Eq: 1 } }, { t: "他忽冷忽热", s: { St: 1 } }, { t: "他不黏你", s: { Ni: 1 } }] },
-      { q: "他记得你哪件事最让你心动", opts: [{ t: "你随口说过的喜好", s: { Wa: 1 } }, { t: "你们第一次见面的细节", s: { Ni: 1 } }, { t: "你说过的梦想，他还一直推着你去做", s: { Eq: 1 } }, { t: "你随口提的计划，他一件件帮你记着", s: { St: 1 } }] },
+      { q: "你最受不了的是", opts: [{ t: "他太闷，没意思", s: { Fu: 1 } }, { t: "他什么都顺着你，没主见", s: { Eq: 1 } }, { t: "他忽冷忽热", s: { St: 1 } }] },
+      { q: "他记得你哪件事最让你心动", opts: [{ t: "你们第一次见面的细节", s: { Ni: 1 } }, { t: "你说过的梦想，他还一直推着你去做", s: { Eq: 1 } }, { t: "你随口提的计划，他一件件帮你记着", s: { St: 1 } }] },
       { q: "他的朋友圈", opts: [{ t: "几乎不发", s: { Mi: 1 } }, { t: "常发好玩的", s: { Fu: 1 } }, { t: "置顶的那条是你", s: { Ni: 1 } }] },
       { q: "你累了一天回到家", opts: [{ t: "灯开着，饭在锅里", s: { Wa: 1 } }, { t: "他什么都不问，安安静静陪你坐着", s: { Mi: 1 } }, { t: "他扑过来抱住你", s: { Ni: 1 } }] },
       { q: "出去玩迷路了", opts: [{ t: "他早就查好了路", s: { St: 1 } }, { t: "他说那就随便走走，说不定更好玩", s: { Fu: 1 } }, { t: "你俩争到底是谁带错的，然后一起笑", s: { Eq: 1 } }] },
       { q: "你希望他的过去", opts: [{ t: "简单干净，一眼看得到", s: { Wa: 1 } }, { t: "有一段你不知道的故事", s: { Mi: 1 } }, { t: "也有过低谷，所以能互相撑着", s: { Eq: 1 } }] },
-      { q: "一起拿主意的时候", opts: [{ t: "他听你的", s: { Wa: 1 } }, { t: "吵一架，吵出个更好的", s: { Eq: 1 } }, { t: "他替你拿主意", s: { St: 1 } }, { t: "他嘴上不说，最后做的正是你想要的", s: { Mi: 1 } }] },
-      { q: "他最该对你说的一句", opts: [{ t: "有我在", s: { St: 1 } }, { t: "我想你了", s: { Ni: 1 } }, { t: "你还挺厉害的", s: { Eq: 1 } }, { t: "走，带你去个地方", s: { Fu: 1 } }] }
+      { q: "一起拿主意的时候", opts: [{ t: "他听你的", s: { Wa: 1 } }, { t: "吵一架，吵出个更好的", s: { Eq: 1 } }, { t: "他嘴上不说，最后做的正是你想要的", s: { Mi: 1 } }] },
+      { q: "他最该对你说的一句", opts: [{ t: "有我在", s: { St: 1 } }, { t: "我想你了", s: { Ni: 1 } }, { t: "走，带你去个地方", s: { Fu: 1 } }] }
     ]
   });
 
@@ -374,14 +373,14 @@
 
   // ── 第三批（她 2026-10-22「来」：GPT 那张单子里好玩的那 8 套）──
   T.push({ id: "cat", cat: "wan", name: "如果你是一只猫", sub: "猫的品种，就是你的脾气", qs: [
-    mk("主人回到家", [["冲到门口喵喵叫", "Sm"], ["在沙发上睁一只眼", "Br"], ["扑上去要抱", "Rg"]]),
+    mk("主人回到家", [["冲到门口喵喵叫", "Sm"], ["在沙发上睁一只眼，尾巴尖动了动", "Br"], ["扑上去要抱", "Rg"]]),
     mk("你最爱待的地方", [["冰箱顶上", "Bk"], ["饭碗旁边", "Ju"], ["窗台上看外面", "Mc"]]),
     mk("家里来了陌生人", [["躲进床底", "Bk"], ["凑过去闻闻有没有吃的", "Ju"], ["冲他叫", "Sm"]]),
     mk("被人抱起来", [["软成一摊", "Rg"], ["挣扎着跳下去", "Mc"], ["无所谓，抱就抱", "Br"]]),
     mk("半夜三点", [["在家里跑酷", "Mc"], ["坐在黑暗里盯着你", "Bk"], ["在你耳边叫饿", "Ju"]]),
     mk("你最常干的事", [["吃", "Ju"], ["睡", "Br"], ["跟着人走来走去", "Rg"]]),
-    mk("被关在门外", [["一直挠门叫", "Sm"], ["自己找别的地方睡", "Mc"], ["在门口等，一声不吭", "Bk"]]),
-    mk("主人哭了", [["过去蹭蹭", "Rg"], ["在旁边叫个不停", "Sm"], ["远远看着", "Bk"]]),
+    mk("被关在门外", [["一直挠门叫", "Sm"], ["自己找别的地方睡，天亮了第一个蹲门口", "Mc"], ["在门口等，一声不吭", "Bk"]]),
+    mk("主人哭了", [["过去蹭蹭", "Rg"], ["在旁边叫个不停", "Sm"], ["不出声，挨着他趴下", "Bk"]]),
     mk("洗澡", [["嚎得整栋楼都听见", "Sm"], ["认命", "Br"], ["挠人", "Mc"]]),
     mk("别人说你", [["胖", "Ju"], ["高冷", "Bk"], ["黏人精", "Rg"]]),
     mk("玩逗猫棒", [["扑到累瘫", "Mc"], ["看两眼就躺下", "Br"], ["叫着要你接着玩", "Sm"]]),
@@ -398,7 +397,7 @@
     mk("有坏人来了", [["冲上去", "Db"], ["先叫人", "Cg"], ["还以为是来玩的", "Sy"]]),
     mk("你的笑", [["嘴角一直往上", "Sy"], ["偶尔一下，很少见", "Db"], ["笑得眼睛都没了", "Gd"]]),
     mk("散步回来", [["还想再跑十圈", "Bc"], ["往地上一趴，赖着不走", "Cg"], ["跑丢了", "Hs"]]),
-    mk("你最在意", [["主人开不开心", "Gd"], ["有没有活儿干", "Bc"], ["自己帅不帅", "Cg"]]),
+    mk("你最在意", [["大家玩得开不开心", "Gd"], ["有没有活儿干", "Bc"], ["自己帅不帅", "Cg"]]),
     mk("被批评", [["一脸无辜，接着犯", "Hs"], ["低头认错", "Sy"], ["站得笔直听完", "Db"]])
   ] });
   T.push({ id: "weather", cat: "wan", name: "你是哪种天气", sub: "晴天、阵雨、暴风雪……", qs: [
@@ -778,18 +777,30 @@
     Wr: ["小大人", "很早就懂事，先顾着大人的情绪"], Sp: ["被宠着的小孩", "摔一跤就有人来抱"] };
   const JIANGHU = { Xi: ["侠客", "路见不平就拔刀"], Ma: ["魔头", "谁惹了你，你都记着"], Ys: ["隐士", "江湖的事，你只想远远看着"],
     Sh: ["神医", "先救人，别的再说"], Sw: ["说书人", "江湖上什么事都瞒不过你"], Ba: ["帮主", "有你在，兄弟们就有地方去"] };
-  const topOf = (map, sc) => Object.keys(map).sort((a, b) => (sc[b] || 0) - (sc[a] || 0))[0];
+  // 票数一样时谁赢（群友 2026-10-23「狗测出来都是金毛」）：原来是表里排第一的赢，金毛、兔子这种排前面的白捡；
+  //   现在平票时用「这一份答卷」掷一次签：对每个结果都公平，同一份答卷永远是同一个结果（看最后几题也试过，会偏向排在后面题里的那几种）
+  //   最后那几步把每一位都搅匀：不搅的话两个只差最后一个字的结果会被前面那串带着走，掷签就不公平
+  const tieHash = (seed, k) => { let x = 2166136261; for (const ch of seed + "|" + k) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); }
+    x ^= x >>> 16; x = Math.imul(x, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; return x >>> 0; };
+  const byScore = sc => (a, b) => ((sc[b] || 0) - (sc[a] || 0)) || (tieHash(sc.__seed || "", b) - tieHash(sc.__seed || "", a));
+  const topOf = (map, sc) => Object.keys(map).sort(byScore(sc))[0];
   const ANIMAL = {
     Ca: ["猫", "有自己的脾气，愿意靠近的时候才靠近"], Do: ["狗", "热乎乎的，喜欢就绕着转"], Wo: ["狼", "认定了就守着，对外人冷"],
     Fo: ["狐狸", "聪明，心思多，不太好猜"], Ra: ["兔子", "软，容易受惊，被护着会很乖"], Be: ["熊", "慢吞吞的，可靠，抱起来很暖"]
   };
   function tally(test, picks) {
     const sc = {};
-    (picks || []).forEach((p, i) => { const q = test.qs[i]; const o = q && q.opts[p]; if (o) Object.keys(o.s).forEach(k => { sc[k] = (sc[k] || 0) + o.s[k]; }); });
+    const last = {};
+    (picks || []).forEach((p, i) => { const q = test.qs[i]; const o = q && q.opts[p]; if (o) Object.keys(o.s).forEach(k => { sc[k] = (sc[k] || 0) + o.s[k]; last[k] = i; }); });
+    Object.defineProperty(sc, "__seed", { value: test.id + ":" + (picks || []).join(",") });   // 平票掷签用，不算进分数
+    Object.defineProperty(sc, "__last", { value: last });                                       // 两头的维度打平时用
     return sc;
   }
   // 平分时取前一个（题数是偶数的那几套才可能平）
-  const pickAxis = (sc, a, b) => ((sc[a] || 0) >= (sc[b] || 0) ? a : b);
+  // 两头打平时也掷签（她 2026-10-23「还有别的要改的吗」）：原来平了固定给前一个，MBTI 一个维度 4 题、2 比 2 的机会快四成，
+  //   一律给 E、S、T、J；三观一个维度 2 题，一半是平的。同一份答卷还是同一个结果
+  //   平了就看这个维度【最后那一题】选的哪头：每题两头各一个选项，所以对两头一样公平（掷签在题少时做不到这么平）
+  const pickAxis = (sc, a, b) => (sc[a] || 0) !== (sc[b] || 0) ? ((sc[a] || 0) > (sc[b] || 0) ? a : b) : (((sc.__last || {})[a] != null ? sc.__last[a] : -1) > ((sc.__last || {})[b] != null ? sc.__last[b] : -1) ? a : b);
   function resultOf(testId, picks, bids) {
     const test = byId(testId); if (!test) return null;
     if (test.custom && !kindOf(test)) return customResult(test, picks);
@@ -805,7 +816,7 @@
       return { code: k, title: ATTACH[k][0], line: ATTACH[k][1] };
     }
     if (testId === "love") {
-      const order = Object.keys(LOVE).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(LOVE).sort(byScore(sc));
       return { code: order[0], title: "最会" + LOVE[order[0]], line: "其次是" + LOVE[order[1]] };
     }
     if (testId === "values") {
@@ -813,11 +824,11 @@
       return { code: test.axes.map(([a, b]) => pickAxis(sc, a, b)).join("-"), title: tags.join(" · "), line: "" };
     }
     if (testId === "ennea") {
-      const order = Object.keys(ENNEA).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(ENNEA).sort(byScore(sc));
       return { code: order[0], title: ENNEA[order[0]][0], line: ENNEA[order[0]][1] };
     }
     if (testId === "partner") {
-      const order = Object.keys(PARTNER).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(PARTNER).sort(byScore(sc));
       return { code: order[0], title: "适合你的是：" + PARTNER[order[0]][0], line: PARTNER[order[0]][1] };
     }
     if (testId === "mindage") {
@@ -871,14 +882,14 @@
     }
     if (testId === "piccolor") { const k = topOf({ Mo: 1, Su: 1, Du: 1, Ni: 1 }, sc), M = { Mo: ["清晨", "安静、干净，刚刚醒过来的那种舒服"], Su: ["正午", "亮堂堂的，热闹让你自在"], Du: ["黄昏", "温吞的、有点旧的，带一点舍不得"], Ni: ["深夜", "暗下来才觉得安全，心事都在这时候"] };
       return { code: k, title: "你的颜色时刻：" + M[k][0], line: M[k][1] }; }
-    if (RES[testId]) { const R0 = RES[testId], k = Object.keys(R0.m).sort((a, b) => (sc[b] || 0) - (sc[a] || 0))[0]; return { code: k, title: R0.pre + R0.m[k][0], line: R0.m[k][1] }; }
+    if (RES[testId]) { const R0 = RES[testId], k = Object.keys(R0.m).sort(byScore(sc))[0]; return { code: k, title: R0.pre + R0.m[k][0], line: R0.m[k][1] }; }
     if (testId === "lovebrain") {
       const pct = Math.round((sc.lb || 0) / (3 * test.qs.length) * 100);
       const line = pct < 25 ? "清醒得很，恋爱只是日子的一部分" : pct < 50 ? "会上头，但脑子还在" : pct < 75 ? "已经有点收不住了" : "他说什么都对";
       return { code: String(pct), title: "恋爱脑指数 " + pct + "%", line };
     }
     if (testId === "animal") {
-      const order = Object.keys(ANIMAL).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(ANIMAL).sort(byScore(sc));
       return { code: order[0], title: "像一只" + ANIMAL[order[0]][0], line: ANIMAL[order[0]][1] };
     }
     if (test.custom) return customResult(test, picks);
@@ -937,6 +948,12 @@
     if (kind === "quick") return { say: "这一套是快问快答：" + n + " 道二选一，每题正好两个选项，题短、选项短，一眼就能选。", schema: "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"},{\"t\":\"\"}]}]" };
     return null;
   }
+  // 自己出的算分题：每种结果「随手乱选时」被指到的机会（每个选项算 1／这题选项数）
+  function scoreBalance(t) {
+    const n = (t.results || []).map(() => 0);
+    (t.qs || []).forEach(q => { const os = (q.opts || []).filter(o => o && String(o.t || "").trim()); os.forEach(o => { const r = Number(o.r) || 0; if (n[r] != null) n[r] += 1 / os.length; }); });
+    return n;
+  }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   // 自己做到一半的存档（她 2026-10-23「跟小游戏一样」）：每套一份，做完就清；题删了也一起清
   const DRAFT = "x_zyDraft";
@@ -948,7 +965,8 @@
     if (!test.scored) return { code: "", title: "", line: "", free: true };
     const n = test.results.map(() => 0);
     (picks || []).forEach((p, i) => { const o = test.qs[i] && test.qs[i].opts[p]; if (o && n[o.r] != null) n[o.r]++; });
-    let k = 0; n.forEach((v, i) => { if (v > n[k]) k = i; });
+    // 平了不固定给第一个结果：跟内置题一样按答卷掷签
+    let k = 0; n.forEach((v, i) => { if (v > n[k] || v === n[k] && i !== k && tieHash(test.id + ":" + (picks || []).join(","), String(i)) > tieHash(test.id + ":" + (picks || []).join(","), String(k))) k = i; });
     return { code: String(k), title: test.results[k].title, line: test.results[k].line };
   }
   // 给个主题，用她那条线路出一套（出完进编辑页，她改好了才存）
@@ -958,7 +976,9 @@
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + ka.schema + "}"
       : "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。出 " + n + " 道题，每题 2 到 4 个选项。"
       + "题面是日常里会碰到的具体场景或问题，口语，短；选项是人在那个场景里真的会有的不同反应，彼此拉得开，不让人一眼看出哪个是标准答案，也不出现术语。"
-      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数），让每种结果在各题里都有选项指向。" : "这套不算分，不用写结果。")
+      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数）。"
+        // 别让一种结果白捡（她 2026-10-23「AI 出题能不能提示一下不出这种导向一种结果的」）
+        + "配分要公平：每道题的几个选项各指向不同的结果；全部题算下来，每种结果被指向的次数一样多。指向同一种结果的选项，不要都是更体面、更讨喜、更像「好人」会选的那个——每种结果都要有让人愿意选它的选项。" : "这套不算分，不用写结果。")
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + (scored ? "\"results\":[{\"title\":\"\",\"line\":\"\"}]," : "") + "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"" + (scored ? ",\"r\":0" : "") + "}]}]}";
     const raw = await callAI(route, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
@@ -1568,7 +1588,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
