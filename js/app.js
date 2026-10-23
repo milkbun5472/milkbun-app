@@ -13275,6 +13275,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // raw 看起来是（可能坏掉的）JSON——含这些内部字段、或整体就是 JSON 结构，就别当纯文本直接展示，免得把心声等内部字段泄漏进聊天框
       // 字段名放宽到「可无引号、字段名后可有空格」，再加一条「以 { 或 [ 开头且含 : 」的结构判定，兜住被模型写坏引号的情况
       const protocolFieldRe = /(?:^|[\s{[,]\s*)["'“”‘’]?(word|thought|mood|wearing|action|affinityDelta|whisper|moment|silent|voice|quote)["'“”‘’]?\s*[:：=]/i;
+      // 任何字段名（"photo"、"kind"、"scene"……）带引号跟冒号的样子：上面那张单子列不全，碎块落进气泡就靠这一条认
+      const jsonKeyRe = /["'“”‘’][A-Za-z_][A-Za-z0-9_]*["'“”‘’]\s*[:：]/;
+      const jsonBitRe = /^\s*[,{\[]*\s*["'“”‘’][A-Za-z_][A-Za-z0-9_]*["'“”‘’]\s*[:：]/;
       const looksLikeJSON = protocolFieldRe.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /[:：]/.test(String(raw)));
       // 一整块 HTML 甩在 JSON 外面（照着「别包进 JSON」那种模板做的）：先抠出来，剩下的照常读，卡片最后接回 word
       const _bareCard = typeof pullBareHtmlCard === "function" ? pullBareHtmlCard(raw) : null;
@@ -13292,7 +13295,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed && typeof parsed === "object" && !(Array.isArray(parsed.word) ? parsed.word.some(w => String(w || "").trim()) : String(parsed.word || "").trim())) {
         const _rs = String(raw || ""), _a = _rs.indexOf("{"), _b = _rs.lastIndexOf("}");
         const _outside = (_a >= 0 && _b > _a ? (_rs.slice(0, _a) + "\n" + _rs.slice(_b + 1)) : "").replace(/```(?:json)?/gi, "").trim();
-        if (_outside && !protocolFieldRe.test(_outside)) {
+        // 外面那截本身就是 JSON 的碎块（群里 2026-10-23 截图：JSON 提前收了口，photo 那几格 ,"photo":{"face":true / "kind":"self" / "scene":… 落在大括号外面，
+        //   被当成话一行一个气泡发了出来）：先试着把它接回大括号里重读；接不回去就整截当格式坏了，不拿来当话
+        const _jsonBits = jsonKeyRe.test(_outside);
+        if (_jsonBits && typeof repairJSON === "function") {
+          try { const _re = JSON.parse(repairJSON(_rs.slice(0, _b) + _rs.slice(_b + 1))); if (_re && typeof _re === "object" && !Array.isArray(_re)) parsed = Object.assign({}, _re, parsed.word && (Array.isArray(parsed.word) ? parsed.word.length : String(parsed.word).trim()) ? { word: parsed.word } : {}); } catch (e) {}
+        }
+        if (_outside && !_jsonBits && !protocolFieldRe.test(_outside)) {
           const _lines = _outside.split(/\n+/).map(x => x.trim()).filter(Boolean)
             .flatMap(x => x.match(/[^。！？!?]+[。！？!?…]*[」』"”）)]*|[。！？!?…]+/g) || [x]).map(x => x.trim()).filter(Boolean);
           if (_lines.length) parsed.word = _lines.slice(0, 12);
@@ -13572,7 +13581,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
-      words = words.filter(w => !protocolFieldRe.test(String(w)));
+      words = words.filter(w => !protocolFieldRe.test(String(w)) && !jsonBitRe.test(String(w)));
       // 拿字假装发了一张申请（群里 2026-10-02：「char 会发来一个虚假字面的情侣申请」）：
       //   这一轮本来能写信、他却没填 loveLetter，而是在气泡里写了「[情侣申请] ……」——
       //   那就是他想写信，只是没用对地方。把那几泡收成真的信封卡；本来就不能写信的那几轮不动。
