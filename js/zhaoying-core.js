@@ -1004,6 +1004,12 @@
   function patchRecord(who, id, patch) {
     const all = loadAll(); all[who] = (all[who] || []).map(r => r.id === id ? Object.assign({}, r, patch) : r); saveAll(all);
   }
+  // 首页「最近做过」：所有人的记录摊平按时间排，只留还认得的人和还在的题（她 2026-10-23「题多了不好找记录」）
+  function recentRecords(n, alive) {
+    const all = loadAll(), out = [];
+    Object.keys(all).forEach(w => { if (alive && !alive(w)) return; (all[w] || []).forEach(r => { if (r && r.testId && byId(r.testId)) out.push(Object.assign({ who: w }, r)); }); });
+    return out.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, n || 8);
+  }
   function delRecord(who, id) { const all = loadAll(); all[who] = (all[who] || []).filter(r => r.id !== id); saveAll(all); }
 
   const dateZh = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
@@ -1605,7 +1611,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, recentRecords, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
