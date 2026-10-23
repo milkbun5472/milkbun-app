@@ -129,10 +129,6 @@
       const upItem = (i, v) => up({ items: E.items.map((x, k) => k === i ? v : x) });
       const upQ = (i, patch) => up({ qs: E.qs.map((q, k) => k === i ? Object.assign({}, q, patch) : q) });
       const upO = (i, j, patch) => upQ(i, { opts: E.qs[i].opts.map((o, k) => k === j ? Object.assign({}, o, patch) : o) });
-      const inp = (v, fn, ph, multi) => h(multi ? "textarea" : "input", { value: v || "", placeholder: ph, rows: multi ? 2 : undefined, onChange: e => fn(e.target.value),
-        style: { width: "100%", boxSizing: "border-box", padding: "9px 11px", borderRadius: 10, border: "1px solid " + LINE, background: "#fffaf3", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: INK, outline: "none", resize: "none" } });
-      const lab = t => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: INK, letterSpacing: ".1em", margin: "18px 0 8px" } }, t);
-      const small = (t, fn, color) => h("button", { onClick: fn, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: color || ACC, padding: "4px 2px" } }, t);
       const c = pal(E.id ? E : { id: "new", name: E.name });
       const doGen = async () => {
         if (!gen.theme.trim()) { props.toast && props.toast("先写个主题"); return; }
@@ -143,65 +139,126 @@
         setGen(g2 => Object.assign({}, g2, { busy: false }));
       };
       const save = () => { const t = Z.saveCustom(E); if (!t) { props.toast && props.toast(K === "bracket" ? "淘汰赛要填满 16 样" : itemKind ? "至少写 3 样" : K === "scale" || K === "fill" ? "至少写一道题" : "至少写一道题、每题两个选项"); return; } setEdit(null); setTestId(t.id); bump(x => x + 1); };
-      return page(E.id ? "改这套题" : "出一套题", () => setEdit(null), h("div", { "data-wk": "zyedit" },
-        // 答法（她 2026-10-23）：出题也能出滑杆、填空、排序、拍卖、淘汰赛
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "8px 0 6px" } }, "答法"),
-        h("div", { "data-wk": "zykind", className: "flex gap-2 flex-wrap" }, Z.KINDS.map(([k, zh]) => pill(K === k, zh, () => setKind(k), "zyscenechip"))),
-        K ? null : h("div", { "data-wk": "zyscore", className: "flex gap-2", style: { marginTop: 8 } }, [[false, "不算分", "做完他自己说一句"], [true, "算分", "先定几个结果，选项指过去"]].map(([v, t, d]) =>
-          h("button", { key: t, onClick: () => up({ scored: v, results: v && !(E.results || []).length ? [{ title: "", line: "" }, { title: "", line: "" }] : E.results }), className: "flex-1 text-left active:opacity-70",
-            style: { padding: "10px 12px", borderRadius: 12, border: "1.5px solid " + (!!E.scored === v ? c.deep : LINE), background: !!E.scored === v ? "rgba(255,255,255,.7)" : "transparent" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: !!E.scored === v ? c.deep : INK } }, t),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 2 } }, d)))),
-        K ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 6, lineHeight: 1.6 } }, {
-          quick: "每题两个选项，一口气做完，不写心声。", scale: "每题写一件事，做的人在「绝对不会」到「一定会」之间拖一下。", fill: "每题写半句话，空用 ____，做的人自己往里写。",
-          rank: "列 3 到 8 样东西，做的人从第一排到最后。", bid: "列 3 到 12 样东西，做的人拿 100 枚金币去分。", bracket: "正好 16 样东西，两两对决，一轮轮淘汰。" }[K]) : null,
-        // 给主题让 AI 出
-        h("div", { "data-wk": "zygen", style: { marginTop: 14, padding: 14, borderRadius: 16, background: "linear-gradient(135deg, " + c.a + ", " + c.b + ")" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#2e261e", marginBottom: 8 } }, "给个主题，让 AI 出一套"),
-          inp(gen.theme, v => setGen(Object.assign({}, gen, { theme: v })), "想测什么"),
-          h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
-            itemKind ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: c.deep } }, K === "bracket" ? "出 16 样" : "出一串东西") : [6, 10, 15].map(n => h("button", { key: n, onClick: () => setGen(Object.assign({}, gen, { count: n })), style: { padding: "5px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, background: gen.count === n ? c.deep : "rgba(255,255,255,.6)", color: gen.count === n ? "#fff" : c.deep } }, n + " 题")),
-            h("button", { onClick: doGen, disabled: gen.busy, className: "active:scale-95", style: { marginLeft: "auto", padding: "6px 16px", borderRadius: 999, background: "#2e261e", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13, opacity: gen.busy ? .6 : 1 } }, gen.busy ? "在出…" : "出题 →")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(46,38,30,.6)", marginTop: 6 } }, "出完会填进下面，随便改；会盖掉下面已经写的")),
-        lab("名字"), inp(E.name, v => up({ name: v }), "这套题叫什么"),
-        h("div", { style: { height: 8 } }), inp(E.sub, v => up({ sub: v }), "一句话说测什么（可不写）"),
-        lab("放进哪一类"),
-        h("div", { "data-wk": "zyeditcat", className: "flex gap-2 flex-wrap" }, [["", "自己出的"], ["xg", "性格"], ["gx", "关系"], ["xl", "心里"], ["wan", "好玩"]].map(([k, zh]) =>
-          h("button", { key: k || "mine", onClick: () => up({ cat: k }), className: "active:opacity-70", style: { minHeight: 40, padding: "6px 14px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13,
-            border: "1.5px solid " + ((E.cat || "") === k ? c.deep : LINE), color: (E.cat || "") === k ? c.deep : INK, background: (E.cat || "") === k ? "rgba(255,255,255,.7)" : "transparent" } }, zh))),
-        // 排序／拍卖／淘汰赛：改条目
-        itemKind ? h(Fragment, null,
-          K === "rank" ? h(Fragment, null, lab("排第一的那一位叫什么"), inp(E.rankHead, v => up({ rankHead: v }), "比如：最先顾的、最不能接受的")) : null,
-          lab((K === "bracket" ? "参赛的十六样" : K === "bid" ? "拍卖的东西" : "要排的东西") + "（" + E.items.filter(x => String(x || "").trim()).length + (K === "bracket" ? " / 16" : "") + "）"),
-          h("div", { "data-wk": "zyedititems", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 } }, E.items.map((x, i) => h("div", { key: i, className: "flex items-center gap-1" },
-            h("div", { style: { flex: 1, minWidth: 0 } }, inp(x, v => upItem(i, v), (i + 1) + "")),
-            K !== "bracket" ? small("✕", () => up({ items: E.items.filter((y, k) => k !== i) }), FOG) : null))),
-          K !== "bracket" && E.items.length < (K === "bid" ? 12 : 8) ? small("＋ 加一样", () => up({ items: [...E.items, ""] })) : null,
-          K === "bracket" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 4 } }, "1 对 2、3 对 4……按这个顺序开打") : null) : null,
-        K === "scale" ? h(Fragment, null, lab("总分叫什么"), inp(E.scale, v => up({ scale: v }), "比如：胆量、心软指数")) : null,
-        !K && E.scored ? h(Fragment, null, lab("结果（选哪个结果的选项最多，就测出哪个）"),
-          (E.results || []).map((r, k) => h("div", { key: k, style: { display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 8 } },
-            h("span", { style: { flexShrink: 0, width: 22, height: 22, marginTop: 8, borderRadius: 999, background: c.deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, String.fromCharCode(65 + k)),
-            h("div", { style: { flex: 1 } }, inp(r.title, v => up({ results: E.results.map((x, i) => i === k ? Object.assign({}, x, { title: v }) : x) }), "结果名字"),
-              h("div", { style: { height: 5 } }), inp(r.line, v => up({ results: E.results.map((x, i) => i === k ? Object.assign({}, x, { line: v }) : x) }), "一句说明（可不写）")),
-            E.results.length > 2 ? small("✕", () => up({ results: E.results.filter((x, i) => i !== k), qs: E.qs.map(q => Object.assign({}, q, { opts: q.opts.map(o => Object.assign({}, o, { r: (o.r || 0) > k ? o.r - 1 : (o.r === k ? 0 : o.r) })) })) }), FOG) : null)),
-          (E.results || []).length < 8 ? small("＋ 加一个结果", () => up({ results: [...(E.results || []), { title: "", line: "" }] })) : null) : null,
-        itemKind ? null : lab("题目（" + E.qs.length + "）"),
-        itemKind ? null : E.qs.map((q, i) => h("div", { key: i, "data-wk": "zyeditq", style: { padding: 12, marginBottom: 10, borderRadius: 14, background: "#fffaf3", border: "1px solid " + LINE } },
-          h("div", { className: "flex items-center", style: { marginBottom: 6 } }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: c.deep, flex: 1 } }, "Q" + (i + 1)),
-            i > 0 ? small("↑", () => { const a = E.qs.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; up({ qs: a }); }, FOG) : null,
-            small("删这题", () => up({ qs: E.qs.filter((x, k) => k !== i) }), "#b85c5c")),
-          inp(q.q, v => upQ(i, { q: v }), K === "fill" ? "半句话，空用 ____" : K === "scale" ? "一件事" : "题目", true),
-          K === "scale" || K === "fill" ? null : (q.opts || []).map((o, j) => h("div", { key: j, className: "flex items-center gap-2", style: { marginTop: 6 } },
-            h("span", { style: { flexShrink: 0, width: 12, height: 12, borderRadius: 999, border: "1.5px solid #cbbca9" } }),
-            h("div", { style: { flex: 1 } }, inp(o.t, v => upO(i, j, { t: v }), "选项 " + (j + 1))),
-            E.scored ? h("select", { value: o.r || 0, onChange: e => upO(i, j, { r: Number(e.target.value) }), style: { flexShrink: 0, padding: "8px 4px", borderRadius: 8, border: "1px solid " + LINE, background: "#fffaf3", fontFamily: F_BODY, fontSize: 12.5, color: c.deep } },
-              (E.results || []).map((r, k) => h("option", { key: k, value: k }, "→" + String.fromCharCode(65 + k) + (r.title ? " " + r.title.slice(0, 4) : "")))) : null,
-            q.opts.length > 2 ? small("✕", () => upQ(i, { opts: q.opts.filter((x, k) => k !== j) }), FOG) : null)),
-          K || (q.opts || []).length >= 4 ? null : small("＋ 选项", () => upQ(i, { opts: [...q.opts, { t: "", r: 0 }] })))),
-        itemKind ? null : h("button", { onClick: () => up({ qs: [...E.qs, { q: "", opts: [{ t: "", r: 0 }, { t: "", r: 0 }] }] }), className: "w-full active:opacity-70", style: { padding: "11px 0", borderRadius: 14, border: "1.5px dashed " + LINE, fontFamily: F_BODY, fontSize: 13, color: FOG } }, "＋ 加一题"),
-        h("button", { "data-wk": "zysave", onClick: save, className: "w-full active:scale-[.98]", style: { marginTop: 18, padding: "13px 0", borderRadius: 999, background: c.deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: 15, letterSpacing: ".08em", boxShadow: "0 6px 16px -6px " + c.deep } }, "存好"),
-        E.id ? h("button", { onClick: () => requestAppConfirm("删掉这套题？", "题删了，做过这套的记录也就看不到了。", () => { Z.delCustom(E.id); setEdit(null); setTestId(null); bump(x => x + 1); }, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#b85c5c" } }, "删掉这套题") : null));
+      // ── 这一页是一张正在出的卷子（她 2026-10-23「这个页面 ui 也还是简陋啊」）──
+      //   上面一排是「题型卡」：每张画着那种答法长什么样；AI 出题是贴在卷子上的便签；底下是装订好的卷面，题号照卷子的样子排
+      const CN = "一二三四五六七八九十";
+      const qNo = i => i < 10 ? CN[i] : i < 20 ? "十" + (i === 10 ? "" : CN[i - 11]) : String(i + 1);
+      const line = (v, fn, ph, o) => h(o && o.multi ? "textarea" : "input", { value: v || "", placeholder: ph, rows: o && o.multi ? 2 : undefined, onChange: e => fn(e.target.value),
+        style: Object.assign({ width: "100%", boxSizing: "border-box", padding: "8px 2px", border: "none", borderBottom: "1px solid " + LINE, background: "transparent", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: INK, outline: "none", resize: "none", lineHeight: 1.6 }, (o && o.style) || {}) });
+      const iconBtn = (t, fn, color, label) => h("button", { onClick: fn, "aria-label": label || t, className: "active:opacity-50", style: { flexShrink: 0, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 14, color: color || FOG } }, t);
+      const addRow = (t, fn) => h("button", { onClick: fn, className: "w-full active:opacity-60", style: { minHeight: 44, marginTop: 6, borderRadius: 10, border: "1.5px dashed " + LINE, fontFamily: F_BODY, fontSize: 13, color: c.deep, background: "transparent" } }, t);
+      const sec = (t, sub) => h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, margin: "22px 0 8px", paddingBottom: 6, borderBottom: "2px solid " + INK } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: INK, letterSpacing: ".12em" } }, t),
+        sub ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, sub) : null);
+      // 题型卡上那幅小画：一眼看出这种答法长什么样
+      const mini = k => {
+        const ink = "rgba(46,38,30,.55)", bar = (w, o) => h("span", { style: Object.assign({ display: "block", height: 3, width: w, borderRadius: 2, background: ink }, o || {}) });
+        const dot = on => h("span", { style: { width: 7, height: 7, borderRadius: 999, border: "1.5px solid " + ink, background: on ? ink : "transparent", flexShrink: 0 } });
+        const row = (kids, o) => h("span", { style: Object.assign({ display: "flex", alignItems: "center", gap: 4 }, o || {}) }, kids);
+        if (k === "") return h("span", { style: { display: "flex", flexDirection: "column", gap: 5 } }, [0, 1, 2].map(i => row([dot(i === 1), bar(i === 1 ? 26 : 20)], { key: i })));
+        if (k === "quick") return row([h("span", { key: 1, style: { width: 20, height: 22, borderRadius: 4, border: "1.5px solid " + ink, background: ink } }), h("span", { key: 2, style: { fontSize: 9, color: ink } }, "/"), h("span", { key: 3, style: { width: 20, height: 22, borderRadius: 4, border: "1.5px solid " + ink } })]);
+        if (k === "scale") return h("span", { style: { position: "relative", display: "block", width: 46, height: 14 } }, h("span", { style: { position: "absolute", left: 0, right: 0, top: 6, height: 2, background: ink } }), h("span", { style: { position: "absolute", left: 28, top: 1, width: 12, height: 12, borderRadius: 999, background: ink } }));
+        if (k === "fill") return row([h("span", { key: 1, style: { fontSize: 11, color: ink, fontFamily: F_DISPLAY } }, "我"), bar(30, { key: 2, height: 1.5, marginTop: 10 })]);
+        if (k === "rank") return h("span", { style: { display: "flex", flexDirection: "column", gap: 4 } }, [30, 22, 14].map((w, i) => row([h("span", { key: "n", style: { fontSize: 9, color: ink, width: 6 } }, i + 1), bar(w)], { key: i })));
+        if (k === "bid") return row([10, 14, 18].map((d, i) => h("span", { key: i, style: { width: d, height: d, borderRadius: 999, border: "1.5px solid " + ink, background: i === 2 ? ink : "transparent" } })), { alignItems: "flex-end" });
+        return h("span", { style: { display: "flex", alignItems: "center" } },
+          h("span", { style: { display: "flex", flexDirection: "column", gap: 8 } }, [0, 1].map(i => h("span", { key: i, style: { width: 14, height: 10, borderTop: "1.5px solid " + ink, borderBottom: "1.5px solid " + ink, borderRight: "1.5px solid " + ink } }))),
+          h("span", { style: { width: 10, height: 18, borderTop: "1.5px solid " + ink, borderBottom: "1.5px solid " + ink, borderRight: "1.5px solid " + ink } }), bar(10, { height: 1.5 }));
+      };
+      const kindTip = { "": "每题几个选项，挑一个", quick: "两个选项，一口气做完", scale: "每题拖一下，不会到一定会", fill: "半句话，自己往空里写", rank: "一串东西排先后", bid: "100 枚金币分给几样东西", bracket: "16 样两两对决" };
+      const nQ = itemKind ? E.items.filter(x => String(x || "").trim()).length : E.qs.length;
+      return page(E.id ? "改这套题" : "出一套题", () => setEdit(null), h("div", { "data-wk": "zyedit", style: { paddingBottom: 20 } },
+        // 题型卡：横着一排小卷子，挑中的那张抬起来、顶上一道颜色
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, margin: "6px 2px 8px", letterSpacing: ".15em" } }, "题 型"),
+        h("div", { "data-wk": "zykind", role: "tablist", className: "flex overflow-x-auto", style: { gap: 10, padding: "6px 2px 12px", margin: "0 -2px" } }, Z.KINDS.map(([k, zh]) => {
+          const on = K === k;
+          return h("button", { key: k || "choice", role: "tab", "aria-selected": on, "data-on": on ? "1" : "0", onClick: () => setKind(k), className: "shrink-0 active:scale-95",
+            style: { position: "relative", width: 76, height: 92, borderRadius: 8, overflow: "hidden", background: on ? "#fffdf8" : "rgba(255,253,248,.55)", border: "1px solid " + (on ? c.deep : LINE),
+              boxShadow: on ? "0 10px 18px -10px " + c.deep : "none", transform: on ? "translateY(-4px)" : "none", transition: "all .2s", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 10 } },
+            h("span", { style: { position: "absolute", left: 0, right: 0, top: 0, height: on ? 5 : 0, background: c.deep, transition: "height .2s" } }),
+            h("span", { style: { height: 40, display: "flex", alignItems: "center", justifyContent: "center", opacity: on ? 1 : .6 } }, mini(k)),
+            h("span", { style: { marginTop: 8, fontFamily: F_DISPLAY, fontSize: 13, color: on ? c.deep : INK } }, zh),
+            on ? h("span", { style: { position: "absolute", right: 6, bottom: 5, fontSize: 10, color: c.deep } }, "✓") : null);
+        })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: c.deep, margin: "0 2px" } }, "「" + (Z.KINDS.find(x => x[0] === K) || ["", ""])[1] + "」" + kindTip[K]),
+        // AI 出题：一张贴在卷子上的便签，上面一截胶带
+        h("div", { "data-wk": "zygen", style: { position: "relative", margin: "20px 6px 6px", padding: "18px 14px 12px", background: "linear-gradient(170deg, " + c.a + ", " + c.b + ")", boxShadow: "0 8px 16px -10px rgba(0,0,0,.35)", transform: "rotate(-.8deg)", borderRadius: 3 } },
+          h("span", { "aria-hidden": true, style: { position: "absolute", top: -9, left: "50%", width: 64, height: 18, marginLeft: -32, background: "rgba(255,255,255,.55)", transform: "rotate(2deg)", boxShadow: "0 1px 2px rgba(0,0,0,.08)" } }),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#2e261e", marginBottom: 4 } }, "懒得写？给个主题，让 AI 出"),
+          line(gen.theme, v => setGen(Object.assign({}, gen, { theme: v })), "想测什么，比如：你是哪种猫", { style: { borderBottom: "1px solid rgba(46,38,30,.35)", color: "#2e261e" } }),
+          h("div", { className: "flex items-center", style: { marginTop: 10, gap: 6 } },
+            itemKind ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: c.deep } }, K === "bracket" ? "会出正好 16 样" : "会出一串东西")
+              : [6, 10, 15].map(n => h("button", { key: n, onClick: () => setGen(Object.assign({}, gen, { count: n })), "data-on": gen.count === n ? "1" : "0",
+                  style: { minWidth: 44, minHeight: 40, fontFamily: F_DISPLAY, fontSize: 13, color: gen.count === n ? "#2e261e" : "rgba(46,38,30,.5)", borderBottom: "2px solid " + (gen.count === n ? "#2e261e" : "transparent") } }, n + " 题")),
+            h("button", { onClick: doGen, disabled: gen.busy, className: "active:scale-95", style: { marginLeft: "auto", minHeight: 40, padding: "0 16px", borderRadius: 999, background: "#2e261e", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13, opacity: gen.busy ? .6 : 1 } }, gen.busy ? "在出…" : "出题 →")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(46,38,30,.6)", marginTop: 4 } }, "出完填进下面的卷子，随便改；会盖掉已经写的")),
+        // 卷面：左边一道装订线，三个孔
+        h("div", { "data-wk": "zypaper", style: { position: "relative", marginTop: 18, padding: "20px 16px 18px 30px", background: "#fffdf8", borderRadius: 4, boxShadow: "0 1px 0 " + LINE + ", 0 10px 24px -16px rgba(0,0,0,.35)" } },
+          h("span", { "aria-hidden": true, style: { position: "absolute", left: 16, top: 10, bottom: 10, borderLeft: "1px dashed " + LINE } }),
+          ["14%", "50%", "86%"].map((y, k) => h("span", { key: k, "aria-hidden": true, style: { position: "absolute", left: 6, top: y, width: 8, height: 8, borderRadius: 999, background: PAPER, boxShadow: "inset 0 1px 2px rgba(0,0,0,.18)" } })),
+          // 卷头：大标题、一句说明、类别印章
+          h("div", { style: { textAlign: "center" } },
+            line(E.name, v => up({ name: v }), "给这套题起个名字", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(22px * var(--app-fs, 1))", borderBottom: "3px double " + INK, padding: "4px 2px 6px" } }),
+            line(E.sub, v => up({ sub: v }), "一句话说测什么（可不写）", { style: { textAlign: "center", fontSize: 12.5, color: "#6d6255", borderBottom: "none", marginTop: 2 } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 2, letterSpacing: ".1em" } }, (itemKind ? "共 " + nQ + " 样" : "共 " + nQ + " 题") + " · " + (Z.KINDS.find(x => x[0] === K) || ["", ""])[1])),
+          // 类别：一排小印章，盖上的那枚是实心的
+          h("div", { "data-wk": "zyeditcat", className: "flex justify-center flex-wrap", style: { gap: 8, marginTop: 14 } }, [["", "自出"], ["xg", "性格"], ["gx", "关系"], ["xl", "心里"], ["wan", "好玩"]].map(([k, zh]) => {
+            const on = (E.cat || "") === k;
+            return h("button", { key: k || "mine", onClick: () => up({ cat: k }), "aria-pressed": on, className: "active:scale-95",
+              style: { width: 44, height: 44, borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 12, letterSpacing: ".05em", color: on ? "#fffdf8" : c.deep, background: on ? c.deep : "transparent",
+                border: "1.5px " + (on ? "solid " : "dashed ") + c.deep, opacity: on ? 1 : .55, transform: on ? "rotate(-8deg)" : "none", transition: "all .2s" } }, zh);
+          })),
+          // 选择题：算不算分，写成卷子上的两个勾选框
+          K ? null : h("div", { "data-wk": "zyscore", style: { display: "flex", gap: 14, marginTop: 16, justifyContent: "center", flexWrap: "wrap" } }, [[false, "不算分", "做完说一句感觉"], [true, "算分", "选项指向结果"]].map(([v, t, d]) =>
+            h("button", { key: t, onClick: () => up({ scored: v, results: v && !(E.results || []).length ? [{ title: "", line: "" }, { title: "", line: "" }] : E.results }), "aria-pressed": !!E.scored === v, className: "active:opacity-70",
+              style: { display: "flex", alignItems: "center", gap: 6, minHeight: 40, fontFamily: F_BODY, fontSize: 13, color: !!E.scored === v ? INK : FOG } },
+              h("span", { style: { width: 16, height: 16, border: "1.5px solid " + (!!E.scored === v ? c.deep : FOG), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: c.deep } }, !!E.scored === v ? "✓" : ""),
+              t, h("span", { style: { fontSize: 11, color: FOG } }, d)))),
+          // 结果：每种结果一张小签，左边一个字母印
+          !K && E.scored ? h(Fragment, null, sec("结 果", "选哪个结果的选项最多，就测出哪个"),
+            (E.results || []).map((r, k) => h("div", { key: k, style: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 6 } },
+              h("span", { style: { flexShrink: 0, width: 28, height: 28, marginTop: 6, borderRadius: 999, border: "1.5px solid " + c.deep, color: c.deep, fontFamily: F_DISPLAY, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(-6deg)" } }, String.fromCharCode(65 + k)),
+              h("div", { style: { flex: 1, minWidth: 0 } }, line(r.title, v => up({ results: E.results.map((x, i) => i === k ? Object.assign({}, x, { title: v }) : x) }), "结果名字", { style: { fontFamily: F_DISPLAY } }),
+                line(r.line, v => up({ results: E.results.map((x, i) => i === k ? Object.assign({}, x, { line: v }) : x) }), "一句说明（可不写）", { style: { fontSize: 12.5, borderBottom: "1px dashed " + LINE } })),
+              E.results.length > 2 ? iconBtn("✕", () => up({ results: E.results.filter((x, i) => i !== k), qs: E.qs.map(q => Object.assign({}, q, { opts: q.opts.map(o => Object.assign({}, o, { r: (o.r || 0) > k ? o.r - 1 : (o.r === k ? 0 : o.r) })) })) }), FOG, "删这个结果") : null)),
+            (E.results || []).length < 8 ? addRow("＋ 再加一种结果", () => up({ results: [...(E.results || []), { title: "", line: "" }] })) : null) : null,
+          K === "scale" ? h(Fragment, null, sec("总 分", "做完显示成「它 N / 10」"), line(E.scale, v => up({ scale: v }), "总分叫什么，比如：胆量、心软指数")) : null,
+          // 排序：一张名次表；拍卖：一张拍品单；淘汰赛：八组对阵
+          itemKind ? h(Fragment, null,
+            K === "rank" ? h(Fragment, null, sec("名 次 表", "第一位叫什么"), line(E.rankHead, v => up({ rankHead: v }), "比如：最先顾的、最不能接受的")) : null,
+            sec(K === "bracket" ? "对 阵 表" : K === "bid" ? "拍 品 单" : "要 排 的", K === "bracket" ? nQ + " / 16 · 上下两个一组开打" : K === "bid" ? "每人 100 枚金币" : "做的人自己排先后"),
+            h("div", { "data-wk": "zyedititems" }, K === "bracket"
+              ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, [0, 1, 2, 3, 4, 5, 6, 7].map(m => h("div", { key: m, style: { position: "relative", padding: "4px 18px 4px 8px", border: "1px solid " + LINE, borderRadius: 6 } },
+                  h("span", { style: { position: "absolute", right: 4, top: "50%", marginTop: -8, fontFamily: F_DISPLAY, fontSize: 10, color: c.deep } }, "vs"),
+                  [0, 1].map(j => h("div", { key: j }, line(E.items[2 * m + j], v => upItem(2 * m + j, v), (2 * m + j + 1) + "", { style: { fontSize: 13, padding: "6px 2px", borderBottom: j ? "none" : "1px dashed " + LINE } }))))))
+              : E.items.map((x, i) => h("div", { key: i, className: "flex items-center", style: { gap: 8 } },
+                  K === "rank" ? h("span", { style: { width: 24, flexShrink: 0, fontFamily: F_DISPLAY, fontSize: i < 3 ? 20 : 15, color: i < 3 ? c.deep : FOG, textAlign: "center" } }, i + 1)
+                    : h("span", { style: { width: 22, height: 22, flexShrink: 0, borderRadius: 999, border: "1.5px solid " + c.deep, color: c.deep, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" } }, "¥"),
+                  h("div", { style: { flex: 1, minWidth: 0 } }, line(x, v => upItem(i, v), K === "bid" ? "一件拍品" : "一样东西")),
+                  iconBtn("✕", () => up({ items: E.items.filter((y, k) => k !== i) }), FOG, "删掉这一样")))),
+            K !== "bracket" && E.items.length < (K === "bid" ? 12 : 8) ? addRow("＋ 再加一样", () => up({ items: [...E.items, ""] })) : null) : null,
+          // 题目：一、二、三……像卷子那样排
+          itemKind ? null : sec("题 目", K === "fill" ? "空用 ____ 表示" : K === "scale" ? "每题一件事" : K === "quick" ? "每题两个选项" : "每题 2 到 4 个选项"),
+          itemKind ? null : E.qs.map((q, i) => h("div", { key: i, "data-wk": "zyeditq", style: { padding: "6px 0 12px", borderBottom: "1px dashed " + LINE } },
+            h("div", { className: "flex items-start", style: { gap: 6 } },
+              h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 15, color: c.deep, paddingTop: 8, minWidth: 28 } }, qNo(i) + "、"),
+              h("div", { style: { flex: 1, minWidth: 0 } }, line(q.q, v => upQ(i, { q: v }), K === "fill" ? "半句话，比如：我最怕 ____" : K === "scale" ? "一件事，比如：一个人去旅行" : "题目", { multi: true, style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } })),
+              i > 0 ? iconBtn("↑", () => { const a = E.qs.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; up({ qs: a }); }, FOG, "往上挪") : null,
+              iconBtn("✕", () => up({ qs: E.qs.filter((x, k) => k !== i) }), "#b85c5c", "删这题")),
+            K === "scale" ? h("div", { style: { margin: "6px 0 0 34px", display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: FOG } }, "绝对不会", h("span", { style: { flex: 1, height: 2, background: LINE } }), "一定会") : null,
+            K === "scale" || K === "fill" ? null : h("div", { style: { marginLeft: 34 } }, (q.opts || []).map((o, j) => h("div", { key: j, className: "flex items-center", style: { gap: 6 } },
+              h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 12, color: FOG, width: 14 } }, String.fromCharCode(65 + j)),
+              h("span", { style: { flexShrink: 0, width: 12, height: 12, borderRadius: 999, border: "1.5px solid #cbbca9" } }),
+              h("div", { style: { flex: 1, minWidth: 0 } }, line(o.t, v => upO(i, j, { t: v }), "选项", { style: { fontSize: 13.5, borderBottom: "1px dashed " + LINE } })),
+              E.scored ? h("select", { value: o.r || 0, onChange: e => upO(i, j, { r: Number(e.target.value) }), "aria-label": "指向哪个结果", style: { flexShrink: 0, minHeight: 40, padding: "0 4px", border: "none", borderBottom: "1.5px solid " + c.deep, background: "transparent", fontFamily: F_DISPLAY, fontSize: 12.5, color: c.deep } },
+                (E.results || []).map((r, k) => h("option", { key: k, value: k }, "→" + String.fromCharCode(65 + k) + (r.title ? " " + r.title.slice(0, 4) : "")))) : null,
+              q.opts.length > 2 ? iconBtn("✕", () => upQ(i, { opts: q.opts.filter((x, k) => k !== j) }), FOG, "删这个选项") : null)),
+              K || (q.opts || []).length >= 4 ? null : h("button", { onClick: () => upQ(i, { opts: [...q.opts, { t: "", r: 0 }] }), className: "active:opacity-60", style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: c.deep } }, "＋ 再加一个选项")))),
+          itemKind ? null : addRow("＋ 再出一题", () => up({ qs: [...E.qs, { q: "", opts: [{ t: "", r: 0 }, { t: "", r: 0 }] }] }))),
+        // 收卷：一枚印章似的按钮
+        h("button", { "data-wk": "zysave", onClick: save, className: "w-full active:scale-[.98]", style: { marginTop: 22, minHeight: 50, borderRadius: 999, background: c.deep, color: "#fff", fontFamily: F_DISPLAY, fontSize: 16, letterSpacing: ".3em", boxShadow: "0 8px 18px -8px " + c.deep } }, "收 卷"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, textAlign: "center", marginTop: 6 } }, "存好就能发给他做、自己做"),
+        E.id ? h("button", { onClick: () => requestAppConfirm("删掉这套题？", "题删了，做过这套的记录也就看不到了。", () => { Z.delCustom(E.id); setEdit(null); setTestId(null); bump(x => x + 1); }, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 10, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: "#b85c5c" } }, "删掉这套题") : null));
     }
 
     // ── 正在做 ──

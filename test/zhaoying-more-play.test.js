@@ -353,3 +353,12 @@ console.log("ok");
   assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /genTest\(p, theme, count, scored, kind\)/);
   assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8"), /"data-wk": "zykind"/);
 }
+
+// 出题页是一张卷子（她 2026-10-23「这个页面 ui 也还是简陋啊」）：题型卡不是一排药丸；卷面、收卷都在
+{
+  const assert = require("node:assert/strict");
+  const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
+  const a = zy.indexOf("// ── 出题／改题 ──"), b = zy.indexOf("// ── 正在做 ──"), ed = zy.slice(a, b);
+  assert.match(ed, /"data-wk": "zykind", role: "tablist"/); assert.doesNotMatch(ed, /pill\(K === k/);
+  assert.match(ed, /"data-wk": "zypaper"/); assert.match(ed, /const mini = k =>/); assert.match(ed, /"收 卷"/);
+}
