@@ -11704,16 +11704,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 替她付购物车（群里 2026-10-22「反查手机他能看到我的购物车，能不能帮我清空购物车」）：跟她替TA付是反过来的同一件事——
     //   从TA钱包扣，那几件从她购物车里拿掉，变成「TA替你付的」订单
     if (step.do === "paycart") {
-      const cartNow = loadJSON("x_shopCart", []) || [];
-      const want = (step.items || []).map(x => String(x || "").trim()).filter(Boolean);
-      const pick = want.length ? cartNow.filter(x => x && x.name && want.some(w => x.name === w || x.name.includes(w) || w.includes(x.name))) : cartNow.slice();
-      if (!pick.length) return;
-      const total = Math.round(pick.reduce((n, x) => n + (Number(x.price) || 0), 0) * 100) / 100;
-      walletSpend(viewerId, total, "翻 " + userName(profile) + " 手机时替她付了购物车", "gift");
-      removeCartUids(pick.map(x => x.uid));
-      pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: viewerId, payLabel: vn + " 替你付的" }));
-      const names = pick.map(x => x.name).join("、");
-      note("「" + vn + "」翻你手机时替你把购物车里的 " + names + " 付了（¥" + total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + names);
+      const paid = payHerCart(viewerId, step.items, "翻 " + userName(profile) + " 手机时替她付了购物车", vn + " 替你付的");
+      if (paid) note("「" + vn + "」翻你手机时替你把购物车里的 " + paid.names + " 付了（¥" + paid.total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + paid.names);
       return;
     }
     if (step.do === "unblockme") {
@@ -22757,7 +22749,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characters.forEach(c => { const shown = c.remark || c.name; if (names.has(shown) || names.has(c.name)) rows.push("「" + shown + "」＝角色「" + c.name + "」" + (shown !== c.name ? "（这是她给TA存的备注，不是TA的名字，也不是她）" : "")); });
         return rows.length ? "\n【评论区里谁是谁】" + rows.join("；") + "；「" + meName + "」＝用户本人，评论区里只有这一个是她。角色之间照各自的关系说话，别把另一个角色当成她。" : "";
       })();
-      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
+      const system = bundle + (isMine ? MOMENT_TAKEOUT_ASK + momentCartAsk() + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -22770,7 +22762,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         && !(r.replyTo && momReplyToStranger(r.author, r.replyTo)) && !(author && momStrangerTo(author, r.author)));
       // 不编人只靠提示词管，代码不丢（她 2026-10-22：「不要丢，就怕模型写了认不出来的名字格式，丢掉就没了」）
       if (!reps.length) { if (!more) toast("这次没人接话，点「更多评论」再来一轮"); return; }
-      if (isMine) momentTakeouts(reps, "author");
+      if (isMine) { momentTakeouts(reps, "author"); momentCarts(reps, "author"); }
       // 前缀：原档（我刚评论过）一律「回复 我：」；刷更多那一档按模型填的 replyTo 来——
       // 而且只认【评论区里真出现过的名字】，模型凭空造一个人就当它没填（回动态本身）。
       const inThreadNames = [...new Set((mom.comments || []).map(c => momentWho(c && c.author)).filter(Boolean))];
@@ -22885,6 +22877,36 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 在她朋友圈底下说「点给你了」就真点（群里 2026-10-22：评论里说给她点了奶茶，私聊和外卖订单里都没有，回私聊还不认）：
   //   跟私聊同一个下单口 postCharTakeout——卡落进私聊，那张卡本身就在聊天记录里，他回私聊自然知道，不另往上下文里塞朋友圈
   const MOMENT_TAKEOUT_ASK = "\n【真给她点吃的喝的】只有正式角色能点，配角不行。看到她说想吃想喝、累了饿了，谁真打算给她点一份外卖，就在TA那一项里加 \"takeout\":{\"shop\":\"店名\",\"items\":[\"点的东西\"],\"note\":\"一句备注\"}，会从TA钱包扣钱、真送到她那儿；嘴上说点了就要填，没打算点就别说已经点了。";
+  // 替她付购物车（翻她手机、朋友圈两处共用这一份）：items 是要付的那几件的名字，空着＝全付。
+  //   从TA钱包扣；钱包没开通或者钱不够就一件都不动（原来翻手机那处不看扣没扣成，钱没扣东西照样从购物车里没了）
+  const payHerCart = (charId, items, ledgerWhy, payLabel) => {
+    const cartNow = loadJSON("x_shopCart", []) || [];
+    const want = (Array.isArray(items) ? items : []).map(x => String(x || "").trim()).filter(Boolean);
+    const pick = want.length ? cartNow.filter(x => x && x.name && want.some(w => x.name === w || x.name.includes(w) || w.includes(x.name))) : cartNow.slice();
+    if (!pick.length) return null;
+    const total = Math.round(pick.reduce((n, x) => n + (Number(x.price) || 0), 0) * 100) / 100;
+    if (!walletSpend(charId, total, ledgerWhy, "gift")) return null;
+    removeCartUids(pick.map(x => x.uid));
+    pick.forEach(x => addOrder({ name: x.name, price: x.price, cat: x.cat, fromCharId: charId, payLabel: payLabel }));
+    return { names: pick.map(x => x.name).join("、"), total: total };
+  };
+  // 朋友圈里替她付购物车（她 2026-10-23）：她的朋友圈、她购物车里真有东西时才问；跟点外卖同一个形状
+  const momentCartAsk = () => {
+    const cart = (loadJSON("x_shopCart", []) || []).filter(x => x && x.name);
+    if (!cart.length) return "";
+    return "\n【替她付购物车】她购物车里现在有：" + cart.slice(0, 12).map(x => x.name + "（¥" + (Number(x.price) || 0) + "）").join("、") + (cart.length > 12 ? " 等 " + cart.length + " 件" : "")
+      + "。只有正式角色能付，配角不行。看到她在说想清购物车、看中了什么、舍不得买，谁真打算替她付，就在TA那一项里加 \"paycart\":[\"要付的那几件，照上面原样抄名字；全付就留空数组\"]，会从TA钱包扣钱、东西变成她的订单；付不付、付哪几件照这个人的性子和手头来，嘴上说付了就要填，没打算付就别说已经付了。";
+  };
+  const momentCarts = (rows, nameKey) => (rows || []).forEach(r => {
+    if (!r || !Array.isArray(r.paycart)) return;
+    const nm = momentWho(r[nameKey || "name"]);
+    const c = liveChars.find(x => x && (x.name === nm || x.remark === nm));
+    if (!c || c.npc) return;
+    try {
+      const paid = payHerCart(c.id, r.paycart, "看到 " + userName(profile) + " 的朋友圈，替她付了购物车", (c.remark || c.name) + " 替你付的");
+      if (paid) toast("「" + (c.remark || c.name) + "」看到你的朋友圈，替你付了 " + paid.names + "（¥" + paid.total + "）");
+    } catch (e) {}
+  });
   const momentTakeouts = (rows, nameKey) => (rows || []).forEach(r => {
     if (!r || !r.takeout || typeof r.takeout !== "object") return;
     const nm = momentWho(r[nameKey || "name"]);
@@ -22945,7 +22967,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
         + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
         + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n" + MOMENT_TAKEOUT_ASK + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + ",\"takeout\":\"可省略\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}" + momStrangerPairs(canSee);
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? (Array.isArray(mom.images) && mom.images.length > 1 ? "（配了 " + mom.images.length + " 张图片）" : "（配了一张图片）") : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + remindAsk + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n" + MOMENT_TAKEOUT_ASK + momentCartAsk() + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + ",\"takeout\":\"可省略\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}" + momStrangerPairs(canSee);
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -22970,6 +22992,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (top) likers.push(momentWho(top.name));
         }
         momentTakeouts(d.reactions, "name"); momentTakeouts(d.replies, "name");
+        momentCarts(d.reactions, "name"); momentCarts(d.replies, "name");
         const votes = {};
         if (mom.poll) (d.reactions || []).forEach(r => { const v = Number(r && r.vote); if (r && r.name && v >= 1 && v <= mom.poll.options.length) votes[momentWho(r.name)] = v - 1; });
         (d.replies || []).forEach(r => {
