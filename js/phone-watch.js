@@ -1162,7 +1162,7 @@
       // noKnock：借这条控制条去看别的（照影看他做题，她 2026-10-22「借用公共形状」）——那边没有「敲一下」
       p.noKnock ? null : h("button", { onClick: p.onKnock, disabled: !!p.knocking || left <= 0 || p.done, className: "active:opacity-60 disabled:opacity-35",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#1c1a16", background: "rgba(255,255,255,.92)", borderRadius: 999, padding: "5px 13px", border: "none" } },
-        p.knocking ? "…" : left <= 0 ? characterText(p.char, "他不理了") : p.knocks ? "敲一下 · " + left : "敲一下"),
+        p.knocking ? "…" : p.knockText || (left <= 0 ? characterText(p.char, "他不理了") : p.knocks ? "敲一下 · " + left : "敲一下")),
       h("button", { onClick: p.onClose, className: "active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,255,255,.8)", padding: "5px 4px", background: "transparent", border: "none" } },
         "退出"));

@@ -33983,6 +33983,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const c = characters.find(x => x.id === zyWatch.charId);
     return rec ? h(window.ZhaoyingWatch, { key: zyWatch.recId, testId: zyWatch.testId, rec, name: c ? (c.remark || c.name) : "他",
       onDone: () => zyWatchDone(zyWatch), onClose: () => setZyWatch(null),
+      // 敲一敲（她 2026-10-23）：她在旁边说一句，他停下来回；是她点出来的，当场答
+      onTalk: c ? async st => { const Z = window.Zhaoying, test = Z.byId(zyWatch.testId);
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.talkInstruction(test, userName(profileFor(c.id)), Object.assign({ scene: rec.scene }, st)), schemaHint: Z.TALK_SCHEMA, maxTokens: 8000 });
+        return Z.readTalk(test, d, st.upTo); } : null,
+      onTalkSave: patch => { window.Zhaoying.patchRecord(zyWatch.charId, zyWatch.recId, patch);
+        // 被她说动改了选项、结果跟着变：聊天里那两张卡上的结果也换成新的
+        if (patch.title && patch.title !== rec.title) pChat(zyWatch.charId, l => l.map(x => x && x.zy && x.zy.recId === zyWatch.recId ? { ...x, content: String(x.content || "").split("「" + rec.title + "」").join("「" + patch.title + "」"), zy: { ...x.zy, title: patch.title } } : x)); },
       // 看完就能存（她 2026-10-22「要」）：跟照影页那次记录上的两颗是同一处
       onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
       onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
