@@ -5927,20 +5927,40 @@
     let kingAt = null;
     if (st.check) state.board.forEach(function (row, r) { row.forEach(function (p, c) { if (p === state.turn + "K") kingAt = [r, c]; }); });
     const same = function (a, r, c) { return a && a[0] === r && a[1] === c; };
-    const board = h("div", { "data-wk": "chessboard", style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", width: "100%", maxWidth: 440, margin: "0 auto", aspectRatio: "1 / 1", borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 22px rgba(40,30,20,.28)", border: "3px solid #5b4632" } },
-      [0, 1, 2, 3, 4, 5, 6, 7].map(function (r) { return [0, 1, 2, 3, 4, 5, 6, 7].map(function (c) {
-        const p = state.board[r][c], dark = (r + c) % 2 === 1;
-        const isT = targets.some(function (m) { return m.to[0] === r && m.to[1] === c; });
-        const lit = last && (same(last.from, r, c) || same(last.to, r, c));
-        const hintOn = hint && (same(hint.from, r, c) || same(hint.to, r, c));
-        return h("button", { key: r + "-" + c, "data-wk": "chesssq", onClick: function () { tap(r, c); }, style: { position: "relative", padding: 0, border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-            background: same(sel, r, c) ? "#e9c46a" : same(kingAt, r, c) ? "#e07a5f" : lit ? (dark ? "#b7a35a" : "#ddd08a") : (dark ? "#b58863" : "#f0d9b5"),
-            boxShadow: hintOn ? "inset 0 0 0 3px #3a86c8" : "none" } },
-          p ? h("span", { style: { fontSize: "calc(30px * var(--app-fs, 1))", lineHeight: 1, color: p[0] === "w" ? "#fffdf7" : "#1d1a17", textShadow: p[0] === "w" ? "0 0 2px #2b2420, 0 1px 1px #2b2420" : "0 1px 0 rgba(255,255,255,.25)" } }, C.PIECE_GLYPH[p]) : null,
-          isT ? h("span", { style: { position: "absolute", width: p ? "86%" : "28%", height: p ? "86%" : "28%", borderRadius: 999, background: p ? "transparent" : "rgba(40,30,20,.28)", border: p ? "3px solid rgba(40,30,20,.35)" : "none" } }) : null,
-          c === 0 ? h("span", { style: { position: "absolute", left: 2, top: 1, fontSize: 9, color: dark ? "#f0d9b5" : "#b58863" } }, 8 - r) : null,
-          r === 7 ? h("span", { style: { position: "absolute", right: 3, bottom: 1, fontSize: 9, color: dark ? "#f0d9b5" : "#b58863" } }, "abcdefgh"[c]) : null);
-      }); }));
+    // 棋子用实心那一套，白子象牙色描黑边、黑子乌木色（她 2026-10-23「页面能不能做好看点」）；︎ 让 iOS 别把兵画成 emoji
+    const GLYPH = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
+    const pieceEl = function (p, size) { const w = p[0] === "w"; return h("span", { style: { fontFamily: "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2',serif", fontSize: size, lineHeight: 1,
+      color: w ? "#fbf4e2" : "#2a2420", WebkitTextStroke: w ? "1.1px #3a2e24" : "0.6px #000", textShadow: w ? "0 2px 2px rgba(40,25,10,.35)" : "0 1px 0 rgba(255,255,255,.18), 0 2px 3px rgba(0,0,0,.35)" } }, GLYPH[p[1]] + "︎"); };
+    const coord = { fontFamily: F_BODY, fontSize: 10, color: "#e8d3ad", opacity: .85, textAlign: "center" };
+    const board = h("div", { "data-wk": "chessboard", style: { width: "100%", maxWidth: 440, margin: "0 auto", padding: "8px 8px 4px 18px", borderRadius: 14,
+        background: "linear-gradient(145deg, #6b4a2e, #4a3220)", boxShadow: "0 12px 26px rgba(40,25,10,.35), inset 0 1px 0 rgba(255,255,255,.12)" } },
+      h("div", { style: { position: "relative" } },
+        h("div", { style: { position: "absolute", left: -14, top: 0, bottom: 0, display: "grid", gridTemplateRows: "repeat(8, 1fr)", alignItems: "center" } }, [8, 7, 6, 5, 4, 3, 2, 1].map(function (n) { return h("div", { key: n, style: coord }, n); })),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gridTemplateRows: "repeat(8, 1fr)", aspectRatio: "1 / 1", borderRadius: 4, overflow: "hidden", boxShadow: "inset 0 0 0 1px rgba(0,0,0,.35)" } },
+          [0, 1, 2, 3, 4, 5, 6, 7].map(function (r) { return [0, 1, 2, 3, 4, 5, 6, 7].map(function (c) {
+            const p = state.board[r][c], dark = (r + c) % 2 === 1;
+            const isT = targets.some(function (m) { return m.to[0] === r && m.to[1] === c; });
+            const lit = last && (same(last.from, r, c) || same(last.to, r, c));
+            const hintOn = hint && (same(hint.from, r, c) || same(hint.to, r, c));
+            return h("button", { key: r + "-" + c, "data-wk": "chesssq", onClick: function () { tap(r, c); }, style: { position: "relative", padding: 0, border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+                background: (dark ? "#b88762" : "#efdcbc") + (lit ? "" : ""),
+                backgroundImage: lit ? "linear-gradient(rgba(214,180,60,.45), rgba(214,180,60,.45))" : same(kingAt, r, c) ? "radial-gradient(circle, rgba(226,72,50,.85) 20%, rgba(226,72,50,0) 72%)" : "none",
+                boxShadow: same(sel, r, c) ? "inset 0 0 0 3px #f2c94c" : hintOn ? "inset 0 0 0 3px #5aa0d8" : "none" } },
+              p ? pieceEl(p, "calc(34px * var(--app-fs, 1))") : null,
+              isT ? h("span", { style: { position: "absolute", width: p ? "88%" : "26%", height: p ? "88%" : "26%", borderRadius: 999, background: p ? "transparent" : "rgba(52,38,24,.32)", border: p ? "3px solid rgba(52,38,24,.38)" : "none" } }) : null);
+          }); })),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", marginTop: 3 } }, "abcdefgh".split("").map(function (x) { return h("div", { key: x, style: coord }, x); }))));
+    // 吃掉的子：各自那一排，多出来的子力写在后面
+    const START_N = { P: 8, N: 2, B: 2, R: 2, Q: 1 }, VALS = { P: 1, N: 3, B: 3, R: 5, Q: 9 };
+    const lost = function (side) { const n = {}; state.board.forEach(function (row) { row.forEach(function (p) { if (p && p[0] === side) n[p[1]] = (n[p[1]] || 0) + 1; }); }); const out = []; ["Q", "R", "B", "N", "P"].forEach(function (k) { for (let i = 0; i < Math.max(0, START_N[k] - (n[k] || 0)); i++) out.push(k); }); return out; };
+    const mat = function (arr) { return arr.reduce(function (a, k) { return a + VALS[k]; }, 0); };
+    const capRow = function (side) {   // side 吃掉的（对面丢的）
+      const got = lost(side === "w" ? "b" : "w"), diff = mat(got) - mat(lost(side));
+      return h("div", { "data-wk": "chesscaps", style: { display: "flex", alignItems: "center", gap: 1, minHeight: 22, padding: "0 4px", flexWrap: "wrap" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginRight: 6 } }, nameOf(side) + " 吃了"),
+        got.length ? got.map(function (k, i) { return h("span", { key: i }, pieceEl((side === "w" ? "b" : "w") + k, 15)); }) : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"),
+        diff > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginLeft: 6 } }, "+" + diff) : null);
+    };
 
     const status = over ? (winner === "draw" ? "和棋" + ({ stalemate: "（逼和）", insufficient: "（子力不够）", fifty: "（五十步）", repetition: "（三次重复）" }[st.reason] || "") : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "checkmate" ? "（将死）" : ""))
       : state.turn === userSide ? (st.check ? "被将军了，轮到你" : sel ? "点亮着的格子走过去" : "轮到你（白）") : nameOf(state.turn) + "在想…";
@@ -5955,7 +5975,10 @@
         }) }),
         h("div", { "data-wk": "chesstalk" }, h(GameTalkLog, { t: t, lines: talk.lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: talk.talking, names: talkers.length > 1, k: "chess",
           charOf: function (l) { return findC(l.id) || char; }, empty: spectate ? "他们在下棋，你可以在下面插一句" : nm(char) + " 在对面坐着" })),
+        capRow("b"),
         board,
+        capRow("w"),
+        state.history.length ? h("div", { "data-wk": "chessmoves", style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, state.history.slice(-6).map(function (x, i, a) { const n = state.history.length - a.length + i; return (n % 2 === 0 ? (n / 2 + 1) + ". " : "") + x.san; }).join("  ")) : null,
         h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
           h("input", { "data-wk": "gameinput", "data-part": "chess", value: talk.heckle, onChange: function (e) { talk.setHeckle(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") talk.send(); },
             placeholder: spectate ? "台下插一句…（空着按就是让他们说）" : "跟 " + nm(char) + " 说一句…（空着按就是让 TA 开口）",
@@ -6061,6 +6084,13 @@
       lines.push(h("line", { key: "pa" + i, x1: X(3), y1: Y(pr[0]), x2: X(5), y2: Y(pr[1]), stroke: ink, strokeWidth: .9 }));
       lines.push(h("line", { key: "pb" + i, x1: X(5), y1: Y(pr[0]), x2: X(3), y2: Y(pr[1]), stroke: ink, strokeWidth: .9 }));
     });
+    // 炮位、兵卒位的十字花
+    const star = function (r, c) { const g = 3, l = 6, out = []; [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (d, i) {
+      if ((c === 0 && d[0] < 0) || (c === 8 && d[0] > 0)) return;
+      const x = X(c) + d[0] * g, y = Y(r) + d[1] * g;
+      out.push(h("path", { key: "st" + r + c + i, d: "M" + (x + d[0] * l) + " " + y + "H" + x + "V" + (y + d[1] * l), stroke: ink, strokeWidth: .9, fill: "none" })); }); return out; };
+    [[2, 1], [2, 7], [7, 1], [7, 7]].concat([0, 2, 4, 6, 8].map(function (c) { return [3, c]; }), [0, 2, 4, 6, 8].map(function (c) { return [6, c]; })).forEach(function (p) { star(p[0], p[1]).forEach(function (e) { lines.push(e); }); });
+    lines.push(h("rect", { key: "outer", x: X(0) - 5, y: Y(0) - 5, width: cell * 8 + 10, height: cell * 9 + 10, fill: "none", stroke: ink, strokeWidth: 2.2 }));
     const mark = function (k, r, c, col) { return h("rect", { key: k, x: X(c) - cell / 2 + 2, y: Y(r) - cell / 2 + 2, width: cell - 4, height: cell - 4, rx: 6, fill: "none", stroke: col, strokeWidth: 2, strokeDasharray: "5 3" }); };
     const boardSvg = h("svg", { "data-wk": "xiangqiboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", borderRadius: 12,
         background: "linear-gradient(135deg, #f0d49a 0%, #e3bd78 50%, #ecca8c 100%)", boxShadow: "inset 0 0 0 3px rgba(122,74,34,.3), 0 10px 24px rgba(60,40,15,.28)", touchAction: "manipulation" },
@@ -6069,25 +6099,40 @@
           const c = Math.round(((e.clientX - b.left) * k - pad) / cell), r = Math.round(((e.clientY - b.top) * k - pad) / cell);
           if (r >= 0 && r < 10 && c >= 0 && c < 9) tap(r, c);
         } },
+      h("defs", { key: "defs" }, h("radialGradient", { id: "xqWood", cx: ".38", cy: ".32", r: ".8" }, h("stop", { offset: "0", stopColor: "#fff6df" }), h("stop", { offset: ".6", stopColor: "#f3dcae" }), h("stop", { offset: "1", stopColor: "#dcb57a" }))),
       lines,
-      h("text", { key: "river1", x: X(2), y: Y(4.5) + 6, textAnchor: "middle", fontSize: 17, fill: ink, opacity: .75, style: { fontFamily: "serif", letterSpacing: 6 } }, "楚 河"),
-      h("text", { key: "river2", x: X(6), y: Y(4.5) + 6, textAnchor: "middle", fontSize: 17, fill: ink, opacity: .75, style: { fontFamily: "serif", letterSpacing: 6 } }, "汉 界"),
+      h("text", { key: "river1", x: X(2), y: Y(4.5) + 6, textAnchor: "middle", fontSize: 18, fill: ink, opacity: .7, style: { fontFamily: "'STKaiti','KaiTi','Kaiti SC',serif", letterSpacing: 8 } }, "楚 河"),
+      h("text", { key: "river2", x: X(6), y: Y(4.5) + 6, textAnchor: "middle", fontSize: 18, fill: ink, opacity: .7, style: { fontFamily: "'STKaiti','KaiTi','Kaiti SC',serif", letterSpacing: 8 } }, "汉 界"),
       last ? [mark("lf", last.from[0], last.from[1], "#3a86c8"), mark("lt", last.to[0], last.to[1], "#3a86c8")] : null,
       hint ? [mark("hf", hint.from[0], hint.from[1], "#4f8a4a"), mark("ht", hint.to[0], hint.to[1], "#4f8a4a")] : null,
       state.board.map(function (row, r) { return row.map(function (p, c) {
         if (!p) return null;
         const red = p[0] === "r", on = sel && sel[0] === r && sel[1] === c, chk = kingAt && kingAt[0] === r && kingAt[1] === c;
-        return h("g", { key: "p" + r + "-" + c },
-          h("circle", { cx: X(c) + 1, cy: Y(r) + 2, r: cell * 0.43, fill: "#3b2a12", opacity: .25 }),
-          h("circle", { cx: X(c), cy: Y(r), r: cell * 0.43, fill: on ? "#fff3c4" : "#f7e6c4", stroke: chk ? "#e04a2f" : red ? "#b8322a" : "#2b2622", strokeWidth: chk ? 3 : 1.8 }),
-          h("circle", { cx: X(c), cy: Y(r), r: cell * 0.34, fill: "none", stroke: red ? "#b8322a" : "#2b2622", strokeWidth: .8, opacity: .7 }),
-          h("text", { x: X(c), y: Y(r) + 6.5, textAnchor: "middle", fontSize: 18, fontWeight: 700, fill: red ? "#b8322a" : "#2b2622", style: { fontFamily: "serif" } }, C.PIECE_ZH[p]));
+        const col = red ? "#b02a22" : "#26201c", R = cell * 0.44, lift = on ? -3 : 0;
+        // 木头圆片：底下一圈厚度、面上木纹渐变、里面一道细圈，字用楷体
+        return h("g", { key: "p" + r + "-" + c, transform: "translate(0," + lift + ")" },
+          h("circle", { cx: X(c) + 1, cy: Y(r) + 3.2 - lift, r: R, fill: "#3b2a12", opacity: on ? .22 : .32 }),
+          h("circle", { cx: X(c), cy: Y(r) + 1.6, r: R, fill: "#b98a52" }),
+          h("circle", { cx: X(c), cy: Y(r), r: R, fill: "url(#xqWood)", stroke: chk ? "#e04a2f" : "rgba(90,60,30,.55)", strokeWidth: chk ? 2.6 : .8 }),
+          h("circle", { cx: X(c), cy: Y(r), r: R * 0.8, fill: "none", stroke: col, strokeWidth: 1.1, opacity: .85 }),
+          h("text", { x: X(c), y: Y(r) + 6.6, textAnchor: "middle", fontSize: 19, fontWeight: 700, fill: col, style: { fontFamily: "'STKaiti','KaiTi','Kaiti SC','BiauKai',serif" } }, C.PIECE_ZH[p]));
       }); }),
       targets.map(function (m, i) { return h("circle", { key: "t" + i, cx: X(m.to[1]), cy: Y(m.to[0]), r: m.capture ? cell * 0.46 : 5, fill: m.capture ? "none" : "#2f6b45", stroke: m.capture ? "#2f6b45" : "none", strokeWidth: 2.5, opacity: .75 }); }));
 
     const status = over ? (winner === "draw" ? "和棋" : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "checkmate" ? "（将死）" : st.reason === "stalemate" ? "（困毙）" : ""))
       : state.turn === userSide ? (st.check ? "被将军了，轮到你" : sel ? "点绿点的位置走过去" : "轮到你（红）") : nameOf(state.turn) + "在想…";
     const btn = function (wk, label, on, dis) { return h("button", { "data-wk": wk, onClick: on, disabled: dis, className: "active:opacity-70", style: { minHeight: 40, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: dis ? .45 : 1 } }, label); };
+    // 吃掉的子：各自那一排
+    const XQ_START = { R: 2, N: 2, C: 2, B: 2, A: 2, P: 5 };
+    const xqCaps = function (side) {   // side 吃掉的（对面丢的）
+      const o = side === "r" ? "b" : "r", n = {};
+      state.board.forEach(function (row) { row.forEach(function (p) { if (p && p[0] === o) n[p[1]] = (n[p[1]] || 0) + 1; }); });
+      const got = []; ["R", "N", "C", "B", "A", "P"].forEach(function (k) { for (let i = 0; i < Math.max(0, XQ_START[k] - (n[k] || 0)); i++) got.push(o + k); });
+      return h("div", { "data-wk": "xiangqicaps", style: { display: "flex", alignItems: "center", gap: 3, minHeight: 24, padding: "0 4px", flexWrap: "wrap" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginRight: 4 } }, nameOf(side) + " 吃了"),
+        got.length ? got.map(function (p, i) { return h("span", { key: i, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 19, height: 19, borderRadius: 999, background: "#f3dcae", border: "1.2px solid " + (p[0] === "r" ? "#b02a22" : "#26201c"), color: p[0] === "r" ? "#b02a22" : "#26201c", fontSize: 11, fontWeight: 700, fontFamily: "'STKaiti','KaiTi','Kaiti SC',serif" } }, C.PIECE_ZH[p]); })
+          : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"));
+    };
     const disc = function (sd) { return h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: 999, background: "#f7e6c4", border: "1.5px solid " + (sd === "r" ? "#b8322a" : "#2b2622"), color: sd === "r" ? "#b8322a" : "#2b2622", fontSize: 10, fontWeight: 700, fontFamily: "serif" } }, sd === "r" ? "帅" : "将"); };
     return h("div", { "data-wk": "xiangqi", className: "h-full flex flex-col", style: gameTable("xiangqi", t) },
       h(Head, { zh: "中国象棋", onBack: props.onBack, bg: "transparent" }),
@@ -6099,7 +6144,9 @@
         }) }),
         h("div", { "data-wk": "xiangqitalk" }, h(GameTalkLog, { t: t, lines: talk.lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: talk.talking, names: talkers.length > 1, k: "xq",
           charOf: function (l) { return findC(l.id) || char; }, empty: spectate ? "他们在下棋，你可以在下面插一句" : nm(char) + " 在对面坐着" })),
+        xqCaps("b"),
         boardSvg,
+        xqCaps("r"),
         state.history.length ? h("div", { "data-wk": "xiangqimoves", style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 8 } }, state.history.slice(-4).map(function (x) { return x.zh; }).join("　")) : null,
         h("div", { style: { display: "flex", gap: 8, marginTop: 12 } },
           h("input", { "data-wk": "gameinput", "data-part": "xiangqi", value: talk.heckle, onChange: function (e) { talk.setHeckle(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") talk.send(); },
