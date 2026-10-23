@@ -6585,8 +6585,9 @@ function ExtMemBox({ list, toast }) {
 
 function ModelFloatImgRow({ t, toast }) {
   const [img, setImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
+  const [shape, setShape] = useState(() => loadJSON("x_modelFloatShape", "auto") || "auto");
   const put = v => { setImg(v); saveJSON("x_modelFloatImg", v); try { window.dispatchEvent(new Event("lisa-modelfloatimg")); } catch (e) {} };
-  return h("div", { "data-wk": "modelfloatimg", style: { display: "flex", gap: 12, marginTop: 6, alignItems: "center" } },
+  return h("div", { "data-wk": "modelfloatimg", style: { display: "flex", gap: 12, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
     h("label", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, img ? "换一张图" : "换成自己的图",
       h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
         const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -6595,7 +6596,8 @@ function ModelFloatImgRow({ t, toast }) {
           put(typeof imgToVault === "function" ? await imgToVault(b64) : b64); toast && toast("浮窗换好了");
         } catch (err) { toast && toast("这张存不下：" + (err.message || err)); }
       } })),
-    img ? h("button", { onClick: () => put(""), style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回旋钮") : null);
+    img ? h("button", { onClick: () => put(""), style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "换回旋钮") : null,
+    img && window.ImgShapePick ? h(window.ImgShapePick, { value: shape, onChange: v => { setShape(v); saveJSON("x_modelFloatShape", v); try { window.dispatchEvent(new Event("lisa-modelfloatimg")); } catch (e) {} } }) : null);
 }
 function ApiConfig({
   profiles = [],

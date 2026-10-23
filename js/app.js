@@ -229,8 +229,9 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   // 自己的图（群友 2026-10-17）：设置里换了就当场跟着变
   const [floatImg, setFloatImg] = useState(() => loadJSON("x_modelFloatImg", "") || "");
   const floatSrc = floatImg ? (typeof resolveImg === "function" ? resolveImg(floatImg) : floatImg) : "";
-  const floatCut = typeof window.useImgCutout === "function" ? window.useImgCutout(floatSrc) : false;
-  useEffect(() => { const f = () => setFloatImg(loadJSON("x_modelFloatImg", "") || ""); window.addEventListener("lisa-modelfloatimg", f); return () => window.removeEventListener("lisa-modelfloatimg", f); }, []);
+  const [floatShape, setFloatShape] = useState(() => loadJSON("x_modelFloatShape", "auto") || "auto");
+  const floatCut = typeof window.useImgCutout === "function" ? window.useImgCutout(floatSrc, floatShape) : false;
+  useEffect(() => { const f = () => { setFloatImg(loadJSON("x_modelFloatImg", "") || ""); setFloatShape(loadJSON("x_modelFloatShape", "auto") || "auto"); }; window.addEventListener("lisa-modelfloatimg", f); return () => window.removeEventListener("lisa-modelfloatimg", f); }, []);
   const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
   const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
   const dragStart = useRef(null);

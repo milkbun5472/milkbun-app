@@ -13746,7 +13746,9 @@ function MomentCommentText({ cm }) {
 // 这张图是不是「抠好的透明图」（她 2026-10-17：许愿透明 png 无框显示，可普通方头像去了框就变方块）：
 //   四个角都是透明的才算——那种图本来就有自己的形状，再套圆框反而难看；普通照片四角是实的，照旧放进圆里。
 const _alphaSeen = {};
-function useImgCutout(src) {
+// mode（她 2026-10-23「秋秋怎么又方了」→ 自动猜了三回还被骗，形状交给她自己挑）：
+//   "round"＝一律裁圆；"raw"＝原样不套框；其它＝自动（下面那套看透明边）
+function useImgCutout(src, mode) {
   const [cut, setCut] = useState(() => (src && _alphaSeen[src] != null) ? _alphaSeen[src] : false);
   useEffect(() => {
     if (!src) { setCut(false); return; }
@@ -13769,9 +13771,18 @@ function useImgCutout(src) {
     im.src = src;
     return () => { dead = true; };
   }, [src]);
-  return cut;
+  return mode === "round" ? false : mode === "raw" ? true : cut;
 }
 if (typeof window !== "undefined") window.useImgCutout = useImgCutout;
+// 自己换的小图怎么摆：自动 / 一律裁圆 / 原样。秋秋小球和模型浮窗共用这一排（one-public-mechanism）
+function ImgShapePick({ value, onChange }) {
+  const t = useTheme(), v = value === "round" || value === "raw" ? value : "auto";
+  return h("div", { "data-wk": "imgshape", style: { display: "flex", alignItems: "center", gap: 6, marginTop: 7, flexWrap: "wrap" } },
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "形状"),
+    [["auto", "自动"], ["round", "裁成圆"], ["raw", "原样（透明图）"]].map(([k, zh]) => h("button", { key: k, "data-on": v === k ? "1" : "0", onClick: () => onChange && onChange(k),
+      style: { padding: "3px 9px", borderRadius: 999, border: "1px solid " + (v === k ? t.ink : t.line), background: v === k ? t.ink : "transparent", color: v === k ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))" } }, zh)));
+}
+if (typeof window !== "undefined") window.ImgShapePick = ImgShapePick;
 const TransWhoCtx = typeof React !== "undefined" && React.createContext ? React.createContext(null) : null;
 function TransWho({ id, children }) { return TransWhoCtx ? h(TransWhoCtx.Provider, { value: id || null }, children) : children; }
 function transWhoAuto(isU) { const w = !isU && TransWhoCtx ? React.useContext(TransWhoCtx) : null; return !!w && typeof window !== "undefined" && typeof window.__charBilingual === "function" && !!window.__charBilingual(w); }
