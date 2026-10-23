@@ -10,7 +10,7 @@ assert.match(app, /Z\.askInstruction\(test, userName\(profileFor\(charId\)\), Z\
 assert.match(app, /\.\.\.\(scene \? \{ scene \} : \{\}\)[^\n]*\}\);\n      patch\(\{ status: "done"/);
 // 他出题：用他的线路和上下文，存成带 by 的题；by 不被 cleanTest 丢掉
 assert.match(core, /\.\.\.\(t\.by \? \{ by: String\(t\.by\) \} : \{\}\)/);
-assert.match(app, /const zhaoyingCharGen = async charId =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
+assert.match(app, /const zhaoyingCharGen = async \(charId, mode\) =>[\s\S]{0,300}runProbe\(apiFor\(charId\), ctxFor\(c\)/);
 // 群一起做：一人一次，做完发进群让他们聊
 assert.match(app, /const zhaoyingGroupRun = async \(groupId, testId, onStep\) =>/);
 assert.match(app, /try \{ replyGroup\(groupId, \{\}\); \} catch/);
@@ -361,4 +361,24 @@ console.log("ok");
   const a = zy.indexOf("// ── 出题／改题 ──"), b = zy.indexOf("// ── 正在做 ──"), ed = zy.slice(a, b);
   assert.match(ed, /"data-wk": "zykind", role: "tablist"/); assert.doesNotMatch(ed, /pill\(K === k/);
   assert.match(ed, /"data-wk": "zypaper"/); assert.match(ed, /const mini = k =>/); assert.match(ed, /"收 卷"/);
+}
+
+// 他出通用题＋去重（她 2026-10-23）：通用题不写你们俩、没有钓鱼；出题前都看得到已有的题，他自己出过的单列
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  Z.saveCustom({ name: "他的旧题", sub: "想知道你怕不怕黑", by: "c1", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
+  const o = Z.charTestInstruction("她", "open", "c1"), me = Z.charTestInstruction("她", "", "c1");
+  assert.match(o, /谁拿到都能做/); assert.match(o, /题里不写你和她之间的事/); assert.match(o, /bait 留空/);
+  assert.match(o, /你以前出过：「他的旧题」（想知道你怕不怕黑）/); assert.match(me, /你以前出过：「他的旧题」/); assert.match(me, /最不能接受排序/);
+  const t = Z.saveCustom({ name: "x", by: "c1", open: true, bait: "秘密", qs: [{ q: "a", opts: [{ t: "1" }, { t: "2" }] }] });
+  assert.equal(t.open, true); assert.equal(t.bait, undefined);
+  const fs = require("node:fs"), path = require("node:path");
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8"), /Z\.charTestInstruction\(userName\(profileFor\(charId\)\), mode, charId\)/);
+  const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /props\.onCharGen\(c\.id, genMode\)/); assert.match(zy, /"data-wk": "zygenmode"/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /async function genTest[\s\S]{0,900}avoidNote\(""\)/);
 }

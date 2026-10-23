@@ -873,7 +873,7 @@
   function cleanTest(t) {
     const kind = KINDS.some(x => x[0] === t.kind) ? t.kind : kindOf(t);
     const base = { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: cs(t.name, 20) || "我出的题", sub: cs(t.sub, 60),
-      ...(t.by ? { by: String(t.by) } : {}), ...(t.bait && String(t.bait).trim() ? { bait: cs(t.bait, 80) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
+      ...(t.by ? { by: String(t.by) } : {}), ...(t.open ? { open: true } : t.bait && String(t.bait).trim() ? { bait: cs(t.bait, 80) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
     const items = (Array.isArray(t.items) ? t.items : []).map(x => cs(typeof x === "object" && x ? x.t || x.q : x, 16)).filter(Boolean);
     const qtext = (t.qs || []).map(q => cs(q && (q.q || q), 120)).filter(Boolean).slice(0, 30);
     if (kind === "rank") { const it = items.slice(0, 8); return Object.assign(base, { scored: false, results: [], rank: it, qs: it.length >= 3 ? mkRank(it, "第 1 位：" + (cs(t.rankHead, 16) || "排第一的")) : [], ...(cs(t.rankHead, 16) ? { rankHead: cs(t.rankHead, 16) } : {}) }); }
@@ -912,11 +912,11 @@
   // 给个主题，用她那条线路出一套（出完进编辑页，她改好了才存）
   async function genTest(route, theme, count, scored, kind) {
     const n = Math.max(4, Math.min(20, Number(count) || 10)), ka = kindAsk(kind, n);
-    const sys = ka ? "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。" + ka.say + "内容口语、具体，彼此拉得开，不出现术语。"
+    const sys = ka ? "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。" + ka.say + "内容口语、具体，彼此拉得开，不出现术语。" + avoidNote("")
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + ka.schema + "}"
       : "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。出 " + n + " 道题，每题 2 到 4 个选项。"
       + "题面是日常里会碰到的具体场景或问题，口语，短；选项是人在那个场景里真的会有的不同反应，彼此拉得开，不让人一眼看出哪个是标准答案，也不出现术语。"
-      + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数），让每种结果在各题里都有选项指向。" : "这套不算分，不用写结果。")
+      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数），让每种结果在各题里都有选项指向。" : "这套不算分，不用写结果。")
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + (scored ? "\"results\":[{\"title\":\"\",\"line\":\"\"}]," : "") + "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"" + (scored ? ",\"r\":0" : "") + "}]}]}";
     const raw = await callAI(route, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
@@ -1369,14 +1369,27 @@
   }
 
   // ── 他给她出题（她 2026-10-22「他给你出题」）：照他自己想知道她什么来出，结果交给她做 ──
-  function charTestInstruction(meName) {
+  // 出题前先看一眼照影里已经有什么（她 2026-10-23「有没有去重机制」）：名字＋一句话，他自己出过的单独列
+  function avoidNote(byId0) {
+    const mine = customs().filter(t => byId0 && t.by === byId0), others = allTests().filter(t => mine.indexOf(t) < 0);
+    return "\n照影里已经有这些题，换个它们没问过的角度，题名和内容都别跟它们撞："
+      + (mine.length ? "\n你以前出过：" + mine.slice(-12).map(t => "「" + t.name + "」" + (t.sub ? "（" + t.sub.slice(0, 20) + "）" : "")).join("、") : "")
+      + "\n别的：" + others.map(t => t.name).slice(-60).join("、");
+  }
+  // mode：""＝出给她（问的是她）；"open"＝出一套谁都能做的（她 2026-10-23「让他自己出通用题」）
+  function charTestInstruction(meName, mode, byId0) {
+    if (mode === "open") return "你自己出一套小测放进照影里，谁拿到都能做——" + meName + " 能做，别的人也能做。出什么由你：照你这个人感兴趣什么、平时琢磨什么、看人最在意哪一点，出一套你自己会觉得好玩、能看出一个人什么的题。"
+      + "题里不写你和" + meName + "之间的事，也不点名任何人；「你」指的是做题的那个人。"
+      + "6 到 10 道题，每题 2 到 4 个选项。题面是具体的日常场景或问题，用你自己说话的口气；选项是人在那个场景里真会有的不同反应，彼此拉得开。"
+      + "答法由你挑，写在 kind：普通选择题留空；quick＝快问快答（一串二选一）；scale＝滑杆（每题一件事，做的人拖「绝对不会」到「一定会」，不写选项，scale 写总分叫什么）；fill＝填空（每题半句话，空用 ____，不写选项）；rank＝排序（items 列 4 到 8 样东西排先后，rankHead 写排第一那位叫什么，不写 qs）；bid＝拍卖（items 列 6 到 12 样东西，拿 100 枚金币去分，不写 qs）；bracket＝淘汰赛（items 正好 16 样，两两对决，不写 qs）。"
+      + "这套不算分。name 是这套题的名字，sub 是你写在最前面的一句话。bait 留空。" + avoidNote(byId0);
     return "你想更了解「" + meName + "」，给她出一套小测，让她在手机上做。出什么由你：照你这个人会好奇她什么、你们之间聊过什么、你一直没问出口的，挑你真想知道的。"
       + "6 到 10 道题，每题 2 到 4 个选项。题面是具体的日常场景或问题，用你自己说话的口气；选项是人在那个场景里真会有的不同反应，彼此拉得开。"
       // 他也能换答法（她 2026-10-23）：kind 由他挑，照他想知道的那件事哪种问法最合适
       + "答法由你挑，写在 kind：普通选择题留空；quick＝快问快答（一串二选一）；scale＝滑杆（每题一件事，她拖「绝对不会」到「一定会」，不写选项，scale 写总分叫什么）；fill＝填空（每题半句话，空用 ____，她自己写，不写选项）；rank＝排序（items 列 4 到 8 样东西让她排先后，rankHead 写排第一那位叫什么，不写 qs）；bid＝拍卖（items 列 6 到 12 样东西，她拿 100 枚金币去分，不写 qs）；bracket＝淘汰赛（items 正好 16 样，两两对决，不写 qs）。哪种最能问出你想知道的就用哪种。"
       + "这套不算分，她做完你会看到她每题怎么答的。name 是这套题的名字，sub 是你写在最前面给她的一句话。"
       // 钓鱼题（她 2026-10-23）：题面看着普通，其实借这套题想弄清一件事；她做完才揭开
-      + "如果你出这套题其实是想借着它弄清一件你不好直接问的事，把那件事写在 bait（一句话，她做完才看得到）；就是单纯想了解她，bait 留空。";
+      + "如果你出这套题其实是想借着它弄清一件你不好直接问的事，把那件事写在 bait（一句话，她做完才看得到）；就是单纯想了解她，bait 留空。" + avoidNote(byId0);
   }
   const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"bait\":\"\",\"kind\":\"\",\"scale\":\"\",\"rankHead\":\"\",\"items\":[],\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
 

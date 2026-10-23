@@ -23,7 +23,8 @@
     const [gen, setGen] = useState({ theme: "", count: 10, busy: false });
     const [scene, setScene] = useState("");
     const [guess, setGuess] = useState(-1);
-    const [badgeOpen, setBadgeOpen] = useState(false);        // 排序／拍卖：发出去之前押他的第一（她 2026-10-23）        // 换个处境再做：这一次的前提，空＝平时
+    const [badgeOpen, setBadgeOpen] = useState(false);
+    const [genMode, setGenMode] = useState("");      // 让他出题：""＝写给我的，"open"＝大家都能做        // 排序／拍卖：发出去之前押他的第一（她 2026-10-23）        // 换个处境再做：这一次的前提，空＝平时
     const [busyWho, setBusyWho] = useState("");    // 他在出题 / 群里谁在做
     // 分类：记得上次停在哪一类（她 2026-10-22「搞个分类」）
     const [cat, setCatS] = useState(() => { try { return (typeof loadJSON === "function" && loadJSON("x_zyCat", "all")) || "all"; } catch (e) { return "all"; } });
@@ -96,7 +97,7 @@
         h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11, letterSpacing: ".25em", color: c.deep } }, tt.qs.length + " 题 · 约 " + Math.max(1, Math.round(tt.qs.length / 4)) + " 分钟"),
         h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: big ? "calc(26px * var(--app-fs, 1))" : "calc(21px * var(--app-fs, 1))", color: "#2e261e", marginTop: 6 } }, tt.name),
         h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "rgba(46,38,30,.72)", marginTop: 5, lineHeight: 1.6, maxWidth: "82%" } }, tt.sub),
-        tt.by ? h("div", { "data-wk": "zyby", style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, color: c.deep, marginTop: 4 } }, "—— " + nameOf(tt.by) + " 给你出的") : null,
+        tt.by ? h("div", { "data-wk": "zyby", style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, color: c.deep, marginTop: 4 } }, "—— " + nameOf(tt.by) + (tt.open ? " 出的" : " 给你出的")) : null,
         h("div", { style: { position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: big ? 14 : 12 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.deep, background: "rgba(255,255,255,.6)", padding: "3px 10px", borderRadius: 999 } }, done.length ? done.length + " 人测过" : "还没人测过"),
           big ? null : h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: c.deep, padding: "5px 14px", borderRadius: 999 } }, "去测 →")));
@@ -494,12 +495,21 @@
           "＋ 出一套题", h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 4 } }, "自己写，或者给个主题让 AI 出，出完能改")),
         // 他给你出一套（她 2026-10-22）：照他想知道你什么来出，出好了你来做
         props.onCharGen && chars.length ? h("div", { "data-wk": "zychargen", style: { marginTop: 18 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: INK, marginBottom: 4 } }, "让他给你出一套"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginBottom: 8 } }, busyWho || "照他想知道你什么来出，用他那条线路花一次调用；出好了你来做，做完能发给他看"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: INK, marginBottom: 8 } }, "让他出一套"),
+          // 出给谁（她 2026-10-23）：一封写给你的信，或者一张谁都能拿的传单
+          h("div", { "data-wk": "zygenmode", role: "tablist", className: "flex", style: { gap: 10, marginBottom: 8 } }, [["", "写给我的", "问的是他想知道你的事"], ["open", "大家都能做", "照他的兴趣出，谁拿到都能做"]].map(([m, t, d]) => {
+            const on = genMode === m;
+            return h("button", { key: m || "me", role: "tab", "aria-selected": on, "data-on": on ? "1" : "0", onClick: () => setGenMode(m), className: "flex-1 text-left active:scale-[.98]",
+              style: { position: "relative", minHeight: 64, padding: "10px 12px", background: on ? "#fffdf8" : "transparent", border: "1px " + (on ? "solid " + ACC : "dashed " + LINE), borderRadius: m ? 4 : "4px 18px 4px 4px",
+                boxShadow: on ? (m ? "3px 3px 0 -1px #fffdf8, 3px 3px 0 0 " + LINE + ", 0 8px 14px -10px " + ACC : "0 8px 14px -10px " + ACC) : "none", transform: on ? "translateY(-2px)" : "none", transition: "all .2s" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: on ? ACC : INK } }, t),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FOG, marginTop: 3, lineHeight: 1.5 } }, d));
+          })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginBottom: 8 } }, busyWho || "点谁就是谁出，用他那条线路花一次调用；出过的题他看得到，不会出重复的"),
           h("div", { className: "flex gap-3 overflow-x-auto", style: { padding: "4px 2px 6px" } }, chars.map(c => face(false, c, c.remark || c.name, async () => {
             if (busyWho) return;
             setBusyWho((c.remark || c.name) + " 在出题…");
-            const t2 = await props.onCharGen(c.id);
+            const t2 = await props.onCharGen(c.id, genMode);
             setBusyWho("");
             if (t2) { setWho("me"); setTestId(t2.id); bump(x => x + 1); }
           })))) : null));

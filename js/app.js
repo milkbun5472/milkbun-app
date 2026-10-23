@@ -22108,12 +22108,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setTimeout(() => replyNow(w.charId, "", null, { zyDone: { testName: test ? test.name : "", title: (row.zy || {}).title || "" } }), 300);
   };
   // 他给她出一套（她 2026-10-22）：用他自己的线路和他的上下文出，存成一套带 by 的题，她来做
-  const zhaoyingCharGen = async charId => {
+  const zhaoyingCharGen = async (charId, mode) => {
     const Z = window.Zhaoying, c = characters.find(x => x.id === charId);
     if (!Z || !c) return null;
     try {
-      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId))), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
-      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId });
+      const d = await runProbe(apiFor(charId), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.charTestInstruction(userName(profileFor(charId)), mode, charId), schemaHint: Z.CHAR_TEST_SCHEMA, maxTokens: 12000 });
+      const t = Z.saveCustom({ ...(d || {}), id: "", scored: false, by: charId, ...(mode === "open" ? { open: true } : {}) });
       if (!t) { toast("他这回没出成题，再试一次"); return null; }
       return t;
     } catch (e) { toast("他这回没出成题：" + String((e && e.message) || e).slice(0, 50)); return null; }
