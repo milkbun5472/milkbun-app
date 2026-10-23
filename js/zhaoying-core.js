@@ -1060,7 +1060,8 @@
       + (test.rank ? "\n这一套是排序：第 1 题挑排第一的，往后每题从还没排的里挑下一位，同一个只能排一次。" : "")
       + (test.bid ? "\n这一套是拍卖会：你手里一共 " + test.bid + " 枚金币，十样东西按顺序一样一样拍，amt 写你为这一样出多少枚。边出边算手里还剩多少，剩下的不够就只能少出或者不出，前面砸多了后面就没钱了；全部 amt 加起来不超过 " + test.bid + "，可以留着不花完。at 是这次出价落在哪一档（照选项那几档）。钱有限，砸在哪儿就是你心里最放不下的。" : "")
       + (test.rank || test.bid || test.bracket || test.fill || test.quick ? "" : "\n全部做完后，你可以回头看一遍，最多改三题：回头看时真觉得哪题选得不对才改，写进 revise（题号、改成第几个选项、为什么改，why 照心声那样写）；看完觉得都对就给空数组。")
-      + "\nreview 是另一件事：测试页面在结果下面给做题这个人写的一小段解读，三四句，用「他」称呼你、口气是测试页面的口气，不是你自己说话。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体的题；别写这一类人谁都对得上的话。"
+      // 评语要说人话（她 2026-10-23「这也太不说人话了吧」：写成了心理报告，满篇受试者、程序正义）
+      + "\nreview 是另一件事：结果下面的一小段评语，三四句，用「他」称呼你，不是你自己说话。口气像一个看完你整张答卷的熟人，用大白话跟" + (meName || "她") + "讲讲你这个人：日常说话用的词，短句，读起来像人在聊天；心理学报告、论文里那种词（受试者、防御机制、程序正义这一类）不是这里的口气。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体哪一题、你当时那句心声；写的是只有这一次答卷才看得出来的东西。"
       + "\n题目：\n" + (test.bracket ? "（见上面的对阵规则）" : test.qs.map((q, i) => (i + 1) + ". " + q.q + (test.fill ? "" : "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n"))).join("\n"));
   }
   const ASK_SCHEMA = "{\"answers\":[{\"i\":1,\"steps\":[{\"at\":0,\"think\":\"按下这一项时心里的话\"}]}],\"review\":\"结果下面的评语\"}";
@@ -1255,6 +1256,9 @@
     // 说谎题（她 2026-10-23）：放完了她点题号猜是哪题撒了谎
     const [lieG, setLieG] = R.useState(rec.lieGuess != null ? rec.lieGuess : null);
     const guessing = !!rec.lie && lieG == null;
+    // 猜完滚到揭晓那块（她 2026-10-23：猜完在最底下看不到他说的）
+    const lieRef = R.useRef(null);
+    R.useEffect(() => { if (lieG != null && lieRef.current && rec.lieGuess == null) { try { lieRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, [lieG]);
     const done = step >= END;
     // 眼下这一下：第几题、按哪个、心里那句、这题一共几下
     const cur = () => { if (step < N) { const path = pathOf(step), x = path[Math.min(sub, path.length - 1)]; return { qi: step, at: x.at, th: x.think || "", n: path.length }; }
@@ -1344,15 +1348,22 @@
               h("div", { key: k, style: { fontSize: 12.5, lineHeight: 1.65, color: x.who === "me" ? "#7d6f60" : INK } },
                 h("span", { style: { fontSize: 11, color: x.who === "me" ? FOG : ACC, marginRight: 6 } }, x.who === "me" ? "你" : (p.name || "他")), x.t,
                 x.pick != null ? h("span", { style: { fontSize: 11, color: ACC, marginLeft: 6 } }, "（改选了「" + optText(test, i, x.pick).slice(0, 12) + "」）") : null))) : null)),
-          done && rec.lie ? h("div", { "data-wk": "zylie", style: { margin: "16px 0 0", padding: "12px 14px", borderRadius: 12, border: "1.5px dashed " + ACC, background: "rgba(176,118,74,.06)", fontSize: 13, color: INK, lineHeight: 1.7 } },
+          done && rec.lie ? h("div", { "data-wk": "zylie", ref: lieRef, style: { margin: "16px 0 0", padding: "12px 14px", borderRadius: 12, border: "1.5px dashed " + ACC, background: "rgba(176,118,74,.06)", fontSize: 13, color: INK, lineHeight: 1.7 } },
             guessing ? (p.name || "他") + " 这次有一题撒了谎。往上翻，点题目前面的「Q?」猜是哪一题。"
-              : "你猜第 " + (lieG + 1) + " 题，" + (lieG === rec.lie.i ? "猜中了。" : "不对——是第 " + (rec.lie.i + 1) + " 题。") + "那题他选了「" + optText(test, rec.lie.i, rec.picks[rec.lie.i]) + "」，其实是「" + optText(test, rec.lie.i, rec.lie.truth) + "」" + (rec.lie.why ? "。" + rec.lie.why : "")) : null,
+              : h(R.Fragment, null,
+                h("div", { style: { fontFamily: "inherit", fontSize: 15, color: lieG === rec.lie.i ? ACC : INK } }, lieG === rec.lie.i ? "猜中了，就是第 " + (lieG + 1) + " 题" : "你猜第 " + (lieG + 1) + " 题——不对，是第 " + (rec.lie.i + 1) + " 题"),
+                h("div", { style: { marginTop: 4 } }, "那题他选了「" + optText(test, rec.lie.i, rec.picks[rec.lie.i]) + "」，其实是「" + optText(test, rec.lie.i, rec.lie.truth) + "」"),
+                // 他为什么偏挑这题撒谎：是他自己的话，单独亮出来
+                rec.lie.why ? h("div", { "data-wk": "zyliewhy", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE } },
+                  h("div", { style: { fontSize: 11, color: ACC, letterSpacing: ".1em", marginBottom: 2 } }, (p.name || "他") + " 说"),
+                  h("div", { style: { fontSize: 14, color: INK, lineHeight: 1.75 } }, "「" + rec.lie.why + "」")) : null)) : null,
           // 放完了：结果和评语摆在题目最下面（她 2026-10-22），放完自己滚过去
           done ? h("div", { "data-wk": "zyresult", ref: el => { if (el && !resRef.current) { resRef.current = 1; try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {} } }, style: { margin: "18px 0 8px", padding: "16px 14px 14px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE, boxShadow: "inset 0 0 0 4px #fffaf3, inset 0 0 0 5px " + LINE, animation: "wkpop .35s ease-out both" } },
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, (p.name || "他") + (res.free ? " 做完说" : " 测出来是")),
             h("div", { style: { fontSize: 21, color: INK, marginTop: 4 } }, res.title),
             test.bid && bids ? bidBars(test, bids, { INK, FOG, LINE, ACC }) : res.line && res.line !== res.title ? h("div", { style: { fontSize: 13, color: "#6d6255", marginTop: 4, lineHeight: 1.6 } }, res.line) : null,
             guessLine(test, rec) ? h("div", { "data-wk": "zyguess", style: { fontSize: 12.5, color: ACC, marginTop: 8 } }, guessLine(test, rec)) : null,
+            guessing ? h("div", { style: { marginTop: 10, fontSize: 12.5, color: ACC } }, "他这次有一题撒了谎——往上翻，点题号前的「Q?」猜一猜") : null,
             rec.review ? h("div", { "data-wk": "zyreview", style: { fontSize: 13, color: "#5d5246", marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + LINE, lineHeight: 1.75 } }, rec.review) : null,
             // 存成图／收进时刻：看完就在这儿点（她 2026-10-22）
             (p.onSaveImage || p.onPin) ? h("div", { "data-wk": "zyrecacts", style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 } },

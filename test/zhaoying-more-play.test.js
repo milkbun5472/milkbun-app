@@ -400,3 +400,13 @@ console.log("ok");
   const zy = fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8");
   assert.match(zy, /"data-wk": "zysendbox"/); assert.doesNotMatch(zy, /run\.done && run\.mode === "me" && tt\.by && props\.onSendMine/);
 }
+
+// 评语说人话；猜完谎，他自己那句亮出来并滚过去（她 2026-10-23）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, ins = Z.askInstruction(Z.byId("moral"), "她");
+  assert.match(ins, /用大白话跟她讲讲你这个人/); assert.doesNotMatch(ins, /口气是测试页面的口气/);
+  const core = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying-core.js"), "utf8");
+  assert.match(core, /"data-wk": "zyliewhy"/); assert.match(core, /lieRef\.current\.scrollIntoView/);
+}
