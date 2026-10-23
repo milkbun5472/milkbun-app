@@ -510,3 +510,18 @@ console.log("ok");
     const v = Object.values(c); assert.ok(Math.max(...v) / Math.min(...v) < 1.2, t.id + " " + JSON.stringify(c));
   });
 }
+
+// AI 出算分题要配平；自己出的算分题平票掷签；编辑页看得到配得平不平（她 2026-10-23）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, fs = require("node:fs"), path = require("node:path");
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /配分要公平：每道题的几个选项各指向不同的结果/);
+  const t = Z.saveCustom({ name: "x", scored: true, results: [{ title: "A" }, { title: "B" }], qs: [{ q: "1", opts: [{ t: "a", r: 0 }, { t: "b", r: 1 }] }, { q: "2", opts: [{ t: "a", r: 0 }, { t: "b", r: 1 }] }] });
+  const c = {}; [[0, 1], [1, 0]].forEach(p => { for (let n = 0; n < 1; n++) { const r = Z.resultOf(t.id, p).title; c[r] = (c[r] || 0) + 1; } });
+  assert.deepEqual(Z.scoreBalance(t), [1, 1]);
+  assert.deepEqual(Z.scoreBalance({ results: [{}, {}], qs: [{ opts: [{ t: "a", r: 0 }, { t: "b", r: 0 }] }] }), [1, 0]);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8"), /"data-wk": "zybalance"/);
+}

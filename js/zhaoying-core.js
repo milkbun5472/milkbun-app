@@ -948,6 +948,12 @@
     if (kind === "quick") return { say: "这一套是快问快答：" + n + " 道二选一，每题正好两个选项，题短、选项短，一眼就能选。", schema: "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"},{\"t\":\"\"}]}]" };
     return null;
   }
+  // 自己出的算分题：每种结果「随手乱选时」被指到的机会（每个选项算 1／这题选项数）
+  function scoreBalance(t) {
+    const n = (t.results || []).map(() => 0);
+    (t.qs || []).forEach(q => { const os = (q.opts || []).filter(o => o && String(o.t || "").trim()); os.forEach(o => { const r = Number(o.r) || 0; if (n[r] != null) n[r] += 1 / os.length; }); });
+    return n;
+  }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   // 自己做到一半的存档（她 2026-10-23「跟小游戏一样」）：每套一份，做完就清；题删了也一起清
   const DRAFT = "x_zyDraft";
@@ -959,7 +965,8 @@
     if (!test.scored) return { code: "", title: "", line: "", free: true };
     const n = test.results.map(() => 0);
     (picks || []).forEach((p, i) => { const o = test.qs[i] && test.qs[i].opts[p]; if (o && n[o.r] != null) n[o.r]++; });
-    let k = 0; n.forEach((v, i) => { if (v > n[k]) k = i; });
+    // 平了不固定给第一个结果：跟内置题一样按答卷掷签
+    let k = 0; n.forEach((v, i) => { if (v > n[k] || v === n[k] && i !== k && tieHash(test.id + ":" + (picks || []).join(","), String(i)) > tieHash(test.id + ":" + (picks || []).join(","), String(k))) k = i; });
     return { code: String(k), title: test.results[k].title, line: test.results[k].line };
   }
   // 给个主题，用她那条线路出一套（出完进编辑页，她改好了才存）
@@ -969,7 +976,9 @@
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + ka.schema + "}"
       : "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。出 " + n + " 道题，每题 2 到 4 个选项。"
       + "题面是日常里会碰到的具体场景或问题，口语，短；选项是人在那个场景里真的会有的不同反应，彼此拉得开，不让人一眼看出哪个是标准答案，也不出现术语。"
-      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数），让每种结果在各题里都有选项指向。" : "这套不算分，不用写结果。")
+      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数）。"
+        // 别让一种结果白捡（她 2026-10-23「AI 出题能不能提示一下不出这种导向一种结果的」）
+        + "配分要公平：每道题的几个选项各指向不同的结果；全部题算下来，每种结果被指向的次数一样多。指向同一种结果的选项，不要都是更体面、更讨喜、更像「好人」会选的那个——每种结果都要有让人愿意选它的选项。" : "这套不算分，不用写结果。")
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + (scored ? "\"results\":[{\"title\":\"\",\"line\":\"\"}]," : "") + "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"" + (scored ? ",\"r\":0" : "") + "}]}]}";
     const raw = await callAI(route, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
@@ -1579,7 +1588,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
