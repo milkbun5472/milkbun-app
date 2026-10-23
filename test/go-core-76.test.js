@@ -40,9 +40,9 @@ assert.equal(G.coord(9, m.p), "E4", "放着能提的子不提：" + G.coord(9, m
 ["easy", "normal", "hard"].forEach(lv => G.STYLES.concat([undefined]).forEach(st => {
   const g = G.newGame(9), t0 = Date.now(), mv = G.bestMove(g, lv, st);
   assert.ok(mv.pass || G.isLegal(g, mv.p));
-  assert.ok(Date.now() - t0 < 2500, lv + " 太慢");
+  assert.ok(Date.now() - t0 < 6000, lv + " 太慢");   // 想多久由 THINK 封顶；这里只防死循环，发版时测试并行跑会慢
 }));
-const g19 = G.newGame(19), t1 = Date.now(), m19 = G.bestMove(g19, "hard"); assert.ok(G.isLegal(g19, m19.p)); assert.ok(Date.now() - t1 < 3000, "十九路太慢");
+const g19 = G.newGame(19), t1 = Date.now(), m19 = G.bestMove(g19, "hard"); assert.ok(G.isLegal(g19, m19.p)); assert.ok(Date.now() - t1 < 8000, "十九路太慢");
 // 死子估：角上孤零零一颗白子在黑的大地里
 s = G.newGame(9); for (let y = 0; y < 9; y++) s.board[y * 9 + 4] = 1; s.board[at(s, "B2")] = 2; s.board[at(s, "H8")] = 2; for (let y = 0; y < 9; y++) s.board[y * 9 + 6] = 2;
 const dead = G.estimateDead(s, 300);
