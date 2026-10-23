@@ -373,14 +373,14 @@
 
   // ── 第三批（她 2026-10-22「来」：GPT 那张单子里好玩的那 8 套）──
   T.push({ id: "cat", cat: "wan", name: "如果你是一只猫", sub: "猫的品种，就是你的脾气", qs: [
-    mk("主人回到家", [["冲到门口喵喵叫", "Sm"], ["在沙发上睁一只眼", "Br"], ["扑上去要抱", "Rg"]]),
+    mk("主人回到家", [["冲到门口喵喵叫", "Sm"], ["在沙发上睁一只眼，尾巴尖动了动", "Br"], ["扑上去要抱", "Rg"]]),
     mk("你最爱待的地方", [["冰箱顶上", "Bk"], ["饭碗旁边", "Ju"], ["窗台上看外面", "Mc"]]),
     mk("家里来了陌生人", [["躲进床底", "Bk"], ["凑过去闻闻有没有吃的", "Ju"], ["冲他叫", "Sm"]]),
     mk("被人抱起来", [["软成一摊", "Rg"], ["挣扎着跳下去", "Mc"], ["无所谓，抱就抱", "Br"]]),
     mk("半夜三点", [["在家里跑酷", "Mc"], ["坐在黑暗里盯着你", "Bk"], ["在你耳边叫饿", "Ju"]]),
     mk("你最常干的事", [["吃", "Ju"], ["睡", "Br"], ["跟着人走来走去", "Rg"]]),
-    mk("被关在门外", [["一直挠门叫", "Sm"], ["自己找别的地方睡", "Mc"], ["在门口等，一声不吭", "Bk"]]),
-    mk("主人哭了", [["过去蹭蹭", "Rg"], ["在旁边叫个不停", "Sm"], ["远远看着", "Bk"]]),
+    mk("被关在门外", [["一直挠门叫", "Sm"], ["自己找别的地方睡，天亮了第一个蹲门口", "Mc"], ["在门口等，一声不吭", "Bk"]]),
+    mk("主人哭了", [["过去蹭蹭", "Rg"], ["在旁边叫个不停", "Sm"], ["不出声，挨着他趴下", "Bk"]]),
     mk("洗澡", [["嚎得整栋楼都听见", "Sm"], ["认命", "Br"], ["挠人", "Mc"]]),
     mk("别人说你", [["胖", "Ju"], ["高冷", "Bk"], ["黏人精", "Rg"]]),
     mk("玩逗猫棒", [["扑到累瘫", "Mc"], ["看两眼就躺下", "Br"], ["叫着要你接着玩", "Sm"]]),
@@ -779,7 +779,9 @@
     Sh: ["神医", "先救人，别的再说"], Sw: ["说书人", "江湖上什么事都瞒不过你"], Ba: ["帮主", "有你在，兄弟们就有地方去"] };
   // 票数一样时谁赢（群友 2026-10-23「狗测出来都是金毛」）：原来是表里排第一的赢，金毛、兔子这种排前面的白捡；
   //   现在平票时用「这一份答卷」掷一次签：对每个结果都公平，同一份答卷永远是同一个结果（看最后几题也试过，会偏向排在后面题里的那几种）
-  const tieHash = (seed, k) => { let x = 2166136261; for (const ch of seed + "|" + k) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
+  //   最后那几步把每一位都搅匀：不搅的话两个只差最后一个字的结果会被前面那串带着走，掷签就不公平
+  const tieHash = (seed, k) => { let x = 2166136261; for (const ch of seed + "|" + k) { x ^= ch.charCodeAt(0); x = Math.imul(x, 16777619); }
+    x ^= x >>> 16; x = Math.imul(x, 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; return x >>> 0; };
   const byScore = sc => (a, b) => ((sc[b] || 0) - (sc[a] || 0)) || (tieHash(sc.__seed || "", b) - tieHash(sc.__seed || "", a));
   const topOf = (map, sc) => Object.keys(map).sort(byScore(sc))[0];
   const ANIMAL = {
@@ -788,12 +790,17 @@
   };
   function tally(test, picks) {
     const sc = {};
-    (picks || []).forEach((p, i) => { const q = test.qs[i]; const o = q && q.opts[p]; if (o) Object.keys(o.s).forEach(k => { sc[k] = (sc[k] || 0) + o.s[k]; }); });
+    const last = {};
+    (picks || []).forEach((p, i) => { const q = test.qs[i]; const o = q && q.opts[p]; if (o) Object.keys(o.s).forEach(k => { sc[k] = (sc[k] || 0) + o.s[k]; last[k] = i; }); });
     Object.defineProperty(sc, "__seed", { value: test.id + ":" + (picks || []).join(",") });   // 平票掷签用，不算进分数
+    Object.defineProperty(sc, "__last", { value: last });                                       // 两头的维度打平时用
     return sc;
   }
   // 平分时取前一个（题数是偶数的那几套才可能平）
-  const pickAxis = (sc, a, b) => ((sc[a] || 0) >= (sc[b] || 0) ? a : b);
+  // 两头打平时也掷签（她 2026-10-23「还有别的要改的吗」）：原来平了固定给前一个，MBTI 一个维度 4 题、2 比 2 的机会快四成，
+  //   一律给 E、S、T、J；三观一个维度 2 题，一半是平的。同一份答卷还是同一个结果
+  //   平了就看这个维度【最后那一题】选的哪头：每题两头各一个选项，所以对两头一样公平（掷签在题少时做不到这么平）
+  const pickAxis = (sc, a, b) => (sc[a] || 0) !== (sc[b] || 0) ? ((sc[a] || 0) > (sc[b] || 0) ? a : b) : (((sc.__last || {})[a] != null ? sc.__last[a] : -1) > ((sc.__last || {})[b] != null ? sc.__last[b] : -1) ? a : b);
   function resultOf(testId, picks, bids) {
     const test = byId(testId); if (!test) return null;
     if (test.custom && !kindOf(test)) return customResult(test, picks);
@@ -817,11 +824,11 @@
       return { code: test.axes.map(([a, b]) => pickAxis(sc, a, b)).join("-"), title: tags.join(" · "), line: "" };
     }
     if (testId === "ennea") {
-      const order = Object.keys(ENNEA).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(ENNEA).sort(byScore(sc));
       return { code: order[0], title: ENNEA[order[0]][0], line: ENNEA[order[0]][1] };
     }
     if (testId === "partner") {
-      const order = Object.keys(PARTNER).sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+      const order = Object.keys(PARTNER).sort(byScore(sc));
       return { code: order[0], title: "适合你的是：" + PARTNER[order[0]][0], line: PARTNER[order[0]][1] };
     }
     if (testId === "mindage") {
@@ -941,6 +948,12 @@
     if (kind === "quick") return { say: "这一套是快问快答：" + n + " 道二选一，每题正好两个选项，题短、选项短，一眼就能选。", schema: "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"},{\"t\":\"\"}]}]" };
     return null;
   }
+  // 自己出的算分题：每种结果「随手乱选时」被指到的机会（每个选项算 1／这题选项数）
+  function scoreBalance(t) {
+    const n = (t.results || []).map(() => 0);
+    (t.qs || []).forEach(q => { const os = (q.opts || []).filter(o => o && String(o.t || "").trim()); os.forEach(o => { const r = Number(o.r) || 0; if (n[r] != null) n[r] += 1 / os.length; }); });
+    return n;
+  }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   // 自己做到一半的存档（她 2026-10-23「跟小游戏一样」）：每套一份，做完就清；题删了也一起清
   const DRAFT = "x_zyDraft";
@@ -952,7 +965,8 @@
     if (!test.scored) return { code: "", title: "", line: "", free: true };
     const n = test.results.map(() => 0);
     (picks || []).forEach((p, i) => { const o = test.qs[i] && test.qs[i].opts[p]; if (o && n[o.r] != null) n[o.r]++; });
-    let k = 0; n.forEach((v, i) => { if (v > n[k]) k = i; });
+    // 平了不固定给第一个结果：跟内置题一样按答卷掷签
+    let k = 0; n.forEach((v, i) => { if (v > n[k] || v === n[k] && i !== k && tieHash(test.id + ":" + (picks || []).join(","), String(i)) > tieHash(test.id + ":" + (picks || []).join(","), String(k))) k = i; });
     return { code: String(k), title: test.results[k].title, line: test.results[k].line };
   }
   // 给个主题，用她那条线路出一套（出完进编辑页，她改好了才存）
@@ -962,7 +976,9 @@
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + ka.schema + "}"
       : "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。出 " + n + " 道题，每题 2 到 4 个选项。"
       + "题面是日常里会碰到的具体场景或问题，口语，短；选项是人在那个场景里真的会有的不同反应，彼此拉得开，不让人一眼看出哪个是标准答案，也不出现术语。"
-      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数），让每种结果在各题里都有选项指向。" : "这套不算分，不用写结果。")
+      + avoidNote("") + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数）。"
+        // 别让一种结果白捡（她 2026-10-23「AI 出题能不能提示一下不出这种导向一种结果的」）
+        + "配分要公平：每道题的几个选项各指向不同的结果；全部题算下来，每种结果被指向的次数一样多。指向同一种结果的选项，不要都是更体面、更讨喜、更像「好人」会选的那个——每种结果都要有让人愿意选它的选项。" : "这套不算分，不用写结果。")
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + (scored ? "\"results\":[{\"title\":\"\",\"line\":\"\"}]," : "") + "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"" + (scored ? ",\"r\":0" : "") + "}]}]}";
     const raw = await callAI(route, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
@@ -1572,7 +1588,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, scoreBalance, STARS, prefOf, setPref, noteKind, drawKind, recordsOf, addRecord, patchRecord, spreadOf, drafts, saveDraft, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜

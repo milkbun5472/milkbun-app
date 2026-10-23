@@ -482,7 +482,46 @@ console.log("ok");
   });
   // 平票不再让表里排第一的白捡（群友「狗测出来都是金毛」）：同一份答卷结果不变，乱选几千次各种都差不多
   const Z = global.Zhaoying, dog = Z.byId("dog"), cnt = {};
-  let seed = 11; for (let n = 0; n < 6000; n++) { const p = dog.qs.map(q => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % q.opts.length; }); const k = Z.resultOf("dog", p).code; cnt[k] = (cnt[k] || 0) + 1; }
+  let seed = 11; for (let n = 0; n < 6000; n++) { const p = dog.qs.map(q => { seed = (seed * 1103515245 + 12345) % 2147483648; return (seed >>> 16) % q.opts.length; }); const k = Z.resultOf("dog", p).code; cnt[k] = (cnt[k] || 0) + 1; }
   const v = Object.values(cnt); assert.equal(v.length, 6); assert.ok(Math.max(...v) / Math.min(...v) < 1.3, JSON.stringify(cnt));
   const p0 = dog.qs.map(() => 0); assert.equal(Z.resultOf("dog", p0).code, Z.resultOf("dog", p0.slice()).code);
+}
+
+// 两头打平也掷签（她 2026-10-23）：MBTI、三观不再平了就给前一个字母
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying;
+  for (const id of ["mbti", "values"]) {
+    const t = Z.byId(id), c = {}; let seed = 5;
+    for (let n = 0; n < 4000; n++) { const p = t.qs.map(q => { seed = (seed * 1103515245 + 12345) % 2147483648; return (seed >>> 16) % q.opts.length; }); Z.resultOf(id, p).code.split(id === "mbti" ? "" : "-").forEach(k => { c[k] = (c[k] || 0) + 1; }); }
+    t.axes.forEach(([a, b]) => assert.ok(Math.max(c[a], c[b]) / Math.min(c[a], c[b]) < 1.15, id + " " + a + b + " " + JSON.stringify(c)));
+  }
+}
+
+// 所有按票数出结果的内置题：乱选几千次，各结果出现次数相差不到两成（她 2026-10-23「还有别的要改的吗」）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying; let seed = 99;
+  const rnd = n => { seed = (seed * 1103515245 + 12345) % 2147483648; return (seed >>> 16) % n; };
+  Z.TESTS.filter(t => !["attach", "mindage", "lovebrain", "mbti", "values", "bigfive"].includes(t.id) && !(t.list || t.fill || t.bid || t.rank || t.bracket || t.scale || t.star || t.trade || t.quick)).forEach(t => {
+    const c = {}; for (let n = 0; n < 6000; n++) { const k = (Z.resultOf(t.id, t.qs.map(q => rnd(q.opts.length))) || {}).code; c[k] = (c[k] || 0) + 1; }
+    const v = Object.values(c); assert.ok(Math.max(...v) / Math.min(...v) < 1.2, t.id + " " + JSON.stringify(c));
+  });
+}
+
+// AI 出算分题要配平；自己出的算分题平票掷签；编辑页看得到配得平不平（她 2026-10-23）
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")];
+  const store = {}; global.loadJSON = (k, d) => k in store ? store[k] : d; global.saveJSON = (k, v) => { store[k] = v; };
+  require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, fs = require("node:fs"), path = require("node:path");
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying-core.js"), "utf8"), /配分要公平：每道题的几个选项各指向不同的结果/);
+  const t = Z.saveCustom({ name: "x", scored: true, results: [{ title: "A" }, { title: "B" }], qs: [{ q: "1", opts: [{ t: "a", r: 0 }, { t: "b", r: 1 }] }, { q: "2", opts: [{ t: "a", r: 0 }, { t: "b", r: 1 }] }] });
+  const c = {}; [[0, 1], [1, 0]].forEach(p => { for (let n = 0; n < 1; n++) { const r = Z.resultOf(t.id, p).title; c[r] = (c[r] || 0) + 1; } });
+  assert.deepEqual(Z.scoreBalance(t), [1, 1]);
+  assert.deepEqual(Z.scoreBalance({ results: [{}, {}], qs: [{ opts: [{ t: "a", r: 0 }, { t: "b", r: 0 }] }] }), [1, 0]);
+  assert.match(fs.readFileSync(path.join(__dirname, "../js/zhaoying.js"), "utf8"), /"data-wk": "zybalance"/);
 }

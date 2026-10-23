@@ -226,6 +226,10 @@
               h("div", { style: { flex: 1, minWidth: 0 } }, line(r.title, v => up({ results: E.results.map((x, i) => i === k ? Object.assign({}, x, { title: v }) : x) }), "结果名字", { style: { fontFamily: F_DISPLAY } }),
                 line(r.line, v => up({ results: E.results.map((x, i) => i === k ? Object.assign({}, x, { line: v }) : x) }), "一句说明（可不写）", { style: { fontSize: 12.5, borderBottom: "1px dashed " + LINE } })),
               E.results.length > 2 ? iconBtn("✕", () => up({ results: E.results.filter((x, i) => i !== k), qs: E.qs.map(q => Object.assign({}, q, { opts: q.opts.map(o => Object.assign({}, o, { r: (o.r || 0) > k ? o.r - 1 : (o.r === k ? 0 : o.r) })) })) }), FOG, "删这个结果") : null)),
+            // 配得平不平：每种结果被指到的机会，差太多就提醒（她 2026-10-23）
+            (function () { const b = Z.scoreBalance(E), mx = Math.max.apply(null, b), mn = Math.min.apply(null, b), even = !b.length || mx - mn < 0.34;
+              return b.length ? h("div", { "data-wk": "zybalance", style: { margin: "6px 0 2px", padding: "8px 10px", borderRadius: 8, background: even ? "rgba(74,127,92,.08)" : "rgba(192,80,63,.08)", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: even ? "#4a7f5c" : "#c0503f" } },
+                (even ? "配得挺平：" : "配得不平，容易一直测出「" + ((E.results[b.indexOf(mx)] || {}).title || String.fromCharCode(65 + b.indexOf(mx))) + "」：") + b.map((v, i) => String.fromCharCode(65 + i) + " " + v.toFixed(1)).join(" · ") + (even ? "" : "。把指向它的选项改几个给少的那几种")) : null; })(),
             (E.results || []).length < 8 ? addRow("＋ 再加一种结果", () => up({ results: [...(E.results || []), { title: "", line: "" }] })) : null) : null,
           K === "scale" ? h(Fragment, null, sec("总 分", "做完显示成「它 N / 10」"), line(E.scale, v => up({ scale: v }), "总分叫什么，比如：胆量、心软指数")) : null,
           K === "star" ? h(Fragment, null, sec("总 分", "做完显示成「它 N 星」"), line(E.star, v => up({ star: v }), "总分叫什么，比如：理想程度、难开口")) : null,
