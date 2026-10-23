@@ -31589,6 +31589,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRestoreOffline: i => restoreOfflineFromCard("group", activeGroup.id, activeGroup.id, i),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
+    // 群聊也能存成长图（她 2026-10-23）：谁说的就画谁的头像和名字
+    onLongShot: indices => {
+      const g0 = activeGroup, msgs = groupChatsRef.current[g0.id] || [];
+      const picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
+      if (!window.ChatLongShot) return;
+      toast("在拼长图…");
+      window.ChatLongShot.save({ msgs: picked, group: true, title: g0.name || "群聊", sub: (g0.memberIds || []).length + 1 + " 人",
+        foot: (() => { const d = new Date(); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; })(), ta: {}, me: { avatar: (profile || {}).avatarImage },
+        avatarSrcOf: id => (characters.find(c => c.id === id) || {}).avatarImage })
+        .then(via => toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "长图存下来了"))
+        .catch(e => toast("没拼成：" + String((e && e.message) || e).slice(0, 40)));
+    },
     // 群里圈一段收进时刻（她 2026-10-03 点的第 8 条）：收成一张【多人的】卡，这一段里说过话的每个角色名下都有
     onPinShike: indices => {
       const msgs = (groupChatsRef.current[activeGroup.id] || []);
