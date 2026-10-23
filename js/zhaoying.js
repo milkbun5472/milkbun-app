@@ -51,13 +51,13 @@
     };
     const finish = r => {
       clearTimeout(timer.current);
-      const res = Z.resultOf(r.testId, r.picks);
+      const res = Z.resultOf(r.testId, r.picks, r.bids);
       if (res.free) { res.title = "做完了"; res.line = ""; }
-      Z.addRecord(r.who, { testId: r.testId, ts: Date.now(), picks: r.picks, whys: r.whys || [], code: res.code, title: res.title, line: res.line, free: !!res.free });
+      Z.addRecord(r.who, { testId: r.testId, ts: Date.now(), picks: r.picks, whys: r.whys || [], code: res.code, title: res.title, line: res.line, free: !!res.free, ...(r.bids ? { bids: r.bids } : {}) });
       setRun(Object.assign({}, r, { done: true, res, step: Z.byId(r.testId).qs.length }));
       bump(x => x + 1);
     };
-    const startMe = () => { if (test) setRun({ mode: "me", who: "me", testId: test.id, picks: [], whys: [], step: 0 }); };
+    const startMe = () => { if (test) setRun({ mode: "me", who: "me", testId: test.id, picks: [], whys: [], step: 0, ...(test.bid ? { bids: test.qs.map(() => 0) } : {}) }); };
     const mePick = p => setRun(r => {
       const picks = r.picks.concat([p]);
       const next = Object.assign({}, r, { picks, step: r.step + 1 });
@@ -89,8 +89,16 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.deep, background: "rgba(255,255,255,.6)", padding: "3px 10px", borderRadius: 999 } }, done.length ? done.length + " 人测过" : "还没人测过"),
           big ? null : h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: c.deep, padding: "5px 14px", borderRadius: 999 } }, "去测 →")));
     };
-    const qBlock = (tt, i, pick, why, live) => {
+    const qBlock = (tt, i, pick, why, live, amt) => {
       const q = tt.qs[i];
+      // 拍卖：不摆五档，只写这一样出了多少（她 2026-10-23「给范围咋算 100」）；预览里就只列这一样
+      if (tt.bid) return h("div", { key: i, "data-wk": "zyq", style: { padding: "10px 0", borderBottom: "1px dashed " + LINE } },
+        h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: INK, width: 64, flexShrink: 0 } }, q.q),
+          amt != null || pick >= 0 ? h("span", { style: { flex: 1, height: 10, borderRadius: 999, background: LINE, overflow: "hidden" } }, h("span", { style: { display: "block", height: "100%", width: (amt != null ? amt : 0) + "%", background: ACC } })) : h("span", { style: { flex: 1 } }),
+          amt != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: INK, width: 44, textAlign: "right", flexShrink: 0 } }, amt + " 枚") : pick >= 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG } }, Z.optText(tt, i, pick)) : null),
+        why ? h("div", { "data-wk": "zywhy", style: whyStyle(live) }, why) : null);
       return h("div", { key: i, "data-wk": "zyq", style: { padding: "12px 0", borderBottom: "1px dashed " + LINE } },
         h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: ACC, letterSpacing: ".05em", flexShrink: 0 } }, "Q" + (i + 1)),
@@ -192,7 +200,22 @@
           share,
           run.done && run.mode === "me" && tt.by && props.onSendMine && chars.some(c => c.id === tt.by) ? h("button", { "data-wk": "zysendmine", onClick: () => { const r0 = Z.recordsOf("me", tt.id)[0]; if (r0) props.onSendMine(tt.by, tt.id, r0); }, className: "w-full active:opacity-70",
             style: { marginTop: 4, padding: "12px 0", borderRadius: 10, background: INK, color: PAPER, fontFamily: F_DISPLAY } }, "发给 " + nameOf(tt.by) + " 看我的答案") : null,
-          run.mode === "me" && !run.done && run.step < tt.qs.length ? h("div", { "data-wk": "zyq" },
+          // 拍卖自己做：一页摆开十样，加加减减，剩多少一直看得见，不会超
+          run.mode === "me" && !run.done && tt.bid ? (function () {
+            const left = tt.bid - run.bids.reduce((x, y) => x + y, 0);
+            const set = (i, d) => setRun(r => { const b = r.bids.slice(), l = tt.bid - b.reduce((x, y) => x + y, 0); b[i] = Math.max(0, b[i] + Math.min(d, l)); return Object.assign({}, r, { bids: b }); });
+            const stepBtn = (lab, fn, off) => h("button", { onClick: fn, disabled: off, className: "active:opacity-60", style: { width: 40, height: 40, borderRadius: 999, border: "1px solid " + LINE, background: "#fffaf3", color: INK, fontSize: 16, opacity: off ? .35 : 1 } }, lab);
+            return h("div", { "data-wk": "zybidme" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: left ? ACC : INK, margin: "6px 0 10px" } }, "手里还剩 " + left + " 枚"),
+              tt.qs.map((q, i) => h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px dashed " + LINE } },
+                h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 14, color: INK } }, q.q),
+                stepBtn("−", () => set(i, -5), !run.bids[i]),
+                h("span", { style: { width: 36, textAlign: "center", fontFamily: F_BODY, fontSize: 14, color: INK } }, run.bids[i]),
+                stepBtn("＋", () => set(i, 5), !left))),
+              h("button", { onClick: () => finish(Object.assign({}, run, { picks: run.bids.map(v => v <= 0 ? 0 : v < 10 ? 1 : v < 25 ? 2 : v < 50 ? 3 : 4) })), className: "w-full active:scale-[.98]",
+                style: { marginTop: 14, padding: "13px 0", borderRadius: 999, background: ACC, color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } }, left ? "就出这些（还剩 " + left + " 枚不花）" : "出完了"));
+          })() : null,
+          run.mode === "me" && !run.done && !tt.bid && run.step < tt.qs.length ? h("div", { "data-wk": "zyq" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: INK, lineHeight: 1.6, margin: "10px 0 12px" } }, (run.step + 1) + ". " + tt.qs[run.step].q),
             tt.qs[run.step].opts.map((o, j) => tt.rank && run.picks.indexOf(j) >= 0 ? null : h("button", { key: j, "data-wk": "zyopt", onClick: () => mePick(j), className: "w-full text-left active:opacity-70",
               style: { display: "block", marginBottom: 8, padding: "11px 12px", borderRadius: 8, border: "1px solid " + LINE, background: "#fffaf3", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: INK } }, o.t))) : null,
@@ -338,7 +361,7 @@
                     h("div", { style: { color: INK, fontSize: 13 } }, (i + 1) + ". " + test.qs[i].q),
                     "平时：" + Z.optText(test, i, base.picks[i]) + ((base.whys || [])[i] ? "（" + base.whys[i] + "）" : "") + "\n这次：" + Z.optText(test, i, r.picks[i]) + ((r.whys || [])[i] ? "（" + r.whys[i] + "）" : ""))));
               })() : null,
-              test.qs.map((q, i) => qBlock(test, i, r.picks[i], (r.whys || [])[i], false)),
+              test.qs.map((q, i) => qBlock(test, i, r.picks[i], (r.whys || [])[i], false, r.bids ? r.bids[i] : null)),
               // 结果和评语压在题目最下面（她 2026-10-22）
               h("div", { "data-wk": "zyresult", style: { margin: "14px 0 6px", padding: "14px 14px 12px", borderRadius: 12, background: "#fffaf3", border: "1px solid " + LINE } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".2em", color: FOG } }, nameOf(who) + (r.free ? " 做完说" : " 测出来是")),

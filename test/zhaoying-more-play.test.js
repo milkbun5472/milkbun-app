@@ -270,3 +270,17 @@ console.log("ok");
   const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
   assert.match(zy, /"data-wk": "zybadgeline"/); assert.match(zy, /char && badgeOpen \? h\("div", \{ "data-wk": "zybadges"/);
 }
+
+// 拍卖不给档（她 2026-10-23「给范围咋算100」「会不会超」）：他没超就原样、可以剩；超了才摊回 100；看他做的那页只画一条和「还剩」
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const Z = global.Zhaoying, t = Z.byId("bidlove");
+  const a = Z.readAnswers(t, { answers: t.qs.map((q, i) => ({ i: i + 1, amt: i < 3 ? 20 : 0, steps: [{ at: 0 }] })) });
+  assert.deepEqual(a.bids.slice(0, 4), [20, 20, 20, 0], "没超就原样，剩 40 不花");
+  assert.match(Z.askInstruction(t, "她"), /边出边算手里还剩多少/);
+  const core = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying-core.js"), "utf8");
+  assert.match(core, /"data-wk": "zybidleft"/);
+  const zy = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/zhaoying.js"), "utf8");
+  assert.match(zy, /"data-wk": "zybidme"/); assert.match(zy, /stepBtn\("＋", \(\) => set\(i, 5\), !left\)/);
+}

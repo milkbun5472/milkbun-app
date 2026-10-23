@@ -656,6 +656,8 @@
     const mid = [0, 5, 17, 35, 60];
     let a = test.qs.map((q, i) => { const n = Number((amts || [])[i]); return (amts || [])[i] != null && n >= 0 && isFinite(n) ? n : mid[(picks || [])[i] | 0] || 0; });
     const sum = a.reduce((x, y) => x + y, 0); if (!sum) return a.map(() => 0);
+    // 他出得没超就原样留着（可以剩钱）；超了才照比例摊回总数
+    if (sum <= test.bid) return a.map(x => Math.round(x));
     a = a.map(x => Math.floor(x * test.bid / sum));
     let left = test.bid - a.reduce((x, y) => x + y, 0);
     a.map((x, i) => i).sort((i, j) => a[j] - a[i]).forEach(i => { if (left > 0 && a[i] > 0) { a[i]++; left--; } });
@@ -944,7 +946,7 @@
       + (test.custom && !test.scored ? "\n这套不算分。全部做完后，feel 写你做完这一套的感觉，一两句，照你自己说话的样子。" : "")
       // 结果下面那段评语（她 2026-10-22「写一小段评语，每个角色就算答案一样评语也不一样」）：同一次调用里一起写，不多花一枪
       + (test.rank ? "\n这一套是排序：第 1 题挑排第一的，往后每题从还没排的里挑下一位，同一个只能排一次。" : "")
-      + (test.bid ? "\n这一套是拍卖会：你手里一共 " + test.bid + " 枚金币，每样东西一题，amt 写你愿意为它出多少枚，所有 amt 加起来正好 " + test.bid + "；at 是出价落在哪一档。钱有限，砸在哪儿就是你心里最放不下的。" : "")
+      + (test.bid ? "\n这一套是拍卖会：你手里一共 " + test.bid + " 枚金币，十样东西按顺序一样一样拍，amt 写你为这一样出多少枚。边出边算手里还剩多少，剩下的不够就只能少出或者不出，前面砸多了后面就没钱了；全部 amt 加起来不超过 " + test.bid + "，可以留着不花完。at 是这次出价落在哪一档（照选项那几档）。钱有限，砸在哪儿就是你心里最放不下的。" : "")
       + (test.rank || test.bid ? "" : "\n全部做完后，你可以回头看一遍，最多改三题：回头看时真觉得哪题选得不对才改，写进 revise（题号、改成第几个选项、为什么改，why 照心声那样写）；看完觉得都对就给空数组。")
       + "\nreview 是另一件事：测试页面在结果下面给做题这个人写的一小段解读，三四句，用「他」称呼你、口气是测试页面的口气，不是你自己说话。只照你这一次每题怎么选、哪几题来回改过、心声里露出来的东西写，点到具体的题；别写这一类人谁都对得上的话。"
       + "\n题目：\n" + test.qs.map((q, i) => (i + 1) + ". " + q.q + "\n" + q.opts.map((o, j) => "   " + j + ") " + o.t).join("\n")).join("\n");
@@ -1159,7 +1161,8 @@
     return h("div", { "data-wk": "zywatch", style: { position: "fixed", inset: 0, zIndex: 120, background: PAPER, display: "flex", flexDirection: "column" } },
       h("div", { "data-wk": "head", style: { flexShrink: 0, padding: "12px 16px 10px", paddingTop: typeof g.safeTop === "function" ? g.safeTop(12) : 12, borderBottom: "1px solid " + LINE } },
         h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: FOG } }, "照影 · " + test.name),
-        h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : step >= N ? " 回头又看了一眼" : " 在做"))),
+        h("div", { style: { fontSize: 17, color: INK, marginTop: 3 } }, (p.name || "他") + (done ? " 做完了" : step >= N ? " 回头又看了一眼" : " 在做"),
+          test.bid && bids ? h("span", { "data-wk": "zybidleft", style: { marginLeft: 10, fontSize: 13, color: ACC } }, "手里还剩 " + (test.bid - bids.reduce((x, y, k) => x + (lit(k) >= 0 ? y : 0), 0)) + " 枚") : null)),
       h("div", { style: { position: "relative", flex: 1, minHeight: 0 } },
         h("div", { ref: boxRef, style: { position: "absolute", inset: 0, overflowY: "auto", padding: "8px 18px 160px" } },
 
@@ -1167,7 +1170,12 @@
             h("div", { style: { display: "flex", gap: 8, alignItems: "baseline" } },
               h("span", { style: { fontSize: 12, color: ACC, flexShrink: 0 } }, "Q" + (i + 1)),
               h("span", { style: { fontSize: 14, color: INK, lineHeight: 1.65 } }, q.q),
-              test.bid && rec.bids && !changed && (done || i < step) ? h("span", { style: { marginLeft: "auto", fontSize: 12, color: ACC, flexShrink: 0 } }, rec.bids[i] + " 枚") : null),
+              null),
+            test.bid ? (function () { const sh = lit(i) >= 0, v = bids ? bids[i] : [0, 5, 17, 35, 60][lit(i)] || 0;
+              return h("div", { ref: el => { q.opts.forEach((o, j) => { optRefs.current[i + ":" + j] = el; }); }, "data-wk": "zyopt", "data-on": sh ? "1" : "0",
+                style: { marginTop: 8, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, border: "1px solid " + (sh ? ACC : LINE), background: "#fffaf3", fontSize: 13, transition: "all .25s" } },
+                h("span", { style: { flex: 1, height: 10, borderRadius: 999, background: LINE, overflow: "hidden" } }, h("span", { style: { display: "block", height: "100%", width: (sh ? v : 0) + "%", background: ACC, transition: "width .4s" } })),
+                h("span", { style: { width: 50, textAlign: "right", color: sh ? INK : FOG } }, sh ? v + " 枚" : "…")); })() :
             h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } }, q.opts.map((o, j) => {
               const on = lit(i) === j, gone = !on && usedBefore(i).indexOf(j) >= 0;
               return h("div", { key: j, ref: el => { optRefs.current[i + ":" + j] = el; }, "data-wk": "zyopt", "data-on": on ? "1" : "0",
