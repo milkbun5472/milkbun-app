@@ -31080,6 +31080,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
     },
     // 多选 → 画成四格漫画（她 2026-10-12）
+    onLongShot: indices => {
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const msgs = chatsRef.current[threadKey] || [], me = profileFor(activeChar.id) || {};
+      const picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
+      if (!window.ChatLongShot) return;
+      toast("在拼长图…");
+      window.ChatLongShot.save({ msgs: picked, title: activeChar.remark || activeChar.name, sub: (userName(me) || "我") + " 和 " + (activeChar.remark || activeChar.name),
+        foot: (() => { const d = new Date(); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; })(), ta: { avatar: activeChar.avatarImage }, me: { avatar: me.avatarImage } })
+        .then(via => toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "长图存下来了"))
+        .catch(e => toast("没拼成：" + String((e && e.message) || e).slice(0, 40)));
+    },
     onComic: (indices, style) => {
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       const msgs = chatsRef.current[threadKey] || [];

@@ -10515,6 +10515,7 @@ function ChatThread({
   onDeleteMessages,
   onPinShike,
   onComic,
+  onLongShot,
   onResummarizeOffline,
   onRestoreOffline,
   onSendRich,
@@ -11634,6 +11635,8 @@ function ChatThread({
   h("div", { "data-wk": "selactions", className: "flex items-center justify-around px-2 pb-2.5", style: { gap: 4, minHeight: 44 } },
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻") : null,
   // 画成漫画先挑画风（她 2026-10-13）：真漫画＝勾线画出来；照片漫画＝保持真人照片，靠气泡和字做出漫画感
+  // 拼成一张长图存下来（她 2026-10-23：整页截图截不了 app）
+  onLongShot && !comicAsk ? h("button", { "data-wk": "sellongshot", onClick: () => { if (selIds.length) { onLongShot(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "存成长图") : null,
   onComic && !comicAsk ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) setComicAsk(true); }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "画成漫画") : null,
   onComic && comicAsk ? [["draw", "真漫画"], ["photo", "照片漫画"]].map(([k, zh]) => h("button", { key: k, "data-wk": "selcomic", "data-part": k, onClick: () => { setComicAsk(false); if (selIds.length) { onComic(selIds, k); exitSel(); } }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint } }, zh)) : null,
   // 一次撤好几条（群友 2026-10-17「许愿可以多选撤回」）：只撤自己发的，走的就是单条撤回那一条路
