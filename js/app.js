@@ -22164,25 +22164,37 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   const zhaoyingGroupRunInner = async (g, groupId, testId, test, Z, onStep, lie) => {
     const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(c => c && !c.npc);
+    // 跟单聊一样：卡先落进群、人跳进群里看（她 2026-10-24），谁做完那一行就亮起来、点得开回放
+    const mid = "zyg_" + Date.now();
+    const patchCard = fn => pGChat(groupId, p => p.map(x => x && x.id === mid ? fn(x) : x));
+    const setRow = (cid, patch) => patchCard(x => ({ ...x, zy: { ...(x.zy || {}), members: ((x.zy || {}).members || []).map(r => r.charId === cid ? { ...r, ...patch } : r) } }));
+    pGChat(groupId, p => [...p, { id: mid, role: "user", kind: "zygroup", ts: Date.now(), read: true,
+      content: "〔照影〕我让大家一起做「" + test.name + "」，正在做。",
+      zy: { testId, testName: test.name, lie: !!lie, status: "doing", members: mem.map(c => ({ charId: c.id, name: c.remark || c.name, title: "", state: "wait" })) } }]);
+    openChatById(groupId, "group");
     let n = 0;
     for (const c of mem) {
       if (onStep) onStep(c);
+      setRow(c.id, { state: "doing" });
       try {
         const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "zhaoying", instruction: Z.askInstruction(test, userName(profileFor(c.id)), Z.recordsOf(c.id, testId), "", zyAuthor(test, c.id), !!lie), schemaHint: Z.askSchema(test, !!lie), maxTokens: 20000 });
         const a = Z.readAnswers(test, d), res = Z.resultOf(testId, a.picks, a.bids);
         if (res.free) { res.title = a.feel || "做完了"; res.line = ""; }
         Z.addRecord(c.id, { testId, ts: Date.now(), picks: a.picks, whys: a.whys, paths: a.paths, code: res.code, title: res.title, line: res.line, free: !!res.free, ...(a.review ? { review: a.review } : {}), ...(a.react ? { react: a.react } : {}), ...(a.bids ? { bids: a.bids } : {}), ...(a.revs ? { revs: a.revs } : {}), ...(a.fills ? { fills: a.fills } : {}), ...(a.lie ? { lie: a.lie } : {}), group: groupId });
         n++;
-      } catch (e) { toast((c.remark || c.name) + " 这回没做成"); }
+        { const r0 = Z.recordsOf(c.id, testId)[0] || {}; setRow(c.id, { state: "done", recId: r0.id, title: r0.title || "" }); }
+      } catch (e) { toast((c.remark || c.name) + " 这回没做成"); setRow(c.id, { state: "failed" }); }
     }
+    if (n < 2) patchCard(x => ({ ...x, content: "〔照影〕我让大家一起做「" + test.name + "」，做成的人太少。", zy: { ...(x.zy || {}), status: "failed" } }));
     if (n >= 2) {
       const done = mem.filter(c => (Z.recordsOf(c.id, testId)[0] || {}).group === groupId);
       // 照答法摆：选择／滑杆挑分歧最大的两题，填空摆前两题各人写的，拍卖挑钱差最多的两样，淘汰赛比冠军（她 2026-10-23）
       const sp = Z.spreadOf(test, done.map(c => ({ name: c.remark || c.name, rec: Z.recordsOf(c.id, testId)[0] })));
       const pick = sp.rows.map((r, i) => Object.assign({ i }, r)).filter(r => test.fill || r.spread > (test.bid ? 0 : 1)).sort((a, b) => test.fill ? a.i - b.i : b.spread - a.spread).slice(0, 2);
       const qLines = pick.map(r => "第 " + (r.i + 1) + " 题「" + r.q + "」：" + r.lines.join("，"));
-      pGChat(groupId, p => [...p, { role: "user", kind: "zygroup", zy: { testId, testName: test.name, lie: !!lie, members: done.map(c => { const r = Z.recordsOf(c.id, testId)[0] || {}; return { charId: c.id, recId: r.id, name: c.remark || c.name, title: r.title || "" }; }) }, content: "〔照影〕我让大家都做了「" + test.name + "」：" + sp.head.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + (lie ? "\n（每个人都偷偷撒了一题谎，我还在猜）" : "") + "\n你们自己说说？", ts: Date.now() }]);
-      try { replyGroup(groupId, {}); } catch (e) {}
+      patchCard(x => ({ ...x, content: "〔照影〕我让大家都做了「" + test.name + "」：" + sp.head.join("、") + "。" + (qLines.length ? "\n" + qLines.join("\n") : "") + (lie ? "\n（每个人都偷偷撒了一题谎，我还在猜）" : "") + "\n你们自己说说？", zy: { ...(x.zy || {}), status: "done" } }));
+      // 卡上那段字是刚改的，等它落进存档再叫他们接话
+      setTimeout(() => { try { replyGroup(groupId, {}); } catch (e) {} }, 200);
     }
     return n;
   };

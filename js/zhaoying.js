@@ -425,7 +425,7 @@
               h("div", { className: "flex gap-2 flex-wrap" }, gs.map(gr => pill(false, gr.name || "群", () => {
                 if (busyWho) return;
                 const n0 = (gr.memberIds || []).filter(id => chars.some(c => c.id === id)).length;
-                requestAppConfirm("让「" + (gr.name || "群") + "」一起做？", "群里 " + n0 + " 个人各做一遍，一人一次调用。做完会把大家的选法发进群里。", async () => {
+                requestAppConfirm("让「" + (gr.name || "群") + "」一起做？", "群里 " + n0 + " 个人各做一遍，一人一次调用。卡会先落进群里、带你跳过去，谁做完那一行就亮起来，点开能看他怎么选的。", async () => {
                   setBusyWho("在做…");
                   const n = await props.onGroupRun(gr.id, test.id, c => setBusyWho((c.remark || c.name) + " 在做…"), groupLie && !(test.rank || test.bid || test.bracket || test.fill));
                   setBusyWho(""); bump(x => x + 1);

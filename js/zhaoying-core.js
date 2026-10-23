@@ -1235,12 +1235,12 @@
         h("div", { style: { position: "relative", fontSize: 10.5, letterSpacing: ".22em", color: c.deep } }, "照影 · 大家都做了"),
         h("div", { style: { position: "relative", fontSize: 17, color: "#2e261e", marginTop: 4, lineHeight: 1.35, maxWidth: "82%" } }, z.testName || tt.name || ""),
         z.lie ? h("div", { style: { position: "relative", fontSize: 11.5, color: c.deep, marginTop: 3 } }, "每个人都偷偷撒了一题谎") : null,
-        h("div", { style: { position: "relative", marginTop: 9, display: "flex", flexDirection: "column", gap: 6 } }, (z.members || []).map(r => h("button", { key: r.charId, "data-wk": "zygrouprow", onClick: open(r),
+        h("div", { style: { position: "relative", marginTop: 9, display: "flex", flexDirection: "column", gap: 6 } }, (z.members || []).map(r => h("button", { key: r.charId, "data-wk": "zygrouprow", "data-state": r.state || "done", onClick: r.recId ? open(r) : undefined, disabled: !r.recId,
           style: { display: "flex", alignItems: "center", gap: 8, textAlign: "left", padding: "6px 10px", borderRadius: 10, background: "rgba(255,255,255,.72)", border: "none", color: "#2e261e", fontSize: 13, cursor: "pointer" } },
           h("span", { style: { flexShrink: 0, color: c.deep } }, r.name),
-          h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title || ""),
-          h("span", { style: { flexShrink: 0, fontSize: 11, color: c.deep } }, "看 ›")))),
-        h("div", { style: { position: "relative", fontSize: 11.5, color: "rgba(46,38,30,.62)", marginTop: 8 } }, "点谁就看谁一题题怎么选的"));
+          h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: r.recId ? 1 : .6 } }, r.recId ? (r.title || "做完了") : r.state === "doing" ? "在做…" : r.state === "failed" ? "这回没做成" : "等着"),
+          r.recId ? h("span", { style: { flexShrink: 0, fontSize: 11, color: c.deep } }, "看 ›") : null))),
+        h("div", { style: { position: "relative", fontSize: 11.5, color: "rgba(46,38,30,.62)", marginTop: 8 } }, z.status === "doing" ? "一个个做完就亮起来，点开看他怎么选的" : z.status === "failed" ? "做成的人太少，没让他们接着聊" : "点谁就看谁一题题怎么选的"));
     }
     const ask = m && m.kind === "zyask";
     const st = z.status;
