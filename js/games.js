@@ -2939,10 +2939,25 @@
       chip(seats[1], 1));
     return h("div", { "data-wk": "gamevs", style: { display: "flex", gap: 8, overflowX: "auto", margin: "4px -16px 10px", padding: "2px 16px 6px" } }, lookCard, seats.map(chip));
   }
+  // 棋盘上的黑白子（五子棋、围棋共用）：颜色写进 style，不用 url(#渐变)——
+  //   她 2026-10-23「白棋在深色模式下会变黑」：主题 CSS 改 fill 能盖掉属性、渐变 id 一撞就失效，写进 style 才压得住。
+  function svgStone(key, cx, cy, r, side, extra) {
+    const black = side === 1;
+    return h("g", Object.assign({ key: key, "data-wk": "boardstone", "data-side": black ? "b" : "w" }, extra || {}),
+      h("circle", { cx: cx + r * 0.09, cy: cy + r * 0.15, r: r, style: { fill: "#3b2a12", opacity: .28 } }),
+      h("circle", { cx: cx, cy: cy, r: r, style: { fill: black ? "#1f1d1b" : "#f3efe6", stroke: black ? "#000" : "#bdb4a3", strokeWidth: .6 } }),
+      h("ellipse", { cx: cx - r * 0.3, cy: cy - r * 0.34, rx: r * 0.42, ry: r * 0.3, style: { fill: "#ffffff", opacity: black ? .2 : .75 } }));
+  }
+  // 系统的「反转颜色／智能反转」会把画出来的子也反过来（白子变黑）。iOS 告诉页面它在反转时，把棋盘和棋子再反一次，负负得正
+  if (typeof document !== "undefined" && !document.getElementById("game-invert-guard")) {
+    const st = document.createElement("style"); st.id = "game-invert-guard";
+    st.textContent = "@media (inverted-colors: inverted){[data-wk=gomokuboard],[data-wk=goboard],[data-wk=xiangqiboard],[data-wk=chessboard],[data-wk=gamestone]{filter:invert(1)}}";
+    (document.head || document.documentElement).appendChild(st);
+  }
   // 一颗棋子（对阵条上、五子棋盘上同一个画法）
   function GmkStone(props) {
     const black = props.side === 1, sz = props.size || 14;
-    return h("span", { style: { display: "inline-block", width: sz, height: sz, borderRadius: 999, flexShrink: 0,
+    return h("span", { "data-wk": "gamestone", style: { display: "inline-block", width: sz, height: sz, borderRadius: 999, flexShrink: 0,
       background: black ? "radial-gradient(circle at 35% 30%, #6b6660, #1b1917 62%)" : "radial-gradient(circle at 35% 30%, #ffffff, #e2dccf 70%)",
       boxShadow: "0 1px 2px rgba(0,0,0,.35)" + (black ? "" : ", inset 0 0 0 .5px #b8ae9c") } });
   }
@@ -5736,11 +5751,9 @@
         h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
         h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
       stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
-      moves.map(function (m, i) { return h("g", { key: "m" + i },
-        h("circle", { cx: pad + m.x * cell + .9, cy: pad + m.y * cell + 1.4, r: cell * 0.44, fill: "#3b2a12", opacity: .28 }),
-        h("circle", { cx: pad + m.x * cell, cy: pad + m.y * cell, r: cell * 0.44, fill: m.who === 1 ? "url(#gmkB)" : "url(#gmkW)" })); }),
-      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 }) : null,
-      pend ? h("circle", { cx: pad + pend.x * cell, cy: pad + pend.y * cell, r: cell * 0.44, fill: userSide === 1 ? "url(#gmkB)" : "url(#gmkW)", opacity: .5, stroke: t.tint, strokeWidth: 1.2, strokeDasharray: "2 2" }) : null);
+      moves.map(function (m, i) { return svgStone("m" + i, pad + m.x * cell, pad + m.y * cell, cell * 0.44, m.who); }),
+      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, style: { fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 } }) : null,
+      pend ? svgStone("pend", pad + pend.x * cell, pad + pend.y * cell, cell * 0.44, userSide, { opacity: .5 }) : null);
 
     const status = winner === 3 ? "和棋"
       : winner ? nameOfSide(winner) + "（" + sideZh(winner) + "）赢了"
@@ -6159,7 +6172,8 @@
         return h("g", { key: "p" + r + "-" + c, transform: "translate(0," + lift + ")" },
           h("circle", { cx: X(c) + 1, cy: Y(r) + 3.2 - lift, r: R, fill: "#3b2a12", opacity: on ? .22 : .32 }),
           h("circle", { cx: X(c), cy: Y(r) + 1.6, r: R, fill: "#b98a52" }),
-          h("circle", { cx: X(c), cy: Y(r), r: R, fill: "url(#xqWood)", stroke: chk ? "#e04a2f" : "rgba(90,60,30,.55)", strokeWidth: chk ? 2.6 : .8 }),
+          h("circle", { cx: X(c), cy: Y(r), r: R, style: { fill: "#f3dcae", stroke: chk ? "#e04a2f" : "rgba(90,60,30,.55)", strokeWidth: chk ? 2.6 : .8 } }),
+          h("ellipse", { cx: X(c) - R * 0.25, cy: Y(r) - R * 0.3, rx: R * 0.55, ry: R * 0.38, style: { fill: "#fff8e6", opacity: .55 } }),
           h("circle", { cx: X(c), cy: Y(r), r: R * 0.8, fill: "none", stroke: col, strokeWidth: 1.1, opacity: .85 }),
           h("text", { x: X(c), y: Y(r) + 6.6, textAnchor: "middle", fontSize: 19, fontWeight: 700, fill: col, style: { fontFamily: "'STKaiti','KaiTi','Kaiti SC','BiauKai',serif" } }, C.PIECE_ZH[p]));
       }); }),
@@ -6357,13 +6371,12 @@
         if (!c) return null;
         const isDead = counting && dead && dead.indexOf(p) >= 0;
         return h("g", { key: "p" + p, opacity: isDead ? .45 : 1 },
-          h("circle", { cx: X(p) + cell * 0.04, cy: Y(p) + cell * 0.07, r: R, fill: "#3b2a12", opacity: .28 }),
-          h("circle", { cx: X(p), cy: Y(p), r: R, fill: c === 1 ? "url(#goB)" : "url(#goW)" }),
+          svgStone("s", X(p), Y(p), R, c),
           isDead ? h("path", { d: "M" + (X(p) - R * .5) + " " + (Y(p) - R * .5) + "l" + R + " " + R + "M" + (X(p) + R * .5) + " " + (Y(p) - R * .5) + "l" + (-R) + " " + R, stroke: "#d24b3a", strokeWidth: 2 }) : null);
       }),
-      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, fill: "#d24b3a" }) : null,
-      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" }) : null,
-      pend >= 0 ? h("circle", { cx: X(pend), cy: Y(pend), r: R, fill: userSide === 1 ? "url(#goB)" : "url(#goW)", opacity: .5, stroke: t.tint, strokeWidth: 1.2, strokeDasharray: "2 2" }) : null);
+      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, style: { fill: "#d24b3a" } }) : null,
+      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, style: { fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" } }) : null,
+      pend >= 0 ? svgStone("pend", X(pend), Y(pend), R, userSide, { opacity: .5 }) : null);
 
     const status = over ? (resigned ? nameOf(winner) + "赢了（认输）" : nameOf(winner) + "赢了 " + result.margin + " 目（黑 " + result.black + " · 白 " + result.white + "）")
       : counting ? (dead ? "数子：点一块子改死／活，好了按「数子」" : "在估死子…")

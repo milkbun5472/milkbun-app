@@ -98,3 +98,11 @@ test("放水真的赢得了：对面要成五的那一下不再每次都挡，�
   const mv = E.gmkBestMove(b, 2, 0);
   assert.ok((mv.x === 7 && mv.y === 7) || (mv.x === 2 && mv.y === 7), "认真局没挡住成五");
 });
+
+// 她 2026-10-23「白棋在深色模式下会变黑」：棋子颜色写进 style、不用 url(#渐变)；系统反转颜色时棋盘再反一次
+test("棋子颜色压得住主题 CSS，系统反色时负负得正", () => {
+  assert.ok(!/url\(#gmk[BW]\)|url\(#go[BW]\)|url\(#xqWood\)/.test(src), "又用回渐变 id 了");
+  assert.match(src, /function svgStone\(key, cx, cy, r, side, extra\)/);
+  assert.match(src, /style: \{ fill: black \? "#1f1d1b" : "#f3efe6"/);
+  assert.match(src, /@media \(inverted-colors: inverted\)\{\[data-wk=gomokuboard\],\[data-wk=goboard\]/);
+});
