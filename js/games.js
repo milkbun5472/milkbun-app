@@ -5822,30 +5822,34 @@
   //   她在开局页钉过一档就用钉的；没钉就照点头像那张能力小传同一套说法估一次，估出来的档跟小传一起存进 x_gameSkill，下一局不再花钱。
   //   三档对应引擎三档：新手 easy / 会下 normal / 高手 hard。放水局一律 easy。
   const BOARD_TIER_LV = { rookie: "easy", mid: "normal", pro: "hard" };
+  const BOARD_STYLES = ["attack", "solid", "trade", "wild"];
+  const BOARD_STYLE_ZH = { attack: "爱进攻", solid: "求稳", trade: "爱兑子", wild: "随性" };
   function useBoardSkill(props, key, zh, chars) {
-    const [tiers, setTiers] = useState({});
+    // { [id]: { tier, style } }：tier 钉的优先；style 永远照人设估（钉档只管多强，不管怎么下）
+    const [skills, setSkills] = useState({});
     useEffect(function () {
       chars.forEach(function (c) {
-        const pin = loadSkillPins()[c.id];
-        if (BOARD_TIER_LV[pin]) { setTiers(function (o) { return Object.assign({}, o, { [c.id]: pin }); }); return; }
+        const pin = BOARD_TIER_LV[loadSkillPins()[c.id]] ? loadSkillPins()[c.id] : "";
+        const put = function (tier, style) { setSkills(function (o) { return Object.assign({}, o, { [c.id]: { tier: pin || tier, style: BOARD_STYLES.indexOf(style) >= 0 ? style : "" } }); }); };
         const persona = String(c.persona || "").trim(), stamp = persona.length + ":v2";
         const got = ((loadJSON(GAME_SKILL_KEY, {}) || {})[key] || {})[c.id];
-        if (got && got.n === stamp && BOARD_TIER_LV[got.tier]) { setTiers(function (o) { return Object.assign({}, o, { [c.id]: got.tier }); }); return; }
+        if (got && got.n === stamp && BOARD_TIER_LV[got.tier]) return put(got.tier, got.style);
         const api = props.active;
-        if (!api) { setTiers(function (o) { return Object.assign({}, o, { [c.id]: "mid" }); }); return; }
-        const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「" + zh + "」的能力评估器。照这个人的人设，判断 TA 下" + zh + "的真实水平：学没学过、平时下不下、会不会算几步。人设里没提到下棋，就照一般人估。"
-          + "写一段「牌桌能力小传」，第三人称，不写分数；再挑一档 tier：rookie（新手，规则都不太熟或很少下）、mid（会下，业余随便玩玩）、pro（真下过、算得深）。只输出 JSON：{\"skill\":\"……\",\"tier\":\"rookie|mid|pro\"}";
+        if (!api) return put("mid", "");
+        const sys = AC + SKILL_RULE + SKILL_TALK + "\n\n你是「" + zh + "」的能力评估器。照这个人的人设，判断 TA 下" + zh + "的真实水平和路子：学没学过、平时下不下、会不会算几步、爱怎么下。人设里没提到下棋，就照一般人估。"
+          + "写一段「牌桌能力小传」，第三人称，不写分数；再挑一档 tier：rookie（新手，规则都不太熟或很少下）、mid（会下，业余随便玩玩）、pro（真下过、算得深）；"
+          + "再挑一种 style，照 TA 这个人做事的路子：attack（爱往前冲、爱将军）、solid（求稳、先守好自己）、trade（见子就换、爱简化）、wild（随性、想到哪儿走到哪儿）。只输出 JSON：{\"skill\":\"……\",\"tier\":\"rookie|mid|pro\",\"style\":\"attack|solid|trade|wild\"}";
         callRetry(api, sys, [{ role: "user", content: "【这个人】" + (c.remark || c.name) + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 65000, tag: zh + "·能力评估" })
           .then(function (raw) {
-            const d = extractJSON(raw) || {}, tier = BOARD_TIER_LV[d.tier] ? d.tier : "mid", text = String(d.skill || "").trim();
+            const d = extractJSON(raw) || {}, tier = BOARD_TIER_LV[d.tier] ? d.tier : "mid", style = BOARD_STYLES.indexOf(d.style) >= 0 ? d.style : "", text = String(d.skill || "").trim();
             const all = loadJSON(GAME_SKILL_KEY, {}) || {};
-            all[key] = Object.assign({}, all[key] || {}, { [c.id]: Object.assign({ n: stamp, tier: tier }, text ? { text: text } : {}) });
+            all[key] = Object.assign({}, all[key] || {}, { [c.id]: Object.assign({ n: stamp, tier: tier, style: style }, text ? { text: text } : {}) });
             saveJSON(GAME_SKILL_KEY, all);
-            setTiers(function (o) { return Object.assign({}, o, { [c.id]: tier }); });
-          }).catch(function () { setTiers(function (o) { return Object.assign({}, o, { [c.id]: "mid" }); }); });
+            put(tier, style);
+          }).catch(function () { put("mid", ""); });
       });
     }, []);
-    return tiers;
+    return skills;
   }
   // 放水才有的提示次数多：正常局三次，放水不限
   const BOARD_HINTS = 3;
@@ -5866,7 +5870,8 @@
     const tiers = useBoardSkill(props, KEY, ZH, [char, char2].filter(Boolean));
     const sideChar = function (s) { return s === charSide ? char : s !== userSide ? char2 : null; };
     // 还没估出来就先等着（null），估出来再走
-    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id]] : null; };
+    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id].tier] : null; };
+    const styleOf = function (s) { const c = sideChar(s); return c && tiers[c.id] ? tiers[c.id].style || undefined : undefined; };
     const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
     const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
     const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
@@ -5880,7 +5885,7 @@
     const talkers = [char, char2].filter(Boolean);
     const lastZh = function (n) { return state.history.slice(-n).map(function (x, i, a) { return x.san; }).join(" "); };
     const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "国际象棋",
-      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id]] : ""); },
+      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id].tier] + (tiers[c.id].style ? "，路子" + BOARD_STYLE_ZH[tiers[c.id].style] : "") : ""); },
       scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下国际象棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下国际象棋（" + uName + "执白先手）"; },
       where: function () {
         const h0 = state.history, last = h0[h0.length - 1];
@@ -5901,7 +5906,7 @@
       if (over || state.turn === userSide) return;
       const lv = levelOf(state.turn);
       if (!lv) return;
-      const tm = setTimeout(function () { const m = C.bestMove(state, lv); if (m) play(m); }, spectate ? 900 : 600);
+      const tm = setTimeout(function () { const m = C.bestMove(state, lv, styleOf(state.turn)); if (m) play(m); }, spectate ? 900 : 600);
       return function () { clearTimeout(tm); };
     }, [mvs.length, over, tiers]);
 
@@ -5988,7 +5993,8 @@
     const tiers = useBoardSkill(props, KEY, ZH, [char, char2].filter(Boolean));
     const sideChar = function (s) { return s === charSide ? char : s !== userSide ? char2 : null; };
     // 还没估出来就先等着（null），估出来再走
-    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id]] : null; };
+    const levelOf = function (s) { const c = sideChar(s); if (!spectate && easy && s === charSide) return "easy"; if (!c) return "normal"; return tiers[c.id] ? BOARD_TIER_LV[tiers[c.id].tier] : null; };
+    const styleOf = function (s) { const c = sideChar(s); return c && tiers[c.id] ? tiers[c.id].style || undefined : undefined; };
     const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
     const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
     const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
@@ -6001,7 +6007,7 @@
     const runId = useRef((sv && sv.runId) || ("xiangqi-" + Date.now().toString(36)));
     const talkers = [char, char2].filter(Boolean);
     const talk = useBoardTalk({ props: props, saved: sv, talkers: talkers, uName: uName, spectate: spectate, zh: "中国象棋",
-      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id]] : ""); },
+      seatOf: function (c) { return "执" + sideZh(c === char ? charSide : "b") + (easy && c === char ? "，这局让着" + uName : "") + (tiers[c.id] ? "，下棋水平：" + { rookie: "新手", mid: "会下、业余水平", pro: "真下过、算得深" }[tiers[c.id].tier] + (tiers[c.id].style ? "，路子" + BOARD_STYLE_ZH[tiers[c.id].style] : "") : ""); },
       scene: function () { return spectate ? nm(char) + " 和 " + nm(char2) + " 在下象棋，" + uName + " 在旁边看" : nm(char) + " 在跟 " + uName + " 下象棋（" + uName + "执红先走）"; },
       where: function () {
         const h0 = state.history, last = h0[h0.length - 1];
@@ -6021,7 +6027,7 @@
       if (over || state.turn === userSide) return;
       const lv = levelOf(state.turn);
       if (!lv) return;
-      const tm = setTimeout(function () { const m = C.bestMove(state, lv); if (m) play(m); }, spectate ? 900 : 600);
+      const tm = setTimeout(function () { const m = C.bestMove(state, lv, styleOf(state.turn)); if (m) play(m); }, spectate ? 900 : 600);
       return function () { clearTimeout(tm); };
     }, [mvs.length, over, tiers]);
 

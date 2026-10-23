@@ -84,3 +84,13 @@ assert.ok(dt < 2000, "hard took " + dt + "ms");
 const mid = C.fromFEN("r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4");
 const t1 = Date.now(); C.bestMove(mid, "hard"); console.log("hard start " + dt + "ms, midgame " + (Date.now() - t1) + "ms");
 console.log("ok");
+// 风格（她 2026-10-23：每个人下法不一样）：四种风格都给合法步；正常档不为风格白丢后；开局几步各走各的
+C.STYLES.forEach(function (stl) {
+  ["easy", "normal", "hard"].forEach(function (lv) { const m = C.bestMove(start, lv, stl); assert.ok(C.legalMoves(start).some(function (x) { return x.from + "" === m.from + "" && x.to + "" === m.to + ""; })); });
+  for (let i = 0; i < 5; i++) assert.deepEqual(C.bestMove(hang, "normal", stl).to, sq("d5"), stl + " 放着白给的后不吃");
+});
+{
+  const seqs = C.STYLES.map(function (stl) { let g = C.newGame(); const out = []; for (let i = 0; i < 8; i++) { const m = C.bestMove(g, "normal", stl); out.push(C.san(g, m)); g = C.move(g, m); } return out.join(" "); });
+  assert.ok(new Set(seqs).size >= 3, "风格没拉开：" + seqs.join(" | "));
+}
+console.log("styles ok");

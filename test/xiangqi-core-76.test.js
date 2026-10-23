@@ -79,3 +79,13 @@ for (let i = 0; i < 2; i++) for (const mv of [[[9, 1], [7, 2]], [[0, 1], [2, 2]]
 assert.equal(X.status(r).reason, "repetition");
 
 console.log("ok (hard " + dt + "ms)");
+// 风格（她 2026-10-23：每个人下法不一样）：四种风格都给合法步；正常档照样吃白给的车；开局几步各走各的
+X.STYLES.forEach(function (stl) {
+  ["easy", "normal", "hard"].forEach(function (lv) { const g0 = X.newGame(), m = X.bestMove(g0, lv, stl); assert.ok(X.legalMoves(g0).some(function (x) { return x.from + "" === m.from + "" && x.to + "" === m.to + ""; })); });
+  for (let i = 0; i < 5; i++) { const c2 = X.bestMove(st(b), "normal", stl); assert.deepEqual([c2.from, c2.to], [[5, 0], [5, 8]], stl + " 放着白给的车不吃"); }
+});
+{
+  const seqs = X.STYLES.map(function (stl) { let g = X.newGame(); const out = []; for (let i = 0; i < 8; i++) { const m = X.bestMove(g, "normal", stl); out.push(X.zh(g, m)); g = X.move(g, m); } return out.join(" "); });
+  assert.ok(new Set(seqs).size >= 3, "风格没拉开：" + seqs.join(" | "));
+}
+console.log("styles ok");

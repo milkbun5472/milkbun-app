@@ -250,12 +250,41 @@
     }
     return alpha;
   }
-  function bestMove(state, level) {
+  // 下棋风格（她 2026-10-23：「也不能每个人下的风格都一样」）：同一档水平里，在差不多好的几步中往自己的路子偏。
+  //   只在根上加一点分（几十分），不会为了风格白送子。attack 爱进攻 / solid 求稳 / trade 爱兑子 / wild 随性
+  function styleBonus(b, side, m, style) {
+    if (!style) return 0;
+    const p = m.piece[1], fwd = side === "r" ? -1 : 1, adv = (m.to[0] - m.from[0]) * fwd;
+    const capV = m.capture ? VAL[b[m.to[0]][m.to[1]][1]] : 0;
+    const ek = findKing(b, other(side)), dist = function (sq) { return ek ? Math.abs(sq[0] - ek[0]) + Math.abs(sq[1] - ek[1]) : 0; };
+    const crossed = function (r) { return side === "r" ? r <= 4 : r >= 5; };
+    let v = 0;
+    if (style === "attack") {
+      const cap = doMove(b, m); if (attacked(b, other(side))) v += 35; undoMove(b, m, cap);
+      if (m.capture) v += 15;
+      if (!crossed(m.from[0]) && crossed(m.to[0]) && p !== "P") v += 15;
+      if (p === "R" || p === "N" || p === "C") v += (dist(m.from) - dist(m.to)) * 4;
+      if (adv < 0) v -= 12;
+    } else if (style === "solid") {
+      if (p === "A" || p === "B") v += 12;
+      if (p === "K") v -= 25;
+      if (crossed(m.to[0]) && !crossed(m.from[0]) && p !== "P") v -= 12;
+      if (m.capture && Math.abs(capV - VAL[p]) <= 60) v -= 15;
+    } else if (style === "trade") {
+      if (m.capture) v += Math.abs(capV - VAL[p]) <= 60 ? 45 : 10;
+    } else if (style === "wild") {
+      v += (Math.random() - 0.5) * 80;
+      if (p === "K" || p === "A") v += 15;
+      if (p === "P" && (m.from[1] === 0 || m.from[1] === 8)) v += 20;
+    }
+    return v;
+  }
+  function bestMove(state, level, style) {
     const b = cloneBoard(state.board), side = state.turn;
     const ms = legalOn(b, side);
     if (!ms.length) return null;
     if (level === "easy") {
-      if (Math.random() < 0.6) {
+      if (Math.random() < (style ? 0.45 : 0.6)) {
         const caps = ms.filter(function (m) { return m.capture; });
         if (caps.length && Math.random() < 0.7) return caps[Math.floor(Math.random() * caps.length)];
         return ms[Math.floor(Math.random() * ms.length)];
@@ -266,9 +295,10 @@
     order(ms);
     let best = [], bestV = -Infinity, alpha = -Infinity;
     for (const m of ms) {
+      const sb = styleBonus(b, side, m, style);
       const cap = doMove(b, m);
-      // 与最优同分的也留着，随机挑一个，免得每局一模一样
-      const v = -search(b, other(side), depth - 1, -Infinity, -alpha + 1, 1);
+      // 与最优同分的也留着，随机挑一个，免得每局一模一样。有风格时每步要算准分（不能用剪过的上界），窗口放开
+      const v = (style ? -search(b, other(side), depth - 1, -Infinity, Infinity, 1) : -search(b, other(side), depth - 1, -Infinity, -alpha + 1, 1)) + sb;
       undoMove(b, m, cap);
       if (v > bestV) { bestV = v; best = [m]; if (v > alpha) alpha = v; }
       else if (v === bestV) best.push(m);
@@ -296,7 +326,7 @@
     return go(state.turn, depth);
   }
 
-  const api = { ROWS, COLS, PIECE_ZH, newGame, legalMoves, move, status, bestMove, zh, zhPlain, serialize, deserialize, perft, evaluate, inCheck: function (s) { return attacked(s.board, s.turn); } };
+  const api = { STYLES: ["attack", "solid", "trade", "wild"], ROWS, COLS, PIECE_ZH, newGame, legalMoves, move, status, bestMove, zh, zhPlain, serialize, deserialize, perft, evaluate, inCheck: function (s) { return attacked(s.board, s.turn); } };
   if (typeof window !== "undefined") window.XiangqiCore = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

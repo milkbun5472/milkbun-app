@@ -287,18 +287,49 @@
     if (ordered) order(ms);
     return ms.map(function (m) { return { m, v: -search(applyRaw(s, m), depth - 1, -Infinity, Infinity, 1, ordered) }; });
   }
-  function bestMove(s, level) {
+  // 下棋风格（她 2026-10-23：「也不能每个人下的风格都一样」）：同一档水平里，在差不多好的几步中往自己的路子偏。
+  //   只在根上加一点分（几十分），不会为了风格白送子。attack 爱进攻 / solid 求稳 / trade 爱兑子 / wild 随性
+  function styleBonus(s, m, style) {
+    if (!style) return 0;
+    const p = m.piece[1], side = s.turn, fwd = side === "w" ? -1 : 1;
+    const capV = m.capture ? VAL[(s.board[m.to[0]][m.to[1]] || (side === "w" ? "bP" : "wP"))[1]] : 0;
+    const ek = findKing(s.board, opp(side)), dist = function (sq) { return ek ? Math.max(Math.abs(sq[0] - ek[0]), Math.abs(sq[1] - ek[1])) : 0; };
+    const adv = (m.to[0] - m.from[0]) * fwd;
+    let b = 0;
+    if (style === "attack") {
+      if (inCheck(applyRaw(s, m), opp(side))) b += 35;
+      if (m.capture) b += 15;
+      b += (dist(m.from) - dist(m.to)) * 7;
+      if (adv < 0 && p !== "K") b -= 12;
+    } else if (style === "solid") {
+      if (m.castle) b += 45;
+      if (p === "K" && !m.castle) b -= 30;
+      if ((p === "N" || p === "B") && m.from[0] === (side === "w" ? 7 : 0)) b += 18;
+      const myK = findKing(s.board, side);
+      if (p === "P" && myK && Math.abs(m.from[1] - myK[1]) <= 1) b -= 22;
+      if (m.capture && Math.abs(capV - VAL[p]) <= 60) b -= 15;
+      if (p === "Q" && s.history.length < 16) b -= 15;
+    } else if (style === "trade") {
+      if (m.capture) b += Math.abs(capV - VAL[p]) <= 60 ? 45 : 10;
+    } else if (style === "wild") {
+      b += (Math.random() - 0.5) * 80;
+      if (p === "Q" && s.history.length < 16) b += 25;
+      if (p === "P" && (m.from[1] === 0 || m.from[1] === 7)) b += 20;
+    }
+    return b;
+  }
+  function bestMove(s, level, style) {
     const ms = legalMoves(s);
     if (!ms.length) return null;
     if (level === "easy") {
       // 一层看：大多挑好的，常随手走，偶尔送子
       if (Math.random() < 0.25) return ms[Math.floor(Math.random() * ms.length)];
-      const list = scored(s, 1, false).map(function (x) { return { m: x.m, v: x.v + Math.random() * 120 }; });
+      const list = scored(s, 1, false).map(function (x) { return { m: x.m, v: x.v + Math.random() * 120 + styleBonus(s, x.m, style) }; });
       list.sort(function (a, b) { return b.v - a.v; });
       return list[Math.floor(Math.random() * Math.min(3, list.length))].m;
     }
     const depth = level === "hard" ? 3 : 2;
-    const list = scored(s, depth, level === "hard");
+    const list = scored(s, depth, level === "hard").map(function (x) { return { m: x.m, v: x.v + styleBonus(s, x.m, style) }; });
     let best = -Infinity, pick = [];
     for (const x of list) {
       if (x.v > best) { best = x.v; pick = [x.m]; } else if (x.v === best) pick.push(x.m);
@@ -306,7 +337,7 @@
     return pick[Math.floor(Math.random() * pick.length)];
   }
 
-  const api = { PIECE_ZH, PIECE_GLYPH, newGame, legalMoves, move, status, bestMove, san, zh, fromFEN, toFEN, inCheck, evaluate };
+  const api = { STYLES: ["attack", "solid", "trade", "wild"], PIECE_ZH, PIECE_GLYPH, newGame, legalMoves, move, status, bestMove, san, zh, fromFEN, toFEN, inCheck, evaluate };
   if (typeof window !== "undefined") window.ChessCore = api;
   if (typeof module !== "undefined") module.exports = api;
 })();
