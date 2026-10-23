@@ -26034,6 +26034,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 存档形状（写入方在这，测试桩照这儿写）：
   // x_coupleTrips: [{ id, charId, wishId, dest, plan: {title, legs:[{when,where,note}]} | null,
   //                   planTs, ts, status: "planning"|"done", doneTs }]
+  // 付款这一下加把锁（她 2026-10-23：民宿机票扣了两次）：paid 是存档里的，连点两下时第二下还读不到
+  const tripPayingRef = useRef({});
   const saveTrips = updater => setCoupleTrips(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleTripsRef.current = n; saveJSON("x_coupleTrips", n); return n;
@@ -26140,7 +26142,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const tripBookPay = (char, who) => {
     const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
     const b = trip && trip.booking;
-    if (!b || b.paid) return;
+    if (!b || b.paid || tripPayingRef.current[trip.id]) return;
+    tripPayingRef.current[trip.id] = true;
+    setTimeout(() => { delete tripPayingRef.current[trip.id]; }, 3000);   // 没付成（余额不够等）过一会儿还能再点
     const pick = b.pick || { flight: b.taPick.flight, back: b.taPick.back, hotel: b.taPick.hotel };
     const fl = b.flights[pick.flight], ho = b.hotels[pick.hotel], bk = (b.back || [])[pick.back];
     const total = tripBookTotal({ ...b, pick });
