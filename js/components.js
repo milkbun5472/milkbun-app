@@ -8826,7 +8826,8 @@ function Messages({
   // ── 备份坏了要看得见：固定横幅读取 Cloud 的公共状态与标题。
   (function () {
     const st = (window.Cloud && window.Cloud.ready && window.Cloud.ready() && window.Cloud.pushState) ? window.Cloud.pushState() : null;
-    if (!st || !st.needsAttention) return null;
+    // 一天内导出过文件就不喊了（群友 2026-10-23「备份完它还在聊天栏顶上」）；云那边的状态在设置里照样看得到
+    if (!st || !st.banner) return null;
     return h("div", { onClick: onOpenSettings || null, className: "shrink-0" + (onOpenSettings ? " active:opacity-70" : ""),
       style: { margin: "0 12px 6px", padding: "9px 12px", borderRadius: 10,
         background: "rgba(192,80,63,.10)", border: "1px solid rgba(192,80,63,.38)" } },

@@ -29,6 +29,9 @@
   const PUSH_ERR = "cloud_push_err_v1";  // 上一次自动备份为什么没成（无 x_ 前缀，不进存档）
   const PUSH_TIMEOUT_MS = 45000;         // 在途 upsert 的硬超时：iOS 切后台时 socket 会被挂起
   const PUSH_WARN_MS = 24 * 3600 * 1000; // 离上次成功备份超过这么久，界面上必须变成红的
+  // 本机最后一次把整份导出成文件（无 x_ 前缀，只记这台设备）。群友 2026-10-23：
+  //   横幅叫她先导出一份，她导完回来横幅还挂着——导出也是备份，二十四小时内导过就不在聊天列表上喊了
+  const EXPORT_MARK = "local_export_at";
   // ⚠️staleVerdict 不再缓存整个会话（见 autoPush 里那段）。staleAnnounced 只用来
   //   保证同一种拦截理由一轮只弹一次 toast，不参与判定。
   let staleAnnounced = "";
@@ -1427,6 +1430,7 @@
     },
 
     // 备份状态与显示文字统一从真实成功戳和失败记录生成。
+    noteExport() { try { localStorage.setItem(EXPORT_MARK, new Date().toISOString()); } catch (e) {} },
     lastPushedAt() { try { return localStorage.getItem(MARK) || ""; } catch (e) { return ""; } },
     pushState() {
       const at = this.lastPushedAt();
@@ -1436,7 +1440,12 @@
       try { saved = JSON.parse(localStorage.getItem(PUSH_ERR) || "null"); } catch (e) {}
       const blocked = this.pushBlocked || saved || null;
       const state = { at, ageMs, never: !parsed, overdue: !(ageMs < PUSH_WARN_MS), blocked, why: blocked ? pushWhy(blocked) : "" };
-      return { ...state, ...pushStatusText(state) };
+      let ex = ""; try { ex = localStorage.getItem(EXPORT_MARK) || ""; } catch (e) {}
+      const exAge = ex ? Date.now() - Date.parse(ex) : Infinity;
+      const out = { ...state, ...pushStatusText(state), exportedAt: ex, exportedRecent: exAge < PUSH_WARN_MS };
+      // 聊天列表那条横幅：云备份有毛病、而且这一天里也没导出过文件，才喊
+      out.banner = out.needsAttention && !out.exportedRecent;
+      return out;
     },
 
     async staleness(userId) {
