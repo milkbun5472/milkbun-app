@@ -487,8 +487,16 @@
       //   而且它还会弹一句「没有能收的：这局上场的都是 NPC」，等于点一次骗她一次。
       //   （一层写在两处、第二处没跟上；这一次断在第三处。）
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
-      // Lisa 明确要求这盒永不进回忆：连可写主线的回调都不下发。
+      // 原来这盒永不进回忆；她 2026-10-23 松口：可以收，但写清这是在手机上操控小人玩的游戏，不是真去约会了。
+      //   所以收的时候战报那一段由 date-game.js 自己写开头那句框定，这里只把回调递下去。
+      // 收进记忆那扇门：带上这一局是在哪间房里打的（终局按它决定收到哪儿）。约会那盒和其余几桌走同一个——
+      //   原来约会那盒直接把上头那扇门原样递下去，房间那一截丢了，隔离房里打的约会会收进主线
+      const keepMem = function (ids, text) {
+        const room = (session.config && session.config.room) || session.room || null;
+        return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
+      };
       if (session.game.key === "date") return h(window.DateGame, {
+        keepGameMemory: keepMem, sendGameReport: props.sendGameReport, sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups, toast: props.toast,
         config: session.config, savedState: session.saved, active: props.active, characters: routedCharacters,
         profile: props.profile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
         call: callRetry, rules: gameVoiceRules(), isEngineer: props.isEngineer,
@@ -498,10 +506,7 @@
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
         sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
-        keepGameMemory: function (ids, text) {
-          const room = (session.config && session.config.room) || session.room || null;
-          return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
-        },
+        keepGameMemory: keepMem,
         onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
       if (session.game.key === "spy") return h(SpyGame, engineProps);
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
@@ -1500,7 +1505,7 @@
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const spies2 = players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; }).join("、");
           const won = function (q) { return (q.role === "spy") === (winner === "spy"); };
-          return { key: "spy", zh: "谁是卧底", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
+          return { proc: log, key: "spy", zh: "谁是卧底", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
             text: "一起玩了「谁是卧底」，" + (winner === "spy" ? "卧底赢了" : "平民赢了") + "。卧底是 " + spies2 + "；"
             + (me ? ("她拿到" + (me.role === "spy" ? "卧底" : "平民") + "牌，" + (me.alive ? "撑到了最后" : "中途被投了出去")) : "她在旁边观战") + "。" };
         } }));
@@ -2659,7 +2664,7 @@
         h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: winner === "wolf" ? "#c0553f" : "#3f6d5a", marginBottom: 8 } }, winner === "wolf" ? "🐺 狼人获胜" : "🎉 好人获胜"),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const won = function (q) { return isWolfRole(q.role) === (winner === "wolf"); };
-          return { key: "werewolf", zh: "狼人杀", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
+          return { proc: log, key: "werewolf", zh: "狼人杀", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
             text: "一起玩了「狼人杀」，" + (winner === "wolf" ? "狼人阵营赢了" : "好人阵营赢了") + "。"
             + (me ? ("她抽到" + roleZh(me.role) + "，" + (me.alive ? "活到了终局" : "中途出局")) : "她观战") + "。"
             + (mvp && mvp.name ? "全场 MVP 是 " + mvp.name + "。" : "") };
@@ -2793,9 +2798,32 @@
               return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line } }, k + " " + g.n + " 局 · 你 " + g.me + " : TA " + g.ta); })) : null);
       }));
   }
+  // 这一局的过程，压成一段话（她 2026-10-23：群友想跟 TA 聊「玩的过程」；「有时候只想给结果」→ 勾了才带）。
+  //   各游戏的记录形状不一样（log / logs / lines / history），这里只认通用的那几个字段：谁、说了什么／发生了什么。
+  //   太长就留开头两句＋最后八句，整段不过 450 字。
+  function procText(arr) {
+    const out = [];
+    (Array.isArray(arr) ? arr : []).forEach(function (x) {
+      if (!x) return;
+      let s = typeof x === "string" ? x : (x.text || x.say || x.content || x.msg || x.line
+        || (x.q ? "问「" + x.q + "」" + (x.a ? "答「" + x.a + "」" : "") : "")
+        || (x.word ? "画「" + x.word + "」" + (x.ok ? "猜中了" : "没猜中") : ""));
+      s = String(s || "").replace(/\s+/g, " ").trim(); if (!s) return;
+      const who = typeof x === "object" ? (x.name || x.who || (x.me ? "她" : "")) : "";
+      if (who && typeof who === "string" && s.indexOf(who) !== 0) s = who + "：" + s;
+      out.push(s.slice(0, 60));
+    });
+    const pick = out.length > 10 ? out.slice(0, 2).concat(["……"], out.slice(-8)) : out;
+    return pick.join("；").slice(0, 450);
+  }
+  if (typeof window !== "undefined") window.GameKeepMemBtn = function (p) { return KeepMemBtn(p); };
   function KeepMemBtn(props) {
     const t = props.t, host = props.host || {};
     const rep = React.useMemo(function () { try { return props.rep ? props.rep() : null; } catch (e) { return null; } }, []);
+    const proc = React.useMemo(function () { return rep && rep.proc ? procText(rep.proc) : ""; }, []);
+    const [withProc, setWithProc] = useState(false);
+    // 勾了「连过程一起」：收进记忆、发战报都带上那一段；没勾就只给结果
+    const out = rep ? Object.assign({}, rep, { text: rep.text + (withProc && proc ? "\n" + (rep.procLabel || "过程") + "：" + proc : "") }) : rep;
     const [kept, setKept] = useState(false);
     const [sent, setSent] = useState({});
     useEffect(function () { recordGame(rep); }, []);
@@ -2814,9 +2842,12 @@
           rep.meWin === false ? "这局你输了，该你兑现。" + (losers.length ? "一起输的还有 " + losers.map(nameOf).filter(Boolean).join("、") + "。" : "")
           : losers.length ? "该 " + losers.map(nameOf).filter(Boolean).join("、") + " 兑现。把战报发过去，看 TA 认不认账。"
           : "这局没人输，彩头先欠着。")) : null,
+      proc ? h("label", { "data-wk": "gamewithproc", style: { display: "flex", alignItems: "center", gap: 7, marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } },
+        h("input", { type: "checkbox", checked: withProc, onChange: function () { setWithProc(!withProc); } }),
+        "连这局的过程一起（不勾就只给结果）") : null,
       h("button", { "data-wk": "gamekeepmem", "data-on": kept ? "1" : "0", disabled: kept, onClick: function () {
         if (kept) return;
-        const ok = rep && host.keepGameMemory && ids.length && host.keepGameMemory(ids, rep.text);
+        const ok = rep && host.keepGameMemory && ids.length && host.keepGameMemory(ids, out.text);
         if (ok) { setKept(true); toast("收进记忆了，他们会记得这一局"); }
         else toast("没有能收的：这局上场的都是 NPC");
       }, className: "active:opacity-70", style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: kept ? t.fog : t.tint, background: "transparent", border: "1px dashed " + (kept ? t.line : t.tint), borderRadius: 10, padding: "9px 0" } },
@@ -2828,7 +2859,7 @@
         ids.filter(function (id) { return nameOf(id); }).length > 1 ? h("button", { key: "__all", "data-wk": "gamereportall", onClick: function () {
             const todo = ids.filter(function (id) { return nameOf(id) && !sent[id]; });
             if (!todo.length) return;
-            todo.forEach(function (id) { host.sendGameReport(id, rep, true); });
+            todo.forEach(function (id) { host.sendGameReport(id, out, true); });
             const next = Object.assign({}, sent); todo.forEach(function (id) { next[id] = true; }); setSent(next);
             toast("战报发给了 " + todo.length + " 个人");
           }, className: "active:opacity-70",
@@ -2838,14 +2869,14 @@
           const k = "g:" + g.id;
           return h("button", { key: k, "data-wk": "gamereportgroup", "data-on": sent[k] ? "1" : "0", onClick: function () {
               if (sent[k]) return;
-              host.sendGameReportGroup(g.id, rep); setSent(Object.assign({}, sent, { [k]: true })); toast("战报发到群「" + g.name + "」了");
+              host.sendGameReportGroup(g.id, out); setSent(Object.assign({}, sent, { [k]: true })); toast("战报发到群「" + g.name + "」了");
             }, className: "active:opacity-70",
             style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sent[k] ? t.fog : t.ink, background: t.bg2, border: "1px dashed " + t.line } }, (sent[k] ? "✓ " : "") + "群 · " + g.name);
         }),
         ids.map(function (id) {
           const nm = nameOf(id); if (!nm) return null;
           return h("button", { key: id, "data-on": sent[id] ? "1" : "0", onClick: function () {
-              host.sendGameReport(id, rep); setSent(Object.assign({}, sent, { [id]: true }));
+              host.sendGameReport(id, out); setSent(Object.assign({}, sent, { [id]: true }));
             }, className: "active:opacity-70",
             style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: sent[id] ? t.fog : t.ink, background: t.bg2, border: "1px solid " + t.line } }, (sent[id] ? "✓ " : "") + nm);
         })) : null);
@@ -3364,7 +3395,7 @@
             : h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const line = scores.map(function (x, i) { return "第" + (i + 1) + "题" + (x.solver ? (x.isUser ? "她破的" : x.solver + "破的") : "没人破"); }).join("，");
-          return { key: kind, zh: K.zh, ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && scores.some(function (x) { return !x.isUser && x.solver === q.name; }); }),
+          return { proc: log, key: kind, zh: K.zh, ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && scores.some(function (x) { return !x.isUser && x.solver === q.name; }); }),
             meWin: me ? scores.some(function (x) { return x.isUser; }) : null,
             text: "一起玩了「" + K.zh + "」" + (scores.length > 1 ? "连着 " + scores.length + " 题" : "") + "：" + line + "。" };
         } }));
@@ -3977,7 +4008,7 @@
           const rounds = logDataRef.current.filter(function (x) { return x.type === "td"; }).length;
           // 真心话大冒险没有输赢（她 2026-10-12：「为啥真心话大冒险还有输赢」）：战报卡不写赢输，今晚之星只写进正文
           const star = wrap && wrap.star;
-          return { key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: [],
+          return { proc: log, key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: [],
             meWin: null,
             text: "一起玩了「真心话大冒险」，转了 " + rounds + " 轮" + (star ? "，今晚之星是" + (star.isUser ? "她" : star.name) : "") + "。" };
         } }));
@@ -4222,7 +4253,7 @@
       h(KeepMemBtn,{t:t,host:props,rep:function(){
         const userSeat=players.find(function(p){return p.isUser;});
         const top=winner||ranking[0];
-        return {key:"monopoly",zh:"大富翁",ids:realCharIds(players),wins:top&&!top.isUser&&realCharIds(players).indexOf(top.key)>=0?[top.key]:[],meWin:userSeat?userSeat===top:null,
+        return { proc: logs, key:"monopoly",zh:"大富翁",ids:realCharIds(players),wins:top&&!top.isUser&&realCharIds(players).indexOf(top.key)>=0?[top.key]:[],meWin:userSeat?userSeat===top:null,
           text:"一起玩了「大富翁」，"+(top?top.name:"")+" 赢下这座城"+(userSeat?("；"+userSeat.name+" 排第 "+(ranking.indexOf(userSeat)+1)+" 名，总资产 $"+monoNetWorth(userSeat,owners,levels)):"")+"。"};
       }}));}
     else if(pending&&pending.kind==="trade"){
@@ -4938,7 +4969,7 @@
           h("button", { "data-wk": "block", onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const won = function (q) { return (winner === "good") === (q.side === "good"); };
-          return { key: "avalon", zh: "阿瓦隆", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
+          return { proc: log, key: "avalon", zh: "阿瓦隆", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
             text: "一起玩了「阿瓦隆」，" + (winner === "good" ? "亚瑟的忠臣赢了" : "莫德雷德的爪牙赢了") + "。"
             + (me ? ("她是" + AV_ROLE_ZH[me.role] + "，" + (won(me) ? "站在赢的一边" : "输了这一局")) : "她观战")
             + (assassinPick ? "；刺客终局指认了 " + assassinPick : "") + "。" };
@@ -5791,7 +5822,7 @@
           char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
             const res = winner === 3 ? "和棋" : nameOfSide(winner) + "赢了";
             // 言秋的记忆走 CC，不走 app 记忆库：跟别的桌一样认 ccSeat 开关
-            const seat = function (c) { return { key: c.id, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) }; };
+            const seat = function (c) { return { proc: lines, key: c.id, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) }; };
             const winC = winner === charSide ? char : (winner === botSide ? char2 : null);
             return { key: "gomoku", zh: "五子棋", ids: realCharIds(talkers.map(seat)), wins: winC ? realCharIds([seat(winC)]) : [],
               meWin: spectate ? null : winner === userSide,
@@ -6822,7 +6853,7 @@
               h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, x.ok ? (x.by ? x.by + " " : "") + "猜中" : "没猜中")); })),
           btn("回中枢", props.onBack, { style: { width: "100%", marginTop: 14, minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
           char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
-            const seats = [char, char2].filter(Boolean).map(function (c) { return { key: c.id, engineer: engOf(c) }; });
+            const seats = [char, char2].filter(Boolean).map(function (c) { return { proc: history.concat(lines), key: c.id, engineer: engOf(c) }; });
             const top = duo ? (score.ta > score.ta2 ? [char.id] : score.ta2 > score.ta ? [char2.id] : []) : (score.ta > score.me && !eng ? [char.id] : []);
             return { key: "draw", zh: "你画我猜", ids: realCharIds(seats), wins: top.filter(function (id) { return !engOf(findC(id)); }), meWin: watchOnly ? null : score.me > score.ta,
               text: (duo ? "看 " + cName + " 和 " + nmOf(char2) + " 玩了你画我猜：" : "跟 " + cName + " 玩了你画我猜：") + "" + history.map(function (x) { return x.drawer + "画「" + x.word + "」" + (x.ok ? "猜中了" : "没猜中"); }).join("，") + "。" };

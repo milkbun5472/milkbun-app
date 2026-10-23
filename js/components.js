@@ -1595,14 +1595,18 @@ function useBrowserKbPad() {
     // 键盘升起那几帧会漏出最底层的米黄底子（群里 2026-10-23「点输入栏会闪一下黄色」）：
     //   在聊天窗里时，把底层那三块（html / body / #root）的底色临时换成这个聊天窗的底色，离开就还原。
     //   她 2026-10-23 点头才动的：只换颜色，不碰根节点的布局、高度、安全区（施工规则/home-screen-layout.md）。
-    const under = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
+    const under = [document.documentElement, document.body, document.getElementById("root"), document.querySelector('[data-wk="app"]')].filter(Boolean);
     const was = under.map(x => x.style.backgroundColor);
     const untint = () => under.forEach((x, i) => { x.style.backgroundColor = was[i]; });
+    // ⚠️键盘升起那一路 visualViewport 每帧都会 resize／scroll，这里原来每帧都量一遍、再把四层底色重写一遍——
+    //   整页重绘，键盘弹得发卡（群友 2026-10-24「键盘弹起来没有以前流利」）。现在一次键盘只量一次，颜色没变就不写
+    let tinted = "";
     const tint = () => {
+      if (tinted) return;
       const el = ref.current; if (!el || !window.getComputedStyle) return;
       let c = "", n = el;
       for (let k = 0; n && k < 3 && !c; k++, n = n.firstElementChild) { const bg = getComputedStyle(n).backgroundColor; if (bg && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)|transparent/.test(bg)) c = bg; }
-      if (c) under.forEach(x => { x.style.backgroundColor = c; });
+      if (c) { tinted = c; under.forEach(x => { if (x.style.backgroundColor !== c) x.style.backgroundColor = c; }); }
     };
     tint();
     if (!vv) return untint;
@@ -1610,10 +1614,12 @@ function useBrowserKbPad() {
       const el = ref.current; if (!el) return;
       const kbOpen = window.innerHeight - vv.height > KB_MIN_PX;
       if (kbOpen) tint();
-      if (!kbOpen) { el.style.paddingBottom = ""; return; }
+      else tinted = "";   // 键盘收了：下一次弹起再量一次（换了聊天背景也跟得上）
+      if (!kbOpen) { if (el.style.paddingBottom) el.style.paddingBottom = ""; return; }
       const r = el.getBoundingClientRect();
       const over = Math.round(r.bottom - (vv.offsetTop + vv.height));
-      el.style.paddingBottom = over > 0 ? over + "px" : "";
+      const want = over > 0 ? over + "px" : "";
+      if (el.style.paddingBottom !== want) el.style.paddingBottom = want;
     };
     vv.addEventListener("resize", put); vv.addEventListener("scroll", put); put();
     // 聚焦输入框那一下就先染好（键盘还没升起来，resize 还没来）
@@ -14078,8 +14084,10 @@ function VoiceMsg({ m, isU, speaker }) {
   //   连选都选不中这一块（选择器是 [data-wk][data-me]）。
   return h("div", { "data-wk": "voice", "data-me": isU ? "1" : "0",
     onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer",
+    // ⚠️不裁边（群友 2026-10-24「语音气泡是不是没法加小尾巴」）：原来 overflow:hidden，美化里用 ::before／::after
+    //   画在框外的小尾巴全被裁掉。里面的波形自己裁、转写文字会折行，外面这层用不着裁；position 给伪元素当锚
     style: {
-      maxWidth: "100%", overflow: "hidden",
+      maxWidth: "100%", position: "relative", overflowWrap: "anywhere",
       background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
       color: isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
       border: (isU ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none",

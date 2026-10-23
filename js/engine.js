@@ -822,7 +822,7 @@ async function callAI(p, system, messages, opts) {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
     try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
-      label: o0.logLabel || LOG_USE[use] || bgShow || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
+      label: o0.logLabel || LOG_USE[use] || (bgShow && bgShow.indexOf("／") >= 0 ? "同时在跑：" + bgShow + "（这一次是其中一样）" : bgShow) || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
       turn: !!LOG_USE[use] && !o0.logRetry, tok: o._tok || null, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
   };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍

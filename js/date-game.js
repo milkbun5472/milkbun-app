@@ -334,6 +334,16 @@
               r.accuse ? h("div", { key: "a", style: { fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 4, color: r.accuse.hit ? "#5d8b4c" : "#7a7064" } }, "指认「" + r.accuse.text.slice(0, 14) + "…」" + (r.accuse.hit ? " ✓ +1" : " ✗ 那句是真心的")) : null
             ], { margin: "8px 0", transform: "rotate(" + (i ? 1 : -1.2) + "deg)" }, who);
           })),
+          // 收进记忆／战报（她 2026-10-23：「可以开口，但得让他知道这是操控虚拟小人玩的，不是真的约会」）
+          window.GameKeepMemBtn ? h(window.GameKeepMemBtn, { t: t, host: props, rep: () => {
+            const cn = char.remark || char.name, u = s.result.user, c = s.result.char;
+            const spots = (s.visits || []).map(id => (C.place(id) || {}).name).filter(Boolean).join("、");
+            return { key: "date", zh: "各怀心思的约会", ids: [char.id], wins: c.score > u.score ? [char.id] : [], meWin: u.score === c.score ? null : u.score > c.score,
+              procLabel: "游戏里两个小人一路聊的", proc: (s.talk || []).map(x => ({ name: x.who === "user" ? "她" : cn, text: x.text })),
+              text: "一起在手机上玩了小游戏「各怀心思的约会」——是两个人各操控一个虚拟小人在地图上逛、各自做秘密任务，不是真的出门约会。"
+                + (spots ? "小人逛了" + spots + "。" : "") + "比分 " + u.score + " : " + c.score + "（她 : " + cn + "）"
+                + (s.rating && s.rating.score ? "，" + cn + "给这局打了 " + s.rating.score + " 分" : "") + "。" };
+          } }) : null,
           // TA 给这次约会打几分＋一句心里话＋一路的心情（她 2026-10-14）
           h("div", { "data-part": "rating", style: { margin: "10px 4px 4px", padding: "14px 16px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, textAlign: "center" } },
             h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, (char.remark || char.name) + " 给今天打"),

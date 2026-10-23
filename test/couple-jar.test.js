@@ -59,7 +59,8 @@ test("TA 的手、发工资自己存、页面和挂点都接上", () => {
   assert.match(app, /if \(isCouple && !sideRoom\) \{\n\s+openCaps\.push\("jar"\);/);
   assert.match(app, /parsed\.jar && typeof parsed\.jar === "object" && !sideRoom && jarOpen\(charId\)/);
   assert.match(app, /const amt = Math\.floor\(inc \* _paidN \* pct \/ 100\);/);
-  assert.match(app, /parsed\.transfer = null; parsed\.jar = null;/, "不回话那一轮也不许偷偷动罐子");
+  // 同一行里中间还会插别的（v76.382 红包），钉的是「不回话那一轮罐子也清掉」，不钉挨着谁
+  assert.match(app, /parsed\.transfer = null;[^\n]*parsed\.jar = null;/, "不回话那一轮也不许偷偷动罐子");
   assert.match(scr, /function CoupleJar\(\{ partner, data, wishes, myWallet, myName, onMove, onGoal, onBack \}\)/);
   assert.match(scr, /wall\("jar", \{/);
   assert.match(scr, /\["jar", "存钱罐"\]/, "我的钱包认得这一类");

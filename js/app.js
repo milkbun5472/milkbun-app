@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v76.386";
+const APP_VERSION = "v76.396";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18426,20 +18426,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const _msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
           const _lastTs = _msgs.length ? (_msgs[_msgs.length - 1].ts || 0) : 0;
           if (_lastTs && Date.now() - _lastTs < 7 * 86400000) {
-            let _observerCompleted = false;
+            // 旁人纸条 + 人格四卡 shadow 合成一次调用（她 2026-10-24「分开调用没办法合成一个吗」）：
+            //   两份都是旁观、同一条后台线路、读同一份材料，原来连着叫两次。现在一次交两格，各拿各的。
+            //   shadow 照旧只把逐字证据核验通过的候选放进本机 IDB；不改 box/persona，不进聊天 prompt。
             try {
-              const od = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), HeartKit.observerSpec(c, box)));
+              const os = HeartKit.observerSpec(c, box), ss = window.PersonalityShadow ? window.PersonalityShadow.spec(c, box, _msgs) : null;
+              const spec = !ss ? os : {
+                instruction: "这一次要交两份互不相干的旁观记录，各写各的，放进同一个 JSON 的两格。\n\n【第一份 · observer】\n" + os.instruction
+                  + "\n\n【第二份 · shadow】\n" + ss.instruction,
+                schemaHint: "{\"observer\":" + os.schemaHint + ",\"shadow\":" + ss.schemaHint + "}",
+                maxTokens: Math.max(os.maxTokens || 0, ss.maxTokens || 0, 20000)
+              };
+              const d = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), spec));
+              const od = ss ? ((d && d.observer) || (d && d.briefs ? d : {})) : d;
               HeartKit.applyObserver(box, od, today);
               saveDesires(n => { n[c.id] = box; });
-              _observerCompleted = true;
-            } catch (e) {}
-            // P3-1 人格四卡 shadow：旧观测成功记下本周节拍后才旁路跑，避免旧调用失败时反复烧 API。
-            // 只把逐字证据核验通过的候选放进本机 IDB；不改 box/persona，不进聊天 prompt。
-            try {
-              if (_observerCompleted && window.PersonalityShadow) {
-                const pd = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), window.PersonalityShadow.spec(c, box, _msgs)));
-                await window.PersonalityShadow.observe({ charId: c.id, result: pd, messages: _msgs });
-              }
+              if (ss && d && d.shadow) { try { await window.PersonalityShadow.observe({ charId: c.id, result: d.shadow, messages: _msgs }); } catch (e) {} }
             } catch (e) {}
           }
         }
@@ -33014,7 +33016,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     reportGroups: (groups || []).filter(g => g && imInGroup(g) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊" })),
     sendGameReportGroup: (gid, rep) => {
       if (!gid || !rep) return;
-      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300)
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 800)
         + (rep.stake ? "\n开局说好的彩头：" + String(rep.stake).slice(0, 40) : "");
       pushGroupRich(gid, { role: "user", kind: "gameshare", content: body, read: true,
         game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: false,
@@ -33025,7 +33027,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const taWin = (rep.wins || []).indexOf(charId) >= 0;
       // 彩头：从 TA 这边看谁该兑现——TA 输了就是 TA 欠的；她输了、TA 赢了就是她欠 TA 的
       const owes = !rep.stake ? "" : !taWin && rep.meWin !== false ? "ta" : taWin && rep.meWin === false ? "me" : "";
-      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300)
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 800)
         + (rep.stake ? "\n开局说好的彩头：" + String(rep.stake).slice(0, 40) + (owes === "ta" ? "（你输了，该你兑现）" : owes === "me" ? "（她输了，该她兑现给你）" : "") : "");
       pChat(charId, p => [...p, { role: "user", kind: "gameshare", content: body, ts: Date.now(),
         game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: taWin,
@@ -33035,7 +33037,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     keepGameMemory: (charIds, text, room) => {
       const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
-      const t0 = String(text || "").trim().slice(0, 300);
+      const t0 = String(text || "").trim().slice(0, 800);   // 勾了「连过程一起」会长一些
       if (!t0 || !ids.length) return false;
       const where = keepWhereItHappened({ text: t0, charIds: ids, room: room, entry: { tags: ["小游戏"], source: "manual" } });
       if (where === "room") toast("收进这间房了——只在这儿算数");
