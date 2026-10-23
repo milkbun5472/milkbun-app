@@ -767,7 +767,7 @@
   const pickAxis = (sc, a, b) => ((sc[a] || 0) >= (sc[b] || 0) ? a : b);
   function resultOf(testId, picks, bids) {
     const test = byId(testId); if (!test) return null;
-    if (test.custom) return customResult(test, picks);
+    if (test.custom && !kindOf(test)) return customResult(test, picks);
     const sc = tally(test, picks);
     if (testId === "mbti") {
       const code = test.axes.map(([a, b]) => pickAxis(sc, a, b)).join("");
@@ -860,14 +860,44 @@
   //   scored＝算分：每个选项 r 指向一个结果，选得最多的那个就是测出来的；不算分＝做完了由他自己说一句。
   const CKEY = "x_zhaoyingTests";
   function customs() { try { const v = typeof loadJSON === "function" ? loadJSON(CKEY, []) : []; return Array.isArray(v) ? v.filter(t => t && t.id && Array.isArray(t.qs)) : []; } catch (e) { return []; } }
+  // 自己出的／他出的也能换答法（她 2026-10-23「AI 写题和他写题能刷出这种吗」）：看图选要配颜色，不开放
+  const KINDS = [["", "选择题"], ["quick", "快问快答"], ["scale", "滑杆"], ["fill", "填空"], ["rank", "排序"], ["bid", "拍卖"], ["bracket", "淘汰赛"]];
+  function kindOf(t) { return !t ? "" : t.rank ? "rank" : t.bid ? "bid" : t.bracket ? "bracket" : t.scale ? "scale" : t.fill ? "fill" : t.quick ? "quick" : ""; }
+  // 改题时的草稿：排序／拍卖／淘汰赛改的是「条目」，不是一道道题
+  function draftOf(t) {
+    const k = kindOf(t), d = JSON.parse(JSON.stringify(t));
+    d.kind = k; d.items = k === "rank" ? t.rank.slice() : k === "bracket" ? t.bracket.slice() : k === "bid" ? t.qs.map(q => q.q) : [];
+    return d;
+  }
+  const cs = (v, n) => String(v || "").trim().slice(0, n);
   function cleanTest(t) {
-    const results = (t.results || []).map(r => ({ title: String((r && r.title) || "").trim().slice(0, 30), line: String((r && r.line) || "").trim().slice(0, 80) })).filter(r => r.title).slice(0, 8);
-    const scored = !!t.scored && results.length >= 2;
-    const qs = (t.qs || []).map(q => ({ q: String((q && q.q) || "").trim().slice(0, 120),
-      opts: ((q && q.opts) || []).map(o => ({ t: String((o && o.t) || "").trim().slice(0, 60), r: scored ? Math.max(0, Math.min(results.length - 1, Number(o && o.r) || 0)) : undefined })).filter(o => o.t).slice(0, 4) }))
+    const kind = KINDS.some(x => x[0] === t.kind) ? t.kind : kindOf(t);
+    const base = { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: cs(t.name, 20) || "我出的题", sub: cs(t.sub, 60),
+      ...(t.by ? { by: String(t.by) } : {}), ...(t.bait && String(t.bait).trim() ? { bait: cs(t.bait, 80) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
+    const items = (Array.isArray(t.items) ? t.items : []).map(x => cs(typeof x === "object" && x ? x.t || x.q : x, 16)).filter(Boolean);
+    const qtext = (t.qs || []).map(q => cs(q && (q.q || q), 120)).filter(Boolean).slice(0, 30);
+    if (kind === "rank") { const it = items.slice(0, 8); return Object.assign(base, { scored: false, results: [], rank: it, qs: it.length >= 3 ? mkRank(it, "第 1 位：" + (cs(t.rankHead, 16) || "排第一的")) : [], ...(cs(t.rankHead, 16) ? { rankHead: cs(t.rankHead, 16) } : {}) }); }
+    if (kind === "bid") { const it = items.slice(0, 12); return Object.assign(base, { scored: false, results: [], bid: 100, qs: it.length >= 3 ? mkBid(it) : [] }); }
+    // 淘汰赛就是十六样，少了凑不成对阵
+    if (kind === "bracket") { const it = items.slice(0, 16); return Object.assign(base, { scored: false, results: [], bracket: it, qs: it.length === 16 ? mkBracket(it) : [] }); }
+    if (kind === "scale") return Object.assign(base, { scored: false, results: [], scale: cs(t.scale, 8) || "分数", qs: mkScale(qtext) });
+    if (kind === "fill") return Object.assign(base, { scored: false, results: [], fill: true, qs: mkFill(qtext) });
+    const results = (t.results || []).map(r => ({ title: cs(r && r.title, 30), line: cs(r && r.line, 80) })).filter(r => r.title).slice(0, 8);
+    const scored = kind !== "quick" && !!t.scored && results.length >= 2;
+    const qs = (t.qs || []).map(q => ({ q: cs(q && q.q, 120),
+      opts: ((q && q.opts) || []).map(o => ({ t: cs(o && o.t, 60), s: {}, r: scored ? Math.max(0, Math.min(results.length - 1, Number(o && o.r) || 0)) : undefined })).filter(o => o.t).slice(0, kind === "quick" ? 2 : 4) }))
       .filter(q => q.q && q.opts.length >= 2).slice(0, 30);
-    return { id: t.id || "zc_" + Date.now().toString(36), custom: true, name: String(t.name || "").trim().slice(0, 20) || "我出的题", sub: String(t.sub || "").trim().slice(0, 60), scored, results: scored ? results : [], qs,
-      ...(t.by ? { by: String(t.by) } : {}), ...(t.bait && String(t.bait).trim() ? { bait: String(t.bait).trim().slice(0, 80) } : {}), ...(["xg", "gx", "xl", "wan"].indexOf(t.cat) >= 0 ? { cat: t.cat } : {}) };
+    return Object.assign(base, { scored, results: scored ? results : [], qs }, kind === "quick" ? { quick: true } : {});
+  }
+  // 每种答法出题时要的样子（AI 出题、他出题共用）
+  function kindAsk(kind, n) {
+    if (kind === "rank") return { say: "这一套是排序：列 4 到 8 样同一类的东西放在 items 里，做的人从第一排到最后；rankHead 写排第一的那一位叫什么（比如最先、最不能接受的那种说法，短）。不用写 qs。", schema: "\"rankHead\":\"\",\"items\":[\"\"]" };
+    if (kind === "bid") return { say: "这一套是拍卖会：做的人手里有 100 枚金币，分给你列的 6 到 12 样东西，items 里列这些东西（短，两到六个字）。不用写 qs。", schema: "\"items\":[\"\"]" };
+    if (kind === "bracket") return { say: "这一套是淘汰赛：items 里正好列 16 样同一类、彼此有得一拼的东西（短，两到六个字），两两对决选到最后。不用写 qs。", schema: "\"items\":[\"\"]" };
+    if (kind === "scale") return { say: "这一套是滑杆：" + n + " 道题，每题是一件具体的事，做的人在「绝对不会」到「一定会」之间拖一个位置，题面就写那件事本身，不写选项；scale 写总分叫什么（两到四个字）。", schema: "\"scale\":\"\",\"qs\":[{\"q\":\"\"}]" };
+    if (kind === "fill") return { say: "这一套是填空：" + n + " 道，每题是一句留了空的半句话，空用 ____ 表示，做的人自己往里写；不写选项。", schema: "\"qs\":[{\"q\":\"\"}]" };
+    if (kind === "quick") return { say: "这一套是快问快答：" + n + " 道二选一，每题正好两个选项，题短、选项短，一眼就能选。", schema: "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"},{\"t\":\"\"}]}]" };
+    return null;
   }
   function saveCustom(t) { const c = cleanTest(t); if (!c.qs.length) return null; const l = customs().filter(x => x.id !== c.id); saveJSON(CKEY, [...l, c]); return c; }
   function delCustom(id) { saveJSON(CKEY, customs().filter(x => x.id !== id)); }
@@ -880,15 +910,17 @@
     return { code: String(k), title: test.results[k].title, line: test.results[k].line };
   }
   // 给个主题，用她那条线路出一套（出完进编辑页，她改好了才存）
-  async function genTest(route, theme, count, scored) {
-    const n = Math.max(4, Math.min(20, Number(count) || 10));
-    const sys = "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。出 " + n + " 道题，每题 2 到 4 个选项。"
+  async function genTest(route, theme, count, scored, kind) {
+    const n = Math.max(4, Math.min(20, Number(count) || 10)), ka = kindAsk(kind, n);
+    const sys = ka ? "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。" + ka.say + "内容口语、具体，彼此拉得开，不出现术语。"
+      + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + ka.schema + "}"
+      : "你给一个手机里的小测出题。主题：" + String(theme || "").trim() + "。出 " + n + " 道题，每题 2 到 4 个选项。"
       + "题面是日常里会碰到的具体场景或问题，口语，短；选项是人在那个场景里真的会有的不同反应，彼此拉得开，不让人一眼看出哪个是标准答案，也不出现术语。"
       + (scored ? "先定 3 到 5 种结果，每种一个短名字和一句说明；每个选项用 r 标它更指向第几种结果（从 0 数），让每种结果在各题里都有选项指向。" : "这套不算分，不用写结果。")
       + "\n只输出 JSON，不要代码块：{\"name\":\"这套题的名字\",\"sub\":\"一句话说测什么\"," + (scored ? "\"results\":[{\"title\":\"\",\"line\":\"\"}]," : "") + "\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"" + (scored ? ",\"r\":0" : "") + "}]}]}";
     const raw = await callAI(route, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
-    const t = cleanTest(Object.assign({}, d, { id: "", scored }));
+    const t = cleanTest(Object.assign({}, d, { id: "", scored, kind: kind || "" }));
     t.id = "";
     if (!t.qs.length) throw new Error("没出成题");
     return t;
@@ -1340,11 +1372,13 @@
   function charTestInstruction(meName) {
     return "你想更了解「" + meName + "」，给她出一套小测，让她在手机上做。出什么由你：照你这个人会好奇她什么、你们之间聊过什么、你一直没问出口的，挑你真想知道的。"
       + "6 到 10 道题，每题 2 到 4 个选项。题面是具体的日常场景或问题，用你自己说话的口气；选项是人在那个场景里真会有的不同反应，彼此拉得开。"
-      + "这套不算分，她做完你会看到她每题选了什么。name 是这套题的名字，sub 是你写在最前面给她的一句话。"
+      // 他也能换答法（她 2026-10-23）：kind 由他挑，照他想知道的那件事哪种问法最合适
+      + "答法由你挑，写在 kind：普通选择题留空；quick＝快问快答（一串二选一）；scale＝滑杆（每题一件事，她拖「绝对不会」到「一定会」，不写选项，scale 写总分叫什么）；fill＝填空（每题半句话，空用 ____，她自己写，不写选项）；rank＝排序（items 列 4 到 8 样东西让她排先后，rankHead 写排第一那位叫什么，不写 qs）；bid＝拍卖（items 列 6 到 12 样东西，她拿 100 枚金币去分，不写 qs）；bracket＝淘汰赛（items 正好 16 样，两两对决，不写 qs）。哪种最能问出你想知道的就用哪种。"
+      + "这套不算分，她做完你会看到她每题怎么答的。name 是这套题的名字，sub 是你写在最前面给她的一句话。"
       // 钓鱼题（她 2026-10-23）：题面看着普通，其实借这套题想弄清一件事；她做完才揭开
       + "如果你出这套题其实是想借着它弄清一件你不好直接问的事，把那件事写在 bait（一句话，她做完才看得到）；就是单纯想了解她，bait 留空。";
   }
-  const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"bait\":\"\",\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
+  const CHAR_TEST_SCHEMA = "{\"name\":\"\",\"sub\":\"\",\"bait\":\"\",\"kind\":\"\",\"scale\":\"\",\"rankHead\":\"\",\"items\":[],\"qs\":[{\"q\":\"\",\"opts\":[{\"t\":\"\"}]}]}";
 
   // ── 结果存成一张图（她 2026-10-22）：纸色底、结果、每题选了什么和心声 ──
   function resultImage(test, rec, name) {
@@ -1377,7 +1411,7 @@
     return new Promise(res => c.toBlob(b => res(b), "image/png"));
   }
 
-  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, recordsOf, addRecord, patchRecord, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
+  g.Zhaoying = { TESTS: T, allTests, customs, saveCustom, delCustom, genTest, askSchema, byId, resultOf, KINDS, kindOf, draftOf, recordsOf, addRecord, patchRecord, badgesOf, live, answerText, bracketPair, SCALE, topOf2, rankOrder, BID_TIERS, delRecord, chatNote, talkInstruction, TALK_SCHEMA, readTalk, askInstruction, ASK_SCHEMA, readAnswers, dateZh, optText, cleanTest, charTestInstruction, CHAR_TEST_SCHEMA, resultImage, optsView, bidBars, guessLine, pal, CATS, catOf, colors };
   g.ZhaoyingCard = function (p) { return card(p && p.m); };
   g.ZhaoyingWatch = ZhaoyingWatch;
   // 主屏图标：一面小圆镜
