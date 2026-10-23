@@ -39,7 +39,7 @@ test("空棋盘第一手下天元", () => {
 test("接进游戏架；TA 开口走模型，落子不走", () => {
   assert.match(catalog, /\{ key: "gomoku", emoji: "⚫", zh: "五子棋"/);
   assert.match(src, /if \(session\.game\.key === "gomoku"\) return h\(GomokuGame, engineProps\);/);
-  const g = src.slice(j, src.indexOf("  const DRAW_POOL_KEY"));
+  const g = src.slice(j, src.indexOf("  // 国际象棋 / 中国象棋"));
   // 两处：说话；以及她开局选了「TA 自己下」时的落子（默认本地棋手不调）
   assert.equal((g.match(/callRetry\(/g) || []).length, 2, "多出了调模型的地方");
   assert.match(g, /if \(brainModel && isChar\) \{/, "落子调模型没挂在开关后面");
@@ -49,7 +49,7 @@ test("接进游戏架；TA 开口走模型，落子不走", () => {
 
 // 她 2026-10-11：「观战不能两个角色吗」「要分认真随手」
 test("观战：两个角色对下，各自认真/随手，一回调用写两个人", () => {
-  const g = src.slice(j, src.indexOf("  const DRAW_POOL_KEY"));
+  const g = src.slice(j, src.indexOf("  // 国际象棋 / 中国象棋"));
   assert.match(g, /const char2 = spectate \? findC\(\(cfg\.charIds \|\| \[\]\)\[1\]\) : null;/);
   assert.match(g, /return \(c && cfg\.gmkCasual && cfg\.gmkCasual\[c\.id\]\) \? 1 : 0;/, "认真/随手没接到落子");
   assert.match(g, /const m = gmkBestMove\(board, turn, level\(turn\)\);/);
@@ -60,7 +60,7 @@ test("观战：两个角色对下，各自认真/随手，一回调用写两个�
 
 // 她 2026-10-11：「电脑会不会根据聊天改变策略」——TA 开口时报的下法，从下一手起生效
 test("下法跟着聊天变：TA 报 play 就换；让着也照挡对面的五连", () => {
-  const g = src.slice(j, src.indexOf("  const DRAW_POOL_KEY"));
+  const g = src.slice(j, src.indexOf("  // 国际象棋 / 中国象棋"));
   assert.match(g, /const PLAY_ZH = \["认真", "随手", "让着"\];/);
   assert.match(g, /if \(c && playOv\[c\.id\] != null\) return playOv\[c\.id\];/, "TA 报的下法没压过开局设置");
   assert.match(g, /playOv: playOv,/, "换过的下法没进存档");
@@ -73,7 +73,7 @@ test("下法跟着聊天变：TA 报 play 就换；让着也照挡对面的五�
 
 // 她 2026-10-11：「为什么我不能聊天，不是应该我来决定他什么时候说话吗」「为什么这么凶而且一直车轱辘」
 test("TA 什么时候开口由她定；说过的话递回去，别车轱辘", () => {
-  const g = src.slice(j, src.indexOf("  const DRAW_POOL_KEY"));
+  const g = src.slice(j, src.indexOf("  // 国际象棋 / 中国象棋"));
   assert.equal((g.match(/\bsay\(/g) || []).length, 1, "落子、悔棋、开局又在自动替 TA 开口了（只许她那一行触发）");
   assert.match(g, /"data-wk": "gomokuchat"/, "没有跟 TA 说话的那一行");
   assert.match(g, /【你们刚才已经说过的】/, "说过的话没递回去");
@@ -82,10 +82,10 @@ test("TA 什么时候开口由她定；说过的话递回去，别车轱辘", ()
 
 // 她 2026-10-12：「五子棋能选模式，不是本地而是聊天模式，每次落子用他的 api 完成落子加说话」
 test("TA 自己下：一步一次调用，落子和说话一起回来；落在非法格退回本地棋手", () => {
-  const g = src.slice(j, src.indexOf("  const DRAW_POOL_KEY"));
+  const g = src.slice(j, src.indexOf("  // 国际象棋 / 中国象棋"));
   assert.match(src, /gmkBrain: game\.key === "gomoku" \? gmkBrain : undefined/, "开局没把模式交出去");
   assert.match(g, /const brainModel = cfg\.gmkBrain === "model" && !!api;/);
-  assert.match(g, /\{\\"move\\":\\"H8\\",\\"say\\":\\"一句\\",\\"play\\":\\"可选\\"\}/);
+  assert.match(g, /\{\\"move\\":\\"H8\\",\\"say\\":\[\\"一句\\"\],\\"play\\":\\"可选\\"\}/);
   assert.match(g, /if \(!m \|\| board\[m\.y \* GMK_N \+ m\.x\]\) \{\n\s*const fb = gmkBestMove\(board, side, level\(side\)\);/, "非法落子没兜底");
   assert.match(g, /if \(thinkRef\.current\) return;/, "同一步会被重复调用");
 });

@@ -461,3 +461,22 @@ console.log("ok");
   assert.match(app, /const hasPref = !!Z\.prefOf\(charId\), kind = hasPref \? Z\.drawKind\(charId\) : null;/);
   assert.match(app, /if \(t\) Z\.noteKind\(charId, Z\.kindOf\(t\)\)/);
 }
+
+// 动物塑一视同仁（群友 2026-10-23「好几个狗男测出来都是兔子」）：每个选项只算一种，六种各 6 个
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  const t = global.Zhaoying.byId("animal"), c = {};
+  t.qs.forEach(q => q.opts.forEach(o => { assert.equal(Object.keys(o.s).length, 1, q.q + "／" + o.t); Object.keys(o.s).forEach(k => { c[k] = (c[k] || 0) + 1; }); }));
+  assert.deepEqual(Object.keys(c).sort(), ["Be", "Ca", "Do", "Fo", "Ra", "Wo"]); assert.deepEqual([...new Set(Object.values(c))], [6]);
+}
+
+// 内置题一视同仁（群友 2026-10-23）：按票数定结果的那些，每种结果的选项一样多；依恋是两条线各看过线没有，不算
+{
+  const assert = require("node:assert/strict");
+  global.window = global; delete require.cache[require.resolve("../js/zhaoying-core.js")]; require("../js/zhaoying-core.js");
+  global.Zhaoying.TESTS.filter(t => t.id !== "attach").forEach(t => {
+    const c = {}; t.qs.forEach(q => q.opts.forEach(o => Object.keys(o.s || {}).forEach(k => { c[k] = (c[k] || 0) + o.s[k]; })));
+    const v = Object.values(c); if (v.length) assert.equal(Math.max(...v), Math.min(...v), t.id + " " + JSON.stringify(c));
+  });
+}
