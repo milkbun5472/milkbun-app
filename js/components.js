@@ -14074,8 +14074,10 @@ function VoiceMsg({ m, isU, speaker }) {
   //   连选都选不中这一块（选择器是 [data-wk][data-me]）。
   return h("div", { "data-wk": "voice", "data-me": isU ? "1" : "0",
     onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer",
+    // ⚠️不裁边（群友 2026-10-24「语音气泡是不是没法加小尾巴」）：原来 overflow:hidden，美化里用 ::before／::after
+    //   画在框外的小尾巴全被裁掉。里面的波形自己裁、转写文字会折行，外面这层用不着裁；position 给伪元素当锚
     style: {
-      maxWidth: "100%", overflow: "hidden",
+      maxWidth: "100%", position: "relative", overflowWrap: "anywhere",
       background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
       color: isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
       border: (isU ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none",
