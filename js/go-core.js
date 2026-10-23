@@ -135,17 +135,31 @@
   }
   // 随机下到底（不填自己的眼、合法就下），返回终局盘面。
   //   手里攥着一张空点表，每步只在空点里随机挑；挑到不能下的先挪到表尾跳过，这一步结束再放回来
-  function playout(s0, rnd, cap) {
-    const n = s0.size, b = Int8Array.from(s0.board), N = n * n, nbs = nbOf(n);
-    let c = s0.turn, passes = 0, ko = s0.ko, moves = 0, last = -1;
+  function playout(s0, rnd, cap) { return simulate(Int8Array.from(s0.board), s0.size, s0.turn, s0.ko, -1, rnd, cap, null); }
+  // first：传一张表进来就记下每个点头一回是谁下的（树搜索那边的 RAVE 要用）
+  function simulate(b, n, c0, ko0, last0, rnd, cap, first) {
+    const N = n * n, nbs = nbOf(n);
+    let c = c0, passes = 0, ko = ko0, moves = 0, last = last0;
     const empty = new Int16Array(N), pos = new Int16Array(N).fill(-1); let ne = 0;
     for (let p = 0; p < N; p++) if (b[p] === EMPTY) { pos[p] = ne; empty[ne++] = p; }
     const take = function (p) { const i = pos[p], q = empty[--ne]; empty[i] = q; pos[q] = i; pos[p] = -1; };
     const give = function (p) { if (pos[p] < 0) { pos[p] = ne; empty[ne++] = p; } };
     while (passes < 2 && moves < cap) {
       let played = -1, dead = null;
+      // 对方刚下那一子把自己哪块打吃了：往那口气上长（长出来有两口气以上才算救得了）
+      if (last >= 0 && rnd() < 0.7) {
+        const a = nbs[last];
+        for (let k = 0; k < a.length && played < 0; k++) {
+          const r = a[k]; if (b[r] !== c) continue;
+          const g = scan(b, n, r);
+          if (g.libs === 1 && g.lib !== ko) {
+            const q = g.lib, d = play(b, n, q, c);
+            if (d !== null) { if (d.length || scan(b, n, q).libs >= 2) { played = q; dead = d; } else { b[q] = EMPTY; } }
+          }
+        }
+      }
       // 先看对方刚下那一子旁边：有一口气的子就提（不然随机下永远看不见吃子）
-      if (last >= 0 && rnd() < 0.9) {
+      if (played < 0 && last >= 0 && rnd() < 0.9) {
         const a = nbs[last];
         for (let k = 0; k <= a.length && played < 0; k++) {
           const r = k < a.length ? a[k] : last;
@@ -161,7 +175,7 @@
         // 这一点这步下不了：跟可挑范围的最后一个换位置，缩小范围
         lim--; const q = empty[lim]; empty[j] = q; pos[q] = j; empty[lim] = p; pos[p] = lim;
       }
-      if (played >= 0) { take(played); for (let i = 0; i < dead.length; i++) give(dead[i]); ko = dead.length === 1 ? dead[0] : -1; }
+      if (played >= 0) { take(played); for (let i = 0; i < dead.length; i++) give(dead[i]); ko = dead.length === 1 ? dead[0] : -1; if (first && !first[played]) first[played] = c; }
       passes = played < 0 ? passes + 1 : 0;
       last = played; c = opp(c); moves++;
     }
@@ -255,6 +269,18 @@
     }
     const M = cands.length, wins = new Float64Array(M), tries = new Float64Array(M);
     const pri = new Float64Array(M); if (level !== "easy") for (let i = 0; i < M; i++) pri[i] = prior(cands[i]);
+    if (level !== "easy" && !(arguments[3] && arguments[3].flat)) {
+      // 正常、高手：树搜索。挑走得最多的那几手里，按风格偏一偏
+      const root = treeSearch(s, cands, pri, (N > 200 ? 1.3 : 1) * (THINK_TREE[level] || THINK_TREE.normal));
+      const kids = root.kids.slice().sort(function (a, b) { return b.n - a.n; });
+      const top = kids[0];
+      if (!top || !top.n) return { p: cands[0], rate: 0 };
+      let pick = top, pv = -1;
+      kids.filter(function (k) { return k.n >= top.n * 0.7; }).forEach(function (k) { const v = k.w / k.n + styleBonus(s, k.p, style); if (v > pv) { pv = v; pick = k; } });
+      const rate = pick.w / pick.n;
+      if (rate < 0.03 && s.history.length > N / 2) return { pass: true };
+      return { p: pick.p, rate: rate };
+    }
     const t0 = Date.now(), budget = THINK[level] || THINK.normal;
     let total = 0;
     while (Date.now() - t0 < budget || total < M * 4) {
@@ -286,6 +312,64 @@
     if (bestV < 0.03 && s.history.length > N / 2) return { pass: true };
     return { p: cands[best], rate: tries[best] ? wins[best] / tries[best] : 0 };
   }
+  // ── 树搜索（她 2026-10-23 选的 C：不用模型，把电脑升级成正经的树搜索）──
+  //   往下多看几层：我下这里、他最可能怎么应、我再怎么应。每个节点记两份数：
+  //   这条路走下去赢了几盘；还有 RAVE——这一手在模拟里不管第几步下到，赢了几盘（学得快，开头靠它）。
+  const RAVE_K = 600;
+  function treeSearch(s, cands, pri, budget) {
+    const n = s.size, N = n * n, me = s.turn, rnd = rng(Date.now() ^ (N * 104729));
+    const mk = function (p, color, prior) { return { p: p, color: color, n: 0, w: 0, an: 0, aw: 0, prior: prior || 0, kids: null }; };
+    const root = mk(-1, opp(me)); root.kids = cands.map(function (p, i) { return mk(p, me, pri[i]); });
+    const scratch = new Int8Array(N);
+    // 一个局面下能下的点（不填自己的眼、不自杀、不撞劫）
+    const expand = function (node, b, c, ko) {
+      node.kids = [];
+      for (let p = 0; p < N; p++) {
+        if (b[p] !== EMPTY || p === ko || isEye(b, n, p, c)) continue;
+        scratch.set(b);
+        if (play(scratch, n, p, c) !== null) node.kids.push(mk(p, c, 0));
+      }
+    };
+    const t0 = Date.now(); let sims = 0;
+    while (Date.now() - t0 < budget || sims < cands.length * 3) {
+      const b = Int8Array.from(s.board), first = new Int8Array(N), path = [root];
+      let c = me, ko = s.ko, last = -1, node = root;
+      // 往下挑：赢面（掺 RAVE）＋ 没怎么走过的给机会 ＋ 先验
+      while (node.kids && node.kids.length) {
+        let best = null, bv = -1e9;
+        const ln = Math.log(node.n + 1);
+        for (const k of node.kids) {
+          let v;
+          if (!k.n && !k.an) v = 1.2 + k.prior + rnd() * 0.01;
+          else {
+            const q = k.n ? k.w / k.n : 0.5, a = k.an ? k.aw / k.an : q, beta = k.an / (k.an + k.n + k.an * k.n / RAVE_K + 1e-9);
+            v = (1 - beta) * q + beta * a + 0.4 * Math.sqrt(ln / (k.n + 1)) + k.prior / (1 + k.n * 0.05);
+          }
+          if (v > bv) { bv = v; best = k; }
+        }
+        const d = play(b, n, best.p, c);
+        if (d === null) { best.n++; break; }   // 理论上不会；保险
+        ko = d.length === 1 ? d[0] : -1; if (!first[best.p]) first[best.p] = c;
+        last = best.p; c = opp(c); node = best; path.push(node);
+        if (node.n < 1) break;          // 新节点先随机下一盘，第二次走到才展开
+        if (!node.kids) expand(node, b, c, ko);
+      }
+      // 随机下到底、数子
+      const end = simulate(b, n, c, ko, last, rnd, N * 3, first);
+      const o = ownerOf(end, n);
+      let bl = 0, wh = s.komi; for (let p = 0; p < N; p++) { if (o[p] === 1) bl++; else if (o[p] === 2) wh++; }
+      const win = bl > wh ? BLACK : WHITE;
+      // 往回记：这条路上每个节点，还有它们的孩子里在模拟中下到过的那些（RAVE）
+      for (const nd of path) {
+        nd.n++; if (win === nd.color) nd.w++;
+        if (nd.kids) for (const k of nd.kids) if (first[k.p] === k.color) { k.an++; if (win === k.color) k.aw++; }
+      }
+      sims++;
+      if (sims > 200000) break;
+    }
+    return root;
+  }
+  const THINK_TREE = { normal: 700, hard: 1800 };
   // 这一手在当前局面下的赢面（给教学用：她走的那一手跟电脑挑的差多少）
   function winRate(s, p, ms) {
     const n = s.size, N = n * n, me = s.turn, rnd = rng(Date.now() ^ p);
