@@ -105,7 +105,7 @@ test("实际组装的 system 人设全文、不带用户秘密；user 只有触�
   const a = games.indexOf('if (session.game.key === "date")'), b = games.indexOf("const engineProps", a); assert.ok(a > 0 && b > a);
   const entry = games.slice(a, b); assert.doesNotMatch(entry, /ccGameResult|pChat|moods:/);
   // 她 2026-10-23 松口：能收进记忆／发战报，但必须写明是在手机上操控小人玩的游戏、不是真的约会
-  assert.match(entry, /keepGameMemory: props\.keepGameMemory/);
+  assert.match(entry, /keepGameMemory: keepMem/);   // 走带房间的那一份，跟七桌同一个
   const ui = fs.readFileSync(require.resolve("../js/date-game.js"), "utf8"); assert.doesNotMatch(ui, /localStorage|CCSeat/); assert.match(ui, /不是真的出门约会/);
   assert.match(ui, /maxTokens: 65000/); assert.match(ui, /content: "轮到你了。"/); assert.match(ui, /paddingBottom: COMPOSER_PAD_BOTTOM/);
 });
