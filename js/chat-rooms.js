@@ -595,7 +595,7 @@
       if (!window.Study || typeof window.Study.loadSessions !== "function") return [];
       const want = String(roomId || MAIN_ID);
       return window.Study.loadSessions()
-        .filter(s => s && (String(s.teacher_id || "") === String(personId) || (s.character_ids || []).map(String).includes(String(personId))))
+        .filter(s => s && s.mode !== "selfstudy" && (String(s.teacher_id || "") === String(personId) || (s.character_ids || []).map(String).includes(String(personId))))
         .filter(s => roomIdOf(s) === want)
         .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0));
     } catch (_) { return []; }

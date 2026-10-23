@@ -239,7 +239,7 @@ test("三处的 maxTokens 都放开了，而且写在一个地方、写清了为
   });
   // 论坛十处全部改用那份表，一个散落的小数字都不许留
   assert.equal((app.match(/maxTokens: FTOK\./g) || []).length, 13, "论坛还有没接上那份表的");  // v75.678：论坛私信加微信那一枪是第 13 处  // v74.909：小号私信角色那一枪是第 12 处  // v74.041：刷私信那一枪原来压根没写 maxTokens，接上表是第 11 处
-  assert.equal((stu.match(/maxTokens: TOK\./g) || []).length, 15, "一起学还有没接上那份表的");  // v76.252 学习计划（死线+学习量）那一枪是第 15 处  // v74.664 我来教：开课／回合／出题／答题／评教卡 五处
+  assert.equal((stu.match(/maxTokens: TOK\./g) || []).length, 16, "一起学还有没接上那份表的");   // v76.38x 自习室开口那一枪是第 16 处  // v76.252 学习计划（死线+学习量）那一枪是第 15 处  // v74.664 我来教：开课／回合／出题／答题／评教卡 五处
   // 擂台两处按人数算的，底要够厚
   assert.match(dbt, /const budget = Math\.min\(32000, 12000 \+ chars\.length \* 3000\);/, "台上那一轮是全场最长的一次输出，底给薄了会写一半停住");
   assert.match(dbt, /maxTokens: Math\.min\(24000, 10000 \+ chars\.length \* 1500\)/, "判词加每人一段感言，一次出，给紧了会断在感言中间");
