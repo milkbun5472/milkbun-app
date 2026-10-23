@@ -326,7 +326,29 @@
     return go(state.turn, depth);
   }
 
-  const api = { STYLES: ["attack", "solid", "trade", "wild"], ROWS, COLS, PIECE_ZH, newGame, legalMoves, move, status, bestMove, zh, zhPlain, serialize, deserialize, perft, evaluate, inCheck: function (s) { return attacked(s.board, s.turn); } };
+  // 为什么这一步不能走（她 2026-10-23「为啥我的帅吃不了你的炮」）：点了走不了的格子时给一句人话
+  function whyNot(state, from, to) {
+    const b = cloneBoard(state.board), side = state.turn, p = b[from[0]][from[1]];
+    if (!p || p[0] !== side) return "";
+    const ok = pseudoMoves(b, side).some(function (m) { return m.from[0] === from[0] && m.from[1] === from[1] && m.to[0] === to[0] && m.to[1] === to[1]; });
+    if (!ok) return PIECE_ZH[p] + "不能这么走";
+    const m = { from: from, to: to }, cap = doMove(b, m);
+    const k = findKing(b, side), ek = findKing(b, other(side));
+    let face = false;
+    if (k && ek && k[1] === ek[1]) { face = true; for (let r = Math.min(k[0], ek[0]) + 1; r < Math.max(k[0], ek[0]); r++) if (b[r][k[1]]) { face = false; break; } }
+    const chk = attacked(b, side);
+    undoMove(b, m, cap);
+    if (face) return "走过去两个将帅就在同一条线上对脸了，中间没子挡着，规则不许";
+    if (chk) return "走了以后自己的" + PIECE_ZH[side + "K"] + "会被将军";
+    return "";
+  }
+  // 整盘摆给模型看（她那句「为何」：TA 看不见棋盘，只好瞎编）
+  function boardText(state) {
+    const rows = ["   一 二 三 四 五 六 七 八 九（红方从右往左数路）"];
+    for (let r = 0; r < ROWS; r++) rows.push((r === 5 ? "～～楚河汉界～～\n" : "") + state.board[r].map(function (p) { return p ? (p[0] === "r" ? "红" : "黑") + PIECE_ZH[p] : "··"; }).join(" "));
+    return "上面是黑方，下面是红方：\n" + rows.slice(1).join("\n");
+  }
+  const api = { whyNot, boardText, STYLES: ["attack", "solid", "trade", "wild"], ROWS, COLS, PIECE_ZH, newGame, legalMoves, move, status, bestMove, zh, zhPlain, serialize, deserialize, perft, evaluate, inCheck: function (s) { return attacked(s.board, s.turn); } };
   if (typeof window !== "undefined") window.XiangqiCore = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

@@ -89,3 +89,13 @@ X.STYLES.forEach(function (stl) {
   assert.ok(new Set(seqs).size >= 3, "风格没拉开：" + seqs.join(" | "));
 }
 console.log("styles ok");
+// 她 2026-10-23「为啥我的帅吃不了你的炮」：点了走不了的格子说为什么；整盘能摆给模型看
+{
+  const bb = empty(); bb[8][4] = "rK"; bb[8][5] = "bC"; bb[1][5] = "bK";
+  const s0 = st(bb);
+  assert.match(X.whyNot(s0, [8, 4], [8, 5]), /对脸/);
+  assert.match(X.whyNot(s0, [8, 4], [6, 4]), /不能这么走/);
+  assert.equal(X.whyNot(s0, [8, 4], [9, 4]), "");
+  assert.match(X.boardText(s0), /黑将/);
+}
+console.log("whyNot ok");
